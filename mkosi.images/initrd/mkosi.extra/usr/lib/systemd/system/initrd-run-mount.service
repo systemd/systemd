@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Create a mount in /run that should survive the transition from initrd
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=mkdir /run/initrd-mount-source /run/initrd-mount-target
+ExecStart=mount -v --bind /run/initrd-mount-source /run/initrd-mount-target
+ExecStart=cp -v /etc/initrd-release /run/initrd-mount-target/hello-world

@@ -273,10 +273,19 @@
       <varlistentry>
         <term><varname>_SOURCE_REALTIME_TIMESTAMP=</varname></term>
         <listitem>
-          <para>The earliest trusted timestamp of the message, if any
-          is known that is different from the reception time of the
-          journal. This is the time in microseconds since the epoch
-          UTC, formatted as a decimal string.</para>
+          <para>The earliest trusted timestamp of the message, if any is known that is different from
+          the reception time of the journal. The timestamp is in the <constant>CLOCK_REALTIME</constant>
+          clock in microseconds, formatted as decimal strings.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>_SOURCE_BOOTTIME_TIMESTAMP=</varname></term>
+        <listitem>
+          <para>The earliest trusted timestamp of the message in <constant>CLOCK_BOOTTIME</constant> clock.
+          For details, refer to <varname>_SOURCE_REALTIME_TIMESTAMP=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -546,8 +555,7 @@
       <varlistentry>
         <term><varname>OBJECT_PID=<replaceable>PID</replaceable></varname></term>
         <listitem>
-          <para>PID of the program that this message pertains to.
-          </para>
+          <para>PID of the program that this message pertains to.</para>
 
           <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
@@ -567,9 +575,8 @@
         <term><varname>OBJECT_SYSTEMD_UNIT=</varname></term>
         <term><varname>OBJECT_SYSTEMD_USER_UNIT=</varname></term>
         <listitem>
-          <para>These are additional fields added automatically by
-          <command>systemd-journald</command>. Their meaning is the
-          same as
+          <para>These are additional fields added automatically by <command>systemd-journald</command>.
+          Their meaning is the same as
           <varname>_UID=</varname>,
           <varname>_GID=</varname>,
           <varname>_COMM=</varname>,
@@ -587,6 +594,17 @@
           process which logged the message.</para>
 
           <xi:include href="version-info.xml" xpointer="v205"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OBJECT_SYSTEMD_INVOCATION_ID=</varname></term>
+        <listitem>
+          <para>An additional field added automatically by <command>systemd-journald</command>. The meaning
+          is mostly the same as <varname>_SYSTEMD_INVOCATION_ID=</varname>, with the difference described
+          above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
     </variablelist>

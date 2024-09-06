@@ -1536,7 +1536,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
 
         r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
+                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", filename);
 
         (void) fd_warn_permissions(filename, fileno(f));
 
@@ -1771,27 +1771,28 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
         case SUBST_TYPE_PLAIN:
                 if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return false;
-                break;
+
+                /* remove trailing whitespace, if not asked to match for it */
+                if (token->attr_match_remove_trailing_whitespace) {
+                        strscpy(vbuf, sizeof(vbuf), value);
+                        value = delete_trailing_chars(vbuf, NULL);
+                }
+
+                return token_match_string(token, value);
+
         case SUBST_TYPE_SUBSYS:
                 if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
                         return false;
-                value = vbuf;
-                break;
+
+                /* remove trailing whitespace, if not asked to match for it */
+                if (token->attr_match_remove_trailing_whitespace)
+                        delete_trailing_chars(vbuf, NULL);
+
+                return token_match_string(token, vbuf);
+
         default:
                 assert_not_reached();
         }
-
-        /* remove trailing whitespace, if not asked to match for it */
-        if (token->attr_match_remove_trailing_whitespace) {
-                if (value != vbuf) {
-                        strscpy(vbuf, sizeof(vbuf), value);
-                        value = vbuf;
-                }
-
-                delete_trailing_chars(vbuf, NULL);
-        }
-
-        return token_match_string(token, value);
 }
 
 static int get_property_from_string(char *line, char **ret_key, char **ret_value) {
@@ -2100,7 +2101,7 @@ static int udev_rule_apply_token_to_event(
                         return false;
                 }
 
-                log_event_debug(dev, token, "Running PROGRAM '%s'", buf);
+                log_event_debug(dev, token, "Running PROGRAM=\"%s\"", buf);
 
                 r = udev_event_spawn(event, /* accept_failure = */ true, buf, result, sizeof(result), NULL);
                 if (r != 0) {
@@ -2264,7 +2265,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_event_debug(dev, token, "Importing properties from results of builtin command '%s'", buf);
 
-                r = udev_builtin_run(event, cmd, buf, false);
+                r = udev_builtin_run(event, cmd, buf);
                 if (r < 0) {
                         /* remember failure */
                         log_event_debug_errno(dev, token, r, "Failed to run builtin '%s': %m", buf);
@@ -2702,14 +2703,18 @@ static int udev_rule_apply_token_to_event(
                         break;
                 }
 
-                log_event_debug(dev, token, "ATTR '%s' writing '%s'", buf, value);
-                r = write_string_file(buf, value,
-                                      WRITE_STRING_FILE_VERIFY_ON_FAILURE |
-                                      WRITE_STRING_FILE_DISABLE_BUFFER |
-                                      WRITE_STRING_FILE_AVOID_NEWLINE |
-                                      WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
-                if (r < 0)
-                        log_event_error_errno(dev, token, r, "Failed to write ATTR{%s}, ignoring: %m", buf);
+                if (EVENT_MODE_DESTRUCTIVE(event)) {
+                        log_event_debug(dev, token, "Writing ATTR{'%s'}=\"%s\".", buf, value);
+                        r = write_string_file(buf, value,
+                                              WRITE_STRING_FILE_VERIFY_ON_FAILURE |
+                                              WRITE_STRING_FILE_DISABLE_BUFFER |
+                                              WRITE_STRING_FILE_AVOID_NEWLINE |
+                                              WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
+                        if (r < 0)
+                                log_event_error_errno(dev, token, r, "Failed to write ATTR{%s}=\"%s\", ignoring: %m", buf, value);
+                } else
+                        log_event_debug(dev, token, "Running in test mode, skipping writing ATTR{%s}=\"%s\".", buf, value);
+
                 break;
         }
         case TK_A_SYSCTL: {
@@ -2731,10 +2736,15 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 sysctl_normalize(buf);
-                log_event_debug(dev, token, "SYSCTL '%s' writing '%s'", buf, value);
-                r = sysctl_write(buf, value);
-                if (r < 0)
-                        log_event_error_errno(dev, token, r, "Failed to write SYSCTL{%s}='%s', ignoring: %m", buf, value);
+
+                if (EVENT_MODE_DESTRUCTIVE(event)) {
+                        log_event_debug(dev, token, "Writing SYSCTL{%s}=\"%s\".", buf, value);
+                        r = sysctl_write(buf, value);
+                        if (r < 0)
+                                log_event_error_errno(dev, token, r, "Failed to write SYSCTL{%s}=\"%s\", ignoring: %m", buf, value);
+                } else
+                        log_event_debug(dev, token, "Running in test mode, skipping writing SYSCTL{%s}=\"%s\".", buf, value);
+
                 break;
         }
         case TK_A_RUN_BUILTIN:

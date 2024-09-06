@@ -26,7 +26,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l);
 
-int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref);
+int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd);
 
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 
@@ -36,17 +36,12 @@ int unit_info_compare(const UnitInfo *a, const UnitInfo *b);
 
 int bus_service_manager_reload(sd_bus *bus);
 
-typedef struct UnitFreezer {
-        char *name;
-        sd_bus *bus;
-} UnitFreezer;
+typedef struct UnitFreezer UnitFreezer;
 
-int unit_freezer_new(const char *name, UnitFreezer *ret);
-void unit_freezer_done(UnitFreezer *f);
+UnitFreezer* unit_freezer_free(UnitFreezer *f);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFreezer*, unit_freezer_free);
+
+int unit_freezer_new(const char *name, UnitFreezer **ret);
 
 int unit_freezer_freeze(UnitFreezer *f);
 int unit_freezer_thaw(UnitFreezer *f);
-
-int unit_freezer_new_freeze(const char *name, UnitFreezer *ret);
-
-void unit_freezer_done_thaw(UnitFreezer *f);

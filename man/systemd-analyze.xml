@@ -80,7 +80,16 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">capability</arg>
-      <arg choice="opt" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+      <group choice="opt">
+        <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain">-m</arg>
+            <arg choice="plain">--mask</arg>
+          </group>
+          <replaceable>MASK</replaceable>
+        </arg>
+      </group>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -185,6 +194,11 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">architectures</arg>
       <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">smbios11</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -436,7 +450,20 @@ DATAERR 65     BSD
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze capability <optional><replaceable>CAPABILITY</replaceable>...</optional></command></title>
+      <title>
+        <command>systemd-analyze capability
+          <group choice="opt">
+            <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+            <arg choice="plain">
+              <group choice="req">
+                <arg choice="plain">-m</arg>
+                <arg choice="plain">--mask</arg>
+              </group>
+              <replaceable>MASK</replaceable>
+            </arg>
+          </group>
+        </command>
+      </title>
 
       <para>This command prints a list of Linux capabilities along with their numeric IDs. See <citerefentry
       project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -445,6 +472,11 @@ DATAERR 65     BSD
       as <literal>cap_???</literal>. Optionally, if arguments are specified they may refer to specific
       cabilities by name or numeric ID, in which case only the indicated capabilities are shown in the
       table.</para>
+
+      <para>Alternatively, if <option>--mask</option> is passed, a single numeric argument must be specified,
+      which is interpreted as a hexadecimal capability mask. In this case, only the capabilities present in
+      the mask are shown in the table. This mode is intended to aid in decoding capability sets available
+      via various debugging interfaces (e.g. <literal>/proc/PID/status</literal>).</para>
 
       <example>
         <title><command>Show some example capability names</command></title>
@@ -456,6 +488,18 @@ cap_dac_override       1
 cap_audit_control     30
 cap_setfcap           31
 cap_mac_override      32</programlisting>
+      </example>
+
+      <example>
+        <title><command>Decode a capability mask extracted from /proc</command></title>
+
+        <programlisting>$ systemd-analyze capability -m 0000000000003c00
+NAME                 NUMBER
+cap_net_bind_service     10
+cap_net_broadcast        11
+cap_net_admin            12
+cap_net_raw              13
+</programlisting>
       </example>
     </refsect2>
 
@@ -682,7 +726,9 @@ $ systemd-analyze compare-versions 1 ge 2; echo $?
       augment the compiled in set of unit load paths; see
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
       units files present in the directories containing the command line arguments will be used in preference
-      to the other paths.</para>
+      to the other paths. If a template unit without an instance name is specified (e.g.
+      <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+      name, which can be controlled by <option>--instance=</option> option.</para>
 
       <para>The following errors are currently detected:</para>
       <itemizedlist>
@@ -979,6 +1025,26 @@ x86-64      native</programlisting>
       </example>
     </refsect2>
 
+    <refsect2>
+      <title><command>systemd-analyze smbios11</command></title>
+
+      <para>Shows a list of SMBIOS Type #11 strings passed to the system. Also see
+      <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze smbios11
+io.systemd.stub.kernel-cmdline-extra=console=ttyS0
+io.systemd.credential.binary:ssh.ephemeral-authorized_keys-all=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURGd20xbFp4WlRGclJteG9ZQlozOTYzcE1uYlJCaDMwM1MxVXhLSUM2NmYgbGVubmFydEB6ZXRhCg==
+io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
+
+3 SMBIOS Type #11 strings passed.
+</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
   </refsect1>
 
   <refsect1>
@@ -1018,16 +1084,12 @@ x86-64      native</programlisting>
         <term><option>--order</option></term>
         <term><option>--require</option></term>
 
-        <listitem><para>When used in conjunction with the
-        <command>dot</command> command (see above), selects which
-        dependencies are shown in the dependency graph. If
-        <option>--order</option> is passed, only dependencies of type
-        <varname>After=</varname> or <varname>Before=</varname> are
-        shown. If <option>--require</option> is passed, only
-        dependencies of type <varname>Requires=</varname>,
-        <varname>Requisite=</varname>,
-        <varname>Wants=</varname> and <varname>Conflicts=</varname>
-        are shown. If neither is passed, this shows dependencies of
+        <listitem><para>When used in conjunction with the <command>dot</command> command (see above),
+        selects which dependencies are shown in the dependency graph. If <option>--order</option> is passed,
+        only dependencies of type <varname>After=</varname> or <varname>Before=</varname> are shown.
+        If <option>--require</option> is passed, only dependencies of type <varname>Requires=</varname>,
+        <varname>Requisite=</varname>, <varname>BindsTo=</varname>, <varname>Wants=</varname>, and
+        <varname>Conflicts=</varname> are shown. If neither is passed, this shows dependencies of
         all these types.</para>
 
         <xi:include href="version-info.xml" xpointer="v198"/></listitem>
@@ -1060,7 +1122,7 @@ x86-64      native</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fuzz=</option><replaceable>timespan</replaceable></term>
+        <term><option>--fuzz=<replaceable>timespan</replaceable></option></term>
 
         <listitem><para>When used in conjunction with the
         <command>critical-chain</command> command (see above), also
@@ -1092,6 +1154,20 @@ x86-64      native</programlisting>
         generators enabled will generally result in some warnings.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--instance=NAME</option></term>
+
+        <listitem>
+          <para>Specifies fallback instance name for template units. This will be used when one or more
+          template units without an instance name (e.g. <filename>foo@.service</filename>) specified for
+          <command>systemd-analyze condition</command> with <option>--unit=</option>,
+          <command>systemd-analyze security</command>, and <command>systemd-analyze verify</command>.
+          If unspecified, <literal>test_instance</literal> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1495,7 +1571,9 @@ x86-64      native</programlisting>
         compiled in set of unit load paths; see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
         units files present in the directory containing the specified unit will be used in preference to the
-        other paths.</para>
+        other paths. If a template unit without an instance name is specified (e.g.
+        <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+        name, which can be controlled by <option>--instance=</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1539,6 +1617,24 @@ x86-64      native</programlisting>
         comments and empty lines.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--scale-svg=<replaceable>FACTOR</replaceable></option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the x-axis of the plot
+        can be stretched by FACTOR (default: 1.0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--detailed</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, activation timestamps
+        details can be seen in SVG plot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

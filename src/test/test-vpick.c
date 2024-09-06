@@ -47,13 +47,13 @@ TEST(path_pick) {
 
         PickFilter filter = {
                 .architecture = _ARCHITECTURE_INVALID,
-                .suffix = ".raw",
+                .suffix = STRV_MAKE(".raw"),
         };
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 assert_se(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "99"));
+                ASSERT_STREQ(result.version, "99");
                 assert_se(result.architecture == ARCHITECTURE_X86);
                 assert_se(endswith(result.path, "/foo_99_x86.raw"));
 
@@ -63,7 +63,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_X86_64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "55"));
+        ASSERT_STREQ(result.version, "55");
         assert_se(result.architecture == ARCHITECTURE_X86_64);
         assert_se(endswith(result.path, "/foo_55_x86-64.raw"));
         pick_result_done(&result);
@@ -71,7 +71,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_STREQ(result.version, "5");
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
         pick_result_done(&result);
@@ -80,7 +80,7 @@ TEST(path_pick) {
         filter.version = "5";
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_STREQ(result.version, "5");
         if (native_architecture() != ARCHITECTURE_IA64) {
                 assert_se(result.architecture == _ARCHITECTURE_INVALID);
                 assert_se(endswith(result.path, "/foo_5.raw"));
@@ -90,7 +90,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_STREQ(result.version, "5");
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
         pick_result_done(&result);
@@ -109,7 +109,7 @@ TEST(path_pick) {
         if (IN_SET(native_architecture(), ARCHITECTURE_X86_64, ARCHITECTURE_X86)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 assert_se(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "55"));
+                ASSERT_STREQ(result.version, "55");
 
                 if (native_architecture() == ARCHITECTURE_X86_64) {
                         assert_se(result.architecture == ARCHITECTURE_X86_64);
@@ -129,7 +129,7 @@ TEST(path_pick) {
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 assert_se(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "55"));
+                ASSERT_STREQ(result.version, "55");
                 assert_se(result.architecture == native_architecture());
                 assert_se(endswith(result.path, ".raw"));
                 assert_se(strrstr(result.path, "/foo_55_x86"));
@@ -161,7 +161,7 @@ TEST(path_pick) {
 
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "2"));
+        ASSERT_STREQ(result.version, "2");
         assert_se(result.tries_left == 4);
         assert_se(result.tries_done == 6);
         assert_se(endswith(result.path, "quux_2_s390+4-6.raw"));

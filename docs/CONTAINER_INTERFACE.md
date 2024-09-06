@@ -7,8 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The Container Interface
 
-Also consult [Writing Virtual Machine or Container
-Managers](https://systemd.io/WRITING_VM_AND_CONTAINER_MANAGERS).
+Also consult [Writing Virtual Machine or Container Managers](/WRITING_VM_AND_CONTAINER_MANAGERS).
 
 systemd has a number of interfaces for interacting with container managers,
 when systemd is used inside of an OS container. If you work on a container
@@ -238,7 +237,9 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    directory: it's used by code outside the container to insert mounts inside
    it only, and is mostly an internal vehicle to achieve this. Other container
    managers that want to implement similar functionality might consider using
-   the same directory.
+   the same directory. Alternatively, the new mount API may be used by the
+   container manager to establish new mounts in the container without the need
+   for the `/run/host/incoming/` directory.
 
 2. The `/run/host/inaccessible/` directory may be set up by the container
    manager to include six file nodes: `reg`, `dir`, `fifo`, `sock`, `chr`,

@@ -66,6 +66,8 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
         return write_string_file_ts(fn, line, flags, NULL);
 }
 
+int write_base64_file_at(int dir_fd, const char *fn, const struct iovec *data, WriteStringFileFlags flags);
+
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
 int read_one_line_file_at(int dir_fd, const char *filename, char **ret);
@@ -144,6 +146,7 @@ int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
 int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space);
+int fputs_with_newline(FILE *f, const char *s);
 
 typedef enum ReadLineFlags {
         READ_LINE_ONLY_NUL  = 1 << 0,

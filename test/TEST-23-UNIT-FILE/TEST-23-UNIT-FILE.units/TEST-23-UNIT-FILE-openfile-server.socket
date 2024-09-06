@@ -1,0 +1,6 @@
+[Unit]
+Description=OpenFile= test server socket
+
+[Socket]
+ListenStream=/tmp/test.sock
+Accept=yes

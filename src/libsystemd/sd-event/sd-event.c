@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/epoll.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 
@@ -182,7 +185,7 @@ static thread_local sd_event *default_event = NULL;
 static void source_disconnect(sd_event_source *s);
 static void event_gc_inode_data(sd_event *e, struct inode_data *d);
 
-static sd_event *event_resolve(sd_event *e) {
+static sd_event* event_resolve(sd_event *e) {
         return e == SD_EVENT_DEFAULT ? default_event : e;
 }
 
@@ -338,7 +341,7 @@ static void free_clock_data(struct clock_data *d) {
         prioq_free(d->latest);
 }
 
-static sd_event *event_free(sd_event *e) {
+static sd_event* event_free(sd_event *e) {
         sd_event_source *s;
 
         assert(e);
@@ -443,7 +446,7 @@ fail:
 }
 
 /* Define manually so we can add the origin check */
-_public_ sd_event *sd_event_ref(sd_event *e) {
+_public_ sd_event* sd_event_ref(sd_event *e) {
         if (!e)
                 return NULL;
         if (event_origin_changed(e))
@@ -471,8 +474,13 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
         _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
-        if (s)
-                (void) sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        int r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        if (r < 0)
+                log_debug_errno(r, "Failed to disable event source %p (%s): %m",
+                                s, strna(s->description));
+
         return sd_event_source_unref(s);
 }
 
@@ -1175,7 +1183,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
         return 1;
 }
 
-static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType type) {
+static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType type) {
 
         /* Let's allocate exactly what we need. Note that the difference of the smallest event source
          * structure to the largest is 144 bytes on x86-64 at the time of writing, i.e. more than two cache
@@ -2272,6 +2280,7 @@ static void event_free_inode_data(
                 assert_se(hashmap_remove(d->inotify_data->inodes, d) == d);
         }
 
+        free(d->path);
         free(d);
 }
 
@@ -2415,7 +2424,7 @@ static int inode_data_realize_watch(sd_event *e, struct inode_data *d) {
 
         wd = inotify_add_watch_fd(d->inotify_data->fd, d->fd, combined_mask);
         if (wd < 0)
-                return -errno;
+                return wd;
 
         if (d->wd < 0) {
                 r = hashmap_put(d->inotify_data->wd, INT_TO_PTR(wd), d);
@@ -2512,6 +2521,15 @@ static int event_add_inotify_fd_internal(
                 }
 
                 LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
+
+                _cleanup_free_ char *path = NULL;
+                r = fd_get_path(inode_data->fd, &path);
+                if (r < 0 && r != -ENOSYS) { /* The path is optional, hence ignore -ENOSYS. */
+                        event_gc_inode_data(e, inode_data);
+                        return r;
+                }
+
+                free_and_replace(inode_data->path, path);
         }
 
         /* Link our event source to the inode data object */
@@ -2612,7 +2630,7 @@ _public_ int sd_event_source_get_description(sd_event_source *s, const char **de
         return 0;
 }
 
-_public_ sd_event *sd_event_source_get_event(sd_event_source *s) {
+_public_ sd_event* sd_event_source_get_event(sd_event_source *s) {
         assert_return(s, NULL);
         assert_return(!event_origin_changed(s->event), NULL);
 
@@ -2637,7 +2655,7 @@ _public_ int sd_event_source_get_io_fd(sd_event_source *s) {
 }
 
 _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
-        int r;
+        int saved_fd, r;
 
         assert_return(s, -EINVAL);
         assert_return(fd >= 0, -EBADF);
@@ -2647,16 +2665,12 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         if (s->io.fd == fd)
                 return 0;
 
-        if (event_source_is_offline(s)) {
-                s->io.fd = fd;
-                s->io.registered = false;
-        } else {
-                int saved_fd;
+        saved_fd = s->io.fd;
+        s->io.fd = fd;
 
-                saved_fd = s->io.fd;
-                assert(s->io.registered);
+        assert(event_source_is_offline(s) == !s->io.registered);
 
-                s->io.fd = fd;
+        if (s->io.registered) {
                 s->io.registered = false;
 
                 r = source_io_register(s, s->enabled, s->io.events);
@@ -2668,6 +2682,9 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
 
                 (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
         }
+
+        if (s->io.owned)
+                safe_close(saved_fd);
 
         return 0;
 }
@@ -2798,6 +2815,13 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                         }
 
                         LIST_PREPEND(to_close, s->event->inode_data_to_close_list, new_inode_data);
+
+                        _cleanup_free_ char *path = NULL;
+                        r = fd_get_path(new_inode_data->fd, &path);
+                        if (r < 0 && r != -ENOSYS)
+                                goto fail;
+
+                        free_and_replace(new_inode_data->path, path);
                 }
 
                 /* Move the event source to the new inode data structure */
@@ -3282,13 +3306,29 @@ _public_ int sd_event_source_set_child_process_own(sd_event_source *s, int own) 
         return 0;
 }
 
-_public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *mask) {
+_public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(mask, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_INOTIFY, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *mask = s->inotify.mask;
+        *ret = s->inotify.mask;
+        return 0;
+}
+
+_public_ int sd_event_source_get_inotify_path(sd_event_source *s, const char **ret) {
+        assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(s->type == SOURCE_INOTIFY, -EDOM);
+        assert_return(!event_origin_changed(s->event), -ECHILD);
+
+        if (!s->inotify.inode_data)
+                return -ESTALE; /* already disconnected. */
+
+        if (!s->inotify.inode_data->path)
+                return -ENOSYS; /* /proc was not mounted? */
+
+        *ret = s->inotify.inode_data->path;
         return 0;
 }
 
@@ -3831,7 +3871,8 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
                 if (_unlikely_(n != sizeof(si)))
                         return -EIO;
 
-                assert(SIGNAL_VALID(si.ssi_signo));
+                if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
+                        return -EIO;
 
                 if (e->signal_sources)
                         s = e->signal_sources[si.ssi_signo];

@@ -31,7 +31,7 @@ policy:
           - name: dissect
             keys: ['systemd-dissect']
 
-          - name: env
+          - name: env-generator
             keys: ['systemd-env-generator']
 
           - name: fsck
@@ -64,10 +64,10 @@ policy:
           - name: kernel-install
             keys: ['kernel-install']
 
-          - name: logind
+          - name: login
             keys: ['systemd-logind', 'loginctl', 'pam_systemd']
 
-          - name: machined
+          - name: machine
             keys: ['systemd-machined', 'machinectl']
 
           - name: modules-load
@@ -144,6 +144,9 @@ policy:
 
           - name: veritysetup
             keys: ['systemd-veritysetup']
+
+          - name: vmspawn
+            keys: ['systemd-vmspawn']
 
           - name: xdg-autostart
             keys: ['systemd-xdg-autostart-generator']

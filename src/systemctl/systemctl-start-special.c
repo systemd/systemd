@@ -155,14 +155,16 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (a == ACTION_REBOOT) {
-                if (arg_reboot_argument) {
-                        r = update_reboot_parameter_and_warn(arg_reboot_argument, false);
-                        if (r < 0)
-                                return r;
-                }
+        if (arg_reboot_argument && IN_SET(a, ACTION_HALT, ACTION_POWEROFF, ACTION_REBOOT, ACTION_KEXEC)) {
+                /* If we are going through an action that involves systemd-shutdown, let's set the reboot
+                 * parameter, even if it's not a regular reboot. After all we nowadays send the string to
+                 * our supervisor via sd_notify() too. */
+                r = update_reboot_parameter_and_warn(arg_reboot_argument, /* keep= */ false);
+                if (r < 0)
+                        return r;
+        }
 
-        } else if (a == ACTION_KEXEC) {
+        if (a == ACTION_KEXEC) {
                 r = load_kexec_kernel();
                 if (r < 0 && arg_force >= 1)
                         log_notice("Failed to load kexec kernel, continuing without.");
@@ -201,10 +203,8 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 case ACTION_SOFT_REBOOT:
                         if (arg_when == 0)
                                 r = logind_reboot(a);
-                        else if (arg_when != USEC_INFINITY)
+                        else
                                 r = logind_schedule_shutdown(a);
-                        else /* arg_when == USEC_INFINITY */
-                                r = logind_cancel_shutdown();
                         if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
                                 /* The latter indicates that the requested operation requires auth,
                                  * is not supported or already in progress, in which cases we ignore the error. */
@@ -221,8 +221,11 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 case ACTION_HYBRID_SLEEP:
                 case ACTION_SUSPEND_THEN_HIBERNATE:
 
+                        /* For sleep operations, do not automatically fall back to low-level operation for
+                         * errors other than logind not available. There's a high chance that logind did
+                         * some extra sanity check and that didn't pass. */
                         r = logind_reboot(a);
-                        if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                        if (r >= 0 || (r != -ENOSYS && arg_force == 0))
                                 return r;
 
                         arg_no_block = true;

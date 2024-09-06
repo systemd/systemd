@@ -21,11 +21,12 @@ enable systemd-boot-update.service
 enable systemd-confext.service
 enable systemd-homed.service
 enable systemd-homed-activate.service
-enable systemd-homed-firstboot.service
 enable systemd-journald-audit.socket
+enable systemd-mountfsd.socket
 enable systemd-network-generator.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
+enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-resolved.service
 enable systemd-sysext.service

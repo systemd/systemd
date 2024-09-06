@@ -371,12 +371,15 @@ static int user_start_runtime_dir(User *u) {
         return 0;
 }
 
-static bool user_wants_service_manager(User *u) {
+static bool user_wants_service_manager(const User *u) {
         assert(u);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 if (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class))
                         return true;
+
+        if (user_check_linger_file(u) > 0)
+                return true;
 
         return false;
 }
@@ -469,7 +472,7 @@ static int user_update_slice(User *u) {
                 { "IOWeight",   u->user_record->io_weight   },
         };
 
-        FOREACH_ARRAY(st, settings, ELEMENTSOF(settings)) {
+        FOREACH_ELEMENT(st, settings) {
                 if (st->value == UINT64_MAX)
                         continue;
 
@@ -506,7 +509,7 @@ int user_start(User *u) {
         if (!u->started || u->stopping) {
                 /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued.
                  * We have to clear that flag before queueing the start-jobs again. If they succeed, the
-                 * user object can be re-used just fine (pid1 takes care of job-ordering and proper restart),
+                 * user object can be reused just fine (pid1 takes care of job-ordering and proper restart),
                  * but if they fail, we want to force another user_stop() so possibly pending units are
                  * stopped. */
                 u->stopping = false;
@@ -669,9 +672,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-int user_check_linger_file(User *u) {
+int user_check_linger_file(const User *u) {
         _cleanup_free_ char *cc = NULL;
-        char *p = NULL;
+        const char *p;
+
+        assert(u);
+        assert(u->user_record);
 
         cc = cescape(u->user_record->user_name);
         if (!cc)
@@ -815,30 +821,30 @@ UserState user_get_state(User *u) {
         if (!u->started || u->runtime_dir_job)
                 return USER_OPENING;
 
-        bool any = false, all_closing = true;
-        LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                SessionState state;
+        /* USER_GC_BY_PIN: Only pinning sessions count. None -> closing
+         * USER_GC_BY_ANY: 'manager' sessions also count. However, if lingering is enabled, 'lingering' state
+         *                 shall be preferred. 'online' if the manager is manually started by user. */
 
-                /* Ignore sessions that don't pin the user, i.e. are not supposed to have an effect on user state */
-                if (!SESSION_CLASS_PIN_USER(i->class))
+        bool has_pinning = false, all_closing = true;
+        LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                bool pinned = SESSION_CLASS_PIN_USER(i->class);
+
+                if (u->gc_mode == USER_GC_BY_PIN && !pinned)
                         continue;
 
-                state = session_get_state(i);
-                if (state == SESSION_ACTIVE)
+                has_pinning = has_pinning || pinned;
+
+                SessionState state = session_get_state(i);
+                if (state == SESSION_ACTIVE && pinned)
                         return USER_ACTIVE;
                 if (state != SESSION_CLOSING)
                         all_closing = false;
-
-                any = true;
         }
 
-        if (any)
-                return all_closing ? USER_CLOSING : USER_ONLINE;
-
-        if (user_check_linger_file(u) > 0 && user_unit_active(u))
+        if (!has_pinning && user_check_linger_file(u) > 0 && user_unit_active(u))
                 return USER_LINGERING;
 
-        return USER_CLOSING;
+        return all_closing ? USER_CLOSING : USER_ONLINE;
 }
 
 int user_kill(User *u, int signo) {

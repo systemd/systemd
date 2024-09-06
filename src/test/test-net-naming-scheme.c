@@ -25,7 +25,7 @@ TEST(naming_scheme_conversions) {
         log_info("latest → %s", n->name);
 
         assert_se(n = naming_scheme_from_name("v238"));
-        assert_se(streq(n->name, "v238"));
+        ASSERT_STREQ(n->name, "v238");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/if.h>
@@ -426,8 +427,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 }
 
 void link_enter_failed(Link *link) {
-        int r;
-
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -443,13 +442,8 @@ void link_enter_failed(Link *link) {
         }
 
         log_link_info(link, "Trying to reconfigure the interface.");
-        r = link_reconfigure(link, /* force = */ true);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                goto stop;
-        }
-
-        return;
+        if (link_reconfigure(link, /* force = */ true) > 0)
+                return;
 
 stop:
         (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
@@ -820,9 +814,6 @@ static int link_handle_bound_by_list(Link *link) {
         assert(link);
 
         /* Update up or down state of interfaces which depend on this interface's carrier state. */
-
-        if (hashmap_isempty(link->bound_by_links))
-                return 0;
 
         HASHMAP_FOREACH(l, link->bound_by_links) {
                 r = link_handle_bound_to_list(l);
@@ -1453,8 +1444,14 @@ int link_reconfigure(Link *link, bool force) {
                 return 0; /* 0 means no-op. */
 
         r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
-        if (r < 0)
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                link_enter_failed(link);
                 return r;
+        }
+
+        if (force || link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
 
         return 1; /* 1 means the interface will be reconfigured. */
 }
@@ -1465,16 +1462,25 @@ typedef struct ReconfigureData {
         sd_bus_message *message;
 } ReconfigureData;
 
+static ReconfigureData* reconfigure_data_free(ReconfigureData *data) {
+        if (!data)
+                return NULL;
+
+        link_unref(data->link);
+        sd_bus_message_unref(data->message);
+
+        return mfree(data);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ReconfigureData*, reconfigure_data_free);
+
 static void reconfigure_data_destroy_callback(ReconfigureData *data) {
         int r;
 
         assert(data);
-        assert(data->link);
         assert(data->manager);
         assert(data->manager->reloading > 0);
         assert(data->message);
-
-        link_unref(data->link);
 
         data->manager->reloading--;
         if (data->manager->reloading <= 0) {
@@ -1483,8 +1489,7 @@ static void reconfigure_data_destroy_callback(ReconfigureData *data) {
                         log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
         }
 
-        sd_bus_message_unref(data->message);
-        free(data);
+        reconfigure_data_free(data);
 }
 
 static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
@@ -1495,7 +1500,7 @@ static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink
 
 int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_free_ ReconfigureData *data = NULL;
+        _cleanup_(reconfigure_data_freep) ReconfigureData *data = NULL;
         int r;
 
         assert(link);
@@ -1507,19 +1512,11 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0;
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
-        if (r < 0)
-                return r;
-
         data = new(ReconfigureData, 1);
-        if (!data)
-                return -ENOMEM;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               reconfigure_handler_on_bus_method_reload,
-                               reconfigure_data_destroy_callback, data);
-        if (r < 0)
-                return r;
+        if (!data) {
+                r = -ENOMEM;
+                goto failed;
+        }
 
         *data = (ReconfigureData) {
                 .link = link_ref(link),
@@ -1527,10 +1524,28 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
                 .message = sd_bus_message_ref(message),
         };
 
-        link->manager->reloading++;
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                goto failed;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                goto failed;
 
         TAKE_PTR(data);
+        link->manager->reloading++;
+
+        if (link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
+
         return 0;
+
+failed:
+        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+        link_enter_failed(link);
+        return r;
 }
 
 static int link_initialized_and_synced(Link *link) {
@@ -1630,9 +1645,9 @@ static int link_check_initialized(Link *link) {
                 return 0;
         }
 
-        r = sd_device_get_is_initialized(device);
+        r = device_is_processed(device);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
+                return log_link_warning_errno(link, r, "Could not determine whether the device is processed by udevd: %m");
         if (r == 0) {
                 /* not yet ready */
                 log_link_debug(link, "link pending udev initialization...");
@@ -1644,14 +1659,6 @@ static int link_check_initialized(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
         if (r > 0) {
                 log_link_debug(link, "Interface is being renamed, pending initialization.");
-                return 0;
-        }
-
-        r = device_is_processing(device);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to determine whether the device is being processed: %m");
-        if (r > 0) {
-                log_link_debug(link, "Interface is being processed by udevd, pending initialization.");
                 return 0;
         }
 
@@ -1721,6 +1728,13 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable carrier lost timer, ignoring: %m");
 
+        /* Process BindCarrier= setting specified by other interfaces. This is independent of the .network
+         * file assigned to this interface, but depends on .network files assigned to other interfaces.
+         * Hence, this can and should be called earlier. */
+        r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
         /* If a wireless interface was connected to an access point, and the SSID is changed (that is,
          * both previous_ssid and ssid are non-NULL), then the connected wireless network could be
          * changed. So, always reconfigure the link. Which means e.g. the DHCP client will be
@@ -1754,10 +1768,6 @@ static int link_carrier_gained(Link *link) {
         if (r != 0)
                 return r;
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return 0;
@@ -1776,25 +1786,22 @@ static int link_carrier_gained(Link *link) {
 }
 
 static int link_carrier_lost_impl(Link *link) {
-        int r, ret = 0;
+        int ret = 0;
 
         assert(link);
 
         link->previous_ssid = mfree(link->previous_ssid);
 
+        ret = link_handle_bound_by_list(link);
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+                return ret;
 
         if (!link->network)
-                return 0;
+                return ret;
 
-        r = link_stop_engines(link, false);
-        if (r < 0)
-                ret = r;
-
-        r = link_drop_managed_config(link);
-        if (r < 0 && ret >= 0)
-                ret = r;
+        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_drop_managed_config(link));
 
         return ret;
 }
@@ -1815,22 +1822,17 @@ static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *us
 static int link_carrier_lost(Link *link) {
         uint16_t dhcp_mtu;
         usec_t usec;
-        int r;
 
         assert(link);
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
-                return 0;
+                usec = 0;
 
-        if (!link->network)
-                return 0;
+        else if (!link->network)
+                usec = 0;
 
-        if (link->network->ignore_carrier_loss_set)
+        else if (link->network->ignore_carrier_loss_set)
                 /* If IgnoreCarrierLoss= is explicitly specified, then use the specified value. */
                 usec = link->network->ignore_carrier_loss_usec;
 
@@ -1888,7 +1890,7 @@ static int link_admin_state_up(Link *link) {
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
-        r = link_set_ipv6_mtu(link);
+        r = link_set_ipv6_mtu(link, LOG_INFO);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
 
@@ -2441,6 +2443,13 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         link->mtu = mtu;
 
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
+                r = link_set_ipv6_mtu(link, LOG_INFO);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
+        }
+
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
                 if (r < 0)
@@ -2538,7 +2547,7 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (link->dhcp6_client) {
                 r = sd_dhcp6_client_set_ifname(link->dhcp6_client, link->ifname);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCP6 client: %m");
+                        return log_link_debug_errno(link, r, "Failed to update interface name in DHCPv6 client: %m");
         }
 
         if (link->ndisc) {

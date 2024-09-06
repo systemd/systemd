@@ -121,7 +121,7 @@ static void run_test(void) {
 
         assert_se(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
-        assert_se(sd_journal_add_match(j, "MAGIC=quux", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX) >= 0);
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
                 _cleanup_free_ char *c;
 
@@ -147,7 +147,7 @@ static void run_test(void) {
         verify_contents(j, 1);
 
         printf("NEXT TEST\n");
-        assert_se(sd_journal_add_match(j, "MAGIC=quux", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "MAGIC=quux", SIZE_MAX) >= 0);
 
         assert_se(z = journal_make_match_string(j));
         printf("resulting match expression is: %s\n", z);
@@ -157,10 +157,10 @@ static void run_test(void) {
 
         printf("NEXT TEST\n");
         sd_journal_flush_matches(j);
-        assert_se(sd_journal_add_match(j, "MAGIC=waldo", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=10", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=11", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "NUMBER=12", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "MAGIC=waldo", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=10", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=11", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=12", SIZE_MAX) >= 0);
 
         assert_se(z = journal_make_match_string(j));
         printf("resulting match expression is: %s\n", z);

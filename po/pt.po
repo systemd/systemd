@@ -2,20 +2,21 @@
 #
 # Portuguese translation of systemd.
 # Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2023-11-01 02:48+0000\n"
-"Last-Translator: Hugo Carvalho <hugokarvalho@hotmail.com>\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-05-31 07:36+0000\n"
+"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
-"systemd/master/pt/>\n"
+"systemd/main/pt/>\n"
 "Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.1.1\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -136,24 +137,12 @@ msgstr ""
 "utilizador."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
+msgid "Activate a home area"
+msgstr "Ativar uma área home"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "É necessária autenticação para atualizar a área home de um utilizador."
-
-#: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
-msgid "Activate a home area"
-msgstr "Criar uma área home"
-
-#: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "É necessária autenticação para criar a área home de um utilizador."
+msgstr "É necessária autenticação para ativar a área home de um usuário."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -293,42 +282,42 @@ msgstr ""
 "Demasiadas tentativas de início de sessão sem sucesso para o utilizador %s, "
 "recusando."
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "O registo do utilizador está bloqueado, proibindo o acesso."
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "O registo do utilizador ainda não é válido, proibindo o acesso."
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "O registo do utilizador já não é válido, proibindo o acesso."
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "O registo do utilizador não é válido, proibindo o acesso."
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Demasiados inícios de sessão, tente novamente em %s."
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "É necessário alterar a palavra-passe."
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "A palavra-passe expirou, é necessário alterá-la."
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "A palavra-passe expirou, mas não é possível alterá-la, recusando o início de "
 "sessão."
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "A palavra-passe irá expirar em breve, por favor altere-a."
 
@@ -385,46 +374,43 @@ msgid "Authentication is required to get system description."
 msgstr "É necessária autenticação para obter a descrição do sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importar uma VM ou imagem contentor"
+msgstr "Importar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
-msgstr "É necessária autenticação para importar uma VM ou imagem contentor"
+msgid "Authentication is required to import an image."
+msgstr "É necessária autenticação para importar uma imagem"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Exportar uma VM ou imagem contentor"
+msgstr "Exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
-msgstr "É necessária autenticação para exportar uma VM ou imagem contentor"
+msgid "Authentication is required to export disk image."
+msgstr "É necessária autenticação para exportar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Baixar uma VM ou imagem contentor"
+msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
-msgstr "É necessária autenticação para transferir uma VM ou imagem contentor"
+msgid "Authentication is required to download a disk image."
+msgstr "É necessária autenticação para baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Cancelar transferência de uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
-"É necessária autenticação para alterar a palavra-passe da área home de um "
-"utilizador."
+"É necessária autenticação para cancelar a transferência em andamento de uma "
+"imagem de disco"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -830,7 +816,8 @@ msgid "Set a wall message"
 msgstr "Definir uma mensagem de parede"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "É necessária autenticação para definir uma mensagem de parede"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -905,10 +892,22 @@ msgstr ""
 "É necessária autenticação para gerir máquinas virtuais locais e contentores."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Gerir máquinas virtuais locais e contentores"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"É necessária autenticação para gerir máquinas virtuais locais e contentores."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Gerir máquinas virtuais locais e imagens contentores"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1052,6 +1051,20 @@ msgstr "Reconfigurar interface de rede"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "É necessária autenticação para reconfigurar a interface de rede."
 
+#: src/network/org.freedesktop.network1.policy:187
+#, fuzzy
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+"Especifique se há armazenamento persistente para systemd-networkd disponível."
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"É necessária autenticação para especificar se há armazenamento persistente "
+"para systemd-networkd disponível."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspecionar uma imagem de serviço portátil"
@@ -1088,7 +1101,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registrar um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "É necessária autenticação para registrar um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1096,7 +1110,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "É necessária autenticação para remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1107,6 +1122,89 @@ msgstr "Reverter definições de resolução de nome"
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "É necessária autenticação para redefinir as definições de resolução de nome."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "É necessária autenticação para suspender o sistema."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "É necessária autenticação para definir os servidores NTP."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "É necessária autenticação para redefinir as definições de NTP."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "É necessária autenticação para definir o fuso horário do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "É necessária autenticação para definir o horário do sistema."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1189,7 +1287,7 @@ msgstr ""
 "É necessária autenticação para eliminar ficheiros e diretórios associados "
 "com '$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

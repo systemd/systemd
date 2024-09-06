@@ -11,6 +11,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -23,40 +24,29 @@
 #include "utf8.h"
 
 char* first_word(const char *s, const char *word) {
-        size_t sl, wl;
-        const char *p;
-
         assert(s);
         assert(word);
 
-        /* Checks if the string starts with the specified word, either
-         * followed by NUL or by whitespace. Returns a pointer to the
-         * NUL or the first character after the whitespace. */
+        /* Checks if the string starts with the specified word, either followed by NUL or by whitespace.
+         * Returns a pointer to the NUL or the first character after the whitespace. */
 
-        sl = strlen(s);
-        wl = strlen(word);
-
-        if (sl < wl)
-                return NULL;
-
-        if (wl == 0)
+        if (isempty(word))
                 return (char*) s;
 
-        if (memcmp(s, word, wl) != 0)
+        const char *p = startswith(s, word);
+        if (!p)
                 return NULL;
-
-        p = s + wl;
-        if (*p == 0)
+        if (*p == '\0')
                 return (char*) p;
 
-        if (!strchr(WHITESPACE, *p))
+        const char *nw = skip_leading_chars(p, WHITESPACE);
+        if (p == nw)
                 return NULL;
 
-        p += strspn(p, WHITESPACE);
-        return (char*) p;
+        return (char*) nw;
 }
 
-char *strnappend(const char *s, const char *suffix, size_t b) {
+char* strnappend(const char *s, const char *suffix, size_t b) {
         size_t a;
         char *r;
 
@@ -87,7 +77,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         return r;
 }
 
-char *strjoin_real(const char *x, ...) {
+char* strjoin_real(const char *x, ...) {
         va_list ap;
         size_t l = 1;
         char *r, *p;
@@ -119,7 +109,7 @@ char *strjoin_real(const char *x, ...) {
         return r;
 }
 
-char *strstrip(char *s) {
+char* strstrip(char *s) {
         if (!s)
                 return NULL;
 
@@ -128,7 +118,7 @@ char *strstrip(char *s) {
         return delete_trailing_chars(skip_leading_chars(s, WHITESPACE), WHITESPACE);
 }
 
-char *delete_chars(char *s, const char *bad) {
+char* delete_chars(char *s, const char *bad) {
         char *f, *t;
 
         /* Drops all specified bad characters, regardless where in the string */
@@ -151,7 +141,7 @@ char *delete_chars(char *s, const char *bad) {
         return s;
 }
 
-char *delete_trailing_chars(char *s, const char *bad) {
+char* delete_trailing_chars(char *s, const char *bad) {
         char *c = s;
 
         /* Drops all specified bad characters, at the end of the string */
@@ -171,7 +161,7 @@ char *delete_trailing_chars(char *s, const char *bad) {
         return s;
 }
 
-char *truncate_nl_full(char *s, size_t *ret_len) {
+char* truncate_nl_full(char *s, size_t *ret_len) {
         size_t n;
 
         assert(s);
@@ -199,7 +189,7 @@ char ascii_toupper(char x) {
         return x;
 }
 
-char *ascii_strlower(char *t) {
+char* ascii_strlower(char *t) {
         assert(t);
 
         for (char *p = t; *p; p++)
@@ -208,7 +198,7 @@ char *ascii_strlower(char *t) {
         return t;
 }
 
-char *ascii_strupper(char *t) {
+char* ascii_strupper(char *t) {
         assert(t);
 
         for (char *p = t; *p; p++)
@@ -217,7 +207,7 @@ char *ascii_strupper(char *t) {
         return t;
 }
 
-char *ascii_strlower_n(char *t, size_t n) {
+char* ascii_strlower_n(char *t, size_t n) {
         if (n <= 0)
                 return t;
 
@@ -282,16 +272,9 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static int write_ellipsis(char *buf, bool unicode) {
-        if (unicode || is_locale_utf8()) {
-                buf[0] = 0xe2; /* tri-dot ellipsis: … */
-                buf[1] = 0x80;
-                buf[2] = 0xa6;
-        } else {
-                buf[0] = '.';
-                buf[1] = '.';
-                buf[2] = '.';
-        }
-
+        const char *s = special_glyph_full(SPECIAL_GLYPH_ELLIPSIS, unicode);
+        assert(strlen(s) == 3);
+        memcpy(buf, s, 3);
         return 3;
 }
 
@@ -398,8 +381,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        memcpy(t, s, x);
-        write_ellipsis(t + x, false);
+        write_ellipsis(mempcpy(t, s, x), /* unicode = */ false);
         suffix_len = new_length - x - need_space;
         memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
@@ -407,7 +389,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         return t;
 }
 
-char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, k, len, len2;
         const char *i, *j;
         int r;
@@ -520,13 +502,8 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (!e)
                 return NULL;
 
-        /*
-        printf("old_length=%zu new_length=%zu x=%zu len=%zu len2=%zu k=%zu\n",
-               old_length, new_length, x, len, len2, k);
-        */
-
         memcpy_safe(e, s, len);
-        write_ellipsis(e + len, true);
+        write_ellipsis(e + len, /* unicode = */ true);
 
         char *dst = e + len + 3;
 
@@ -547,7 +524,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         return e;
 }
 
-char *cellescape(char *buf, size_t len, const char *s) {
+char* cellescape(char *buf, size_t len, const char *s) {
         /* Escape and ellipsize s into buffer buf of size len. Only non-control ASCII
          * characters are copied as they are, everything else is escaped. The result
          * is different then if escaping and ellipsization was performed in two
@@ -562,7 +539,9 @@ char *cellescape(char *buf, size_t len, const char *s) {
 
         size_t i = 0, last_char_width[4] = {}, k = 0;
 
+        assert(buf);
         assert(len > 0); /* at least a terminating NUL */
+        assert(s);
 
         for (;;) {
                 char four[4];
@@ -603,7 +582,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         }
 
         if (i + 4 <= len) /* yay, enough space */
-                i += write_ellipsis(buf + i, false);
+                i += write_ellipsis(buf + i, /* unicode = */ false);
         else if (i + 3 <= len) { /* only space for ".." */
                 buf[i++] = '.';
                 buf[i++] = '.';
@@ -612,7 +591,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         else
                 assert(i + 1 <= len);
 
- done:
+done:
         buf[i] = '\0';
         return buf;
 }
@@ -651,7 +630,7 @@ int strgrowpad0(char **s, size_t l) {
         return 0;
 }
 
-char *strreplace(const char *text, const char *old_string, const char *new_string) {
+char* strreplace(const char *text, const char *old_string, const char *new_string) {
         size_t l, old_len, new_len;
         char *t, *ret = NULL;
         const char *f;
@@ -713,7 +692,7 @@ static void advance_offsets(
                 shift[1] += size;
 }
 
-char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
+char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         const char *begin = NULL;
         enum {
                 STATE_OTHER,
@@ -845,7 +824,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         return *ibuf;
 }
 
-char *strextend_with_separator_internal(char **x, const char *separator, ...) {
+char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
@@ -996,12 +975,12 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         return 0;
 
 oom:
-        /* truncate the bytes added after the first vsnprintf() attempt again */
+        /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
 }
 
-char *strextendn(char **x, const char *s, size_t l) {
+char* strextendn(char **x, const char *s, size_t l) {
         assert(x);
         assert(s || l == 0);
 
@@ -1028,7 +1007,7 @@ char *strextendn(char **x, const char *s, size_t l) {
         return *x;
 }
 
-char *strrep(const char *s, unsigned n) {
+char* strrep(const char *s, unsigned n) {
         char *r, *p;
         size_t l;
 
@@ -1125,6 +1104,24 @@ int free_and_strndup(char **p, const char *s, size_t l) {
         free_and_replace(*p, t);
         return 1;
 }
+
+int strdup_to_full(char **ret, const char *src) {
+        if (!src) {
+                if (ret)
+                        *ret = NULL;
+
+                return 0;
+        } else {
+                if (ret) {
+                        char *t = strdup(src);
+                        if (!t)
+                                return -ENOMEM;
+                        *ret = t;
+                }
+
+                return 1;
+        }
+};
 
 bool string_is_safe(const char *p) {
         if (!p)
@@ -1235,54 +1232,31 @@ int string_extract_line(const char *s, size_t i, char **ret) {
                                         return -ENOMEM;
 
                                 *ret = m;
-                                return !isempty(q + 1); /* more coming? */
-                        } else {
-                                if (p == s)
-                                        *ret = NULL; /* Just use the input string */
-                                else {
-                                        char *m;
-
-                                        m = strdup(p);
-                                        if (!m)
-                                                return -ENOMEM;
-
-                                        *ret = m;
-                                }
-
-                                return 0; /* The end */
-                        }
+                                return !isempty(q + 1); /* More coming? */
+                        } else
+                                /* Tell the caller to use the input string if equal */
+                                return strdup_to(ret, p != s ? p : NULL);
                 }
 
-                if (!q) {
-                        char *m;
-
+                if (!q)
                         /* No more lines, return empty line */
-
-                        m = strdup("");
-                        if (!m)
-                                return -ENOMEM;
-
-                        *ret = m;
-                        return 0; /* The end */
-                }
+                        return strdup_to(ret, "");
 
                 p = q + 1;
                 c++;
         }
 }
 
-int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
-        /* In the default mode with no separators specified, we split on whitespace and
-         * don't coalesce separators. */
+int string_contains_word_strv(const char *string, const char *separators, char * const *words, const char **ret_word) {
+        /* In the default mode with no separators specified, we split on whitespace and coalesce separators. */
         const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
-
         const char *found = NULL;
+        int r;
 
-        for (const char *p = string;;) {
+        for (;;) {
                 _cleanup_free_ char *w = NULL;
-                int r;
 
-                r = extract_first_word(&p, &w, separators, flags);
+                r = extract_first_word(&string, &w, separators, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1314,7 +1288,7 @@ bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
         return in_charset(s1, ok) && in_charset(s2, ok);
 }
 
-char *string_replace_char(char *str, char old_char, char new_char) {
+char* string_replace_char(char *str, char old_char, char new_char) {
         assert(str);
         assert(old_char != '\0');
         assert(new_char != '\0');
@@ -1384,14 +1358,14 @@ size_t strspn_from_end(const char *str, const char *accept) {
         return n;
 }
 
-char *strdupspn(const char *a, const char *accept) {
+char* strdupspn(const char *a, const char *accept) {
         if (isempty(a) || isempty(accept))
                 return strdup("");
 
         return strndup(a, strspn(a, accept));
 }
 
-char *strdupcspn(const char *a, const char *reject) {
+char* strdupcspn(const char *a, const char *reject) {
         if (isempty(a))
                 return strdup("");
         if (isempty(reject))
@@ -1400,7 +1374,7 @@ char *strdupcspn(const char *a, const char *reject) {
         return strndup(a, strcspn(a, reject));
 }
 
-char *find_line_startswith(const char *haystack, const char *needle) {
+char* find_line_startswith(const char *haystack, const char *needle) {
         char *p;
 
         assert(haystack);
@@ -1511,7 +1485,7 @@ ssize_t strlevenshtein(const char *x, const char *y) {
         return t1[yl];
 }
 
-char *strrstr(const char *haystack, const char *needle) {
+char* strrstr(const char *haystack, const char *needle) {
         /* Like strstr() but returns the last rather than the first occurrence of "needle" in "haystack". */
 
         if (!haystack || !needle)

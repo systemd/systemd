@@ -70,10 +70,10 @@ TEST(struct) {
         assert_se(q = prioq_new((compare_func_t) test_compare));
         assert_se(s = set_new(&test_hash_ops));
 
-        assert_se(prioq_peek(q) == NULL);
-        assert_se(prioq_peek_by_index(q, 0) == NULL);
-        assert_se(prioq_peek_by_index(q, 1) == NULL);
-        assert_se(prioq_peek_by_index(q, UINT_MAX) == NULL);
+        ASSERT_NULL(prioq_peek(q));
+        ASSERT_NULL(prioq_peek_by_index(q, 0));
+        ASSERT_NULL(prioq_peek_by_index(q, 1));
+        ASSERT_NULL(prioq_peek_by_index(q, UINT_MAX));
 
         for (i = 0; i < SET_SIZE; i++) {
                 assert_se(t = new0(struct test, 1));
@@ -87,7 +87,7 @@ TEST(struct) {
 
         for (i = 0; i < SET_SIZE; i++)
                 assert_se(prioq_peek_by_index(q, i));
-        assert_se(prioq_peek_by_index(q, SET_SIZE) == NULL);
+        ASSERT_NULL(prioq_peek_by_index(q, SET_SIZE));
 
         unsigned count = 0;
         PRIOQ_FOREACH_ITEM(q, t) {

@@ -3,19 +3,21 @@
 # Greek translation for systemd.
 # Dimitris Spingos <dmtrs32@gmail.com>, 2014.
 # Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>, 2014.
+# Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2014-04-29 09:17+0300\n"
-"Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
-"Language-Team: team@lists.gnome.gr\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-08-04 03:41+0000\n"
+"Last-Translator: Dimitrys Meliates <demetresmeliates+fedora@gmail.com>\n"
+"Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
+"main/el/>\n"
 "Language: el\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Virtaal 0.7.0\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -25,112 +27,105 @@ msgstr "Αποστολή του συνθηματικού πίσω στο σύσ�
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"Απαιτείται πιστοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο "
+"Απαιτείται ταυτοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο "
 "σύστημα."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Διαχείριση υπηρεσιών συστήματος ή άλλων μονάδων"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
-#, fuzzy
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
-"υπηρεσιών."
+"Απαιτείται ταυτοποίηση για τη διαχείριση υπηρεσιών συστήματος ή άλλων "
+"μονάδων."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Διαχείριση υπηρεσιών συστήματος ή αρχείων μονάδας"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
-#, fuzzy
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
-"υπηρεσιών."
+"Απαιτείται ταυτοποίηση για τη διαχείριση υπηρεσιών συστήματος ή αρχείων "
+"μονάδων."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
-#, fuzzy
 msgid "Set or unset system and service manager environment variables"
-msgstr "Προνομιούχος πρόσβαση διαχειριστή συστήματος και υπηρεσίας"
+msgstr ""
+"Ορισμός ή κατάργηση μεταβλητών περιβάλλοντος συστήματος και διαχειριστή "
+"υπηρεσιών"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-#, fuzzy
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
-"υπηρεσιών."
+"Απαιτείται ταυτοποίηση για τη ρύθμιση ή κατάργηση μεταβλητών περιβάλλοντος "
+"συστήματος και διαχειριστή υπηρεσιών."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
-#, fuzzy
 msgid "Reload the systemd state"
-msgstr "Επανεκκίνηση του συστήματος"
+msgstr "Επαναφόρτωση κατάστασης systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
-#, fuzzy
 msgid "Authentication is required to reload the systemd state."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+msgstr "Απαιτείται ταυτοποίηση για την επαναφόρτωση της κατάστασης systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Απόρριψη κατάστασης systemd χωρίς όρια ρυθμού"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+msgstr ""
+"Απαιτείται ταυτοποίηση για την απόρριψη κατάστασης systemd χωρίς όρια ρυθμού."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Δημιουργία αρχικής περιοχής"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
 msgid "Authentication is required to create a user's home area."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+msgstr "Απαιτείται ταυτοποίηση για τη δημιουργία αρχικής περιοχής ενός χρήστη."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Αφαίρεση αρχικής περιοχής"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
 msgid "Authentication is required to remove a user's home area."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+msgstr "Απαιτείται ταυτοποίηση για την αφαίρεση αρχικής περιοχής ενός χρήστη."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Ελέγξτε τα πιστοποιητικά μιας αρχικής περιοχής"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+"Απαιτείται ταυτοποίηση για τον έλεγχο πιστοποιητικών έναντι της αρχικής "
+"περιοχής του χρήστη."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Ενημέρωση αρχικής περιοχής"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgstr "Απαιτείται ταυτοποίηση για την ενημέρωση αρχικής περιοχής ενός χρήστη."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "Αλλαγή μεγέθους αρχικής περιοχής"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to resize a user's home area."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+msgstr ""
+"Απαιτείται ταυτοποίηση για την αλλαγή του μεγέθους αρχικής περιοχής ενός "
+"χρήστη."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
@@ -144,21 +139,10 @@ msgstr ""
 "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr ""
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
@@ -279,40 +263,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -378,7 +362,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -387,7 +371,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -396,7 +380,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -406,7 +390,7 @@ msgstr ""
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
@@ -833,7 +817,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:397
 #, fuzzy
-msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to set a wall message."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -913,10 +897,21 @@ msgid ""
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr ""
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 #, fuzzy
 msgid ""
 "Authentication is required to manage local virtual machine and container "
@@ -1075,6 +1070,16 @@ msgstr ""
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr ""
@@ -1111,7 +1116,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
-msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1120,7 +1125,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
-msgid "Authentication is required to unregister a DNS-SD service"
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1133,6 +1138,89 @@ msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Απαιτείται πιστοποίηση για να ορίσετε τις ρυθμίσεις πληκτρολογίου του "
 "συστήματος."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Απαιτείται πιστοποίηση για την αναστολή του συστήματος."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα ζώνης του συστήματος."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1218,7 +1306,7 @@ msgid ""
 "'$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

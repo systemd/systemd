@@ -23,7 +23,7 @@ static const char* const duplex_table[_DUP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex);
 
 static const struct {
         uint32_t opt;
@@ -72,7 +72,7 @@ static const char* const port_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort);
 
 static const char* const mdi_table[] = {
         [ETH_TP_MDI_INVALID]  = "unknown",
@@ -182,7 +182,6 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         struct ifreq ifr = {
                 .ifr_data = (void*) &ecmd,
         };
-        char *d;
         int r;
 
         assert(ethtool_fd);
@@ -201,12 +200,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         if (isempty(ecmd.driver))
                 return -ENODATA;
 
-        d = strdup(ecmd.driver);
-        if (!d)
-                return -ENOMEM;
-
-        *ret = d;
-        return 0;
+        return strdup_to(ret, ecmd.driver);
 }
 
 int ethtool_get_link_info(

@@ -31,9 +31,7 @@ int main(int argc, char* argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        h = hashmap_new(&unit_file_list_hash_ops_free);
-        r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, h, NULL, NULL);
-        assert_se(r == 0);
+        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL, &h));
 
         HASHMAP_FOREACH(p, h) {
                 UnitFileState s = _UNIT_FILE_STATE_INVALID;

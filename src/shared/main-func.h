@@ -10,12 +10,12 @@
 #include "sd-daemon.h"
 
 #include "argv-util.h"
+#include "ask-password-agent.h"
 #include "hashmap.h"
 #include "pager.h"
+#include "polkit-agent.h"
 #include "selinux-util.h"
 #include "signal-util.h"
-#include "spawn-ask-password-agent.h"
-#include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 
 #define _DEFINE_MAIN_FUNCTION(intro, impl, result_to_exit_status, result_to_return_value) \

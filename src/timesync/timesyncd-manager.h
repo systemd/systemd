@@ -32,9 +32,6 @@ typedef struct Manager Manager;
 
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
-#define STATE_DIR   "/var/lib/systemd/timesync"
-#define CLOCK_FILE  STATE_DIR "/clock"
-
 struct Manager {
         sd_bus *bus;
         sd_event *event;
@@ -134,7 +131,6 @@ void manager_flush_runtime_servers(Manager *m);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
-bool manager_is_connected(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
 

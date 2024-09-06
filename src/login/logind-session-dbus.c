@@ -291,23 +291,23 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
 
 int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
-        const char *swho;
+        const char *swhom;
         int32_t signo;
-        KillWho who;
+        KillWhom whom;
         int r;
 
         assert(message);
 
-        r = sd_bus_message_read(message, "si", &swho, &signo);
+        r = sd_bus_message_read(message, "si", &swhom, &signo);
         if (r < 0)
                 return r;
 
-        if (isempty(swho))
-                who = KILL_ALL;
+        if (isempty(swhom))
+                whom = KILL_ALL;
         else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swhom);
         }
 
         if (!SIGNAL_VALID(signo))
@@ -326,7 +326,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_kill(s, who, signo);
+        r = session_kill(s, whom, signo);
         if (r < 0)
                 return r;
 
@@ -713,7 +713,7 @@ static int session_object_find(sd_bus *bus, const char *path, const char *interf
         return 1;
 }
 
-char *session_bus_path(Session *s) {
+char* session_bus_path(Session *s) {
         _cleanup_free_ char *t = NULL;
 
         assert(s);
@@ -1016,7 +1016,7 @@ static const sd_bus_vtable session_vtable[] = {
                                 method_set_locked_hint,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
-                                SD_BUS_ARGS("s", who, "i", signal_number),
+                                SD_BUS_ARGS("s", whom, "i", signal_number),
                                 SD_BUS_NO_RESULT,
                                 bus_session_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),

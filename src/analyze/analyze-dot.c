@@ -13,14 +13,15 @@ static int graph_one_property(
                 const UnitInfo *u,
                 const char *prop,
                 const char *color,
-                char *patterns[],
-                char *from_patterns[],
-                char *to_patterns[]) {
+                char **patterns,
+                char **from_patterns,
+                char **to_patterns) {
 
         _cleanup_strv_free_ char **units = NULL;
         bool match_patterns;
         int r;
 
+        assert(bus);
         assert(u);
         assert(prop);
         assert(color);
@@ -51,7 +52,13 @@ static int graph_one_property(
         return 0;
 }
 
-static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
+static int graph_one(
+                sd_bus *bus,
+                const UnitInfo *u,
+                char **patterns,
+                char **from_patterns,
+                char **to_patterns) {
+
         int r;
 
         assert(bus);
@@ -67,12 +74,19 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
                 r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
+
                 r = graph_one_property(bus, u, "Requisite", "darkblue", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
+
+                r = graph_one_property(bus, u, "BindsTo", "gold", patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+
                 r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
+
                 r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
@@ -84,6 +98,9 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
 static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
         _cleanup_strv_free_ char **expanded_patterns = NULL;
         int r;
+
+        assert(bus);
+        assert(ret);
 
         STRV_FOREACH(pattern, patterns) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -110,10 +127,9 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get ID: %s", bus_error_message(&error, r));
 
-                if (!streq(*pattern, unit_id)) {
+                if (!streq(*pattern, unit_id))
                         if (strv_extend(&expanded_patterns, unit_id) < 0)
                                 return log_oom();
-                }
         }
 
         *ret = TAKE_PTR(expanded_patterns); /* do not free */
@@ -128,8 +144,8 @@ int verb_dot(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **expanded_patterns = NULL;
         _cleanup_strv_free_ char **expanded_from_patterns = NULL;
         _cleanup_strv_free_ char **expanded_to_patterns = NULL;
-        int r;
         UnitInfo u;
+        int r;
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
@@ -170,6 +186,7 @@ int verb_dot(int argc, char *argv[], void *userdata) {
 
         log_info("   Color legend: black     = Requires\n"
                  "                 dark blue = Requisite\n"
+                 "                 gold      = BindsTo\n"
                  "                 dark grey = Wants\n"
                  "                 red       = Conflicts\n"
                  "                 green     = After\n");

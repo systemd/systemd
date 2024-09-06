@@ -23,8 +23,8 @@ static inline size_t strsize16(const char16_t *s) {
         return s ? (strlen16(s) + 1) * sizeof(*s) : 0;
 }
 
-void strtolower8(char *s);
-void strtolower16(char16_t *s);
+char* strtolower8(char *s);
+char16_t* strtolower16(char16_t *s);
 
 int strncmp8(const char *s1, const char *s2, size_t n);
 int strncmp16(const char16_t *s1, const char16_t *s2, size_t n);
@@ -79,16 +79,16 @@ static inline bool strcaseeq16(const char16_t *s1, const char16_t *s2) {
         return strcasecmp16(s1, s2) == 0;
 }
 
-char *strcpy8(char * restrict dest, const char * restrict src);
+char* strcpy8(char * restrict dest, const char * restrict src);
 char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
 
-char *strchr8(const char *s, char c);
+char* strchr8(const char *s, char c);
 char16_t *strchr16(const char16_t *s, char16_t c);
 
-char *xstrndup8(const char *s, size_t n);
+char* xstrndup8(const char *s, size_t n);
 char16_t *xstrndup16(const char16_t *s, size_t n);
 
-static inline char *xstrdup8(const char *s) {
+static inline char* xstrdup8(const char *s) {
         return xstrndup8(s, SIZE_MAX);
 }
 
@@ -101,7 +101,7 @@ static inline char16_t *xstr8_to_16(const char *str8) {
         return xstrn8_to_16(str8, strlen8(str8));
 }
 
-char *startswith8(const char *s, const char *prefix);
+char* startswith8(const char *s, const char *prefix);
 
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
@@ -110,7 +110,7 @@ bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tai
 
 bool parse_boolean(const char *v, bool *ret);
 
-char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value);
+char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value);
 
 char16_t *hexdump(const void *data, size_t size);
 

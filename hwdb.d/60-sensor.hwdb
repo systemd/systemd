@@ -116,6 +116,11 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*pnSpinSP111-34:*
 # Aquarius
 #########################################
 
+# Aquarius Cmp NS483
+sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnCmp*NS483:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+sensor:modalias:acpi:MXC4005*:dmi:*:svnAquarius*:pnCmp*NS483:*
 # Aquarius NS483
 sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnNS483:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
@@ -147,6 +152,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAF:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAS:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
@@ -158,6 +164,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q551LB:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q551LN:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
@@ -182,6 +189,9 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
+sensor:modalias:acpi:BMA250E*:dmi:*:*svn*ASUSTeK*:pnT300FA:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # Axxo
 #########################################
@@ -192,13 +202,33 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnStandard:pnWCBT1011::*
 # AYANEO
 #########################################
 
-# AYANEO AIR
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAIR*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+# AYANEO 2021, 2021 Pro, 2021 Pro Retro Power
+sensor:modalias:acpi:10EC5280*:dmi:*:svnAYANEO:pn*2021*:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
 
-# AYANEO NEXT
+# AYANEO 2, 2S
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAYANEO 2*:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+
+# AYANEO AIR, AIR Pro, and 1S
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAIR*:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+
+# AYANEO AIR Plus AMD, Plus Mendocino, and Plus Intel
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnAYANEO:pnAIR Plus*:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, 1; -1, 0, 0
+
+# AYANEO FLIP DS, FLIP KB
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnFLIP**:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+
+# AYANEO GEEK, GEEK 1S
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAYANEO GEEK*:*
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+
+# AYANEO NEXT, NEXT Lite, NEXT Advance, and NEXT Pro
 sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pn*NEXT*:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+ ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
 
 #########################################
 # BMAX
@@ -310,8 +340,12 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnC3W6_AP108_4GB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # Chuwi Ubook X (CWI535)
-sensor:modalias:acpi:MXC6655*:dmi*:svnCHUWIInnovationAndTechnology*:pnUBookX:*
+sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnUBookX:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
+
+# Chuwi Freebook N100
+sensor:modalias:acpi:MDA6655*:dmi:*:svnCHUWI*:pnFreeBook:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0;1, 0, 0;0, 0, 1
 
 #########################################
 # Connect
@@ -422,6 +456,10 @@ sensor:modalias:acpi:NSA2513*:dmi:*:svnDigitek:*
 sensor:modalias:acpi:NSA2513*:dmi:*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+# N12 / Juno Tablet 3
+sensor:modalias:acpi:MXC6655*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvr*:svnDefaultstring:pnS1105ANR100:pvr*:rvn*:rnS1105ANR100:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
+
 #########################################
 # DEXP
 #########################################
@@ -526,6 +564,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/201
 # GPD Pocket 3
 sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1621-02:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+# GPD WinMax2
+sensor:modalias:acpi:BMI0160*:dmi:*:svnGPD:pnG1619*:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Hometech
@@ -875,6 +917,14 @@ sensor:modalias:acpi:BMI0160*:dmi:*:rnONEXPLAYER:rvrV01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
+# OrangePi
+#########################################
+
+# OrangePi NEO
+sensor:modalias:acpi:BMI0260*:dmi:*:svnOrangePi:pnNEO-01:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 0, -1; 0, -1, 0
+
+#########################################
 # Passion
 #########################################
 
@@ -955,9 +1005,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnProwise:pnPT301:*
 # Purism
 #########################################
 
-# Librem11
-sensor:modalias:acpi:MXC6655*:dmi:*:svnPurism*:pnlibrem_11*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+# Librem 11 (SeaBIOS + PureBoot)
+sensor:modalias:acpi:MXC6655*:dmi:*:svnPurism:pnLibrem11:*
+sensor:modalias:acpi:MXC6655*:dmi:*:svnPurism:pnlibrem_11:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
 #########################################
 # Reeder

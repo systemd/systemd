@@ -150,9 +150,7 @@ static int agent_ask_password_tty(
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
-                r = reset_terminal_fd(tty_fd, true);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+                (void) terminal_reset_defensive_locked(tty_fd, /* switch_to_text= */ true);
 
                 log_info("Starting password query on %s.", con);
         }
@@ -548,14 +546,10 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
-        static const struct sigaction sighup = {
-                .sa_handler = SIG_DFL,
-                .sa_flags = SA_RESTART,
-        };
         int r;
 
         assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
-        assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
+        assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
         r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);

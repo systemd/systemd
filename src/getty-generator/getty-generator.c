@@ -95,7 +95,7 @@ static int verify_tty(const char *name) {
                 return -errno;
 
         if (!isatty_safe(fd))
-                return -errno;
+                return -ENOTTY;
 
         return 0;
 }
@@ -150,7 +150,7 @@ static int add_credential_gettys(void) {
         };
         int r;
 
-        FOREACH_ARRAY(t, table, ELEMENTSOF(table)) {
+        FOREACH_ELEMENT(t, table) {
                 _cleanup_free_ char *b = NULL;
                 size_t sz = 0;
 

@@ -58,21 +58,18 @@ int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret) {
 }
 
 int device_path_make_inaccessible(mode_t mode, char **ret) {
-        char *s;
+        const char *s;
 
         assert(ret);
 
         if (S_ISCHR(mode))
-                s = strdup("/run/systemd/inaccessible/chr");
+                s = "/run/systemd/inaccessible/chr";
         else if (S_ISBLK(mode))
-                s = strdup("/run/systemd/inaccessible/blk");
+                s = "/run/systemd/inaccessible/blk";
         else
                 return -ENODEV;
-        if (!s)
-                return -ENOMEM;
 
-        *ret = s;
-        return 0;
+        return strdup_to(ret, s);
 }
 
 int device_path_make_canonical(mode_t mode, dev_t devnum, char **ret) {

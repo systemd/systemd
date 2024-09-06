@@ -53,13 +53,21 @@ Wants=network-online.target
 After=network-online.target
 </programlisting>
 
-    <para>Support for <filename>&RC_LOCAL_PATH;</filename> is provided for compatibility with specific System
-    V systems only. However, it is strongly recommended to avoid making use of this script today, and instead
+    <para>Support for <filename>&RC_LOCAL_PATH;</filename> is provided for compatibility with specific
+    System V systems only. However, it is strongly recommended to avoid using this script today, and instead
     provide proper unit files with appropriate dependencies for any scripts to run during the boot process.
     Note that the path to the script is set at compile time and varies between distributions.</para>
 
     <para><filename>systemd-rc-local-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>On systems with SELinux, when creating the file, make sure to set the appropriate context, e.g.
+    with "<command>sudo restorecon -v &RC_LOCAL_PATH;</command>".
+    </para>
   </refsect1>
 
   <refsect1>

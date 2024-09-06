@@ -6,13 +6,13 @@
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "common-signal.h"
 #include "hashmap.h"
 #include "list.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
-#include "varlink.h"
 
 typedef struct Manager Manager;
 
@@ -153,8 +153,8 @@ struct Manager {
 
         Hashmap *polkit_registry;
 
-        VarlinkServer *varlink_server;
-        VarlinkServer *varlink_monitor_server;
+        sd_varlink_server *varlink_server;
+        sd_varlink_server *varlink_monitor_server;
 
         Set *varlink_subscription;
 
@@ -226,6 +226,6 @@ bool manager_server_is_stub(Manager *m, DnsServer *s);
 
 int socket_disable_pmtud(int fd, int af);
 
-int dns_manager_dump_statistics_json(Manager *m, JsonVariant **ret);
+int dns_manager_dump_statistics_json(Manager *m, sd_json_variant **ret);
 
 void dns_manager_reset_statistics(Manager *m);

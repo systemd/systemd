@@ -7,26 +7,26 @@
 #include "tests.h"
 
 TEST(parse_json_argument) {
-        JsonFormatFlags flags = JSON_FORMAT_PRETTY;
+        sd_json_format_flags_t flags = SD_JSON_FORMAT_PRETTY;
 
         assert_se(parse_json_argument("help", &flags) == 0);
-        assert_se(flags == JSON_FORMAT_PRETTY);
+        assert_se(flags == SD_JSON_FORMAT_PRETTY);
 
         assert_se(parse_json_argument("off", &flags) == 1);
-        assert_se(flags == JSON_FORMAT_OFF);
+        assert_se(flags == SD_JSON_FORMAT_OFF);
 }
 
 TEST(parse_path_argument) {
         _cleanup_free_ char *path = NULL;
 
         assert_se(parse_path_argument("help", false, &path) == 0);
-        assert_se(streq(basename(path), "help"));
+        ASSERT_STREQ(basename(path), "help");
 
         assert_se(parse_path_argument("/", false, &path) == 0);
-        assert_se(streq(path, "/"));
+        ASSERT_STREQ(path, "/");
 
         assert_se(parse_path_argument("/", true, &path) == 0);
-        assert_se(path == NULL);
+        ASSERT_NULL(path);
 }
 
 TEST(parse_signal_argument) {

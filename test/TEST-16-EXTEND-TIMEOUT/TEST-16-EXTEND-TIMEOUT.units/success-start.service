@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Testsuite: Success Start (EXTEND_TIMEOUT_USEC > WATCHDOG_USEC however < TimeoutStartSec)
+
+[Service]
+# EXTEND_TIMEOUT_USEC=4 second interval once at startup, but sleep 6 seconds.
+# Therefore startup is 6 seconds and < TimeoutStartSec so still successful.
+Type=notify
+TimeoutStartSec=8
+TimeoutStopSec=4
+RuntimeMaxSec=4
+Environment=SERVICE=success_start extend_timeout_interval=4 sleep_interval=6 start_intervals=1 run_intervals=0 stop_intervals=0
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-16-EXTEND-TIMEOUT.units/extend-timeout.sh

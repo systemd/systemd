@@ -25,12 +25,17 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/journald.conf</filename></member>
+      <member><filename>/run/systemd/journald.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journald.conf</filename></member>
       <member><filename>/etc/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/journald.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></member>
       <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
@@ -100,6 +105,10 @@
 
         <para>Note that per-user journal files are not supported unless persistent storage is enabled, thus
         making <command>journalctl --user</command> unavailable.</para>
+
+        <para>The storage to use can also be specified via the <literal>journal.storage</literal>
+        credential. Values configured via configuration files take priority over values configured via the
+        credential.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
@@ -373,7 +382,7 @@
         <listitem><para>Control whether log messages received by the journal daemon shall be forwarded to a
         traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, sent as wall
         messages to all logged-in users or sent over a socket. These options take boolean arguments except
-        for <literal>ForwardToSocket=</literal> which takes an an address instead. If forwarding
+        for <literal>ForwardToSocket=</literal> which takes an address instead. If forwarding
         to syslog is enabled but nothing reads messages from the socket, forwarding to syslog has no effect. By default,
         only forwarding to wall is enabled. These settings may be overridden at boot time with the kernel
         command line options <literal>systemd.journald.forward_to_syslog</literal>,
@@ -432,32 +441,19 @@
         <term><varname>MaxLevelWall=</varname></term>
         <term><varname>MaxLevelSocket=</varname></term>
 
-        <listitem><para>Controls the maximum log level of messages
-        that are stored in the journal, forwarded to syslog, kmsg, the
-        console, a socket, or wall (if that is enabled, see above).
-        As argument, takes one of
-        <literal>emerg</literal>,
-        <literal>alert</literal>,
-        <literal>crit</literal>,
-        <literal>err</literal>,
-        <literal>warning</literal>,
-        <literal>notice</literal>,
-        <literal>info</literal>,
-        <literal>debug</literal>,
-        or integer values in the range of 0–7 (corresponding to the
-        same levels). Messages equal or below the log level specified
-        are stored/forwarded, messages above are dropped. Defaults to
-        <literal>debug</literal> for <varname>MaxLevelStore=</varname>,
-        <varname>MaxLevelSyslog=</varname> and
-        <varname>MaxLevelSocket=</varname>, to ensure that the all
-        messages are stored in the journal, forwarded to syslog and
-        the socket if one exists.
-        Defaults to
-        <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
-        <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
-        and <literal>emerg</literal> for
-        <varname>MaxLevelWall=</varname>. These settings may be
-        overridden at boot time with the kernel command line options
+        <listitem><para>Controls the maximum log level of messages that are stored in the journal, forwarded
+        to syslog, kmsg, the console, the wall, or a socket (if that is enabled, see above).  As argument,
+        takes one of <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
+        <literal>info</literal>, <literal>debug</literal>, or integer values in the range of 0–7
+        (corresponding to the same levels). Messages equal or below the log level specified are
+        stored/forwarded, messages above are dropped. Defaults to <literal>debug</literal> for
+        <varname>MaxLevelStore=</varname>, <varname>MaxLevelSyslog=</varname> and
+        <varname>MaxLevelSocket=</varname>, to ensure that the all messages are stored in the journal,
+        forwarded to syslog and the socket if one exists.  Defaults to <literal>notice</literal> for
+        <varname>MaxLevelKMsg=</varname>, <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
+        and <literal>emerg</literal> for <varname>MaxLevelWall=</varname>. These settings may be overridden
+        at boot time with the kernel command line options
         <literal>systemd.journald.max_level_store=</literal>,
         <literal>systemd.journald.max_level_syslog=</literal>,
         <literal>systemd.journald.max_level_kmsg=</literal>,

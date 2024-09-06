@@ -143,21 +143,30 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ARM64,       "aarch64"), /* Alias: must be listed after arm64 */
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
+        _GPT_ARCH_SEXTET(LOONGARCH64, "loong64"), /* Alias: must be listed after loongarch64 */
         _GPT_ARCH_SEXTET(MIPS,        "mips"),
         _GPT_ARCH_SEXTET(MIPS64,      "mips64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
+        _GPT_ARCH_SEXTET(MIPS_LE,     "mipsel"), /* Alias: must be listed after mips-le */
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
+        _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64el"), /* Alias: must be listed after mips64-le */
         _GPT_ARCH_SEXTET(PARISC,      "parisc"),
+        _GPT_ARCH_SEXTET(PARISC,      "hppa"), /* Alias: must be listed after parisc */
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
         _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64-le"),
         _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64le"), /* Alias: must be listed after ppc64-le */
+        _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64el"), /* Alias: must be listed after ppc64-le */
         _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
         _GPT_ARCH_SEXTET(S390X,       "s390x"),
         _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
         _GPT_ARCH_SEXTET(X86,         "x86"),
+        _GPT_ARCH_SEXTET(X86,         "i386"), /* Alias: must be listed after x86 */
+        _GPT_ARCH_SEXTET(X86,         "i486"), /* Alias: must be listed after x86 */
+        _GPT_ARCH_SEXTET(X86,         "i586"), /* Alias: must be listed after x86 */
+        _GPT_ARCH_SEXTET(X86,         "i686"), /* Alias: must be listed after x86 */
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
         _GPT_ARCH_SEXTET(X86_64,      "x86_64"), /* Alias: must be listed after x86-64 */
         _GPT_ARCH_SEXTET(X86_64,      "amd64"), /* Alias: must be listed after x86-64 */
@@ -199,7 +208,7 @@ static const GptPartitionType *gpt_partition_type_find_by_uuid(sd_id128_t id) {
         return NULL;
 }
 
-const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
+const char* gpt_partition_type_uuid_to_string(sd_id128_t id) {
         const GptPartitionType *pt;
 
         pt = gpt_partition_type_find_by_uuid(id);
@@ -209,7 +218,7 @@ const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
         return pt->name;
 }
 
-const char *gpt_partition_type_uuid_to_string_harder(
+const char* gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
                 char buffer[static SD_ID128_UUID_STRING_MAX]) {
 
@@ -296,7 +305,7 @@ GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id) {
         };
 }
 
-const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
+const char* gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
         return partition_mountpoint_to_string(type.designator);
 }
 
@@ -337,6 +346,18 @@ bool gpt_partition_type_knows_no_auto(GptPartitionType type) {
                       PARTITION_TMP,
                       PARTITION_XBOOTLDR,
                       PARTITION_SWAP);
+}
+
+bool gpt_partition_type_has_filesystem(GptPartitionType type) {
+        return IN_SET(type.designator,
+                      PARTITION_ROOT,
+                      PARTITION_USR,
+                      PARTITION_HOME,
+                      PARTITION_SRV,
+                      PARTITION_ESP,
+                      PARTITION_XBOOTLDR,
+                      PARTITION_TMP,
+                      PARTITION_VAR);
 }
 
 bool gpt_header_has_signature(const GptHeader *p) {

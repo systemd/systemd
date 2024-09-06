@@ -7,6 +7,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -15,78 +16,85 @@
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
 
-        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
-        assert_se(streq_ptr(expected, path));
+        ASSERT_OK(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL));
+        ASSERT_STREQ(expected, path);
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
         int log_level = 0;
 
-        assert_se(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >= 0);
-        assert_se(expected == log_level);
+        ASSERT_OK(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL));
+        ASSERT_EQ(expected, log_level);
 }
 
 static void test_config_parse_log_facility_one(const char *rvalue, int expected) {
         int log_facility = 0;
 
-        assert_se(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >= 0);
-        assert_se(expected == log_facility);
+        ASSERT_OK(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL));
+        ASSERT_EQ(expected, log_facility);
 }
 
 static void test_config_parse_iec_size_one(const char *rvalue, size_t expected) {
         size_t iec_size = 0;
 
-        assert_se(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >= 0);
-        assert_se(expected == iec_size);
+        ASSERT_OK(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL));
+        ASSERT_EQ(expected, iec_size);
 }
 
 static void test_config_parse_si_uint64_one(const char *rvalue, uint64_t expected) {
         uint64_t si_uint64 = 0;
 
-        assert_se(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL) >= 0);
-        assert_se(expected == si_uint64);
+        ASSERT_OK(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL));
+        ASSERT_EQ(expected, si_uint64);
 }
 
 static void test_config_parse_int_one(const char *rvalue, int expected) {
         int v = -1;
 
-        assert_se(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_int("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected) {
         unsigned v = 0;
 
-        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
-static void test_config_parse_strv_one(const char *rvalue, char **expected) {
+static void test_config_parse_strv_one(const char *rvalue, bool filter_duplicates, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
-        assert_se(strv_equal(expected, strv));
+        ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, NULL));
+        ASSERT_TRUE(strv_equal(expected, strv));
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {
         mode_t v = 0;
 
-        assert_se(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_mode("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_sec_one(const char *rvalue, usec_t expected) {
         usec_t v = 0;
 
-        assert_se(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_sec("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 static void test_config_parse_nsec_one(const char *rvalue, nsec_t expected) {
         nsec_t v = 0;
 
-        assert_se(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
-        assert_se(expected == v);
+        ASSERT_OK(config_parse_nsec("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
+}
+
+static void test_config_parse_iec_uint64_one(const char *rvalue, uint64_t expected) {
+        uint64_t v = 0;
+
+        ASSERT_OK(config_parse_iec_uint64("unit", "filename", 1, "nsection", 1, "lvalue", 0, rvalue, &v, NULL));
+        ASSERT_EQ(expected, v);
 }
 
 TEST(config_parse_path) {
@@ -163,12 +171,19 @@ TEST(config_parse_unsigned) {
 }
 
 TEST(config_parse_strv) {
-        test_config_parse_strv_one("", STRV_MAKE_EMPTY);
-        test_config_parse_strv_one("foo", STRV_MAKE("foo"));
-        test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
-        test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
-        test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
-        test_config_parse_strv_one("\xc3\x7f", STRV_MAKE("\xc3\x7f"));
+        test_config_parse_strv_one("", false, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("foo", false, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", false, STRV_MAKE("foo", "bar", "foo"));
+        test_config_parse_strv_one("\"foo bar\" foo", false, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", false, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", false, STRV_MAKE("\xc3\x7f"));
+
+        test_config_parse_strv_one("", true, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("foo", true, STRV_MAKE("foo"));
+        test_config_parse_strv_one("foo bar foo", true, STRV_MAKE("foo", "bar"));
+        test_config_parse_strv_one("\"foo bar\" foo", true, STRV_MAKE("foo bar", "foo"));
+        test_config_parse_strv_one("\xc3\x80", true, STRV_MAKE("\xc3\x80"));
+        test_config_parse_strv_one("\xc3\x7f", true, STRV_MAKE("\xc3\x7f"));
 }
 
 TEST(config_parse_mode) {
@@ -205,11 +220,8 @@ TEST(config_parse_nsec) {
 }
 
 TEST(config_parse_iec_uint64) {
-        uint64_t offset = 0;
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
-        assert_se(offset == 4 * 1024 * 1024);
-
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        test_config_parse_iec_uint64_one("4M", UINT64_C(4 * 1024 * 1024));
+        test_config_parse_iec_uint64_one("4.5M", UINT64_C((4 * 1024 + 512) * 1024));
 }
 
 #define x10(x) x x x x x x x x x x
@@ -352,37 +364,37 @@ static void test_config_parse_one(unsigned i, const char *s) {
         switch (i) {
         case 0 ... 4:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1"));
+                ASSERT_STREQ(setting1, "1");
                 break;
 
         case 5 ... 10:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1 2 3"));
+                ASSERT_STREQ(setting1, "1 2 3");
                 break;
 
         case 11:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1\\\\ \\\\2"));
+                ASSERT_STREQ(setting1, "1\\\\ \\\\2");
                 break;
 
         case 12:
                 assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD")));
+                ASSERT_STREQ(setting1, x1000("ABCD"));
                 break;
 
         case 13 ... 14:
                 assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD") " foobar"));
+                ASSERT_STREQ(setting1, x1000("ABCD") " foobar");
                 break;
 
         case 15 ... 16:
                 assert_se(r == -ENOBUFS);
-                assert_se(setting1 == NULL);
+                ASSERT_NULL(setting1);
                 break;
 
         case 17:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "2"));
+                ASSERT_STREQ(setting1, "2");
                 break;
         }
 }
@@ -393,18 +405,15 @@ TEST(config_parse) {
 }
 
 TEST(config_parse_standard_file_with_dropins_full) {
-        _cleanup_(rmdir_and_freep) char *root = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         _cleanup_close_ int rfd = -EBADF;
         int r;
 
-        assert_se(mkdtemp_malloc(NULL, &root) >= 0);
-        assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-
-        rfd = open(root, O_CLOEXEC|O_DIRECTORY);
-        assert_se(rfd >= 0);
+        ASSERT_OK(rfd = mkdtemp_open("/tmp/test-config-parse-XXXXXX", 0, &root));
+        assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755));
 
         assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf",         /* this one is ignored */
                                        "A=!!!", WRITE_STRING_FILE_CREATE) == 0);
@@ -443,12 +452,12 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ &dropins);
         assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_STREQ(A, "aaa");
+        ASSERT_STREQ(B, "bbb");
+        ASSERT_STREQ(C, "c1");
+        ASSERT_STREQ(D, "ddd");
+        ASSERT_STREQ(E, "eee");
+        ASSERT_STREQ(F, NULL);
 
         A = mfree(A);
         B = mfree(B);
@@ -459,10 +468,10 @@ TEST(config_parse_standard_file_with_dropins_full) {
         assert_se(strv_length(dropins) == 4);
 
         /* Make sure that we follow symlinks */
-        assert_se(mkdir_p_root(root, "/etc/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/run/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
-        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/etc/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/run/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755));
+        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755));
 
         /* (Those symlinks are only useful relative to <root>. */
         assert_se(symlinkat("/usr/lib/kernel/install.conf", rfd, "usr/lib/kernel/install2.conf") == 0);
@@ -482,12 +491,12 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ NULL);
         assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_STREQ(A, "aaa");
+        ASSERT_STREQ(B, "bbb");
+        ASSERT_STREQ(C, "c1");
+        ASSERT_STREQ(D, "ddd");
+        ASSERT_STREQ(E, "eee");
+        ASSERT_STREQ(F, NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

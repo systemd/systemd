@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=%N
+Wants=basic.target network.target @wants@
+After=basic.target network.target @after@
+Before=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStartPre=/usr/lib/systemd/tests/integration-test-setup.sh setup
+ExecStart=@command@
+ExecStopPost=/usr/lib/systemd/tests/integration-test-setup.sh finalize
+Type=oneshot
+MemoryAccounting=@memory-accounting@
+StateDirectory=%N

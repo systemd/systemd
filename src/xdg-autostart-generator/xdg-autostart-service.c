@@ -45,7 +45,7 @@ XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         return mfree(s);
 }
 
-char *xdg_autostart_service_translate_name(const char *name) {
+char* xdg_autostart_service_translate_name(const char *name) {
         _cleanup_free_ char *c = NULL, *escaped = NULL;
         char *res;
 

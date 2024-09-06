@@ -81,7 +81,7 @@ static void test_in_addr_prefix_to_string_valid(int family, const char *p) {
         log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u, &l) >= 0);
-        assert_se(streq(p, IN_ADDR_PREFIX_TO_STRING(family, &u, l)));
+        ASSERT_STREQ(p, IN_ADDR_PREFIX_TO_STRING(family, &u, l));
 }
 
 static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p) {
@@ -97,7 +97,7 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
         const char *str2 = IN_ADDR_PREFIX_TO_STRING(family, &u2, len2);
         assert_se(str2);
 
-        assert_se(streq(str1, str2));
+        ASSERT_STREQ(str1, str2);
         assert_se(len1 == len2);
         assert_se(in_addr_equal(family, &u1, &u2) > 0);
 }
@@ -340,9 +340,9 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
         assert_se(in_addr_to_string(f, &ua, &r) >= 0);
         printf("%s: %s == %s\n", __func__, addr, r);
-        assert_se(streq(addr, r));
+        ASSERT_STREQ(addr, r);
 
-        assert_se(streq(r, IN_ADDR_TO_STRING(f, &ua)));
+        ASSERT_STREQ(r, IN_ADDR_TO_STRING(f, &ua));
 }
 
 TEST(in_addr_to_string) {
@@ -391,7 +391,7 @@ TEST(in_addr_prefixlen_to_netmask) {
                 assert_se(in_addr_prefixlen_to_netmask(AF_INET, &addr, prefixlen) >= 0);
                 assert_se(in_addr_to_string(AF_INET, &addr, &result) >= 0);
                 printf("test_in_addr_prefixlen_to_netmask: %s == %s\n", ipv4_netmasks[prefixlen], result);
-                assert_se(streq(ipv4_netmasks[prefixlen], result));
+                ASSERT_STREQ(ipv4_netmasks[prefixlen], result);
         }
 
         for (unsigned char prefixlen = 0; prefixlen <= 128; prefixlen++) {
@@ -401,7 +401,58 @@ TEST(in_addr_prefixlen_to_netmask) {
                 assert_se(in_addr_to_string(AF_INET6, &addr, &result) >= 0);
                 printf("test_in_addr_prefixlen_to_netmask: %s\n", result);
                 if (ipv6_netmasks[prefixlen])
-                        assert_se(streq(ipv6_netmasks[prefixlen], result));
+                        ASSERT_STREQ(ipv6_netmasks[prefixlen], result);
+        }
+}
+
+static void in_addr_prefix_covers_full_one(const char *prefix, const char *address, int expected) {
+        union in_addr_union p, a;
+        unsigned char plen, alen;
+        int family, r;
+
+        assert_se(in_addr_prefix_from_string_auto(prefix, &family, &p, &plen) >= 0);
+        assert_se(in_addr_prefix_from_string(address, family, &a, &alen) >= 0);
+        r = in_addr_prefix_covers_full(family, &p, plen, &a, alen);
+        if (r != expected)
+                log_error("in_addr_prefix_covers_full(%s, %s)=%i (expected=%i)", prefix, address, r, expected);
+        assert_se(r == expected);
+}
+
+TEST(in_addr_prefix_covers_full) {
+        /* From issue #32715. */
+        in_addr_prefix_covers_full_one("192.168.235.129/32", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("192.168.235.130/32", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("169.254.0.0/17", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("169.254.128.0/17", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("0.0.0.0/1", "192.168.0.128/32", 0);
+        in_addr_prefix_covers_full_one("128.0.0.0/1", "192.168.0.128/32", 1);
+        in_addr_prefix_covers_full_one("0.0.0.0/0", "192.168.0.128/32", 1);
+
+        for (unsigned i = 0; i <= 32; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "192.168.0.128/%u", i) >= 0);
+
+                for (unsigned j = 0; j <= 32; j++) {
+                        _cleanup_free_ char *address = NULL;
+
+                        assert_se(asprintf(&address, "192.168.0.128/%u", j) >= 0);
+                        in_addr_prefix_covers_full_one(prefix, address, i <= j);
+                }
+        }
+
+        for (unsigned i = 0; i <= 32; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "192.168.235.129/%u", i) >= 0);
+                in_addr_prefix_covers_full_one(prefix, "192.168.0.128/32", i <= 16);
+        }
+
+        for (unsigned i = 0; i <= 128; i++) {
+                _cleanup_free_ char *prefix = NULL;
+
+                assert_se(asprintf(&prefix, "dead:beef::/%u", i) >= 0);
+                in_addr_prefix_covers_full_one(prefix, "dead:0:beef::1/128", i <= 16);
         }
 }
 

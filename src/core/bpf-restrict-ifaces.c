@@ -128,17 +128,17 @@ static int restrict_ifaces_install_impl(Unit *u) {
         if (r < 0)
                 return r;
 
-        cgroup_fd = open(cgroup_path, O_RDONLY | O_CLOEXEC | O_DIRECTORY, 0);
+        cgroup_fd = open(cgroup_path, O_PATH | O_CLOEXEC | O_DIRECTORY, 0);
         if (cgroup_fd < 0)
                 return -errno;
 
         ingress_link = sym_bpf_program__attach_cgroup(obj->progs.sd_restrictif_i, cgroup_fd);
-        r = sym_libbpf_get_error(ingress_link);
+        r = bpf_get_error_translated(ingress_link);
         if (r != 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create ingress cgroup link: %m");
 
         egress_link = sym_bpf_program__attach_cgroup(obj->progs.sd_restrictif_e, cgroup_fd);
-        r = sym_libbpf_get_error(egress_link);
+        r = bpf_get_error_translated(egress_link);
         if (r != 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create egress cgroup link: %m");
 

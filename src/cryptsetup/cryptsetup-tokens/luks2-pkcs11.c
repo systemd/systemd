@@ -3,10 +3,11 @@
 #include <p11-kit/p11-kit.h>
 #include <p11-kit/uri.h>
 
+#include "sd-json.h"
+
 #include "cryptsetup-token-util.h"
 #include "escape.h"
 #include "hexdecoct.h"
-#include "json.h"
 #include "luks2-pkcs11.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
@@ -236,31 +237,31 @@ int parse_luks2_pkcs11_data(
         size_t key_size;
         _cleanup_free_ char *uri = NULL;
         _cleanup_free_ void *key = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        JsonVariant *w;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w;
 
         assert(json);
         assert(ret_uri);
         assert(ret_encrypted_key);
         assert(ret_encrypted_key_size);
 
-        r = json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, 0, &v, NULL, NULL);
         if (r < 0)
                 return r;
 
-        w = json_variant_by_key(v, "pkcs11-uri");
+        w = sd_json_variant_by_key(v, "pkcs11-uri");
         if (!w)
                 return -EINVAL;
 
-        uri = strdup(json_variant_string(w));
+        uri = strdup(sd_json_variant_string(w));
         if (!uri)
                 return -ENOMEM;
 
-        w = json_variant_by_key(v, "pkcs11-key");
+        w = sd_json_variant_by_key(v, "pkcs11-key");
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), &key, &key_size);
+        r = sd_json_variant_unbase64(w, &key, &key_size);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

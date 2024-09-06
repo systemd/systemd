@@ -13,7 +13,8 @@ typedef struct Route Route;
 
 unsigned routes_max(void);
 
-bool route_type_is_reject(const Route *route);
+bool route_type_is_reject(uint8_t type);
+bool route_is_reject(const Route *route);
 
 bool link_find_default_gateway(Link *link, int family, Route **gw);
 static inline bool link_has_default_gateway(Link *link, int family) {
@@ -39,7 +40,7 @@ int manager_address_is_reachable(
                 Address **ret);
 
 int route_type_from_string(const char *s) _pure_;
-const char *route_type_to_string(int t) _const_;
+const char* route_type_to_string(int t) _const_;
 
 int route_scope_from_string(const char *s);
 int route_scope_to_string_alloc(int t, char **ret);

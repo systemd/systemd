@@ -49,7 +49,7 @@ sd_netlink *sd_netlink_unref(sd_netlink *nl);
 
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial);
 int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink_message *message,
-                          sd_netlink_message_handler_t callback, sd_netlink_destroy_t destoy_callback,
+                          sd_netlink_message_handler_t callback, sd_netlink_destroy_t destroy_callback,
                           void *userdata, uint64_t usec, const char *description);
 int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout,
                     sd_netlink_message **reply);
@@ -112,6 +112,7 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type,
 int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t *data);
 int sd_netlink_message_read_u16(sd_netlink_message *m, uint16_t attr_type, uint16_t *data);
 int sd_netlink_message_read_u32(sd_netlink_message *m, uint16_t attr_type, uint32_t *data);
+int sd_netlink_message_read_u64(sd_netlink_message *m, uint16_t attr_type, uint64_t *ret);
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, uint16_t attr_type, struct ether_addr *data);
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, uint16_t attr_type, struct ifa_cacheinfo *info);
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, uint16_t attr_type, struct in_addr *data);

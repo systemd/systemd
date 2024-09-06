@@ -14,7 +14,7 @@ static void test_is_wanted_print_one(bool header) {
         _cleanup_free_ char *cmdline = NULL;
 
         log_info("-- %s --", __func__);
-        assert_se(proc_cmdline(&cmdline) >= 0);
+        ASSERT_OK(proc_cmdline(&cmdline));
         log_info("cmdline: %s", cmdline);
         if (header)
                 (void) system("findmnt -n /sys/fs/cgroup");
@@ -31,33 +31,33 @@ TEST(is_wanted_print) {
 }
 
 TEST(is_wanted) {
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "systemd.unified_cgroup_hierarchy", 1));
         test_is_wanted_print_one(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "systemd.unified_cgroup_hierarchy=0", 1));
         test_is_wanted_print_one(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "systemd.unified_cgroup_hierarchy=0 "
+                               "systemd.legacy_systemd_cgroup_controller", 1));
         test_is_wanted_print_one(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "systemd.unified_cgroup_hierarchy=0 "
+                               "systemd.legacy_systemd_cgroup_controller=0", 1));
         test_is_wanted_print_one(false);
 
         /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
          * explicitly specified. */
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "cgroup_no_v1=all", 1));
         test_is_wanted_print_one(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all "
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PROC_CMDLINE",
+                               "cgroup_no_v1=all "
+                               "systemd.unified_cgroup_hierarchy=0", 1));
         test_is_wanted_print_one(false);
 }
 

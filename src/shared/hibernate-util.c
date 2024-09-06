@@ -23,6 +23,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -129,6 +130,13 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
         assert(ret_devno);
         assert(ret_offset);
 
+        r = proc_cmdline_get_key("noresume", /* flags = */ 0, /* ret_value = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if 'noresume' kernel command line option is set: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "'noresume' kernel command line option is set, refusing hibernation device lookup.");
+
         r = read_one_line_file("/sys/power/resume", &devno_str);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read /sys/power/resume: %m");
@@ -151,7 +159,7 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
         }
 
         if (devno == 0 && offset > 0 && offset != UINT64_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                        "Found populated /sys/power/resume_offset (%" PRIu64 ") but /sys/power/resume is not set, refusing.",
                                        offset);
 
@@ -386,7 +394,7 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
         if (!entry) {
                 /* No need to check n_swaps == 0, since it's rejected early */
                 assert(resume_config_devno > 0);
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "Cannot find swap entry corresponding to /sys/power/resume.");
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find swap entry corresponding to /sys/power/resume.");
         }
 
         if (ret_device) {
@@ -444,11 +452,11 @@ int hibernation_is_safe(void) {
         bypass_space_check = getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
 
         r = find_suitable_hibernation_device_full(NULL, &size, &used);
-        if (r == -ENOSPC && bypass_space_check)
-                /* If we don't have any available swap space at all, and SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK
-                 * is set, skip all remaining checks since we can't do that properly anyway. It is quite
-                 * possible that the user is using a setup similar to #30083. When we actually perform
-                 * hibernation in sleep.c we'll check everything again. */
+        if (IN_SET(r, -ENOSPC, -ESTALE) && bypass_space_check)
+                /* If we don't have any available swap space at all, or the specified resume device is missing,
+                 * and $SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK is set, skip all remaining checks since
+                 * we can't do that properly anyway. It is quite possible that the user is using a setup
+                 * similar to #30083. When we actually perform hibernation in sleep.c we'll check everything again. */
                 return 0;
         if (r < 0)
                 return r;
@@ -513,13 +521,17 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
         return 0;
 }
 
-void clear_efi_hibernate_location_and_warn(void) {
+int clear_efi_hibernate_location_and_warn(void) {
         int r;
 
         if (!is_efi_boot())
-                return;
+                return 0;
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
-                log_warning_errno(r, "Failed to clear EFI variable HibernateLocation, ignoring: %m");
+                return log_warning_errno(r, "Failed to clear HibernateLocation EFI variable: %m");
+
+        return 1;
 }

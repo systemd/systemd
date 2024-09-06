@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 
+#include "sd-varlink.h"
+
 #include "blockdev-util.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
@@ -22,7 +24,6 @@
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "utf8.h"
-#include "varlink.h"
 #include "varlink-io.systemd.BootControl.h"
 #include "verbs.h"
 #include "virt.h"
@@ -39,6 +40,7 @@ bool arg_print_esp_path = false;
 bool arg_print_dollar_boot_path = false;
 unsigned arg_print_root_device = 0;
 bool arg_touch_variables = true;
+bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
 bool arg_graceful = false;
 bool arg_quiet = false;
@@ -47,7 +49,7 @@ sd_id128_t arg_machine_id = SD_ID128_NULL;
 char *arg_install_layout = NULL;
 BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 char *arg_entry_token = NULL;
-JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 bool arg_arch_all = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
@@ -186,6 +188,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -RR                  Print path to the whole disk block device node\n"
                "                       backing the root FS (returns e.g. /dev/nvme0n1)\n"
                "     --no-variables    Don't touch EFI variables\n"
+               "     --random-seed=yes|no\n"
+               "                       Whether to create random-seed file during install\n"
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
@@ -222,6 +226,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INSTALL_SOURCE,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
+                ARG_RANDOM_SEED,
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
                 ARG_MAKE_ENTRY_DIRECTORY,
@@ -247,6 +252,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-boot-path",             no_argument,       NULL, 'x'                             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
                 { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
+                { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
                 { "quiet",                       no_argument,       NULL, 'q'                             },
@@ -332,6 +338,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_VARIABLES:
                         arg_touch_variables = false;
+                        break;
+
+                case ARG_RANDOM_SEED:
+                        r = parse_boolean_argument("--random-seed=", optarg, &arg_install_random_seed);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NO_PAGER:
@@ -421,7 +433,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
 
-        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0) {
@@ -474,19 +486,19 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-                r = varlink_server_bind_method_many(
+                r = sd_varlink_server_bind_method_many(
                                 varlink_server,
                                 "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                                 "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
@@ -494,7 +506,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
-                r = varlink_server_loop_auto(varlink_server);
+                r = sd_varlink_server_loop_auto(varlink_server);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run Varlink event loop: %m");
 

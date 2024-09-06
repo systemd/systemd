@@ -1,7 +1,0 @@
-[Unit]
-Description=TEST-77-OPENFILE server
-
-[Service]
-ExecStart=echo "Socket"
-StandardInput=socket
-StandardOutput=socket

@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-measure</refname>
-    <refpurpose>Pre-calculate and sign expected TPM2 PCR values for booted unified kernel images</refpurpose>
+    <refpurpose>Pre-calculate and sign expected TPM2 PCR 11 values for booted unified kernel images</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -62,7 +62,7 @@
         <term><command>status</command></term>
 
         <listitem><para>This is the default command if none is specified. This queries the local system's
-        TPM2 PCR 11+12+13 values and displays them. The data is written in a similar format as the
+        TPM2 PCR 11 values and displays them. The data is written in a similar format as the
         <command>calculate</command> command below, and may be used to quickly compare expectation with
         reality.</para>
 
@@ -75,10 +75,10 @@
         <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
-        <option>--splash=</option>, <option>--dtb=</option>, <option>--uname=</option>,
-        <option>--sbat=</option>, <option>--pcrpkey=</option> see below. Only <option>--linux=</option> is
-        mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
-        register 11 instead.)</para>
+        <option>--ucode=</option>, <option>--splash=</option>, <option>--dtb=</option>,
+        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option> see below.  Only
+        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
+        current values of PCR register 11 instead.)</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
@@ -118,6 +118,7 @@
         <term><option>--osrel=<replaceable>PATH</replaceable></option></term>
         <term><option>--cmdline=<replaceable>PATH</replaceable></option></term>
         <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
+        <term><option>--ucode=<replaceable>PATH</replaceable></option></term>
         <term><option>--splash=<replaceable>PATH</replaceable></option></term>
         <term><option>--dtb=<replaceable>PATH</replaceable></option></term>
         <term><option>--uname=<replaceable>PATH</replaceable></option></term>
@@ -194,7 +195,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
         chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
@@ -206,7 +207,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--phase=</option><replaceable>PHASE</replaceable></term>
+        <term><option>--phase=<replaceable>PHASE</replaceable></option></term>
 
         <listitem><para>Controls which boot phases to calculate expected PCR 11 values for. This takes a
         series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
@@ -232,7 +233,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--append=</option><replaceable>PATH</replaceable></term>
+        <term><option>--append=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>When generating a PCR JSON signature (via the <command>sign</command> command),
         combine it with a previously generated PCR JSON signature, and output it as one. The specified path

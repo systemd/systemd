@@ -2,9 +2,9 @@
 #pragma once
 
 #ifndef DRM_IOCTL_SET_MASTER
-#define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
+#  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
 
 #ifndef DRM_IOCTL_DROP_MASTER
-#define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
+#  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif

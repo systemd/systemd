@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 PCR Barrier (User)
+Description=TPM PCR Barrier (User)
 Documentation=man:systemd-pcrphase.service(8)
 After=remote-fs.target remote-cryptsetup.target tpm2.target
 Before=systemd-user-sessions.service

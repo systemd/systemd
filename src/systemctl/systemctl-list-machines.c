@@ -4,6 +4,7 @@
 
 #include "sd-login.h"
 
+#include "ansi-color.h"
 #include "bus-map-properties.h"
 #include "hostname-util.h"
 #include "locale-util.h"

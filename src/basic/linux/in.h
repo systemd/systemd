@@ -16,8 +16,8 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _UAPI_LINUX_IN_H
-#define _UAPI_LINUX_IN_H
+#ifndef _LINUX_IN_H
+#define _LINUX_IN_H
 
 #include <linux/types.h>
 #include <linux/stddef.h>
@@ -81,6 +81,8 @@ enum {
 #define IPPROTO_ETHERNET	IPPROTO_ETHERNET
   IPPROTO_RAW = 255,		/* Raw IP packets			*/
 #define IPPROTO_RAW		IPPROTO_RAW
+  IPPROTO_SMC = 256,		/* Shared Memory Communications		*/
+#define IPPROTO_SMC		IPPROTO_SMC
   IPPROTO_MPTCP = 262,		/* Multipath TCP connection		*/
 #define IPPROTO_MPTCP		IPPROTO_MPTCP
   IPPROTO_MAX
@@ -330,4 +332,4 @@ struct sockaddr_in {
 #include <asm/byteorder.h> 
 
 
-#endif /* _UAPI_LINUX_IN_H */
+#endif /* _LINUX_IN_H */

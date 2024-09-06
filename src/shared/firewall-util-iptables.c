@@ -1,19 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Temporary work-around for broken glibc vs. linux kernel header definitions
- * This is already fixed upstream, remove this when distributions have updated.
- */
-#define _NET_IF_H 1
-
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
-#include <net/if.h>
-#ifndef IFNAMSIZ
-#define IFNAMSIZ 16
-#endif
 #include <linux/if.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter/nf_nat.h>
@@ -28,13 +21,13 @@
 #include "macro.h"
 #include "socket-util.h"
 
-static DLSYM_FUNCTION(iptc_check_entry);
-static DLSYM_FUNCTION(iptc_commit);
-static DLSYM_FUNCTION(iptc_delete_entry);
-static DLSYM_FUNCTION(iptc_free);
-static DLSYM_FUNCTION(iptc_init);
-static DLSYM_FUNCTION(iptc_insert_entry);
-static DLSYM_FUNCTION(iptc_strerror);
+static DLSYM_PROTOTYPE(iptc_check_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_commit) = NULL;
+static DLSYM_PROTOTYPE(iptc_delete_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_free) = NULL;
+static DLSYM_PROTOTYPE(iptc_init) = NULL;
+static DLSYM_PROTOTYPE(iptc_insert_entry) = NULL;
+static DLSYM_PROTOTYPE(iptc_strerror) = NULL;
 
 static void *iptc_dl = NULL;
 
@@ -361,6 +354,11 @@ int fw_iptables_add_local_dnat(
 }
 
 static int dlopen_iptc(void) {
+        ELF_NOTE_DLOPEN("ip4tc",
+                        "Support for firewall rules with iptables backend",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libip4tc.so.2");
+
         return dlopen_many_sym_or_warn(
                         &iptc_dl,
                         "libip4tc.so.2", LOG_DEBUG,

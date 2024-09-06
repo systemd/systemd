@@ -3,7 +3,11 @@
 
 #include <sys/mount.h>
 
+#include "macro.h"
+
 /* dab741e0e02bd3c4f5e2e97be74b39df2523fc6e (5.10) */
 #ifndef MS_NOSYMFOLLOW
-#define MS_NOSYMFOLLOW 256
+#  define MS_NOSYMFOLLOW 256
+#else
+assert_cc(MS_NOSYMFOLLOW == 256);
 #endif

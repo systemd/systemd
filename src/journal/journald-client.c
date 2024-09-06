@@ -5,6 +5,7 @@
 #include "journald-client.h"
 #include "nulstr-util.h"
 #include "pcre2-util.h"
+#include "strv.h"
 
 /* This consumes both `allow_list` and `deny_list` arguments. Hence, those arguments are not owned by the
  * caller anymore and should not be freed. */

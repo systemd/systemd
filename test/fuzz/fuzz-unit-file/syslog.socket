@@ -11,7 +11,7 @@ socket
 [Unit]
 Description=Syslog Socket
 Documentation=man:systemd.special(7)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/syslog
+Documentation=https://systemd.io/SYSLOG
 DefaultDependencies=no
 Before=sockets.target
 
@@ -45,7 +45,7 @@ ReceiveBuffer=8M
 # [Install]
 # Alias=syslog.service
 #
-# See https://www.freedesktop.org/wiki/Software/systemd/syslog for details.
+# See https://systemd.io/SYSLOG for details.
 
 [Socket]
 ListenStream=1.2.3.4:1234
@@ -58,6 +58,7 @@ ListenMessageQueue=
 ListenUSBFunction=
 SocketProtocol=udplite
 SocketProtocol=sctp
+SocketProtocol=mptcp
 SocketProtocol=
 BindIPv6Only=false
 Backlog=33

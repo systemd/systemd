@@ -71,10 +71,10 @@ int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
 #if HAVE_LZ4
-DLSYM_PROTOTYPE(LZ4_compress_default);
-DLSYM_PROTOTYPE(LZ4_decompress_safe);
-DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
-DLSYM_PROTOTYPE(LZ4_versionNumber);
+extern DLSYM_PROTOTYPE(LZ4_compress_default);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
+extern DLSYM_PROTOTYPE(LZ4_versionNumber);
 
 int dlopen_lz4(void);
 #endif

@@ -139,7 +139,7 @@ static int device_wait_for_initialization_internal(
         }
 
         if (device) {
-                if (sd_device_get_is_initialized(device) > 0) {
+                if (device_is_processed(device) > 0) {
                         if (ret)
                                 *ret = sd_device_ref(device);
                         return 0;
@@ -202,7 +202,7 @@ static int device_wait_for_initialization_internal(
                 if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
                         return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
-        if (device && sd_device_get_is_initialized(device) > 0) {
+        if (device && device_is_processed(device) > 0) {
                 if (ret)
                         *ret = sd_device_ref(device);
                 return 0;
@@ -237,16 +237,27 @@ int device_is_renaming(sd_device *dev) {
         return r;
 }
 
-int device_is_processing(sd_device *dev) {
+int device_is_processed(sd_device *dev) {
         int r;
 
         assert(dev);
 
+        /* sd_device_get_is_initialized() only checks if the udev database file exists. However, even if the
+         * database file exist, systemd-udevd may be still processing the device, e.g. when the udev rules
+         * for the device have RUN tokens. See issue #30056. Hence, to check if the device is really
+         * processed by systemd-udevd, we also need to read ID_PROCESSING property. */
+
+        r = sd_device_get_is_initialized(dev);
+        if (r <= 0)
+                return r;
+
         r = device_get_property_bool(dev, "ID_PROCESSING");
         if (r == -ENOENT)
-                return false; /* defaults to false */
+                return true; /* If the property does not exist, then it means that the device is processed. */
+        if (r < 0)
+                return r;
 
-        return r;
+        return !r;
 }
 
 bool device_for_action(sd_device *dev, sd_device_action_t a) {

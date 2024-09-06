@@ -1,4 +1,3 @@
-
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
@@ -96,7 +95,7 @@ int open_file_to_string(const OpenFile *of, char **ret) {
         assert(of);
         assert(ret);
 
-        s = shell_escape(of->path, ":");
+        s = xescape(of->path, ":");
         if (!s)
                 return -ENOMEM;
 
@@ -122,19 +121,14 @@ int open_file_to_string(const OpenFile *of, char **ret) {
         return 0;
 }
 
-OpenFile *open_file_free(OpenFile *of) {
+OpenFile* open_file_free(OpenFile *of) {
         if (!of)
                 return NULL;
 
         free(of->path);
         free(of->fdname);
+
         return mfree(of);
-}
-
-void open_file_free_many(OpenFile **head) {
-        assert(head);
-
-        LIST_CLEAR(open_files, *head, open_file_free);
 }
 
 static const char * const open_file_flags_table[_OPENFILE_MAX] = {

@@ -28,7 +28,8 @@ int dns_server_new(
                 const union in_addr_union *in_addr,
                 uint16_t port,
                 int ifindex,
-                const char *server_name) {
+                const char *server_name,
+                ResolveConfigSource config_source) {
 
         _cleanup_free_ char *name = NULL;
         DnsServer *s;
@@ -67,6 +68,7 @@ int dns_server_new(
                 .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
+                .config_source = config_source,
         };
 
         dns_server_reset_features(s);
@@ -98,9 +100,7 @@ int dns_server_new(
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
-        if (type != DNS_SERVER_FALLBACK &&
-            m->current_dns_server &&
-            m->current_dns_server->type == DNS_SERVER_FALLBACK)
+        if (type != DNS_SERVER_FALLBACK && dns_server_is_fallback(m->current_dns_server))
                 manager_set_dns_server(m, NULL);
 
         if (ret)
@@ -672,7 +672,7 @@ uint16_t dns_server_port(const DnsServer *s) {
         return 53;
 }
 
-const char *dns_server_string(DnsServer *server) {
+const char* dns_server_string(DnsServer *server) {
         assert(server);
 
         if (!server->server_string)
@@ -681,7 +681,7 @@ const char *dns_server_string(DnsServer *server) {
         return server->server_string;
 }
 
-const char *dns_server_string_full(DnsServer *server) {
+const char* dns_server_string_full(DnsServer *server) {
         assert(server);
 
         if (!server->server_string_full)
@@ -703,9 +703,6 @@ bool dns_server_dnssec_supported(DnsServer *server) {
 
         if (dns_server_get_dnssec_mode(server) == DNSSEC_YES) /* If strict DNSSEC mode is enabled, always assume DNSSEC mode is supported. */
                 return true;
-
-        if (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(server->possible_feature_level))
-                return false;
 
         if (server->packet_bad_opt)
                 return false;
@@ -792,6 +789,17 @@ void dns_server_unlink_all(DnsServer *first) {
         dns_server_unlink(first);
 
         dns_server_unlink_all(next);
+}
+
+void dns_server_unlink_on_reload(DnsServer *server) {
+        while (server) {
+                DnsServer *next = server->servers_next;
+
+                if (server->config_source == RESOLVE_CONFIG_SOURCE_FILE)
+                        dns_server_unlink(server);
+
+                server = next;
+        }
 }
 
 bool dns_server_unlink_marked(DnsServer *server) {
@@ -899,7 +907,7 @@ DnsServer *manager_get_dns_server(Manager *m) {
                  * servers */
 
                 HASHMAP_FOREACH(l, m->links)
-                        if (l->dns_servers) {
+                        if (l->dns_servers && l->default_route) {
                                 found = true;
                                 break;
                         }
@@ -1096,27 +1104,27 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
 
-int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret) {
+int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
 
         assert(server);
         assert(ret);
 
-        return json_build(ret,
-                          JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
-                                        JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
-                                        JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
-                                        JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "InterfaceIndex", JSON_BUILD_UNSIGNED(server->link ? server->link->ifindex : 0)),
-                                        JSON_BUILD_PAIR_STRING("VerifiedFeatureLevel", strna(dns_server_feature_level_to_string(server->verified_feature_level))),
-                                        JSON_BUILD_PAIR_STRING("PossibleFeatureLevel", strna(dns_server_feature_level_to_string(server->possible_feature_level))),
-                                        JSON_BUILD_PAIR_STRING("DNSSECMode", strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(server)))),
-                                        JSON_BUILD_PAIR_BOOLEAN("DNSSECSupported", dns_server_dnssec_supported(server)),
-                                        JSON_BUILD_PAIR_UNSIGNED("ReceivedUDPFragmentMax", server->received_udp_fragment_max),
-                                        JSON_BUILD_PAIR_UNSIGNED("FailedUDPAttempts", server->n_failed_udp),
-                                        JSON_BUILD_PAIR_UNSIGNED("FailedTCPAttempts", server->n_failed_tcp),
-                                        JSON_BUILD_PAIR_BOOLEAN("PacketTruncated", server->packet_truncated),
-                                        JSON_BUILD_PAIR_BOOLEAN("PacketBadOpt", server->packet_bad_opt),
-                                        JSON_BUILD_PAIR_BOOLEAN("PacketRRSIGMissing", server->packet_rrsig_missing),
-                                        JSON_BUILD_PAIR_BOOLEAN("PacketInvalid", server->packet_invalid),
-                                        JSON_BUILD_PAIR_BOOLEAN("PacketDoOff", server->packet_do_off)));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
+                        SD_JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
+                        SD_JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", SD_JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
+                        SD_JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "InterfaceIndex", SD_JSON_BUILD_UNSIGNED(server->link ? server->link->ifindex : 0)),
+                        SD_JSON_BUILD_PAIR_STRING("VerifiedFeatureLevel", strna(dns_server_feature_level_to_string(server->verified_feature_level))),
+                        SD_JSON_BUILD_PAIR_STRING("PossibleFeatureLevel", strna(dns_server_feature_level_to_string(server->possible_feature_level))),
+                        SD_JSON_BUILD_PAIR_STRING("DNSSECMode", strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(server)))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DNSSECSupported", dns_server_dnssec_supported(server)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ReceivedUDPFragmentMax", server->received_udp_fragment_max),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("FailedUDPAttempts", server->n_failed_udp),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("FailedTCPAttempts", server->n_failed_tcp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PacketTruncated", server->packet_truncated),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PacketBadOpt", server->packet_bad_opt),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PacketRRSIGMissing", server->packet_rrsig_missing),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PacketInvalid", server->packet_invalid),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PacketDoOff", server->packet_do_off));
 }

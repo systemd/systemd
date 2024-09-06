@@ -1,6 +1,0 @@
-#!/bin/bash
-# SPDX-License-Identifier: LGPL-2.1-or-later
-set -e
-
-# shellcheck disable=SC2086
-mkosi-install $SYSTEMD_PACKAGES

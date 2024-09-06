@@ -41,12 +41,13 @@ DEFINE_STRNLEN(char16_t, strnlen16);
                 (_c >= 'A' && _c <= 'Z') ? _c + ('a' - 'A') : _c; \
         })
 
-#define DEFINE_STRTOLOWER(type, name)     \
-        void name(type *s) {              \
-                if (!s)                   \
-                        return;           \
-                for (; *s; s++)           \
-                        *s = TOLOWER(*s); \
+#define DEFINE_STRTOLOWER(type, name)                \
+        type* name(type *s) {                        \
+                if (!s)                              \
+                        return NULL;                 \
+                for (type *p = s; *p; p++)           \
+                        *p = TOLOWER(*p);            \
+                return s;                            \
         }
 
 DEFINE_STRTOLOWER(char, strtolower8);
@@ -212,7 +213,7 @@ char16_t *xstrn8_to_16(const char *str8, size_t n) {
         return str16;
 }
 
-char *startswith8(const char *s, const char *prefix) {
+char* startswith8(const char *s, const char *prefix) {
         size_t l;
 
         assert(prefix);
@@ -412,7 +413,7 @@ bool parse_boolean(const char *v, bool *ret) {
         return false;
 }
 
-char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value) {
+char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value) {
         char *line, *value;
         size_t linelen;
 
@@ -481,7 +482,7 @@ char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
 }
 
 char16_t *hexdump(const void *data, size_t size) {
-        static const char hex[16] = "0123456789abcdef";
+        static const char hex[] = "0123456789abcdef";
         const uint8_t *d = data;
 
         assert(data || size == 0);

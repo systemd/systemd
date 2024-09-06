@@ -34,6 +34,8 @@ static int format_fname(
 
         if (FLAGS_SET(flags, PICK_TRIES) || !filter->version) /* Underspecified? */
                 return -ENOEXEC;
+        if (strv_length(filter->suffix) > 1) /* suffix is not deterministic? */
+                return -ENOEXEC;
 
         /* The format for names we match goes like this:
          *
@@ -85,8 +87,9 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (filter->suffix && !strextend(&fn, filter->suffix))
-                return -ENOMEM;
+        if (!strv_isempty(filter->suffix))
+                if (!strextend(&fn, filter->suffix[0]))
+                        return -ENOMEM;
 
         if (!filename_is_valid(fn))
                 return -EINVAL;
@@ -141,8 +144,7 @@ static int pin_choice(
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(inode_path);
         assert(filter);
-
-        toplevel_path = strempty(toplevel_path);
+        assert(ret);
 
         if (inode_fd < 0 || FLAGS_SET(flags, PICK_RESOLVE)) {
                 r = chaseat(toplevel_fd,
@@ -181,11 +183,9 @@ static int pin_choice(
         if (!result.path)
                 return log_oom_debug();
 
-        if (filter->version) {
-                result.version = strdup(filter->version);
-                if (!result.version)
-                        return log_oom_debug();
-        }
+        r = strdup_to(&result.version, filter->version);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PICK_RESULT(result);
         return 1;
@@ -271,8 +271,7 @@ static int make_choice(
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(inode_path);
         assert(filter);
-
-        toplevel_path = strempty(toplevel_path);
+        assert(ret);
 
         if (inode_fd < 0) {
                 r = chaseat(toplevel_fd, inode_path, CHASE_AT_RESOLVE_IN_ROOT, NULL, &inode_fd);
@@ -291,13 +290,12 @@ static int make_choice(
                         return log_oom_debug();
 
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
-
+                if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
 
                 return pin_choice(
                                 toplevel_path,
@@ -354,8 +352,8 @@ static int make_choice(
                 } else
                         e = dname;
 
-                if (!isempty(filter->suffix)) {
-                        char *sfx = endswith(e, filter->suffix);
+                if (!strv_isempty(filter->suffix)) {
+                        char *sfx = endswith_strv(e, filter->suffix);
                         if (!sfx)
                                 continue;
 
@@ -486,22 +484,24 @@ static int make_choice(
                         ret);
 }
 
-int path_pick(const char *toplevel_path,
-              int toplevel_fd,
-              const char *path,
-              const PickFilter *filter,
-              PickFlags flags,
-              PickResult *ret) {
+int path_pick(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *path,
+                const PickFilter *filter,
+                PickFlags flags,
+                PickResult *ret) {
 
         _cleanup_free_ char *filter_bname = NULL, *dir = NULL, *parent = NULL, *fname = NULL;
-        const char *filter_suffix, *enumeration_path;
+        char * const *filter_suffix_strv = NULL;
+        const char *filter_suffix = NULL, *enumeration_path;
         uint32_t filter_type_mask;
         int r;
 
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(path);
-
-        toplevel_path = strempty(toplevel_path);
+        assert(filter);
+        assert(ret);
 
         /* Given a path, resolve .v/ subdir logic (if used!), and returns the choice made. This supports
          * three ways to be called:
@@ -550,14 +550,12 @@ int path_pick(const char *toplevel_path,
                 if (!filter_bname)
                         return -ENOMEM;
 
-                if (filter->suffix) {
-                        /* Chop off suffix, if specified */
-                        char *f = endswith(filter_bname, filter->suffix);
-                        if (f)
-                                *f = 0;
-                }
+                /* Chop off suffix, if specified */
+                char *f = endswith_strv(filter_bname, filter->suffix);
+                if (f)
+                        *f = 0;
 
-                filter_suffix = filter->suffix;
+                filter_suffix_strv = filter->suffix;
                 filter_type_mask = filter->type_mask;
 
                 enumeration_path = path;
@@ -617,7 +615,7 @@ int path_pick(const char *toplevel_path,
                                 .basename = filter_bname,
                                 .version = filter->version,
                                 .architecture = filter->architecture,
-                                .suffix = filter_suffix,
+                                .suffix = filter_suffix_strv ?: STRV_MAKE(filter_suffix),
                         },
                         flags,
                         ret);
@@ -647,6 +645,7 @@ int path_pick_update_warn(
 
         assert(path);
         assert(*path);
+        assert(filter);
 
         /* This updates the first argument if needed! */
 
@@ -658,7 +657,9 @@ int path_pick_update_warn(
                       &result);
         if (r == -ENOENT) {
                 log_debug("Path '%s' doesn't exist, leaving as is.", *path);
-                *ret_result = PICK_RESULT_NULL;
+
+                if (ret_result)
+                        *ret_result = PICK_RESULT_NULL;
                 return 0;
         }
         if (r < 0)
@@ -683,10 +684,16 @@ int path_pick_update_warn(
 const PickFilter pick_filter_image_raw = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
         .architecture = _ARCHITECTURE_INVALID,
-        .suffix = ".raw",
+        .suffix = STRV_MAKE(".raw"),
 };
 
 const PickFilter pick_filter_image_dir = {
         .type_mask = UINT32_C(1) << DT_DIR,
         .architecture = _ARCHITECTURE_INVALID,
+};
+
+const PickFilter pick_filter_image_any = {
+        .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_DIR),
+        .architecture = _ARCHITECTURE_INVALID,
+        .suffix = STRV_MAKE(".raw", ""),
 };

@@ -1,9 +1,0 @@
-The files in this directory are copied from kernel-6.2, and the following modifications are applied:
-- auto_dev-ioctl.h: set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
-- auto_dev-ioctl.h: define AUTOFS_IOCTL if not defined
-- auto_dev-ioctl.h: use of fake flexible array is fixed
-- bpf_insn.h: This is imported from samples/bpf/bpf_insn.h
-- bpf_insn.h: BPF_JMP_A() macro is also imported from include/linux/filter.h
-- dm-ioctl.h: set DM_VERSION_MINOR to 27
-- ethtool.h: define __KERNEL_DIV_ROUND_UP if not defined
-- ethtool.h: add casts in ethtool_cmd_speed()

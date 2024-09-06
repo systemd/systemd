@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Testsuite: Fail Stop (EXTEND_TIMEOUT_USEC Didn't occur in sufficient time after TimeoutStopSec.)
+
+[Service]
+# EXTEND_TIMEOUT_USEC on stop (0) and 7 seconds after. Systemd will expect one at 7+5 (extend_timeout_interval)
+# seconds this won't happen until 7 + 7 (sleep interval) seconds. Therefore timeout at 12 seconds.
+Type=notify
+TimeoutStartSec=4
+TimeoutStopSec=10
+RuntimeMaxSec=4
+Environment=SERVICE=fail_stop extend_timeout_interval=5 sleep_interval=7 start_intervals=0 run_intervals=0 stop_intervals=2
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-16-EXTEND-TIMEOUT.units/extend-timeout.sh
+# Due to 6041a7ee2c1bbff6301082f192fc1b0882400d42 SIGTERM isn't sent as the service shuts down with STOPPING=1
+# This file makes the test assess.sh quicker by notifing it that this test has finished.
+ExecStopPost=/bin/bash -c '[[ $SERVICE_RESULT == timeout && $EXIT_CODE == killed ]] && touch /fail_runtime.terminated'

@@ -158,11 +158,7 @@ static int process_locale_list_item(
                 if (new_locale[p])
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale variable %s set twice, refusing.", name);
 
-                new_locale[p] = strdup(e);
-                if (!new_locale[p])
-                        return -ENOMEM;
-
-                return 0;
+                return strdup_to(&new_locale[p], e);
         }
 
         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
@@ -626,6 +622,12 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
+static bool context_check_idle(void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        return hashmap_isempty(c->polkit_registry);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -666,7 +668,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
+        r = bus_event_loop_with_idle(
+                        event,
+                        bus,
+                        "org.freedesktop.locale1",
+                        DEFAULT_EXIT_USEC,
+                        context_check_idle,
+                        &context);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 

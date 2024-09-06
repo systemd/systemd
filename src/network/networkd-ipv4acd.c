@@ -13,10 +13,14 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_FULL(
         ipv4acd_hash_ops,
-        void, trivial_hash_func, trivial_compare_func,
-        sd_ipv4acd, sd_ipv4acd_unref);
+        Address,
+        address_hash_func,
+        address_compare_func,
+        address_unref,
+        sd_ipv4acd,
+        sd_ipv4acd_unref);
 
 bool link_ipv4acd_supported(Link *link) {
         assert(link);
@@ -71,7 +75,7 @@ bool ipv4acd_bound(Link *link, const Address *address) {
         if (address->family != AF_INET)
                 return true;
 
-        acd = hashmap_get(link->ipv4acd_by_address, IN4_ADDR_TO_PTR(&address->in_addr.in));
+        acd = hashmap_get(link->ipv4acd_by_address, address);
         if (!acd)
                 return true;
 
@@ -107,44 +111,42 @@ static int dhcp4_address_on_conflict(Link *link) {
         assert(link);
         assert(link->dhcp_client);
 
+        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict was detected.");
+
         r = sd_dhcp_client_send_decline(link->dhcp_client);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to send DHCP DECLINE, ignoring: %m");
 
         if (!link->dhcp_lease)
-                /* Unlikely, but during probing the address, the lease may be lost. */
                 return 0;
 
-        log_link_warning(link, "Dropping DHCPv4 lease, as an address conflict was detected.");
         r = dhcp4_lease_lost(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to drop DHCPv4 lease: %m");
 
-        /* It is not necessary to call address_remove() here, as dhcp4_lease_lost() removes it. */
+        /* It is not necessary to call address_remove() here, as dhcp4_lease_lost() removes the address. */
         return 0;
 }
 
 static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
         Address *address = NULL;
-        struct in_addr a;
         int r;
 
         assert(acd);
 
-        r = sd_ipv4acd_get_address(acd, &a);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to get address from IPv4ACD: %m");
-                link_enter_failed(link);
-        }
+        void *val, *key;
+        HASHMAP_FOREACH_KEY(val, key, link->ipv4acd_by_address)
+                if (val == acd) {
+                        (void) address_get(link, key, &address);
+                        break;
+                }
 
-        (void) link_get_ipv4_address(link, &a, 0, &address);
+        if (!address)
+                return;
 
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
-                if (!address)
-                        break;
-
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC) {
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ false);
                         if (r < 0)
@@ -156,14 +158,11 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 break;
 
         case SD_IPV4ACD_EVENT_BIND:
-                log_link_debug(link, "Successfully claimed address %s", IN4_ADDR_TO_STRING(&a));
+                log_link_debug(link, "Successfully claimed address %s", IN4_ADDR_TO_STRING(&address->in_addr.in));
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
-                if (!address)
-                        break;
-
-                log_link_warning(link, "Dropping address %s, as an address conflict was detected.", IN4_ADDR_TO_STRING(&a));
+                log_link_warning(link, "Dropping address %s, as an address conflict was detected.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC)
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ true);
@@ -207,6 +206,7 @@ static int ipv4acd_start_one(Link *link, sd_ipv4acd *acd) {
 
 int ipv4acd_configure(Link *link, const Address *address) {
         _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;
+        _cleanup_(address_unrefp) Address *a = NULL;
         sd_ipv4acd *existing;
         int r;
 
@@ -217,7 +217,7 @@ int ipv4acd_configure(Link *link, const Address *address) {
         if (address->family != AF_INET)
                 return 0;
 
-        existing = hashmap_get(link->ipv4acd_by_address, IN4_ADDR_TO_PTR(&address->in_addr.in));
+        existing = hashmap_get(link->ipv4acd_by_address, address);
 
         if (!address_ipv4acd_enabled(link, address))
                 return sd_ipv4acd_stop(existing);
@@ -226,6 +226,15 @@ int ipv4acd_configure(Link *link, const Address *address) {
                 return ipv4acd_start_one(link, existing);
 
         log_link_debug(link, "Configuring IPv4ACD for address %s.", IN4_ADDR_TO_STRING(&address->in_addr.in));
+
+        r = address_new(&a);
+        if (r < 0)
+                return r;
+
+        a->family = AF_INET;
+        a->in_addr = address->in_addr;
+        a->in_addr_peer = address->in_addr_peer;
+        a->prefixlen = address->prefixlen;
 
         r = sd_ipv4acd_new(&acd);
         if (r < 0)
@@ -255,11 +264,17 @@ int ipv4acd_configure(Link *link, const Address *address) {
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&link->ipv4acd_by_address, &ipv4acd_hash_ops, IN4_ADDR_TO_PTR(&address->in_addr.in), acd);
+        r = ipv4acd_start_one(link, acd);
         if (r < 0)
                 return r;
 
-        return ipv4acd_start_one(link, TAKE_PTR(acd));
+        r = hashmap_ensure_put(&link->ipv4acd_by_address, &ipv4acd_hash_ops, a, acd);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(a);
+        TAKE_PTR(acd);
+        return 0;
 }
 
 void ipv4acd_detach(Link *link, const Address *address) {
@@ -269,7 +284,9 @@ void ipv4acd_detach(Link *link, const Address *address) {
         if (address->family != AF_INET)
                 return;
 
-        sd_ipv4acd_unref(hashmap_remove(link->ipv4acd_by_address, IN4_ADDR_TO_PTR(&address->in_addr.in)));
+        Address *a;
+        sd_ipv4acd_unref(hashmap_remove2(link->ipv4acd_by_address, address, (void**) &a));
+        address_unref(a);
 }
 
 int ipv4acd_update_mac(Link *link) {

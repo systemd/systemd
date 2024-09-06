@@ -93,19 +93,18 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
-                const void *linux_buffer,
-                size_t linux_length,
-                const void *initrd_buffer,
-                size_t initrd_length) {
+                const struct iovec *kernel,
+                const struct iovec *initrd) {
 
+        size_t kernel_size_in_memory = 0;
         uint32_t compat_address;
         EFI_STATUS err;
 
         assert(parent);
-        assert(linux_buffer && linux_length > 0);
-        assert(initrd_buffer || initrd_length == 0);
+        assert(iovec_is_set(kernel));
+        assert(iovec_is_valid(initrd));
 
-        err = pe_kernel_info(linux_buffer, &compat_address);
+        err = pe_kernel_info(kernel->iov_base, &compat_address, &kernel_size_in_memory);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -113,16 +112,15 @@ EFI_STATUS linux_exec(
                 return linux_exec_efi_handover(
                                 parent,
                                 cmdline,
-                                linux_buffer,
-                                linux_length,
-                                initrd_buffer,
-                                initrd_length);
+                                kernel,
+                                initrd,
+                                kernel_size_in_memory);
 #endif
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_image(parent, linux_buffer, linux_length, &kernel_image);
+        err = load_image(parent, kernel->iov_base, kernel->iov_len, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading kernel image: %m");
 
@@ -138,7 +136,7 @@ EFI_STATUS linux_exec(
         }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
+        err = initrd_register(initrd->iov_base, initrd->iov_len, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 

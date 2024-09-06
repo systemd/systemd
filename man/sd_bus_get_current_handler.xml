@@ -79,7 +79,7 @@
     <para><function>sd_bus_get_current_handler()</function>,
     <function>sd_bus_get_current_message()</function>,
     <function>sd_bus_get_current_slot()</function>, and
-    <function>sd_bus_get_current_userdata()</function> were added in version 246.</para>
+    <function>sd_bus_get_current_userdata()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

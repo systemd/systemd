@@ -27,6 +27,17 @@ static ICMP6Packet* icmp6_packet_new(size_t size) {
         return p;
 }
 
+int icmp6_packet_set_sender_address(ICMP6Packet *p, const struct in6_addr *addr) {
+        assert(p);
+
+        if (addr)
+                p->sender_address = *addr;
+        else
+                p->sender_address = (const struct in6_addr) {};
+
+        return 0;
+}
+
 int icmp6_packet_get_sender_address(ICMP6Packet *p, struct in6_addr *ret) {
         assert(p);
 
@@ -52,7 +63,7 @@ int icmp6_packet_get_timestamp(ICMP6Packet *p, clockid_t clock, usec_t *ret) {
         return 0;
 }
 
-static const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
+const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
         assert(p);
 
         if (p->raw_size < sizeof(struct icmp6_hdr))
@@ -77,6 +88,11 @@ static int icmp6_packet_verify(ICMP6Packet *p) {
         if (hdr->icmp6_code != 0)
                 return -EBADMSG;
 
+        /* Drop any overly large packets early. We are not interested in jumbograms,
+         * which could cause excessive processing. */
+        if (p->raw_size > ICMP6_MAX_NORMAL_PAYLOAD_SIZE)
+                return -EMSGSIZE;
+
         return 0;
 }
 
@@ -97,20 +113,14 @@ int icmp6_packet_receive(int fd, ICMP6Packet **ret) {
                 return -ENOMEM;
 
         r = icmp6_receive(fd, p->raw_packet, p->raw_size, &p->sender_address, &p->timestamp);
+        if (r == -EADDRNOTAVAIL)
+                return log_debug_errno(r, "ICMPv6: Received a packet from neither link-local nor null address.");
+        if (r == -EMULTIHOP)
+                return log_debug_errno(r, "ICMPv6: Received a packet with an invalid hop limit.");
+        if (r == -EPFNOSUPPORT)
+                return log_debug_errno(r, "ICMPv6: Received a packet with an invalid source address.");
         if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        return log_debug_errno(r, "ICMPv6: Received a packet from neither link-local nor null address.");
-
-                case -EMULTIHOP:
-                        return log_debug_errno(r, "ICMPv6: Received a packet with an invalid hop limit.");
-
-                case -EPFNOSUPPORT:
-                        return log_debug_errno(r, "ICMPv6: Received a packet with an invalid source address.");
-
-                default:
-                        return log_debug_errno(r, "ICMPv6: Unexpected error while receiving a packet: %m");
-                }
+                return log_debug_errno(r, "ICMPv6: Unexpected error while receiving a packet: %m");
 
         r = icmp6_packet_verify(p);
         if (r < 0)

@@ -40,7 +40,7 @@ static void *fake_pressure_thread(void *p) {
         assert_se(cfd >= 0);
         char buf[STRLEN("hello")+1] = {};
         assert_se(read(cfd, buf, sizeof(buf)-1) == sizeof(buf)-1);
-        assert_se(streq(buf, "hello"));
+        ASSERT_STREQ(buf, "hello");
         assert_se(write(cfd, &(const char) { 'z' }, 1) == 1);
 
         return 0;

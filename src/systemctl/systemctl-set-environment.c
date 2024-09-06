@@ -8,8 +8,8 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *text;
         int r;
 
@@ -31,7 +31,7 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
 
                 sep++;
 
-                r = json_variant_set_field_string(&v, n, sep);
+                r = sd_json_variant_set_field_string(&v, n, sep);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set JSON field '%s' to '%s': %m", n, sep);
         }
@@ -81,13 +81,13 @@ int verb_show_environment(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 r = json_transform_message(reply, &v);
                 if (r < 0)
                         return r;
 
-                json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+                sd_json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, NULL);
         } else {
                 while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
                         r = print_variable(text);

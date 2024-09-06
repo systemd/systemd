@@ -101,6 +101,7 @@ static int session_watch_pidfd(Session *s) {
         assert(s);
         assert(s->manager);
         assert(pidref_is_set(&s->leader));
+        assert(!s->leader_pidfd_event_source);
 
         if (s->leader.fd < 0)
                 return 0;
@@ -146,8 +147,10 @@ Session* session_free(Session *s) {
 
         sd_event_source_unref(s->stop_on_idle_event_source);
 
-        if (s->in_gc_queue)
+        if (s->in_gc_queue) {
+                assert(s->manager);
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
+        }
 
         sd_event_source_unref(s->timer_event_source);
 
@@ -742,18 +745,19 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         s->manager,
                         scope,
                         &s->leader,
+                        /* allow_pidfd = */ true,
                         s->user->slice,
                         description,
                         /* These should have been pulled in explicitly in user_start(). Just to be sure. */
-                        STRV_MAKE_CONST(s->user->runtime_dir_unit,
-                                        SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
+                        /* requires = */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
+                        /* wants = */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
                         /* We usually want to order session scopes after systemd-user-sessions.service
                          * since the unit is used as login session barrier for unprivileged users. However
                          * the barrier doesn't apply for root as sysadmin should always be able to log in
                          * (and without waiting for any timeout to expire) in case something goes wrong
                          * during the boot process. */
-                        STRV_MAKE_CONST("systemd-logind.service",
-                                        SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
+                        /* extra_after = */ STRV_MAKE_CONST("systemd-logind.service",
+                                                            SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
                         user_record_home_directory(s->user->user_record),
                         properties,
                         error,
@@ -1380,13 +1384,13 @@ SessionState session_get_state(Session *s) {
         return SESSION_ONLINE;
 }
 
-int session_kill(Session *s, KillWho who, int signo) {
+int session_kill(Session *s, KillWhom whom, int signo) {
         assert(s);
 
         if (!s->scope)
                 return -ESRCH;
 
-        return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
+        return manager_kill_unit(s->manager, s->scope, whom, signo, NULL);
 }
 
 static int session_open_vt(Session *s, bool reopen) {
@@ -1661,12 +1665,12 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
 
-static const char* const kill_who_table[_KILL_WHO_MAX] = {
+static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_LEADER] = "leader",
         [KILL_ALL]    = "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
 
 static const char* const tty_validity_table[_TTY_VALIDITY_MAX] = {
         [TTY_FROM_PAM]          = "from-pam",

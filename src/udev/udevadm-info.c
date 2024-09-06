@@ -10,8 +10,10 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -21,7 +23,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "glyph-util.h"
-#include "json.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "sort-util.h"
@@ -56,7 +57,7 @@ static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 PagerFlags arg_pager_flags = 0;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
@@ -96,6 +97,9 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
         int r;
 
         assert(device);
+
+        if (is_parent)
+                puts("");
 
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
@@ -149,10 +153,8 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
 
         typesafe_qsort(sysattrs, n_items, sysattr_compare);
 
-        for (size_t i = 0; i < n_items; i++)
-                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", sysattrs[i].name, sysattrs[i].value);
-
-        puts("");
+        FOREACH_ARRAY(i, sysattrs, n_items)
+                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", i->name, i->value);
 
         return 0;
 }
@@ -171,12 +173,113 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        r = print_all_attributes(device, false);
+        r = print_all_attributes(device, /* is_parent = */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes(parent, true);
+                r = print_all_attributes(parent, /* is_parent = */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int print_all_attributes_in_json(sd_device *device, bool is_parent) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_free_ SysAttr *sysattrs = NULL;
+        const char *value;
+        size_t n_items = 0;
+        int r;
+
+        assert(device);
+
+        value = NULL;
+        (void) sd_device_get_devpath(device, &value);
+        r = sd_json_variant_set_field_string(&v, "DEVPATH", value);
+        if (r < 0)
+                return r;
+
+        value = NULL;
+        (void) sd_device_get_sysname(device, &value);
+        r = sd_json_variant_set_field_string(&v, is_parent ? "KERNELS" : "KERNEL", value);
+        if (r < 0)
+                return r;
+
+        value = NULL;
+        (void) sd_device_get_subsystem(device, &value);
+        r = sd_json_variant_set_field_string(&v, is_parent ? "SUBSYSTEMS" : "SUBSYSTEM", value);
+        if (r < 0)
+                return r;
+
+        value = NULL;
+        (void) sd_device_get_driver(device, &value);
+        r = sd_json_variant_set_field_string(&v, is_parent ? "DRIVERS" : "DRIVER", value);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_SYSATTR(device, name) {
+                size_t len;
+
+                if (skip_attribute(name))
+                        continue;
+
+                r = sd_device_get_sysattr_value(device, name, &value);
+                if (r >= 0) {
+                        /* skip any values that look like a path */
+                        if (value[0] == '/')
+                                continue;
+
+                        /* skip nonprintable attributes */
+                        len = strlen(value);
+                        while (len > 0 && isprint((unsigned char) value[len-1]))
+                                len--;
+                        if (len > 0)
+                                continue;
+
+                } else if (ERRNO_IS_PRIVILEGE(r))
+                        value = "(not readable)";
+                else
+                        continue;
+
+                if (!GREEDY_REALLOC(sysattrs, n_items + 1))
+                        return log_oom();
+
+                sysattrs[n_items] = (SysAttr) {
+                        .name = name,
+                        .value = value,
+                };
+                n_items++;
+        }
+
+        typesafe_qsort(sysattrs, n_items, sysattr_compare);
+
+        FOREACH_ARRAY(i, sysattrs, n_items) {
+                r = sd_json_variant_set_field_string(&w, i->name, i->value);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_json_variant_set_field(&v, is_parent ? "ATTRS" : "ATTR", w);
+        if (r < 0)
+                return r;
+
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+}
+
+static int print_device_chain_in_json(sd_device *device) {
+        sd_device *child, *parent;
+        int r;
+
+        assert(device);
+
+        r = print_all_attributes_in_json(device, /* is_parent = */ false);
+        if (r < 0)
+                return r;
+
+        for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
+                r = print_all_attributes_in_json(parent, /* is_parent = */ true);
                 if (r < 0)
                         return r;
         }
@@ -220,8 +323,14 @@ static int print_record(sd_device *device, const char *prefix) {
         if (sd_device_get_sysnum(device, &str) >= 0)
                 printf("%sR: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
 
+        if (sd_device_get_device_id(device, &str) >= 0)
+                printf("%sJ: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+
         if (sd_device_get_subsystem(device, &subsys) >= 0)
                 printf("%sU: %s%s%s\n", prefix, ansi_highlight_green(), subsys, ansi_normal());
+
+        if (sd_device_get_driver_subsystem(device, &str) >= 0)
+                printf("%sB: %s%s%s\n", prefix, ansi_highlight_green(), str, ansi_normal());
 
         if (sd_device_get_devtype(device, &str) >= 0)
                 printf("%sT: %s%s%s\n", prefix, ansi_highlight_green(), str, ansi_normal());
@@ -265,31 +374,44 @@ static int print_record(sd_device *device, const char *prefix) {
         return 0;
 }
 
-static int record_to_json(sd_device *device, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int record_to_json(sd_device *device, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const char *str;
         int r;
 
         assert(device);
         assert(ret);
 
-        /* We don't show any shorthand fields here as done in print_record() except for SYSNAME and SYSNUM as
-         * all the other ones have a matching property which will already be included. */
+        /* We don't show any shorthand fields here as done in print_record() except for SYSNAME, SYSNUM,
+         * DRIVER_SUBSYSTEM, and DEVICE_ID, as all the other ones have a matching property which will already
+         * be included. */
 
         if (sd_device_get_sysname(device, &str) >= 0) {
-                r = json_variant_set_field_string(&v, "SYSNAME", str);
+                r = sd_json_variant_set_field_string(&v, "SYSNAME", str);
                 if (r < 0)
                         return r;
         }
 
         if (sd_device_get_sysnum(device, &str) >= 0) {
-                r = json_variant_set_field_string(&v, "SYSNUM", str);
+                r = sd_json_variant_set_field_string(&v, "SYSNUM", str);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_driver_subsystem(device, &str) >= 0) {
+                r = sd_json_variant_set_field_string(&v, "DRIVER_SUBSYSTEM", str);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_device_id(device, &str) >= 0) {
+                r = sd_json_variant_set_field_string(&v, "DEVICE_ID", str);
                 if (r < 0)
                         return r;
         }
 
         FOREACH_DEVICE_PROPERTY(device, key, val) {
-                r = json_variant_set_field_string(&v, key, val);
+                r = sd_json_variant_set_field_string(&v, key, val);
                 if (r < 0)
                         return r;
         }
@@ -331,16 +453,16 @@ static int export_devices(sd_device_enumerator *e) {
         pager_open(arg_pager_flags);
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         (void) print_record(d, NULL);
                 else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(d, &v);
                         if (r < 0)
                                 return r;
 
-                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
                 }
 
         return 0;
@@ -507,16 +629,16 @@ static int query_device(QueryType query, sd_device* device) {
                 return 0;
 
         case QUERY_ALL:
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
                         return print_record(device, NULL);
                 else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(device, &v);
                         if (r < 0)
                                 return r;
 
-                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                        (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
                 }
 
                 return 0;
@@ -1106,9 +1228,12 @@ int info_main(int argc, char *argv[], void *userdata) {
 
                 if (action == ACTION_QUERY)
                         r = query_device(query, device);
-                else if (action == ACTION_ATTRIBUTE_WALK)
-                        r = print_device_chain(device);
-                else if (action == ACTION_TREE)
+                else if (action == ACTION_ATTRIBUTE_WALK) {
+                        if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
+                                r = print_device_chain(device);
+                        else
+                                r = print_device_chain_in_json(device);
+                } else if (action == ACTION_TREE)
                         r = print_tree(device);
                 else
                         assert_not_reached();

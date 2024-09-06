@@ -1,0 +1,35 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
+DEPS=""
+
+for PACKAGE in "${PACKAGES[@]}"; do
+    DEPS="$DEPS $(
+        pacman --sync --info "$PACKAGE" |
+            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
+            sed --quiet 's/^Depends On *: //p' # Filter out everything except "Depends On:" line and fetch dependencies from it.
+    )"
+
+    DEPS="$DEPS $(
+        pacman --sync --info "$PACKAGE" |
+            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
+            sed --quiet '/Optional Deps/,/Conflicts With/{/Conflicts With/!p}' | # Get every line from "Optional Deps" (inclusive) until "Conflicts With" (exclusive).
+            sed 's/Optional Deps *: //' | # Drop "Optional Deps :" from first line.
+            sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
+            tr '\n' ' ' # Transform newlines to whitespace.
+    )"
+done
+
+echo "$DEPS" |
+    xargs | # Remove extra whitespace.
+    tr ' ' '\n' |
+    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp None | # systemd packages will be installed later on.
+    sort --unique |
+    xargs --delimiter '\n' --no-run-if-empty mkosi-install

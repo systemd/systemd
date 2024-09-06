@@ -41,7 +41,12 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-#define COPY_BUFFER_SIZE (16U*1024U)
+/* If we copy via a userspace buffer, size it to 64K */
+#define COPY_BUFFER_SIZE (64U*U64_KB)
+
+/* If a byte progress function is specified during copying, never try to copy more than 1M, so that we can
+ * reasonably call the progress function still */
+#define PROGRESS_STEP_SIZE (1U*U64_MB)
 
 /* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
  * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
@@ -162,9 +167,9 @@ int copy_bytes_full(
                 void *userdata) {
 
         _cleanup_close_ int fdf_opened = -EBADF, fdt_opened = -EBADF;
-        bool try_cfr = true, try_sendfile = true, try_splice = true, copied_something = false;
+        bool try_cfr = true, try_sendfile = true, try_splice = true;
+        uint64_t copied_total = 0;
         int r, nonblock_pipe = -1;
-        size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -264,6 +269,7 @@ int copy_bytes_full(
 
         for (;;) {
                 ssize_t n;
+                size_t m;
 
                 if (max_bytes <= 0)
                         break;
@@ -272,8 +278,19 @@ int copy_bytes_full(
                 if (r < 0)
                         return r;
 
+                /* sendfile() accepts at most SSIZE_MAX-offset bytes to copy, hence let's subtract how much
+                 * copied so far from SSIZE_MAX as maximum of what we want to copy. */
+                if (try_sendfile) {
+                        assert(copied_total < SSIZE_MAX);
+                        m = (uint64_t) SSIZE_MAX - copied_total;
+                } else
+                        m = SSIZE_MAX;
+
                 if (max_bytes != UINT64_MAX && m > max_bytes)
                         m = max_bytes;
+
+                if (progress && m > PROGRESS_STEP_SIZE)
+                        m = PROGRESS_STEP_SIZE;
 
                 if (copy_flags & COPY_HOLES) {
                         off_t c, e;
@@ -335,14 +352,14 @@ int copy_bytes_full(
                 if (try_cfr) {
                         n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
                         if (n < 0) {
-                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF))
+                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF, -EOPNOTSUPP))
                                         return n;
 
                                 try_cfr = false;
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 /* So, we hit EOF immediately, without having copied a single byte. This
@@ -369,7 +386,7 @@ int copy_bytes_full(
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 try_sendfile = try_splice = false; /* same logic as above for copy_file_range() */
@@ -432,7 +449,7 @@ int copy_bytes_full(
                                 /* use fallback below */
                         } else if (n == 0) { /* likely EOF */
 
-                                if (copied_something)
+                                if (copied_total > 0)
                                         break;
 
                                 try_splice = false; /* same logic as above for copy_file_range() + sendfile() */
@@ -483,6 +500,12 @@ int copy_bytes_full(
                 }
 
         next:
+                copied_total += n;
+
+                /* Disable sendfile() in case we are getting too close to it's SSIZE_MAX-offset limit */
+                if (copied_total > SSIZE_MAX - COPY_BUFFER_SIZE)
+                        try_sendfile = false;
+
                 if (progress) {
                         r = progress(n, userdata);
                         if (r < 0)
@@ -493,13 +516,6 @@ int copy_bytes_full(
                         assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
-
-                /* sendfile accepts at most SSIZE_MAX-offset bytes to copy, so reduce our maximum by the
-                 * amount we already copied, but don't go below our copy buffer size, unless we are close the
-                 * limit of bytes we are allowed to copy. */
-                m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
-
-                copied_something = true;
         }
 
         if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
@@ -749,6 +765,35 @@ static int memorize_hardlink(
         return 1;
 }
 
+static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_mask, unsigned *chattr_flags) {
+        unsigned attrs = 0;
+        int r;
+
+        assert(fdf >= 0 || fdf == AT_FDCWD);
+        assert(fdt >= 0);
+        assert(!!chattr_mask == !!chattr_flags);
+
+        /* If caller explicitly requested NOCOW to be set or unset, let's not interfere. */
+        if (chattr_mask && FLAGS_SET(*chattr_mask, FS_NOCOW_FL))
+                return 0;
+
+        r = read_attr_at(fdf, from, &attrs);
+        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ELOOP) /* If the source is a symlink we get ELOOP */
+                return r;
+
+        if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
+                if (chattr_mask && chattr_flags) {
+                        *chattr_mask |= FS_NOCOW_FL;
+                        *chattr_flags |= FS_NOCOW_FL;
+                } else
+                        /* If the NOCOW flag is set on the source, make the copy NOCOW as well. If the source
+                         * is not NOCOW, don't do anything in particular with the copy. */
+                        (void) chattr_fd(fdt, FS_NOCOW_FL, FS_NOCOW_FL, /*previous=*/ NULL);
+        }
+
+        return 0;
+}
+
 static int fd_copy_tree_generic(
                 int df,
                 const char *from,
@@ -807,6 +852,10 @@ static int fd_copy_regular(
                 mac_selinux_create_file_clear();
         if (fdt < 0)
                 return -errno;
+
+        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, /*chattr_mask=*/ NULL, /*chattr_flags=*/ NULL);
+        if (r < 0)
+                return r;
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
         if (r < 0)
@@ -982,6 +1031,7 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         _cleanup_closedir_ DIR *d = NULL;
+        struct stat dt_st;
         bool exists;
         int r;
 
@@ -1025,6 +1075,9 @@ static int fd_copy_directory(
                                 LOCK_EX);
         if (fdt < 0)
                 return fdt;
+
+        if (exists && FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS) && fstat(fdt, &dt_st) < 0)
+                return -errno;
 
         r = 0;
 
@@ -1125,7 +1178,9 @@ finish:
 
                 (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
-        }
+        } else if (FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS))
+                /* If the directory already exists, make sure the timestamps stay the same as before. */
+                (void) futimens(fdt, (struct timespec[]) { dt_st.st_atim, dt_st.st_mtim });
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 if (fsync(fdt) < 0)
@@ -1430,6 +1485,10 @@ int copy_file_at_full(
                         goto fail;
         }
 
+        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
+        if (r < 0)
+                return r;
+
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
@@ -1446,8 +1505,9 @@ int copy_file_at_full(
                         goto fail;
         }
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
+        unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
+        if ((chattr_mask | nocow) != 0)
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
 
         if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
                 if (fsync(fdt) < 0) {
@@ -1508,6 +1568,10 @@ int copy_file_atomic_at_full(
         if (fdt < 0)
                 return fdt;
 
+        r = prepare_nocow(dir_fdf, from, fdt, &chattr_mask, &chattr_flags);
+        if (r < 0)
+                return r;
+
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
@@ -1530,8 +1594,9 @@ int copy_file_atomic_at_full(
 
         t = mfree(t);
 
-        if (chattr_mask != 0)
-                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
+        unsigned nocow = FLAGS_SET(copy_flags, COPY_NOCOW_AFTER) ? FS_NOCOW_FL : 0;
+        if ((chattr_mask | nocow) != 0)
+                (void) chattr_fd(fdt, chattr_flags | nocow, (chattr_mask & ~CHATTR_EARLY_FL) | nocow, NULL);
 
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)

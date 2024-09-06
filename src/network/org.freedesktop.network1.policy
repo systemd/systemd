@@ -184,7 +184,7 @@
         </action>
 
         <action id="org.freedesktop.network1.set-persistent-storage">
-                <description gettext-domain="systemd">Specify whether persistent storage for systemd-networkd is available.</description>
+                <description gettext-domain="systemd">Specify whether persistent storage for systemd-networkd is available</description>
                 <message gettext-domain="systemd">Authentication is required to specify whether persistent storage for systemd-networkd is available.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>

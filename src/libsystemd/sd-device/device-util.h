@@ -100,7 +100,7 @@ static inline int devname_from_stat_rdev(const struct stat *st, char **ret) {
         assert(st);
         return devname_from_devnum(st->st_mode, st->st_rdev, ret);
 }
-int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret);
+int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname);
 
 char** device_make_log_fields(sd_device *device);
 

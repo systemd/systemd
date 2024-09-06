@@ -683,15 +683,21 @@ static int client_initialize(sd_dhcp_client *client) {
 
 static void client_stop(sd_dhcp_client *client, int error) {
         assert(client);
+        DHCP_CLIENT_DONT_DESTROY(client);
 
-        if (error < 0)
-                log_dhcp_client_errno(client, error, "STOPPED: %m");
-        else if (error == SD_DHCP_CLIENT_EVENT_STOP)
-                log_dhcp_client(client, "STOPPED");
-        else
-                log_dhcp_client(client, "STOPPED: Unknown event");
+        if (sd_dhcp_client_is_running(client)) {
+                if (error < 0)
+                        log_dhcp_client_errno(client, error, "STOPPED: %m");
+                else if (error == SD_DHCP_CLIENT_EVENT_STOP)
+                        log_dhcp_client(client, "STOPPED");
+                else
+                        log_dhcp_client(client, "STOPPED: Unknown event");
 
-        client_notify(client, error);
+                client_notify(client, error);
+        } else if (error < 0) {
+                log_dhcp_client_errno(client, error, "FAILED: %m");
+                client_notify(client, error);
+        }
 
         client_initialize(client);
 }
@@ -2132,14 +2138,8 @@ static int client_receive_message_raw(
 }
 
 int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->fd >= 0, -EINVAL);
-
-        if (client->state != DHCP_STATE_BOUND)
-                return 0;
-
-        assert(client->lease);
+        if (!sd_dhcp_client_is_running(client) || client->state != DHCP_STATE_BOUND)
+                return 0; /* do nothing */
 
         client->start_delay = 0;
         client->discover_attempt = 1;
@@ -2193,13 +2193,12 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_send_release(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->lease, -EUNATCH);
-
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;
         int r;
+
+        if (!sd_dhcp_client_is_running(client) || !client->lease)
+                return 0; /* do nothing */
 
         r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
         if (r < 0)
@@ -2224,17 +2223,20 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "RELEASE");
 
-        return 0;
+        /* This function is mostly called when stopping daemon. Hence, do not call client_stop() or
+         * client_restart(). Otherwise, the notification callback will be called again and we may easily
+         * enter an infinite loop. */
+        client_initialize(client);
+        return 1; /* sent and stopped. */
 }
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->lease, -EUNATCH);
-
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;
         int r;
+
+        if (!sd_dhcp_client_is_running(client) || !client->lease)
+                return 0; /* do nothing */
 
         r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
         if (r < 0)
@@ -2258,15 +2260,13 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "DECLINE");
 
-        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+        /* This function is mostly called when the acquired address conflicts with another host.
+         * Restarting the daemon to acquire another address. */
+        r = client_restart(client);
+        if (r < 0)
+                return r;
 
-        if (client->state != DHCP_STATE_STOPPED) {
-                r = sd_dhcp_client_start(client);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return 1; /* sent and restarted. */
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {

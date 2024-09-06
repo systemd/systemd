@@ -633,7 +633,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         s = *p;
 
         /* accept any number of digits, strtoull is limited to 19 */
-        for (size_t i = 0; i < digits; i++,s++) {
+        for (size_t i = 0; i < digits; i++, s++) {
                 if (!ascii_isdigit(*s)) {
                         if (i == 0)
                                 return -EINVAL;
@@ -710,22 +710,6 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow
 
         *low = l;
         *high = h;
-
-        return 0;
-}
-
-int parse_ip_prefix_length(const char *s, int *ret) {
-        unsigned l;
-        int r;
-
-        r = safe_atou(s, &l);
-        if (r < 0)
-                return r;
-
-        if (l > 128)
-                return -ERANGE;
-
-        *ret = (int) l;
 
         return 0;
 }

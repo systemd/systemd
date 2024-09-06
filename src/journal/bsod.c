@@ -20,7 +20,6 @@
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
@@ -75,12 +74,12 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add boot ID filter: %m");
 
-        r = sd_journal_add_match(j, "_UID=0", 0);
+        r = sd_journal_add_match(j, "_UID=0", SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add User ID filter: %m");
 
         assert_cc(0 == LOG_EMERG);
-        r = sd_journal_add_match(j, "PRIORITY=0", 0);
+        r = sd_journal_add_match(j, "PRIORITY=0", SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Emergency filter: %m");
 
@@ -185,7 +184,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
 
-        r = set_terminal_cursor_position(fd, 2, 4);
+        r = terminal_set_cursor_position(fd, 2, 4);
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
@@ -197,7 +196,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         qr_code_start_row = w.ws_row * 3U / 5U;
         qr_code_start_column = w.ws_col * 3U / 4U;
-        r = set_terminal_cursor_position(fd, 4, 4);
+        r = terminal_set_cursor_position(fd, 4, 4);
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
@@ -217,7 +216,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "QR code could not be printed, ignoring: %m");
 
-        r = set_terminal_cursor_position(fd, w.ws_row - 1, w.ws_col * 2U / 5U);
+        r = terminal_set_cursor_position(fd, w.ws_row - 1, w.ws_col * 2U / 5U);
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
@@ -305,14 +304,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ char *message = NULL;
         int r;
 
-        log_open();
-        log_parse_environment();
-
-        sigbus_install();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        journal_browse_prepare();
 
         r = acquire_first_emergency_log_message(&message);
         if (r < 0)

@@ -315,7 +315,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=</option><replaceable>MODE</replaceable></term>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> or <command>get-property</command> command, shows output
@@ -341,7 +341,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--expect-reply=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--expect-reply=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> command,
@@ -361,7 +361,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--auto-start=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--auto-start=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> or <command>emit</command> command, specifies
@@ -375,7 +375,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--allow-interactive-authorization=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--allow-interactive-authorization=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> command,
@@ -389,25 +389,38 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
+        <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
 
         <listitem>
-          <para>When used with the <command>call</command> command,
-          specifies the maximum time to wait for method call
-          completion. If no time unit is specified, assumes
-          seconds. The usual other units are understood, too (ms, us,
-          s, min, h, d, w, month, y). Note that this timeout does not
-          apply if <option>--expect-reply=no</option> is used, as the
-          tool does not wait for any reply message then. When not
-          specified or when set to 0, the default of
-          <literal>25s</literal> is assumed.</para>
+          <para>When used with the <command>call</command> command, specifies the maximum time to wait for
+          method call completion. When used with the <command>monitor</command> command, since version v257,
+          specifies the maximum time to wait for messages before automatically exiting. If no time unit is
+          specified, assumes seconds. The usual other units are understood, too (ms, us, s, min, h, d, w,
+          month, y). Note that this timeout does not apply if <option>--expect-reply=no</option> is used,
+          when combined with the <command>call</command> command, as the tool does not wait for any reply
+          message then. When not specified or when set to 0, the default of <literal>25s</literal> is
+          assumed for the <command>call</command> command, and it is disabled for the
+          <command>monitor</command> command.</para>
 
         <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--augment-creds=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--num-matches=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>monitor</command> command, if enabled will make
+          <command>busctl</command> exit when the specified number of messages have been received and
+          printed. This is useful in combination with <option>--match=</option>, to wait for the specified
+          number of occurrences of specific D-Bus messages.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--augment-creds=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>Controls whether credential data reported by
@@ -423,7 +436,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--watch-bind=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--watch-bind=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>Controls whether to wait for the specified <constant>AF_UNIX</constant> bus socket to appear in the
@@ -435,7 +448,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--destination=</option><replaceable>SERVICE</replaceable></term>
+        <term><option>--destination=<replaceable>SERVICE</replaceable></option></term>
 
         <listitem>
           <para>Takes a service name. When used with the <command>emit</command> command, a signal is
@@ -449,6 +462,7 @@
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="user-system-options.xml" xpointer="capsule" />
 
       <varlistentry>
         <term><option>-l</option></term>

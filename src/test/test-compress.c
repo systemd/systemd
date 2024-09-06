@@ -188,13 +188,13 @@ _unused_ static void test_compress_stream(const char *compression,
 
         log_debug("/* create source from %s */", srcfile);
 
-        assert_se((src = open(srcfile, O_RDONLY|O_CLOEXEC)) >= 0);
+        ASSERT_OK((src = open(srcfile, O_RDONLY|O_CLOEXEC)));
 
         log_debug("/* test compression */");
 
         assert_se((dst = mkostemp_safe(pattern)) >= 0);
 
-        assert_se(compress(src, dst, -1, &uncompressed_size) >= 0);
+        ASSERT_OK(compress(src, dst, -1, &uncompressed_size));
 
         if (cat) {
                 assert_se(asprintf(&cmd, "%s %s | diff %s -", cat, pattern, srcfile) > 0);

@@ -1,9 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # vi: sw=2 ts=2 et:
 
+analyze:
+  - changed-files:
+    - any-glob-to-any-file: 'src/analyze/*'
 apparmor:
   - changed-files:
     - any-glob-to-any-file: '**/*apparmor*'
+ask-password:
+  - changed-files:
+    - any-glob-to-any-file: '**/*ask-password*'
+backlight:
+  - changed-files:
+    - any-glob-to-any-file: '**/*backlight*'
+battery-check 🪫:
+  - changed-files:
+    - any-glob-to-any-file: '**/*battery*'
 binfmt:
   - changed-files:
     - any-glob-to-any-file: '**/*binfmt*'
@@ -15,13 +27,19 @@ btrfs:
     - any-glob-to-any-file: '**/*btrfs*'
 build-system:
   - changed-files:
-    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build', 'Makefile', 'configure']
+    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 busctl:
   - changed-files:
     - any-glob-to-any-file: '**/*busctl*'
+catalog:
+  - changed-files:
+    - any-glob-to-any-file: 'catalog/*'
 cgls:
   - changed-files:
     - any-glob-to-any-file: '**/*cgls*'
+cgroups:
+  - changed-files:
+    - any-glob-to-any-file: ['src/basic/cgroup*', 'src/cgroups-agent/*', 'src/core/cgroup*', 'src/shared/cgroup*']
 cgtop:
   - changed-files:
     - any-glob-to-any-file: '**/*cgtop*'
@@ -34,6 +52,24 @@ coccinelle:
 coredump:
   - changed-files:
     - any-glob-to-any-file: '**/*coredump*'
+creds:
+  - changed-files:
+    - any-glob-to-any-file: ['src/core/*cred*', 'src/creds/*', 'src/shared/*cred*', 'units/*cred*']
+cryptsetup:
+  - changed-files:
+    - any-glob-to-any-file: ['src/cryptenroll/*', 'src/cryptsetup/*', 'units/*crypt*']
+debug-generator:
+  - changed-files:
+    - any-glob-to-any-file: '**/*debug-generator*'
+delta:
+  - changed-files:
+    - any-glob-to-any-file: '**/*delta*'
+detect-virt:
+  - changed-files:
+    - any-glob-to-any-file: '**/*virt*'
+dissect:
+  - changed-files:
+    - any-glob-to-any-file: '**/*dissect*'
 documentation:
   - changed-files:
     - any-glob-to-any-file: ['NEWS', 'README*', 'docs/*', 'man/*']
@@ -42,52 +78,106 @@ env-generator:
     - any-glob-to-any-file: '**/*environment*generator*'
 escape:
   - changed-files:
-    - any-glob-to-any-file: '**/*escape*'
-debug-generator:
+    - any-glob-to-any-file: 'src/escape/*'
+firstboot:
   - changed-files:
-    - any-glob-to-any-file: '**/debug-generator*'
+    - any-glob-to-any-file: '**/*firstboot*'
+fsck:
+  - changed-files:
+    - any-glob-to-any-file: '**/*fsck*'
 fstab-generator:
   - changed-files:
     - any-glob-to-any-file: '**/*fstab-generator*'
+gpt-auto:
+  - changed-files:
+    - any-glob-to-any-file: '**/*gpt-auto*'
 growfs:
   - changed-files:
     - any-glob-to-any-file: '**/*growfs*'
 hibernate-resume:
   - changed-files:
     - any-glob-to-any-file: '**/*hibernate-resume*'
+homed:
+  - changed-files:
+    - any-glob-to-any-file: ['src/home*', 'units/*home*']
+hostname:
+  - changed-files:
+    - any-glob-to-any-file: ['src/hostname/*', 'src/shared/*hostname*', 'units/*hostname*']
 hwdb:
   - changed-files:
-    - any-glob-to-any-file: 'hwdb.d/**/*'
+    - any-glob-to-any-file: '**/*hwdb*'
+import:
+  - changed-files:
+    - any-glob-to-any-file: '**/*import*'
+integritysetup:
+  - changed-files:
+    - any-glob-to-any-file: '**/*integrity*'
 journal:
   - changed-files:
-    - any-glob-to-any-file: ['src/journal/*', 'src/libsystemd/sd-journal/*']
+    - any-glob-to-any-file: ['src/journal/*', 'src/libsystemd/sd-journal/*', 'units/systemd-journal-catalog*', 'units/systemd-journal-flush*', 'units/systemd-journald*']
 journal-remote:
   - changed-files:
-    - any-glob-to-any-file: 'src/journal-remote/*'
+    - any-glob-to-any-file: ['src/journal-remote/*', 'units/systemd-journal-gateway*', 'units/systemd-journal-remote*']
+kernel-install:
+  - changed-files:
+    - any-glob-to-any-file: '**/*kernel-install*'
+l10n 🌍:
+  - changed-files:
+    - any-glob-to-any-file: 'po/*'
+locale:
+  - changed-files:
+    - any-glob-to-any-file: '**/*locale*'
 login:
   - changed-files:
-    - any-glob-to-any-file: '**/sd-login*/**'
-logind:
+    - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']
+machine:
   - changed-files:
-    - any-glob-to-any-file: 'src/login/*'
+    - any-glob-to-any-file: ['src/machine/*', 'units/*machine*']
 meson:
   - changed-files:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 mkosi:
   - changed-files:
-    - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
+    - any-glob-to-any-file: '**/*mkosi*'
+modules-load:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*modules-load*', 'modprobe.d/*']
+mount:
+  - changed-files:
+    - any-glob-to-any-file: ['src/basic/*mount*', 'src/core/*mount*', 'src/mount/*', 'src/shared/*mount*']
+mountfsd:
+  - changed-files:
+    - any-glob-to-any-file: '**/*mountfsd*'
 network:
   - changed-files:
-    - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']
+    - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*', 'network/*', 'test/networkd-test.py', 'test/test-network*']
+notify:
+  - changed-files:
+    - any-glob-to-any-file: 'src/notify/*'
 nspawn:
   - changed-files:
     - any-glob-to-any-file: '**/*nspawn*'
+nsresource:
+  - changed-files:
+    - any-glob-to-any-file: '**/*nsresource*'
+nss-myhostname:
+  - changed-files:
+    - any-glob-to-any-file: '**/*nss-myhostname*'
 portable:
   - changed-files:
     - any-glob-to-any-file: 'src/portable/**/*'
+pstore:
+  - changed-files:
+    - any-glob-to-any-file: '**/*pstore*'
+random-seed:
+  - changed-files:
+    - any-glob-to-any-file: '**/*random-seed*'
 rc-local-generator:
   - changed-files:
     - any-glob-to-any-file: 'src/rc-local-generator/*'
+remount-fs:
+  - changed-files:
+    - any-glob-to-any-file: '**/*remount-fs*'
 repart:
   - changed-files:
     - any-glob-to-any-file: '**/*repart*'
@@ -139,6 +229,9 @@ selinux:
 shell-completion:
   - changed-files:
     - any-glob-to-any-file: 'shell-completion/*'
+shutdown:
+  - changed-files:
+    - any-glob-to-any-file: ['src/shutdown/*', 'units/**/*shutdown*']
 sleep:
   - changed-files:
     - any-glob-to-any-file: ['src/shared/*sleep*', 'src/sleep/*']
@@ -148,60 +241,95 @@ smack:
 socket-proxy:
   - changed-files:
     - any-glob-to-any-file: '**/*socket-proxy*'
-sysv-generator:
+ssh-generator:
   - changed-files:
-    - any-glob-to-any-file: '**/*sysv-generator*'
-systemctl:
+    - any-glob-to-any-file: '**/*ssh-generator*'
+storagetm:
   - changed-files:
-    - any-glob-to-any-file: '**/systemctl*'
-sysupdate:
+    - any-glob-to-any-file: '**/*storagetm*'
+sulogin:
   - changed-files:
-    - any-glob-to-any-file: '**/*sysupdate*'
-sysvcompat:
-  - changed-files:
-    - any-glob-to-any-file: '**/*sysv*'
+    - any-glob-to-any-file: '**/*sulogin*'
 sysctl:
   - changed-files:
     - any-glob-to-any-file: '**/*sysctl*'
+sysext:
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysext*'
+systemctl:
+  - changed-files:
+    - any-glob-to-any-file: '**/*systemctl*'
+sysupdate:
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysupdate*'
+sysusers:
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysusers*'
+sysv-generator:
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysv-generator*'
+sysvcompat:
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysv*'
+tests:
+  - changed-files:
+    - any-glob-to-any-file: [
+      'src/shared/tests.*',
+      'src/test/**/*',
+      'src/fuzz/**/*',
+      'test/**/*',
+      '**/test-*',
+      '**/test_*',
+      '.github/workflows/*'
+  ]
 timedate:
   - changed-files:
     - any-glob-to-any-file: '**/*timedate*'
 timesync:
   - changed-files:
     - any-glob-to-any-file: '**/*timesync*'
-tests:
+tmpfiles:
   - changed-files:
-    - any-glob-to-any-file: [
-      'src/test/**/*',
-      'src/fuzz/**/*',
-      'test/**/*',
-      '**/test-*',
-      '.github/workflows/*'
-  ]
+    - any-glob-to-any-file: '**/*tmpfiles*'
 tpm2:
   - changed-files:
     - any-glob-to-any-file: ['**/*tpm2*', '**/*tpm-*']
 udev:
   - changed-files:
-    - any-glob-to-any-file: ['src/udev/**/*', 'src/libudev/*', 'man/*udev*']
+    - any-glob-to-any-file: ['src/udev/**/*', 'src/libudev/*', 'man/*udev*', 'rules.d/*']
 uki:
   - changed-files:
     - any-glob-to-any-file: '**/ukify*'
 units:
   - changed-files:
     - any-glob-to-any-file: 'units/**/*'
+user-session:
+  - changed-files:
+    - any-glob-to-any-file: '**/*user-session*'
 userdb:
   - changed-files:
     - any-glob-to-any-file: '**/*userdb*'
 util-lib:
   - changed-files:
     - any-glob-to-any-file: ['src/fundamental/**/*', 'src/basic/**/*', 'src/shared/**/*']
+utmp/wtmp:
+  - changed-files:
+    - any-glob-to-any-file: '**/*utmp*'
+varlink:
+  - changed-files:
+    - any-glob-to-any-file: ['src/varlink/*', 'src/libsystemd/sd-varlink/*', 'src/systemd/sd-varlink*']
 vconsole:
   - changed-files:
     - any-glob-to-any-file: '**/*vconsole*'
+veritysetup:
+  - changed-files:
+    - any-glob-to-any-file: '**/*veritysetup*'
 vmspawn:
   - changed-files:
     - any-glob-to-any-file: '**/*vmspawn*'
+volatile:
+  - changed-files:
+    - any-glob-to-any-file: '**/*volatile*'
 xdg-autostart:
   - changed-files:
     - any-glob-to-any-file: '**/**xdg-autostart-generator*'

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "in-addr-util.h"
-#include "json.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "time-util.h"
@@ -23,6 +24,8 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_MAX,
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
+
+#include "resolved-conf.h"
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
@@ -100,6 +103,9 @@ struct DnsServer {
         /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
         LIST_FIELDS(DnsServer, servers);
+
+        /* Servers registered via D-Bus are not removed on reload */
+        ResolveConfigSource config_source;
 };
 
 int dns_server_new(
@@ -111,7 +117,8 @@ int dns_server_new(
                 const union in_addr_union *address,
                 uint16_t port,
                 int ifindex,
-                const char *server_string);
+                const char *server_string,
+                ResolveConfigSource config_source);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
@@ -133,8 +140,8 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
 
-const char *dns_server_string(DnsServer *server);
-const char *dns_server_string_full(DnsServer *server);
+const char* dns_server_string(DnsServer *server);
+const char* dns_server_string_full(DnsServer *server);
 int dns_server_ifindex(const DnsServer *s);
 uint16_t dns_server_port(const DnsServer *s);
 
@@ -145,6 +152,7 @@ void dns_server_warn_downgrade(DnsServer *server);
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name);
 
 void dns_server_unlink_all(DnsServer *first);
+void dns_server_unlink_on_reload(DnsServer *server);
 bool dns_server_unlink_marked(DnsServer *first);
 void dns_server_mark_all(DnsServer *first);
 
@@ -174,4 +182,8 @@ void dns_server_unref_stream(DnsServer *s);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
-int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret);
+static inline bool dns_server_is_fallback(DnsServer *s) {
+        return s && s->type == DNS_SERVER_FALLBACK;
+}
+
+int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);

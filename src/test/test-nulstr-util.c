@@ -13,10 +13,10 @@ TEST(strv_split_nulstr) {
         l = strv_split_nulstr(nulstr);
         assert_se(l);
 
-        assert_se(streq(l[0], "str0"));
-        assert_se(streq(l[1], "str1"));
-        assert_se(streq(l[2], "str2"));
-        assert_se(streq(l[3], "str3"));
+        ASSERT_STREQ(l[0], "str0");
+        ASSERT_STREQ(l[1], "str1");
+        ASSERT_STREQ(l[2], "str2");
+        ASSERT_STREQ(l[3], "str3");
 }
 
 #define strv_parse_nulstr_full_one(s, n, e0, e1)                        \
@@ -97,7 +97,7 @@ static void test_strv_make_nulstr_one(char **l) {
         assert_se(memcmp_nn(b, n, c, m) == 0);
 
         NULSTR_FOREACH(s, b)
-                assert_se(streq(s, l[i++]));
+                ASSERT_STREQ(s, l[i++]);
         assert_se(i == strv_length(l));
 }
 

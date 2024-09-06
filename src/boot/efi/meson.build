@@ -63,13 +63,14 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
                 'EFI_' + c[1].strip().underscorify().to_upper()))
 endforeach
 
+efi_conf.set_quoted('PROJECT_VERSION', project_major_version)
+efi_conf.set_quoted('VERSION_TAG', version_tag)
+efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
+
 if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
 elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
-        efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
-        efi_conf.set_quoted('VERSION_TAG', version_tag)
-        efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
         if get_option('sbat-distro-generation') < 1
                 error('SBAT Distro Generation must be a positive integer')
         endif
@@ -212,7 +213,7 @@ endif
 efi_arch_c_args = {
         'aarch64'     : ['-mgeneral-regs-only'],
         'arm'         : ['-mgeneral-regs-only'],
-	# Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
+        # Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
         'loongarch64' : ['-mno-lsx', '-mno-lasx'],
         # Pass -m64/32 explicitly to make building on x32 work.
         'x86_64'      : ['-m64', '-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
@@ -258,6 +259,8 @@ libefi_sources = files(
         'devicetree.c',
         'drivers.c',
         'efi-string.c',
+        'efivars.c',
+        'export-vars.c',
         'graphics.c',
         'initrd.c',
         'log.c',
@@ -388,8 +391,8 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + meson.project_version().split('~')[0],
-                        '--version-minor=0',
+                        '--version-major=' + project_major_version,
+                        '--version-minor=' + project_minor_version,
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
@@ -407,6 +410,11 @@ foreach efi_elf_binary : efi_elf_binaries
         if name == 'addon@0@.efi.stub'.format(efi_arch)
                 efi_addon = exe.full_path()
         endif
+
+        test('check-alignment-@0@'.format(name),
+             check_efi_alignment_py,
+             args : exe.full_path(),
+             suite : 'efi')
 endforeach
 
 alias_target('systemd-boot', boot_targets)

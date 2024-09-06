@@ -19,6 +19,7 @@
     <refname>sd_event_add_inotify</refname>
     <refname>sd_event_add_inotify_fd</refname>
     <refname>sd_event_source_get_inotify_mask</refname>
+    <refname>sd_event_source_get_inotify_path</refname>
     <refname>sd_event_inotify_handler_t</refname>
 
     <refpurpose>Add an "inotify" file system inode event source to an event loop</refpurpose>
@@ -60,7 +61,13 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_inotify_mask</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>uint32_t *<parameter>mask</parameter></paramdef>
+        <paramdef>uint32_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_inotify_path</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -133,6 +140,12 @@
     event source created previously with <function>sd_event_add_inotify()</function>. It takes the event source object
     as the <parameter>source</parameter> parameter and a pointer to a <type>uint32_t</type> variable to return the mask
     in.</para>
+
+    <para><function>sd_event_source_get_inotify_path()</function> retrieves the target path of the configured
+    inotify watch of an event source created previously with <function>sd_event_add_inotify()</function>. It
+    takes the event source object as the <parameter>source</parameter> parameter and a pointer to a
+    <type>const char **</type> variable to return the path in. The caller must not free the returned path.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -163,7 +176,12 @@
         <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
-          <listitem><para>The event loop is already terminated.</para></listitem>
+          <listitem>
+            <para>Returned by <function>sd_event_source_add_inotify()</function> or
+            <function>sd_event_source_add_inotify_fd()</function> when the event loop is already terminated.
+            Returned by <function>sd_event_source_get_inotify_path()</function> when no active inode data is
+            assigned to the event source, e.g. when the event source is disabled.</para>
+          </listitem>
 
         </varlistentry>
 
@@ -183,18 +201,19 @@
         <varlistentry>
           <term><constant>-EBADF</constant></term>
 
-          <listitem><para>The passed file descriptor is not valid.</para>
+          <listitem><para>The passed file descriptor is not valid.</para></listitem>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOSYS</constant></term>
 
-          <listitem><para><function>sd_event_add_inotify_fd()</function> was called without
-          <filename>/proc/</filename> mounted.</para>
+          <listitem>
+            <para><function>sd_event_add_inotify_fd()</function> or
+            <function>sd_event_source_get_inotify_path()</function> was called without
+            <filename>/proc/</filename> mounted.</para>
+          </listitem>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
       </variablelist>
@@ -219,6 +238,7 @@
     <function>sd_event_add_inotify()</function>, and
     <function>sd_event_source_get_inotify_mask()</function> were added in version 239.</para>
     <para><function>sd_event_add_inotify_fd()</function> was added in version 250.</para>
+    <para><function>sd_event_source_get_inotify_path()</function> was added in version 256.</para>
   </refsect1>
 
   <refsect1>

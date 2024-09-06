@@ -34,6 +34,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_DISK_FULL,                    ENOSPC),
         SD_BUS_ERROR_MAP(BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED,
                                                                  EHOSTDOWN),
+        SD_BUS_ERROR_MAP(BUS_ERROR_FROZEN_BY_PARENT,             EDEADLK),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_MACHINE,              ENXIO),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_IMAGE,                ENOENT),
@@ -59,6 +60,8 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,     EOPNOTSUPP),
         SD_BUS_ERROR_MAP(BUS_ERROR_SESSION_BUSY,                 EBUSY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NOT_YOUR_DEVICE,              EPERM),
+        /* needs to be EOPNOTSUPP for proper handling in callers of logind_schedule_shutdown() */
+        SD_BUS_ERROR_MAP(BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED, EOPNOTSUPP),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED,  EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_NTP_SUPPORT,               EOPNOTSUPP),
@@ -71,6 +74,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_CNAME_LOOP,                   EDEADLK),
         SD_BUS_ERROR_MAP(BUS_ERROR_ABORTED,                      ECANCELED),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_SERVICE,              EUNATCH),
+        SD_BUS_ERROR_MAP(BUS_ERROR_INCONSISTENT_SERVICE_RECORDS, EUNATCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNSSEC_FAILED,                EHOSTUNREACH),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_TRUST_ANCHOR,              EHOSTUNREACH),
         SD_BUS_ERROR_MAP(BUS_ERROR_RR_TYPE_UNSUPPORTED,          EOPNOTSUPP),
@@ -149,6 +153,8 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_HOME_IN_USE,                  EADDRINUSE),
         SD_BUS_ERROR_MAP(BUS_ERROR_REBALANCE_NOT_NEEDED,         EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_HOME_NOT_REFERENCED,          EBADR),
+
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_UPDATE_CANDIDATE,          EALREADY),
 
         SD_BUS_ERROR_MAP_END
 };

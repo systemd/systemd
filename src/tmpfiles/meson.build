@@ -20,8 +20,7 @@ executables += [
                 'sources' : systemd_tmpfiles_sources,
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
-                        libbasic,
-                        libbasic_gcrypt,
+                        libbasic_static,
                         libshared_static,
                         libsystemd_static,
                 ],

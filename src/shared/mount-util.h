@@ -70,8 +70,6 @@ int umount_verbose(
                 const char *where,
                 int flags);
 
-int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath);
-
 int mount_option_mangle(
                 const char *options,
                 unsigned long mount_flags,
@@ -83,25 +81,53 @@ int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
 static inline char* umount_and_rmdir_and_free(char *p) {
+        if (!p)
+                return NULL;
+
         PROTECT_ERRNO;
-        if (p) {
-                (void) umount_recursive(p, 0);
-                (void) rmdir(p);
-        }
+        (void) umount_recursive(p, 0);
+        (void) rmdir(p);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
-static inline char *umount_and_free(char *p) {
+static inline char* umount_and_free(char *p) {
+        if (!p)
+                return NULL;
+
         PROTECT_ERRNO;
-        if (p)
-                (void) umount_recursive(p, 0);
+        (void) umount_recursive(p, 0);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
-int bind_mount_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
-int mount_image_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
+char* umount_and_unlink_and_free(char *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_unlink_and_free);
+
+int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath);
+
+typedef enum MountInNamespaceFlags {
+        MOUNT_IN_NAMESPACE_READ_ONLY              = 1 << 0,
+        MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY = 1 << 1,
+        MOUNT_IN_NAMESPACE_IS_IMAGE               = 1 << 2,
+} MountInNamespaceFlags;
+
+int bind_mount_in_namespace(
+                const PidRef *target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                MountInNamespaceFlags flags);
+int mount_image_in_namespace(
+                const PidRef *target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                MountInNamespaceFlags flags,
+                const MountOptions *options,
+                const ImagePolicy *image_policy);
 
 int make_mount_point(const char *path);
 int fd_make_mount_point(int fd);

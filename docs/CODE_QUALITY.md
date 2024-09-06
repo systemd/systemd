@@ -75,7 +75,7 @@ available functionality:
 
 15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
     and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).
-    See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS)
+    See [Testing systemd using sanitizers](/TESTING_WITH_SANITIZERS)
     for more information.
 
 16. Fossies provides [source code misspelling reports](https://fossies.org/features.html#codespell).

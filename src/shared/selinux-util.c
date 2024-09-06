@@ -168,7 +168,7 @@ static int selinux_init(bool force) {
         if (!force && initialized != LAZY_INITIALIZED)
                 return 1;
 
-        r = selinux_status_open(/* netlink fallback */ 1);
+        r = selinux_status_open(/* netlink fallback= */ 1);
         if (r < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))
                         return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
@@ -530,17 +530,6 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 #else
         return -EOPNOTSUPP;
 #endif
-}
-
-char* mac_selinux_free(char *label) {
-
-#if HAVE_SELINUX
-        freecon(label);
-#else
-        assert(!label);
-#endif
-
-        return NULL;
 }
 
 #if HAVE_SELINUX

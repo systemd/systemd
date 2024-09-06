@@ -24,7 +24,7 @@ struct FirewallContext {
         sd_netlink *nfnl;
 };
 
-const char *firewall_backend_to_string(FirewallBackend b) _const_;
+const char* firewall_backend_to_string(FirewallBackend b) _const_;
 
 int fw_nftables_init(FirewallContext *ctx);
 int fw_nftables_init_full(FirewallContext *ctx, bool init_tables);

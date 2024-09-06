@@ -23,14 +23,6 @@ static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
-static void systemd_kmod_log(void *data, int priority, const char *file, int line,
-                             const char *fn, const char *format, va_list args) {
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(priority, 0, file, line, fn, format, args);
-        REENABLE_WARNING;
-}
-
 static int add_modules(const char *p) {
         _cleanup_strv_free_ char **k = NULL;
 
@@ -156,7 +148,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
         int r, k;
 
         r = parse_argv(argc, argv);
@@ -171,12 +163,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        ctx = kmod_new(NULL, NULL);
-        if (!ctx)
-                return log_oom();
-
-        kmod_load_resources(ctx);
-        kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
+        r = module_setup_context(&ctx);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize libkmod context: %m");
 
         r = 0;
 

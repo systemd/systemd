@@ -3,12 +3,13 @@
 
 #include <netinet/in.h>
 
+#include "sd-json.h"
+
 #include "bitmap.h"
 #include "dns-def.h"
 #include "dns-type.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
-#include "json.h"
 #include "list.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -334,6 +335,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
+bool dns_resource_key_is_dnssd_two_label_ptr(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
@@ -403,9 +405,9 @@ DnsSvcParam *dns_svc_params_copy(DnsSvcParam *first);
 
 int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size);
 
-int dns_resource_key_to_json(DnsResourceKey *key, JsonVariant **ret);
-int dns_resource_key_from_json(JsonVariant *v, DnsResourceKey **ret);
-int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret);
+int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret);
+int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret);
+int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
 
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);

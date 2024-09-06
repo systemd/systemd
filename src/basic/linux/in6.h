@@ -19,8 +19,8 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#ifndef _UAPI_LINUX_IN6_H
-#define _UAPI_LINUX_IN6_H
+#ifndef _LINUX_IN6_H
+#define _LINUX_IN6_H
 
 #include <linux/types.h>
 #include <linux/libc-compat.h>
@@ -145,7 +145,7 @@ struct in6_flowlabel_req {
 #define IPV6_TLV_PADN		1
 #define IPV6_TLV_ROUTERALERT	5
 #define IPV6_TLV_CALIPSO	7	/* RFC 5570 */
-#define IPV6_TLV_IOAM		49	/* TEMPORARY IANA allocation for IOAM */
+#define IPV6_TLV_IOAM		49	/* RFC 9486 */
 #define IPV6_TLV_JUMBO		194
 #define IPV6_TLV_HAO		201	/* home address option */
 
@@ -299,4 +299,4 @@ struct in6_flowlabel_req {
  * ...
  * MRT6_MAX
  */
-#endif /* _UAPI_LINUX_IN6_H */
+#endif /* _LINUX_IN6_H */

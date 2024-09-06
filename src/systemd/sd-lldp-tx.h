@@ -31,7 +31,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_lldp_tx sd_lldp_tx;
 
-__extension__ typedef enum sd_lldp_multicast_mode_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_multicast_mode_t) {
         SD_LLDP_MULTICAST_MODE_NEAREST_BRIDGE,
         SD_LLDP_MULTICAST_MODE_NON_TPMR_BRIDGE,
         SD_LLDP_MULTICAST_MODE_CUSTOMER_BRIDGE,

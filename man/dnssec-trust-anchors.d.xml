@@ -26,9 +26,11 @@
     <para><simplelist>
       <member><filename>/etc/dnssec-trust-anchors.d/*.positive</filename></member>
       <member><filename>/run/dnssec-trust-anchors.d/*.positive</filename></member>
+      <member><filename>/usr/local/lib/dnssec-trust-anchors.d/*.positive</filename></member>
       <member><filename>/usr/lib/dnssec-trust-anchors.d/*.positive</filename></member>
       <member><filename>/etc/dnssec-trust-anchors.d/*.negative</filename></member>
       <member><filename>/run/dnssec-trust-anchors.d/*.negative</filename></member>
+      <member><filename>/usr/local/lib/dnssec-trust-anchors.d/*.negative</filename></member>
       <member><filename>/usr/lib/dnssec-trust-anchors.d/*.negative</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

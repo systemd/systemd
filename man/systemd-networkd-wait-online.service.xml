@@ -61,7 +61,7 @@
     <variablelist>
       <varlistentry>
         <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></term>
-        <term><option>--interface=</option><replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></term>
+        <term><option>--interface=<replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></option></term>
 
         <listitem><para>Network interface to wait for before deciding if the system is online. This
         is useful when a system has several interfaces which will be configured, but a particular
@@ -80,7 +80,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--ignore=</option><replaceable>INTERFACE</replaceable></term>
+        <term><option>--ignore=<replaceable>INTERFACE</replaceable></option></term>
 
         <listitem><para>Network interfaces to be ignored when deciding
         if the system is online. By default, only the loopback
@@ -92,7 +92,7 @@
 
       <varlistentry>
         <term><option>-o</option> <replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></term>
-        <term><option>--operational-state=</option><replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></term>
+        <term><option>--operational-state=<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></option></term>
 
         <listitem><para>Takes a minimum operational state and an optional maximum operational state.
         Please see <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -158,7 +158,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
+        <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
 
         <listitem><para>Fail the service if the network is not online
         by the time the timeout elapses. A timeout of 0 disables the

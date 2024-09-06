@@ -83,6 +83,7 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
 bool dns_srv_type_is_valid(const char *name);
 bool dnssd_srv_type_is_valid(const char *name);
 bool dns_service_name_is_valid(const char *name);
+bool dns_subtype_name_is_valid(const char *name);
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
 int dns_service_split(const char *joined, char **ret_name, char **ret_type, char **ret_domain);

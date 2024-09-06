@@ -14,8 +14,7 @@ executables += [
                 'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
-                        libbasic,
-                        libbasic_gcrypt,
+                        libbasic_static,
                         libshared_static,
                         libsystemd_static,
                 ],

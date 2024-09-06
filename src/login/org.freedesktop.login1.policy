@@ -22,7 +22,7 @@
                 <description gettext-domain="systemd">Allow applications to inhibit system shutdown</description>
                 <message gettext-domain="systemd">Authentication is required for an application to inhibit system shutdown.</message>
                 <defaults>
-                        <allow_any>no</allow_any>
+                        <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
@@ -44,7 +44,7 @@
                 <description gettext-domain="systemd">Allow applications to inhibit system sleep</description>
                 <message gettext-domain="systemd">Authentication is required for an application to inhibit system sleep.</message>
                 <defaults>
-                        <allow_any>no</allow_any>
+                        <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
@@ -394,7 +394,7 @@
 
         <action id="org.freedesktop.login1.set-wall-message">
                 <description gettext-domain="systemd">Set a wall message</description>
-                <message gettext-domain="systemd">Authentication is required to set a wall message</message>
+                <message gettext-domain="systemd">Authentication is required to set a wall message.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

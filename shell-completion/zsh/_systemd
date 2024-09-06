@@ -5,7 +5,7 @@ local curcontext="$curcontext" state lstate line
 case "$service" in
     systemd-ask-password)
         _arguments \
-            {-h,--help}'[Show this help]' \
+            '(- *)'{-h,--help}'[Show this help]' \
             '--icon=[Icon name]:icon name:' \
             '--timeout=[Timeout in sec]:timeout (seconds):' \
             '--no-tty[Ask question via agent even on TTY]' \
@@ -14,54 +14,54 @@ case "$service" in
         ;;
     systemd-cat)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Show package version.]' \
-            {-t+,--identifier=}'[Set syslog identifier.]:syslog identifier:' \
-            {-p+,--priority=}'[Set priority value.]:value:({0..7})' \
+            '(- *)'{-h,--help}'[Show this help]' \
+            '(- *)--version[Show package version.]' \
+            '(-t --identifier)'{-t+,--identifier=}'[Set syslog identifier.]:syslog identifier:' \
+            '(-p --priority)'{-p+,--priority=}'[Set priority value.]:value:({0..7})' \
             '--level-prefix=[Control whether level prefix shall be parsed.]:boolean:(1 0)' \
-            '--namespace=[Connect to specified journal namespace.]:journal namespace:' \
-            ':Message'
+            '--namespace=[Connect to specified journal namespace.]:journal namespace:'
+        _precommand
         ;;
     systemd-cgls)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Show package version]' \
+            '(- *)'{-h,--help}'[Show this help]' \
+            '(- *)--version[Show package version]' \
             '--no-pager[Do not pipe output into a pager]' \
-            {-a,--all}'[Show all groups, including empty]' \
+            '(-a --all)'{-a,--all}'[Show all groups, including empty]' \
             '-k[Include kernel threads in output]' \
             ':cgroups:(cpuset cpu cpuacct memory devices freezer blkio)'
         ;;
     systemd-cgtop)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Print version and exit]' \
+            '(-)'{-h,--help}'[Show this help]' \
+	    '(-)--version[Print version and exit]' \
             '(-c -m -i -t)-p[Order by path]' \
             '(-c -p -m -i)-t[Order by number of tasks]' \
             '(-m -p -i -t)-c[Order by CPU load]' \
             '(-c -p -i -t)-m[Order by memory load]' \
             '(-c -m -p -t)-i[Order by IO load]' \
-            {-d+,--delay=}'[Specify delay]:delay:' \
-            {-n+,--iterations=}'[Run for N iterations before exiting]:number of iterations:' \
-            {-b,--batch}'[Run in batch mode, accepting no input]' \
+            '(-d --delay)'{-d+,--delay=}'[Specify delay]:delay:' \
+            '(-n --iterations)'{-n+,--iterations=}'[Run for N iterations before exiting]:number of iterations:' \
+            '(-b --batch)'{-b,--batch}'[Run in batch mode, accepting no input]' \
             '--depth=[Maximum traversal depth]:maximum depth:'
         ;;
     systemd-detect-virt)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Show package version]' \
-            {-c,--container}'[Only detect whether we are run in a container]' \
-            {-v,--vm}'[Only detect whether we are run in a VM]' \
-            {-q,--quiet}"[Don't output anything, just set return value]"
+            '(-)'{-h,--help}'[Show this help]' \
+	    '(-)--version[Show package version]' \
+            '(-c --container)'{-c,--container}'[Only detect whether we are run in a container]' \
+            '(-v --vm)'{-v,--vm}'[Only detect whether we are run in a VM]' \
+            '(-q --quiet)'{-q,--quiet}"[Don't output anything, just set return value]"
         ;;
     systemd-machine-id-setup)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Show package version]'
+            '(-)'{-h,--help}'[Show this help]' \
+	    '(-)--version[Show package version]'
         ;;
     systemd-notify)
         _arguments \
-            {-h,--help}'[Show this help]' \
-            '--version[Show package version]' \
+            '(-)'{-h,--help}'[Show this help]' \
+	    '(-)--version[Show package version]' \
             '--ready[Inform the init system about service start-up completion.]' \
             '--pid=[Inform the init system about the main PID of the daemon]:daemon main PID:_pids' \
             '--status=[Send a free-form status string for the daemon to the init systemd]:status string:' \
@@ -69,9 +69,9 @@ case "$service" in
         ;;
     systemd-tty-ask-password-agent)
         _arguments \
-            {-h,--help}'[Prints a short help text and exits.]' \
-            '--version[Prints a short version string and exits.]' \
-            '--list[Lists all currently pending system password requests.]' \
+            '(-)'{-h,--help}'[Prints a short help text and exits.]' \
+	    '(-)--version[Prints a short version string and exits.]' \
+	    '--list[Lists all currently pending system password requests.]' \
             '--query[Process all currently pending system password requests by querying the user on the calling TTY.]' \
             '--watch[Continuously process password requests.]' \
             '--wall[Forward password requests to wall(1).]' \

@@ -14,6 +14,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-ntp.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
@@ -352,6 +353,9 @@ static int dhcp6_lease_lost(Link *link) {
         assert(link);
         assert(link->manager);
 
+        if (!link->dhcp6_lease)
+                return 0;
+
         log_link_info(link, "DHCPv6 lease lost");
 
         if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
@@ -630,13 +634,13 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set MUD URL: %m");
         }
 
-        if (link->network->dhcp6_use_dns) {
+        if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request DNS servers: %m");
         }
 
-        if (link->network->dhcp6_use_domains > 0) {
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) > 0) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request domains: %m");
@@ -648,7 +652,7 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request captive portal: %m");
         }
 
-        if (link->network->dhcp6_use_ntp) {
+        if (link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request NTP servers: %m");
@@ -874,8 +878,7 @@ int config_parse_dhcp6_pd_prefix_hint(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
-                         "Failed to parse WithoutRA= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode);
 
 static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_MAX] = {
         [DHCP6_CLIENT_START_MODE_NO]                  = "no",

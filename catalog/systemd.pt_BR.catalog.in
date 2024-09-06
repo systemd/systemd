@@ -5,7 +5,7 @@
 # Catálogo de mensagens para as mensagens do próprio systemd
 
 # O formato do catálogo está documentado em
-# https://www.freedesktop.org/wiki/Software/systemd/catalog
+# https://systemd.io/CATALOG
 
 # Para uma explicação do porquê de fazermos tudo isso, veja
 # https://xkcd.com/1024/

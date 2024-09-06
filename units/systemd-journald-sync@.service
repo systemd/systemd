@@ -1,0 +1,24 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Sync Journal for Namespace %i
+Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+
+# At the time when journalctl in ExecStop= is invoked,
+# systemd-journald@.service may not be started yet. Hence, both socket
+# units must be active when journalctl is invoked.
+Requires=systemd-journald@%i.socket systemd-journald-varlink@%i.socket
+After=systemd-journald@%i.socket systemd-journald-varlink@%i.socket
+StopWhenUnneeded=yes
+
+[Service]
+ExecStop=journalctl --namespace=%i --sync
+Type=oneshot
+RemainAfterExit=yes

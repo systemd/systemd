@@ -135,12 +135,10 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>prefix</replaceable> <replaceable>label</replaceable></term>
+          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>label</replaceable></term>
 
           <listitem><para>This property is set based on textual label given by the firmware for on-board
-          devices. The name consists of the prefix concatenated with the label. This is only available for
-          PCI devices.
-          </para>
+          devices. This is only available for PCI devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
@@ -478,7 +476,8 @@
           bridge as that would create naming conflict when there are more child devices on that bridge. Now,
           this is relaxed and we will use slot information to generate the name based on it but only if
           the PCI device has multiple functions. This is safe because distinct function number is a part of
-          the device name for multifunction devices.</para>
+          the device name for multifunction devices. Note, this is reverted in <constant>v255</constant>.
+          See below.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
@@ -508,7 +507,7 @@
           <listitem><para>Naming was changed for SR-IOV virtual device representors, optionally settable at
           compilation time. The <literal>r<replaceable>slot</replaceable></literal> suffix was added to
           differentiate SR-IOV virtual device representors attached to a single physical device interface.
-          Because of a mistake, this scheme was <emphasis>not the the default scheme for systemd version
+          Because of a mistake, this scheme was <emphasis>not the default scheme for systemd version
           254</emphasis>.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
@@ -521,10 +520,24 @@
           <listitem><para>Naming was changed for SR-IOV virtual device representors to enable the
           change introduced in <constant>v254</constant> by default.</para>
 
+          <para>If we detect that a PCI device associated with a slot is a PCI bridge, we no longer set
+          <varname>ID_NET_NAME_SLOT</varname>, reverting a change that was introduced in v251.</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v257</constant></term>
+
+          <listitem><para>PCI slot number is now read from <constant>firmware_node/sun</constant> sysfs file.</para>
+
+          <para>The naming scheme based on devicetree aliases was extended to support aliases for individual
+          interfaces of controllers with multiple ports.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
@@ -597,7 +610,7 @@ ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
     </example>
 
     <example>
-      <title>PCI Ethernet card in hotplug slot with firmware index number</title>
+      <title>PCI Ethernet card in slot with firmware index number</title>
 
       <programlisting># /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
 ID_NET_NAME_MAC=enx000000000466

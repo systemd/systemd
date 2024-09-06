@@ -7,7 +7,7 @@
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
-#include "json.h"
+#include "json-util.h"
 #include "luks2-fido2.h"
 #include "memory-util.h"
 #include "version.h"
@@ -34,7 +34,7 @@ _public_ int cryptsetup_token_open_pin(
         const char *json;
         _cleanup_(erase_and_freep) char *pin_string = NULL;
 
-        assert(!pin || pin_size);
+        assert(pin || pin_size == 0);
         assert(token >= 0);
 
         /* This must not fail at this moment (internal error) */
@@ -157,59 +157,59 @@ _public_ int cryptsetup_token_validate(
                 const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-fido2' */) {
 
         int r;
-        JsonVariant *w;
-       _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        sd_json_variant *w;
+       _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert(json);
 
-        r = json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, 0, &v, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 
-        w = json_variant_by_key(v, "fido2-credential");
-        if (!w || !json_variant_is_string(w)) {
+        w = sd_json_variant_by_key(v, "fido2-credential");
+        if (!w) {
                 crypt_log_debug(cd, "FIDO2 token data lacks 'fido2-credential' field.");
                 return 1;
         }
 
-        r = unbase64mem(json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'fido2-credential' field: %m");
 
-        w = json_variant_by_key(v, "fido2-salt");
-        if (!w || !json_variant_is_string(w)) {
+        w = sd_json_variant_by_key(v, "fido2-salt");
+        if (!w) {
                 crypt_log_debug(cd, "FIDO2 token data lacks 'fido2-salt' field.");
                 return 1;
         }
 
-        r = unbase64mem(json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded salt: %m.");
 
         /* The "rp" field is optional. */
-        w = json_variant_by_key(v, "fido2-rp");
-        if (w && !json_variant_is_string(w)) {
+        w = sd_json_variant_by_key(v, "fido2-rp");
+        if (w && !sd_json_variant_is_string(w)) {
                 crypt_log_debug(cd, "FIDO2 token data's 'fido2-rp' field is not a string.");
                 return 1;
         }
 
         /* The "fido2-clientPin-required" field is optional. */
-        w = json_variant_by_key(v, "fido2-clientPin-required");
-        if (w && !json_variant_is_boolean(w)) {
+        w = sd_json_variant_by_key(v, "fido2-clientPin-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
                 crypt_log_debug(cd, "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
                 return 1;
         }
 
         /* The "fido2-up-required" field is optional. */
-        w = json_variant_by_key(v, "fido2-up-required");
-        if (w && !json_variant_is_boolean(w)) {
+        w = sd_json_variant_by_key(v, "fido2-up-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
                 crypt_log_debug(cd, "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
                 return 1;
         }
 
         /* The "fido2-uv-required" field is optional. */
-        w = json_variant_by_key(v, "fido2-uv-required");
-        if (w && !json_variant_is_boolean(w)) {
+        w = sd_json_variant_by_key(v, "fido2-uv-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
                 crypt_log_debug(cd, "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
                 return 1;
         }

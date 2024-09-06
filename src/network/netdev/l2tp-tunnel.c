@@ -29,7 +29,7 @@ static const char* const l2tp_encap_type_table[_NETDEV_L2TP_ENCAPTYPE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(l2tp_encap_type, L2tpEncapType);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_l2tp_encap_type, l2tp_encap_type, L2tpEncapType, "Failed to parse L2TP Encapsulation Type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_l2tp_encap_type, l2tp_encap_type, L2tpEncapType);
 
 static const char* const l2tp_local_address_type_table[_NETDEV_L2TP_LOCAL_ADDRESS_MAX] = {
          [NETDEV_L2TP_LOCAL_ADDRESS_AUTO]    = "auto",
@@ -306,9 +306,9 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
 
                 if (!a) {
                         if (link)
-                                r = link_get_address(link, t->family, &t->local, 0, &a);
+                                r = link_get_address(link, t->family, &t->local, &a);
                         else
-                                r = manager_get_address(netdev->manager, t->family, &t->local, 0, &a);
+                                r = manager_get_address(netdev->manager, t->family, &t->local, &a);
                         if (r < 0)
                                 return r;
 

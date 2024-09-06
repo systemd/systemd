@@ -743,8 +743,6 @@ static int client_append_mudurl(sd_dhcp6_client *client, uint8_t **buf, size_t *
 
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ uint8_t *buf = NULL;
-        struct in6_addr all_servers =
-                IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
         struct sd_dhcp6_option *j;
         usec_t elapsed_usec, time_now;
         be16_t elapsed_time;
@@ -839,7 +837,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_send_udp_socket(client->fd, &all_servers, buf, offset);
+        r = dhcp6_network_send_udp_socket(client->fd, &IN6_ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS, buf, offset);
         if (r < 0)
                 return r;
 
@@ -1330,7 +1328,7 @@ static int client_receive_message(
                 return 0;
         }
         if ((size_t) len < sizeof(DHCP6Message)) {
-                log_dhcp6_client(client, "Too small to be DHCP6 message: ignoring");
+                log_dhcp6_client(client, "Too small to be DHCPv6 message: ignoring");
                 return 0;
         }
 
@@ -1406,7 +1404,7 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         r = client_send_release(client);
         if (r < 0)
                 log_dhcp6_client_errno(client, r,
-                                       "Failed to send DHCP6 release message, ignoring: %m");
+                                       "Failed to send DHCPv6 release message, ignoring: %m");
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 
@@ -1417,7 +1415,8 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
-        assert_return(client, -EINVAL);
+        if (!client)
+                return false;
 
         return client->state != DHCP6_STATE_STOPPED;
 }

@@ -50,6 +50,20 @@ PartitionPolicyFlags partition_policy_flags_extend(PartitionPolicyFlags flags) {
         return flags;
 }
 
+PartitionPolicyFlags partition_policy_flags_reduce(PartitionPolicyFlags flags) {
+        /* The reverse of partition_policy_flags_extend(): if some parts of the flags field allow all
+         * possible options, let's remove it from the flags to make them shorter */
+
+        if (FLAGS_SET(flags, _PARTITION_POLICY_USE_MASK))
+                flags &= ~_PARTITION_POLICY_USE_MASK;
+        if (FLAGS_SET(flags, _PARTITION_POLICY_READ_ONLY_MASK))
+                flags &= ~_PARTITION_POLICY_READ_ONLY_MASK;
+        if (FLAGS_SET(flags, _PARTITION_POLICY_GROWFS_MASK))
+                flags &= ~_PARTITION_POLICY_GROWFS_MASK;
+
+        return flags;
+}
+
 static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPolicy *policy) {
         PartitionPolicyFlags flags = ASSERT_PTR(policy)->flags;
 
@@ -362,7 +376,7 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
 
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK) + 1]; /* one string per known flag at most */
+        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + 1) + 1]; /* one string per known flag at most */
         size_t m = 0;
 
         assert(ret);
@@ -423,7 +437,7 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
         if (m == 0)
                 buf = strdup("-");
         else {
-                assert(m+1 < ELEMENTSOF(l));
+                assert(m < ELEMENTSOF(l));
                 l[m] = NULL;
 
                 buf = strv_join((char**) l, "+");
@@ -674,6 +688,90 @@ int parse_image_policy_argument(const char *s, ImagePolicy **policy) {
                 return log_error_errno(r, "Failed to parse image policy: %s", s);
 
         return free_and_replace_full(*policy, np, image_policy_free);
+}
+
+static bool partition_policy_flags_has_unspecified(PartitionPolicyFlags flags) {
+
+        if ((flags & _PARTITION_POLICY_USE_MASK) == 0)
+                return true;
+        if ((flags & _PARTITION_POLICY_READ_ONLY_MASK) == 0)
+                return true;
+        if ((flags & _PARTITION_POLICY_GROWFS_MASK) == 0)
+                return true;
+
+        return false;
+}
+
+int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+        /* Calculates the intersection of the specified policies, i.e. only what is permitted in both. This
+         * might fail with -ENAVAIL if the intersection is an "impossible policy". For example, if a root
+         * partition my neither be used, nor be absent, nor be unused then this is considered
+         * "impossible".  */
+
+        p = image_policy_new(_PARTITION_DESIGNATOR_MAX);
+        if (!p)
+                return -ENOMEM;
+
+        p->default_flags =
+                partition_policy_flags_extend(image_policy_default(a)) &
+                partition_policy_flags_extend(image_policy_default(b));
+
+        if (partition_policy_flags_has_unspecified(p->default_flags)) /* Intersection empty? */
+                return -ENAVAIL;
+
+        p->default_flags = partition_policy_flags_reduce(p->default_flags);
+
+        for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
+                PartitionPolicyFlags x, y, z, df;
+
+                /* If this designator has no entry in either policy we don't need to include it in the intersection either. */
+                if (!image_policy_bsearch(a, d) && !image_policy_bsearch(b, d))
+                        continue;
+
+                /* Expand this policy flags field to the "long" form, i.e. for each part of the flags that
+                 * are left unspcified add in all possible options */
+                x = image_policy_get_exhaustively(a, d);
+                if (x < 0)
+                        return x;
+
+                y = image_policy_get_exhaustively(b, d);
+                if (y < 0)
+                        return y;
+
+                /* Mask it */
+                z = x & y;
+
+                /* Check if the intersection is empty for this partition. If so, generate a clear error */
+                if (partition_policy_flags_has_unspecified(z))
+                        return -ENAVAIL;
+
+                df = partition_policy_normalized_flags(
+                                &(const PartitionPolicy) {
+                                        .flags = image_policy_default(p),
+                                        .designator = d,
+                                });
+                if (df < 0)
+                        return df;
+                if (df == z) /* Same as default? then let's skip this */
+                        continue;
+
+                /* image_policy_get_exhaustively() may have extended the flags mask to include all
+                 * read-only/growfs flags if not set. Let's remove them again, if they are both set to
+                 * minimize the policy again. */
+                z = partition_policy_flags_reduce(z);
+
+                p->policies[p->n_policies++] = (struct PartitionPolicy) {
+                        .designator = d,
+                        .flags = z,
+                };
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(p);
+
+        return 0;
 }
 
 const ImagePolicy image_policy_allow = {

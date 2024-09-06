@@ -17,36 +17,21 @@
 
 static int broadcast_groups_get(sd_netlink *nl) {
         _cleanup_free_ uint32_t *groups = NULL;
-        socklen_t len = 0, old_len;
+        size_t len;
         int r;
 
         assert(nl);
         assert(nl->fd >= 0);
 
-        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0) {
-                if (errno != ENOPROTOOPT)
-                        return -errno;
-
+        r = netlink_socket_get_multicast_groups(nl->fd, &len, &groups);
+        if (r == -ENOPROTOOPT) {
                 nl->broadcast_group_dont_leave = true;
                 return 0;
         }
+        if (r < 0)
+                return r;
 
-        if (len == 0)
-                return 0;
-
-        groups = new0(uint32_t, len);
-        if (!groups)
-                return -ENOMEM;
-
-        old_len = len;
-
-        if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len) < 0)
-                return -errno;
-
-        if (old_len != len)
-                return -EIO;
-
-        for (unsigned i = 0; i < len; i++)
+        for (size_t i = 0; i < len; i++)
                 for (unsigned j = 0; j < sizeof(uint32_t) * 8; j++)
                         if (groups[i] & (1U << j)) {
                                 unsigned group = i * sizeof(uint32_t) * 8 + j + 1;
@@ -86,15 +71,9 @@ static unsigned broadcast_group_get_ref(sd_netlink *nl, unsigned group) {
 }
 
 static int broadcast_group_set_ref(sd_netlink *nl, unsigned group, unsigned n_ref) {
-        int r;
-
         assert(nl);
 
-        r = hashmap_ensure_allocated(&nl->broadcast_group_refs, NULL);
-        if (r < 0)
-                return r;
-
-        return hashmap_replace(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
+        return hashmap_ensure_replace(&nl->broadcast_group_refs, NULL, UINT_TO_PTR(group), UINT_TO_PTR(n_ref));
 }
 
 static int broadcast_group_join(sd_netlink *nl, unsigned group) {
@@ -197,14 +176,19 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         assert(fd >= 0);
         assert(peek || (buf && buf_size > 0));
 
-        n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (n == -ENOBUFS)
-                return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-        else if (ERRNO_IS_NEG_TRANSIENT(n)) {
+        n = recvmsg_safe(fd, &msg, peek ? (MSG_PEEK|MSG_TRUNC) : 0);
+        if (ERRNO_IS_NEG_TRANSIENT(n)) {
                 if (ret_mcast_group)
                         *ret_mcast_group = 0;
                 return 0;
-        } else if (n < 0)
+        }
+        if (n == -ENOBUFS)
+                return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
+        if (n == -ECHRNG)
+                return log_debug_errno(n, "sd-netlink: got truncated control message");
+        if (n == -EXFULL)
+                return log_debug_errno(n, "sd-netlink: got truncated payload message");
+        if (n < 0)
                 return (int) n;
 
         if (sender.nl.nl_pid != 0) {
@@ -222,9 +206,6 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                         *ret_mcast_group = 0;
                 return 0;
         }
-
-        if (!peek && (size_t) n > buf_size) /* message did not fit in read buffer */
-                return -EIO;
 
         if (ret_mcast_group) {
                 struct nl_pktinfo *pi;

@@ -21,7 +21,6 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/bio.h>
 #  include <openssl/bn.h>
 #  include <openssl/crypto.h>
-#  include <openssl/engine.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/opensslv.h>
@@ -54,9 +53,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_OCTET_STRING*, ASN1_OCTET_STRING_free, NULL);
-DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
-REENABLE_WARNING;
+
 #if OPENSSL_VERSION_MAJOR >= 3
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER*, EVP_CIPHER_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF*, EVP_KDF_free, NULL);

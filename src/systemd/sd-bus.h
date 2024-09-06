@@ -238,6 +238,8 @@ int sd_bus_add_fallback_vtable(sd_bus *bus, sd_bus_slot **slot, const char *pref
 int sd_bus_add_node_enumerator(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
 int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const char *path);
 
+int sd_bus_pending_method_calls(sd_bus *bus);
+
 /* Slot object */
 
 sd_bus_slot* sd_bus_slot_ref(sd_bus_slot *slot);

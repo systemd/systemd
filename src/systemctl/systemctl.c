@@ -8,8 +8,10 @@
 
 #include "build.h"
 #include "bus-util.h"
+#include "capsule-util.h"
 #include "dissect-image.h"
 #include "install.h"
+#include "logs-show.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "output-mode.h"
@@ -20,7 +22,6 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -63,6 +64,7 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -262,6 +264,7 @@ static int systemctl_help(void) {
                "     --version           Show package version\n"
                "     --system            Connect to system manager\n"
                "     --user              Connect to user service manager\n"
+               "  -C --capsule=NAME      Connect to service manager of specified capsule\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on a local container\n"
                "  -t --type=TYPE         List units of a particular type\n"
@@ -275,6 +278,8 @@ static int systemctl_help(void) {
                "  -l --full              Don't ellipsize unit names on output\n"
                "  -r --recursive         Show unit list of host and local containers\n"
                "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
+               "     --before            Show units ordered before with 'list-dependencies'\n"
+               "     --after             Show units ordered after with 'list-dependencies'\n"
                "     --with-dependencies Show unit dependencies with 'status', 'cat',\n"
                "                         'list-units', and 'list-unit-files'.\n"
                "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
@@ -300,8 +305,10 @@ static int systemctl_help(void) {
                "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
+               "                         For kill, wait until service stopped\n"
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
+               "     --message=MESSAGE   Specify human readable reason for system shutdown\n"
                "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -329,6 +336,8 @@ static int systemctl_help(void) {
                "                         Boot into boot loader menu on next boot\n"
                "     --boot-loader-entry=NAME\n"
                "                         Boot into a specific boot loader entry on next boot\n"
+               "     --reboot-argument=ARG\n"
+               "                         Specify argument string to pass to reboot()\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
                "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
                "                             us, utc, us+utc)\n"
@@ -338,7 +347,7 @@ static int systemctl_help(void) {
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
-               "     --stdin             Read contents of edited file from stdin\n"
+               "     --stdin             Read new contents of edited file from stdin\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -490,6 +499,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
+                { "capsule",             required_argument, NULL, 'C'                     },
                 { "wait",                no_argument,       NULL, ARG_WAIT                },
                 { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
                 { "legend",              required_argument, NULL, ARG_LEGEND              },
@@ -544,7 +554,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hC:t:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -677,6 +687,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_GLOBAL:
                         arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_WAIT:
@@ -1001,15 +1023,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_WHEN:
                         if (streq(optarg, "show")) {
-                                r = logind_show_shutdown();
-                                if (r < 0 && r != -ENODATA)
-                                        return r;
-
-                                return 0;
+                                arg_action = ACTION_SYSTEMCTL_SHOW_SHUTDOWN;
+                                return 1;
                         }
 
                         if (STR_IN_SET(optarg, "", "cancel")) {
-                                arg_when = USEC_INFINITY;
+                                arg_action = ACTION_CANCEL_SHUTDOWN;
+                                return 1;
+                        }
+
+                        if (streq(optarg, "auto")) {
+                                arg_when = USEC_INFINITY; /* logind chooses on server side */
                                 break;
                         }
 
@@ -1050,6 +1074,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         if (arg_transport == BUS_TRANSPORT_REMOTE && arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot access user instance remotely.");
+
+        if (arg_transport == BUS_TRANSPORT_CAPSULE && arg_runtime_scope != RUNTIME_SCOPE_USER)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot access system instance with --capsule=/-C.");
 
         if (arg_wait && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1235,14 +1263,11 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
-
         r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        journal_browse_prepare();
 
         if (proc_mounted() == 0)
                 log_full(arg_no_warn ? LOG_DEBUG : LOG_WARNING,
@@ -1317,6 +1342,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SHOW_SHUTDOWN:
+        case ACTION_SYSTEMCTL_SHOW_SHUTDOWN:
                 r = logind_show_shutdown();
                 break;
 

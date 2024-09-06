@@ -62,7 +62,7 @@ TEST(sd_hwdb_new_from_path) {
         ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path("", &hwdb) == -EINVAL);
         assert_se(sd_hwdb_new_from_path("/path/that/should/not/exist", &hwdb) < 0);
 
-        NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
+        NULSTR_FOREACH(hwdb_bin_path, HWDB_BIN_PATHS) {
                 r = sd_hwdb_new_from_path(hwdb_bin_path, &hwdb);
                 if (r >= 0)
                         break;

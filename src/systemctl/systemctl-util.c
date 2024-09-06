@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "ask-password-agent.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -19,11 +20,10 @@
 #include "macro.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "polkit-agent.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "set.h"
-#include "spawn-ask-password-agent.h"
-#include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
@@ -42,7 +42,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--global is not supported for this operation.");
 
         /* We only go directly to the manager, if we are using a local transport */
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE))
                 focus = BUS_FULL;
 
         if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
@@ -64,8 +64,8 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
 }
 
 void release_busses(void) {
-        for (BusFocus w = 0; w < _BUS_FOCUS_MAX; w++)
-                buses[w] = sd_bus_flush_close_unref(buses[w]);
+        FOREACH_ARRAY(w, buses, _BUS_FOCUS_MAX)
+                *w = sd_bus_flush_close_unref(*w);
 }
 
 void ask_password_agent_open_maybe(void) {
@@ -86,7 +86,7 @@ void polkit_agent_open_maybe(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
@@ -327,14 +327,15 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
         if (r < 0)
                 return r;
 
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+                goto skip;
+
         if (ignore_masked) {
                 r = unit_is_masked(bus, name);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        *ret = NULL;
-                        return 0;
-                }
+                if (r > 0)
+                        goto skip;
         }
 
         dbus_path = unit_dbus_path_from_name(name);
@@ -360,7 +361,7 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
                 if (r < 0)
                         return r;
 
-                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
+                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING))
                         continue;
 
                 r = strv_extend(&active, *i);
@@ -369,6 +370,10 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
         }
 
         *ret = TAKE_PTR(active);
+        return 0;
+
+skip:
+        *ret = NULL;
         return 0;
 }
 
@@ -383,8 +388,8 @@ void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation,
 
         r = get_active_triggering_units(bus, unit, ignore_masked, &triggered_by);
         if (r < 0) {
-                log_warning_errno(r,
-                                  "Failed to get triggering units for '%s', ignoring: %m", unit);
+                if (r != -ENOENT) /* A linked unit might have disappeared after disabling */
+                        log_warning_errno(r, "Failed to get triggering units for '%s', ignoring: %m", unit);
                 return;
         }
 
@@ -897,7 +902,7 @@ int output_table(Table *table) {
         assert(table);
 
         if (OUTPUT_MODE_IS_JSON(arg_output))
-                r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO);
         else
                 r = table_print(table, NULL);
         if (r < 0)

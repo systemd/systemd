@@ -76,6 +76,11 @@ evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
+# AIPTEK Media Tablet Ultimate (detected as Waltop International Corp. Batteryless Tablet)
+evdev:input:b0003v172Fp0503*
+ EVDEV_ABS_00=::160
+ EVDEV_ABS_01=::160
+
 #########################################
 # Apple
 #########################################
@@ -250,6 +255,13 @@ evdev:input:b0003v0ED1p7821*
 # Dell
 #########################################
 
+# Dell AlpsPS/2 ALPS DualPoint TouchPad
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*:svnDellInc.*:pnLatitudeE7440*:
+ EVDEV_ABS_00=:::28
+ EVDEV_ABS_01=:::28
+ EVDEV_ABS_35=:::28
+ EVDEV_ABS_36=:::28
+
 # Dell Vostro 1510
 evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510:*
  EVDEV_ABS_00=::14
@@ -373,6 +385,8 @@ evdev:input:b0003v0430p0530*
 evdev:input:b0003v256Cp006F*
  EVDEV_ABS_00=::210
  EVDEV_ABS_01=::323
+ EVDEV_ABS_35=::210
+ EVDEV_ABS_36=::323
 
 #########################################
 # Google
@@ -497,6 +511,13 @@ evdev:input:b0003v256Cp0068*
  EVDEV_ABS_00=::200
  EVDEV_ABS_01=::200
 
+# HUION Kamvas 19 Pro (GT-1902)
+evdev:input:b0003v256Cp006B*
+ EVDEV_ABS_00=::40
+ EVDEV_ABS_01=::42
+ EVDEV_ABS_35=::40
+ EVDEV_ABS_36=::42
+
 #########################################
 # Lenovo
 #########################################
@@ -608,6 +629,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadL14Gen1**
  EVDEV_ABS_01=::50
  EVDEV_ABS_35=::44
  EVDEV_ABS_36=::50
+
+# Lenovo Thinkpad E16 Gen1 (Intel)
+evdev:name:SYNA801A:00 06CB:CEC6 Touchpad:dmi:*svnLENOVO:*pvrThinkPadE16Gen1**
+ EVDEV_ABS_00=::11
+ EVDEV_ABS_01=::11
+ EVDEV_ABS_35=::11
+ EVDEV_ABS_36=::11
 
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460:*

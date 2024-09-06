@@ -5,6 +5,8 @@
 
 #include "sd-bus.h"
 
+void pam_log_setup(void);
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
 int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);

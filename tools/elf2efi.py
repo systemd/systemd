@@ -26,6 +26,7 @@ import hashlib
 import io
 import os
 import pathlib
+import sys
 import time
 import typing
 from ctypes import (
@@ -55,26 +56,26 @@ from elftools.elf.relocation import (
 
 class PeCoffHeader(LittleEndianStructure):
     _fields_ = (
-        ("Machine", c_uint16),
-        ("NumberOfSections", c_uint16),
-        ("TimeDateStamp", c_uint32),
+        ("Machine",              c_uint16),
+        ("NumberOfSections",     c_uint16),
+        ("TimeDateStamp",        c_uint32),
         ("PointerToSymbolTable", c_uint32),
-        ("NumberOfSymbols", c_uint32),
+        ("NumberOfSymbols",      c_uint32),
         ("SizeOfOptionalHeader", c_uint16),
-        ("Characteristics", c_uint16),
+        ("Characteristics",      c_uint16),
     )
 
 
 class PeDataDirectory(LittleEndianStructure):
     _fields_ = (
         ("VirtualAddress", c_uint32),
-        ("Size", c_uint32),
+        ("Size",           c_uint32),
     )
 
 
 class PeRelocationBlock(LittleEndianStructure):
     _fields_ = (
-        ("PageRVA", c_uint32),
+        ("PageRVA",   c_uint32),
         ("BlockSize", c_uint32),
     )
 
@@ -86,62 +87,62 @@ class PeRelocationBlock(LittleEndianStructure):
 class PeRelocationEntry(LittleEndianStructure):
     _fields_ = (
         ("Offset", c_uint16, 12),
-        ("Type", c_uint16, 4),
+        ("Type",   c_uint16, 4),
     )
 
 
 class PeOptionalHeaderStart(LittleEndianStructure):
     _fields_ = (
-        ("Magic", c_uint16),
-        ("MajorLinkerVersion", c_uint8),
-        ("MinorLinkerVersion", c_uint8),
-        ("SizeOfCode", c_uint32),
-        ("SizeOfInitializedData", c_uint32),
+        ("Magic",                   c_uint16),
+        ("MajorLinkerVersion",      c_uint8),
+        ("MinorLinkerVersion",      c_uint8),
+        ("SizeOfCode",              c_uint32),
+        ("SizeOfInitializedData",   c_uint32),
         ("SizeOfUninitializedData", c_uint32),
-        ("AddressOfEntryPoint", c_uint32),
-        ("BaseOfCode", c_uint32),
+        ("AddressOfEntryPoint",     c_uint32),
+        ("BaseOfCode",              c_uint32),
     )
 
 
 class PeOptionalHeaderMiddle(LittleEndianStructure):
     _fields_ = (
-        ("SectionAlignment", c_uint32),
-        ("FileAlignment", c_uint32),
+        ("SectionAlignment",            c_uint32),
+        ("FileAlignment",               c_uint32),
         ("MajorOperatingSystemVersion", c_uint16),
         ("MinorOperatingSystemVersion", c_uint16),
-        ("MajorImageVersion", c_uint16),
-        ("MinorImageVersion", c_uint16),
-        ("MajorSubsystemVersion", c_uint16),
-        ("MinorSubsystemVersion", c_uint16),
-        ("Win32VersionValue", c_uint32),
-        ("SizeOfImage", c_uint32),
-        ("SizeOfHeaders", c_uint32),
-        ("CheckSum", c_uint32),
-        ("Subsystem", c_uint16),
-        ("DllCharacteristics", c_uint16),
+        ("MajorImageVersion",           c_uint16),
+        ("MinorImageVersion",           c_uint16),
+        ("MajorSubsystemVersion",       c_uint16),
+        ("MinorSubsystemVersion",       c_uint16),
+        ("Win32VersionValue",           c_uint32),
+        ("SizeOfImage",                 c_uint32),
+        ("SizeOfHeaders",               c_uint32),
+        ("CheckSum",                    c_uint32),
+        ("Subsystem",                   c_uint16),
+        ("DllCharacteristics",          c_uint16),
     )
 
 
 class PeOptionalHeaderEnd(LittleEndianStructure):
     _fields_ = (
-        ("LoaderFlags", c_uint32),
-        ("NumberOfRvaAndSizes", c_uint32),
-        ("ExportTable", PeDataDirectory),
-        ("ImportTable", PeDataDirectory),
-        ("ResourceTable", PeDataDirectory),
-        ("ExceptionTable", PeDataDirectory),
-        ("CertificateTable", PeDataDirectory),
-        ("BaseRelocationTable", PeDataDirectory),
-        ("Debug", PeDataDirectory),
-        ("Architecture", PeDataDirectory),
-        ("GlobalPtr", PeDataDirectory),
-        ("TLSTable", PeDataDirectory),
-        ("LoadConfigTable", PeDataDirectory),
-        ("BoundImport", PeDataDirectory),
-        ("IAT", PeDataDirectory),
+        ("LoaderFlags",           c_uint32),
+        ("NumberOfRvaAndSizes",   c_uint32),
+        ("ExportTable",           PeDataDirectory),
+        ("ImportTable",           PeDataDirectory),
+        ("ResourceTable",         PeDataDirectory),
+        ("ExceptionTable",        PeDataDirectory),
+        ("CertificateTable",      PeDataDirectory),
+        ("BaseRelocationTable",   PeDataDirectory),
+        ("Debug",                 PeDataDirectory),
+        ("Architecture",          PeDataDirectory),
+        ("GlobalPtr",             PeDataDirectory),
+        ("TLSTable",              PeDataDirectory),
+        ("LoadConfigTable",       PeDataDirectory),
+        ("BoundImport",           PeDataDirectory),
+        ("IAT",                   PeDataDirectory),
         ("DelayImportDescriptor", PeDataDirectory),
-        ("CLRRuntimeHeader", PeDataDirectory),
-        ("Reserved", PeDataDirectory),
+        ("CLRRuntimeHeader",      PeDataDirectory),
+        ("Reserved",              PeDataDirectory),
     )
 
 
@@ -152,44 +153,44 @@ class PeOptionalHeader(LittleEndianStructure):
 class PeOptionalHeader32(PeOptionalHeader):
     _anonymous_ = ("Start", "Middle", "End")
     _fields_ = (
-        ("Start", PeOptionalHeaderStart),
-        ("BaseOfData", c_uint32),
-        ("ImageBase", c_uint32),
-        ("Middle", PeOptionalHeaderMiddle),
+        ("Start",              PeOptionalHeaderStart),
+        ("BaseOfData",         c_uint32),
+        ("ImageBase",          c_uint32),
+        ("Middle",             PeOptionalHeaderMiddle),
         ("SizeOfStackReserve", c_uint32),
-        ("SizeOfStackCommit", c_uint32),
-        ("SizeOfHeapReserve", c_uint32),
-        ("SizeOfHeapCommit", c_uint32),
-        ("End", PeOptionalHeaderEnd),
+        ("SizeOfStackCommit",  c_uint32),
+        ("SizeOfHeapReserve",  c_uint32),
+        ("SizeOfHeapCommit",   c_uint32),
+        ("End",                PeOptionalHeaderEnd),
     )
 
 
 class PeOptionalHeader32Plus(PeOptionalHeader):
     _anonymous_ = ("Start", "Middle", "End")
     _fields_ = (
-        ("Start", PeOptionalHeaderStart),
-        ("ImageBase", c_uint64),
-        ("Middle", PeOptionalHeaderMiddle),
+        ("Start",              PeOptionalHeaderStart),
+        ("ImageBase",          c_uint64),
+        ("Middle",             PeOptionalHeaderMiddle),
         ("SizeOfStackReserve", c_uint64),
-        ("SizeOfStackCommit", c_uint64),
-        ("SizeOfHeapReserve", c_uint64),
-        ("SizeOfHeapCommit", c_uint64),
-        ("End", PeOptionalHeaderEnd),
+        ("SizeOfStackCommit",  c_uint64),
+        ("SizeOfHeapReserve",  c_uint64),
+        ("SizeOfHeapCommit",   c_uint64),
+        ("End",                PeOptionalHeaderEnd),
     )
 
 
 class PeSection(LittleEndianStructure):
     _fields_ = (
-        ("Name", c_char * 8),
-        ("VirtualSize", c_uint32),
-        ("VirtualAddress", c_uint32),
-        ("SizeOfRawData", c_uint32),
-        ("PointerToRawData", c_uint32),
+        ("Name",                 c_char * 8),
+        ("VirtualSize",          c_uint32),
+        ("VirtualAddress",       c_uint32),
+        ("SizeOfRawData",        c_uint32),
+        ("PointerToRawData",     c_uint32),
         ("PointerToRelocations", c_uint32),
         ("PointerToLinenumbers", c_uint32),
-        ("NumberOfRelocations", c_uint16),
-        ("NumberOfLinenumbers", c_uint16),
-        ("Characteristics", c_uint32),
+        ("NumberOfRelocations",  c_uint16),
+        ("NumberOfLinenumbers",  c_uint16),
+        ("Characteristics",      c_uint32),
     )
 
     def __init__(self):
@@ -206,12 +207,13 @@ assert sizeof(PeOptionalHeader32Plus) == 240
 
 PE_CHARACTERISTICS_RX = 0x60000020  # CNT_CODE|MEM_READ|MEM_EXECUTE
 PE_CHARACTERISTICS_RW = 0xC0000040  # CNT_INITIALIZED_DATA|MEM_READ|MEM_WRITE
-PE_CHARACTERISTICS_R = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
+PE_CHARACTERISTICS_R  = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
 
 IGNORE_SECTIONS = [
     ".eh_frame",
     ".eh_frame_hdr",
     ".ARM.exidx",
+    ".relro_padding",
 ]
 
 IGNORE_SECTION_TYPES = [
@@ -246,9 +248,12 @@ def align_down(x: int, align: int) -> int:
 
 
 def next_section_address(sections: typing.List[PeSection]) -> int:
-    return align_to(
-        sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
-    )
+    return align_to(sections[-1].VirtualAddress + sections[-1].VirtualSize,
+                    SECTION_ALIGNMENT)
+
+
+class BadSectionError(ValueError):
+    "One of the sections is in a bad state"
 
 
 def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
@@ -261,8 +266,9 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     relro = None
     for elf_seg in elf.iter_segments():
         if elf_seg["p_type"] == "PT_LOAD" and elf_seg["p_align"] != SECTION_ALIGNMENT:
-            raise RuntimeError("ELF segments are not properly aligned.")
-        elif elf_seg["p_type"] == "PT_GNU_RELRO":
+            raise BadSectionError(f"ELF segment {elf_seg['p_type']} is not properly aligned"
+                                  f" ({elf_seg['p_align']} != {SECTION_ALIGNMENT})")
+        if elf_seg["p_type"] == "PT_GNU_RELRO":
             relro = elf_seg
 
     for elf_s in elf.iter_sections():
@@ -270,10 +276,14 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
             elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC == 0
             or elf_s["sh_type"] in IGNORE_SECTION_TYPES
             or elf_s.name in IGNORE_SECTIONS
+            or elf_s["sh_size"] == 0
         ):
             continue
         if elf_s["sh_type"] not in ["SHT_PROGBITS", "SHT_NOBITS"]:
-            raise RuntimeError(f"Unknown section {elf_s.name}.")
+            raise BadSectionError(f"Unknown section {elf_s.name} with type {elf_s['sh_type']}")
+        if elf_s.name == '.got':
+            # FIXME: figure out why those sections are inserted
+            print("WARNING: Non-empty .got section", file=sys.stderr)
 
         if elf_s["sh_flags"] & SH_FLAGS.SHF_EXECINSTR:
             rwx = PE_CHARACTERISTICS_RX
@@ -305,7 +315,7 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
 
 
 def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]:
-    last_vma = 0
+    last_vma = (0, 0)
     sections = []
 
     for pe_s in iter_copy_sections(elf):
@@ -325,10 +335,11 @@ def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSecti
             PE_CHARACTERISTICS_R: b".rodata",
         }[pe_s.Characteristics]
 
-        # This can happen if not building with `-z separate-code`.
-        if pe_s.VirtualAddress < last_vma:
-            raise RuntimeError("Overlapping PE sections.")
-        last_vma = pe_s.VirtualAddress + pe_s.VirtualSize
+        # This can happen if not building with '-z separate-code'.
+        if pe_s.VirtualAddress < sum(last_vma):
+            raise BadSectionError(f"Section {pe_s.Name.decode()!r} @0x{pe_s.VirtualAddress:x} overlaps"
+                                  f" previous section @0x{last_vma[0]:x}+0x{last_vma[1]:x}=@0x{sum(last_vma):x}")
+        last_vma = (pe_s.VirtualAddress, pe_s.VirtualSize)
 
         if pe_s.Name == b".text":
             opt.BaseOfCode = pe_s.VirtualAddress
@@ -355,9 +366,9 @@ def copy_sections(
         if not elf_s:
             continue
         if elf_s.data_alignment > 1 and SECTION_ALIGNMENT % elf_s.data_alignment != 0:
-            raise RuntimeError(f"ELF section {name} is not aligned.")
+            raise BadSectionError(f"ELF section {name} is not aligned")
         if elf_s["sh_flags"] & (SH_FLAGS.SHF_EXECINSTR | SH_FLAGS.SHF_WRITE) != 0:
-            raise RuntimeError(f"ELF section {name} is not read-only data.")
+            raise BadSectionError(f"ELF section {name} is not read-only data")
 
         pe_s = PeSection()
         pe_s.Name = name.encode()
@@ -376,12 +387,8 @@ def apply_elf_relative_relocation(
     sections: typing.List[PeSection],
     addend_size: int,
 ):
-    # fmt: off
-    [target] = [
-        pe_s for pe_s in sections
-        if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)
-    ]
-    # fmt: on
+    [target] = [pe_s for pe_s in sections
+                if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)]
 
     addend_offset = reloc["r_offset"] - target.VirtualAddress
 
@@ -425,9 +432,10 @@ def convert_elf_reloc_table(
             continue
 
         if reloc["r_info_type"] == RELATIVE_RELOC:
-            apply_elf_relative_relocation(
-                reloc, elf_image_base, sections, elf.elfclass // 8
-            )
+            apply_elf_relative_relocation(reloc,
+                                          elf_image_base,
+                                          sections,
+                                          elf.elfclass // 8)
 
             # Now that the ELF relocation has been applied, we can create a PE relocation.
             block_rva = reloc["r_offset"] & ~0xFFF
@@ -442,7 +450,7 @@ def convert_elf_reloc_table(
 
             continue
 
-        raise RuntimeError(f"Unsupported relocation {reloc}")
+        raise BadSectionError(f"Unsupported relocation {reloc}")
 
 
 def convert_elf_relocations(
@@ -453,27 +461,25 @@ def convert_elf_relocations(
 ) -> typing.Optional[PeSection]:
     dynamic = elf.get_section_by_name(".dynamic")
     if dynamic is None:
-        raise RuntimeError("ELF .dynamic section is missing.")
+        raise BadSectionError("ELF .dynamic section is missing")
 
     [flags_tag] = dynamic.iter_tags("DT_FLAGS_1")
     if not flags_tag["d_val"] & ENUM_DT_FLAGS_1["DF_1_PIE"]:
-        raise RuntimeError("ELF file is not a PIE.")
+        raise ValueError("ELF file is not a PIE")
 
     # This checks that the ELF image base is 0.
     symtab = elf.get_section_by_name(".symtab")
     if symtab:
         exe_start = symtab.get_symbol_by_name("__executable_start")
         if exe_start and exe_start[0]["st_value"] != 0:
-            raise RuntimeError("Unexpected ELF image base.")
+            raise ValueError("Unexpected ELF image base")
 
-    opt.SizeOfHeaders = align_to(
-        PE_OFFSET
-        + len(PE_MAGIC)
-        + sizeof(PeCoffHeader)
-        + sizeof(opt)
-        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
-        FILE_ALIGNMENT,
-    )
+    opt.SizeOfHeaders = align_to(PE_OFFSET
+                                 + len(PE_MAGIC)
+                                 + sizeof(PeCoffHeader)
+                                 + sizeof(opt)
+                                 + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
+                                 FILE_ALIGNMENT)
 
     # We use the basic VMA layout from the ELF image in the PE image. This could cause the first
     # section to overlap the PE image headers during runtime at VMA 0. We can simply apply a fixed
@@ -482,9 +488,8 @@ def convert_elf_relocations(
     # the ELF portions of the image.
     segment_offset = 0
     if sections[0].VirtualAddress < opt.SizeOfHeaders:
-        segment_offset = align_to(
-            opt.SizeOfHeaders - sections[0].VirtualAddress, SECTION_ALIGNMENT
-        )
+        segment_offset = align_to(opt.SizeOfHeaders - sections[0].VirtualAddress,
+                                  SECTION_ALIGNMENT)
 
     opt.AddressOfEntryPoint = elf["e_entry"] + segment_offset
     opt.BaseOfCode += segment_offset
@@ -494,10 +499,12 @@ def convert_elf_relocations(
     pe_reloc_blocks: typing.Dict[int, PeRelocationBlock] = {}
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
-            raise RuntimeError("Unsupported relocation type {elf_reloc_type}.")
-        convert_elf_reloc_table(
-            elf, reloc_table, opt.ImageBase + segment_offset, sections, pe_reloc_blocks
-        )
+            raise BadSectionError(f"Unsupported relocation type {reloc_type}")
+        convert_elf_reloc_table(elf,
+                                reloc_table,
+                                opt.ImageBase + segment_offset,
+                                sections,
+                                pe_reloc_blocks)
 
     for pe_s in sections:
         pe_s.VirtualAddress += segment_offset
@@ -517,9 +524,7 @@ def convert_elf_relocations(
             block.entries.append(PeRelocationEntry())
 
         block.PageRVA += segment_offset
-        block.BlockSize = (
-            sizeof(PeRelocationBlock) + sizeof(PeRelocationEntry) * n_relocs
-        )
+        block.BlockSize = sizeof(PeRelocationBlock) + sizeof(PeRelocationEntry) * n_relocs
         data += block
         for entry in sorted(block.entries, key=lambda e: e.Offset):
             data += entry
@@ -539,7 +544,10 @@ def convert_elf_relocations(
 
 
 def write_pe(
-    file, coff: PeCoffHeader, opt: PeOptionalHeader, sections: typing.List[PeSection]
+    file,
+    coff: PeCoffHeader,
+    opt: PeOptionalHeader,
+    sections: typing.List[PeSection],
 ):
     file.write(b"MZ")
     file.seek(0x3C, io.SEEK_SET)
@@ -552,7 +560,8 @@ def write_pe(
     offset = opt.SizeOfHeaders
     for pe_s in sorted(sections, key=lambda s: s.VirtualAddress):
         if pe_s.VirtualAddress < opt.SizeOfHeaders:
-            raise RuntimeError(f"Section {pe_s.Name} overlapping PE headers.")
+            raise BadSectionError(f"Section {pe_s.Name} @0x{pe_s.VirtualAddress:x} overlaps"
+                                  " PE headers ending at 0x{opt.SizeOfHeaders:x}")
 
         pe_s.PointerToRawData = offset
         file.write(pe_s)
@@ -570,9 +579,9 @@ def write_pe(
 def elf2efi(args: argparse.Namespace):
     elf = ELFFile(args.ELF)
     if not elf.little_endian:
-        raise RuntimeError("ELF file is not little-endian.")
+        raise ValueError("ELF file is not little-endian")
     if elf["e_type"] not in ["ET_DYN", "ET_EXEC"]:
-        raise RuntimeError("Unsupported ELF type.")
+        raise ValueError(f"Unsupported ELF type {elf['e_type']}")
 
     pe_arch = {
         "EM_386": 0x014C,
@@ -583,7 +592,7 @@ def elf2efi(args: argparse.Namespace):
         "EM_X86_64": 0x8664,
     }.get(elf["e_machine"])
     if pe_arch is None:
-        raise RuntimeError(f"Unsupported ELF arch {elf['e_machine']}")
+        raise ValueError(f"Unsupported ELF architecture {elf['e_machine']}")
 
     coff = PeCoffHeader()
     opt = PeOptionalHeader32() if elf.elfclass == 32 else PeOptionalHeader32Plus()
@@ -636,7 +645,7 @@ def elf2efi(args: argparse.Namespace):
     write_pe(args.PE, coff, opt, sections)
 
 
-def main():
+def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Convert ELF binaries to PE/EFI")
     parser.add_argument(
         "--version-major",
@@ -690,7 +699,11 @@ def main():
         default="",
         help="Copy these sections if found",
     )
+    return parser
 
+
+def main():
+    parser = create_parser()
     elf2efi(parser.parse_args())
 
 

@@ -312,7 +312,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-char *format_timestamp_style(
+char* format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,
@@ -332,7 +332,6 @@ char *format_timestamp_style(
 
         struct tm tm;
         bool utc, us;
-        time_t sec;
         size_t n;
 
         assert(buf);
@@ -375,9 +374,7 @@ char *format_timestamp_style(
                 return strcpy(buf, xxx[style]);
         }
 
-        sec = (time_t) (t / USEC_PER_SEC); /* Round down */
-
-        if (!localtime_or_gmtime_r(&sec, &tm, utc))
+        if (localtime_or_gmtime_usec(t, utc, &tm) < 0)
                 return NULL;
 
         /* Start with the week day */
@@ -665,7 +662,6 @@ static int parse_timestamp_impl(
         unsigned fractional = 0;
         const char *k;
         struct tm tm, copy;
-        time_t sec;
 
         /* Allowed syntaxes:
          *
@@ -778,10 +774,9 @@ static int parse_timestamp_impl(
                 }
         }
 
-        sec = (time_t) (usec / USEC_PER_SEC);
-
-        if (!localtime_or_gmtime_r(&sec, &tm, utc))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(usec, utc, &tm);
+        if (r < 0)
+                return r;
 
         tm.tm_isdst = isdst;
 
@@ -939,11 +934,11 @@ from_tm:
         } else
                 minus = gmtoff * USEC_PER_SEC;
 
-        sec = mktime_or_timegm(&tm, utc);
-        if (sec < 0)
-                return -EINVAL;
+        r = mktime_or_timegm_usec(&tm, utc, &usec);
+        if (r < 0)
+                return r;
 
-        usec = usec_add(sec * USEC_PER_SEC, fractional);
+        usec = usec_add(usec, fractional);
 
 finish:
         usec = usec_add(usec, plus);
@@ -1519,8 +1514,7 @@ int get_timezones(char ***ret) {
         if (r < 0)
                 return r;
 
-        strv_sort(zones);
-        strv_uniq(zones);
+        strv_sort_uniq(zones);
 
         *ret = TAKE_PTR(zones);
         return 0;
@@ -1606,51 +1600,74 @@ bool clock_supported(clockid_t clock) {
 
 int get_timezone(char **ret) {
         _cleanup_free_ char *t = NULL;
-        const char *e;
-        char *z;
         int r;
 
         assert(ret);
 
         r = readlink_malloc("/etc/localtime", &t);
-        if (r == -ENOENT) {
+        if (r == -ENOENT)
                 /* If the symlink does not exist, assume "UTC", like glibc does */
-                z = strdup("UTC");
-                if (!z)
-                        return -ENOMEM;
-
-                *ret = z;
-                return 0;
-        }
+                return strdup_to(ret, "UTC");
         if (r < 0)
-                return r; /* returns EINVAL if not a symlink */
+                return r; /* Return EINVAL if not a symlink */
 
-        e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+        const char *e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
         if (!e)
                 return -EINVAL;
-
         if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
-        z = strdup(e);
-        if (!z)
-                return -ENOMEM;
+        return strdup_to(ret, e);
+}
 
-        *ret = z;
+int mktime_or_timegm_usec(
+                struct tm *tm, /* input + normalized output */
+                bool utc,
+                usec_t *ret) {
+
+        time_t t;
+
+        assert(tm);
+
+        if (tm->tm_year < 69) /* early check for negative (i.e. before 1970) time_t (Note that in some timezones the epoch is in the year 1969!)*/
+                return -ERANGE;
+        if ((usec_t) tm->tm_year > CONST_MIN(USEC_INFINITY / USEC_PER_YEAR, (usec_t) TIME_T_MAX / (365U * 24U * 60U * 60U)) - 1900) /* early check for possible overrun of usec_t or time_t */
+                return -ERANGE;
+
+        /* timegm()/mktime() is a bit weird to use, since it returns -1 in two cases: on error as well as a
+         * valid time indicating one second before the UNIX epoch. Let's treat both cases the same here, and
+         * return -ERANGE for anything negative, since usec_t is unsigned, and we can thus not express
+         * negative times anyway. */
+
+        t = utc ? timegm(tm) : mktime(tm);
+        if (t < 0) /* Refuse negative times and errors */
+                return -ERANGE;
+        if ((usec_t) t >= USEC_INFINITY / USEC_PER_SEC) /* Never return USEC_INFINITY by accident (or overflow) */
+                return -ERANGE;
+
+        if (ret)
+                *ret = (usec_t) t * USEC_PER_SEC;
         return 0;
 }
 
-time_t mktime_or_timegm(struct tm *tm, bool utc) {
-        assert(tm);
+int localtime_or_gmtime_usec(
+                usec_t t,
+                bool utc,
+                struct tm *ret) {
 
-        return utc ? timegm(tm) : mktime(tm);
-}
+        t /= USEC_PER_SEC; /* Round down */
+        if (t > (usec_t) TIME_T_MAX)
+                return -ERANGE;
+        time_t sec = (time_t) t;
 
-struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
-        assert(t);
-        assert(tm);
+        struct tm buf = {};
+        if (!(utc ? gmtime_r(&sec, &buf) : localtime_r(&sec, &buf)))
+                return -EINVAL;
 
-        return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
+        if (ret)
+                *ret = buf;
+
+        return 0;
 }
 
 static uint32_t sysconf_clock_ticks_cached(void) {

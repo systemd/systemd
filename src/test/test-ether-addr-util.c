@@ -72,7 +72,7 @@ static void test_parse_hw_addr_full_one(const char *in, size_t expected_len, con
         if (r >= 0) {
                 if (!IN_SET(expected_len, 0, SIZE_MAX))
                         assert_se(h.length == expected_len);
-                assert_se(streq(HW_ADDR_TO_STR(&h), expected));
+                ASSERT_STREQ(HW_ADDR_TO_STR(&h), expected);
         }
 }
 

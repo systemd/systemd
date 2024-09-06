@@ -14,7 +14,7 @@ test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', project_build_root + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', project_build_root)
-test_env.set('SYSTEMD_SLOW_TESTS', slow_tests ? '1' : '0')
+test_env.set('SYSTEMD_SLOW_TESTS', want_slow_tests ? '1' : '0')
 
 if efi_addon != ''
         test_env.set('EFI_ADDON', efi_addon)
@@ -113,6 +113,7 @@ simple_tests += files(
         'test-iovec-util.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-label.c',
         'test-limits-util.c',
         'test-list.c',
         'test-local-addresses.c',
@@ -147,6 +148,7 @@ simple_tests += files(
         'test-psi-util.c',
         'test-ratelimit.c',
         'test-raw-clone.c',
+        'test-recovery-key.c',
         'test-recurse-dir.c',
         'test-replace-var.c',
         'test-rlimit-util.c',
@@ -154,7 +156,6 @@ simple_tests += files(
         'test-sd-hwdb.c',
         'test-sd-path.c',
         'test-secure-bits.c',
-        'test-selinux.c',
         'test-serialize.c',
         'test-set.c',
         'test-sha256.c',
@@ -263,13 +264,16 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-dlopen-so.c'),
-                'dependencies' : libp11kit_cflags
+                'dependencies' : [
+                        libp11kit_cflags,
+                        libkmod_cflags,
+                ],
         },
         test_template + {
                 # only static linking apart from libdl, to make sure that the
                 # module is linked to all libraries that it uses.
                 'sources' : files('test-dlopen.c'),
-                'link_with' : libbasic,
+                'link_with' : libbasic_static,
                 'dependencies' : libdl,
                 'install' : false,
                 'type' : 'manual',
@@ -333,17 +337,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-netlink-manual.c'),
-                'dependencies' : libkmod,
+                'dependencies' : libkmod_cflags,
                 'conditions' : ['HAVE_KMOD'],
                 'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-nft-set.c'),
-                'type' : 'manual',
-        },
-        test_template + {
-                'sources' : files('test-nscd-flush.c'),
-                'conditions' : ['ENABLE_NSCD'],
                 'type' : 'manual',
         },
         test_template + {
@@ -400,12 +399,16 @@ executables += [
                 'conditions' : ['HAVE_SECCOMP'],
         },
         test_template + {
+                'sources' : files('test-selinux.c'),
+                'dependencies' : libselinux,
+        },
+        test_template + {
                 'sources' : files('test-set-disable-mempool.c'),
                 'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('test-sizeof.c'),
-                'link_with' : libbasic,
+                'link_with' : libbasic_static,
         },
         test_template + {
                 'sources' : files('test-time-util.c'),
@@ -530,7 +533,7 @@ executables += [
                 'parallel' : false,
         },
         core_test_template + {
-                'sources' : files('test-manager.c'),
+                'sources' : files('test-taint.c'),
         },
         core_test_template + {
                 'sources' : files('test-namespace.c'),
@@ -585,7 +588,7 @@ executables += [
         test_template + {
                 'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
                 'link_with' : [
-                        libbasic,
+                        libbasic_static,
                         libsystemd,
                 ],
                 'dependencies' : threads,
@@ -593,7 +596,7 @@ executables += [
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
                 'link_with' : [
-                        libbasic,
+                        libbasic_static,
                         libudev,
                 ],
                 'dependencies' : threads,

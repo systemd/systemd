@@ -3,12 +3,11 @@
 
 #include <stdbool.h>
 
+#include "sd-bus.h"
 #include "sd-event.h"
 
 #include "list.h"
 #include "unit-dependency-atom.h"
-#include "unit-name.h"
-#include "unit.h"
 
 typedef struct ActivationDetails ActivationDetails;
 typedef struct Job Job;
@@ -17,6 +16,8 @@ typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
+typedef struct Manager Manager;
+typedef struct Unit Unit;
 
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
@@ -218,7 +219,7 @@ int job_start_timer(Job *j, bool job_running);
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already);
 
-char *job_dbus_path(Job *j);
+char* job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 

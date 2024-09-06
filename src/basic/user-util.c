@@ -27,6 +27,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -120,7 +121,7 @@ char* getlogname_malloc(void) {
         uid_t uid;
         struct stat st;
 
-        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+        if (isatty_safe(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
                 uid = st.st_uid;
         else
                 uid = getuid();
@@ -977,8 +978,8 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
 
         errno = 0;
         struct passwd *p = fgetpwent(stream);
-        if (!p && errno != ENOENT)
-                return errno_or_else(EIO);
+        if (!p && !IN_SET(errno, 0, ENOENT))
+                return -errno;
 
         *pw = p;
         return !!p;
@@ -990,8 +991,8 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
 
         errno = 0;
         struct spwd *s = fgetspent(stream);
-        if (!s && errno != ENOENT)
-                return errno_or_else(EIO);
+        if (!s && !IN_SET(errno, 0, ENOENT))
+                return -errno;
 
         *sp = s;
         return !!s;
@@ -1003,8 +1004,8 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
 
         errno = 0;
         struct group *g = fgetgrent(stream);
-        if (!g && errno != ENOENT)
-                return errno_or_else(EIO);
+        if (!g && !IN_SET(errno, 0, ENOENT))
+                return -errno;
 
         *gr = g;
         return !!g;
@@ -1017,8 +1018,8 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
 
         errno = 0;
         struct sgrp *s = fgetsgent(stream);
-        if (!s && errno != ENOENT)
-                return errno_or_else(EIO);
+        if (!s && !IN_SET(errno, 0, ENOENT))
+                return -errno;
 
         *sg = s;
         return !!s;

@@ -22,6 +22,7 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "hostname-util.h"
+#include "journal-internal.h"
 #include "journal-remote.h"
 #include "log.h"
 #include "logs-show.h"
@@ -31,7 +32,6 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
@@ -49,6 +49,7 @@ static char **arg_file = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -346,6 +347,9 @@ static int request_parse_range_entries(
         const char *colon;
         int r;
 
+        assert(m);
+        assert(entries_request);
+
         colon = strchr(entries_request, ':');
         if (!colon)
                 m->cursor = strdup(entries_request);
@@ -373,6 +377,9 @@ static int request_parse_range_time(
         _cleanup_free_ char *until = NULL;
         const char *colon;
         int r;
+
+        assert(m);
+        assert(time_request);
 
         colon = strchr(time_request, ':');
         if (!colon)
@@ -438,17 +445,14 @@ static int request_parse_range(
                 return -EINVAL;
 
         m->n_skip = 0;
+
         range_after_eq = startswith(range, "entries=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_entries(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         range_after_eq = startswith(range, "realtime=");
-        if (startswith(range, "realtime=")) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_time(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         return 0;
 }
@@ -460,7 +464,6 @@ static mhd_result request_parse_arguments_iterator(
                 const char *value) {
 
         RequestMeta *m = ASSERT_PTR(cls);
-        _cleanup_free_ char *p = NULL;
         int r;
 
         if (isempty(key)) {
@@ -512,17 +515,7 @@ static mhd_result request_parse_arguments_iterator(
                 }
 
                 if (r) {
-                        char match[9 + 32 + 1] = "_BOOT_ID=";
-                        sd_id128_t bid;
-
-                        r = sd_id128_get_boot(&bid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get boot ID: %m");
-                                return MHD_NO;
-                        }
-
-                        sd_id128_to_string(bid, match + 9);
-                        r = sd_journal_add_match(m->journal, match, sizeof(match)-1);
+                        r = add_match_boot_id(m->journal, SD_ID128_NULL);
                         if (r < 0) {
                                 m->argument_parse_error = r;
                                 return MHD_NO;
@@ -532,13 +525,7 @@ static mhd_result request_parse_arguments_iterator(
                 return MHD_YES;
         }
 
-        p = strjoin(key, "=", strempty(value));
-        if (!p) {
-                m->argument_parse_error = log_oom();
-                return MHD_NO;
-        }
-
-        r = sd_journal_add_match(m->journal, p, 0);
+        r = journal_add_match_pair(m->journal, key, strempty(value));
         if (r < 0) {
                 m->argument_parse_error = r;
                 return MHD_NO;
@@ -1146,7 +1133,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        sigbus_install();
+        journal_browse_prepare();
+
         assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
 
         r = setup_gnutls_logger(NULL);

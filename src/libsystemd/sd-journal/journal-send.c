@@ -121,7 +121,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         assert_return(priority <= 7, -EINVAL);
         assert_return(format, -EINVAL);
 
-        xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(p, "PRIORITY=%i", LOG_PRI(priority));
 
         va_copy(aq, ap);
         len = vsnprintf(buffer + 8, LINE_MAX, format, aq);
@@ -485,7 +485,7 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         assert_return(priority <= 7, -EINVAL);
         assert_return(format, -EINVAL);
 
-        xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
+        xsprintf(p, "PRIORITY=%i", LOG_PRI(priority));
 
         va_copy(aq, ap);
         len = vsnprintf(buffer + 8, LINE_MAX, format, aq);

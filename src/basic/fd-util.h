@@ -141,7 +141,7 @@ int fds_are_same_mount(int fd1, int fd2);
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
 
-static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
+static inline char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
         assert(buf);
         assert(fd >= 0);
         assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
@@ -155,13 +155,15 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 #define PROC_PID_FD_PATH_MAX \
         (STRLEN("/proc//fd/") + DECIMAL_STR_MAX(pid_t) + DECIMAL_STR_MAX(int))
 
-char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd);
+char* format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd);
 
 /* Kinda the same as FORMAT_PROC_FD_PATH(), but goes by PID rather than "self" symlink */
 #define FORMAT_PROC_PID_FD_PATH(pid, fd)                                \
         format_proc_pid_fd_path((char[PROC_PID_FD_PATH_MAX]) {}, (pid), (fd))
 
-const char *accmode_to_string(int flags);
+int proc_fd_enoent_errno(void);
+
+const char* accmode_to_string(int flags);
 
 /* Like ASSERT_PTR, but for fds */
 #define ASSERT_FD(fd)                           \

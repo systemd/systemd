@@ -8,3 +8,4 @@ ExecStart=sh -x -c 'for g in $$(id -G); do test "$$g" = "2" && exit 0; done; exi
 Type=oneshot
 DynamicUser=yes
 SupplementaryGroups=1 2
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env

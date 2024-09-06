@@ -443,7 +443,7 @@ _public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
 }
 
 static int search_from_environment(
-                char ***list,
+                char ***ret,
                 const char *env_home,
                 const char *home_suffix,
                 const char *env_search,
@@ -455,7 +455,7 @@ static int search_from_environment(
         char *h = NULL;
         int r;
 
-        assert(list);
+        assert(ret);
 
         if (env_search) {
                 e = secure_getenv(env_search);
@@ -465,7 +465,7 @@ static int search_from_environment(
                                 return -ENOMEM;
 
                         if (env_search_sufficient) {
-                                *list = TAKE_PTR(l);
+                                *ret = TAKE_PTR(l);
                                 return 0;
                         }
                 }
@@ -506,7 +506,7 @@ static int search_from_environment(
                         return -ENOMEM;
         }
 
-        *list = TAKE_PTR(l);
+        *ret = TAKE_PTR(l);
         return 0;
 }
 
@@ -516,15 +516,15 @@ static int search_from_environment(
 #  define ARRAY_SBIN_BIN(x) x "bin"
 #endif
 
-static int get_search(uint64_t type, char ***list) {
+static int get_search(uint64_t type, char ***ret) {
         int r;
 
-        assert(list);
+        assert(ret);
 
         switch (type) {
 
         case SD_PATH_SEARCH_BINARIES:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                NULL,
                                                ".local/bin",
                                                "PATH",
@@ -534,7 +534,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_LIBRARY_PRIVATE:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                NULL,
                                                ".local/lib",
                                                NULL,
@@ -544,7 +544,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_LIBRARY_ARCH:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                NULL,
                                                ".local/lib/" LIB_ARCH_TUPLE,
                                                "LD_LIBRARY_PATH",
@@ -553,7 +553,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_SHARED:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                "XDG_DATA_HOME",
                                                ".local/share",
                                                "XDG_DATA_DIRS",
@@ -563,7 +563,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_CONFIGURATION_FACTORY:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                NULL,
                                                NULL,
                                                NULL,
@@ -573,7 +573,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_STATE_FACTORY:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                NULL,
                                                NULL,
                                                NULL,
@@ -583,7 +583,7 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_CONFIGURATION:
-                return search_from_environment(list,
+                return search_from_environment(ret,
                                                "XDG_CONFIG_HOME",
                                                ".config",
                                                "XDG_CONFIG_DIRS",
@@ -591,8 +591,14 @@ static int get_search(uint64_t type, char ***list) {
                                                "/etc",
                                                NULL);
 
-        case SD_PATH_SEARCH_BINARIES_DEFAULT:
-                return strv_from_nulstr(list, DEFAULT_PATH_NULSTR);
+        case SD_PATH_SEARCH_BINARIES_DEFAULT: {
+                char **t = strv_split(default_PATH(), ":");
+                if (!t)
+                        return -ENOMEM;
+
+                *ret = t;
+                return 0;
+        }
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT:
         case SD_PATH_SYSTEMD_SEARCH_USER_UNIT: {
@@ -604,7 +610,7 @@ static int get_search(uint64_t type, char ***list) {
                 if (r < 0)
                         return r;
 
-                *list = TAKE_PTR(lp.search_path);
+                *ret = TAKE_PTR(lp.search_path);
                 return 0;
         }
 
@@ -618,7 +624,7 @@ static int get_search(uint64_t type, char ***list) {
                 if (!t)
                         return -ENOMEM;
 
-                *list = t;
+                *ret = t;
                 return 0;
         }
 
@@ -631,12 +637,12 @@ static int get_search(uint64_t type, char ***list) {
                 if (!t)
                         return -ENOMEM;
 
-                *list = t;
+                *ret = t;
                 return 0;
         }
 
         case SD_PATH_SYSTEMD_SEARCH_NETWORK:
-                return strv_from_nulstr(list, NETWORK_DIRS_NULSTR);
+                return strv_from_nulstr(ret, NETWORK_DIRS_NULSTR);
 
         }
 

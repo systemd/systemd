@@ -778,6 +778,10 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
+                /* Prefer suitable per-link scopes where possible */
+                if (dns_server_is_fallback(dns_scope_get_dns_server(s)))
+                        return DNS_SCOPE_LAST_RESORT;
+
                 return DNS_SCOPE_MAYBE;
         }
 
@@ -1504,9 +1508,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         continue;
                 }
 
-                /* Collect service types for _services._dns-sd._udp.local RRs in a set */
+                /* Collect service types for _services._dns-sd._udp.local RRs in a set. Only two-label names
+                 * (not selective names) are considered according to RFC6763 § 9. */
                 if (!scope->announced &&
-                    dns_resource_key_is_dnssd_ptr(z->rr->key)) {
+                    dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
                                 r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
                                 if (r < 0)
@@ -1614,6 +1619,12 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
 
+                if (service->sub_ptr_rr) {
+                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add selective PTR record to MDNS zone: %m");
+                }
+
                 r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
@@ -1646,6 +1657,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
 
         HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+                dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
                 LIST_FOREACH(items, txt_data, service->txt_data_items)
                         dns_zone_remove_rr(&scope->zone, txt_data->rr);
@@ -1707,8 +1719,8 @@ bool dns_scope_is_default_route(DnsScope *scope) {
         return !dns_scope_has_route_only_domains(scope);
 }
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *cache = NULL;
+int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);
@@ -1718,13 +1730,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        return json_build(ret,
-                          JSON_BUILD_OBJECT(
-                                          JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", JSON_BUILD_INTEGER(scope->family)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifindex", JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
-                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifname", JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
-                                          JSON_BUILD_PAIR_VARIANT("cache", cache)));
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
+                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {

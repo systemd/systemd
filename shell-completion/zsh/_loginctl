@@ -165,18 +165,18 @@ _loginctl_commands() {
 
 
 _arguments -s \
-    {-h,--help}'[Show help]' \
-    '--version[Show package version]' \
-    \*{-p+,--property=}'[Show only properties by this name]:unit property' \
-    {-a,--all}'[Show all properties, including empty ones]' \
+    '(- *)'{-h,--help}'[Show help]' \
+    '(- *)--version[Show package version]' \
+    '*'{-p+,--property=}'[Show only properties by this name]:unit property' \
+    '(-a --all)'{-a,--all}'[Show all properties, including empty ones]' \
     '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
-    {-s+,--signal=}'[Which signal to send]:signal:_signals' \
-    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    {-l,--full}'[Do not ellipsize output]' \
+    '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize output]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not show the headers and footers]' \
     '--no-ask-password[Do not ask for system passwords]' \
-    {-n+,--lines=}'[Number of journal entries to show]' \
-    {-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
+    '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show]' \
+    '(-o --output)'{-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
     '*::loginctl command:_loginctl_commands'

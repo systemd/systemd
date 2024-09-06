@@ -48,7 +48,9 @@
         domain:"Configure per-interface search and route-only domains"
         flush-caches:"Flushes all DNS resource record caches the service maintains locally"
         llmnr:"Configure per-interface llmnr enabled status"
+        log-level:"Get/set logging threshold for systemd-resolved"
         mdns:"Configure per-interface mdns enabled status"
+        monitor:"Monitor DNS queries"
         nta:"Configure per-interface nta domains"
         openpgp:"Retrieve openpgp keys for an email"
         query:"Resolve domain names, IPv4 and IPv6 addresses"
@@ -57,6 +59,7 @@
         revert:"Revert the per-interfce DNS configuration"
         service:"Resolve DNS-SD and SRV services"
         show-cache:"Show the current cache contents"
+        show-server-state:"Show servers state"
         statistics:"Show resolver statistics"
         status:"Show the global and per-link DNS settings currently in effect"
         tlsa:"Query tlsa public keys stored as TLSA resource records"
@@ -68,18 +71,29 @@
 }
 
 _arguments \
-    {-h,--help}'[Print a short help text and exit]' \
-    '--version[Print a short version string and exit]' \
-    '--legend=no[Do not show headers and footers]' \
+    '(- *)'{-h,--help}'[Print a short help text and exit]' \
+    '(- *)--version[Print a short version string and exit]' \
+    '--legend=[Do not show headers and footers]:BOOL:(yes no)' \
     '-4[Resolve IPv4 addresses]' \
     '-6[Resolve IPv6 addresses]' \
-    {-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
-    {-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
-    {-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
-    {-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
+    '(-i --interface)'{-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
+    '(-p --protocol)'{-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
+    '(-t --type)'{-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
+    '(-c --class)'{-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
     '--service[Resolve services]' \
-    '--service-address=no[Do not resolve address for services]' \
-    '--service-txt=no[Do not resolve TXT records for services]' \
-    '--cname=no[Do not follow CNAME redirects]' \
-    '--search=no[Do not use search domains]' \
+    '--service-address=[Do not resolve address for services]:BOOL:(yes no)' \
+    '--service-txt=[Do not resolve TXT records for services]:BOOL:(yes no)' \
+    '--cname=[Do not follow CNAME redirects]:BOOL:(yes no)' \
+    '--validate=[Do not allow DNSSEC validation]:BOOL:(yes no)' \
+    '--synthesize=[Do not allow synthetic response]:BOOL:(yes no)' \
+    '--cache=[Do not allow response from cache]:BOOL:(yes no)' \
+    '--stale-data=[Do not allow response from cache with stale data]:BOOL:(yes no)' \
+    '--zone=[Do not allow response from locally registered mDNS/LLMNR records]:BOOL:(yes no)' \
+    '--trust-anchor=[Do not allow response from local trust anchor]:BOOL:(yes no)' \
+    '--network=[Do not allow response from network]:BOOL:(yes no)' \
+    '--search=[Do not use search domains]:BOOL:(yes no)' \
+    '--raw=[Dump the answer as binary data]:RAW:(payload packet)' \
+    '--json=[Output as JSON]:JSON:(pretty short off)' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-ask-password[Do not prompt for password]' \
     '*::default: _resolvectl_commands'

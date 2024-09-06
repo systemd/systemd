@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Displays emergency message in full screen.
+Description=Display Boot-Time Emergency Messages In Full Screen
 Documentation=man:systemd-bsod.service(8)
 ConditionVirtualization=no
 DefaultDependencies=no

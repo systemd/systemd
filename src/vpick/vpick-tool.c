@@ -216,9 +216,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -241,7 +239,7 @@ static int run(int argc, char *argv[]) {
                                       .basename = arg_filter_basename,
                                       .version = arg_filter_version,
                                       .architecture = arg_filter_architecture,
-                                      .suffix = arg_filter_suffix,
+                                      .suffix = STRV_MAKE(arg_filter_suffix),
                                       .type_mask = arg_filter_type_mask,
                               },
                               arg_flags,

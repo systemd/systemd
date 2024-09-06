@@ -325,6 +325,42 @@
 
           <xi:include href="version-info.xml" xpointer="v249"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>RELEASE_TYPE=</varname></term>
+
+          <listitem><para>A lower-case string (no spaces or other characters outside of 0-9, a-z, ".",
+          "_", and "-"), describing what kind of release this version of the OS is. Known values follow:
+          </para>
+
+          <itemizedlist>
+            <listitem><para><literal>stable</literal> is for normal releases of the system, suitable for
+            production use. Generally, stable releases become end-of-life soon after the next major stable
+            release is out, although this might not be the case if, for example, a distribution adopts a
+            rolling release model and still be production ready. Examples include Fedora 40, Ubuntu 23.10,
+            OpenSUSE Tumbleweed, and Arch Linux.</para></listitem>
+
+            <listitem><para><literal>lts</literal> is for long term support releases of the system, suitable
+            for production use and supported for an extended period of time. Generally, LTS releases
+            continue to receive support even if newer major releases of the distribution are available.
+            Examples include Ubuntu 24.04, Debian 12 Bookworm and RHEL 9.4.</para></listitem>
+
+            <listitem><para><literal>development</literal> is for unstable versions of the system,
+            unsuitable for production use, such as alpha, beta, or rolling unstable releases. Examples
+            include Fedora Rawhide, Debian Testing, Fedora 40 Beta, and GNOME OS Nightly.</para></listitem>
+
+            <listitem><para><literal>experiment</literal> is for experimental builds of the system, created
+            specifically to test some work-in-progress feature. This is meant to be used in combination with
+            <varname>EXPERIMENT=</varname>.</para></listitem>
+          </itemizedlist>
+
+          <para>If unset, or an unknown value, assume that the release is <literal>stable</literal>.</para>
+
+          <para>Examples: <literal>RELEASE_TYPE=development</literal>, <literal>RELEASE_TYPE=lts</literal>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
       </variablelist>
 
       <para>To summarize: if the image updates are built and shipped as comprehensive units,
@@ -442,6 +478,47 @@
           <literal>VENDOR_URL="https://canonical.com/"</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>EXPERIMENT=</varname></term>
+
+          <listitem><para>A human-presentable description of what makes this build of the OS experimental.
+          This field is optional. The <varname>RELEASE_TYPE</varname> field should be set to <literal>experiment</literal>
+          if this field is set, otherwise clients should ignore this field.</para>
+
+          <para>This description is intended to be exposed at system installation time, or in "About this system" UIs,
+          to warn the user that they're installing/running an experimental build of the OS. If <varname>RELEASE_TYPE</varname>
+          is <literal>experiment</literal> but this field is unset, the UI should still warn the user, but it
+          will be unable to explain what exactly is experimental about the current build of the OS.</para>
+
+          <para>Examples: <literal>EXPERIMENT="Switch to DNF5"</literal> for an experimental build of Fedora
+          Linux made to test DNF5, <literal>EXPERIMENT="Port to Apple M3 chip"</literal> for experimental
+          builds of Asahi Linux ported to the Apple M3 SoC,
+          <literal>EXPERIMENT="Mutter !1441: Dynamic triple/double buffering (v4)"</literal> for builds of GNOME
+          OS created by Mutter's CI for merge request !1441.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>EXPERIMENT_URL=</varname></term>
+
+          <listitem><para>The main informational page about what makes the current OS build experimental, where users
+          can learn more about the experiment's status and potentially leave feedback. This field is optional. The
+          <varname>EXPERIMENT=</varname> field should be set if this one is, although clients must be robust against
+          either field not being set.</para>
+
+          <para>The value should be in <ulink
+          url="https://tools.ietf.org/html/rfc3986">RFC3986 format</ulink>, and should be
+          <literal>http:</literal> or <literal>https:</literal> URLs. Only one URL shall be listed in the
+          setting.</para>
+
+          <para>Examples, corresponding to the examples above in <varname>EXPERIMENT=</varname>:
+          <literal>EXPERIMENT_URL="https://fedoraproject.org/wiki/Changes/SwitchToDnf5"</literal>,
+          <literal>EXPERIMENT_URL="https://github.com/AsahiLinux/docs/wiki/M3-Series-Feature-Support"</literal>,
+          <literal>EXPERIMENT_URL="https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/1441"</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

@@ -29,7 +29,7 @@
                 (list|status|up|down|cat|edit|lldp|delete|renew|forcerenew|reconfigure)
                     for link in ${(f)"$(_call_program links networkctl list --no-legend)"}; do _links+=($link[(w)2]:$link); done
                     if [[ -n "$_links" ]]; then
-                        _describe -t links 'links' _links _links $( [[ $cmd == (edit|cat) ]] && print -- -P@ )
+                        _describe -t links 'links' _links $( [[ $cmd == (edit|cat) ]] && print -- -P@ )
                     else
                         _message "no links"
                     fi
@@ -49,12 +49,13 @@
 }
 
 _arguments \
-    {-a,--all}'[Show all links with status]' \
+    '(-a --all)'{-a,--all}'[Show all links with status]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
-    {-h,--help}'[Show this help]' \
-    '--version[Show package version]' \
-    '--drop-in=[Use the given drop-in file name]' \
+    '--no-ask-password[Do not prompt for password]' \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '--drop-in=[Use the given drop-in file name]:NAME' \
     '--no-reload[Do not reload the network manager state when editing]' \
-    '--json[Shows output formatted as JSON]:format:_networkctl_get_json' \
+    '--json=[Shows output formatted as JSON]:format:_networkctl_get_json' \
     '*::networkctl commands:_networkctl_commands'

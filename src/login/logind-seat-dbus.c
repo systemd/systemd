@@ -282,7 +282,7 @@ static int seat_object_find(sd_bus *bus, const char *path, const char *interface
         return 1;
 }
 
-char *seat_bus_path(Seat *s) {
+char* seat_bus_path(Seat *s) {
         _cleanup_free_ char *t = NULL;
 
         assert(s);

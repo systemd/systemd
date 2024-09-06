@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -17,24 +18,29 @@
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
+#include "capsule-util.h"
+#include "chase.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
-#include "spawn-polkit-agent.h"
 #include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -78,6 +84,7 @@ static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -128,6 +135,7 @@ static int help(void) {
                "                                  STDERR\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
+               "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
@@ -159,7 +167,7 @@ static int help_sudo_mode(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("uid0", "1", &link);
+        r = terminal_urlify_man("run0", "1", &link);
         if (r < 0)
                 return log_oom();
 
@@ -258,6 +266,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHELL,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -265,6 +274,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "user",               no_argument,       NULL, ARG_USER               },
                 { "system",             no_argument,       NULL, ARG_SYSTEM             },
+                { "capsule",            required_argument, NULL, 'C'                    },
                 { "scope",              no_argument,       NULL, ARG_SCOPE              },
                 { "unit",               required_argument, NULL, 'u'                    },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
@@ -305,6 +315,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "json",               required_argument, NULL, ARG_JSON               },
                 {},
         };
 
@@ -317,7 +328,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrC:H:M:E:p:tPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -337,6 +348,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SCOPE:
@@ -600,6 +623,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -645,7 +674,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
-                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
+                arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
 
@@ -743,7 +772,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_BACKGROUND,
         };
 
-        /* If invoked as "uid0" binary, let's expose a more sudo-like interface. We add various extensions
+        /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
          * though (but limit the extension to long options). */
 
         static const struct option options[] = {
@@ -879,7 +908,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_wait = true;
         arg_aggressive_gc = true;
 
-        arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
         arg_expand_environment = false;
         arg_send_sighup = true;
 
@@ -943,10 +972,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_USER=%s", un) < 0)
                 return log_oom();
 
-        if (strv_extend(&arg_property, "PAMName=systemd-uid0") < 0)
+        if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
                 return log_oom();
 
-        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
                 double hue;
 
                 if (privileged_execution())
@@ -1056,7 +1085,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, int pty_fd) {
         bool send_term = false;
         int r;
 
@@ -1066,6 +1095,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool use_ex_prop = arg_expand_environment == 0;
 
         assert(m);
+        assert(pty_path || pty_fd < 0);
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
@@ -1116,12 +1146,22 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         }
 
         if (pty_path) {
-                r = sd_bus_message_append(m,
-                                          "(sv)(sv)(sv)(sv)",
-                                          "StandardInput", "s", "tty",
-                                          "StandardOutput", "s", "tty",
-                                          "StandardError", "s", "tty",
-                                          "TTYPath", "s", pty_path);
+                r = sd_bus_message_append(m, "(sv)", "TTYPath", "s", pty_path);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                if (pty_fd >= 0)
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)",
+                                                  "StandardInputFileDescriptor", "h", pty_fd,
+                                                  "StandardOutputFileDescriptor", "h", pty_fd,
+                                                  "StandardErrorFileDescriptor", "h", pty_fd);
+                else
+                        r = sd_bus_message_append(m,
+                                                  "(sv)(sv)(sv)",
+                                                  "StandardInput", "s", "tty",
+                                                  "StandardOutput", "s", "tty",
+                                                  "StandardError", "s", "tty");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1136,7 +1176,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                send_term = isatty(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
+                send_term = isatty_safe(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
         }
 
         if (send_term) {
@@ -1218,12 +1258,17 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                if (use_ex_prop)
-                        r = sd_bus_message_append_strv(
-                                        m,
-                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand",
-                                                  arg_ignore_failure ? "ignore-failure" : NULL));
-                else
+                if (use_ex_prop) {
+                        _cleanup_strv_free_ char **opts = NULL;
+
+                        r = exec_command_flags_to_strv(
+                                        (arg_expand_environment > 0 ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|(arg_ignore_failure ? EXEC_COMMAND_IGNORE_FAILURE : 0),
+                                        &opts);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format execute flags: %m");
+
+                        r = sd_bus_message_append_strv(m, opts);
+                } else
                         r = sd_bus_message_append(m, "b", arg_ignore_failure);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1265,18 +1310,13 @@ static int transient_scope_set_properties(sd_bus_message *m, bool allow_pidfd) {
         if (r < 0)
                 return r;
 
-        if (allow_pidfd) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = pidref_set_self(&pidref);
-                if (r < 0)
-                        return r;
+        r = pidref_set_self(&pidref);
+        if (r < 0)
+                return r;
 
-                r = bus_append_scope_pidref(m, &pidref);
-        } else
-                r = sd_bus_message_append(
-                                m, "(sv)",
-                                "PIDs", "au", 1, getpid_cached());
+        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1301,6 +1341,7 @@ static int transient_timer_set_properties(sd_bus_message *m) {
 }
 
 static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
+        unsigned soft_reboots_count = 0;
         const char *unique, *id;
         char *p;
         int r;
@@ -1308,6 +1349,7 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
         assert(bus);
         assert(t >= 0);
         assert(t < _UNIT_TYPE_MAX);
+        assert(ret);
 
         r = sd_bus_get_unique_name(bus, &unique);
         if (r < 0) {
@@ -1339,9 +1381,27 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
                                        "Unique name %s has unexpected format.",
                                        unique);
 
-        p = strjoin("run-u", id, ".", unit_type_to_string(t));
-        if (!p)
-                return log_oom();
+        /* The unique D-Bus names are actually unique per D-Bus instance, so on soft-reboot they will wrap
+         * and start over since the D-Bus broker is restarted. If there's a failed unit left behind that
+         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing. */
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_get_property_trivial(
+                                bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
+                if (r < 0)
+                        log_debug_errno(r,
+                                        "Failed to get SoftRebootsCount property, ignoring: %s",
+                                        bus_error_message(&error, r));
+        }
+
+        if (soft_reboots_count > 0) {
+                if (asprintf(&p, "run-u%s-s%u.%s", id, soft_reboots_count, unit_type_to_string(t)) < 0)
+                        return log_oom();
+        } else {
+                p = strjoin("run-u", id, ".", unit_type_to_string(t));
+                if (!p)
+                        return log_oom();
+        }
 
         *ret = p;
         return 0;
@@ -1394,7 +1454,7 @@ static void run_context_check_done(RunContext *c) {
         else
                 done = true;
 
-        if (c->forward && done) /* If the service is gone, it's time to drain the output */
+        if (c->forward && !pty_forward_is_done(c->forward) && done) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
 
         if (done)
@@ -1464,11 +1524,18 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
-        RunContext *c = userdata;
+        RunContext *c = ASSERT_PTR(userdata);
 
         assert(f);
 
-        if (rcode < 0) {
+        if (rcode == -ECANCELED) {
+                log_debug_errno(rcode, "PTY forwarder disconnected.");
+                if (!arg_wait)
+                        return sd_event_exit(c->event, EXIT_SUCCESS);
+
+                /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
+                 * for the service to end. If the user hits ^C we'll exit too. */
+        } else if (rcode < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }
@@ -1481,7 +1548,8 @@ static int make_transient_service_unit(
                 sd_bus *bus,
                 sd_bus_message **message,
                 const char *service,
-                const char *pty_path) {
+                const char *pty_path,
+                int pty_fd) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1491,10 +1559,6 @@ static int make_transient_service_unit(
         assert(service);
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1508,7 +1572,7 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = transient_service_set_properties(m, pty_path);
+        r = transient_service_set_properties(m, pty_path, pty_fd);
         if (r < 0)
                 return r;
 
@@ -1578,12 +1642,16 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return 0;
+        return r; /* Return true when we get a non-null invocation ID. */
 }
 
 static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+
         assert(f);
+
+        if (!shall_set_terminal_title())
+                return;
 
         if (!arg_host)
                 (void) gethostname_strict(&hn);
@@ -1603,19 +1671,70 @@ static void set_window_title(PTYForward *f) {
         (void) pty_forward_set_title_prefix(f, dot);
 }
 
+static int chown_to_capsule(const char *path, const char *capsule) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+        assert(capsule);
+
+        p = path_join("/run/capsules/", capsule);
+        if (!p)
+                return -ENOMEM;
+
+        struct stat st;
+        r = chase_and_stat(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &st);
+        if (r < 0)
+                return r;
+
+        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
+                return -EPERM;
+
+        return chmod_and_chown(path, 0600, st.st_uid, st.st_gid);
+}
+
+static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(unit);
+
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (sd_id128_is_null(invocation_id))
+                        log_info("Running as unit: %s", unit);
+                else
+                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, unit, SD_ID128_FORMAT_VAL(invocation_id));
+                return 0;
+        }
+
+        r = sd_json_variant_set_field_string(&v, "unit", unit);
+        if (r < 0)
+                return r;
+
+        if (!sd_id128_is_null(invocation_id)) {
+                r = sd_json_variant_set_field_id128(&v, "invocation_id", invocation_id);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, slave = -EBADF;
         int r;
 
         assert(bus);
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         if (arg_stdio == ARG_STDIO_PTY) {
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
                         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
@@ -1624,8 +1743,20 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine tty name: %m");
 
+                        if (arg_transport == BUS_TRANSPORT_CAPSULE) {
+                                /* If we are in capsule mode, we must give the capsule UID/GID access to the PTY we just allocated first. */
+
+                                r = chown_to_capsule(pty_path, arg_host);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to chown tty to capsule UID/GID: %m");
+                        }
+
                         if (unlockpt(master) < 0)
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
+
+                        slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (slave < 0)
+                                return log_error_errno(slave, "Failed to open pty slave: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
@@ -1635,6 +1766,8 @@ static int start_transient_service(sd_bus *bus) {
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                        (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
                         r = bus_call_method(system_bus,
                                             bus_machine_mgr,
@@ -1656,6 +1789,9 @@ static int start_transient_service(sd_bus *bus) {
                         pty_path = strdup(s);
                         if (!pty_path)
                                 return log_oom();
+
+                        // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
+                        // and additionally returns the pty fd, for #33216 and #32999
                 } else
                         assert_not_reached();
         }
@@ -1682,11 +1818,10 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_path, slave);
         if (r < 0)
                 return r;
-
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        slave = safe_close(slave);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
@@ -1713,10 +1848,10 @@ static int start_transient_service(sd_bus *bus) {
                 r = acquire_invocation_id(bus, service, &invocation_id);
                 if (r < 0)
                         return r;
-                if (r == 0) /* No invocation UUID set */
-                        log_info("Running as unit: %s", service);
-                else
-                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, service, SD_ID128_FORMAT_VAL(invocation_id));
+
+                r = print_unit_invocation(service, invocation_id);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
@@ -1807,12 +1942,13 @@ static int start_transient_service(sd_bus *bus) {
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));
 
-                        if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%u",
-                                         sigchld_code_to_string(c.exit_code), c.exit_status);
-                        else if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s/status=%s",
-                                         sigchld_code_to_string(c.exit_code), signal_to_string(c.exit_status));
+                        if (c.exit_code > 0)
+                                log_info("Main processes terminated with: code=%s, status=%u/%s",
+                                         sigchld_code_to_string(c.exit_code),
+                                         c.exit_status,
+                                         strna(c.exit_code == CLD_EXITED ?
+                                               exit_status_to_string(c.exit_status, EXIT_STATUS_FULL) :
+                                               signal_to_string(c.exit_status)));
 
                         if (timestamp_is_set(c.inactive_enter_usec) &&
                             timestamp_is_set(c.inactive_exit_usec) &&
@@ -1899,17 +2035,13 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2031,10 +2163,9 @@ static int start_transient_scope(sd_bus *bus) {
                 return log_oom();
 
         if (!arg_quiet) {
-                if (sd_id128_is_null(invocation_id))
-                        log_info("Running as unit: %s", scope);
-                else
-                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, scope, SD_ID128_FORMAT_VAL(invocation_id));
+                r = print_unit_invocation(scope, invocation_id);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_expand_environment > 0) {
@@ -2082,10 +2213,6 @@ static int make_transient_trigger_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and Mode */
         r = sd_bus_message_append(m, "ss", trigger, "fail");
         if (r < 0)
@@ -2128,7 +2255,7 @@ static int make_transient_trigger_unit(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, NULL);
+                r = transient_service_set_properties(m, /* pty_path = */ NULL, /* pty_fd = */ -EBADF);
                 if (r < 0)
                         return r;
 
@@ -2215,7 +2342,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
@@ -2258,11 +2385,9 @@ static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
-        if (invoked_as(argv, "uid0"))
+        if (invoked_as(argv, "run0"))
                 r = parse_argv_sudo_mode(argc, argv);
         else
                 r = parse_argv(argc, argv);
@@ -2311,12 +2436,14 @@ static int run(int argc, char* argv[]) {
          * limited direct connection */
         if (arg_wait ||
             arg_stdio != ARG_STDIO_NONE ||
-            (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+            (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_scope)
                 return start_transient_scope(bus);

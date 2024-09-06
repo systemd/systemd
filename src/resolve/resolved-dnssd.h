@@ -3,6 +3,7 @@
 #pragma once
 
 #include "list.h"
+#include "resolved-conf.h"
 
 typedef struct DnssdService DnssdService;
 typedef struct DnssdTxtData DnssdTxtData;
@@ -25,15 +26,17 @@ struct DnssdTxtData {
 };
 
 struct DnssdService {
-        char *filename;
-        char *name;
+        char *path;
+        char *id;
         char *name_template;
         char *type;
+        char *subtype;
         uint16_t port;
         uint16_t priority;
         uint16_t weight;
 
         DnsResourceRecord *ptr_rr;
+        DnsResourceRecord *sub_ptr_rr;
         DnsResourceRecord *srv_rr;
 
         /* Section 6.8 of RFC 6763 allows having service
@@ -42,6 +45,9 @@ struct DnssdService {
 
         Manager *manager;
 
+        /* Services registered via D-Bus are not removed on reload */
+        ResolveConfigSource config_source;
+
         bool withdrawn:1;
         uid_t originator;
 };
@@ -49,6 +55,7 @@ struct DnssdService {
 DnssdService *dnssd_service_free(DnssdService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
+void dnssd_service_clear_on_reload(Hashmap *services);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);

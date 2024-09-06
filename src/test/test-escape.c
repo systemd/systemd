@@ -9,14 +9,14 @@ TEST(cescape) {
         _cleanup_free_ char *t = NULL;
 
         assert_se(t = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
-        assert_se(streq(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
+        ASSERT_STREQ(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313");
 }
 
 TEST(xescape) {
         _cleanup_free_ char *t = NULL;
 
         assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
-        assert_se(streq(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb"));
+        ASSERT_STREQ(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb");
 }
 
 static void test_xescape_full_one(bool eight_bits) {
@@ -36,7 +36,7 @@ static void test_xescape_full_one(bool eight_bits) {
                 log_info("%02u: <%s>", i, t);
 
                 if (i >= full_fit)
-                        assert_se(streq(t, escaped));
+                        ASSERT_STREQ(t, escaped);
                 else if (i >= 3) {
                         /* We need up to four columns, so up to three columns may be wasted */
                         assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 || strlen(t) == i - 3);
@@ -69,50 +69,50 @@ TEST(cunescape) {
 
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
+        ASSERT_STREQ(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00");
         unescaped = mfree(unescaped);
 
         /* incomplete sequences */
         assert_se(cunescape("\\x0", 0, &unescaped) < 0);
         assert_se(cunescape("\\x0", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\x0"));
+        ASSERT_STREQ(unescaped, "\\x0");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\x", 0, &unescaped) < 0);
         assert_se(cunescape("\\x", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\x"));
+        ASSERT_STREQ(unescaped, "\\x");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\", 0, &unescaped) < 0);
         assert_se(cunescape("\\", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\"));
+        ASSERT_STREQ(unescaped, "\\");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\11", 0, &unescaped) < 0);
         assert_se(cunescape("\\11", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\11"));
+        ASSERT_STREQ(unescaped, "\\11");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\1", 0, &unescaped) < 0);
         assert_se(cunescape("\\1", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "\\1"));
+        ASSERT_STREQ(unescaped, "\\1");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "ßßΠA"));
+        ASSERT_STREQ(unescaped, "ßßΠA");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, ";"));
+        ASSERT_STREQ(unescaped, ";");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("A=A\\\\x0aB", 0, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
+        ASSERT_STREQ(unescaped, "A=A\\x0aB");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("A=A\\\\x0aB", UNESCAPE_RELAX, &unescaped) >= 0);
-        assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
+        ASSERT_STREQ(unescaped, "A=A\\x0aB");
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\x00\\x00\\x00", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
@@ -136,7 +136,7 @@ static void test_shell_escape_one(const char *s, const char *bad, const char *ex
 
         assert_se(r = shell_escape(s, bad));
         log_debug("%s → %s (expected %s)", s, r, expected);
-        assert_se(streq_ptr(r, expected));
+        ASSERT_STREQ(r, expected);
 }
 
 TEST(shell_escape) {
@@ -153,7 +153,7 @@ static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, co
 
         assert_se(ret = shell_maybe_quote(s, flags));
         log_debug("[%s] → [%s] (%s)", s, ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_STREQ(ret, expected);
 }
 
 TEST(shell_maybe_quote) {
@@ -207,7 +207,7 @@ static void test_quote_command_line_one(char **argv, const char *expected) {
 
         assert_se(s = quote_command_line(argv, SHELL_ESCAPE_EMPTY));
         log_info("%s", s);
-        assert_se(streq(s, expected));
+        ASSERT_STREQ(s, expected);
 }
 
 TEST(quote_command_line) {
@@ -228,7 +228,7 @@ static void test_octescape_one(const char *s, const char *expected) {
 
         assert_se(ret = octescape(s, strlen_ptr(s)));
         log_debug("octescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_STREQ(ret, expected);
 }
 
 TEST(octescape) {
@@ -244,7 +244,7 @@ static void test_decescape_one(const char *s, const char *bad, const char *expec
 
         assert_se(ret = decescape(s, bad, strlen_ptr(s)));
         log_debug("decescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_STREQ(ret, expected);
 }
 
 TEST(decescape) {

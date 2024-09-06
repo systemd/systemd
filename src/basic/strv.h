@@ -161,6 +161,7 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
         _STRV_FOREACH_PAIR(x, y, l, UNIQ_T(i, UNIQ))
 
 char** strv_sort(char **l);
+char** strv_sort_uniq(char **l);
 void strv_print_full(char * const *l, const char *prefix);
 static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
@@ -234,7 +235,6 @@ bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *
 static inline bool strv_fnmatch(char* const* patterns, const char *s) {
         return strv_fnmatch_full(patterns, s, 0, NULL);
 }
-
 static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, int flags) {
         assert(s);
         return strv_isempty(patterns) ||
@@ -257,3 +257,5 @@ int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HA
 int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
 #define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
 #define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
+
+int strv_rebreak_lines(char **l, size_t width, char ***ret);

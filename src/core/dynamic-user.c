@@ -12,7 +12,6 @@
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "lock-util.h"
-#include "nscd-flush.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "serialize.h"
@@ -143,7 +142,6 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 }
 
 static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
-
         char path1[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
         int r = 0, k;
@@ -337,8 +335,10 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
          * the lock on the socket taken. */
 
         k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
-        if (k < 0)
+        if (k < 0) {
+                assert(errno_is_valid(-k));
                 return (int) k;
+        }
 
         *ret_uid = uid;
         *ret_lock_fd = lock_fd;
@@ -377,7 +377,6 @@ static int dynamic_user_realize(
         _cleanup_close_ int etc_passwd_lock_fd = -EBADF;
         uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
         gid_t gid = GID_INVALID; /* a gid if is_user, ignored otherwise */
-        bool flush_cache = false;
         int r;
 
         assert(d);
@@ -410,9 +409,9 @@ static int dynamic_user_realize(
                 /* Let's see if a proper, static user or group by this name exists. Try to take the lock on
                  * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
                  * take the lock, given that users can't be added there anyway in this case. */
-                etc_passwd_lock_fd = take_etc_passwd_lock(NULL);
-                if (etc_passwd_lock_fd < 0 && etc_passwd_lock_fd != -EROFS)
-                        return etc_passwd_lock_fd;
+                r = etc_passwd_lock_fd = take_etc_passwd_lock(NULL);
+                if (r < 0 && r != -EROFS)
+                        return r;
 
                 /* First, let's parse this as numeric UID */
                 r = parse_uid(d->name, &num);
@@ -464,12 +463,9 @@ static int dynamic_user_realize(
                                 unlink_uid_lock(uid_lock_fd, num, d->name);
                                 return r;
                         }
-
-                        /* Great! Nothing is stored here, still. Store our newly acquired data. */
-                        flush_cache = true;
                 } else {
-                        /* Hmm, so as it appears there's now something stored in the storage socket. Throw away what we
-                         * acquired, and use what's stored now. */
+                        /* Hmm, so as it appears there's now something stored in the storage socket.
+                         * Throw away what we acquired, and use what's stored now. */
 
                         unlink_uid_lock(uid_lock_fd, num, d->name);
                         safe_close(uid_lock_fd);
@@ -494,14 +490,6 @@ static int dynamic_user_realize(
         r = dynamic_user_push(d, num, uid_lock_fd);
         if (r < 0)
                 return r;
-
-        if (flush_cache) {
-                /* If we allocated a new dynamic UID, refresh nscd, so that it forgets about potentially cached
-                 * negative entries. But let's do so after we release the /etc/passwd lock, so that there's no
-                 * potential for nscd wanting to lock that for completing the invalidation. */
-                etc_passwd_lock_fd = safe_close(etc_passwd_lock_fd);
-                (void) nscd_flush_cache(STRV_MAKE("passwd", "group"));
-        }
 
         if (is_user) {
                 *ret_uid = num;
@@ -580,7 +568,6 @@ static int dynamic_user_close(DynamicUser *d) {
         /* This dynamic user was realized and dynamically allocated. In this case, let's remove the lock file. */
         unlink_uid_lock(lock_fd, uid, d->name);
 
-        (void) nscd_flush_cache(STRV_MAKE("passwd", "group"));
         return 1;
 }
 
@@ -754,7 +741,6 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
         _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
-        bool acquired = false;
         int r;
 
         assert(m);
@@ -777,20 +763,14 @@ int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicC
                 r = dynamic_user_acquire(m, user, &creds->user);
                 if (r < 0)
                         return r;
-
-                acquired = true;
         }
 
-        if (creds->user && (!group || streq_ptr(user, group)))
-                creds->group = dynamic_user_ref(creds->user);
-        else if (group) {
+        if (group && !streq_ptr(user, group)) {
                 r = dynamic_user_acquire(m, group, &creds->group);
-                if (r < 0) {
-                        if (acquired)
-                                creds->user = dynamic_user_unref(creds->user);
+                if (r < 0)
                         return r;
-                }
-        }
+        } else
+                creds->group = ASSERT_PTR(dynamic_user_ref(creds->user));
 
         *ret = TAKE_PTR(creds);
 

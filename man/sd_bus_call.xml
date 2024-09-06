@@ -137,8 +137,6 @@
             <para>The input parameter <parameter>error</parameter> is
             non-<constant>NULL</constant> but was not set to <constant>SD_BUS_ERROR_NULL</constant>.
             </para>
-
-            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -146,52 +144,40 @@
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus connection was allocated in a parent process and is being reused
-          in a child process after <function>fork()</function>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          in a child process after <function>fork()</function>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The input parameter <parameter>bus</parameter> is
-          <constant>NULL</constant> or the bus is not connected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <constant>NULL</constant> or the bus is not connected.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECONNRESET</constant></term>
 
           <listitem><para>The bus connection was closed while waiting for the response.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ETIMEDOUT</constant></term>
 
-          <listitem><para>A response was not received within the given timeout.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>A response was not received within the given timeout.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ELOOP</constant></term>
 
           <listitem><para>The message <parameter>m</parameter> is addressed to its own client.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -202,7 +188,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_call()</function> and
-    <function>sd_bus_call_async()</function> were added in version 246.</para>
+    <function>sd_bus_call_async()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

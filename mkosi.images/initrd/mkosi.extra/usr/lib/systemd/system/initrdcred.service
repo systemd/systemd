@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=populate initrd credential dir for TEST-54-CREDS
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -c "mkdir -m 0755 -p /run/credentials && mkdir -m 0700 /run/credentials/@initrd && umask 0077 && echo guatemala > /run/credentials/@initrd/myinitrdcred"

@@ -140,6 +140,7 @@ body:
         - 'systemd-udevd'
         - 'systemd-userdb'
         - 'systemd-veritysetup'
+        - 'systemd-vmspawn'
         - 'systemd-xdg-autostart-generator'
         - 'timedatectl'
         - 'udevadm'

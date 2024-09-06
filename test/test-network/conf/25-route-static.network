@@ -96,7 +96,7 @@ MultiPathRoute=149.10.124.59 10
 MultiPathRoute=149.10.124.60 5
 
 [Route]
-Destination=2001:1234:5:7fff:ff:ff:ff:ff/128
+Destination=2001:1234:5:bfff:ff:ff:ff:ff/128
 MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
 MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
 MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10

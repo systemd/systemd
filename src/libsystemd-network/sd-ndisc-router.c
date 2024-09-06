@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
+#include "string-table.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
@@ -38,6 +39,12 @@ sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
         };
 
         return rt;
+}
+
+int sd_ndisc_router_set_sender_address(sd_ndisc_router *rt, const struct in6_addr *addr) {
+        assert_return(rt, -EINVAL);
+
+        return icmp6_packet_set_sender_address(rt->packet, addr);
 }
 
 int sd_ndisc_router_get_sender_address(sd_ndisc_router *rt, struct in6_addr *ret) {
@@ -151,9 +158,30 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
 
         *ret = rt->flags | (p ? p->extended_flags : 0);
+        return 0;
+}
+
+int ndisc_router_flags_to_string(uint64_t flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(ret);
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_MANAGED) &&
+            !strextend_with_separator(&s, ", ", "managed"))
+                return -ENOMEM;
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_OTHER) &&
+            !strextend_with_separator(&s, ", ", "other"))
+                return -ENOMEM;
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_HOME_AGENT) &&
+            !strextend_with_separator(&s, ", ", "home-agent"))
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -174,6 +202,15 @@ int sd_ndisc_router_get_preference(sd_ndisc_router *rt, uint8_t *ret) {
         return 0;
 }
 
+static const char* const ndisc_router_preference_table[] = {
+        [SD_NDISC_PREFERENCE_LOW]      = "low",
+        [SD_NDISC_PREFERENCE_MEDIUM]   = "medium",
+        [SD_NDISC_PREFERENCE_HIGH]     = "high",
+        [SD_NDISC_PREFERENCE_RESERVED] = "reserved",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int);
+
 int sd_ndisc_router_get_sender_mac(sd_ndisc_router *rt, struct ether_addr *ret) {
         assert_return(rt, -EINVAL);
 
@@ -184,7 +221,7 @@ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_MTU);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_MTU);
         if (!p)
                 return -ENODATA;
 
@@ -196,7 +233,7 @@ int sd_ndisc_router_get_captive_portal(sd_ndisc_router *rt, const char **ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
         if (!p)
                 return -ENODATA;
 

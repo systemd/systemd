@@ -22,7 +22,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
 
         zero(rbuffer);
         assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 3);
-        assert_se(streq(rbuffer, "foo"));
+        ASSERT_STREQ(rbuffer, "foo");
 
         fd = safe_close(fd);
 
@@ -31,7 +31,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
 
         zero(rbuffer);
         assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 0);
-        assert_se(streq(rbuffer, ""));
+        ASSERT_STREQ(rbuffer, "");
 
         fd = safe_close(fd);
 

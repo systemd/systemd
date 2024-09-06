@@ -51,7 +51,7 @@ int dns_cache_lookup(
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
-int dns_cache_dump_to_json(DnsCache *cache, JsonVariant **ret);
+int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret);
 
 bool dns_cache_is_empty(DnsCache *cache);
 

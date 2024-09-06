@@ -10,11 +10,24 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "time-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
 TEST(asynchronous_sync) {
-        assert_se(asynchronous_sync(NULL) >= 0);
+        ASSERT_OK(asynchronous_sync(NULL));
+}
+
+static void wait_fd_closed(int fd) {
+        for (unsigned trial = 0; trial < 100; trial++) {
+                usleep_safe(100 * USEC_PER_MSEC);
+                if (fcntl(fd, F_GETFD) < 0) {
+                        assert_se(errno == EBADF);
+                        return;
+                }
+        }
+
+        assert_not_reached();
 }
 
 TEST(asynchronous_close) {
@@ -22,67 +35,72 @@ TEST(asynchronous_close) {
         int fd, r;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         asynchronous_close(fd);
-
-        sleep(1);
-
-        assert_se(fcntl(fd, F_GETFD) == -1);
-        assert_se(errno == EBADF);
+        wait_fd_closed(fd);
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
-        assert(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* child */
 
-                assert(make_reaper_process(true) >= 0);
+                ASSERT_OK(make_reaper_process(true));
 
                 fd = open("/dev/null", O_RDONLY|O_CLOEXEC);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 asynchronous_close(fd);
-
-                sleep(1);
-
-                assert_se(fcntl(fd, F_GETFD) == -1);
-                assert_se(errno == EBADF);
+                wait_fd_closed(fd);
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+static void wait_rm_rf(const char *path) {
+        for (unsigned trial = 0; trial < 100; trial++) {
+                usleep_safe(100 * USEC_PER_MSEC);
+                if (access(path, F_OK) < 0) {
+                        assert_se(errno == ENOENT);
+                        return;
+                }
+        }
+
+        assert_not_reached();
 }
 
 TEST(asynchronous_rm_rf) {
         _cleanup_free_ char *t = NULL, *k = NULL;
         int r;
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
         assert_se(k = path_join(t, "somefile"));
-        assert_se(touch(k) >= 0);
-        assert_se(asynchronous_rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        ASSERT_OK(touch(k));
+        ASSERT_OK(asynchronous_rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
+        wait_rm_rf(t);
 
-        /* Do this once more, form a subreaper. Which is nice, because we can watch the async child even
+        /* Do this once more, from a subreaper. Which is nice, because we can watch the async child even
          * though detached */
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_free_ char *tt = NULL, *kk = NULL;
 
                 /* child */
 
-                assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
-                assert_se(make_reaper_process(true) >= 0);
+                ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
+                ASSERT_OK(make_reaper_process(true));
 
-                assert_se(mkdtemp_malloc(NULL, &tt) >= 0);
+                ASSERT_OK(mkdtemp_malloc(NULL, &tt));
                 assert_se(kk = path_join(tt, "somefile"));
-                assert_se(touch(kk) >= 0);
-                assert_se(asynchronous_rm_rf(tt, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                ASSERT_OK(touch(kk));
+                ASSERT_OK(asynchronous_rm_rf(tt, REMOVE_ROOT|REMOVE_PHYSICAL));
 
                 for (;;) {
                         siginfo_t si = {};
 
-                        assert_se(waitid(P_ALL, 0, &si, WEXITED) >= 0);
+                        ASSERT_OK(waitid(P_ALL, 0, &si, WEXITED));
 
                         if (access(tt, F_OK) < 0) {
                                 assert_se(errno == ENOENT);

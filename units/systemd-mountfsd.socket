@@ -1,0 +1,22 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=DDI File System Mounter Socket
+Documentation=man:systemd-mountfsd.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=sockets.target shutdown.target
+
+[Socket]
+ListenStream=/run/systemd/io.systemd.MountFileSystem
+SocketMode=0666
+
+[Install]
+WantedBy=sockets.target

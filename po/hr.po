@@ -4,21 +4,22 @@
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
 # Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022.
+# Marin Kresic <marinjurekresic@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2022-10-31 11:19+0000\n"
-"Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-08-04 03:41+0000\n"
+"Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
-"systemd/master/hr/>\n"
+"systemd/main/hr/>\n"
 "Language: hr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.14.1\n"
+"X-Generator: Weblate 5.6.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -68,7 +69,7 @@ msgstr "Potrebna je ovjera za ponovno učitavanja systemd stanja."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Ispiši stanje systemd-a bez ograničenja brzine"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
@@ -128,21 +129,11 @@ msgid ""
 msgstr "Potrebna je ovjera za promjenu lozinke osobnog prostora korisnika."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "Potrebna je ovjera za nadopunu osobnog prostora korisnika."
-
-#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Stvori osobni prostor"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Potrebna je ovjera za stvaranje osobnog prostora korisnika."
@@ -227,31 +218,40 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"PIN sigurnosnog tokena je zaključan, molimo prvo ga otključajte. (Napomena: "
+"Uklanjanje i ponovno umetanje moglo bi biti dovoljno.)"
 
 #: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "PIN sigurnosnog tokena nije ispravan za korisnika %s."
 
 #: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
 #: src/home/pam_systemd_home.c:476
+#, fuzzy
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Pokušajte ponovo unijeti PIN sigurnosnog tokena: "
 
 #: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"PIN sigurnosnog tokena korisnika %s nije ispravan (preostalo je još nekoliko "
+"pokušaja!)"
 
 #: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"PIN sigurnosnog tokena korisnika %s nije ispravan (preostao je još jedan "
+"pokušaj!)"
 
 #: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Početni direktorij korisnika %s trenutno nije aktivan, molimo prvo se "
+"lokalno prijavite."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
@@ -263,40 +263,40 @@ msgstr ""
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -359,7 +359,7 @@ msgstr "Uvezi VM ili spremnik slike"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr "Potrebna je ovjera za uvoz WM ili spremnika slike"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -369,7 +369,7 @@ msgstr "Izvezi VM ili spremnik slike"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr "Potrebna je ovjera za izvoz WM ili spremnika slike"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -379,7 +379,7 @@ msgstr "Preuzmi VM ili spremnik slike"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr "Potrebna je ovjera za preuzimanje VM ili spremnika slike"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -389,7 +389,7 @@ msgstr ""
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr "Potrebna je ovjera za promjenu lozinke osobnog prostora korisnika."
 
 #: src/locale/org.freedesktop.locale1.policy:22
@@ -789,7 +789,8 @@ msgid "Set a wall message"
 msgstr "Postavljanje zaslonske pruke"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Potrebna je ovjera za postavljanje zaslonske poruke"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -861,10 +862,23 @@ msgstr ""
 "spremnicima."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i "
+"spremnicima."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima slika"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1010,6 +1024,16 @@ msgstr "Ponovno podesi mrežno sučelje"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Potrebna je ovjera za ponovno podešavanje mrežnog sučelja."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Provjeri prijenosnu sliku usluge"
@@ -1042,7 +1066,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registriraj DNS-SD uslugu"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Potrebna je ovjera za registriranje DNS-SD usluge"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1050,7 +1075,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Ukloni registriraciju DNS-SD usluge"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Potrebna je ovjera za uklanjanje registracije DNS-SD usluge"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1060,6 +1086,89 @@ msgstr "Vrati izvorni naziv postavki razlučivosti"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Potrebna je ovjera za vraćanje izvornog naziva postavki razlučivosti."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Potrebna je ovjera za suspendiranje sustava."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Potrebna je ovjera za postavljanje domena."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Potrebna je ovjera za postavljanje NTP poslužitelja."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Potrebna je ovjera za postavljanje domena."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Potrebna je ovjera za vraćanje izvornih NTP postavki."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Potrebna je ovjera za postavljanje vremena sustava."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Potrebna je ovjera za postavljanje vremena sustava."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Potrebna je ovjera za postavljanje vremenske zone sustava."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Potrebna je ovjera za postavljanje vremena sustava."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1138,7 +1247,7 @@ msgstr ""
 "Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

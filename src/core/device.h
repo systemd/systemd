@@ -14,7 +14,7 @@ typedef enum DeviceFound {
         DEVICE_FOUND_UDEV  = 1 << 0, /* The device has shown up in the udev database */
         DEVICE_FOUND_MOUNT = 1 << 1, /* The device has shown up in /proc/self/mountinfo */
         DEVICE_FOUND_SWAP  = 1 << 2, /* The device has shown up in /proc/swaps */
-        DEVICE_FOUND_MASK  = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
+        _DEVICE_FOUND_MASK = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
 struct Device {

@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Make TPM2 PCR Policy (Varlink)
+Description=Make TPM PCR Policy
 Documentation=man:systemd-pcrlock(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
@@ -17,5 +17,4 @@ Before=sysinit.target shutdown.target
 After=systemd-remount-fs.service var.mount
 
 [Service]
-Environment=LISTEN_FDNAMES=varlink
 ExecStart={{LIBEXECDIR}}/systemd-pcrlock --location=770

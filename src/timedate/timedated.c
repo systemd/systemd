@@ -28,6 +28,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "hwclock-util.h"
 #include "list.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -46,6 +47,7 @@
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
 #define UNIT_LIST_DIRS (const char* const*) CONF_PATHS_STRV("systemd/ntp-units.d")
+#define SET_NTP_IN_FLIGHT_MAX 16
 
 typedef struct UnitStatusInfo {
         char *name;
@@ -62,6 +64,7 @@ typedef struct Context {
         bool local_rtc;
         Hashmap *polkit_registry;
         sd_bus_message *cache;
+        Set *set_ntp_calls;
 
         sd_bus_slot *slot_job_removed;
 
@@ -122,6 +125,7 @@ static void context_clear(Context *c) {
         free(c->zone);
         hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
+        set_free(c->set_ntp_calls);
 
         sd_bus_slot_unref(c->slot_job_removed);
 
@@ -462,11 +466,19 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                         n += !!u->path;
 
         if (n == 0) {
+                sd_bus_message *cm;
+
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
 
                 (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                                       "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
                                                       NULL);
+                while ((cm = set_steal_first(c->set_ntp_calls))) {
+                        r = sd_bus_reply_method_return(cm, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reply to SetNTP method call, ignoring: %m");
+                        sd_bus_message_unref(cm);
+                }
         }
 
         return 0;
@@ -580,15 +592,20 @@ static int property_get_rtc_time(
         usec_t t = 0;
         int r;
 
-        r = clock_get_hwclock(&tm);
+        r = hwclock_get(&tm);
         if (r == -EBUSY)
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
         else if (r == -ENOENT)
                 log_debug("/dev/rtc not found.");
+        else if (r == -ENODATA)
+                log_debug("/dev/rtc has no valid time, power loss probably occurred?");
         else if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
-        else
-                t = (usec_t) timegm(&tm) * USEC_PER_SEC;
+        else {
+                r = mktime_or_timegm_usec(&tm, /* utc= */ true, &t);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to convert RTC time to UNIX time, ignoring: %m");
+        }
 
         return sd_bus_message_append(reply, "t", t);
 }
@@ -699,16 +716,17 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
         if (c->local_rtc) {
-                struct timespec ts;
                 struct tm tm;
 
                 /* 4. Sync RTC from system clock, with the new delta */
-                assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-                assert_se(localtime_r(&ts.tv_sec, &tm));
-
-                r = clock_set_hwclock(&tm);
+                r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                        log_debug_errno(r, "Failed to convert system time to calendar time, ignoring: %m");
+                else {
+                        r = hwclock_set(&tm);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                }
         }
 
         log_struct(LOG_INFO,
@@ -773,32 +791,46 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
 
         if (fix_system) {
-                struct tm tm;
+                struct tm tm = {
+                        .tm_isdst = -1,
+                };
 
                 /* Sync system clock from RTC; first, initialize the timezone fields of struct tm. */
-                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
+                r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine current timezone, ignoring: %m");
 
                 /* Override the main fields of struct tm, but not the timezone fields */
-                r = clock_get_hwclock(&tm);
+                r = hwclock_get(&tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
                 else {
+                        usec_t t;
                         /* And set the system clock with this */
-                        ts.tv_sec = mktime_or_timegm(&tm, !c->local_rtc);
 
-                        if (clock_settime(CLOCK_REALTIME, &ts) < 0)
-                                log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
+                        r = mktime_or_timegm_usec(&tm, !c->local_rtc, &t);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to convert calendar time to system time, ignoring: %m");
+                        else {
+                                /* We leave the subsecond offset as is! */
+                                ts.tv_sec = t / USEC_PER_SEC;
+
+                                if (clock_settime(CLOCK_REALTIME, &ts) < 0)
+                                        log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
+                        }
                 }
-
         } else {
                 struct tm tm;
 
                 /* Sync RTC from system clock */
-                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
-
-                r = clock_set_hwclock(&tm);
+                r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                        log_debug_errno(r, "Failed to convert time to calendar time, ignoring: %m");
+                else {
+                        r = hwclock_set(&tm);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                }
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -812,7 +844,6 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         sd_bus *bus = sd_bus_message_get_bus(m);
-        char buf[FORMAT_TIMESTAMP_MAX];
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
         int64_t utc;
@@ -887,16 +918,19 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         /* Sync down to RTC */
-        localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
-
-        r = clock_set_hwclock(&tm);
+        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
         if (r < 0)
-                log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
+        else {
+                r = hwclock_set(&tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+        }
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   LOG_MESSAGE("Changed local time to %s", strnull(format_timestamp(buf, sizeof(buf), timespec_load(&ts)))));
+                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -938,6 +972,9 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         /* This method may be called frequently. Forget the previous job if it has not completed yet. */
         LIST_FOREACH(units, u, c->units)
                 u->path = mfree(u->path);
+
+        if (set_size(c->set_ntp_calls) >= SET_NTP_IN_FLIGHT_MAX)
+                return sd_bus_error_set_errnof(error, EAGAIN, "Too many calls in flight.");
 
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
@@ -993,11 +1030,12 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 c->slot_job_removed = TAKE_PTR(slot);
 
         if (selected)
-                log_info("Set NTP to enabled (%s).", selected->name);
+                log_info("Set NTP to be enabled (%s).", selected->name);
         else
-                log_info("Set NTP to disabled.");
+                log_info("Set NTP to be disabled.");
 
-        return sd_bus_reply_method_return(m, NULL);
+        /* Asynchronous reply to m in match_job_removed() */
+        return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
 }
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1101,6 +1139,12 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
+static bool context_check_idle(void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        return hashmap_isempty(c->polkit_registry);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1147,7 +1191,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.timedate1", DEFAULT_EXIT_USEC, NULL, NULL);
+        r = bus_event_loop_with_idle(
+                        event,
+                        bus,
+                        "org.freedesktop.timedate1",
+                        DEFAULT_EXIT_USEC,
+                        context_check_idle,
+                        &context);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 

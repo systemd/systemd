@@ -8,6 +8,7 @@
 #include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
+#include "efivars.h"
 #include "proto/device-path.h"
 #include "string-util-fundamental.h"
 #include "util.h"
@@ -80,7 +81,7 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                 _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
 
                 _cleanup_free_ char16_t *order_str = xasprintf("VMMBootOrder%04zx", order);
-                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (char **) &dp, NULL);
+                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (void**) &dp, NULL);
 
                 for (size_t i = 0; i < n_handles; i++) {
                         _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
@@ -241,13 +242,21 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
                 size -= header->length;
                 p += header->length;
 
-                /* Skip over string table. */
+                /* Special case: if there are no strings appended, we'll see two NUL bytes, skip over them */
+                if (size >= 2 && p[0] == 0 && p[1] == 0) {
+                        size -= 2;
+                        p += 2;
+                        continue;
+                }
+
+                /* Skip over a populated string table. */
+                bool first = true;
                 for (;;) {
                         const uint8_t *e = memchr(p, 0, size);
                         if (!e)
                                 return NULL;
 
-                        if (e == p) {/* Double NUL byte means we've reached the end of the string table. */
+                        if (!first && e == p) {/* Double NUL byte means we've reached the end of the string table. */
                                 p++;
                                 size--;
                                 break;
@@ -255,6 +264,7 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
 
                         size -= e + 1 - p;
                         p = e + 1;
+                        first = false;
                 }
         }
 
@@ -337,7 +347,7 @@ static uint64_t msr(uint32_t index) {
         return val;
 }
 
-static bool detect_hyperv_sev(void) {
+static bool detect_hyperv_cvm(uint32_t isoltype) {
         uint32_t eax, ebx, ecx, edx, feat;
         char sig[13] = {};
 
@@ -354,7 +364,7 @@ static bool detect_hyperv_sev(void) {
         if (ebx & CPUID_HYPERV_ISOLATION && !(ebx & CPUID_HYPERV_CPU_MANAGEMENT)) {
                 __cpuid(CPUID_HYPERV_ISOLATION_CONFIG, eax, ebx, ecx, edx);
 
-                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == isoltype)
                         return true;
         }
 
@@ -379,7 +389,7 @@ static bool detect_sev(void) {
          * specific CPUID checks.
          */
         if (!(eax & EAX_SEV))
-                return detect_hyperv_sev();
+                return detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_SNP);
 
         msrval = msr(MSR_AMD64_SEV);
 
@@ -401,6 +411,9 @@ static bool detect_tdx(void) {
         cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
 
         if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
+                return true;
+
+        if (detect_hyperv_cvm(CPUID_HYPERV_ISOLATION_TYPE_TDX))
                 return true;
 
         return false;

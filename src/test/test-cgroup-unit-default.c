@@ -23,8 +23,8 @@ TEST_RET(default_memory_low, .sd_booted = true) {
                 return log_tests_skipped("cgroupfs not available");
 
         _cleanup_free_ char *unit_dir = NULL;
-        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
@@ -32,8 +32,8 @@ TEST_RET(default_memory_low, .sd_booted = true) {
                 return log_tests_skipped("cannot create manager");
         }
 
-        assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* dml.slice has DefaultMemoryLow=50. Beyond that, individual subhierarchies look like this:
          *
@@ -88,27 +88,27 @@ TEST_RET(default_memory_low, .sd_booted = true) {
          *    │ dml-discard-empty.service │  │ dml-discard-set-ml.service │
          *    └───────────────────────────┘  └────────────────────────────┘
          */
-        assert_se(manager_load_startable_unit_or_warn(m, "dml.slice", NULL, &dml) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml.slice", NULL, &dml));
 
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough.slice", NULL, &dml_passthrough) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-passthrough.slice", NULL, &dml_passthrough));
         assert_se(UNIT_GET_SLICE(dml_passthrough) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-empty.service", NULL, &dml_passthrough_empty) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-passthrough-empty.service", NULL, &dml_passthrough_empty));
         assert_se(UNIT_GET_SLICE(dml_passthrough_empty) == dml_passthrough);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-dml.service", NULL, &dml_passthrough_set_dml) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-dml.service", NULL, &dml_passthrough_set_dml));
         assert_se(UNIT_GET_SLICE(dml_passthrough_set_dml) == dml_passthrough);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-ml.service", NULL, &dml_passthrough_set_ml) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-ml.service", NULL, &dml_passthrough_set_ml));
         assert_se(UNIT_GET_SLICE(dml_passthrough_set_ml) == dml_passthrough);
 
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-override.slice", NULL, &dml_override) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-override.slice", NULL, &dml_override));
         assert_se(UNIT_GET_SLICE(dml_override) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-override-empty.service", NULL, &dml_override_empty) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-override-empty.service", NULL, &dml_override_empty));
         assert_se(UNIT_GET_SLICE(dml_override_empty) == dml_override);
 
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-discard.slice", NULL, &dml_discard) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-discard.slice", NULL, &dml_discard));
         assert_se(UNIT_GET_SLICE(dml_discard) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-empty.service", NULL, &dml_discard_empty) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-discard-empty.service", NULL, &dml_discard_empty));
         assert_se(UNIT_GET_SLICE(dml_discard_empty) == dml_discard);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-set-ml.service", NULL, &dml_discard_set_ml) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "dml-discard-set-ml.service", NULL, &dml_discard_set_ml));
         assert_se(UNIT_GET_SLICE(dml_discard_set_ml) == dml_discard);
 
         assert_se(root = UNIT_GET_SLICE(dml));

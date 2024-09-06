@@ -12,8 +12,6 @@ int unit_is_likely_recursive_template_dependency(Unit *u, const char *name, cons
 int parse_crash_chvt(const char *value, int *data);
 int parse_confirm_spawn(const char *value, char **console);
 
-int hashmap_put_credential(Hashmap **h, const char *id, const char *path, bool encrypted);
-
 /* Read service data from .desktop file style configuration fragments */
 
 int unit_load_fragment(Unit *u);
@@ -23,6 +21,7 @@ void unit_dump_config_items(FILE *f);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_obsolete_unit_deps);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_string_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_reboot_parameter);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_colon_separated_paths);
@@ -112,6 +111,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_tmp);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);

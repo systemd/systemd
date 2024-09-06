@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
+#include <linux/if.h>
+
 #include "bond.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
@@ -28,7 +32,7 @@ int main(int argc, char **argv) {
         test_table(bond_xmit_hash_policy, NETDEV_BOND_XMIT_HASH_POLICY);
         test_table(dhcp6_message_status, DHCP6_STATUS);
         test_table_sparse(dhcp6_message_type, DHCP6_MESSAGE_TYPE); /* enum starts from 1 */
-        test_table(dhcp_use_domains, DHCP_USE_DOMAINS);
+        test_table(use_domains, USE_DOMAINS);
         test_table(duplex, DUP);
         test_table(ip6tnl_mode, NETDEV_IP6_TNL_MODE);
         test_table(ipv6_privacy_extensions, IPV6_PRIVACY_EXTENSIONS);

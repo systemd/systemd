@@ -36,7 +36,12 @@
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
 #define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
 
+bool is_name_to_handle_at_fatal_error(int err);
+
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+
+bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
 
 int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret);
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret);
@@ -57,15 +62,20 @@ bool fstype_is_blockdev_backed(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
-bool fstype_can_norecovery(const char *fstype);
 bool fstype_can_umask(const char *fstype);
+
+const char* fstype_norecovery_option(const char *fstype);
 
 int dev_is_devtmpfs(void);
 
-int mount_fd(const char *source, int target_fd, const char *filesystemtype, unsigned long mountflags, const void *data);
-int mount_nofollow(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
+int mount_nofollow(
+                const char *source,
+                const char *target,
+                const char *filesystemtype,
+                unsigned long mountflags,
+                const void *data);
 
-const char *mount_propagation_flag_to_string(unsigned long flags);
+const char* mount_propagation_flag_to_string(unsigned long flags);
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
 bool mount_propagation_flag_is_valid(unsigned long flag);
 

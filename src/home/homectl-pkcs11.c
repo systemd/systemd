@@ -10,8 +10,8 @@
 #include "pkcs11-util.h"
 #include "strv.h"
 
-int identity_add_token_pin(JsonVariant **v, const char *pin) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *l = NULL;
+int identity_add_token_pin(sd_json_variant **v, const char *pin) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL, *l = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
@@ -20,10 +20,10 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
         if (isempty(pin))
                 return 0;
 
-        w = json_variant_ref(json_variant_by_key(*v, "secret"));
-        l = json_variant_ref(json_variant_by_key(w, "tokenPin"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(*v, "secret"));
+        l = sd_json_variant_ref(sd_json_variant_by_key(w, "tokenPin"));
 
-        r = json_variant_strv(l, &pins);
+        r = sd_json_variant_strv(l, &pins);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert PIN array: %m");
 
@@ -36,19 +36,19 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
 
         strv_uniq(pins);
 
-        l = json_variant_unref(l);
+        l = sd_json_variant_unref(l);
 
-        r = json_variant_new_array_strv(&l, pins);
+        r = sd_json_variant_new_array_strv(&l, pins);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate new PIN array JSON: %m");
 
-        json_variant_sensitive(l);
+        sd_json_variant_sensitive(l);
 
-        r = json_variant_set_field(&w, "tokenPin", l);
+        r = sd_json_variant_set_field(&w, "tokenPin", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update PIN field: %m");
 
-        r = json_variant_set_field(v, "secret", w);
+        r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update secret object: %m");
 
@@ -57,17 +57,17 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
 
 #if HAVE_P11KIT
 
-static int add_pkcs11_token_uri(JsonVariant **v, const char *uri) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+static int add_pkcs11_token_uri(sd_json_variant **v, const char *uri) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(v);
         assert(uri);
 
-        w = json_variant_ref(json_variant_by_key(*v, "pkcs11TokenUri"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(*v, "pkcs11TokenUri"));
         if (w) {
-                r = json_variant_strv(w, &l);
+                r = sd_json_variant_strv(w, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PKCS#11 token list: %m");
 
@@ -79,12 +79,12 @@ static int add_pkcs11_token_uri(JsonVariant **v, const char *uri) {
         if (r < 0)
                 return log_oom();
 
-        w = json_variant_unref(w);
-        r = json_variant_new_array_strv(&w, l);
+        w = sd_json_variant_unref(w);
+        r = sd_json_variant_new_array_strv(&w, l);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PKCS#11 token URI JSON: %m");
 
-        r = json_variant_set_field(v, "pkcs11TokenUri", w);
+        r = sd_json_variant_set_field(v, "pkcs11TokenUri", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update PKCS#11 token URI list: %m");
 
@@ -92,12 +92,12 @@ static int add_pkcs11_token_uri(JsonVariant **v, const char *uri) {
 }
 
 static int add_pkcs11_encrypted_key(
-                JsonVariant **v,
+                sd_json_variant **v,
                 const char *uri,
                 const void *encrypted_key, size_t encrypted_key_size,
                 const void *decrypted_key, size_t decrypted_key_size) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *l = NULL, *w = NULL, *e = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *w = NULL, *e = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *hashed = NULL;
         ssize_t base64_encoded_size;
         int r;
@@ -119,32 +119,32 @@ static int add_pkcs11_encrypted_key(
         if (r < 0)
                 return log_error_errno(errno_or_else(EINVAL), "Failed to UNIX hash secret key: %m");
 
-        r = json_build(&e, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("uri", JSON_BUILD_STRING(uri)),
-                                       JSON_BUILD_PAIR("data", JSON_BUILD_BASE64(encrypted_key, encrypted_key_size)),
-                                       JSON_BUILD_PAIR("hashedPassword", JSON_BUILD_STRING(hashed))));
+        r = sd_json_buildo(&e,
+                           SD_JSON_BUILD_PAIR("uri", SD_JSON_BUILD_STRING(uri)),
+                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(encrypted_key, encrypted_key_size)),
+                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build encrypted JSON key object: %m");
 
-        w = json_variant_ref(json_variant_by_key(*v, "privileged"));
-        l = json_variant_ref(json_variant_by_key(w, "pkcs11EncryptedKey"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(*v, "privileged"));
+        l = sd_json_variant_ref(sd_json_variant_by_key(w, "pkcs11EncryptedKey"));
 
-        r = json_variant_append_array(&l, e);
+        r = sd_json_variant_append_array(&l, e);
         if (r < 0)
                 return log_error_errno(r, "Failed append PKCS#11 encrypted key: %m");
 
-        r = json_variant_set_field(&w, "pkcs11EncryptedKey", l);
+        r = sd_json_variant_set_field(&w, "pkcs11EncryptedKey", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to set PKCS#11 encrypted key: %m");
 
-        r = json_variant_set_field(v, "privileged", w);
+        r = sd_json_variant_set_field(v, "privileged", w);
         if (r < 0)
                 return log_error_errno(r, "Failed to update privileged field: %m");
 
         return 0;
 }
 
-int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
+int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
         _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
         size_t decrypted_key_size, saved_key_size;

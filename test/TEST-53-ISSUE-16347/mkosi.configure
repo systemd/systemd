@@ -1,0 +1,6 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+RTC="$(date -u +%Y-%m-%dT%H:%M:%S -d "+3 days")"
+jq ".QemuArgs += [\"-rtc\", \"base=$RTC\"]"

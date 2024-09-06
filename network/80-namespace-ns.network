@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, use "networkctl edit". See networkctl(1) for details.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# This network file matches the host-side of the virtual Ethernet link
+# created by systemd-nsresourced's network support. See systemd-nsresourced(1) for
+# details.
+
+[Match]
+Kind=veth
+Name=ns-*
+
+[Network]
+# Default to using a /28 prefix, giving up to 13 addresses per namespace
+Address=0.0.0.0/28
+LinkLocalAddressing=yes
+DHCPServer=yes
+IPMasquerade=both
+LLDP=yes
+EmitLLDP=customer-bridge
+IPv6AcceptRA=no
+IPv6SendRA=yes

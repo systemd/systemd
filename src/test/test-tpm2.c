@@ -199,7 +199,7 @@ static void _test_tpms_sw(
         tpm2_tpms_pcr_selection_from_mask(mask, hash, &s);
 
         _cleanup_free_ char *tpms_str = tpm2_tpms_pcr_selection_to_string(&s);
-        assert_se(streq(tpms_str, expected_str));
+        ASSERT_STREQ(tpms_str, expected_str);
 
         assert_se(tpm2_tpms_pcr_selection_weight(&s) == expected_weight);
         assert_se(tpm2_tpms_pcr_selection_is_empty(&s) == (expected_weight == 0));
@@ -242,7 +242,7 @@ static void _test_tpml_sw(
         assert_se(l.count == expected_count);
 
         _cleanup_free_ char *tpml_str = tpm2_tpml_pcr_selection_to_string(&l);
-        assert_se(streq(tpml_str, expected_str));
+        ASSERT_STREQ(tpml_str, expected_str);
 
         assert_se(tpm2_tpml_pcr_selection_weight(&l) == expected_weight);
         assert_se(tpm2_tpml_pcr_selection_is_empty(&l) == (expected_weight == 0));
@@ -678,7 +678,7 @@ TEST(parse_pcr_argument) {
         assert_se(tpm2_parse_pcr_argument("1,2=123456abc", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1,2:invalid", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1:sha1=invalid", &v, &n_v) < 0);
-        assert_se(v == NULL);
+        ASSERT_NULL(v);
         assert_se(n_v == 0);
 
         check_parse_pcr_argument_to_mask("", 0x0);
@@ -1179,7 +1179,7 @@ static int check_calculate_seal(Tpm2Context *c) {
         int r;
 
         if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
-                log_notice("Skipping slow calculate seal TPM2 tests. Physical system detected, and slow tests disabled.");
+                log_notice("Skipping slow calculate seal TPM2 tests. Physical system detected, and slow tests disabled. (To enable, run again with $SYSTEMD_SLOW_TESTS=1.)");
                 return 0;
         }
 
@@ -1257,7 +1257,7 @@ static void check_seal_unseal(Tpm2Context *c) {
         assert(c);
 
         if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
-                log_notice("Skipping slow seal/unseal TPM2 tests. Physical system detected, and slow tests disabled.");
+                log_notice("Skipping slow seal/unseal TPM2 tests. Physical system detected, and slow tests disabled. (To enable, run again with $SYSTEMD_SLOW_TESTS=1.)");
                 return;
         }
 
@@ -1266,7 +1266,7 @@ static void check_seal_unseal(Tpm2Context *c) {
         check_seal_unseal_for_handle(c, 0);
         check_seal_unseal_for_handle(c, TPM2_SRK_HANDLE);
 
-        FOREACH_ARRAY(template, test_templates, ELEMENTSOF(test_templates)) {
+        FOREACH_ELEMENT(template, test_templates) {
                 TPM2B_PUBLIC public = {
                         .publicArea = **template,
                         .size = sizeof(**template),

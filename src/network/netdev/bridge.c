@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if_arp.h>
 #include <linux/if_bridge.h>
+#include <netinet/in.h>
 
 #include "bridge.h"
 #include "netlink-util.h"
@@ -24,8 +25,7 @@ static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter,
-                         "Failed to parse bridge multicast router setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter);
 
 /* callback for bridge netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
@@ -136,6 +136,12 @@ static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message 
                         return r;
         }
 
+        if (b->fdb_max_learned_set) {
+                r = sd_netlink_message_append_u32(req, IFLA_BR_FDB_MAX_LEARNED, b->fdb_max_learned);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return r;
@@ -227,6 +233,40 @@ int config_parse_bridge_port_priority(
                         unit, filename, line, section, section_line, lvalue, rvalue,
                         0, LINK_BRIDGE_PORT_PRIORITY_MAX, true,
                         prio);
+}
+
+int config_parse_bridge_fdb_max_learned(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Bridge *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                b->fdb_max_learned_set = false;
+                return 0;
+        }
+
+        r = config_parse_uint32_bounded(unit, filename, line, section, section_line, lvalue, rvalue,
+                                        0, UINT32_MAX, true, &b->fdb_max_learned);
+        if (r <= 0)
+                return r;
+
+        b->fdb_max_learned_set = true;
+        return 1;
 }
 
 static void bridge_init(NetDev *netdev) {

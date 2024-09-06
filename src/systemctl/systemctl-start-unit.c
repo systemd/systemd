@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "ansi-color.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -35,20 +36,24 @@ static const struct {
         { "force-reload",          "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
 };
 
-static const char *verb_to_method(const char *verb) {
-       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].verb, verb))
-                        return unit_actions[i].method;
+static const char* verb_to_method(const char *verb) {
+        assert(verb);
 
-       return "StartUnit";
+        FOREACH_ELEMENT(i, unit_actions)
+                if (streq(i->verb, verb))
+                        return i->method;
+
+        return "StartUnit";
 }
 
-static const char *verb_to_job_type(const char *verb) {
-       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].verb, verb))
-                        return unit_actions[i].job_type;
+static const char* verb_to_job_type(const char *verb) {
+        assert(verb);
 
-       return "start";
+        FOREACH_ELEMENT(i, unit_actions)
+                if (streq(i->verb, verb))
+                        return i->job_type;
+
+        return "start";
 }
 
 static int start_unit_one(
@@ -240,6 +245,8 @@ const struct action_metadata action_table[_ACTION_MAX] = {
 };
 
 enum action verb_to_action(const char *verb) {
+        assert(verb);
+
         for (enum action i = 0; i < _ACTION_MAX; i++)
                 if (streq_ptr(action_table[i].verb, verb))
                         return i;
@@ -255,14 +262,29 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 extra_args[n++] = "--user";
 
-        if (arg_transport == BUS_TRANSPORT_REMOTE) {
+        switch (arg_transport) {
+
+        case BUS_TRANSPORT_REMOTE:
                 extra_args[n++] = "-H";
                 extra_args[n++] = arg_host;
-        } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                break;
+
+        case BUS_TRANSPORT_MACHINE:
                 extra_args[n++] = "-M";
                 extra_args[n++] = arg_host;
-        } else
-                assert(arg_transport == BUS_TRANSPORT_LOCAL);
+                break;
+
+        case BUS_TRANSPORT_CAPSULE:
+                extra_args[n++] = "-C";
+                extra_args[n++] = arg_host;
+                break;
+
+        case BUS_TRANSPORT_LOCAL:
+                break;
+
+        default:
+                assert_not_reached();
+        }
 
         extra_args[n] = NULL;
         return extra_args;
@@ -360,10 +382,6 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable subscription: %m");
-
                 r = bus_wait_for_units_new(bus, &wu);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
@@ -387,7 +405,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 }
 
         if (!arg_no_block) {
-                const char* extra_args[4];
+                const char *extra_args[4];
                 WaitJobsFlags flags = 0;
 
                 SET_FLAG(flags, BUS_WAIT_JOBS_LOG_ERROR, !arg_quiet);

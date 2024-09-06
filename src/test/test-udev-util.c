@@ -16,7 +16,7 @@ static void test_udev_replace_whitespace_one_len(const char *str, size_t len, co
         assert_se(result);
         r = udev_replace_whitespace(str, result, len);
         assert_se((size_t) r == strlen(expected));
-        assert_se(streq(result, expected));
+        ASSERT_STREQ(result, expected);
 }
 
 static void test_udev_replace_whitespace_one(const char *str, const char *expected) {

@@ -7,7 +7,7 @@
 #include "strv.h"
 
 int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *error) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *full = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *full = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line = 0, column = 0;
         const char *json;
@@ -19,11 +19,11 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        r = json_parse(json, JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON secret record at %u:%u: %m", line, column);
 
-        r = json_build(&full, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("secret", JSON_BUILD_VARIANT(v))));
+        r = sd_json_buildo(&full, SD_JSON_BUILD_PAIR("secret", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
                 return r;
 
@@ -40,7 +40,7 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
 }
 
 int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, UserRecord **ret, sd_bus_error *error) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line = 0, column = 0;
         const char *json;
@@ -52,7 +52,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
         if (r < 0)
                 return r;
 
-        r = json_parse(json, JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON identity record at %u:%u: %m", line, column);
 

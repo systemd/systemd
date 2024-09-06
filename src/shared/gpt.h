@@ -41,8 +41,8 @@ PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d);
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
-const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
-const char *gpt_partition_type_uuid_to_string_harder(
+const char* gpt_partition_type_uuid_to_string(sd_id128_t id);
+const char* gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
                 char buffer[static SD_ID128_UUID_STRING_MAX]);
 
@@ -67,11 +67,12 @@ int gpt_partition_type_from_string(const char *s, GptPartitionType *ret);
 
 GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type, Architecture arch);
 
-const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
+const char* gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 
 bool gpt_partition_type_knows_read_only(GptPartitionType type);
 bool gpt_partition_type_knows_growfs(GptPartitionType type);
 bool gpt_partition_type_knows_no_auto(GptPartitionType type);
+bool gpt_partition_type_has_filesystem(GptPartitionType type);
 
 typedef struct {
         uint8_t partition_type_guid[16];

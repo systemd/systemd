@@ -3,7 +3,7 @@
 
 /* for more information see libcryptsetup.h crypt-tokens section */
 
-const char *cryptsetup_token_version(void);
+const char* cryptsetup_token_version(void);
 
 int cryptsetup_token_open(struct crypt_device *cd, int token,
         char **password, size_t *password_len, void *usrptr);

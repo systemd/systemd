@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-07-PID1
+Wants=basic.target multi-user.target
+After=basic.target
+Before=getty-pre.target
+
+[Service]
+Type=oneshot
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+NotifyAccess=all
+# Issue: https://github.com/systemd/systemd/issues/2691
+ExecStop=sh -c 'kill -SEGV $$$$'
+RemainAfterExit=yes
+TimeoutStopSec=270s

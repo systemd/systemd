@@ -162,11 +162,11 @@
 
           <itemizedlist>
             <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname>
-            is specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the
-            service manager will consider the unit started immediately after the main service process has
-            been forked off (i.e. immediately after <function>fork()</function>, and before various process
-            attributes have been configured and in particular before the new process has called
-            <function>execve()</function> to invoke the actual service binary). Typically,
+            is specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are, and
+            credentials are not used), the service manager will consider the unit started immediately after
+            the main service process has been forked off (i.e. immediately after <function>fork()</function>,
+            and before various process attributes have been configured and in particular before the new process
+            has called <function>execve()</function> to invoke the actual service binary). Typically,
             <varname>Type=</varname><option>exec</option> is the better choice, see below.</para>
 
             <para>It is expected that the process configured with <varname>ExecStart=</varname> is the main
@@ -188,7 +188,9 @@
             Note that this means <command>systemctl start</command> command lines for <option>exec</option>
             services will report failure when the service's binary cannot be invoked successfully (for
             example because the selected <varname>User=</varname> doesn't exist, or the service binary is
-            missing).</para></listitem>
+            missing). This type is implied if credentials are used (refer to <varname>LoadCredential=</varname>
+            in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details).</para></listitem>
 
             <listitem><para>If set to <option>forking</option>, the manager will consider the unit started
             immediately after the binary that forked off by the manager exits. <emphasis>The use of this type
@@ -622,6 +624,12 @@
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para>
 
+        <para>Note that the start timeout is also applied to service reloads, regardless if implemented
+        through <varname>ExecReload=</varname> or via the reload logic enabled via <varname>Type=notify-reload</varname>.
+        If the reload does not complete within the configured time, the reload will be considered failed and
+        the service will continue running with the old configuration. This will not affect the running service,
+        but will be logged and will cause e.g. <command>systemctl reload</command> to fail.</para>
+
         <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
@@ -727,8 +735,8 @@
         <listitem><para>Configures a maximum time for the service to run. If this is used and the service has been
         active for longer than the specified time it is terminated and put into a failure state. Note that this setting
         does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
-        activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
-        limit.</para>
+        activation completed (use <varname>TimeoutStartSec=</varname> to limit their activation).
+        Pass <literal>infinity</literal> (the default) to configure no runtime limit.</para>
 
         <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> sends
         <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause the runtime to be extended beyond
@@ -928,19 +936,39 @@
         <listitem>
           <para>Takes a string value that specifies how a service should restart:
             <itemizedlist>
-              <listitem><para>If set to <option>normal</option> (the default), the service restarts by
-              going through a failed/inactive state.</para></listitem>
+              <listitem>
+                <para>If set to <option>normal</option> (the default), the service restarts by going through
+                a failed/inactive state.</para>
 
-              <listitem><para>If set to <option>direct</option>, the service transitions to the activating
-              state directly during auto-restart, skipping failed/inactive state.
-              <varname>ExecStopPost=</varname> is invoked.
-              <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para></listitem>
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>direct</option>, the service transitions to the activating
+                state directly during auto-restart, skipping failed/inactive state.
+                <varname>ExecStopPost=</varname> is invoked.
+                <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para>
+
+                <para>This option is useful in cases where a dependency can fail temporarily but we don't
+                want these temporary failures to make the dependent units fail. Dependent units are not
+                notified of these temporary failures.</para>
+
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>debug</option>, the service manager will log messages that are
+                related to this unit at debug level while automated restarts are attempted, until either the
+                service hits the rate limit or it succeeds, and the <varname>$DEBUG_INVOCATION=1</varname>
+                environment variable will be set for the unit. This is useful to be able to get additional
+                information when a service fails to start, without needing to proactively or permanently
+                enable debug level logging in systemd, which is very verbose. This is otherwise equivalent
+                to <option>normal</option> mode.</para>
+
+                <xi:include href="version-info.xml" xpointer="v257"/>
+              </listitem>
             </itemizedlist>
           </para>
-
-          <para>This option is useful in cases where a dependency can fail temporarily
-          but we don't want these temporary failures to make the dependent units fail.
-          When this option is set to <option>direct</option>, dependent units are not notified of these temporary failures.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -1322,8 +1350,9 @@
     <varname>ExecStartPre=</varname>,
     <varname>ExecStartPost=</varname>,
     <varname>ExecReload=</varname>,
-    <varname>ExecStop=</varname>, and
-    <varname>ExecStopPost=</varname> options.</para>
+    <varname>ExecStop=</varname>,
+    <varname>ExecStopPost=</varname>, and
+    <varname>ExecCondition=</varname> options.</para>
 
     <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
     (these semicolons must be passed as separate words). Lone semicolons may be escaped as
@@ -1374,7 +1403,7 @@
 
           <row>
             <entry><literal>:</literal></entry>
-            <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described by the "Command Lines" section below) is not applied.</entry>
+            <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described below this table) is not applied.</entry>
           </row>
 
           <row>
@@ -1728,7 +1757,7 @@ SystemdService=simple-dbus-service.service</programlisting>
 Description=Simple notifying service
 
 [Service]
-Type=notify
+Type=notify-reload
 ExecStart=/usr/sbin/simple-notifying-service
 
 [Install]
@@ -1746,6 +1775,16 @@ WantedBy=multi-user.target</programlisting>
       <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details on how you can influence the way systemd terminates
       the service.</para>
+
+      <para>To avoid code duplication, it is preferable to use
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      when possible, especially when other APIs provided by
+      <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> are
+      also used, but note that the notification protocol is very simple and guaranteed to be stable as per
+      the <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability
+      Promise</ulink>, so it can be reimplemented by services with no external dependencies. For a
+      self-contained example, see
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
     </example>
   </refsect1>
 

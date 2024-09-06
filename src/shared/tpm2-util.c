@@ -18,6 +18,7 @@
 #include "hmac.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
@@ -29,6 +30,7 @@
 #include "recurse-dir.h"
 #include "sha256.h"
 #include "sort-util.h"
+#include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "sync-util.h"
@@ -36,75 +38,86 @@
 #include "tpm2-util.h"
 #include "virt.h"
 
+#if HAVE_OPENSSL
+#  include <openssl/hmac.h>
+#endif
+
 #if HAVE_TPM2
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
-static DLSYM_FUNCTION(Esys_Create);
-static DLSYM_FUNCTION(Esys_CreateLoaded);
-static DLSYM_FUNCTION(Esys_CreatePrimary);
-static DLSYM_FUNCTION(Esys_EvictControl);
-static DLSYM_FUNCTION(Esys_Finalize);
-static DLSYM_FUNCTION(Esys_FlushContext);
-static DLSYM_FUNCTION(Esys_Free);
-static DLSYM_FUNCTION(Esys_GetCapability);
-static DLSYM_FUNCTION(Esys_GetRandom);
-static DLSYM_FUNCTION(Esys_Import);
-static DLSYM_FUNCTION(Esys_Initialize);
-static DLSYM_FUNCTION(Esys_Load);
-static DLSYM_FUNCTION(Esys_LoadExternal);
-static DLSYM_FUNCTION(Esys_NV_DefineSpace);
-static DLSYM_FUNCTION(Esys_NV_UndefineSpace);
-static DLSYM_FUNCTION(Esys_NV_Write);
-static DLSYM_FUNCTION(Esys_PCR_Extend);
-static DLSYM_FUNCTION(Esys_PCR_Read);
-static DLSYM_FUNCTION(Esys_PolicyAuthValue);
-static DLSYM_FUNCTION(Esys_PolicyAuthorize);
-static DLSYM_FUNCTION(Esys_PolicyAuthorizeNV);
-static DLSYM_FUNCTION(Esys_PolicyGetDigest);
-static DLSYM_FUNCTION(Esys_PolicyOR);
-static DLSYM_FUNCTION(Esys_PolicyPCR);
-static DLSYM_FUNCTION(Esys_ReadPublic);
-static DLSYM_FUNCTION(Esys_StartAuthSession);
-static DLSYM_FUNCTION(Esys_Startup);
-static DLSYM_FUNCTION(Esys_TestParms);
-static DLSYM_FUNCTION(Esys_TR_Close);
-static DLSYM_FUNCTION(Esys_TR_Deserialize);
-static DLSYM_FUNCTION(Esys_TR_FromTPMPublic);
-static DLSYM_FUNCTION(Esys_TR_GetName);
-static DLSYM_FUNCTION(Esys_TR_GetTpmHandle);
-static DLSYM_FUNCTION(Esys_TR_Serialize);
-static DLSYM_FUNCTION(Esys_TR_SetAuth);
-static DLSYM_FUNCTION(Esys_TRSess_GetAttributes);
-static DLSYM_FUNCTION(Esys_TRSess_SetAttributes);
-static DLSYM_FUNCTION(Esys_Unseal);
-static DLSYM_FUNCTION(Esys_VerifySignature);
+static DLSYM_PROTOTYPE(Esys_Create) = NULL;
+static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
+static DLSYM_PROTOTYPE(Esys_CreatePrimary) = NULL;
+static DLSYM_PROTOTYPE(Esys_EvictControl) = NULL;
+static DLSYM_PROTOTYPE(Esys_Finalize) = NULL;
+static DLSYM_PROTOTYPE(Esys_FlushContext) = NULL;
+static DLSYM_PROTOTYPE(Esys_Free) = NULL;
+static DLSYM_PROTOTYPE(Esys_GetCapability) = NULL;
+static DLSYM_PROTOTYPE(Esys_GetRandom) = NULL;
+static DLSYM_PROTOTYPE(Esys_Import) = NULL;
+static DLSYM_PROTOTYPE(Esys_Initialize) = NULL;
+static DLSYM_PROTOTYPE(Esys_Load) = NULL;
+static DLSYM_PROTOTYPE(Esys_LoadExternal) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_DefineSpace) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_UndefineSpace) = NULL;
+static DLSYM_PROTOTYPE(Esys_NV_Write) = NULL;
+static DLSYM_PROTOTYPE(Esys_PCR_Extend) = NULL;
+static DLSYM_PROTOTYPE(Esys_PCR_Read) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyAuthValue) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyAuthorize) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyAuthorizeNV) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyGetDigest) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyOR) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicyPCR) = NULL;
+static DLSYM_PROTOTYPE(Esys_PolicySigned) = NULL;
+static DLSYM_PROTOTYPE(Esys_ReadPublic) = NULL;
+static DLSYM_PROTOTYPE(Esys_StartAuthSession) = NULL;
+static DLSYM_PROTOTYPE(Esys_Startup) = NULL;
+static DLSYM_PROTOTYPE(Esys_TestParms) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_Close) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_Deserialize) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_FromTPMPublic) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_GetName) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_GetTpmHandle) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_Serialize) = NULL;
+static DLSYM_PROTOTYPE(Esys_TR_SetAuth) = NULL;
+static DLSYM_PROTOTYPE(Esys_TRSess_GetAttributes) = NULL;
+static DLSYM_PROTOTYPE(Esys_TRSess_GetNonceTPM) = NULL;
+static DLSYM_PROTOTYPE(Esys_TRSess_SetAttributes) = NULL;
+static DLSYM_PROTOTYPE(Esys_Unseal) = NULL;
+static DLSYM_PROTOTYPE(Esys_VerifySignature) = NULL;
 
-static DLSYM_FUNCTION(Tss2_MU_TPM2_CC_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2_HANDLE_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_DIGEST_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_NAME_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_PRIVATE_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_PRIVATE_Unmarshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_PUBLIC_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_PUBLIC_Unmarshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_SENSITIVE_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPML_PCR_SELECTION_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPMS_NV_PUBLIC_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_NV_PUBLIC_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPM2B_NV_PUBLIC_Unmarshal);
-static DLSYM_FUNCTION(Tss2_MU_TPMS_ECC_POINT_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPMT_HA_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_TPMT_PUBLIC_Marshal);
-static DLSYM_FUNCTION(Tss2_MU_UINT32_Marshal);
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2_CC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2_HANDLE_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_DIGEST_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NAME_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PRIVATE_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PRIVATE_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PUBLIC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_PUBLIC_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_SENSITIVE_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPML_PCR_SELECTION_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMS_NV_PUBLIC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NV_PUBLIC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NV_PUBLIC_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMS_ECC_POINT_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMT_HA_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
-static DLSYM_FUNCTION(Tss2_RC_Decode);
+static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
 int dlopen_tpm2(void) {
         int r;
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-esys.so.0");
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
@@ -132,6 +145,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_PolicySigned),
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
@@ -143,6 +157,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_TR_Serialize),
                         DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_TRSess_GetAttributes),
+                        DLSYM_ARG(Esys_TRSess_GetNonceTPM),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_Unseal),
                         DLSYM_ARG(Esys_VerifySignature));
@@ -155,11 +170,21 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-rc.so.0");
+
         r = dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
         if (r < 0)
                 return r;
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-mu.so.0");
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
@@ -666,7 +691,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 context->tcti_dl = dlopen(fn, RTLD_NOW);
                 if (!context->tcti_dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to load %s: %s", fn, dlerror());
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
+
+                log_debug("Loaded '%s' via dlopen()", fn);
 
                 func = dlsym(context->tcti_dl, TSS2_TCTI_INFO_SYMBOL);
                 if (!func)
@@ -680,7 +707,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 log_debug("Loaded TCTI module '%s' (%s) [Version %" PRIu32 "]", info->name, info->description, info->version);
 
-                rc = info->init(NULL, &sz, NULL);
+                rc = info->init(/* context= */ NULL, &sz, /* param= */ NULL);
                 if (rc != TPM2_RC_SUCCESS)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
@@ -715,15 +742,33 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
         /* We require AES and CFB support for session encryption. */
         if (!tpm2_supports_alg(context, TPM2_ALG_AES))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support AES.");
 
         if (!tpm2_supports_alg(context, TPM2_ALG_CFB))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support CFB.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support CFB.");
 
         if (!tpm2_supports_tpmt_sym_def(context, &SESSION_TEMPLATE_SYM_AES_128_CFB))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES-128-CFB.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support AES-128-CFB.");
 
         *ret_context = TAKE_PTR(context);
+
+        return 0;
+}
+
+int tpm2_context_new_or_warn(const char *device, Tpm2Context **ret_context) {
+        int r;
+
+        assert(ret_context);
+
+        r = tpm2_context_new(device, ret_context);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "TPM device not usable as it does not support the required functionality (AES-128-CFB missing?).");
+        if (r == -ENOPKG)
+                return log_error_errno(r, "TPM TCTI driver not available.");
+        if (r == -ENOENT)
+                return log_error_errno(r, "TPM device not found.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         return 0;
 }
@@ -1413,7 +1458,7 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
                 FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)
 
-char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
+char* tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
         assert(s);
 
         const char *algstr = strna(tpm2_hash_alg_to_string(s->hash));
@@ -1603,7 +1648,7 @@ void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
                 tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(a, selection_b);
 }
 
-char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
+char* tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
         assert(l);
 
         _cleanup_free_ char *banks = NULL;
@@ -1897,7 +1942,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
 /* Return a string for the PCR value. The format is described in tpm2_pcr_value_from_string(). Note that if
  * the hash algorithm is not recognized, neither hash name nor hash digest value is included in the
  * string. This does not check for validity. */
-char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
+char* tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
         _cleanup_free_ char *index = NULL, *value = NULL;
 
         if (asprintf(&index, "%u", pcr_value->index) < 0)
@@ -1954,7 +1999,7 @@ int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, 
 
 /* Return a string representing the array of PCR values. The format is as described in
  * tpm2_pcr_values_from_string(). This does not check for validity. */
-char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+char* tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         _cleanup_free_ char *s = NULL;
 
         FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
@@ -2075,6 +2120,8 @@ int tpm2_create_primary(
                         /* creationData= */ NULL,
                         /* creationHash= */ NULL,
                         /* creationTicket= */ NULL);
+        if (rc == TPM2_RC_BAD_AUTH)
+                return log_debug_errno(SYNTHETIC_ERRNO(EDEADLK), "Authorization failure while attempting to enroll SRK into TPM.");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate primary key in TPM: %s",
@@ -2236,9 +2283,9 @@ static int tpm2_load_external(
 #if HAVE_TSS2_ESYS3
                         /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
                          * hierarchy, older versions need TPM2_RH_* instead. */
-                        ESYS_TR_RH_OWNER,
+                        private ? ESYS_TR_RH_NULL : ESYS_TR_RH_OWNER,
 #else
-                        TPM2_RH_OWNER,
+                        private ? TPM2_RH_NULL : TPM2_RH_OWNER,
 #endif
                         &handle->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
@@ -3056,7 +3103,7 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
@@ -3103,7 +3150,7 @@ int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
+        r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
         if (r < 0)
                 return r;
 
@@ -3225,7 +3272,7 @@ int tpm2_make_policy_session(
 }
 
 static int find_signature(
-                JsonVariant *v,
+                sd_json_variant *v,
                 const TPML_PCR_SELECTION *pcr_selection,
                 const void *fp,
                 size_t fp_size,
@@ -3235,14 +3282,14 @@ static int find_signature(
                 size_t *ret_signature_size) {
 
 #if HAVE_OPENSSL
-        JsonVariant *b, *i;
+        sd_json_variant *b, *i;
         const char *k;
         int r;
 
         /* Searches for a signature blob in the specified JSON object. Search keys are PCR bank, PCR mask,
          * public key, and policy digest. */
 
-        if (!json_variant_is_object(v))
+        if (!sd_json_variant_is_object(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
 
         uint16_t pcr_bank = pcr_selection->pcrSelections[0].hash;
@@ -3253,25 +3300,25 @@ static int find_signature(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know PCR bank %" PRIu16, pcr_bank);
 
         /* First, find field by bank */
-        b = json_variant_by_key(v, k);
+        b = sd_json_variant_by_key(v, k);
         if (!b)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Signature lacks data for PCR bank '%s'.", k);
 
-        if (!json_variant_is_array(b))
+        if (!sd_json_variant_is_array(b))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Bank data is not a JSON array.");
 
         /* Now iterate through all signatures known for this bank */
         JSON_VARIANT_ARRAY_FOREACH(i, b) {
                 _cleanup_free_ void *fpj_data = NULL, *polj_data = NULL;
-                JsonVariant *maskj, *fpj, *sigj, *polj;
+                sd_json_variant *maskj, *fpj, *sigj, *polj;
                 size_t fpj_size, polj_size;
                 uint32_t parsed_mask;
 
-                if (!json_variant_is_object(i))
+                if (!sd_json_variant_is_object(i))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Bank data element is not a JSON object");
 
                 /* Check if the PCR mask matches our expectations */
-                maskj = json_variant_by_key(i, "pcrs");
+                maskj = sd_json_variant_by_key(i, "pcrs");
                 if (!maskj)
                         continue;
 
@@ -3283,11 +3330,11 @@ static int find_signature(
                         continue; /* Not for this PCR mask */
 
                 /* Then check if this is for the public key we operate with */
-                fpj = json_variant_by_key(i, "pkfp");
+                fpj = sd_json_variant_by_key(i, "pkfp");
                 if (!fpj)
                         continue;
 
-                r = json_variant_unhex(fpj, &fpj_data, &fpj_size);
+                r = sd_json_variant_unhex(fpj, &fpj_data, &fpj_size);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decode fingerprint in JSON data: %m");
 
@@ -3295,11 +3342,11 @@ static int find_signature(
                         continue; /* Not for this public key */
 
                 /* Finally, check if this is for the PCR policy we expect this to be */
-                polj = json_variant_by_key(i, "pol");
+                polj = sd_json_variant_by_key(i, "pol");
                 if (!polj)
                         continue;
 
-                r = json_variant_unhex(polj, &polj_data, &polj_size);
+                r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
 
@@ -3307,11 +3354,11 @@ static int find_signature(
                         continue;
 
                 /* This entry matches all our expectations, now return the signature included in it */
-                sigj = json_variant_by_key(i, "sig");
+                sigj = sd_json_variant_by_key(i, "sig");
                 if (!sigj)
                         continue;
 
-                return json_variant_unbase64(sigj, ret_signature, ret_signature_size);
+                return sd_json_variant_unbase64(sigj, ret_signature, ret_signature_size);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
@@ -3390,7 +3437,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
  *
  * The handle must reference a key already present in the TPM. It may be either a public key only, or a
  * public/private keypair. */
-static int tpm2_get_name(
+int tpm2_get_name(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
                 TPM2B_NAME **ret_name) {
@@ -3526,6 +3573,150 @@ int tpm2_policy_auth_value(
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicySigned calculated hash. */
+int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name) {
+        TPM2_CC command = TPM2_CC_PolicySigned;
+        TSS2_RC rc;
+        int r;
+
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+        assert(name);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_debug_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicySigned command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicySigned command", offset);
+
+        struct iovec data[] = {
+                IOVEC_MAKE(buf, offset),
+                IOVEC_MAKE(name->name, name->size),
+        };
+
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, ELEMENTSOF(data), /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        const TPM2B_NONCE policyRef = {}; /* For now, we do not make use of the policyRef stuff */
+
+        r = tpm2_digest_buffer(TPM2_ALG_SHA256, digest, policyRef.buffer, policyRef.size, /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicySigned calculated digest");
+
+        return 0;
+}
+
+int tpm2_policy_signed_hmac_sha256(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *hmac_key_handle,
+                const struct iovec *hmac_key,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+#if HAVE_OPENSSL
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(session);
+        assert(hmac_key_handle);
+        assert(iovec_is_set(hmac_key));
+
+        /* This sends a TPM2_PolicySigned command to the tpm. As signature key we use an HMAC-SHA256 key
+         * specified in the hmac_key parameter. The secret key must be loaded into the TPM already and
+         * referenced in hmac_key_handle. */
+
+        log_debug("Submitting PolicySigned policy for HMAC-SHA256.");
+
+        /* Acquire the nonce from the TPM that we shall sign */
+        _cleanup_(Esys_Freep) TPM2B_NONCE *nonce = NULL;
+        rc = sym_Esys_TRSess_GetNonceTPM(
+                        c->esys_context,
+                        session->esys_handle,
+                        &nonce);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to determine NoneTPM of auth session: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        be32_t expiration = htobe64(0);
+        const TPM2B_DIGEST cpHashA = {};  /* For now, we do not make use of the cpHashA stuff */
+        const TPM2B_NONCE policyRef = {}; /* ditto, we do not bother with policyRef */
+
+        /* Put together the data to sign, as per TPM2 Spec Part 3, 23.3.1 */
+        struct iovec data_to_sign[] = {
+                IOVEC_MAKE(nonce->buffer, nonce->size),
+                IOVEC_MAKE(&expiration, sizeof(expiration)),
+                IOVEC_MAKE(cpHashA.buffer, cpHashA.size),
+                IOVEC_MAKE(policyRef.buffer, policyRef.size),
+        };
+
+        /* Now calculate the digest of the data we put together */
+        TPM2B_DIGEST digest_to_sign;
+        r = tpm2_digest_many(TPM2_ALG_SHA256, &digest_to_sign, data_to_sign, ELEMENTSOF(data_to_sign), /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        unsigned char hmac_signature[SHA256_DIGEST_SIZE];
+        unsigned hmac_signature_size = sizeof(hmac_signature);
+
+        /* And sign this with our key */
+        if (!HMAC(EVP_sha256(),
+                  hmac_key->iov_base,
+                  hmac_key->iov_len,
+                  digest_to_sign.buffer,
+                  digest_to_sign.size,
+                  hmac_signature,
+                  &hmac_signature_size))
+                return -ENOTRECOVERABLE;
+
+        /* Now bring the signature into a format that the TPM understands */
+        TPMT_SIGNATURE sig = {
+                .sigAlg = TPM2_ALG_HMAC,
+                .signature.hmac.hashAlg = TPM2_ALG_SHA256,
+        };
+        assert(hmac_signature_size == sizeof(sig.signature.hmac.digest.sha256));
+        memcpy(sig.signature.hmac.digest.sha256, hmac_signature, hmac_signature_size);
+
+        /* And submit the whole shebang to the TPM */
+        rc = sym_Esys_PolicySigned(
+                        c->esys_context,
+                        hmac_key_handle->esys_handle,
+                        session->esys_handle,
+                        /* shandle1= */ ESYS_TR_NONE,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        nonce,
+                        &cpHashA,
+                        &policyRef,
+                        expiration,
+                        &sig,
+                        /* timeout= */ NULL,
+                        /* policyTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add PolicySigned policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 int tpm2_calculate_policy_authorize_nv(
@@ -3862,7 +4053,7 @@ static int tpm2_policy_authorize(
                 const TPM2B_PUBLIC *public,
                 const void *fp,
                 size_t fp_size,
-                JsonVariant *signature_json,
+                sd_json_variant *signature_json,
                 TPM2B_DIGEST **ret_policy_digest) {
 
         TSS2_RC rc;
@@ -4036,7 +4227,7 @@ static int tpm2_build_sealing_policy(
                 const void *fp,
                 size_t fp_size,
                 uint32_t pubkey_pcr_mask,
-                JsonVariant *signature_json,
+                sd_json_variant *signature_json,
                 bool use_pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST **ret_policy_digest) {
@@ -4133,7 +4324,7 @@ static const struct {
 static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_ECC_CURVE *ret) {
         assert(ret);
 
-        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+        FOREACH_ELEMENT(t, tpm2_openssl_ecc_curve_table)
                 if (t->openssl_ecc_curve_id == openssl_ecc_curve_id) {
                         *ret = t->tpm2_ecc_curve_id;
                         return 0;
@@ -4146,7 +4337,7 @@ static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_E
 static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE tpm2_ecc_curve_id, int *ret) {
         assert(ret);
 
-        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+        FOREACH_ELEMENT(t, tpm2_openssl_ecc_curve_table)
                 if (t->tpm2_ecc_curve_id == tpm2_ecc_curve_id) {
                         *ret = t->openssl_ecc_curve_id;
                         return 0;
@@ -4783,7 +4974,7 @@ static int tpm2_calculate_seal_private(
 
         TPM2B_AUTH auth = {};
         if (pin) {
-                r = tpm2_get_pin_auth(parent->publicArea.nameAlg, pin, &auth);
+                r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
                 if (r < 0)
                         return r;
         }
@@ -5118,12 +5309,7 @@ int tpm2_calculate_seal(
                 /* No secret provided, generate a random secret. We use SHA256 digest length, though it can
                  * be up to TPM2_MAX_SEALED_DATA. The secret length is not limited to the nameAlg hash
                  * size. */
-                generated_secret.iov_len = TPM2_SHA256_DIGEST_SIZE;
-                generated_secret.iov_base = malloc(generated_secret.iov_len);
-                if (!generated_secret.iov_base)
-                        return log_oom_debug();
-
-                r = crypto_random_bytes(generated_secret.iov_base, generated_secret.iov_len);
+                r = crypto_random_bytes_allocate_iovec(TPM2_SHA256_DIGEST_SIZE, &generated_secret);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to generate secret key: %m");
 
@@ -5248,7 +5434,7 @@ int tpm2_seal(Tpm2Context *c,
         CLEANUP_ERASE(hmac_sensitive);
 
         if (pin) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
+                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
                 if (r < 0)
                         return r;
         }
@@ -5400,7 +5586,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
                 uint32_t pubkey_pcr_mask,
-                JsonVariant *signature,
+                sd_json_variant *signature,
                 const char *pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
@@ -5525,13 +5711,13 @@ int tpm2_unseal(Tpm2Context *c,
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
-        if (r < 0)
-                return r;
-
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+                r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
+                if (r < 0)
+                        return r;
+
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
@@ -5612,7 +5798,8 @@ int tpm2_unseal(Tpm2Context *c,
 }
 
 static TPM2_HANDLE generate_random_nv_index(void) {
-        return TPM2_NV_INDEX_FIRST + (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_LAST - TPM2_NV_INDEX_FIRST + 1);
+        return TPM2_NV_INDEX_UNASSIGNED_FIRST +
+                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_UNASSIGNED_LAST - TPM2_NV_INDEX_UNASSIGNED_FIRST + 1);
 }
 
 int tpm2_define_policy_nv_index(
@@ -5620,8 +5807,6 @@ int tpm2_define_policy_nv_index(
                 const Tpm2Handle *session,
                 TPM2_HANDLE requested_nv_index,
                 const TPM2B_DIGEST *write_policy,
-                const char *pin,
-                const TPM2B_AUTH *auth,
                 TPM2_HANDLE *ret_nv_index,
                 Tpm2Handle **ret_nv_handle,
                 TPM2B_NV_PUBLIC *ret_nv_public) {
@@ -5631,24 +5816,16 @@ int tpm2_define_policy_nv_index(
         int r;
 
         assert(c);
-        assert(pin || auth);
+
+        /* Allocates an nvindex to store a policy for use in PolicyAuthorizeNV in. This is where pcrlock then
+         * stores its predicted PCR policies in. If 'requested_nv_index' will try to allocate the specified
+         * nvindex, otherwise will find a free one, and use that. */
 
         r = tpm2_handle_new(c, &new_handle);
         if (r < 0)
                 return r;
 
         new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
-
-        TPM2B_AUTH _auth = {};
-        CLEANUP_ERASE(_auth);
-
-        if (!auth) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &_auth);
-                if (r < 0)
-                        return r;
-
-                auth = &_auth;
-        }
 
         for (unsigned try = 0; try < 25U; try++) {
                 TPM2_HANDLE nv_index;
@@ -5677,7 +5854,7 @@ int tpm2_define_policy_nv_index(
                                 /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
                                 /* shandle2= */ ESYS_TR_NONE,
                                 /* shandle3= */ ESYS_TR_NONE,
-                                auth,
+                                /* auth= */ NULL,
                                 &public_info,
                                 &new_handle->esys_handle);
 
@@ -6046,11 +6223,11 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
-const char *tpm2_userspace_log_path(void) {
+const char* tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
 
-const char *tpm2_firmware_log_path(void) {
+const char* tpm2_firmware_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_FIRMWARE") ?: "/sys/kernel/security/tpm0/binary_bios_measurements";
 }
 
@@ -6101,7 +6278,7 @@ static int tpm2_userspace_log(
                 Tpm2UserspaceEventType event_type,
                 const char *description) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;
         _cleanup_free_ char *f = NULL;
         sd_id128_t boot_id;
         int r;
@@ -6144,10 +6321,10 @@ static int tpm2_userspace_log(
                 assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
                 assert_se(implementation = EVP_get_digestbyname(a));
 
-                r = json_variant_append_arrayb(
-                                &array, JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                                JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation))));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append digest object to JSON array: %m");
         }
@@ -6158,19 +6335,20 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire boot ID: %m");
 
-        r = json_build(&v, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_UNSIGNED(pcr_index)),
-                                       JSON_BUILD_PAIR("digests", JSON_BUILD_VARIANT(array)),
-                                       JSON_BUILD_PAIR("content_type", JSON_BUILD_STRING("systemd")),
-                                       JSON_BUILD_PAIR("content", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR_CONDITION(description, "string", JSON_BUILD_STRING(description)),
-                                                                       JSON_BUILD_PAIR("bootId", JSON_BUILD_ID128(boot_id)),
-                                                                       JSON_BUILD_PAIR("timestamp", JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
-                                                                       JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
+                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
+                        SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
+                        SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
+                                                           SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
+                                                           SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
-        r = json_variant_format(v, JSON_FORMAT_SEQ, &f);
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_SEQ, &f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to format JSON: %m");
 
@@ -6414,16 +6592,16 @@ bool tpm2_pcr_prediction_equal(
 int tpm2_pcr_prediction_to_json(
                 const Tpm2PCRPrediction *prediction,
                 uint16_t algorithm,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
         int r;
 
         assert(prediction);
         assert(ret);
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *vj = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vj = NULL;
                 Tpm2PCRPredictionResult *banks;
 
                 if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
@@ -6435,9 +6613,9 @@ int tpm2_pcr_prediction_to_json(
                         if (!hash)
                                 continue;
 
-                        r = json_variant_append_arrayb(
+                        r = sd_json_variant_append_arrayb(
                                         &vj,
-                                        JSON_BUILD_HEX(hash->buffer, hash->size));
+                                        SD_JSON_BUILD_HEX(hash->buffer, hash->size));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to append hash variant to JSON array: %m");
                 }
@@ -6445,17 +6623,16 @@ int tpm2_pcr_prediction_to_json(
                 if (!vj)
                         continue;
 
-                r = json_variant_append_arrayb(
+                r = sd_json_variant_append_arraybo(
                                 &aj,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_INTEGER("pcr", pcr),
-                                                JSON_BUILD_PAIR_VARIANT("values", vj)));
+                                SD_JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                                SD_JSON_BUILD_PAIR_VARIANT("values", vj));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append PCR variants to JSON array: %m");
         }
 
         if (!aj) {
-                r = json_variant_new_array(&aj, NULL, 0);
+                r = sd_json_variant_new_array(&aj, NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -6467,7 +6644,7 @@ int tpm2_pcr_prediction_to_json(
 int tpm2_pcr_prediction_from_json(
                 Tpm2PCRPrediction *prediction,
                 uint16_t algorithm,
-                JsonVariant *aj) {
+                sd_json_variant *aj) {
 
         int r;
 
@@ -6476,36 +6653,36 @@ int tpm2_pcr_prediction_from_json(
         size_t alg_index = tpm2_hash_algorithm_index(algorithm);
         assert(alg_index < TPM2_N_HASH_ALGORITHMS);
 
-        if (!json_variant_is_array(aj))
+        if (!sd_json_variant_is_array(aj))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR variant array is not an array.");
 
-        JsonVariant *pcr;
+        sd_json_variant *pcr;
         JSON_VARIANT_ARRAY_FOREACH(pcr, aj) {
-                JsonVariant *nr, *values;
+                sd_json_variant *nr, *values;
 
-                nr = json_variant_by_key(pcr, "pcr");
+                nr = sd_json_variant_by_key(pcr, "pcr");
                 if (!nr)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks PCR index field");
 
-                if (!json_variant_is_unsigned(nr) ||
-                    json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
+                if (!sd_json_variant_is_unsigned(nr) ||
+                    sd_json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry PCR index is not an integer in the range 0…23");
 
-                values = json_variant_by_key(pcr, "values");
+                values = sd_json_variant_by_key(pcr, "values");
                 if (!values)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks values field");
 
-                if (!json_variant_is_array(values))
+                if (!sd_json_variant_is_array(values))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry values field is not an array");
 
-                prediction->pcrs |= UINT32_C(1) << json_variant_unsigned(nr);
+                prediction->pcrs |= UINT32_C(1) << sd_json_variant_unsigned(nr);
 
-                JsonVariant *v;
+                sd_json_variant *v;
                 JSON_VARIANT_ARRAY_FOREACH(v, values) {
                         _cleanup_free_ void *buffer = NULL;
                         size_t size;
 
-                        r = json_variant_unhex(v, &buffer, &size);
+                        r = sd_json_variant_unhex(v, &buffer, &size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR policy array hash value");
 
@@ -6522,7 +6699,7 @@ int tpm2_pcr_prediction_from_json(
                         memcpy(banks->hash[alg_index].buffer, buffer, size);
                         banks->hash[alg_index].size = size;
 
-                        r = ordered_set_ensure_put(prediction->results + json_variant_unsigned(nr), &tpm2_pcr_prediction_result_hash_ops, banks);
+                        r = ordered_set_ensure_put(prediction->results + sd_json_variant_unsigned(nr), &tpm2_pcr_prediction_result_hash_ops, banks);
                         if (r == -EEXIST) /* Let's allow duplicates */
                                 continue;
                         if (r < 0)
@@ -6764,7 +6941,7 @@ int tpm2_policy_super_pcr(
 void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         assert(data);
 
-        data->prediction_json = json_variant_unref(data->prediction_json);
+        data->prediction_json = sd_json_variant_unref(data->prediction_json);
         tpm2_pcr_prediction_done(&data->prediction);
         iovec_done(&data->nv_handle);
         iovec_done(&data->nv_public);
@@ -6773,13 +6950,13 @@ void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
         iovec_done(&data->pin_private);
 }
 
-static int json_dispatch_tpm2_algorithm(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uint16_t *algorithm = ASSERT_PTR(userdata);
         int r;
 
-        r = tpm2_hash_alg_from_string(json_variant_string(variant));
+        r = tpm2_hash_alg_from_string(sd_json_variant_string(variant));
         if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", json_variant_string(variant));
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", sd_json_variant_string(variant));
 
         *algorithm = r;
         return 0;
@@ -6803,21 +6980,21 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
 }
 
 int tpm2_pcrlock_policy_from_json(
-                JsonVariant *v,
+                sd_json_variant *v,
                 Tpm2PCRLockPolicy *ret_policy) {
 
         /* We use a type check of _JSON_VARIANT_TYPE_INVALID for the integer fields to allow
          * json_dispatch_uint32() to parse strings as integers to work around the integer type weakness of
          * JSON's design. */
-        JsonDispatch policy_dispatch[] = {
-                { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
-                { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
-                { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
-                { "nvHandle",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
-                { "nvPublic",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
-                { "srkHandle",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
-                { "pinPublic",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
-                { "pinPrivate", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
+        static const sd_json_dispatch_field policy_dispatch[] = {
+                { "pcrBank",    SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       SD_JSON_MANDATORY },
+                { "pcrValues",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,     offsetof(Tpm2PCRLockPolicy, prediction_json), SD_JSON_MANDATORY },
+                { "nvIndex",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,      offsetof(Tpm2PCRLockPolicy, nv_index),        SD_JSON_MANDATORY },
+                { "nvHandle",   SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       SD_JSON_MANDATORY },
+                { "nvPublic",   SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       SD_JSON_MANDATORY },
+                { "srkHandle",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      SD_JSON_MANDATORY },
+                { "pinPublic",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      SD_JSON_MANDATORY },
+                { "pinPrivate", SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     SD_JSON_MANDATORY },
                 {}
         };
 
@@ -6827,7 +7004,7 @@ int tpm2_pcrlock_policy_from_json(
         assert(v);
         assert(ret_policy);
 
-        r = json_dispatch(v, policy_dispatch, JSON_LOG, &policy);
+        r = sd_json_dispatch(v, policy_dispatch, SD_JSON_LOG, &policy);
         if (r < 0)
                 return r;
 
@@ -6855,8 +7032,8 @@ int tpm2_pcrlock_policy_load(
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 pcrlock policy file: %m");
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        r = json_parse_file(
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_file(
                         f,
                         discovered_path,
                         /* flags = */ 0,
@@ -6901,8 +7078,8 @@ static int pcrlock_policy_load_credential(
         if (memchr(decoded.iov_base, 0, decoded.iov_len))
                 return log_error_errno(r, "Credential '%s' contains embedded NUL byte, refusing.", name);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        r = json_parse(decoded.iov_base,
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(decoded.iov_base,
                        /* flags= */ 0,
                        &v,
                        /* ret_line= */ NULL,
@@ -7029,9 +7206,78 @@ int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret) {
         *ret = device_key_public;
         return 0;
 }
+
+int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_AUTH *pin, Tpm2Handle **ret) {
+        int r;
+
+        assert(c);
+        assert(pin);
+        assert(ret);
+
+        log_debug("Converting PIN into TPM2 HMAC-SHA256 object.");
+
+        /* Load the PIN (which we have stored in the "auth" TPM2B_AUTH) into the TPM as an HMAC key so that
+         * we can use it in a TPM2_PolicySigned() to write to the nvindex. For that we'll prep a pair of
+         * TPM2B_PUBLIC and TPM2B_SENSITIVE that defines an HMAC-SHA256 keyed hash function, and initialize
+         * it based on the provided PIN data. */
+
+        TPM2B_PUBLIC auth_hmac_public = {
+                .publicArea = {
+                        .type = TPM2_ALG_KEYEDHASH,
+                        .nameAlg = TPM2_ALG_SHA256,
+                        .objectAttributes = TPMA_OBJECT_SIGN_ENCRYPT,
+                        .parameters.keyedHashDetail.scheme = {
+                                .scheme = TPM2_ALG_HMAC,
+                                .details.hmac.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .unique.keyedHash.size = SHA256_DIGEST_SIZE,
+                },
+        };
+
+        TPM2B_SENSITIVE auth_hmac_private = {
+                .sensitiveArea = {
+                        .sensitiveType = TPM2_ALG_KEYEDHASH,
+                        .sensitive.bits.size = pin->size,
+                        .seedValue.size = SHA256_DIGEST_SIZE,
+                },
+        };
+
+        /* Copy in the key data */
+        memcpy_safe(auth_hmac_private.sensitiveArea.sensitive.bits.buffer, pin->buffer, pin->size);
+
+        /* NB: We initialize the seed of the TPMT_SENSITIVE structure to all zeroes, since we want a stable
+         * "name" of the PIN object */
+
+        /* Now calculate the "unique" field for the public area, based on the sensitive data, according to
+         * the algorithm in the TPM2 spec, part 1, Section 27.5.3.2 */
+        struct iovec sensitive_data[] = {
+                IOVEC_MAKE(auth_hmac_private.sensitiveArea.seedValue.buffer, auth_hmac_private.sensitiveArea.seedValue.size),
+                IOVEC_MAKE(auth_hmac_private.sensitiveArea.sensitive.bits.buffer, auth_hmac_private.sensitiveArea.sensitive.bits.size),
+        };
+        r = tpm2_digest_many(
+                        auth_hmac_public.publicArea.nameAlg,
+                        &auth_hmac_public.publicArea.unique.keyedHash,
+                        sensitive_data,
+                        ELEMENTSOF(sensitive_data),
+                        /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        /* And now load the public/private parts into the TPM and get a handle back */
+        r = tpm2_load_external(
+                        c,
+                        session,
+                        &auth_hmac_public,
+                        &auth_hmac_private,
+                        ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load PIN into TPM2: %m");
+
+        return 0;
+}
 #endif
 
-char *tpm2_pcr_mask_to_string(uint32_t mask) {
+char* tpm2_pcr_mask_to_string(uint32_t mask) {
         _cleanup_free_ char *s = NULL;
 
         FOREACH_PCR_IN_MASK(n, mask)
@@ -7044,48 +7290,48 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
-int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
+int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
         int r;
 
         assert(ret);
 
         for (size_t i = 0; i < TPM2_PCRS_MAX; i++) {
-                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
 
                 if ((pcr_mask & (UINT32_C(1) << i)) == 0)
                         continue;
 
-                r = json_variant_new_integer(&e, i);
+                r = sd_json_variant_new_integer(&e, i);
                 if (r < 0)
                         return r;
 
-                r = json_variant_append_array(&a, e);
+                r = sd_json_variant_append_array(&a, e);
                 if (r < 0)
                         return r;
         }
 
         if (!a)
-                return json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, NULL, 0);
 
         *ret = TAKE_PTR(a);
         return 0;
 }
 
-int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
-        JsonVariant *e;
+int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret) {
+        sd_json_variant *e;
         uint32_t mask = 0;
 
-        if (!json_variant_is_array(v))
+        if (!sd_json_variant_is_array(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR array is not a JSON array.");
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 uint64_t u;
 
-                if (!json_variant_is_unsigned(e))
+                if (!sd_json_variant_is_unsigned(e))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not an unsigned integer.");
 
-                u = json_variant_unsigned(e);
+                u = sd_json_variant_unsigned(e);
                 if (u >= TPM2_PCRS_MAX)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range: %" PRIu64, u);
 
@@ -7111,9 +7357,9 @@ int tpm2_make_luks2_json(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
-                JsonVariant **ret) {
+                sd_json_variant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *hmj = NULL, *pkmj = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         int r;
 
@@ -7138,22 +7384,22 @@ int tpm2_make_luks2_json(
          * other programming languages. Let's not make things worse though, i.e. future additions to the JSON
          * object should use "_" rather than "-" in field names. */
 
-        r = json_build(&v,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
-                                       JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
-                                       JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
-                                       JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
-                                       JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
-                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
-                                       JSON_BUILD_PAIR("tpm2_pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
+                        SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
+                        SD_JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
+                        SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pcr_bank != 0 && tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
+                        SD_JSON_BUILD_PAIR_CONDITION(primary_alg != 0 && tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
+                        SD_JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)));
         if (r < 0)
                 return r;
 
@@ -7164,7 +7410,7 @@ int tpm2_make_luks2_json(
 }
 
 int tpm2_parse_luks2_json(
-                JsonVariant *v,
+                sd_json_variant *v,
                 int *ret_keyslot,
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
@@ -7184,7 +7430,7 @@ int tpm2_parse_luks2_json(
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;
-        JsonVariant *w;
+        sd_json_variant *w;
 
         assert(v);
 
@@ -7199,7 +7445,7 @@ int tpm2_parse_luks2_json(
                 }
         }
 
-        w = json_variant_by_key(v, "tpm2-pcrs");
+        w = sd_json_variant_by_key(v, "tpm2-pcrs");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-pcrs' field.");
 
@@ -7209,37 +7455,37 @@ int tpm2_parse_luks2_json(
 
         /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
          * to SHA256. */
-        w = json_variant_by_key(v, "tpm2-pcr-bank");
+        w = sd_json_variant_by_key(v, "tpm2-pcr-bank");
         if (w) {
                 /* The PCR bank field is optional */
 
-                if (!json_variant_is_string(w))
+                if (!sd_json_variant_is_string(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR bank is not a string.");
 
-                r = tpm2_hash_alg_from_string(json_variant_string(w));
+                r = tpm2_hash_alg_from_string(sd_json_variant_string(w));
                 if (r < 0)
-                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
+                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", sd_json_variant_string(w));
 
                 pcr_bank = r;
         }
 
         /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
          * the algorithm was hardcoded to ECC. */
-        w = json_variant_by_key(v, "tpm2-primary-alg");
+        w = sd_json_variant_by_key(v, "tpm2-primary-alg");
         if (w) {
                 /* The primary key algorithm is optional */
 
-                if (!json_variant_is_string(w))
+                if (!sd_json_variant_is_string(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 primary key algorithm is not a string.");
 
-                r = tpm2_asym_alg_from_string(json_variant_string(w));
+                r = tpm2_asym_alg_from_string(sd_json_variant_string(w));
                 if (r < 0)
-                        return log_debug_errno(r, "TPM2 asymmetric algorithm invalid or not supported: %s", json_variant_string(w));
+                        return log_debug_errno(r, "TPM2 asymmetric algorithm invalid or not supported: %s", sd_json_variant_string(w));
 
                 primary_alg = r;
         }
 
-        w = json_variant_by_key(v, "tpm2-blob");
+        w = sd_json_variant_by_key(v, "tpm2-blob");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-blob' field.");
 
@@ -7247,7 +7493,7 @@ int tpm2_parse_luks2_json(
         if (r < 0)
                 return log_debug_errno(r, "Invalid base64 data in 'tpm2-blob' field.");
 
-        w = json_variant_by_key(v, "tpm2-policy-hash");
+        w = sd_json_variant_by_key(v, "tpm2-policy-hash");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
@@ -7255,37 +7501,37 @@ int tpm2_parse_luks2_json(
         if (r < 0)
                 return log_debug_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field.");
 
-        w = json_variant_by_key(v, "tpm2-pin");
+        w = sd_json_variant_by_key(v, "tpm2-pin");
         if (w) {
-                if (!json_variant_is_boolean(w))
+                if (!sd_json_variant_is_boolean(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PIN policy is not a boolean.");
 
-                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
+                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, sd_json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2_pcrlock");
+        w = sd_json_variant_by_key(v, "tpm2_pcrlock");
         if (w) {
-                if (!json_variant_is_boolean(w))
+                if (!sd_json_variant_is_boolean(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 pclock policy is not a boolean.");
 
-                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, json_variant_boolean(w));
+                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, sd_json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2_salt");
+        w = sd_json_variant_by_key(v, "tpm2_salt");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &salt);
                 if (r < 0)
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_salt' field.");
         }
 
-        w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
+        w = sd_json_variant_by_key(v, "tpm2_pubkey_pcrs");
         if (w) {
                 r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
                 if (r < 0)
                         return r;
         }
 
-        w = json_variant_by_key(v, "tpm2_pubkey");
+        w = sd_json_variant_by_key(v, "tpm2_pubkey");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &pubkey);
                 if (r < 0)
@@ -7293,14 +7539,14 @@ int tpm2_parse_luks2_json(
         } else if (pubkey_pcr_mask != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
 
-        w = json_variant_by_key(v, "tpm2_srk");
+        w = sd_json_variant_by_key(v, "tpm2_srk");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &srk);
                 if (r < 0)
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_srk' field.");
         }
 
-        w = json_variant_by_key(v, "tpm2_pcrlock_nv");
+        w = sd_json_variant_by_key(v, "tpm2_pcrlock_nv");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &pcrlock_nv);
                 if (r < 0)
@@ -7349,7 +7595,7 @@ int tpm2_hash_alg_to_size(uint16_t alg) {
         }
 }
 
-const char *tpm2_hash_alg_to_string(uint16_t alg) {
+const char* tpm2_hash_alg_to_string(uint16_t alg) {
         switch (alg) {
         case TPM2_ALG_SHA1:
                 return "sha1";
@@ -7377,7 +7623,7 @@ int tpm2_hash_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm name '%s'", alg);
 }
 
-const char *tpm2_asym_alg_to_string(uint16_t alg) {
+const char* tpm2_asym_alg_to_string(uint16_t alg) {
         switch (alg) {
         case TPM2_ALG_ECC:
                 return "ecc";
@@ -7397,7 +7643,7 @@ int tpm2_asym_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown asymmetric algorithm name '%s'", alg);
 }
 
-const char *tpm2_sym_alg_to_string(uint16_t alg) {
+const char* tpm2_sym_alg_to_string(uint16_t alg) {
         switch (alg) {
 #if HAVE_TPM2
         case TPM2_ALG_AES:
@@ -7417,7 +7663,7 @@ int tpm2_sym_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric algorithm name '%s'", alg);
 }
 
-const char *tpm2_sym_mode_to_string(uint16_t mode) {
+const char* tpm2_sym_mode_to_string(uint16_t mode) {
         switch (mode) {
 #if HAVE_TPM2
         case TPM2_ALG_CTR:
@@ -7634,7 +7880,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
 #endif
 }
 
-int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
+int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
         _cleanup_strv_free_ char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -7663,7 +7909,7 @@ int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
-        r = json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
+        r = sd_json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
 

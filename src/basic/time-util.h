@@ -71,8 +71,11 @@ typedef enum TimestampStyle {
 
 #define TIME_T_MAX (time_t)((UINTMAX_C(1) << ((sizeof(time_t) << 3) - 1)) - 1)
 
-#define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) {})
-#define TRIPLE_TIMESTAMP_NULL ((struct triple_timestamp) {})
+#define DUAL_TIMESTAMP_NULL ((dual_timestamp) {})
+#define DUAL_TIMESTAMP_INFINITY ((dual_timestamp) { USEC_INFINITY, USEC_INFINITY })
+#define TRIPLE_TIMESTAMP_NULL ((triple_timestamp) {})
+
+#define TIMESPEC_OMIT ((const struct timespec) { .tv_nsec = UTIME_OMIT })
 
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);
@@ -174,8 +177,8 @@ usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
 int get_timezone(char **ret);
 
-time_t mktime_or_timegm(struct tm *tm, bool utc);
-struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc);
+int mktime_or_timegm_usec(struct tm *tm, bool utc, usec_t *ret);
+int localtime_or_gmtime_usec(usec_t t, bool utc, struct tm *ret);
 
 uint32_t usec_to_jiffies(usec_t usec);
 usec_t jiffies_to_usec(uint32_t jiffies);

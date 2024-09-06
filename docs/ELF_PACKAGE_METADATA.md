@@ -12,9 +12,9 @@ or parse ELF core files.*
 
 ## Motivation
 
-ELF binaries get stamped with a unique, build-time generated hex string identifier called
-`build-id`, [which gets embedded as an ELF note called `.note.gnu.build-id`](https://fedoraproject.org/wiki/Releases/FeatureBuildId).
-In most cases, this allows to associate a stripped binary with its debugging information.
+ELF binaries get stamped with a unique, build-time generated hex string identifier called `build-id`,
+[which gets embedded as an ELF note called `.note.gnu.build-id`](https://fedoraproject.org/wiki/Releases/FeatureBuildId).
+In most cases, this allows a stripped binary to be associated with its debugging information.
 It is used, for example, to dynamically fetch DWARF symbols from a debuginfo server, or
 to query the local package manager and find out the package metadata or, again, the DWARF
 symbols or program sources.

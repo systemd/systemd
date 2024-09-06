@@ -29,17 +29,32 @@ __get_links() {
     networkctl list --no-legend --no-pager --all --full | { while read -r a b c; do echo " $b"; done; };
 }
 
+__get_links_with_prefix() {
+    local i
+    for i in $(__get_links); do
+        echo "@$i"
+    done
+}
+
+__get_files() {
+    ls {/run,/usr/lib,/etc}/systemd/network/*.{network,netdev,link} 2>/dev/null
+}
+
 _networkctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
-        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats -l --full'
-        [ARG]='-n --lines --json'
+        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend --no-ask-password
+                      -s --stats -l --full --no-reload --runtime'
+        [ARG]='-n --lines --json --drop-in'
     )
 
     local -A VERBS=(
         [STANDALONE]='label reload'
         [LINKS]='status list lldp delete renew up down forcerenew reconfigure'
+        [FILES_OR_LINKS]='edit cat'
+        [FILES]='mask unmask'
+        [BOOL]='persistent-storage'
     )
 
     _init_completion || return
@@ -55,7 +70,7 @@ _networkctl() {
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
             --json)
-                comps=$(networkctl --json=help | sort 2>/dev/null)
+                comps=$(networkctl --json=help)
                 ;;
             *)
                 return 0
@@ -76,6 +91,12 @@ _networkctl() {
         comps=''
     elif __contains_word "$verb" ${VERBS[LINKS]}; then
         comps=$( __get_links )
+    elif __contains_word "$verb" ${VERBS[FILES_OR_LINKS]}; then
+        comps=$( __get_files; __get_links_with_prefix )
+    elif __contains_word "$verb" ${VERBS[FILES]}; then
+        comps=$( __get_files )
+    elif __contains_word "$verb" ${VERBS[BOOL]}; then
+        comps=$( yes no )
     fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

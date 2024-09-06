@@ -69,12 +69,12 @@ _bootctl_reboot-to-firmware() {
 }
 
 _arguments \
-    {-h,--help}'[Prints a short help text and exits.]' \
-    '--version[Prints a short version string and exits.]' \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
     '--esp-path=[Path to the EFI System Partition (ESP)]:path:_directories' \
     '--boot-path=[Path to the $BOOT partition]:path:_directories' \
-    {-p,--print-esp-path}'[Print path to the EFI system partition]' \
-    {-x,--print-boot-path}'[Print path to the $BOOT partition]' \
+    '(-p --print-esp-path)'{-p,--print-esp-path}'[Print path to the EFI system partition]' \
+    '(-x --print-boot-path)'{-x,--print-boot-path}'[Print path to the $BOOT partition]' \
     '--make-machine-id-directory=[Control creation and deletion of the top-level machine ID directory.]:options:(yes no auto)' \
     '--no-variables[Do not touch EFI variables]' \
     '--no-pager[Do not pipe output into a pager]' \
@@ -83,4 +83,5 @@ _arguments \
     '--root=[Operate under the specified directory]:PATH' \
     '--image=[Operate on the specified image]:PATH' \
     '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \
+    '--random-seed[Whether to create random-seed file during install]:options:(yes no)' \
     '*::bootctl command:_bootctl_commands'

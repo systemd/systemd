@@ -86,6 +86,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Transparent", "b", bus_property_get_bool, offsetof(Socket, transparent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Broadcast", "b", bus_property_get_bool, offsetof(Socket, broadcast), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -111,8 +112,8 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("SocketProtocol", "i", bus_property_get_int, offsetof(Socket, socket_protocol), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TriggerLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, trigger_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PollLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, poll_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PollLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, poll_limit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PollLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, poll_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PollLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, poll_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -130,7 +131,7 @@ static const char* socket_protocol_to_string(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
-        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
+        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP, IPPROTO_MPTCP))
                 return NULL;
 
         return ip_protocol_to_name(i);
@@ -190,6 +191,9 @@ static int bus_socket_set_transient_property(
         if (streq(name, "PassCredentials"))
                 return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, error);
 
+        if (streq(name, "PassFileDescriptorsToExec"))
+                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, error);
+
         if (streq(name, "PassSecurity"))
                 return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, error);
 
@@ -233,7 +237,7 @@ static int bus_socket_set_transient_property(
                 return bus_set_transient_unsigned(u, name, &s->trigger_limit.burst, message, flags, error);
 
         if (streq(name, "PollLimitBurst"))
-                return bus_set_transient_unsigned(u, name, &s->poll_limit_burst, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->poll_limit.burst, message, flags, error);
 
         if (streq(name, "SocketMode"))
                 return bus_set_transient_mode_t(u, name, &s->socket_mode, message, flags, error);
@@ -263,7 +267,7 @@ static int bus_socket_set_transient_property(
                 return bus_set_transient_usec(u, name, &s->trigger_limit.interval, message, flags, error);
 
         if (streq(name, "PollLimitIntervalUSec"))
-                return bus_set_transient_usec(u, name, &s->poll_limit_interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, error);
 
         if (streq(name, "SmackLabel"))
                 return bus_set_transient_string(u, name, &s->smack, message, flags, error);
@@ -464,7 +468,7 @@ int bus_socket_set_property(
 int bus_socket_commit_properties(Unit *u) {
         assert(u);
 
-        unit_realize_cgroup(u);
+        (void) unit_realize_cgroup(u);
 
         return 0;
 }

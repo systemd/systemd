@@ -53,7 +53,7 @@
     <variablelist>
 
       <varlistentry>
-        <term><option>--output=</option><replaceable>MODE</replaceable></term>
+        <term><option>--output=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Choose the output mode, takes one of <literal>classic</literal>,
         <literal>friendly</literal>, <literal>table</literal>, <literal>json</literal>. If
@@ -74,7 +74,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
+        <term><option>--json=<replaceable>FORMAT</replaceable></option></term>
 
         <listitem><para>Selects JSON output mode (like <option>--output=json</option>) and selects the
         precise display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
@@ -86,7 +86,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--service=</option><replaceable>SERVICE</replaceable><optional>:<replaceable>SERVICE…</replaceable></optional></term>
+        <term><option>--service=<replaceable>SERVICE</replaceable><optional>:<replaceable>SERVICE…</replaceable></optional></option></term>
         <term><option>-s</option> <replaceable>SERVICE</replaceable>:<replaceable>SERVICE…</replaceable></term>
 
         <listitem><para>Controls which services to query for users/groups. Takes a list of one or more
@@ -97,7 +97,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--with-nss=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--with-nss=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to include classic glibc/NSS user/group lookups in the output. If
         <option>--with-nss=no</option> is used any attempts to resolve or enumerate users/groups provided
@@ -108,7 +108,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--with-varlink=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--with-varlink=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to include Varlink user/group lookups in the output, i.e. those done
         via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
@@ -120,7 +120,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--with-dropin=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--with-dropin=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to include user/group lookups in the output that are defined using
         drop-in files in <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
@@ -133,7 +133,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--synthesize=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
         aren't defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
@@ -155,7 +155,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--multiplexer=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--multiplexer=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
         default) or do lookups in the client (if specified as false). Using the multiplexer service is

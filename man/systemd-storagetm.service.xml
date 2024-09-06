@@ -69,7 +69,7 @@
         exposed NVMe-TCP mass storage devices. The NQN should follow the syntax described in <ulink
         url="https://nvmexpress.org/wp-content/uploads/NVM-Express-Base-Specification-2.0c-2022.10.04-Ratified.pdf">NVM
         Express Base Specification 2.0c</ulink>, section 4.5 "NVMe Qualified Names". Note that the NQN
-        specified here will be suffixed with a dot and the the block device name before it is exposed on the
+        specified here will be suffixed with a dot and the block device name before it is exposed on the
         NVMe target. If not specified defaults to
         <literal>nqn.2023-10.io.systemd:storagetm.<replaceable>ID</replaceable></literal>, where ID is
         replaced by a 128bit ID derived from
@@ -90,6 +90,17 @@
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present, and shows their device node paths along with any of
+        their symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

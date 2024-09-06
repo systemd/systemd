@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-messages.h"
+
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -18,6 +20,7 @@
 
 static char *arg_tpm2_device = NULL;
 static bool arg_early = false;
+static bool arg_graceful = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
@@ -43,6 +46,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --tpm2-device=PATH\n"
                "                          Pick TPM2 device\n"
                "     --early=BOOL         Store SRK public key in /run/ rather than /var/lib/\n"
+               "     --graceful           Exit gracefully if no TPM2 device is found\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -59,6 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_TPM2_DEVICE,
                 ARG_EARLY,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -66,6 +71,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "early",       required_argument, NULL, ARG_EARLY       },
+                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
                 {}
         };
 
@@ -98,6 +104,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --early= argument: %s", optarg);
 
                         arg_early = r;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case '?':
@@ -204,9 +214,9 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
 
         assert(ret);
 
-        r = tpm2_context_new(arg_tpm2_device, &c);
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                return r;
 
         r = tpm2_get_or_create_srk(
                         c,
@@ -215,6 +225,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
                         /* ret_name= */ NULL,
                         /* ret_qname= */ NULL,
                         NULL);
+        if (r == -EDEADLK)
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to get or create SRK: %m");
         if (r > 0)
@@ -247,6 +259,11 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
+
         umask(0022);
 
         _cleanup_(public_key_data_done) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
@@ -276,6 +293,13 @@ static int run(int argc, char *argv[]) {
         }
 
         r = load_public_key_tpm2(&tpm2_key);
+        if (r == -EDEADLK) {
+                log_struct_errno(LOG_INFO, r,
+                                 LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
+                                 "MESSAGE_ID=" SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR);
+                return 76; /* Special return value which means "Insufficient permissions to access TPM,
+                            * cannot generate SRK". This isn't really an error when called at boot. */;
+        }
         if (r < 0)
                 return r;
 
@@ -370,4 +394,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

@@ -7,6 +7,8 @@ units = [
         { 'file' : 'blockdev@.target' },
         { 'file' : 'bluetooth.target' },
         { 'file' : 'boot-complete.target' },
+        { 'file' : 'capsule@.service.in' },
+        { 'file' : 'capsule.slice' },
         { 'file' : 'console-getty.service.in' },
         { 'file' : 'container-getty@.service.in' },
         {
@@ -273,7 +275,7 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
-          'file' : 'systemd-bootctl@.service.in',
+          'file' : 'systemd-bootctl@.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
@@ -310,6 +312,11 @@ units = [
         { 'file' : 'systemd-growfs-root.service.in' },
         { 'file' : 'systemd-growfs@.service.in' },
         { 'file' : 'systemd-halt.service' },
+        {
+          'file' : 'systemd-hibernate-clear.service.in',
+          'conditions' : ['ENABLE_HIBERNATE', 'ENABLE_EFI'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
         {
           'file' : 'systemd-hibernate-resume.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
@@ -355,6 +362,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.import1.service'],
         },
         {
+          'file' : 'systemd-importd.socket',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-initctl.service.in',
           'conditions' : ['HAVE_SYSV_COMPAT'],
         },
@@ -396,6 +408,7 @@ units = [
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        { 'file' : 'systemd-journald-sync@.service' },
         { 'file' : 'systemd-journald-varlink@.socket' },
         {
           'file' : 'systemd-journald.service.in',
@@ -576,7 +589,7 @@ units = [
         { 'file' : 'systemd-reboot.service' },
         { 'file' : 'systemd-remount-fs.service.in' },
         {
-          'file' : 'systemd-repart.service.in',
+          'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
         },
@@ -626,6 +639,11 @@ units = [
         {
           'file' : 'systemd-sysupdate.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
+        },
+        {
+          'file' : 'systemd-sysupdated.service.in',
+          'conditions' : ['ENABLE_SYSUPDATE'],
+          'symlinks' : ['dbus-org.freedesktop.sysupdate1.service'],
         },
         {
           'file' : 'systemd-sysupdate.timer',
@@ -681,6 +699,7 @@ units = [
           'conditions' : ['ENABLE_TMPFILES'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-udev-load-credentials.service' },
         { 'file' : 'systemd-udev-settle.service' },
         {
           'file' : 'systemd-udev-trigger.service',
@@ -724,6 +743,22 @@ units = [
         {
           'file' : 'systemd-userdbd.socket',
           'conditions' : ['ENABLE_USERDB'],
+        },
+        {
+          'file' : 'systemd-mountfsd.service.in',
+          'conditions' : ['ENABLE_MOUNTFSD'],
+        },
+        {
+          'file' : 'systemd-mountfsd.socket',
+          'conditions' : ['ENABLE_MOUNTFSD'],
+        },
+        {
+          'file' : 'systemd-nsresourced.service.in',
+          'conditions' : ['ENABLE_NSRESOURCED'],
+        },
+        {
+          'file' : 'systemd-nsresourced.socket',
+          'conditions' : ['ENABLE_NSRESOURCED'],
         },
         {
           'file' : 'systemd-vconsole-setup.service.in',

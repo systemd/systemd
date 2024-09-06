@@ -13,12 +13,12 @@
 #include "dbus-service.h"
 #include "dbus-util.h"
 #include "execute.h"
+#include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "locale-util.h"
 #include "missing_fcntl.h"
-#include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -129,33 +129,38 @@ static int property_get_exit_status_set(
 }
 
 static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        const char *dest, *src, *propagate_directory;
-        int read_only, make_file_or_directory;
+        MountInNamespaceFlags flags = 0;
         Unit *u = ASSERT_PTR(userdata);
-        ExecContext *c;
         int r;
 
         assert(message);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported for system managers.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
+
+        r = unit_can_live_mount(u, error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
+
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        const char *src, *dest;
+        int read_only, make_file_or_directory;
 
         r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
         if (r < 0)
                 return r;
 
         if (!path_is_absolute(src) || !path_is_normalized(src))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized");
 
         if (!is_image && isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized");
 
         if (is_image) {
                 r = bus_read_mount_options(message, error, &options, NULL, "");
@@ -174,48 +179,18 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (u->type != UNIT_SERVICE)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not of type .service");
-
-        /* If it would be dropped at startup time, return an error. The context should always be available, but
-         * there's an assert in exec_needs_mount_namespace, so double-check just in case. */
-        c = unit_get_exec_context(u);
-        if (!c)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot access unit execution context");
-        if (path_startswith_strv(dest, c->inaccessible_paths))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not accessible to this unit", dest);
-
-        /* Ensure that the unit was started in a private mount namespace */
-        if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
-
-        PidRef* unit_pid = unit_main_pid(u);
-        if (!pidref_is_set(unit_pid) || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
-
-        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
-                r = mount_image_in_namespace(
-                                unit_pid,
-                                propagate_directory,
-                                "/run/systemd/incoming/",
-                                src, dest,
-                                read_only,
-                                make_file_or_directory,
-                                options,
-                                c->mount_image_policy ?: &image_policy_service);
-        else
-                r = bind_mount_in_namespace(
-                                unit_pid,
-                                propagate_directory,
-                                "/run/systemd/incoming/",
-                                src, dest,
-                                read_only,
-                                make_file_or_directory);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in unit's namespace: %m", src, dest);
+                flags |= MOUNT_IN_NAMESPACE_IS_IMAGE;
+        if (read_only)
+                flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (make_file_or_directory)
+                flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
 
-        return sd_bus_reply_method_return(message, NULL);
+        r = unit_live_mount(u, src, dest, message, flags, options, error);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -351,9 +326,12 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("FileDescriptorStorePreserve", "s", bus_property_get_exec_preserve_mode, offsetof(Service, fd_store_preserve_mode), 0),
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("StatusBusError", "s", NULL, offsetof(Service, status_bus_error), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("StatusVarlinkError", "s", NULL, offsetof(Service, status_varlink_error), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("ReloadResult", "s", property_get_result, offsetof(Service, reload_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CleanResult", "s", property_get_result, offsetof(Service, clean_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("LiveMountResult", "s", property_get_result, offsetof(Service, live_mount_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("USBFunctionDescriptors", "s", NULL, offsetof(Service, usb_function_descriptors), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("USBFunctionStrings", "s", NULL, offsetof(Service, usb_function_strings), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -783,7 +761,7 @@ int bus_service_set_property(
 int bus_service_commit_properties(Unit *u) {
         assert(u);
 
-        unit_realize_cgroup(u);
+        (void) unit_realize_cgroup(u);
 
         return 0;
 }

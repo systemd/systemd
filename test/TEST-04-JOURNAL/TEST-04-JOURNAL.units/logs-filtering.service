@@ -1,0 +1,11 @@
+[Unit]
+Description=Log filtering unit
+
+[Service]
+Type=oneshot
+ExecStart=sh -c 'echo "Logging from the service, and ~more~ foo bar"'
+# If the service finishes extremely fast, journald cannot find the source of the
+# stream. Hence, we need to call 'journalctl --sync' before service finishes.
+ExecStart=journalctl --sync
+SyslogLevel=notice
+LogLevelMax=info

@@ -36,7 +36,7 @@ static int get_variable(const char *b, char **r) {
         return 1;
 }
 
-char *replace_var(const char *text, char *(*lookup)(const char *variable, void *userdata), void *userdata) {
+char* replace_var(const char *text, char *(*lookup)(const char *variable, void *userdata), void *userdata) {
         char *r, *t;
         const char *f;
         size_t l;

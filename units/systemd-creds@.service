@@ -8,12 +8,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Credential Encryption/Decryption (Varlink)
+Description=Credential Encryption/Decryption
 Documentation=man:systemd-creds(1)
 DefaultDependencies=no
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
 [Service]
-Environment=LISTEN_FDNAMES=varlink
 ExecStart=-systemd-creds

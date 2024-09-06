@@ -151,15 +151,13 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         if (prefix) {
                 p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
                 if (!p)
-                        return -ENOTDIR;
-        } else
-                p = path;
+                        return -EINVAL;
 
-        if (prefix) {
                 fd = open(prefix, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return -errno;
-        }
+        } else
+                p = path;
 
         return mkdirat_parents_internal(fd, p, mode, uid, gid, flags, _mkdirat);
 }
@@ -204,10 +202,12 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, char **subvolumes) {
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
+
+        assert(p);
 
         r = path_extract_directory(p, &pp);
         if (r == -EDESTADDRREQ) {
@@ -222,11 +222,11 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 return r;
         else {
                 /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
-                r = mkdir_p_root(root, pp, uid, gid, m, subvolumes);
+                r = mkdir_p_root_full(root, pp, uid, gid, m, ts, subvolumes);
                 if (r < 0)
                         return r;
 
-                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_DIRECTORY, NULL);
                 if (dfd < 0)
                         return dfd;
         }
@@ -241,23 +241,31 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 r = btrfs_subvol_make_fallback(dfd, bn, m);
         else
                 r = RET_NERRNO(mkdirat(dfd, bn, m));
-        if (r < 0) {
-                if (r == -EEXIST)
-                        return 0;
-
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
                 return r;
-        }
 
-        if (uid_is_valid(uid) || gid_is_valid(gid)) {
-                _cleanup_close_ int nfd = -EBADF;
+        if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
+                return 1;
 
-                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (nfd < 0)
+        _cleanup_close_ int nfd = openat(dfd, bn, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        if (nfd < 0)
+                return -errno;
+
+        if (ts != USEC_INFINITY) {
+                struct timespec tspec;
+                timespec_store(&tspec, ts);
+
+                if (futimens(dfd, (const struct timespec[2]) { TIMESPEC_OMIT, tspec }) < 0)
                         return -errno;
 
-                if (fchown(nfd, uid, gid) < 0)
+                if (futimens(nfd, (const struct timespec[2]) { tspec, tspec }) < 0)
                         return -errno;
         }
+
+        if ((uid_is_valid(uid) || gid_is_valid(gid)) && fchown(nfd, uid, gid) < 0)
+                return -errno;
 
         return 1;
 }

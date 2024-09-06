@@ -77,41 +77,31 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An argument is invalid.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>An argument is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The bus has already been started.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus has already been started.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -122,7 +112,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_get_name_creds()</function> and
-    <function>sd_bus_get_owner_creds()</function> were added in version 246.</para>
+    <function>sd_bus_get_owner_creds()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

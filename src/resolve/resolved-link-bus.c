@@ -274,7 +274,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;
@@ -463,8 +463,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         bus_client_log(message, "dns default route change");
 
         if (l->default_route != b) {
-                l->default_route = b;
-
+                link_set_default_route(l, b);
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
 
@@ -800,7 +799,7 @@ static int link_object_find(sd_bus *bus, const char *path, const char *interface
         return 1;
 }
 
-char *link_bus_path(const Link *link) {
+char* link_bus_path(const Link *link) {
         char *p, ifindex[DECIMAL_STR_MAX(link->ifindex)];
         int r;
 

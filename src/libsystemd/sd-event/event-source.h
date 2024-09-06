@@ -189,6 +189,9 @@ struct inode_data {
          * iteration. */
         int fd;
 
+        /* The path that the fd points to. The field is optional. */
+        char *path;
+
         /* The inotify "watch descriptor" */
         int wd;
 

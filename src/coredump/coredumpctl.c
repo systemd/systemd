@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -26,7 +27,9 @@
 #include "glob-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
+#include "json-util.h"
 #include "log.h"
+#include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -37,7 +40,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -56,7 +58,7 @@ static const char *arg_directory = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char **arg_file = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static int arg_legend = true;
 static size_t arg_rows_max = SIZE_MAX;
@@ -74,29 +76,31 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
-        const char* prefix, *pattern;
-        pid_t pid;
+        const char *field;
         int r;
 
         if (strchr(match, '='))
-                prefix = "";
-        else if (strchr(match, '/')) {
+                field = NULL;
+        else if (is_path(match)) {
                 r = path_make_absolute_cwd(match, &p);
                 if (r < 0)
                         return log_error_errno(r, "path_make_absolute_cwd(\"%s\"): %m", match);
 
                 match = p;
-                prefix = "COREDUMP_EXE=";
-        } else if (parse_pid(match, &pid) >= 0)
-                prefix = "COREDUMP_PID=";
+                field = "COREDUMP_EXE";
+        } else if (parse_pid(match, NULL) >= 0)
+                field = "COREDUMP_PID";
         else
-                prefix = "COREDUMP_COMM=";
+                field = "COREDUMP_COMM";
 
-        pattern = strjoina(prefix, match);
-        log_debug("Adding match: %s", pattern);
-        r = sd_journal_add_match(j, pattern, 0);
+        log_debug("Adding match: %s%s%s", strempty(field), field ? "=" : "", match);
+        if (field)
+                r = journal_add_match_pair(j, field, match);
+        else
+                r = sd_journal_add_match(j, match, SIZE_MAX);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+                return log_error_errno(r, "Failed to add match \"%s%s%s\": %m",
+                                       strempty(field), field ? "=" : "", match);
 
         return 0;
 }
@@ -104,11 +108,11 @@ static int add_match(sd_journal *j, const char *match) {
 static int add_matches(sd_journal *j, char **matches) {
         int r;
 
-        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
-        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
 
@@ -802,26 +806,26 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         /* Print out the build-id of the 'main' ELF module, by matching the JSON key
          * with the 'exe' field. */
         if (exe && pkgmeta_json) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = json_parse(pkgmeta_json, 0, &v, NULL, NULL);
+                r = sd_json_parse(pkgmeta_json, 0, &v, NULL, NULL);
                 if (r < 0) {
                         _cleanup_free_ char *esc = cescape(pkgmeta_json);
                         log_warning_errno(r, "json_parse on \"%s\" failed, ignoring: %m", strnull(esc));
                 } else {
                         const char *module_name;
-                        JsonVariant *module_json;
+                        sd_json_variant *module_json;
 
                         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, v) {
-                                JsonVariant *build_id;
+                                sd_json_variant *build_id;
 
                                 /* We only print the build-id for the 'main' ELF module */
                                 if (!path_equal_filename(module_name, exe))
                                         continue;
 
-                                build_id = json_variant_by_key(module_json, "buildId");
+                                build_id = sd_json_variant_by_key(module_json, "buildId");
                                 if (build_id)
-                                        fprintf(file, "      build-id: %s\n", json_variant_string(build_id));
+                                        fprintf(file, "      build-id: %s\n", sd_json_variant_string(build_id));
 
                                 break;
                         }
@@ -877,7 +881,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
 
         verb_is_info = argc >= 1 && streq(argv[0], "info");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1128,7 +1132,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1201,7 +1205,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1374,14 +1378,11 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        sigbus_install();
+        journal_browse_prepare();
 
         units_active = check_units_active(); /* error is treated the same as 0 */
 

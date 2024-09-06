@@ -211,15 +211,9 @@ static inline int __coverity_check_and_return__(int condition) {
 #define PTR_TO_UINT64(p) ((uint64_t) ((uintptr_t) (p)))
 #define UINT64_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
-#define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
-#define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
-
 #define CHAR_TO_STR(x) ((char[2]) { x, 0 })
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
-
-#define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
-#define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
 
 /* Maximum buffer size needed for formatting an unsigned integer type as hex, including space for '0x'
  * prefix and trailing NUL suffix. */
@@ -265,15 +259,6 @@ static inline int __coverity_check_and_return__(int condition) {
 
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
-
-#define _FOREACH_ARRAY(i, array, num, m, end)                           \
-        for (typeof(array[0]) *i = (array), *end = ({                   \
-                                typeof(num) m = (num);                  \
-                                (i && m > 0) ? i + m : NULL;            \
-                        }); end && i < end; i++)
-
-#define FOREACH_ARRAY(i, array, num)                                    \
-        _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
 
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
@@ -382,5 +367,18 @@ assert_cc(sizeof(dummy_t) == 0);
         for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
+
+#define DECIMAL_STR_FMT(x) _Generic((x),        \
+        char: "%c",                             \
+        bool: "%d",                             \
+        unsigned char: "%d",                    \
+        short: "%hd",                           \
+        unsigned short: "%hu",                  \
+        int: "%d",                              \
+        unsigned: "%u",                         \
+        long: "%ld",                            \
+        unsigned long: "%lu",                   \
+        long long: "%lld",                      \
+        unsigned long long: "%llu")
 
 #include "log.h"

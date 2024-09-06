@@ -19,6 +19,8 @@ typedef struct Bridge {
         uint16_t group_fwd_mask;
         uint16_t default_pvid;
         uint8_t igmp_version;
+        uint32_t fdb_max_learned;
+        bool fdb_max_learned_set;
 
         usec_t forward_delay;
         usec_t hello_time;
@@ -44,3 +46,4 @@ MulticastRouter multicast_router_from_string(const char *s) _pure_;
 CONFIG_PARSER_PROTOTYPE(config_parse_multicast_router);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_igmp_version);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_bridge_fdb_max_learned);

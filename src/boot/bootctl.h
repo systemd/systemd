@@ -2,10 +2,10 @@
 #pragma once
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "boot-entry.h"
 #include "image-policy.h"
-#include "json.h"
 #include "pager.h"
 
 typedef enum InstallSource {
@@ -20,6 +20,7 @@ extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
 extern unsigned arg_print_root_device;
 extern bool arg_touch_variables;
+extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
 extern bool arg_graceful;
 extern bool arg_quiet;
@@ -28,7 +29,7 @@ extern sd_id128_t arg_machine_id;
 extern char *arg_install_layout;
 extern BootEntryTokenType arg_entry_token_type;
 extern char *arg_entry_token;
-extern JsonFormatFlags arg_json_format_flags;
+extern sd_json_format_flags_t arg_json_format_flags;
 extern bool arg_arch_all;
 extern char *arg_root;
 extern char *arg_image;
@@ -38,7 +39,7 @@ extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
 
-static inline const char *arg_dollar_boot_path(void) {
+static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
         return arg_xbootldr_path ?: arg_esp_path;
 }

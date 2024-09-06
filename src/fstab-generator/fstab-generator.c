@@ -416,6 +416,11 @@ static int write_requires_after(FILE *f, const char *where, const char *opts) {
                                 "x-systemd.requires\0", STRV_MAKE_CONST("Requires", "After"));
 }
 
+static int write_wants_after(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.wants\0", STRV_MAKE_CONST("Wants", "After"));
+}
+
 static int write_before(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
                                 "x-systemd.before\0", STRV_MAKE_CONST("Before"));
@@ -469,6 +474,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
         if (r < 0)
                 return r;
 
+        r = write_wants_after(f, where, opts);
+        if (r < 0)
+                return r;
+
         r = write_before(f, where, opts);
         if (r < 0)
                 return r;
@@ -498,13 +507,8 @@ static int mandatory_mount_drop_unapplicable_options(
         assert(where);
         assert(ret_options);
 
-        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT))) {
-                r = strdup_or_null(options, ret_options);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
+        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT)))
+                return strdup_to(ret_options, options);
 
         log_debug("Mount '%s' is mandatory, ignoring 'noauto', 'nofail', and 'x-systemd.automount' options.",
                   where);

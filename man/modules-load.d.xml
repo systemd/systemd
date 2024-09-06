@@ -25,6 +25,7 @@
     <para><simplelist>
       <member><filename>/etc/modules-load.d/*.conf</filename></member>
       <member><filename>/run/modules-load.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/modules-load.d/*.conf</filename></member>
       <member><filename>/usr/lib/modules-load.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

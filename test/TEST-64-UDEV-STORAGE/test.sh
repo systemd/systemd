@@ -159,18 +159,18 @@ test_run() {
     return 0
 }
 
-testcase_megasas2_basic() {
-    if ! "${QEMU_BIN:?}" -device help | grep 'name "megasas-gen2"'; then
-        echo "megasas-gen2 device driver is not available, skipping test..."
+testcase_virtio_scsi_basic() {
+    if ! "${QEMU_BIN:?}" -device help | grep 'name "virtio-scsi-pci"'; then
+        echo "virtio-scsi-pci device driver is not available, skipping test..."
         return 77
     fi
 
     local i
     local qemu_opts=(
-        "-device megasas-gen2,id=scsi0"
-        "-device megasas-gen2,id=scsi1"
-        "-device megasas-gen2,id=scsi2"
-        "-device megasas-gen2,id=scsi3"
+        "-device virtio-scsi-pci,id=scsi0"
+        "-device virtio-scsi-pci,id=scsi1"
+        "-device virtio-scsi-pci,id=scsi2"
+        "-device virtio-scsi-pci,id=scsi3"
     )
 
     for i in {0..127}; do
@@ -268,24 +268,15 @@ testcase_virtio_scsi_identically_named_partitions() {
     # and attach them to a virtio-scsi controller
     local qemu_opts=("-device virtio-scsi-pci,id=scsi0,num_queues=4")
     local diskpath="${TESTDIR:?}/namedpart0.img"
-    local i lodev num_disk num_part qemu_timeout
+    local i num_disk qemu_timeout
 
     if get_bool "${IS_BUILT_WITH_ASAN:=}" || ! get_bool "$QEMU_KVM"; then
         num_disk=4
-        num_part=4
     else
         num_disk=16
-        num_part=8
     fi
 
     dd if=/dev/zero of="$diskpath" bs=1M count=18
-    lodev="$(losetup --show -f -P "$diskpath")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-$(for ((i = 1; i <= num_part; i++)); do echo 'name="Hello world", size=2M'; done)
-EOF
-    losetup -d "$lodev"
 
     for ((i = 0; i < num_disk; i++)); do
         diskpath="${TESTDIR:?}/namedpart$i.img"
@@ -325,19 +316,9 @@ testcase_multipath_basic_failover() {
 
     local qemu_opts=("-device virtio-scsi-pci,id=scsi")
     local partdisk="${TESTDIR:?}/multipathpartitioned.img"
-    local image lodev nback ndisk wwn
+    local image nback ndisk wwn
 
     dd if=/dev/zero of="$partdisk" bs=1M count=16
-    lodev="$(losetup --show -f -P "$partdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="first_partition", size=5M
-uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
-EOF
-    udevadm settle
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
-    losetup -d "$lodev"
 
     # Add 16 multipath devices, each backed by 4 paths
     for ndisk in {0..15}; do
@@ -388,7 +369,7 @@ testcase_lvm_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i
 
     # Attach 4 SATA disks to the VM (and set their model and serial fields
@@ -397,7 +378,7 @@ testcase_lvm_basic() {
         diskpath="${TESTDIR:?}/lvmbasic${i}.img"
         dd if=/dev/zero of="$diskpath" bs=1M count=32
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeeflvm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeeflvm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -415,7 +396,7 @@ testcase_btrfs_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..3}; do
@@ -425,7 +406,7 @@ testcase_btrfs_basic() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count="$size"
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefbtrfs$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefbtrfs$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -443,7 +424,7 @@ testcase_iscsi_lvm() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..3}; do
@@ -454,7 +435,7 @@ testcase_iscsi_lvm() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count="$size"
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefiscsi$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefiscsi$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -475,18 +456,6 @@ testcase_long_sysfs_path() {
     )
 
     dd if=/dev/zero of="$testdisk" bs=1M count=64
-    lodev="$(losetup --show -f -P "$testdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="test_swap", size=32M
-uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
-EOF
-    udevadm settle
-    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${lodev}p1"
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${lodev}p2"
-    losetup -d "$lodev"
-
     # Create 25 additional PCI bridges, each one connected to the previous one
     # (basically a really long extension cable), and attach a virtio drive to
     # the last one. This should force udev into attempting to create a device
@@ -510,7 +479,7 @@ testcase_mdadm_basic() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..4}; do
@@ -518,7 +487,7 @@ testcase_mdadm_basic() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count=64
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefmdadm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done
@@ -536,7 +505,7 @@ testcase_mdadm_lvm() {
         return 77
     fi
 
-    local qemu_opts=("-device ahci,id=ahci0")
+    local qemu_opts=("-device virtio-scsi-pci,id=scsi0")
     local diskpath i size
 
     for i in {0..4}; do
@@ -544,7 +513,7 @@ testcase_mdadm_lvm() {
 
         dd if=/dev/zero of="$diskpath" bs=1M count=64
         qemu_opts+=(
-            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadmlvm$i"
+            "-device scsi-hd,drive=drive$i,vendor=systemd,product=foobar,serial=deadbeefmdadmlvm$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
         )
     done

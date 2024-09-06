@@ -11,13 +11,18 @@
       <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
 
       <listitem><para id='log-level-body'>The maximum log level of emitted messages (messages with a higher
-      log level, i.e. less important ones, will be suppressed). Either one of (in order of decreasing
-      importance) <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
-      <constant>err</constant>, <constant>warning</constant>, <constant>notice</constant>,
-      <constant>info</constant>, <constant>debug</constant>, or an integer in the range 0…7. See
+      log level, i.e. less important ones, will be suppressed). Takes a comma-separated list of values. A
+      value may be either one of (in order of decreasing importance) <constant>emerg</constant>,
+      <constant>alert</constant>, <constant>crit</constant>, <constant>err</constant>,
+      <constant>warning</constant>, <constant>notice</constant>, <constant>info</constant>,
+      <constant>debug</constant>, or an integer in the range 0…7. See
       <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      for more information.</para>
-      </listitem>
+      for more information. Each value may optionally be prefixed with one of <constant>console</constant>,
+      <constant>syslog</constant>, <constant>kmsg</constant> or <constant>journal</constant> followed by a
+      colon to set the maximum log level for that specific log target (e.g.
+      <constant>SYSTEMD_LOG_LEVEL=debug,console:info</constant> specifies to log at debug level except when
+      logging to the console which should be at info level). Note that the global maximum log level takes
+      priority over any per target maximum log levels.</para></listitem>
     </varlistentry>
 
     <varlistentry id='log-color'>
@@ -141,6 +146,9 @@
         </varlistentry>
       </variablelist>
 
+      <para>Note that setting the regular <varname>$LESS</varname> environment variable has no effect
+      for <command>less</command> invocations by systemd tools.</para>
+
       <para>See
       <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       for more discussion.</para></listitem>
@@ -150,7 +158,10 @@
       <term><varname>$SYSTEMD_LESSCHARSET</varname></term>
 
       <listitem><para>Override the charset passed to <command>less</command> (by default <literal>utf-8</literal>, if
-      the invoking terminal is determined to be UTF-8 compatible).</para></listitem>
+      the invoking terminal is determined to be UTF-8 compatible).</para>
+
+      <para>Note that setting the regular <varname>$LESSCHARSET</varname> environment variable has no effect
+      for <command>less</command> invocations by systemd tools.</para></listitem>
     </varlistentry>
 
     <varlistentry id='lesssecure'>

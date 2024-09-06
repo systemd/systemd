@@ -9,6 +9,7 @@
 #define BUS_EXEC_STATUS_VTABLE(prefix, offset, flags)                   \
         BUS_PROPERTY_DUAL_TIMESTAMP(prefix "StartTimestamp", (offset) + offsetof(ExecStatus, start_timestamp), flags), \
         BUS_PROPERTY_DUAL_TIMESTAMP(prefix "ExitTimestamp", (offset) + offsetof(ExecStatus, exit_timestamp), flags), \
+        BUS_PROPERTY_DUAL_TIMESTAMP(prefix "HandoffTimestamp", (offset) + offsetof(ExecStatus, handoff_timestamp), flags), \
         SD_BUS_PROPERTY(prefix "PID", "u", bus_property_get_pid, (offset) + offsetof(ExecStatus, pid), flags), \
         SD_BUS_PROPERTY(prefix "Code", "i", bus_property_get_int, (offset) + offsetof(ExecStatus, code), flags), \
         SD_BUS_PROPERTY(prefix "Status", "i", bus_property_get_int, (offset) + offsetof(ExecStatus, status), flags)

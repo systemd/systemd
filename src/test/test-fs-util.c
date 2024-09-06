@@ -45,7 +45,7 @@ TEST(readlink_and_make_absolute) {
                 log_tests_skipped_errno(errno, "symlink() not possible");
         } else {
                 assert_se(readlink_and_make_absolute(name_alias, &r1) >= 0);
-                assert_se(streq(r1, name));
+                ASSERT_STREQ(r1, name);
                 assert_se(unlink(name_alias) >= 0);
 
                 assert_se(safe_getcwd(&pwd) >= 0);
@@ -53,7 +53,7 @@ TEST(readlink_and_make_absolute) {
                 assert_se(chdir(tempdir) >= 0);
                 assert_se(symlink(name2, name_alias) >= 0);
                 assert_se(readlink_and_make_absolute(name_alias, &r2) >= 0);
-                assert_se(streq(r2, name));
+                ASSERT_STREQ(r2, name);
                 assert_se(unlink(name_alias) >= 0);
 
                 assert_se(chdir(pwd) >= 0);
@@ -97,33 +97,33 @@ TEST(var_tmp) {
         assert_se(unsetenv("TMP") >= 0);
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/var/tmp"));
+        ASSERT_STREQ(tmp_dir, "/var/tmp");
 
         assert_se(setenv("TMPDIR", "/tmp", true) >= 0);
-        assert_se(streq(getenv("TMPDIR"), "/tmp"));
+        ASSERT_STREQ(getenv("TMPDIR"), "/tmp");
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/tmp"));
+        ASSERT_STREQ(tmp_dir, "/tmp");
 
         assert_se(setenv("TMPDIR", "/88_does_not_exist_88", true) >= 0);
-        assert_se(streq(getenv("TMPDIR"), "/88_does_not_exist_88"));
+        ASSERT_STREQ(getenv("TMPDIR"), "/88_does_not_exist_88");
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/var/tmp"));
+        ASSERT_STREQ(tmp_dir, "/var/tmp");
 
         if (tmpdir_backup)  {
                 assert_se(setenv("TMPDIR", tmpdir_backup, true) >= 0);
-                assert_se(streq(getenv("TMPDIR"), tmpdir_backup));
+                ASSERT_STREQ(getenv("TMPDIR"), tmpdir_backup);
         }
 
         if (temp_backup)  {
                 assert_se(setenv("TEMP", temp_backup, true) >= 0);
-                assert_se(streq(getenv("TEMP"), temp_backup));
+                ASSERT_STREQ(getenv("TEMP"), temp_backup);
         }
 
         if (tmp_backup)  {
                 assert_se(setenv("TMP", tmp_backup, true) >= 0);
-                assert_se(streq(getenv("TMP"), tmp_backup));
+                ASSERT_STREQ(getenv("TMP"), tmp_backup);
         }
 }
 
@@ -275,14 +275,14 @@ TEST(unlinkat_deallocate) {
 
         assert_se(write(fd, "hallo\n", 6) == 6);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se(st.st_size == 6);
         assert_se(st.st_blocks > 0);
         assert_se(st.st_nlink == 1);
 
         assert_se(unlinkat_deallocate(AT_FDCWD, p, UNLINK_ERASE) >= 0);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6
                                                 (it worked) or 0 (we had to resort to truncation) */
         assert_se(st.st_blocks == 0);
@@ -368,8 +368,8 @@ TEST(chmod_and_chown) {
         struct stat st;
         const char *p;
 
-        if (geteuid() != 0)
-                return;
+        if (geteuid() != 0 || userns_has_single_user())
+                return (void) log_tests_skipped("not running as root or in userns with single user");
 
         BLOCK_WITH_UMASK(0000);
 
@@ -522,9 +522,9 @@ static void test_parse_cifs_service_one(const char *f, const char *h, const char
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
 
         assert_se(parse_cifs_service(f, &a, &b, &c) == ret);
-        assert_se(streq_ptr(a, h));
-        assert_se(streq_ptr(b, s));
-        assert_se(streq_ptr(c, d));
+        ASSERT_STREQ(a, h);
+        ASSERT_STREQ(b, s);
+        ASSERT_STREQ(c, d);
 }
 
 TEST(parse_cifs_service) {
@@ -557,13 +557,13 @@ TEST(open_mkdir_at) {
         fd = open_mkdir_at(AT_FDCWD, "/", O_CLOEXEC, 0);
         assert_se(fd >= 0);
         assert_se(stat("/", &sta) >= 0);
-        assert_se(fstat(fd, &stb) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
         fd = safe_close(fd);
 
         fd = open_mkdir_at(AT_FDCWD, ".", O_CLOEXEC, 0);
         assert_se(stat(".", &sta) >= 0);
-        assert_se(fstat(fd, &stb) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
         fd = safe_close(fd);
 
@@ -606,71 +606,78 @@ TEST(open_mkdir_at) {
 }
 
 TEST(openat_report_new) {
-        _cleanup_free_ char *j = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         bool b;
 
-        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
 
-        j = path_join(d, "test");
-        assert_se(j);
-
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK_ERRNO(unlinkat(tfd, "test", 0));
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK_ERRNO(unlinkat(tfd, "test", 0));
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, NULL);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, NULL);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
-        assert_se(fd == -EEXIST);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT|O_EXCL, 0666, &b);
+        ASSERT_ERROR(fd, EEXIST);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK_ERRNO(unlinkat(tfd, "test", 0));
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR, 0666, &b);
-        assert_se(fd == -ENOENT);
+        fd = openat_report_new(tfd, "test", O_RDWR, 0666, &b);
+        ASSERT_ERROR(fd, ENOENT);
 
-        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
-        assert_se(fd >= 0);
+        fd = openat_report_new(tfd, "test", O_RDWR|O_CREAT|O_EXCL, 0666, &b);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
+
+        ASSERT_OK_ERRNO(symlinkat("target", tfd, "link"));
+        fd = openat_report_new(tfd, "link", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
+        fd = safe_close(fd);
+        ASSERT_TRUE(b);
+
+        fd = openat_report_new(tfd, "link", O_RDWR|O_CREAT, 0666, &b);
+        ASSERT_OK(fd);
+        fd = safe_close(fd);
+        ASSERT_FALSE(b);
 }
 
 TEST(xopenat_full) {
@@ -800,25 +807,25 @@ TEST(readlinkat_malloc) {
         assert_se(symlinkat(expect, tfd, "linkname") >= 0);
 
         assert_se(readlinkat_malloc(tfd, "linkname", &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
 
         fd = openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC);
         assert_se(fd >= 0);
         assert_se(readlinkat_malloc(fd, NULL, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         assert_se(readlinkat_malloc(fd, "", &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         fd = safe_close(fd);
 
         assert_se(q = path_join(t, "linkname"));
         assert_se(readlinkat_malloc(AT_FDCWD, q, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         assert_se(readlinkat_malloc(INT_MAX, q, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         q = mfree(q);
 }

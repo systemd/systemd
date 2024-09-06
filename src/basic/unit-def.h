@@ -47,6 +47,7 @@ typedef enum UnitActiveState {
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
         UNIT_MAINTENANCE,
+        UNIT_REFRESHING,
         _UNIT_ACTIVE_STATE_MAX,
         _UNIT_ACTIVE_STATE_INVALID = -EINVAL,
 } UnitActiveState;
@@ -137,6 +138,7 @@ typedef enum ServiceState {
         SERVICE_RELOAD,            /* Reloading via ExecReload= */
         SERVICE_RELOAD_SIGNAL,     /* Reloading via SIGHUP requested */
         SERVICE_RELOAD_NOTIFY,     /* Waiting for READY=1 after RELOADING=1 notify */
+        SERVICE_MOUNTING,          /* Performing a live mount into the namespace of the service */
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_WATCHDOG,
         SERVICE_STOP_SIGTERM,
@@ -280,28 +282,28 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -EINVAL,
 } NotifyAccess;
 
-char *unit_dbus_path_from_name(const char *name);
+char* unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
 const char* unit_dbus_interface_from_type(UnitType t);
-const char *unit_dbus_interface_from_name(const char *name);
+const char* unit_dbus_interface_from_name(const char *name);
 
-const char *unit_type_to_string(UnitType i) _const_;
+const char* unit_type_to_string(UnitType i) _const_;
 UnitType unit_type_from_string(const char *s) _pure_;
 
 const char* unit_type_to_capitalized_string(UnitType t);
 
-const char *unit_load_state_to_string(UnitLoadState i) _const_;
+const char* unit_load_state_to_string(UnitLoadState i) _const_;
 UnitLoadState unit_load_state_from_string(const char *s) _pure_;
 
-const char *unit_active_state_to_string(UnitActiveState i) _const_;
+const char* unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
-const char *freezer_state_to_string(FreezerState i) _const_;
+const char* freezer_state_to_string(FreezerState i) _const_;
 FreezerState freezer_state_from_string(const char *s) _pure_;
 FreezerState freezer_state_finish(FreezerState i) _const_;
 
-const char *unit_marker_to_string(UnitMarker m) _const_;
+const char* unit_marker_to_string(UnitMarker m) _const_;
 UnitMarker unit_marker_from_string(const char *s) _pure_;
 
 const char* automount_state_to_string(AutomountState i) _const_;
@@ -334,10 +336,10 @@ SwapState swap_state_from_string(const char *s) _pure_;
 const char* target_state_to_string(TargetState i) _const_;
 TargetState target_state_from_string(const char *s) _pure_;
 
-const char *timer_state_to_string(TimerState i) _const_;
+const char* timer_state_to_string(TimerState i) _const_;
 TimerState timer_state_from_string(const char *s) _pure_;
 
-const char *unit_dependency_to_string(UnitDependency i) _const_;
+const char* unit_dependency_to_string(UnitDependency i) _const_;
 UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 const char* notify_access_to_string(NotifyAccess i) _const_;

@@ -14,6 +14,7 @@ typedef struct BootTimes {
         usec_t initrd_time;
         usec_t userspace_time;
         usec_t finish_time;
+        usec_t shutdown_start_time;
         usec_t security_start_time;
         usec_t security_finish_time;
         usec_t generators_start_time;
@@ -26,6 +27,8 @@ typedef struct BootTimes {
         usec_t initrd_generators_finish_time;
         usec_t initrd_unitsload_start_time;
         usec_t initrd_unitsload_finish_time;
+        /* Not strictly a timestamp, but we are going to show it next to the other timestamps */
+        uint64_t soft_reboots_count;
 
         /*
          * If we're analyzing the user instance, all timestamps will be offset by its own start-up timestamp,

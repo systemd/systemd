@@ -117,7 +117,7 @@
               </row>
               <row>
                 <entry><constant>user-incomplete</constant></entry>
-                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted ot similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <command>ssh</command> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <command>ssh</command> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
               </row>
               <row>
                 <entry><constant>greeter</constant></entry>
@@ -155,7 +155,8 @@
 
         <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
         environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
-        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal> or <literal>mir</literal>. See
+        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal>, <literal>mir</literal>, or
+        <literal>web</literal>. See
         <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
         details about the session type.</para>
 

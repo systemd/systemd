@@ -406,6 +406,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "dup\0"
                 "dup2\0"
                 "dup3\0"
+                "llseek\0"
                 "lseek\0"
                 "pread64\0"
                 "preadv\0"
@@ -487,6 +488,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fsetxattr\0"
                 "fstat\0"
                 "fstat64\0"
+                "fstatat\0"
                 "fstatat64\0"
                 "fstatfs\0"
                 "fstatfs64\0"
@@ -514,6 +516,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mkdirat\0"
                 "mknod\0"
                 "mknodat\0"
+                "newfstat\0"
                 "newfstatat\0"
                 "oldfstat\0"
                 "oldlstat\0"
@@ -2030,39 +2033,43 @@ int parse_syscall_archs(char **l, Set **ret_archs) {
         return 0;
 }
 
+int seccomp_filter_set_add_by_name(Hashmap *filter, bool add, const char *name) {
+        assert(filter);
+        assert(name);
+
+        if (name[0] == '@') {
+                const SyscallFilterSet *more;
+
+                more = syscall_filter_set_find(name);
+                if (!more)
+                        return -ENXIO;
+
+                return seccomp_filter_set_add(filter, add, more);
+        }
+
+        int id = seccomp_syscall_resolve_name(name);
+        if (id == __NR_SCMP_ERROR) {
+                log_debug("System call %s is not known, ignoring.", name);
+                return 0;
+        }
+
+        if (add)
+                return hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(-1));
+
+        (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
+        return 0;
+}
+
 int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set) {
         int r;
 
+        assert(filter);
         assert(set);
 
         NULSTR_FOREACH(i, set->value) {
-
-                if (i[0] == '@') {
-                        const SyscallFilterSet *more;
-
-                        more = syscall_filter_set_find(i);
-                        if (!more)
-                                return -ENXIO;
-
-                        r = seccomp_filter_set_add(filter, add, more);
-                        if (r < 0)
-                                return r;
-                } else {
-                        int id;
-
-                        id = seccomp_syscall_resolve_name(i);
-                        if (id == __NR_SCMP_ERROR) {
-                                log_debug("System call %s is not known, ignoring.", i);
-                                continue;
-                        }
-
-                        if (add) {
-                                r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(-1));
-                                if (r < 0)
-                                        return r;
-                        } else
-                                (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
-                }
+                r = seccomp_filter_set_add_by_name(filter, add, i);
+                if (r < 0)
+                        return r;
         }
 
         return 0;

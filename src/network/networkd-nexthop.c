@@ -2,6 +2,7 @@
  * Copyright © 2019 VMware, Inc.
  */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <linux/nexthop.h>
 

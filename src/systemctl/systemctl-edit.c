@@ -69,8 +69,9 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                         return r;
                 if (r == 0) {
                         /* Skip units which have no on-disk counterpart, but propagate the error to the
-                         * user */
-                        rc = -ENOENT;
+                         * user (if --force is set, eat the error, just like unit_find_paths()) */
+                        if (!arg_force)
+                                rc = -ENOENT;
                         continue;
                 }
 
@@ -316,14 +317,14 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
                 .overwrite_with_origin = true,
-                .stdin = arg_stdin,
+                .read_from_stdin = arg_stdin,
         };
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
         int r;
 
         if (!on_tty() && !arg_stdin)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units interactively if not on a tty.");
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");

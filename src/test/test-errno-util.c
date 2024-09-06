@@ -31,8 +31,8 @@ TEST(STRERROR) {
         assert_se(strstr(b, "201"));
 
         /* Check with negative values */
-        assert_se(streq(a, STRERROR(-200)));
-        assert_se(streq(b, STRERROR(-201)));
+        ASSERT_STREQ(a, STRERROR(-200));
+        ASSERT_STREQ(b, STRERROR(-201));
 
         const char *c = STRERROR(INT_MAX);
         char buf[DECIMAL_STR_MAX(int)];

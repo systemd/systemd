@@ -11,6 +11,7 @@ DHCPPrefixDelegation=yes
 [DHCPv6]
 WithoutRA=solicit
 UseAddress=no
+UnassignedSubnetPolicy=none
 
 [DHCPPrefixDelegation]
 UplinkInterface=:self

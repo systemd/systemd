@@ -133,7 +133,7 @@ int home_setup_cifs(
                         return log_oom();
 
                 if (FLAGS_SET(flags, HOME_SETUP_CIFS_MKDIR)) {
-                        setup->root_fd = open_mkdir_at(AT_FDCWD, j, O_CLOEXEC, 0700);
+                        setup->root_fd = open_mkdir(j, O_CLOEXEC, 0700);
                         if (setup->root_fd < 0)
                                 return log_error_errno(setup->root_fd, "Failed to create CIFS subdirectory: %m");
                 }

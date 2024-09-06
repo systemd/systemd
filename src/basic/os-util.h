@@ -25,6 +25,7 @@ ImageClass image_class_from_string(const char *s) _pure_;
  * in accordance with the OS extension specification, rather than for /usr/lib/ or /etc/os-release. */
 
 bool image_name_is_valid(const char *s) _pure_;
+int path_extract_image_name(const char *path, char **ret);
 
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check);
 static inline int path_is_os_tree(const char *path) {
@@ -56,4 +57,4 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
 
-const char *os_release_pretty_name(const char *pretty_name, const char *name);
+const char* os_release_pretty_name(const char *pretty_name, const char *name);

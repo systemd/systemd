@@ -42,7 +42,7 @@
     command line.</para>
 
     <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
+    url="https://systemd.io/CONTROL_GROUP_INTERFACE">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of scope units from programs.</para>
 

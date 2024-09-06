@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-message.h"

@@ -1,0 +1,30 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
+PATTERNS=()
+
+# The ?reverse-depends() pattern for some weird reason lists all the packages providing systemd-sysusers
+# instead of just excluding it, so we add another pattern to filter out anything that conflicts with
+# any other systemd packages so we filter out both opensysusers and systemd-sysusers-standalone. We also
+# exclude packages that belong to the systemd source package as we'll install these later. Finally, we
+# exclude virtual packages as trying to install these makes apt fail with an error saying we need to install
+# a specific implementation even if one is already installed.
+COMMON="?not(?virtual), ?not(?reverse-conflicts(?source-package(^systemd$))), ?not(?reverse-breaks(?source-package(^systemd$))), ?not(?source-package(^systemd$))"
+
+for PACKAGE in "${PACKAGES[@]}"; do
+    # Get all the dependencies of the systemd packages including recommended and suggested dependencies.
+    PATTERNS+=(
+        "?and(?reverse-depends(?exact-name($PACKAGE)), $COMMON)"
+        "?and(?reverse-recommends(?exact-name($PACKAGE)), $COMMON)"
+        "?and(?reverse-suggests(?exact-name($PACKAGE)), $COMMON)"
+    )
+done
+
+mkosi-install "${PATTERNS[@]}"

@@ -289,7 +289,7 @@ static int user_object_find(sd_bus *bus, const char *path, const char *interface
         return 1;
 }
 
-char *user_bus_path(User *u) {
+char* user_bus_path(User *u) {
         char *s;
 
         assert(u);

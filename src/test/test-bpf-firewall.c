@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
-        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
 
@@ -50,21 +50,25 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
+        r = find_executable("ping", NULL);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Can't find ping binary: %m");
+
         _cleanup_free_ char *unit_dir = NULL;
-        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, "sd_trivial", &p);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         r = bpf_firewall_supported();
         if (r == BPF_FIREWALL_UNSUPPORTED)
                 return log_tests_skipped("BPF firewalling not supported");
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
 
         if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
                 log_notice("BPF firewalling with BPF_F_ALLOW_MULTI supported. Yay!");
@@ -73,7 +77,7 @@ int main(int argc, char *argv[]) {
                 log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
 
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (test_custom_filter) {
                 zero(attr);
@@ -94,29 +98,29 @@ int main(int argc, char *argv[]) {
 
         /* The simple tests succeeded. Now let's try full unit-based use-case. */
 
-        assert_se(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, "foo.service") == 0);
+        ASSERT_EQ(unit_add_name(u, "foo.service"), 0);
         assert_se(cc = unit_get_cgroup_context(u));
         u->perpetual = true;
 
         cc->ip_accounting = true;
 
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL), 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL), 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL), 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL), 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL), 0);
+        ASSERT_EQ(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL), 0);
 
         assert_se(set_size(cc->ip_address_allow) == 2);
         assert_se(set_size(cc->ip_address_deny) == 4);
 
         /* The deny list is defined redundantly, let's ensure it will be properly reduced */
-        assert_se(in_addr_prefixes_reduce(cc->ip_address_allow) >= 0);
-        assert_se(in_addr_prefixes_reduce(cc->ip_address_deny) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(cc->ip_address_allow));
+        ASSERT_OK(in_addr_prefixes_reduce(cc->ip_address_deny));
 
         assert_se(set_size(cc->ip_address_allow) == 2);
         assert_se(set_size(cc->ip_address_deny) == 2);
@@ -166,7 +170,7 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_program_load_kernel(crt->ip_bpf_egress, log_buf, ELEMENTSOF(log_buf));
 
@@ -175,9 +179,9 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
-        assert_se(unit_start(u, NULL) >= 0);
+        ASSERT_OK(unit_start(u, NULL));
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                 assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
@@ -202,7 +206,7 @@ int main(int argc, char *argv[]) {
                 SERVICE(u)->type = SERVICE_ONESHOT;
                 u->load_state = UNIT_LOADED;
 
-                assert_se(unit_start(u, NULL) >= 0);
+                ASSERT_OK(unit_start(u, NULL));
 
                 while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                         assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);

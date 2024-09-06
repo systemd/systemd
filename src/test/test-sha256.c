@@ -31,7 +31,7 @@ static void test_sha256_one(const char *key, const char *expect) {
                         sha256_finish_ctx(&ctx, result + j);
 
                         hex_result = hexmem(result + j, SHA256_DIGEST_SIZE);
-                        assert_se(streq_ptr(hex_result, expect));
+                        ASSERT_STREQ(hex_result, expect);
                 }
         }
 }

@@ -105,4 +105,11 @@ typedef void (*_sd_destroy_t)(void *userdata);
         _SD_##id##_INT64_MIN = INT64_MIN,    \
         _SD_##id##_INT64_MAX = INT64_MAX
 
+/* In GCC 14 (C23) we can force enums to have the right types, and not solely rely on language extensions anymore */
+#if ((__GNUC__ >= 14) || (__STDC_VERSION__ >= 202311L)) && !defined(__cplusplus)
+#  define _SD_ENUM_TYPE_S64(id) id : int64_t
+#else
+#  define _SD_ENUM_TYPE_S64(id) id
+#endif
+
 #endif

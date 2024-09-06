@@ -226,7 +226,7 @@
 
       <varlistentry>
         <term><option>-F</option> <replaceable>FIELD</replaceable></term>
-        <term><option>--field=</option><replaceable>FIELD</replaceable></term>
+        <term><option>--field=<replaceable>FIELD</replaceable></option></term>
 
         <listitem><para>Print all possible data values the specified
         field takes in matching core dump entries of the
@@ -237,7 +237,7 @@
 
       <varlistentry>
         <term><option>-o</option> <replaceable>FILE</replaceable></term>
-        <term><option>--output=</option><replaceable>FILE</replaceable></term>
+        <term><option>--output=<replaceable>FILE</replaceable></option></term>
 
         <listitem><para>Write the core to <option>FILE</option>.
         </para>
@@ -246,7 +246,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--debugger=</option><replaceable>DEBUGGER</replaceable></term>
+        <term><option>--debugger=<replaceable>DEBUGGER</replaceable></option></term>
 
         <listitem><para>Use the given debugger for the <command>debug</command>
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
@@ -258,7 +258,7 @@
 
       <varlistentry>
         <term><option>-A</option> <replaceable>ARGS</replaceable></term>
-        <term><option>--debugger-arguments=</option><replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=<replaceable>ARGS</replaceable></option></term>
 
         <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments
         to the debugger. Quote as appropriate when <replaceable>ARGS</replaceable> contain whitespace.
@@ -282,7 +282,7 @@
 
       <varlistentry>
         <term><option>-D</option> <replaceable>DIR</replaceable></term>
-        <term><option>--directory=</option><replaceable>DIR</replaceable></term>
+        <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 
         <listitem><para>Use the journal files in the specified <option>DIR</option>.
         </para>

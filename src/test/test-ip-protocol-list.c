@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-
-#include "macro.h"
 #include "ip-protocol-list.h"
+#include "macro.h"
+#include "missing_network.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
@@ -27,8 +26,8 @@ static void test_int_fail(int i, int error) {
 }
 
 static void test_str(const char *s) {
-        assert_se(streq(ip_protocol_to_name(ip_protocol_from_name(s)), s));
-        assert_se(streq(ip_protocol_to_name(parse_ip_protocol(s)), s));
+        ASSERT_STREQ(ip_protocol_to_name(ip_protocol_from_name(s)), s);
+        ASSERT_STREQ(ip_protocol_to_name(parse_ip_protocol(s)), s);
 }
 
 static void test_str_fail(const char *s, int error) {
@@ -54,6 +53,8 @@ TEST(string) {
 TEST(parse_ip_protocol) {
         assert_se(parse_ip_protocol("sctp") == IPPROTO_SCTP);
         assert_se(parse_ip_protocol("ScTp") == IPPROTO_SCTP);
+        assert_se(parse_ip_protocol("mptcp") == IPPROTO_MPTCP);
+        assert_se(parse_ip_protocol("MPTCP") == IPPROTO_MPTCP);
         assert_se(parse_ip_protocol("ip") == IPPROTO_IP);
         assert_se(parse_ip_protocol("") == IPPROTO_IP);
         assert_se(parse_ip_protocol("1") == 1);

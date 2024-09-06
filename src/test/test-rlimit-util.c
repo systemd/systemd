@@ -34,7 +34,7 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
         assert_se(rl.rlim_max == hard);
 
         assert_se(rlimit_format(&rl, &f) >= 0);
-        assert_se(streq(formatted, f));
+        ASSERT_STREQ(formatted, f);
 
         assert_se(rlimit_parse(resource, formatted, &rl2) >= 0);
         assert_se(memcmp(&rl, &rl2, sizeof(struct rlimit)) == 0);
@@ -118,8 +118,8 @@ TEST(setrlimit) {
         new.rlim_max = old.rlim_max;
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
-        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
-        assert_se(rlimit_to_string(-1) == NULL);
+        ASSERT_STREQ(rlimit_to_string(RLIMIT_NOFILE), "NOFILE");
+        ASSERT_NULL(rlimit_to_string(-1));
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         assert_se(setrlimit_closest(RLIMIT_NOFILE, &old) == 0);

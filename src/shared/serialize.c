@@ -180,7 +180,7 @@ int serialize_strv(FILE *f, const char *key, char **l) {
 }
 
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
-        int copy;
+        int r;
 
         assert(f);
         assert(fds);
@@ -188,17 +188,23 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return 0;
 
-        /* If we have a pidfd we serialize the fd and encode the fd number prefixed by "@" in the
-         * serialization. Otherwise we serialize the numeric PID as it is. */
+        /* We always serialize the pid separately, to keep downgrades mostly working (older versions will
+         * deserialize the pid and silently fail to deserialize the pidfd). If we also have a pidfd, we
+         * serialize both the pid and pidfd, so that we can construct the exact same pidref after
+         * deserialization (this doesn't work with only the pidfd, as we can't retrieve the original pid
+         * from the pidfd anymore if the process is reaped). */
 
-        if (pidref->fd < 0)
-                return serialize_item_format(f, key, PID_FMT, pidref->pid);
+        if (pidref->fd >= 0) {
+                int copy = fdset_put_dup(fds, pidref->fd);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
-        copy = fdset_put_dup(fds, pidref->fd);
-        if (copy < 0)
-                return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+                r = serialize_item_format(f, key, "@%i:" PID_FMT, copy, pidref->pid);
+                if (r < 0)
+                        return r;
+        }
 
-        return serialize_item_format(f, key, "@%i", copy);
+        return serialize_item_format(f, key, PID_FMT, pidref->pid);
 }
 
 int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl) {
@@ -476,12 +482,39 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                int fd = deserialize_fd(fds, e);
+                _cleanup_free_ char *fdstr = NULL, *pidstr = NULL;
+                _cleanup_close_ int fd = -EBADF;
 
+                r = extract_many_words(&e, ":", /* flags = */ 0, &fdstr, &pidstr);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to deserialize pidref '%s': %m", e);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot deserialize pidref from empty string.");
+
+                assert(r <= 2);
+
+                fd = deserialize_fd(fds, fdstr);
                 if (fd < 0)
                         return fd;
 
-                r = pidref_set_pidfd_consume(ret, fd);
+                /* The serialization format changed after 255.4. In systemd <= 255.4 only pidfd is
+                 * serialized, but that causes problems when reconstructing pidref (see serialize_pidref for
+                 * details). After 255.4 the pid is serialized as well even if we have a pidfd, but we still
+                 * need to support older format as we might be upgrading from a version that still uses the
+                 * old format. */
+                if (pidstr) {
+                        pid_t pid;
+
+                        r = parse_pid(pidstr, &pid);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse PID: %s", pidstr);
+
+                        *ret = (PidRef) {
+                                .pid = pid,
+                                .fd = TAKE_FD(fd),
+                        };
+                } else
+                        r = pidref_set_pidfd_consume(ret, TAKE_FD(fd));
         } else {
                 pid_t pid;
 

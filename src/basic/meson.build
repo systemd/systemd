@@ -35,6 +35,7 @@ basic_sources = files(
         'filesystems.c',
         'format-util.c',
         'fs-util.c',
+        'gcrypt-util.c',
         'glob-util.c',
         'glyph-util.c',
         'gunicode.c',
@@ -56,6 +57,7 @@ basic_sources = files(
         'lock-util.c',
         'log.c',
         'login-util.c',
+        'keyring-util.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
@@ -233,13 +235,15 @@ run_target(
 
 ############################################################
 
-filesystem_includes = ['linux/magic.h',
-                       'linux/gfs2_ondisk.h']
+filesystem_includes = files(
+        'linux/magic.h',
+        'missing_magic.h',
+)
 
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
 if r.returncode() != 0
-        error('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
+        warning('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
 endif
 
 filesystems_gperf_h = custom_target(
@@ -270,36 +274,20 @@ filesystem_switch_case_h = custom_target(
 
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
-libbasic = static_library(
+libbasic_static = static_library(
         'basic',
         basic_sources,
         fundamental_sources,
         include_directories : basic_includes,
         dependencies : [libcap,
                         libdl,
+                        libgcrypt_cflags,
                         liblz4_cflags,
                         libm,
                         librt,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
-                        userspace],
-        c_args : ['-fvisibility=default'],
-        build_by_default : false)
-
-############################################################
-
-basic_gcrypt_sources = files(
-        'gcrypt-util.c',
-)
-
-# A convenience library that is separate from libbasic to avoid
-# unnecessary linking to libgcrypt.
-libbasic_gcrypt = static_library(
-        'basic-gcrypt',
-        basic_gcrypt_sources,
-        include_directories : basic_includes,
-        dependencies : [libgcrypt,
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)

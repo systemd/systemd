@@ -27,9 +27,11 @@
       <simplelist>
         <member><filename>/etc/udev/udev.conf</filename></member>
         <member><filename>/run/udev/udev.conf</filename></member>
+        <member><filename>/usr/local/lib/udev/udev.conf</filename></member>
         <member><filename>/usr/lib/udev/udev.conf</filename></member>
         <member><filename>/etc/udev/udev.conf.d/*.conf</filename></member>
         <member><filename>/run/udev/udev.conf.d/*.conf</filename></member>
+        <member><filename>/usr/local/lib/udev/udev.conf.d/*.conf</filename></member>
         <member><filename>/usr/lib/udev/udev.conf.d/*.conf</filename></member>
       </simplelist>
     </para>

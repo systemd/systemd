@@ -61,6 +61,34 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
+int path_extract_image_name(const char *path, char **ret) {
+        _cleanup_free_ char *fn = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* Extract last component from path, without any "/" suffixes. */
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
+        if (r != O_DIRECTORY) {
+                /* Chop off any image suffixes we recognize (unless we already know this must refer to some dir) */
+                char *m = ENDSWITH_SET(fn, ".sysext.raw", ".confext.raw", ".raw");
+                if (m)
+                        *m = 0;
+        }
+
+        /* Truncate the version/counting suffixes */
+        fn[strcspn(fn, "_+")] = 0;
+
+        if (!image_name_is_valid(fn))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(fn);
+        return 0;
+}
+
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check) {
         int r;
 
@@ -230,9 +258,19 @@ int open_extension_release_at(
                         continue;
                 }
 
-                if (!relax_extension_release_check &&
-                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
-                        continue;
+                if (!relax_extension_release_check) {
+                        _cleanup_free_ char *base_extension = NULL;
+
+                        r = path_extract_image_name(extension, &base_extension);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", extension);
+                                continue;
+                        }
+
+                        if (!streq(image_name, base_extension) &&
+                            extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
+                                continue;
+                }
 
                 /* We already found what we were looking for, but there's another candidate? We treat this as
                  * an error, as we want to enforce that there are no ambiguities in case we are in the
@@ -412,27 +450,32 @@ int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eo
                 support_end = _support_end_alloc;
         }
 
-        if (isempty(support_end)) /* An empty string is a explicit way to say "no EOL exists" */
+        if (isempty(support_end)) { /* An empty string is a explicit way to say "no EOL exists" */
+                if (ret_eol)
+                        *ret_eol = USEC_INFINITY;
+
                 return false;  /* no end date defined */
+        }
 
         struct tm tm = {};
         const char *k = strptime(support_end, "%Y-%m-%d", &tm);
         if (!k || *k)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to parse SUPPORT_END= in os-release file, ignoring: %m");
+                                      "Failed to parse SUPPORT_END= from os-release file, ignoring: %s", support_end);
 
-        time_t eol = timegm(&tm);
-        if (eol == (time_t) -1)
-                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                      "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
+        usec_t eol;
+        r = mktime_or_timegm_usec(&tm, /* utc= */ true, &eol);
+        if (r < 0)
+                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to convert SUPPORT_END= time from os-release file, ignoring: %m");
 
         if (ret_eol)
-                *ret_eol = eol * USEC_PER_SEC;
+                *ret_eol = eol;
 
-        return DIV_ROUND_UP(now(CLOCK_REALTIME), USEC_PER_SEC) > (usec_t) eol;
+        return now(CLOCK_REALTIME) > eol;
 }
 
-const char *os_release_pretty_name(const char *pretty_name, const char *name) {
+const char* os_release_pretty_name(const char *pretty_name, const char *name) {
         /* Distills a "pretty" name to show from os-release data. First argument is supposed to be the
          * PRETTY_NAME= field, the second one the NAME= field. This function is trivial, of course, and
          * exists mostly to ensure we use the same logic wherever possible. */

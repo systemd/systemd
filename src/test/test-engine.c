@@ -89,8 +89,8 @@ int main(int argc, char *argv[]) {
 
         /* prepare the test */
         _cleanup_free_ char *unit_dir = NULL;
-        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
 
         assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
-        assert_se(streq_ptr(unit_with_multiple_dashes->description, "override4"));
+        ASSERT_STREQ(unit_with_multiple_dashes->description, "override4");
 
         /* Now merge a synthetic unit into the existing one */
         assert_se(unit_new_for_name(m, sizeof(Service), "merged.service", &stub) >= 0);

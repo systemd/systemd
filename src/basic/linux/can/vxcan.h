@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
-#ifndef _UAPI_CAN_VXCAN_H
-#define _UAPI_CAN_VXCAN_H
+#ifndef _CAN_VXCAN_H
+#define _CAN_VXCAN_H
 
 enum {
 	VXCAN_INFO_UNSPEC,

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Match]
-Name=eni99np1
+Name=sim99
 
 [Network]
 Address=192.168.100.100/24

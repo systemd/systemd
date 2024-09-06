@@ -82,8 +82,7 @@
     string. For details on cursors, see
     <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If no entry matching the specified cursor is found the call will seek to the next closest entry (in terms
-    of time) instead. To verify whether the newly selected entry actually matches the cursor, use
-    <citerefentry><refentrytitle>sd_journal_test_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    of time) instead.</para>
 
     <para>Note that these calls do not actually make any entry the new current entry, this needs to be done
     in a separate step with a subsequent
@@ -97,6 +96,13 @@
     used, the closest following entry will be sought to, if
     <citerefentry><refentrytitle>sd_journal_previous</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     is used the closest preceding entry is sought to.</para>
+
+    <para>After the seek is done, and
+    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or a similar call has been made,
+    <citerefentry><refentrytitle>sd_journal_test_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    may be used to verify whether the newly selected entry actually matches the cursor.
+    </para>
   </refsect1>
 
   <refsect1>

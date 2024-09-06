@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 
 void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
         char *p = buffer;
@@ -141,16 +142,8 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         if (isempty(text))
                 text = path;
 
-        if (!urlify_enabled()) {
-                char *n;
-
-                n = strdup(text);
-                if (!n)
-                        return -ENOMEM;
-
-                *ret = n;
-                return 0;
-        }
+        if (!urlify_enabled())
+                return strdup_to(ret, text);
 
         r = file_url_from_path(path, &url);
         if (r < 0)
@@ -297,7 +290,7 @@ void print_separator(void) {
                 size_t c = columns();
 
                 flockfile(stdout);
-                fputs_unlocked(ANSI_UNDERLINE, stdout);
+                fputs_unlocked(ANSI_GREY_UNDERLINE, stdout);
 
                 for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
@@ -452,16 +445,32 @@ int terminal_tint_color(double hue, char **ret) {
         return 0;
 }
 
-void draw_progress_bar(const char *prefix, double percentage) {
+bool shall_tint_background(void) {
+        static int cache = -1;
 
+        if (cache >= 0)
+                return cache;
+
+        cache = getenv_bool("SYSTEMD_TINT_BACKGROUND");
+        if (cache == -ENXIO)
+                return (cache = true);
+        if (cache < 0)
+                log_debug_errno(cache, "Failed to parse $SYSTEMD_TINT_BACKGROUND, leaving background tinting enabled: %m");
+
+        return cache != 0;
+}
+
+void draw_progress_bar_impl(const char *prefix, double percentage) {
         fputc('\r', stderr);
-        if (prefix)
+        if (prefix) {
                 fputs(prefix, stderr);
+                fputc(' ', stderr);
+        }
 
         if (!terminal_is_dumb()) {
                 size_t cols = columns();
-                size_t prefix_length = strlen_ptr(prefix);
-                size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
+                size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;
+                size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
 
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
                         size_t p = (size_t) (length * percentage / 100.0);
@@ -504,19 +513,32 @@ void draw_progress_bar(const char *prefix, double percentage) {
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
-        fflush(stderr);
+
 }
 
-void clear_progress_bar(const char *prefix) {
-
+void clear_progress_bar_impl(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
-                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                fputs(strrepa(" ",
+                              prefix ? utf8_console_width(prefix) + 5 : /* %3.0f%% (4 chars) + space */
+                              LESS_BY(columns(), 1U)),
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
-        fflush(stderr);
+}
+
+void draw_progress_bar(const char *prefix, double percentage) {
+        /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
+         * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
+         * as a single buffer, to make things more efficient. */
+        WITH_BUFFERED_STDERR;
+        draw_progress_bar_impl(prefix, percentage);
+}
+
+void clear_progress_bar(const char *prefix) {
+        WITH_BUFFERED_STDERR;
+        clear_progress_bar_impl(prefix);
 }

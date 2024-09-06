@@ -8,16 +8,19 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 SRK Setup (Early)
+Description=Early TPM SRK Setup
 Documentation=man:systemd-tpm2-setup.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=tpm2.target systemd-pcrphase-initrd.service
 Before=sysinit.target shutdown.target
 ConditionSecurity=measured-uki
 ConditionPathExists=!/run/systemd/tpm2-srk-public-key.pem
-After=tpm2.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --early=yes
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --early=yes --graceful
+
+# The tool returns 76 if the TPM cannot be accessed due to an authorization failure and we can't generate an SRK.
+SuccessExitStatus=76

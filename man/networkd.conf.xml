@@ -30,8 +30,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/networkd.conf</filename></member>
       <member><filename>/run/systemd/networkd.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/networkd.conf</filename></member>
       <member><filename>/usr/lib/systemd/networkd.conf</filename></member>
       <member><filename>/etc/systemd/networkd.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/networkd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/networkd.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
@@ -128,6 +131,12 @@
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
 
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv4 (that is, <literal>ipv4</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
@@ -141,6 +150,12 @@
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
+
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv6 (that is, <literal>ipv6</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -156,6 +171,74 @@
           Defaults to <literal>no</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Specifies the network- and protocol-independent default value for the same settings in
+          [IPv6AcceptRA], [DHCPv4], and [DHCPv6] sections below. Takes a boolean, or the special value
+          <option>route</option>. See the same setting in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Defaults to <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPv6AcceptRA] Section Options</title>
+
+    <para>This section configures the default setting of the Neighbor Discovery. The following options are
+    available in the [IPv6AcceptRA] section:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Specifies the network-independent default value for the same setting in the [IPv6AcceptRA]
+          section in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Takes a boolean, or the special value <option>route</option>. When unspecified, the value specified
+          in the [Network] section in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          which defaults to <literal>no</literal>, will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPv6AddressLabel] Section Options</title>
+
+    <para>An [IPv6AddressLabel] section accepts the following keys. Specify multiple [IPv6AddressLabel]
+    sections to configure multiple address labels. IPv6 address labels are used for address selection.
+    See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>. Precedence is managed by
+    userspace, and only the label itself is stored in the kernel.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Label=</varname></term>
+        <listitem>
+          <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
+          reserved. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+        <listitem>
+          <para>IPv6 prefix is an address with a prefix length, separated by a slash
+          <literal>/</literal> character. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -256,6 +339,15 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Same as the one in the [IPv6AcceptRA] section, but applied for DHCPv4 protocol.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -279,6 +371,31 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
         <listitem><para>As in the [DHCPv4] section.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem><para>As in the [DHCPv4] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPServer] Section Options</title>
+
+    <para>This section configures the default setting of the DHCP server. The following options are available
+    in the [DHCPServer] section:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Same as the one in the [IPv6AcceptRA] section, but applied for DHCPv4 protocol.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

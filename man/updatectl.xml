@@ -1,0 +1,207 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="updatectl" conditional='ENABLE_SYSUPDATE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>updatectl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>updatectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>updatectl</refname>
+    <refpurpose>Control the system update service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>updatectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">TARGET</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>updatectl</command> may be used to check for and install system updates managed by
+    <citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command> [<replaceable>TARGET</replaceable>[@<replaceable>VERSION</replaceable>]]</term>
+
+        <listitem><para>Show information about targets and their versions.</para>
+
+        <para>When no <replaceable>TARGET</replaceable> is specified, this command lists all
+        available targets. When a <replaceable>TARGET</replaceable> is specified without a
+        <replaceable>VERSION</replaceable>, this command lists all known versions of the
+        specified target. If a <replaceable>VERSION</replaceable> is specified, this command
+        lists all known information about the specific version.</para>
+
+        <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>check</command> [<replaceable>TARGET</replaceable>…]</term>
+
+        <listitem><para>Check if any updates are available for the specified targets. If no targets
+        are specified, all available targets will be checked for updates.</para>
+
+        <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>update</command> [<replaceable>TARGET</replaceable>[@<replaceable>VERSION</replaceable>]…]</term>
+
+        <listitem><para>Update the specified targets to the specified versions. If a target
+        is specified without a version, then it will be updated to the latest version. If no targets are
+        specified, then all available targets will be updated to the latest version.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>vacuum</command> [<replaceable>TARGET</replaceable>…]</term>
+
+        <listitem><para>Clean up old versions of the specified targets. If no targets are specified,
+        all available targets will be vacuumed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--reboot</option></term>
+
+        <listitem><para>When used with the <command>update</command> command, reboots the system
+        after updates finish applying. If any update fails, the system will not reboot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--offline</option></term>
+
+        <listitem><para>When used with the <command>list</command> command, disables fetching
+        metadata from the network. This makes the <command>list</command> command only return
+        information that is available locally (i.e. about versions already installed on the system).
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Note that these examples are just here for demonstration purposes, and the output of these commands
+    is free to change. These commands are intended for display to a user. If you'd like machine-readable
+    output, use the
+    <citerefentry><refentrytitle>org.freedesktop.sysupdate1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    D-Bus API directly.</para>
+
+    <example>
+      <title>Output from <command>list</command></title>
+
+      <programlisting>$ <command>updatectl list</command>
+TARGET         VERSION PATH
+host           48      sysupdate.d
+machine:fedora 38      /var/lib/machines/fedora.raw
+component:shim 15.7    sysupdate.shim.d
+$ <command>updatectl list host</command>
+  VERSION STATUS
+↻ 50      candidate
+  49      available
+● 48      current
+  47      available
+  46      available
+  45      available
+[...]
+× 25      available+obsolete
+× 24      available+obsolete
+× 23      available+obsolete
+[...]
+$ <command>updatectl list host@49</command>
+↻ Version: 50
+  State: candidate
+  ChangeLog: https://vendor.com/os/v50.html
+
+TYPE     PATH                                                                   PTUUID                               PTFLAGS SHA256
+url-file http://dl.vendor.com/os/uki_50                                         -                                          - 90f6534282dd720f7a222fa781086990dc9c83e5c7499f085970a8e75e3ac349
+url-file http://dl.vendor.com/os/usr_50_981a5b84-a301-c819-f681-3e575fe16f16    981a5b84-a301-c819-f681-3e575fe16f16       - c0596ab1095258ec6f16c7c281a50d71c419a9f587c1ef858cfbbb69fb0a16f3
+url-file http://dl.vendor.com/os/verity_50_2f8d0f3b-f80a-6ddc-a556-3722bfbb5b79 2f8d0f3b-f80a-6ddc-a556-3722bfbb5b79       - e1e90a128e038b3a53455e55d1ca717c743aba31fe6b4b4624109df0243c6338
+url-file http://dl.vendor.com/os/verity_sig_50                                  -                                          - ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+</programlisting>
+    </example>
+
+    <example>
+      <title>Checking for and installing updates</title>
+
+      <programlisting>$ <command>updatectl check</command>
+TARGET         UPDATE
+host           48 → 50
+machine:fedora 38 → 40
+$ <command>updatectl update host machine:fedora@39</command>
+[...]
+✓ host@50
+✓ machine:fedora@39</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

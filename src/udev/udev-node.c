@@ -220,7 +220,7 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, b
         if (!dir)
                 return -errno;
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return r;
 
@@ -246,7 +246,7 @@ static int stack_directory_update(sd_device *dev, int fd, bool add) {
         assert(dev);
         assert(fd >= 0);
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return r;
 
@@ -375,7 +375,7 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create stack directory '%s': %m", dirname);
 
-        dirfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        dirfd = open_mkdir(dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
 
@@ -405,7 +405,7 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
         if (r < 0)
                 return r;
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return r;
 
@@ -446,7 +446,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (current_id) {
                 const char *id;
 
-                r = device_get_device_id(dev, &id);
+                r = sd_device_get_device_id(dev, &id);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to get device id: %m");
 

@@ -207,7 +207,7 @@ static int process(
                         return r;
 
                 g->n_tasks = 0;
-                while (cg_read_pid(f, &pid) > 0) {
+                while (cg_read_pid(f, &pid, CGROUP_DONT_SKIP_UNMAPPED) > 0) {
 
                         if (arg_count == COUNT_USERSPACE_PROCESSES && pid_is_kernel_thread(pid) > 0)
                                 continue;

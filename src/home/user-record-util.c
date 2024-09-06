@@ -2,15 +2,18 @@
 
 #include <sys/xattr.h>
 
+#include "sd-json.h"
+
 #include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"
 #include "id128-util.h"
+#include "json-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
-#include "recovery-key.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "recovery-key.h"
 #include "sha256.h"
 #include "stat-util.h"
 #include "user-record-util.h"
@@ -81,18 +84,18 @@ int user_record_synthesize(
         if (!hd)
                 return -ENOMEM;
 
-        r = json_build(&h->json,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(user_name)),
-                                       JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(realm)),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
-                                       JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
-                                                                                                       JSON_BUILD_PAIR("imagePath", JSON_BUILD_STRING(image_path)),
-                                                                                                       JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING(hd)),
-                                                                                                       JSON_BUILD_PAIR("storage", JSON_BUILD_STRING(user_storage_to_string(storage))),
-                                                                                                       JSON_BUILD_PAIR("uid", JSON_BUILD_UNSIGNED(uid)),
-                                                                                                       JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid))))))));
+        r = sd_json_buildo(
+                        &h->json,
+                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(realm)),
+                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
+                        SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("imagePath", SD_JSON_BUILD_STRING(image_path)),
+                                                                                              SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(hd)),
+                                                                                              SD_JSON_BUILD_PAIR("storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))),
+                                                                                              SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)))))));
         if (r < 0)
                 return r;
 
@@ -141,18 +144,18 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
         if (!description)
                 return -ENOMEM;
 
-        r = json_build(&g->json,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(un)),
-                                       JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(rr)),
-                                       JSON_BUILD_PAIR("description", JSON_BUILD_STRING(description)),
-                                       JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
-                                                                                                       JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
-                                       JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
-                                       JSON_BUILD_PAIR("status", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
-                                                                                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home"))))))));
+        r = sd_json_buildo(
+                        &g->json,
+                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(un)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(rr)),
+                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
+                        SD_JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
+                        SD_JSON_BUILD_PAIR("status", SD_JSON_BUILD_OBJECT(
+                                                           SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
+                                                                                              SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")))))));
         if (r < 0)
                 return r;
 
@@ -229,9 +232,9 @@ int user_record_reconcile(
                 } else
                         result = USER_RECONCILE_HOST_WON;
         } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *extended = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *extended = NULL;
                 _cleanup_(user_record_unrefp) UserRecord *merged = NULL;
-                JsonVariant *e;
+                sd_json_variant *e;
 
                 /* The embedded version is newer */
 
@@ -239,11 +242,11 @@ int user_record_reconcile(
                         return -ESTALE;
 
                 /* Copy in the binding data */
-                extended = json_variant_ref(embedded->json);
+                extended = sd_json_variant_ref(embedded->json);
 
-                e = json_variant_by_key(host->json, "binding");
+                e = sd_json_variant_by_key(host->json, "binding");
                 if (e) {
-                        r = json_variant_set_field(&extended, "binding", e);
+                        r = sd_json_variant_set_field(&extended, "binding", e);
                         if (r < 0)
                                 return r;
                 }
@@ -283,7 +286,7 @@ int user_record_add_binding(
                 uid_t uid,
                 gid_t gid) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_binding_entry = NULL, *binding = NULL;
         _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
@@ -335,45 +338,45 @@ int user_record_add_binding(
                         return -ENOMEM;
         }
 
-        r = json_build(&new_binding_entry,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("blobDirectory", JSON_BUILD_STRING(blob)),
-                                       JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", JSON_BUILD_STRING(luks_cipher)),
-                                       JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", JSON_BUILD_STRING(luks_cipher_mode)),
-                                       JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", JSON_BUILD_UNSIGNED(luks_volume_key_size)),
-                                       JSON_BUILD_PAIR_CONDITION(!!file_system_type, "fileSystemType", JSON_BUILD_STRING(file_system_type)),
-                                       JSON_BUILD_PAIR_CONDITION(!!home_directory, "homeDirectory", JSON_BUILD_STRING(home_directory)),
-                                       JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", JSON_BUILD_UNSIGNED(uid)),
-                                       JSON_BUILD_PAIR_CONDITION(gid_is_valid(gid), "gid", JSON_BUILD_UNSIGNED(gid)),
-                                       JSON_BUILD_PAIR_CONDITION(storage >= 0, "storage", JSON_BUILD_STRING(user_storage_to_string(storage)))));
+        r = sd_json_buildo(
+                        &new_binding_entry,
+                        SD_JSON_BUILD_PAIR("blobDirectory", SD_JSON_BUILD_STRING(blob)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", SD_JSON_BUILD_STRING(image_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", SD_JSON_BUILD_STRING(luks_cipher)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", SD_JSON_BUILD_STRING(luks_cipher_mode)),
+                        SD_JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", SD_JSON_BUILD_UNSIGNED(luks_volume_key_size)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!file_system_type, "fileSystemType", SD_JSON_BUILD_STRING(file_system_type)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!home_directory, "homeDirectory", SD_JSON_BUILD_STRING(home_directory)),
+                        SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(gid), "gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(storage >= 0, "storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))));
         if (r < 0)
                 return r;
 
-        binding = json_variant_ref(json_variant_by_key(h->json, "binding"));
+        binding = sd_json_variant_ref(sd_json_variant_by_key(h->json, "binding"));
         if (binding) {
-                _cleanup_(json_variant_unrefp) JsonVariant *be = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *be = NULL;
 
                 /* Merge the new entry with an old one, if that exists */
-                be = json_variant_ref(json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
+                be = sd_json_variant_ref(sd_json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
                 if (be) {
-                        r = json_variant_merge_object(&be, new_binding_entry);
+                        r = sd_json_variant_merge_object(&be, new_binding_entry);
                         if (r < 0)
                                 return r;
 
-                        json_variant_unref(new_binding_entry);
+                        sd_json_variant_unref(new_binding_entry);
                         new_binding_entry = TAKE_PTR(be);
                 }
         }
 
-        r = json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), new_binding_entry);
+        r = sd_json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), new_binding_entry);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&h->json, "binding", binding);
+        r = sd_json_variant_set_field(&h->json, "binding", binding);
         if (r < 0)
                 return r;
 
@@ -634,10 +637,10 @@ int user_record_test_recovery_key(UserRecord *h, UserRecord *secret) {
 }
 
 int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
-        _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine = NULL, *midv = NULL, *midav = NULL, *ne = NULL;
-        _cleanup_free_ JsonVariant **array = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_per_machine = NULL, *midv = NULL, *midav = NULL, *ne = NULL;
+        _cleanup_free_ sd_json_variant **array = NULL;
         size_t idx = SIZE_MAX, n;
-        JsonVariant *per_machine;
+        sd_json_variant *per_machine;
         sd_id128_t mid;
         int r;
 
@@ -650,50 +653,50 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
         if (r < 0)
                 return r;
 
-        r = json_variant_new_string(&midv, SD_ID128_TO_STRING(mid));
+        r = sd_json_variant_new_string(&midv, SD_ID128_TO_STRING(mid));
         if (r < 0)
                 return r;
 
-        r = json_variant_new_array(&midav, (JsonVariant*[]) { midv }, 1);
+        r = sd_json_variant_new_array(&midav, (sd_json_variant*[]) { midv }, 1);
         if (r < 0)
                 return r;
 
-        per_machine = json_variant_by_key(h->json, "perMachine");
+        per_machine = sd_json_variant_by_key(h->json, "perMachine");
         if (per_machine) {
                 size_t i;
 
-                if (!json_variant_is_array(per_machine))
+                if (!sd_json_variant_is_array(per_machine))
                         return -EINVAL;
 
-                n = json_variant_elements(per_machine);
+                n = sd_json_variant_elements(per_machine);
 
-                array = new(JsonVariant*, n + 1);
+                array = new(sd_json_variant*, n + 1);
                 if (!array)
                         return -ENOMEM;
 
                 for (i = 0; i < n; i++) {
-                        JsonVariant *m;
+                        sd_json_variant *m;
 
-                        array[i] = json_variant_by_index(per_machine, i);
+                        array[i] = sd_json_variant_by_index(per_machine, i);
 
-                        if (!json_variant_is_object(array[i]))
+                        if (!sd_json_variant_is_object(array[i]))
                                 return -EINVAL;
 
-                        m = json_variant_by_key(array[i], "matchMachineId");
+                        m = sd_json_variant_by_key(array[i], "matchMachineId");
                         if (!m) {
                                 /* No machineId field? Let's ignore this, but invalidate what we found so far */
                                 idx = SIZE_MAX;
                                 continue;
                         }
 
-                        if (json_variant_equal(m, midv) ||
-                            json_variant_equal(m, midav)) {
+                        if (sd_json_variant_equal(m, midv) ||
+                            sd_json_variant_equal(m, midav)) {
                                 /* Matches exactly what we are looking for. Let's use this */
                                 idx = i;
                                 continue;
                         }
 
-                        r = per_machine_id_match(m, JSON_PERMISSIVE);
+                        r = per_machine_id_match(m, SD_JSON_PERMISSIVE);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -705,10 +708,10 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
                 if (idx == SIZE_MAX)
                         idx = n++; /* Nothing suitable found, place new entry at end */
                 else
-                        ne = json_variant_ref(array[idx]);
+                        ne = sd_json_variant_ref(array[idx]);
 
         } else {
-                array = new(JsonVariant*, 1);
+                array = new(sd_json_variant*, 1);
                 if (!array)
                         return -ENOMEM;
 
@@ -717,23 +720,23 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
         }
 
         if (!ne) {
-                r = json_variant_set_field(&ne, "matchMachineId", midav);
+                r = sd_json_variant_set_field(&ne, "matchMachineId", midav);
                 if (r < 0)
                         return r;
         }
 
-        r = json_variant_set_field_unsigned(&ne, "diskSize", disk_size);
+        r = sd_json_variant_set_field_unsigned(&ne, "diskSize", disk_size);
         if (r < 0)
                 return r;
 
         assert(idx < n);
         array[idx] = ne;
 
-        r = json_variant_new_array(&new_per_machine, array, n);
+        r = sd_json_variant_new_array(&new_per_machine, array, n);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&h->json, "perMachine", new_per_machine);
+        r = sd_json_variant_set_field(&h->json, "perMachine", new_per_machine);
         if (r < 0)
                 return r;
 
@@ -743,7 +746,7 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
 }
 
 int user_record_update_last_changed(UserRecord *h, bool with_password) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         usec_t n;
         int r;
 
@@ -760,14 +763,14 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
         if (h->last_password_change_usec != UINT64_MAX && h->last_password_change_usec >= n)
                 return -ECHRNG;
 
-        v = json_variant_ref(h->json);
+        v = sd_json_variant_ref(h->json);
 
-        r = json_variant_set_field_unsigned(&v, "lastChangeUSec", n);
+        r = sd_json_variant_set_field_unsigned(&v, "lastChangeUSec", n);
         if (r < 0)
                 return r;
 
         if (with_password) {
-                r = json_variant_set_field_unsigned(&v, "lastPasswordChangeUSec", n);
+                r = sd_json_variant_set_field_unsigned(&v, "lastPasswordChangeUSec", n);
                 if (r < 0)
                         return r;
 
@@ -776,7 +779,7 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
 
         h->last_change_usec = n;
 
-        json_variant_unref(h->json);
+        sd_json_variant_unref(h->json);
         h->json = TAKE_PTR(v);
 
         h->mask |= USER_RECORD_REGULAR;
@@ -784,7 +787,7 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
 }
 
 int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) {
-        _cleanup_(json_variant_unrefp) JsonVariant *priv = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *priv = NULL;
         _cleanup_strv_free_ char **np = NULL;
         int r;
 
@@ -813,45 +816,45 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
                         return r;
         }
 
-        priv = json_variant_ref(json_variant_by_key(h->json, "privileged"));
+        priv = sd_json_variant_ref(sd_json_variant_by_key(h->json, "privileged"));
 
         if (strv_isempty(np))
-                r = json_variant_filter(&priv, STRV_MAKE("hashedPassword"));
+                r = sd_json_variant_filter(&priv, STRV_MAKE("hashedPassword"));
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *new_array = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_array = NULL;
 
-                r = json_variant_new_array_strv(&new_array, np);
+                r = sd_json_variant_new_array_strv(&new_array, np);
                 if (r < 0)
                         return r;
 
-                r = json_variant_set_field(&priv, "hashedPassword", new_array);
-                if (r < 0)
-                        return r;
+                r = sd_json_variant_set_field(&priv, "hashedPassword", new_array);
         }
+        if (r < 0)
+                return r;
 
-        r = json_variant_set_field(&h->json, "privileged", priv);
+        r = sd_json_variant_set_field(&h->json, "privileged", priv);
         if (r < 0)
                 return r;
 
         strv_free_and_replace(h->hashed_password, np);
 
-        SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !json_variant_is_blank_object(priv));
+        SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !sd_json_variant_is_blank_object(priv));
         return 0;
 }
 
 int user_record_set_hashed_password(UserRecord *h, char **hashed_password) {
-        _cleanup_(json_variant_unrefp) JsonVariant *priv = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *priv = NULL;
         _cleanup_strv_free_ char **copy = NULL;
         int r;
 
         assert(h);
 
-        priv = json_variant_ref(json_variant_by_key(h->json, "privileged"));
+        priv = sd_json_variant_ref(sd_json_variant_by_key(h->json, "privileged"));
 
         if (strv_isempty(hashed_password))
-                r = json_variant_filter(&priv, STRV_MAKE("hashedPassword"));
+                r = sd_json_variant_filter(&priv, STRV_MAKE("hashedPassword"));
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
 
                 copy = strv_copy(hashed_password);
                 if (!copy)
@@ -859,27 +862,27 @@ int user_record_set_hashed_password(UserRecord *h, char **hashed_password) {
 
                 strv_uniq(copy);
 
-                r = json_variant_new_array_strv(&array, copy);
+                r = sd_json_variant_new_array_strv(&array, copy);
                 if (r < 0)
                         return r;
 
-                r = json_variant_set_field(&priv, "hashedPassword", array);
+                r = sd_json_variant_set_field(&priv, "hashedPassword", array);
         }
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&h->json, "privileged", priv);
+        r = sd_json_variant_set_field(&h->json, "privileged", priv);
         if (r < 0)
                 return r;
 
         strv_free_and_replace(h->hashed_password, copy);
 
-        SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !json_variant_is_blank_object(priv));
+        SET_FLAG(h->mask, USER_RECORD_PRIVILEGED, !sd_json_variant_is_blank_object(priv));
         return 0;
 }
 
 int user_record_set_password(UserRecord *h, char **password, bool prepend) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_strv_free_erase_ char **e = NULL;
         int r;
 
@@ -910,38 +913,38 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
                 strv_uniq(e);
         }
 
-        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(h->json, "secret"));
 
         if (strv_isempty(e))
-                r = json_variant_filter(&w, STRV_MAKE("password"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("password"));
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
-                r = json_variant_new_array_strv(&l, e);
+                r = sd_json_variant_new_array_strv(&l, e);
                 if (r < 0)
                         return r;
 
-                json_variant_sensitive(l);
+                sd_json_variant_sensitive(l);
 
-                r = json_variant_set_field(&w, "password", l);
+                r = sd_json_variant_set_field(&w, "password", l);
         }
         if (r < 0)
                 return r;
 
-        json_variant_sensitive(w);
+        sd_json_variant_sensitive(w);
 
-        r = json_variant_set_field(&h->json, "secret", w);
+        r = sd_json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
 
         strv_free_and_replace(h->password, e);
 
-        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
 }
 
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_strv_free_erase_ char **e = NULL;
         int r;
 
@@ -972,126 +975,126 @@ int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
                 strv_uniq(e);
         }
 
-        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(h->json, "secret"));
 
         if (strv_isempty(e))
-                r = json_variant_filter(&w, STRV_MAKE("tokenPin"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("tokenPin"));
         else {
-                _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
-                r = json_variant_new_array_strv(&l, e);
+                r = sd_json_variant_new_array_strv(&l, e);
                 if (r < 0)
                         return r;
 
-                json_variant_sensitive(l);
+                sd_json_variant_sensitive(l);
 
-                r = json_variant_set_field(&w, "tokenPin", l);
+                r = sd_json_variant_set_field(&w, "tokenPin", l);
         }
         if (r < 0)
                 return r;
 
-        json_variant_sensitive(w);
+        sd_json_variant_sensitive(w);
 
-        r = json_variant_set_field(&h->json, "secret", w);
+        r = sd_json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
 
         strv_free_and_replace(h->token_pin, e);
 
-        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
 }
 
 int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h, int b) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
 
         assert(h);
 
-        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(h->json, "secret"));
 
         if (b < 0)
-                r = json_variant_filter(&w, STRV_MAKE("pkcs11ProtectedAuthenticationPathPermitted"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("pkcs11ProtectedAuthenticationPathPermitted"));
         else
-                r = json_variant_set_field_boolean(&w, "pkcs11ProtectedAuthenticationPathPermitted", b);
+                r = sd_json_variant_set_field_boolean(&w, "pkcs11ProtectedAuthenticationPathPermitted", b);
         if (r < 0)
                 return r;
 
-        if (json_variant_is_blank_object(w))
-                r = json_variant_filter(&h->json, STRV_MAKE("secret"));
+        if (sd_json_variant_is_blank_object(w))
+                r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
         else {
-                json_variant_sensitive(w);
+                sd_json_variant_sensitive(w);
 
-                r = json_variant_set_field(&h->json, "secret", w);
+                r = sd_json_variant_set_field(&h->json, "secret", w);
         }
         if (r < 0)
                 return r;
 
         h->pkcs11_protected_authentication_path_permitted = b;
 
-        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
 }
 
 int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
 
         assert(h);
 
-        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(h->json, "secret"));
 
         if (b < 0)
-                r = json_variant_filter(&w, STRV_MAKE("fido2UserPresencePermitted"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("fido2UserPresencePermitted"));
         else
-                r = json_variant_set_field_boolean(&w, "fido2UserPresencePermitted", b);
+                r = sd_json_variant_set_field_boolean(&w, "fido2UserPresencePermitted", b);
         if (r < 0)
                 return r;
 
-        if (json_variant_is_blank_object(w))
-                r = json_variant_filter(&h->json, STRV_MAKE("secret"));
+        if (sd_json_variant_is_blank_object(w))
+                r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
         else
-                r = json_variant_set_field(&h->json, "secret", w);
+                r = sd_json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
 
         h->fido2_user_presence_permitted = b;
 
-        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
 }
 
 int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         int r;
 
         assert(h);
 
-        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+        w = sd_json_variant_ref(sd_json_variant_by_key(h->json, "secret"));
 
         if (b < 0)
-                r = json_variant_filter(&w, STRV_MAKE("fido2UserVerificationPermitted"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("fido2UserVerificationPermitted"));
         else
-                r = json_variant_set_field_boolean(&w, "fido2UserVerificationPermitted", b);
+                r = sd_json_variant_set_field_boolean(&w, "fido2UserVerificationPermitted", b);
         if (r < 0)
                 return r;
 
-        if (json_variant_is_blank_object(w))
-                r = json_variant_filter(&h->json, STRV_MAKE("secret"));
+        if (sd_json_variant_is_blank_object(w))
+                r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
         else
-                r = json_variant_set_field(&h->json, "secret", w);
+                r = sd_json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
 
         h->fido2_user_verification_permitted = b;
 
-        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !sd_json_variant_is_blank_object(w));
         return 0;
 }
 
-static bool per_machine_entry_empty(JsonVariant *v) {
+static bool per_machine_entry_empty(sd_json_variant *v) {
         const char *k;
-        _unused_ JsonVariant *e;
+        _unused_ sd_json_variant *e;
 
         JSON_VARIANT_OBJECT_FOREACH(k, e, v)
                 if (!STR_IN_SET(k, "matchMachineId", "matchHostname"))
@@ -1101,58 +1104,58 @@ static bool per_machine_entry_empty(JsonVariant *v) {
 }
 
 int user_record_set_password_change_now(UserRecord *h, int b) {
-        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        JsonVariant *per_machine;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        sd_json_variant *per_machine;
         int r;
 
         assert(h);
 
-        w = json_variant_ref(h->json);
+        w = sd_json_variant_ref(h->json);
 
         if (b < 0)
-                r = json_variant_filter(&w, STRV_MAKE("passwordChangeNow"));
+                r = sd_json_variant_filter(&w, STRV_MAKE("passwordChangeNow"));
         else
-                r = json_variant_set_field_boolean(&w, "passwordChangeNow", b);
+                r = sd_json_variant_set_field_boolean(&w, "passwordChangeNow", b);
         if (r < 0)
                 return r;
 
         /* Also drop the field from all perMachine entries */
-        per_machine = json_variant_by_key(w, "perMachine");
+        per_machine = sd_json_variant_by_key(w, "perMachine");
         if (per_machine) {
-                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-                JsonVariant *e;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                sd_json_variant *e;
 
                 JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
-                        _cleanup_(json_variant_unrefp) JsonVariant *z = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *z = NULL;
 
-                        if (!json_variant_is_object(e))
+                        if (!sd_json_variant_is_object(e))
                                 return -EINVAL;
 
-                        z = json_variant_ref(e);
+                        z = sd_json_variant_ref(e);
 
-                        r = json_variant_filter(&z, STRV_MAKE("passwordChangeNow"));
+                        r = sd_json_variant_filter(&z, STRV_MAKE("passwordChangeNow"));
                         if (r < 0)
                                 return r;
 
                         if (per_machine_entry_empty(z))
                                 continue;
 
-                        r = json_variant_append_array(&array, z);
+                        r = sd_json_variant_append_array(&array, z);
                         if (r < 0)
                                 return r;
                 }
 
-                if (json_variant_is_blank_array(array))
-                        r = json_variant_filter(&w, STRV_MAKE("perMachine"));
+                if (sd_json_variant_is_blank_array(array))
+                        r = sd_json_variant_filter(&w, STRV_MAKE("perMachine"));
                 else
-                        r = json_variant_set_field(&w, "perMachine", array);
+                        r = sd_json_variant_set_field(&w, "perMachine", array);
                 if (r < 0)
                         return r;
 
-                SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !json_variant_is_blank_array(array));
+                SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !sd_json_variant_is_blank_array(array));
         }
 
-        json_variant_unref(h->json);
+        sd_json_variant_unref(h->json);
         h->json = TAKE_PTR(w);
 
         h->password_change_now = b;
@@ -1204,7 +1207,7 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
 }
 
 int user_record_good_authentication(UserRecord *h) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL, *z = NULL;
         uint64_t counter, usec;
         sd_id128_t mid;
         int r;
@@ -1229,27 +1232,27 @@ int user_record_good_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        v = json_variant_ref(h->json);
-        w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
+        v = sd_json_variant_ref(h->json);
+        w = sd_json_variant_ref(sd_json_variant_by_key(v, "status"));
+        z = sd_json_variant_ref(sd_json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
-        r = json_variant_set_field_unsigned(&z, "goodAuthenticationCounter", counter);
+        r = sd_json_variant_set_field_unsigned(&z, "goodAuthenticationCounter", counter);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field_unsigned(&z, "lastGoodAuthenticationUSec", usec);
+        r = sd_json_variant_set_field_unsigned(&z, "lastGoodAuthenticationUSec", usec);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
+        r = sd_json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, "status", w);
+        r = sd_json_variant_set_field(&v, "status", w);
         if (r < 0)
                 return r;
 
-        json_variant_unref(h->json);
+        sd_json_variant_unref(h->json);
         h->json = TAKE_PTR(v);
 
         h->good_authentication_counter = counter;
@@ -1260,7 +1263,7 @@ int user_record_good_authentication(UserRecord *h) {
 }
 
 int user_record_bad_authentication(UserRecord *h) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL, *z = NULL;
         uint64_t counter, usec;
         sd_id128_t mid;
         int r;
@@ -1285,27 +1288,27 @@ int user_record_bad_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        v = json_variant_ref(h->json);
-        w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
+        v = sd_json_variant_ref(h->json);
+        w = sd_json_variant_ref(sd_json_variant_by_key(v, "status"));
+        z = sd_json_variant_ref(sd_json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
-        r = json_variant_set_field_unsigned(&z, "badAuthenticationCounter", counter);
+        r = sd_json_variant_set_field_unsigned(&z, "badAuthenticationCounter", counter);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field_unsigned(&z, "lastBadAuthenticationUSec", usec);
+        r = sd_json_variant_set_field_unsigned(&z, "lastBadAuthenticationUSec", usec);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
+        r = sd_json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, "status", w);
+        r = sd_json_variant_set_field(&v, "status", w);
         if (r < 0)
                 return r;
 
-        json_variant_unref(h->json);
+        sd_json_variant_unref(h->json);
         h->json = TAKE_PTR(v);
 
         h->bad_authentication_counter = counter;
@@ -1316,7 +1319,7 @@ int user_record_bad_authentication(UserRecord *h) {
 }
 
 int user_record_ratelimit(UserRecord *h) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL, *z = NULL;
         usec_t usec, new_ratelimit_begin_usec, new_ratelimit_count;
         sd_id128_t mid;
         int r;
@@ -1347,27 +1350,27 @@ int user_record_ratelimit(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        v = json_variant_ref(h->json);
-        w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
+        v = sd_json_variant_ref(h->json);
+        w = sd_json_variant_ref(sd_json_variant_by_key(v, "status"));
+        z = sd_json_variant_ref(sd_json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
-        r = json_variant_set_field_unsigned(&z, "rateLimitBeginUSec", new_ratelimit_begin_usec);
+        r = sd_json_variant_set_field_unsigned(&z, "rateLimitBeginUSec", new_ratelimit_begin_usec);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field_unsigned(&z, "rateLimitCount", new_ratelimit_count);
+        r = sd_json_variant_set_field_unsigned(&z, "rateLimitCount", new_ratelimit_count);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
+        r = sd_json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&v, "status", w);
+        r = sd_json_variant_set_field(&v, "status", w);
         if (r < 0)
                 return r;
 
-        json_variant_unref(h->json);
+        sd_json_variant_unref(h->json);
         h->json = TAKE_PTR(v);
 
         h->ratelimit_begin_usec = new_ratelimit_begin_usec;
@@ -1398,7 +1401,7 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom blob directories.");
         }
 
-        if (json_variant_by_key(hr->json, HOMEWORK_BLOB_FDMAP_FIELD))
+        if (sd_json_variant_by_key(hr->json, HOMEWORK_BLOB_FDMAP_FIELD))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "User record contains unsafe internal fields.");
 
         return 0;
@@ -1420,11 +1423,11 @@ bool user_record_shall_rebalance(UserRecord *h) {
 }
 
 int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
-        _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine_array = NULL, *machine_id_variant = NULL,
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_per_machine_array = NULL, *machine_id_variant = NULL,
                 *machine_id_array = NULL, *per_machine_entry = NULL;
-        _cleanup_free_ JsonVariant **array = NULL;
+        _cleanup_free_ sd_json_variant **array = NULL;
         size_t idx = SIZE_MAX, n;
-        JsonVariant *per_machine;
+        sd_json_variant *per_machine;
         sd_id128_t mid;
         int r;
 
@@ -1437,48 +1440,48 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
         if (r < 0)
                 return r;
 
-        r = json_variant_new_id128(&machine_id_variant, mid);
+        r = sd_json_variant_new_id128(&machine_id_variant, mid);
         if (r < 0)
                 return r;
 
-        r = json_variant_new_array(&machine_id_array, (JsonVariant*[]) { machine_id_variant }, 1);
+        r = sd_json_variant_new_array(&machine_id_array, (sd_json_variant*[]) { machine_id_variant }, 1);
         if (r < 0)
                 return r;
 
-        per_machine = json_variant_by_key(h->json, "perMachine");
+        per_machine = sd_json_variant_by_key(h->json, "perMachine");
         if (per_machine) {
-                if (!json_variant_is_array(per_machine))
+                if (!sd_json_variant_is_array(per_machine))
                         return -EINVAL;
 
-                n = json_variant_elements(per_machine);
+                n = sd_json_variant_elements(per_machine);
 
-                array = new(JsonVariant*, n + 1);
+                array = new(sd_json_variant*, n + 1);
                 if (!array)
                         return -ENOMEM;
 
                 for (size_t i = 0; i < n; i++) {
-                        JsonVariant *m;
+                        sd_json_variant *m;
 
-                        array[i] = json_variant_by_index(per_machine, i);
+                        array[i] = sd_json_variant_by_index(per_machine, i);
 
-                        if (!json_variant_is_object(array[i]))
+                        if (!sd_json_variant_is_object(array[i]))
                                 return -EINVAL;
 
-                        m = json_variant_by_key(array[i], "matchMachineId");
+                        m = sd_json_variant_by_key(array[i], "matchMachineId");
                         if (!m) {
                                 /* No machineId field? Let's ignore this, but invalidate what we found so far */
                                 idx = SIZE_MAX;
                                 continue;
                         }
 
-                        if (json_variant_equal(m, machine_id_variant) ||
-                            json_variant_equal(m, machine_id_array)) {
+                        if (sd_json_variant_equal(m, machine_id_variant) ||
+                            sd_json_variant_equal(m, machine_id_array)) {
                                 /* Matches exactly what we are looking for. Let's use this */
                                 idx = i;
                                 continue;
                         }
 
-                        r = per_machine_id_match(m, JSON_PERMISSIVE);
+                        r = per_machine_id_match(m, SD_JSON_PERMISSIVE);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -1490,10 +1493,10 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
                 if (idx == SIZE_MAX)
                         idx = n++; /* Nothing suitable found, place new entry at end */
                 else
-                        per_machine_entry = json_variant_ref(array[idx]);
+                        per_machine_entry = sd_json_variant_ref(array[idx]);
 
         } else {
-                array = new(JsonVariant*, 1);
+                array = new(sd_json_variant*, 1);
                 if (!array)
                         return -ENOMEM;
 
@@ -1502,26 +1505,26 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
         }
 
         if (!per_machine_entry) {
-                r = json_variant_set_field(&per_machine_entry, "matchMachineId", machine_id_array);
+                r = sd_json_variant_set_field(&per_machine_entry, "matchMachineId", machine_id_array);
                 if (r < 0)
                         return r;
         }
 
         if (weight == REBALANCE_WEIGHT_UNSET)
-                r = json_variant_set_field(&per_machine_entry, "rebalanceWeight", NULL); /* set explicitly to NULL (so that the perMachine setting we are setting here can override the global setting) */
+                r = sd_json_variant_set_field(&per_machine_entry, "rebalanceWeight", NULL); /* set explicitly to NULL (so that the perMachine setting we are setting here can override the global setting) */
         else
-                r = json_variant_set_field_unsigned(&per_machine_entry, "rebalanceWeight", weight);
+                r = sd_json_variant_set_field_unsigned(&per_machine_entry, "rebalanceWeight", weight);
         if (r < 0)
                 return r;
 
         assert(idx < n);
         array[idx] = per_machine_entry;
 
-        r = json_variant_new_array(&new_per_machine_array, array, n);
+        r = sd_json_variant_new_array(&new_per_machine_array, array, n);
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&h->json, "perMachine", new_per_machine_array);
+        r = sd_json_variant_set_field(&h->json, "perMachine", new_per_machine_array);
         if (r < 0)
                 return r;
 
@@ -1531,7 +1534,7 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
 }
 
 int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs, const char **ret_failed) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_hashmap_free_ Hashmap *manifest = NULL;
         const char *filename;
         void *key, *value;
@@ -1569,7 +1572,7 @@ int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs, const char *
         HASHMAP_FOREACH_KEY(value, filename, blobs) {
                 _cleanup_free_ char *filename_dup = NULL;
                 _cleanup_free_ uint8_t *hash = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *hash_json = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *hash_json = NULL;
                 int fd = PTR_TO_FD(value);
                 off_t initial, size;
 
@@ -1605,7 +1608,7 @@ int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs, const char *
                 if (lseek(fd, initial, SEEK_SET) < 0)
                         return -errno;
 
-                r = json_variant_new_hex(&hash_json, hash, SHA256_DIGEST_SIZE);
+                r = sd_json_variant_new_hex(&hash_json, hash, SHA256_DIGEST_SIZE);
                 if (r < 0)
                         return r;
 
@@ -1615,7 +1618,7 @@ int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs, const char *
                 TAKE_PTR(filename_dup); /* Ownership transfers to hashmap */
                 TAKE_PTR(hash);
 
-                r = json_variant_set_field(&v, filename, hash_json);
+                r = sd_json_variant_set_field(&v, filename, hash_json);
                 if (r < 0)
                         return r;
 

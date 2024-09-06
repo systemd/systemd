@@ -167,12 +167,14 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
 
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para>
+        <listitem>
+          <para>Do not ellipsize the output.</para>
 
-        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -190,6 +192,7 @@
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />

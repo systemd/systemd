@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+import json
+import sys
+
+
+config = json.load(sys.stdin)
+
+# Add 16 multipath devices, each backed by 4 paths
+# We don't use --qemu-drive for this since they have to share the file.
+for ndisk in range(16):
+    wwn = f"0xDEADDEADBEEF{ndisk:04d}"
+    if ndisk == 0:
+        size = "16M"
+    else:
+        size = "1M"
+
+    for nback in range(4):
+        id = f"drive{ndisk}x{nback}"
+        config["QemuDrives"] += [
+            {
+                "Id": id,
+                "Size": size,
+                "Options": "cache=unsafe",
+                "FileId": str(ndisk),
+            }
+        ]
+        config["QemuArgs"] += ["-device", f"scsi-hd,drive={id},serial=MPIO{ndisk},wwn={wwn}"]
+
+json.dump(config, sys.stdout)

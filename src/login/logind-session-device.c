@@ -95,11 +95,12 @@ static void sd_eviocrevoke(int fd) {
 
         assert(fd >= 0);
 
-        if (ioctl(fd, EVIOCREVOKE, NULL) < 0) {
-
-                if (errno == EINVAL && !warned) {
-                        log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
+        if (!warned && ioctl(fd, EVIOCREVOKE, NULL) < 0) {
+                if (errno == EINVAL) {
+                        log_warning_errno(errno, "Kernel does not support evdev-revocation, continuing without revoking device access: %m");
                         warned = true;
+                } else if (errno != ENODEV) {
+                        log_warning_errno(errno, "Failed to revoke evdev device, continuing without revoking device access: %m");
                 }
         }
 }
@@ -314,11 +315,7 @@ static int session_device_verify(SessionDevice *sd) {
         if (sd->device->seat != sd->session->seat)
                 return -EPERM;
 
-        sd->node = strdup(node);
-        if (!sd->node)
-                return -ENOMEM;
-
-        return 0;
+        return strdup_to(&sd->node, node);
 }
 
 int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **ret) {

@@ -19,6 +19,21 @@ usb:v2982p1967*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ################
+# Contour
+################
+# Shuttle Pro
+usb:v0B33p0011*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Shuttle Pro V2
+usb:v0B33p0030*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# ShuttleXpress
+usb:v0B33p0020*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+################
 # Eks
 ################
 # Otus
@@ -81,6 +96,13 @@ usb:v06F8pB100*
 
 # DJ Console Mk4
 usb:v06F8pB107*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# ICOM
+####################
+# RC-28 Remote Encoder
+usb:v0C26p001E*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 #####################
@@ -160,4 +182,18 @@ usb:v17CCp1130*
 ####################
 # CDJ 2000 NXS 2
 usb:v2B73p0005*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# SunSDR
+####################
+# E-Coder 2 Controller
+usb:v1FC9p0003*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# Xencelabs
+####################
+# Quick Keys
+usb:v28BDp5202*
  ID_AV_PRODUCTION_CONTROLLER=1

@@ -50,4 +50,6 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) _printf_(2,3)
 
 int pty_forward_set_title_prefix(PTYForward *f, const char *prefix);
 
+bool shall_set_terminal_title(void);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

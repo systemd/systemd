@@ -99,7 +99,7 @@ int home_update_quota_auto(UserRecord *h, const char *path) {
         if (statfs(path, &sfs) < 0)
                 return log_error_errno(errno, "Failed to statfs() file system: %m");
 
-        if (is_fs_type(&sfs, XFS_SB_MAGIC) ||
+        if (is_fs_type(&sfs, XFS_SUPER_MAGIC) ||
             is_fs_type(&sfs, EXT4_SUPER_MAGIC))
                 return home_update_quota_classic(h, path);
 
@@ -107,7 +107,7 @@ int home_update_quota_auto(UserRecord *h, const char *path) {
 
                 r = btrfs_is_subvol(path);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to test if %s is a subvolume: %m", path);
+                        return log_error_errno(r, "Failed to test if %s is a subvolume: %m", path);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Directory %s is not a subvolume, cannot apply quota.", path);
 

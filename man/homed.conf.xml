@@ -25,9 +25,11 @@
     <para><simplelist>
       <member><filename>/etc/systemd/homed.conf</filename></member>
       <member><filename>/run/systemd/homed.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/homed.conf</filename></member>
       <member><filename>/usr/lib/systemd/homed.conf</filename></member>
       <member><filename>/etc/systemd/homed.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/homed.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/homed.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/homed.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

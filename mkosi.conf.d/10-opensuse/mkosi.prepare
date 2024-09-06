@@ -1,0 +1,25 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
+
+DEPS=""
+
+for PACKAGE in "${PACKAGES[@]}"; do
+    # zypper's output is not machine readable so we make do with sed instead.
+    DEPS="$DEPS\n$(
+        zypper info --requires --recommends --suggests "$PACKAGE" |
+            sed '/Requires/,$!d' | # Remove everything before Requires line
+            sed --quiet 's/^    //p' # All indented lines have dependencies
+    )"
+done
+
+echo -e "$DEPS" |
+    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp qemu |
+    sort --unique |
+    xargs --delimiter '\n' --no-run-if-empty mkosi-install

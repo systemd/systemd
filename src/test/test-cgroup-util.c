@@ -23,7 +23,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
         r = cg_path_decode_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_STREQ(unit, result);
 }
 
 TEST(path_decode_unit) {
@@ -45,7 +45,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         r = cg_path_get_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_STREQ(unit, result);
 }
 
 TEST(path_get_unit) {
@@ -69,7 +69,7 @@ static void check_p_g_u_p(const char *path, int code, const char *result) {
         r = cg_path_get_unit_path(path, &unit_path);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit_path, result));
+        ASSERT_STREQ(unit_path, result);
 }
 
 TEST(path_get_unit_path) {
@@ -96,7 +96,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         r = cg_path_get_user_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_STREQ(unit, result);
 }
 
 TEST(path_get_user_unit) {
@@ -119,7 +119,7 @@ static void check_p_g_s(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_session(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_session) {
@@ -146,7 +146,7 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_slice) {
@@ -163,7 +163,7 @@ static void check_p_g_u_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_user_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_user_slice) {
@@ -194,7 +194,7 @@ TEST(proc) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        assert_se(proc_dir_open(&d) >= 0);
+        ASSERT_OK(proc_dir_open(&d));
 
         for (;;) {
                 _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *slice = NULL;
@@ -238,10 +238,10 @@ static void test_escape_one(const char *s, const char *expected) {
         assert_se(s);
         assert_se(expected);
 
-        assert_se(cg_escape(s, &b) >= 0);
-        assert_se(streq(b, expected));
+        ASSERT_OK(cg_escape(s, &b));
+        ASSERT_STREQ(b, expected);
 
-        assert_se(streq(cg_unescape(b), s));
+        ASSERT_STREQ(cg_unescape(b), s);
 
         assert_se(filename_is_valid(b));
         assert_se(!cg_needs_escape(s) || b[0] == '_');
@@ -284,7 +284,7 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         log_info("actual: %s / %d", strnull(ret), r);
         log_info("expect: %s / %d", strnull(path), error);
         assert_se(r == error);
-        assert_se(streq_ptr(ret, path));
+        ASSERT_STREQ(ret, path);
 }
 
 TEST(slice_to_path) {
@@ -315,8 +315,8 @@ TEST(slice_to_path) {
 static void test_shift_path_one(const char *raw, const char *root, const char *shifted) {
         const char *s = NULL;
 
-        assert_se(cg_shift_path(raw, root, &s) >= 0);
-        assert_se(streq(s, shifted));
+        ASSERT_OK(cg_shift_path(raw, root, &s));
+        ASSERT_STREQ(s, shifted);
 }
 
 TEST(shift_path) {
@@ -328,12 +328,13 @@ TEST(shift_path) {
 
 TEST(mask_supported, .sd_booted = true) {
         CGroupMask m;
-        CGroupController c;
 
-        assert_se(cg_mask_supported(&m) >= 0);
+        ASSERT_OK(cg_mask_supported(&m));
 
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                printf("'%s' is supported: %s\n", cgroup_controller_to_string(c), yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
+        for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
+                printf("'%s' is supported: %s\n",
+                       cgroup_controller_to_string(c),
+                       yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
 TEST(is_cgroup_fs, .sd_booted = true) {
@@ -392,7 +393,7 @@ TEST(cg_tests) {
 TEST(cg_get_keyed_attribute) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
-        int i, r;
+        int r;
 
         r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT) || ERRNO_IS_PRIVILEGE(r)) {
@@ -401,7 +402,7 @@ TEST(cg_get_keyed_attribute) {
         }
 
         assert_se(r == -ENOENT);
-        assert_se(val == NULL);
+        ASSERT_NULL(val);
 
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
                 log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
@@ -410,7 +411,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == 0);
-        assert_se(val == NULL);
+        ASSERT_NULL(val);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         val = mfree(val);
@@ -430,7 +431,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
-        for (i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
@@ -440,7 +441,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
-        for (i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
@@ -448,7 +449,7 @@ TEST(cg_get_keyed_attribute) {
         log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
                  vals3a[0], vals3a[1], vals3a[2]);
 
-        for (i = 0; i < 3; i++) {
+        for (size_t i = 0; i < 3; i++) {
                 free(vals3[i]);
                 free(vals3a[i]);
         }

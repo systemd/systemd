@@ -12,15 +12,17 @@ option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'], deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : '''sbin is not a symlink to bin''')
+       description : 'sbin is not a symlink to bin')
 option('rootlibdir', type : 'string', deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('rootprefix', type : 'string', deprecated: true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
+option('link-executor-shared', type : 'boolean',
+       description : 'link systemd-executor to libsystemd-shared.so and libsystemd-core.so')
 option('link-systemctl-shared', type: 'boolean',
        description : 'link systemctl against libsystemd-shared.so')
 option('link-networkd-shared', type: 'boolean',
@@ -38,7 +40,7 @@ option('first-boot-full-preset', type: 'boolean', value: false,
 
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
-       description : '''install a static library for libsystemd''')
+       description : 'install a static library for libsystemd')
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
@@ -56,7 +58,7 @@ option('initrd', type : 'boolean',
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
 option('nscd', type : 'boolean',
-       description : 'build support for flushing of the nscd caches')
+       description : 'This option is deprecated and will be removed in a future release')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -124,6 +126,8 @@ option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
 option('sysext', type : 'boolean',
        description : 'install the systemd-sysext stack')
+option('mountfsd', type : 'boolean',
+       description : 'install the systemd-mountfsd stack')
 option('userdb', type : 'boolean',
        description : 'install the systemd-userdbd stack')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -140,6 +144,8 @@ option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'support for "journal over the network"')
 option('create-log-dirs', type : 'boolean',
        description : 'create /var/log/journal{,/remote}')
+option('nsresourced', type : 'boolean',
+       description : 'install the systemd-nsresourced stack')
 option('nss-myhostname', type : 'boolean',
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -215,6 +221,8 @@ option('sshconfdir', type : 'string',
        description : 'directory for SSH client configuration ["no" disables]')
 option('sshdconfdir', type : 'string',
        description : 'directory for SSH server configuration ["no" disables]')
+option('sshdprivsepdir', type : 'string',
+       description : 'directory for SSH privilege separation ["no" disables]', value : '/run/sshd')
 option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
 option('docdir', type : 'string',
@@ -228,7 +236,7 @@ option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], deprecated : true,
-       description : '''This option is deprecated and will be removed in a future release''')
+       description : 'This option is deprecated and will be removed in a future release')
 option('extra-net-naming-schemes', type : 'string',
        description : 'comma-separated list of extra net.naming_scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
@@ -492,6 +500,8 @@ option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
+option('integration-tests', type : 'boolean', value : false,
+       description : 'run the integration tests')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
@@ -517,6 +527,13 @@ option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 
 option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
-    description: 'compiler used to build BPF programs')
+       description : 'compiler used to build BPF programs')
 option('bpf-framework', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-    description: 'build BPF programs from source code in restricted C')
+       description : 'build BPF programs from source code in restricted C')
+option('vmlinux-h', type : 'combo', choices : ['auto', 'provided', 'generated', 'disabled'],
+       description : 'which vmlinux.h to use')
+option('vmlinux-h-path', type : 'string', value : '',
+       description : 'path to vmlinux.h to use')
+
+option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
+       description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')

@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Boot Control (Varlink)
+Description=Boot Entries Service Socket
 Documentation=man:bootctl(1)
 DefaultDependencies=no
 After=local-fs.target

@@ -26,26 +26,26 @@ static void test_unit_escape_setting_one(
         assert_se(t = unit_escape_setting(s, 0, &a));
         assert_se(a_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
-        assert_se(a == NULL);
+        ASSERT_NULL(a);
         assert_se(t == s);
 
         assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_EXEC_SYNTAX_ENV, &b));
         assert_se(b_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, b_esc);
         assert_se(b == NULL || streq(b, t));
-        assert_se(streq(t, expected_exec_env));
+        ASSERT_STREQ(t, expected_exec_env);
 
         assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_EXEC_SYNTAX, &c));
         assert_se(c_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, c_esc);
         assert_se(c == NULL || streq(c, t));
-        assert_se(streq(t, expected_exec));
+        ASSERT_STREQ(t, expected_exec);
 
         assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_C, &d));
         assert_se(d_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, d_esc);
         assert_se(d == NULL || streq(d, t));
-        assert_se(streq(t, expected_c));
+        ASSERT_STREQ(t, expected_c);
 }
 
 TEST(unit_escape_setting) {
@@ -81,22 +81,22 @@ static void test_unit_concat_strv_one(
         assert_se(a = unit_concat_strv(s, 0));
         assert_se(a_esc = cescape(a));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
-        assert_se(streq(a, expected_none));
+        ASSERT_STREQ(a, expected_none);
 
         assert_se(b = unit_concat_strv(s, UNIT_ESCAPE_EXEC_SYNTAX_ENV));
         assert_se(b_esc = cescape(b));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, b_esc);
-        assert_se(streq(b, expected_exec_env));
+        ASSERT_STREQ(b, expected_exec_env);
 
         assert_se(c = unit_concat_strv(s, UNIT_ESCAPE_EXEC_SYNTAX));
         assert_se(c_esc = cescape(c));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, c_esc);
-        assert_se(streq(c, expected_exec));
+        ASSERT_STREQ(c, expected_exec);
 
         assert_se(d = unit_concat_strv(s, UNIT_ESCAPE_C));
         assert_se(d_esc = cescape(d));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, d_esc);
-        assert_se(streq(d, expected_c));
+        ASSERT_STREQ(d, expected_c);
 }
 
 TEST(unit_concat_strv) {

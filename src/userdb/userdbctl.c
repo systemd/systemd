@@ -36,7 +36,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_chain = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
@@ -86,7 +86,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
+                sd_json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -174,19 +174,19 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+        FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                if (!uid_range_covers(p, i->first, i->last - i->first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
-                               " begin ", uid_range_table[i].name, " users ",
+                               " begin ", i->name, " users ",
                                special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
-                comment = strjoin("First ", uid_range_table[i].name, " user");
+                comment = strjoin("First ", i->name, " user");
                 if (!comment)
                         return log_oom();
 
@@ -195,9 +195,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_UID, uid_range_table[i].first,
+                                TABLE_UID, i->first,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_STRING, comment,
@@ -210,13 +210,13 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 free(name);
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
-                               " end ", uid_range_table[i].name, " users ",
+                               " end ", i->name, " users ",
                                special_glyph(SPECIAL_GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
                 free(comment);
-                comment = strjoin("Last ", uid_range_table[i].name, " user");
+                comment = strjoin("Last ", i->name, " user");
                 if (!comment)
                         return log_oom();
 
@@ -225,9 +225,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_UID, uid_range_table[i].last,
+                                TABLE_UID, i->last,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_STRING, comment,
@@ -310,9 +310,10 @@ static int table_add_uid_map(
         assert(table);
         assert(add_unavailable);
 
-        for (size_t i = 0; p && i < p->n_entries; i++) {
-                UIDRangeEntry *x = p->entries + i;
+        if (!p)
+                return 0;
 
+        FOREACH_ARRAY(x, p->entries, p->n_entries) {
                 if (focus < x->start) {
                         r = add_unavailable(table, focus, x->start-1);
                         if (r < 0)
@@ -428,7 +429,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
 
-                r = uid_range_load_userns(&uid_range, "/proc/self/uid_map");
+                r = uid_range_load_userns(/* path = */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
@@ -485,7 +486,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
+                sd_json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -531,19 +532,19 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+        FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last))
+                if (!uid_range_covers(p, i->first, i->last - i->first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
-                               " begin ", uid_range_table[i].name, " groups ",
+                               " begin ", i->name, " groups ",
                                special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
-                comment = strjoin("First ", uid_range_table[i].name, " group");
+                comment = strjoin("First ", i->name, " group");
                 if (!comment)
                         return log_oom();
 
@@ -552,9 +553,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_GID, uid_range_table[i].first,
+                                TABLE_GID, i->first,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
@@ -564,13 +565,13 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 free(name);
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
-                               " end ", uid_range_table[i].name, " groups ",
+                               " end ", i->name, " groups ",
                                special_glyph(SPECIAL_GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
                 free(comment);
-                comment = strjoin("Last ", uid_range_table[i].name, " group");
+                comment = strjoin("Last ", i->name, " group");
                 if (!comment)
                         return log_oom();
 
@@ -579,9 +580,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_GID, uid_range_table[i].last,
+                                TABLE_GID, i->last,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
@@ -731,7 +732,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
 
-                r = uid_range_load_userns(&gid_range, "/proc/self/gid_map");
+                r = uid_range_load_userns(/* path = */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
@@ -779,15 +780,16 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 break;
 
         case OUTPUT_JSON: {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = json_build(&v, JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("user", JSON_BUILD_STRING(user)),
-                                               JSON_BUILD_PAIR("group", JSON_BUILD_STRING(group))));
+                r = sd_json_buildo(
+                                &v,
+                                SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
+                                SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
-                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
                 break;
         }
 
@@ -1199,7 +1201,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
 
-                        arg_json_format_flags = arg_output == OUTPUT_JSON ? JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO : JSON_FORMAT_OFF;
+                        arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
                         break;
 
                 case ARG_JSON:
@@ -1207,11 +1209,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
-                        arg_output = FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
+                        arg_output = FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO;
                         arg_output = OUTPUT_JSON;
                         break;
 

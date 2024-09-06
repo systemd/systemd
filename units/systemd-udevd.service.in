@@ -13,6 +13,7 @@ Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
 After=systemd-sysusers.service systemd-hwdb-update.service
 Before=sysinit.target
+Wants=systemd-udev-load-credentials.service
 ConditionPathIsReadWrite=/sys
 
 [Service]

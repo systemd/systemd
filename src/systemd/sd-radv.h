@@ -26,7 +26,8 @@
 
 #include "_sd-common.h"
 #include "sd-event.h"
-#include "sd-ndisc.h"
+#include "sd-ndisc-protocol.h"
+#include "sd-ndisc-router-solicit.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -47,18 +48,21 @@ sd_event *sd_radv_get_event(sd_radv *ra);
 int sd_radv_start(sd_radv *ra);
 int sd_radv_stop(sd_radv *ra);
 int sd_radv_is_running(sd_radv *ra);
+int sd_radv_send(sd_radv *ra);
 
 int sd_radv_set_ifindex(sd_radv *ra, int interface_index);
 int sd_radv_set_ifname(sd_radv *ra, const char *interface_name);
 int sd_radv_get_ifname(sd_radv *ra, const char **ret);
+int sd_radv_set_link_local_address(sd_radv *ra, const struct in6_addr *addr);
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);
 int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu);
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit);
+int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec);
 int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec);
 int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec);
-int sd_radv_set_managed_information(sd_radv *ra, int managed);
-int sd_radv_set_other_information(sd_radv *ra, int other);
-int sd_radv_set_preference(sd_radv *ra, unsigned preference);
+int sd_radv_set_managed_information(sd_radv *ra, int b);
+int sd_radv_set_other_information(sd_radv *ra, int b);
+int sd_radv_set_preference(sd_radv *ra, uint8_t preference);
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p);
 int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p);

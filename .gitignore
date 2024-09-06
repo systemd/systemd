@@ -38,3 +38,4 @@ mkosi.local.conf
 /tags
 .dir-locals-2.el
 .vscode/
+/pkg/

@@ -24,14 +24,14 @@ TEST(glob_first) {
 
         r = glob_first("/tmp/test-glob_first*", &first);
         assert_se(r == 1);
-        assert_se(streq(name, first));
+        ASSERT_STREQ(name, first);
         first = mfree(first);
 
         r = unlink(name);
         assert_se(r == 0);
         r = glob_first("/tmp/test-glob_first*", &first);
         assert_se(r == 0);
-        assert_se(first == NULL);
+        ASSERT_NULL(first);
 }
 
 TEST(glob_exists) {
@@ -109,8 +109,8 @@ TEST(safe_glob) {
         r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
         assert_se(r == 0);
         assert_se(g.gl_pathc == 1);
-        assert_se(streq(g.gl_pathv[0], fname));
-        assert_se(g.gl_pathv[1] == NULL);
+        ASSERT_STREQ(g.gl_pathv[0], fname);
+        ASSERT_NULL(g.gl_pathv[1]);
 
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
@@ -119,7 +119,7 @@ static void test_glob_non_glob_prefix_one(const char *path, const char *expected
         _cleanup_free_ char *t;
 
         assert_se(glob_non_glob_prefix(path, &t) == 0);
-        assert_se(streq(t, expected));
+        ASSERT_STREQ(t, expected);
 }
 
 TEST(glob_non_glob) {

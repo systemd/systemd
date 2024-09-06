@@ -152,6 +152,14 @@ void bus_close_inotify_fd(sd_bus *b) {
         b->n_inotify_watches = 0;
 }
 
+static void bus_close_fds(sd_bus *b) {
+        assert(b);
+
+        bus_close_io_fds(b);
+        bus_close_inotify_fd(b);
+        b->pidfd = safe_close(b->pidfd);
+}
+
 static void bus_reset_queues(sd_bus *b) {
         assert(b);
 
@@ -192,8 +200,7 @@ static sd_bus* bus_free(sd_bus *b) {
         if (b->default_bus_ptr)
                 *b->default_bus_ptr = NULL;
 
-        bus_close_io_fds(b);
-        bus_close_inotify_fd(b);
+        bus_close_fds(b);
 
         free(b->label);
         free(b->groups);
@@ -259,6 +266,8 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .ucred = UCRED_INVALID,
                 .pidfd = -EBADF,
                 .runtime_scope = _RUNTIME_SCOPE_INVALID,
+                .connect_as_uid = UID_INVALID,
+                .connect_as_gid = GID_INVALID,
         };
 
         /* We guarantee that wqueue always has space for at least one entry */
@@ -716,7 +725,7 @@ static void skip_address_key(const char **p) {
 }
 
 static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *path = NULL, *abstract = NULL;
+        _cleanup_free_ char *path = NULL, *abstract = NULL, *uids = NULL, *gids = NULL;
         size_t l;
         int r;
 
@@ -739,6 +748,18 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                         continue;
 
                 r = parse_address_key(p, "abstract", &abstract);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "uid", &uids);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "gid", &gids);
                 if (r < 0)
                         return r;
                 else if (r > 0)
@@ -778,6 +799,17 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 
                 memcpy(b->sockaddr.un.sun_path+1, abstract, l);
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
+        }
+
+        if (uids) {
+                r = parse_uid(uids, &b->connect_as_uid);
+                if (r < 0)
+                        return r;
+        }
+        if (gids) {
+                r = parse_gid(gids, &b->connect_as_gid);
+                if (r < 0)
+                        return r;
         }
 
         b->is_local = true;
@@ -1101,8 +1133,7 @@ static int bus_start_address(sd_bus *b) {
         assert(b);
 
         for (;;) {
-                bus_close_io_fds(b);
-                bus_close_inotify_fd(b);
+                bus_close_fds(b);
 
                 bus_kill_exec(b);
 
@@ -1777,8 +1808,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
          * the bus object and the bus may be freed */
         bus_reset_queues(bus);
 
-        bus_close_io_fds(bus);
-        bus_close_inotify_fd(bus);
+        bus_close_fds(bus);
 }
 
 _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
@@ -3643,7 +3673,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        /* Note that this is called both on input_fd, output_fd as well as inotify_fd events */
+        /* Note that this is called both on input_fd, output_fd, as well as inotify_fd events */
 
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
@@ -4440,4 +4470,22 @@ _public_ int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m) {
 
         bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(m, bus);
         return 0;
+}
+
+_public_ int sd_bus_pending_method_calls(sd_bus *bus) {
+
+        /* Returns the number of currently pending asynchronous method calls. This is graceful, i.e. an
+         * unallocated (i.e. NULL) bus connection has no method calls pending. */
+
+        if (!bus)
+                return 0;
+
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return 0;
+
+        size_t n = ordered_hashmap_size(bus->reply_callbacks);
+
+        return n > INT_MAX ? INT_MAX : (int) n; /* paranoid overflow check */
 }

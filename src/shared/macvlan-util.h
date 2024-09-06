@@ -13,5 +13,5 @@ typedef enum MacVlanMode {
         _NETDEV_MACVLAN_MODE_INVALID = -EINVAL,
 } MacVlanMode;
 
-const char *macvlan_mode_to_string(MacVlanMode d) _const_;
+const char* macvlan_mode_to_string(MacVlanMode d) _const_;
 MacVlanMode macvlan_mode_from_string(const char *d) _pure_;

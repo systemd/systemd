@@ -16,6 +16,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "battery-capacity.h"
@@ -36,7 +37,6 @@
 #include "hibernate-util.h"
 #include "id128-util.h"
 #include "io-util.h"
-#include "json.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
@@ -57,7 +57,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *formatted = NULL, *id = NULL, *image_id = NULL,
                        *version_id = NULL, *image_version = NULL;
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -98,18 +98,19 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         if (r < 0)
                 log_full_errno(log_level_ignore, r, "Failed to parse os-release, ignoring: %m");
 
-        r = json_build(&v, JSON_BUILD_OBJECT(
-                               JSON_BUILD_PAIR_UUID("uuid", uuid),
-                               JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
-                               JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", JSON_BUILD_STRING(uts.release)),
-                               JSON_BUILD_PAIR_CONDITION(id, "osReleaseId", JSON_BUILD_STRING(id)),
-                               JSON_BUILD_PAIR_CONDITION(image_id, "osReleaseImageId", JSON_BUILD_STRING(image_id)),
-                               JSON_BUILD_PAIR_CONDITION(version_id, "osReleaseVersionId", JSON_BUILD_STRING(version_id)),
-                               JSON_BUILD_PAIR_CONDITION(image_version, "osReleaseImageVersion", JSON_BUILD_STRING(image_version))));
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_UUID("uuid", uuid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("offset", hibernation_device->offset),
+                        SD_JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", SD_JSON_BUILD_STRING(uts.release)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!id, "osReleaseId", SD_JSON_BUILD_STRING(id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!image_id, "osReleaseImageId", SD_JSON_BUILD_STRING(image_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!version_id, "osReleaseVersionId", SD_JSON_BUILD_STRING(version_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!image_version, "osReleaseImageVersion", SD_JSON_BUILD_STRING(image_version)));
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to build JSON object: %m");
 
-        r = json_variant_format(v, 0, &formatted);
+        r = sd_json_variant_format(v, 0, &formatted);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to format JSON object: %m");
 
@@ -151,22 +152,22 @@ static int write_state(int fd, char * const *states) {
         return r;
 }
 
-static int write_mode(char * const *modes) {
-        int r = 0;
+static int write_mode(const char *path, char * const *modes) {
+        int r, ret = 0;
+
+        assert(path);
 
         STRV_FOREACH(mode, modes) {
-                int k;
-
-                k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (k >= 0) {
-                        log_debug("Using sleep disk mode '%s'.", *mode);
+                r = write_string_file(path, *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r >= 0) {
+                        log_debug("Using sleep mode '%s' for %s.", *mode, path);
                         return 0;
                 }
 
-                RET_GATHER(r, log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode));
+                RET_GATHER(ret, log_debug_errno(r, "Failed to write '%s' to %s: %m", *mode, path));
         }
 
-        return r;
+        return ret;
 }
 
 static int lock_all_homes(void) {
@@ -237,8 +238,14 @@ static int execute(
         if (state_fd < 0)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
+        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+                r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write mode to /sys/power/mem_sleep: %m");
+        }
+
         /* Configure hibernation settings if we are supposed to hibernate */
-        if (sleep_operation_is_hibernation(operation)) {
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation)) {
                 _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
@@ -259,7 +266,7 @@ static int execute(
                                 goto fail;
                 }
 
-                r = write_mode(sleep_config->modes[operation]);
+                r = write_mode("/sys/power/disk", sleep_config->modes[operation]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
                         goto fail;
@@ -301,8 +308,8 @@ static int execute(
                 return 0;
 
 fail:
-        if (sleep_operation_is_hibernation(operation))
-                clear_efi_hibernate_location_and_warn();
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation))
+                (void) clear_efi_hibernate_location_and_warn();
 
         return r;
 }
@@ -383,7 +390,15 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                         }
                 }
 
-                /* Do not suspend more than HibernateDelaySec= */
+                /* Do not suspend more than HibernateDelaySec= unless HibernateOnACPower=no and currently on AC power */
+                if (!sleep_config->hibernate_on_ac_power) {
+                        /* Do not allow "decay" to suspend if the system has no battery. */
+                        if (hashmap_isempty(last_capacity))
+                                log_once(LOG_WARNING, "HibernateOnACPower=no was ignored because the system does not have a battery.");
+                        else if (on_ac_power() > 0)
+                                hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
+                }
+
                 usec_t before_timestamp = now(CLOCK_BOOTTIME);
                 suspend_interval = MIN(suspend_interval, usec_sub_unsigned(hibernate_timestamp, before_timestamp));
                 if (suspend_interval <= 0)
@@ -574,7 +589,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer user_slice_freezer = {};
+        _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
@@ -596,18 +611,17 @@ static int run(int argc, char *argv[]) {
         /* Freeze the user sessions */
         r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring.");
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring: %m");
         if (r != 0) {
-                r = unit_freezer_new_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
+                r = unit_freezer_new(SPECIAL_USER_SLICE, &user_slice_freezer);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to freeze user sessions, ignoring: %m");
-                else
-                        log_info("Froze user sessions");
+                        return r;
+
+                (void) unit_freezer_freeze(user_slice_freezer);
         } else
-                log_notice("User sessions remain unfrozen on explicit request "
-                           "($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS is set to false). This is not recommended, "
-                           "and might result in unexpected behavior, particularly in suspend-then-hibernate "
-                           "operations or setups with encrypted home directories.");
+                log_notice("User sessions remain unfrozen on explicit request ($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=0).\n"
+                           "This is not recommended, and might result in unexpected behavior, particularly\n"
+                           "in suspend-then-hibernate operations or setups with encrypted home directories.");
 
         switch (arg_operation) {
 
@@ -629,11 +643,17 @@ static int run(int argc, char *argv[]) {
 
                 break;
 
-        default:
+        case SLEEP_SUSPEND:
+        case SLEEP_HIBERNATE:
                 r = execute(sleep_config, arg_operation, NULL);
                 break;
 
+        default:
+                assert_not_reached();
         }
+
+        if (user_slice_freezer)
+                RET_GATHER(r, unit_freezer_thaw(user_slice_freezer));
 
         return r;
 }

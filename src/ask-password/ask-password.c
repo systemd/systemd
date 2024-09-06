@@ -226,18 +226,13 @@ static int run(int argc, char *argv[]) {
         usec_t timeout;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        if (arg_timeout > 0)
-                timeout = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
-        else
-                timeout = 0;
+        timeout = arg_timeout > 0 ? usec_add(now(CLOCK_MONOTONIC), arg_timeout) : 0;
 
         AskPasswordRequest req = {
                 .message = arg_message,

@@ -61,6 +61,11 @@
     <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
     area, which is not available in other encryption formats.</para>
 
+    <para><command>systemd-cryptsetup</command> operates on the device backing <filename>/var/</filename> if
+    no device is specified explicitly, and no wipe operation is requested. (Note that in the typical case
+    where <filename>/var/</filename> is on the same file system as the root file system, this hence enrolls a
+    key into the backing device of the root file system.)</para>
+
     <refsect2>
       <title>TPM2 PCRs and policies</title>
 
@@ -228,7 +233,7 @@
     token, or a TPM2 key is always enrolled.</para>
 
     <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
-    tokens are enrolled, <command>systemd-cryptseup</command> will perform pre-flight requests to attempt to
+    tokens are enrolled, <command>systemd-cryptsetup</command> will perform pre-flight requests to attempt to
     identify which of the enrolled tokens are currently plugged in. However, this is not possible for FIDO2
     tokens with user verification (UV, usually via biometrics), in which case it will fall back to attempting
     each enrolled token one by one. This will result in multiple prompts for PIN and user verification. This
@@ -287,7 +292,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--unlock-key-file=</option><replaceable>PATH</replaceable></term>
+        <term><option>--unlock-key-file=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
         Expects the PATH to the file containing your key to unlock the volume. Currently there is nothing like
@@ -298,20 +303,22 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--unlock-fido2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--unlock-fido2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use a FIDO2 device instead of a password/passphrase read from stdin to unlock the
         volume. Expects a <filename>hidraw</filename> device referring to the FIDO2 device (e.g.
         <filename>/dev/hidraw1</filename>). Alternatively the special value <literal>auto</literal> may be
         specified, in order to automatically determine the device node of a currently plugged in security
         token (of which there must be exactly one). This automatic discovery is unsupported if
-        <option>--fido2-device=</option> option is also specified.</para>
+        <option>--fido2-device=</option> option is also specified. Note that currently FIDO2 devices
+        enrolled without an accompanying LUKS2 token (i.e. <option>--fido2-parameters-in-header=no</option>)
+        cannot be used for unlocking.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--unlock-tpm2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--unlock-tpm2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use a TPM2 device instead of a password/passhprase read from stdin to unlock the
         volume. Expects a device node path referring to the TPM2 chip (e.g. <filename>/dev/tpmrm0</filename>).
@@ -323,10 +330,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
+        <term><option>--pkcs11-token-uri=<replaceable>URI</replaceable></option></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11 URI
-        that allows to find an X.509 certificate or a public key on the token. The URI must also be suitable
+        that allows finding an X.509 certificate or a public key on the token. The URI must also be suitable
         to find a related private key after changing the type of object in it. Alternatively the special
         value <literal>auto</literal> may be specified, in order to automatically determine the suitable URI
         if a single security token containing a single key pair is plugged in. The special value
@@ -356,7 +363,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-credential-algorithm=</option><replaceable>STRING</replaceable></term>
+        <term><option>--fido2-credential-algorithm=<replaceable>STRING</replaceable></option></term>
         <listitem><para>Specify COSE algorithm used in credential generation. The default value is
         <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
         and <literal>eddsa</literal>.</para>
@@ -365,13 +372,13 @@
         denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
         EDDSA over Curve25519 with SHA-512.</para>
 
-        <para>Note that your authenticator may not support some algorithms.</para>
+        <para>Note that your authenticator may choose not to support some algorithms.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--fido2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Enroll a FIDO2 security token that implements the <literal>hmac-secret</literal>
         extension (e.g. a YubiKey). Expects a <filename>hidraw</filename> device referring to the FIDO2
@@ -397,7 +404,31 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--fido2-salt-file=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, specifies the path to a file or an
+        <constant>AF_UNIX</constant> socket from which we should read the salt value to be used in the
+        HMAC operation performed by the FIDO2 security token. If this option is not specified, the salt
+        will be randomly generated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-parameters-in-header=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to store FIDO2
+        parameters in a token in the LUKS2 superblock. Defaults to <literal>yes</literal>.
+        If set to <literal>no</literal>, the <option>fido2-cid=</option> option has to be specified manually
+        in the respective <filename>/etc/crypttab</filename> line along with a key file. See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
         a PIN when unlocking the volume (the FIDO2 <literal>clientPin</literal> feature). Defaults to
@@ -409,7 +440,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--fido2-with-user-presence=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
         verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the volume.
@@ -421,7 +452,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--fido2-with-user-verification=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
         when unlocking the volume (the FIDO2 <literal>uv</literal> feature). Defaults to
@@ -432,7 +463,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Enroll a TPM2 security chip. Expects a device node path referring to the TPM2 chip
         (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal> may
@@ -457,7 +488,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device-key=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-device-key=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Enroll a TPM2 security chip using its public key. Expects a path referring to the
         TPM2 public key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device=</option>, as
@@ -485,7 +516,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-seal-key-handle=</option><replaceable>HANDLE</replaceable></term>
+        <term><option>--tpm2-seal-key-handle=<replaceable>HANDLE</replaceable></option></term>
 
         <listitem><para>Configures which parent key to use for sealing, using the TPM handle (index) of the
         key. This is used to "seal" (encrypt) a secret and must be used later to "unseal" (decrypt) the
@@ -507,7 +538,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
+        <term><option>--tpm2-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
         enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR entries, where each
@@ -532,7 +563,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-with-pin=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--tpm2-with-pin=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN
         when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. Defaults
@@ -553,9 +584,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-public-key=</option><replaceable>PATH</replaceable></term>
-        <term><option>--tpm2-public-key-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
-        <term><option>--tpm2-signature=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-public-key-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
+        <term><option>--tpm2-signature=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. The
         <option>--tpm2-public-key=</option> option accepts a path to a PEM encoded RSA public key, to bind
@@ -593,7 +624,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrlock=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. Expects a path to a pcrlock
         policy file as generated by the
@@ -607,7 +638,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--wipe-slot=</option><replaceable>SLOT<optional>,SLOT...</optional></replaceable></term>
+        <term><option>--wipe-slot=<replaceable>SLOT<optional>,SLOT...</optional></replaceable></option></term>
 
         <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
         indexes, or the special strings <literal>all</literal> (for wiping all key slots),
@@ -642,6 +673,16 @@
 
         <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present that contain a LUKS superblock, and shows their device
+        node paths along with any of their symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

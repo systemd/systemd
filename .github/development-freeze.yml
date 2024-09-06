@@ -4,6 +4,8 @@
 policy:
   # tags like v253-rc1, v253-rc2, etc.
   - tags: ['^\S*-rc\d+$']
+    labels:
+      allow: ['needs-stable-backport', 'dependencies', 'l10n 🌍']
     feedback:
       frozen-state: |
         > [!IMPORTANT]

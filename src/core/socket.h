@@ -129,6 +129,7 @@ struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_fds_to_exec;
         bool pass_sec;
         bool pass_pktinfo;
         SocketTimestamping timestamping;
@@ -160,8 +161,7 @@ struct Socket {
         char *fdname;
 
         RateLimit trigger_limit;
-        usec_t poll_limit_interval;
-        unsigned poll_limit_burst;
+        RateLimit poll_limit;
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
@@ -171,7 +171,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds);
+int socket_collect_fds(Socket *s, int **ret);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
@@ -185,7 +185,7 @@ int socket_port_to_address(const SocketPort *s, char **ret);
 
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret);
 
-char *socket_fdname(Socket *s);
+const char* socket_fdname(Socket *s);
 
 extern const UnitVTable socket_vtable;
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/if_arp.h>
@@ -448,8 +449,7 @@ int netdev_generate_hw_addr(
                         memcpy(a.bytes, &result, a.length);
 
                         if (ether_addr_is_null(&a.ether) || ether_addr_is_broadcast(&a.ether)) {
-                                log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                         "Failed to generate persistent MAC address, ignoring: %m");
+                                log_netdev_warning(netdev, "Failed to generate persistent MAC address, ignoring.");
                                 a = HW_ADDR_NULL;
                                 goto finalize;
                         }
@@ -457,8 +457,7 @@ int netdev_generate_hw_addr(
                         break;
                 case ARPHRD_INFINIBAND:
                         if (result == 0) {
-                                log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                                         "Failed to generate persistent MAC address: %m");
+                                log_netdev_warning(netdev, "Failed to generate persistent MAC address.");
                                 goto finalize;
                         }
 

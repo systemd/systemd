@@ -3,7 +3,7 @@
 set -ex
 
 # Silence warning from running_in_chroot_or_offline()
-export SYSTEMD_IGNORE_CHROOT=1
+export SYSTEMD_IN_CHROOT=0
 
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
@@ -534,8 +534,8 @@ test ! -h "$root/etc/systemd/system/link5alias2.service"
 
 "$systemctl" --root="$root" enable '/link5copy.service'
 islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias2.service" '/link5copy.service'
+islink "$root/etc/systemd/system/link5alias.service" '/etc/systemd/system/link5copy.service'
+islink "$root/etc/systemd/system/link5alias2.service" '/etc/systemd/system/link5copy.service'
 
 "$systemctl" --root="$root" disable 'link5copy.service'
 test ! -h "$root/etc/systemd/system/link5copy.service"

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/net_namespace.h>
-#include <net/if.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -396,7 +397,7 @@ int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
         return in_addr_full_new(family, &a, port, ifindex, server_name, ret);
 }
 
-const char *in_addr_full_to_string(struct in_addr_full *a) {
+const char* in_addr_full_to_string(struct in_addr_full *a) {
         assert(a);
 
         if (!a->cached_server_string)

@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
+#include "sd-varlink.h"
 
 #include "dhcp-duid-internal.h"
 #include "firewall-util.h"
@@ -17,7 +18,6 @@
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
-#include "varlink.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -26,10 +26,11 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
-        VarlinkServer *varlink_server;
+        sd_varlink_server *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
+        int persistent_storage_fd;
 
         KeepConfiguration keep_configuration;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
@@ -41,7 +42,7 @@ struct Manager {
         bool manage_foreign_routes;
         bool manage_foreign_rules;
         bool manage_foreign_nexthops;
-        bool persistent_storage_is_ready;
+        bool dhcp_server_persist_leases;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
@@ -63,6 +64,11 @@ struct Manager {
         OrderedSet *address_pools;
         Set *dhcp_pd_subnet_ids;
 
+        UseDomains use_domains; /* default for all protocols */
+        UseDomains dhcp_use_domains;
+        UseDomains dhcp6_use_domains;
+        UseDomains ndisc_use_domains;
+
         DUID dhcp_duid;
         DUID dhcp6_duid;
         DUID duid_product_uuid;
@@ -81,6 +87,11 @@ struct Manager {
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;
         Set *routes;
+
+        /* IPv6 Address Label */
+        Hashmap *address_labels_by_section;
+        unsigned static_address_label_messages;
+        bool static_address_labels_configured;
 
         /* Route table name */
         Hashmap *route_table_numbers_by_name;

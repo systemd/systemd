@@ -6,20 +6,21 @@
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
 # Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023.
 # Whired Planck <fungdaat31@outlook.com>, 2020.
+# hanjinpeng <hanjinpeng127@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2023-11-18 11:17+0000\n"
-"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-06-05 07:44+0000\n"
+"Last-Translator: hanjinpeng <hanjinpeng127@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
-"projects/systemd/master/zh_CN/>\n"
+"projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.2\n"
+"X-Generator: Weblate 5.5.5\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -127,25 +128,10 @@ msgid ""
 msgstr "更改家区域密码需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-# Pay attention to the concept of "seat".
-#
-# To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "更新用户家区域需要认证。"
-
-#: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
 msgstr "创建一个家区域"
 
-#: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr "创建用户家区域需要认证。"
 
@@ -266,40 +252,40 @@ msgstr "用户 %s 的家目录目前已锁定，请先在本地解锁。"
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "用户 %s 有过多不成功的登录尝试，已拒绝登录。"
 
-#: src/home/pam_systemd_home.c:956
+#: src/home/pam_systemd_home.c:964
 msgid "User record is blocked, prohibiting access."
 msgstr "用户记录已阻止，禁止访问。"
 
-#: src/home/pam_systemd_home.c:960
+#: src/home/pam_systemd_home.c:968
 msgid "User record is not valid yet, prohibiting access."
 msgstr "用户记录尚未生效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:972
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "用户记录不再有效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
 msgid "User record not valid, prohibiting access."
 msgstr "用户记录无效，禁止访问。"
 
-#: src/home/pam_systemd_home.c:981
+#: src/home/pam_systemd_home.c:989
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "过多登录请求，请在 %s 后重试。"
 
-#: src/home/pam_systemd_home.c:992
+#: src/home/pam_systemd_home.c:1000
 msgid "Password change required."
 msgstr "必须更改密码。"
 
-#: src/home/pam_systemd_home.c:996
+#: src/home/pam_systemd_home.c:1004
 msgid "Password expired, change required."
 msgstr "密码已过期，必须更改密码。"
 
-#: src/home/pam_systemd_home.c:1002
+#: src/home/pam_systemd_home.c:1010
 msgid "Password is expired, but can't change, refusing login."
 msgstr "密码已经过期，但无法修改，拒绝登录。"
 
-#: src/home/pam_systemd_home.c:1006
+#: src/home/pam_systemd_home.c:1014
 msgid "Password will expire soon, please change."
 msgstr "密码将在不久后过期，请及时修改。"
 
@@ -357,44 +343,41 @@ msgid "Authentication is required to get system description."
 msgstr "获得系统描述需要认证。"
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
 msgstr "导入虚拟机或容器镜像"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr "导入虚拟机或容器镜像需要认证"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "导出虚拟机或容器镜像"
+msgstr "导出一个磁盘映像"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
-msgstr "导出虚拟机或容器镜像需要认证"
+msgid "Authentication is required to export disk image."
+msgstr "导出磁盘镜像需要认证"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "下载虚拟机或容器镜像"
+msgstr "下载磁盘镜像"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
-msgstr "下载虚拟机或容器镜像需要认证"
+msgid "Authentication is required to download a disk image."
+msgstr "下载磁盘镜像需要认证"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "取消磁盘映像的传输"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
-msgstr "更改家区域密码需要认证。"
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr "需要身份验证才能取消正在进行的磁盘映像传输"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -739,7 +722,8 @@ msgid "Set a wall message"
 msgstr "设置 wall 消息"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "设置 wall 消息需要认证"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -809,10 +793,21 @@ msgid ""
 msgstr "管理本地虚拟机和容器需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "管理本地虚拟机和容器"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "管理本地虚拟机和容器需要认证。"
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "管理本地虚拟机和容器的镜像"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -954,6 +949,16 @@ msgstr "重新配置网络接口"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "重新配置网络接口需要认证。"
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "指定systemd-networkd的永久存储是否可用"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr "需要身份验证才能指定systemd-networkd的永久存储是否可用。"
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "检查便携式服务映像"
@@ -988,7 +993,8 @@ msgid "Register a DNS-SD service"
 msgstr "注册 DNS-SD 服务"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "注册 DNS-SD 服务需要认证"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -996,7 +1002,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "取消注册 DNS-SD 服务"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "取消注册 DNS-SD 服务需要认证"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1006,6 +1013,89 @@ msgstr "重置名称解析设置"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr "重置名称解析设置需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "挂起系统需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "设定域需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "设定 NTP 服务器需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "设定域需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "重置 NTP 设置需要认证。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "设置系统时间需要认证。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "设置系统时间需要认证。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "设置系统时区需要认证。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "设置系统时间需要认证。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1079,7 +1169,7 @@ msgid ""
 "'$(unit)'."
 msgstr "删除与 '$(unit)' 关联的文件和目录需要认证。"
 
-#: src/core/dbus-unit.c:743
+#: src/core/dbus-unit.c:741
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "冻结或解冻 '$(unit)' 单元进程需要认证。"

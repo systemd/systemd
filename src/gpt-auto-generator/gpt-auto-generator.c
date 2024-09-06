@@ -162,7 +162,7 @@ static int add_cryptsetup(
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Partition is encrypted, but systemd-gpt-auto-generator was compiled without libcryptsetup support");
+                               "Partition is encrypted, but systemd-gpt-auto-generator was compiled without libcryptsetup support.");
 #endif
 }
 

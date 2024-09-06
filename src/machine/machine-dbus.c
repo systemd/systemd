@@ -123,7 +123,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         Machine *m = ASSERT_PTR(userdata);
         const char *swho;
         int32_t signo;
-        KillWho who;
+        KillWhom whom;
         int r;
 
         assert(message);
@@ -133,10 +133,10 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (isempty(swho))
-                who = KILL_ALL;
+                whom = KILL_ALL;
         else {
-                who = kill_who_from_string(swho);
-                if (who < 0)
+                whom = kill_whom_from_string(swho);
+                if (whom < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
@@ -160,7 +160,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = machine_kill(m, who, signo);
+        r = machine_kill(m, whom, signo);
         if (r < 0)
                 return r;
 
@@ -215,29 +215,21 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_free_ char *us = NULL, *them = NULL;
                 _cleanup_close_ int netns_fd = -EBADF;
-                const char *p;
                 pid_t child;
 
-                r = readlink_malloc("/proc/self/ns/net", &us);
+                r = in_same_namespace(0, m->leader.pid, NAMESPACE_NET);
                 if (r < 0)
                         return r;
-
-                p = procfs_file_alloca(m->leader.pid, "ns/net");
-                r = readlink_malloc(p, &them);
-                if (r < 0)
-                        return r;
-
-                if (streq(us, them))
+                if (r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
 
-                r = namespace_open(m->leader.pid,
-                                   /* ret_pidns_fd = */ NULL,
-                                   /* ret_mntns_fd = */ NULL,
-                                   &netns_fd,
-                                   /* ret_userns_fd = */ NULL,
-                                   /* ret_root_fd = */ NULL);
+                r = pidref_namespace_open(&m->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          /* ret_mntns_fd = */ NULL,
+                                          &netns_fd,
+                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_root_fd = */ NULL);
                 if (r < 0)
                         return r;
 
@@ -290,9 +282,9 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                         iov[0] = IOVEC_MAKE(&family, sizeof(family));
                         iov[1] = IOVEC_MAKE(&in_addr, sizeof(in_addr));
 
-                        n = recvmsg(pair[0], &mh, 0);
+                        n = recvmsg_safe(pair[0], &mh, 0);
                         if (n < 0)
-                                return -errno;
+                                return n;
                         if ((size_t) n < sizeof(family))
                                 break;
 
@@ -347,6 +339,27 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         return sd_bus_send(NULL, reply, NULL);
 }
 
+int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Machine *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        if (!m->ssh_address || !m->ssh_private_key_path)
+                return -ENOENT;
+
+        r = sd_bus_message_append(reply, "ss", m->ssh_address, m->ssh_private_key_path);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 #define EXIT_NOT_FOUND 2
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -371,12 +384,12 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t child;
 
-                r = namespace_open(m->leader.pid,
-                                   &pidns_fd,
-                                   &mntns_fd,
-                                   /* ret_netns_fd = */ NULL,
-                                   /* ret_userns_fd = */ NULL,
-                                   &root_fd);
+                r = pidref_namespace_open(&m->leader,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
                 if (r < 0)
                         return r;
 
@@ -823,6 +836,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         int read_only, make_file_or_directory;
         const char *dest, *src, *propagate_directory;
         Machine *m = ASSERT_PTR(userdata);
+        MountInNamespaceFlags flags = 0;
         uid_t uid;
         int r;
 
@@ -868,14 +882,18 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
+        if (read_only)
+                flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (make_file_or_directory)
+                flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
+
         propagate_directory = strjoina("/run/systemd/nspawn/propagate/", m->name);
         r = bind_mount_in_namespace(
                         &m->leader,
                         propagate_directory,
                         "/run/host/incoming/",
                         src, dest,
-                        read_only,
-                        make_file_or_directory);
+                        flags);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in machine's namespace: %m", src, dest);
 
@@ -1079,12 +1097,12 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 pid_t child;
 
-                r = namespace_open(m->leader.pid,
-                                   /* ret_pidns_fd = */ NULL,
-                                   &mntns_fd,
-                                   /* ret_netns_fd = */ NULL,
-                                   /* ret_userns_fd = */ NULL,
-                                   &root_fd);
+                r = pidref_namespace_open(&m->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
                 if (r < 0)
                         return r;
 
@@ -1210,7 +1228,7 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         return 1;
 }
 
-char *machine_bus_path(Machine *m) {
+char* machine_bus_path(Machine *m) {
         _cleanup_free_ char *e = NULL;
 
         assert(m);
@@ -1261,6 +1279,9 @@ static const sd_bus_vtable machine_vtable[] = {
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkInterfaces", "ai", property_get_netif, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("VSockCID", "u", NULL, offsetof(Machine, vsock_cid), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SSHAddress", "s", NULL, offsetof(Machine, ssh_address), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SSHPrivateKeyPath", "s", NULL, offsetof(Machine, ssh_private_key_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
 
         SD_BUS_METHOD("Terminate",
@@ -1269,7 +1290,7 @@ static const sd_bus_vtable machine_vtable[] = {
                       bus_machine_method_terminate,
                       SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
-                                SD_BUS_ARGS("s", who, "i", signal),
+                                SD_BUS_ARGS("s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1277,6 +1298,11 @@ static const sd_bus_vtable machine_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(iay)", addresses),
                                 bus_machine_method_get_addresses,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetSSHInfo",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", ssh_address, "s", ssh_private_key_path),
+                                bus_machine_method_get_ssh_info,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetOSRelease",
                                 SD_BUS_NO_ARGS,

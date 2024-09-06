@@ -28,6 +28,7 @@
     <para><simplelist>
       <member><filename>/etc/tmpfiles.d/*.conf</filename></member>
       <member><filename>/run/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/tmpfiles.d/*.conf</filename></member>
       <member><filename>/usr/lib/tmpfiles.d/*.conf</filename></member>
     </simplelist></para>
 
@@ -36,6 +37,7 @@
       <member><filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename></member>
       <member><filename>~/.local/share/user-tmpfiles.d/*.conf</filename></member>
       <member><filename index='false'>…</filename></member>
+      <member><filename>/usr/local/share/user-tmpfiles.d/*.conf</filename></member>
       <member><filename>/usr/share/user-tmpfiles.d/*.conf</filename></member>
     </simplelist></para>
 
@@ -304,7 +306,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           argument is omitted, symlinks to files with the same name
           residing in the directory
           <filename>/usr/share/factory/</filename> are created. Note
-          that permissions and ownership on symlinks are ignored.
+          that permissions on symlinks are ignored.
           </para></listitem>
         </varlistentry>
 
@@ -538,7 +540,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       Base64 decoding is applied to the credential contents.</para>
 
       <para>Note that for all line types that result in creation of any kind of file node
-      (i.e. <varname>f</varname>/<varname>F</varname>,
+      (i.e. <varname>f</varname>,
       <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
       <varname>p</varname>, <varname>L</varname>, <varname>c</varname>/<varname>b</varname> and <varname>C</varname>)
       leading directories are implicitly created if needed, owned by root with an access mode of 0755. In order to
@@ -586,8 +588,8 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
       used. For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to
       <literal>-</literal>, the file ownership will not be modified. These parameters are ignored for
-      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>L</varname>,
-      <varname>t</varname>, and <varname>a</varname> lines.</para>
+      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>t</varname>,
+      and <varname>a</varname> lines.</para>
 
       <para>This field should generally only reference system users/groups, i.e. users/groups that are
       guaranteed to be resolvable during early boot. If this field references users/groups that only become
@@ -697,7 +699,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
 
       <para>For <varname>L</varname> lines determines the destination path of the symlink. For <varname>c</varname> and
       <varname>b</varname>, determines the major/minor of the device node, with major and minor formatted as integers,
-      separated by <literal>:</literal>, e.g.  <literal>1:3</literal>. For <varname>f</varname>, <varname>F</varname>,
+      separated by <literal>:</literal>, e.g. <literal>1:3</literal>. For <varname>f</varname>
       and <varname>w</varname>, the argument may be used to specify a short string that is written to the file,
       suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
@@ -762,6 +764,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
             <row>
               <entry><literal>%S</literal></entry>
               <entry>System or user state directory</entry>
@@ -868,7 +871,7 @@ e! /var/cache/krb5rcache - - - 0
     <example>
       <title>Provision SSH public key access for root user via Credentials in QEMU</title>
 
-      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo -e "d /root/.ssh 0750 root root -\nf~ /root/.ssh/authorized_keys 0600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
 </programlisting>
 
       <para>By passing this line to QEMU, the public key of the current user will be encoded in base64, added

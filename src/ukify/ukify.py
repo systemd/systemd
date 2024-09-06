@@ -51,7 +51,7 @@ from typing import (Any,
 
 import pefile  # type: ignore
 
-__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
+__version__ = '{{PROJECT_VERSION}} ({{VERSION_TAG}})'
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
@@ -68,7 +68,7 @@ EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
 # Default configuration directories and file name.
 # When the user does not specify one, the directories are searched in this order and the first file found is used.
-DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
+DEFAULT_CONFIG_DIRS = ['/etc/systemd', '/run/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
 DEFAULT_CONFIG_FILE = 'ukify.conf'
 
 class Style:
@@ -303,6 +303,7 @@ class Uname:
 DEFAULT_SECTIONS_TO_SHOW = {
         '.linux'    : 'binary',
         '.initrd'   : 'binary',
+        '.ucode'    : 'binary',
         '.splash'   : 'binary',
         '.dtb'      : 'binary',
         '.cmdline'  : 'text',
@@ -855,6 +856,7 @@ def make_uki(opts):
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
+        ('.ucode',   opts.microcode,  True ),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
@@ -1263,10 +1265,31 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        type = pathlib.Path,
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
         '--linux',
         type = pathlib.Path,
         help = 'vmlinuz file [.linux section]',
         config_key = 'UKI/Linux',
+    ),
+
+    ConfigItem(
+        '--os-release',
+        metavar = 'TEXT|@PATH',
+        help = 'path to os-release file [.osrel section]',
+        config_key = 'UKI/OSRelease',
+    ),
+
+    ConfigItem(
+        '--cmdline',
+        metavar = 'TEXT|@PATH',
+        help = 'kernel command line [.cmdline section]',
+        config_key = 'UKI/Cmdline',
     ),
 
     ConfigItem(
@@ -1280,24 +1303,19 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        ('--config', '-c'),
-        metavar = 'PATH',
+        '--microcode',
+        metavar = 'UCODE',
         type = pathlib.Path,
-        help = 'configuration file',
+        help = 'microcode file [.ucode section]',
+        config_key = 'UKI/Microcode',
     ),
 
     ConfigItem(
-        '--cmdline',
-        metavar = 'TEXT|@PATH',
-        help = 'kernel command line [.cmdline section]',
-        config_key = 'UKI/Cmdline',
-    ),
-
-    ConfigItem(
-        '--os-release',
-        metavar = 'TEXT|@PATH',
-        help = 'path to os-release file [.osrel section]',
-        config_key = 'UKI/OSRelease',
+        '--splash',
+        metavar = 'BMP',
+        type = pathlib.Path,
+        help = 'splash image bitmap file [.splash section]',
+        config_key = 'UKI/Splash',
     ),
 
     ConfigItem(
@@ -1307,13 +1325,23 @@ CONFIG_ITEMS = [
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
     ),
+
     ConfigItem(
-        '--splash',
-        metavar = 'BMP',
-        type = pathlib.Path,
-        help = 'splash image bitmap file [.splash section]',
-        config_key = 'UKI/Splash',
+        '--uname',
+        metavar='VERSION',
+        help='"uname -r" information [.uname section]',
+        config_key = 'UKI/Uname',
     ),
+
+    ConfigItem(
+        '--sbat',
+        metavar = 'TEXT|@PATH',
+        help = 'SBAT policy [.sbat section]',
+        default = [],
+        action = 'append',
+        config_key = 'UKI/SBAT',
+    ),
+
     ConfigItem(
         '--pcrpkey',
         metavar = 'KEY',
@@ -1321,11 +1349,14 @@ CONFIG_ITEMS = [
         help = 'embedded public key to seal secrets to [.pcrpkey section]',
         config_key = 'UKI/PCRPKey',
     ),
+
     ConfigItem(
-        '--uname',
-        metavar='VERSION',
-        help='"uname -r" information [.uname section]',
-        config_key = 'UKI/Uname',
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TEXT|@PATH',
+        action = 'append',
+        default = [],
+        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1341,24 +1372,6 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
-    ),
-
-    ConfigItem(
-        '--sbat',
-        metavar = 'TEXT|@PATH',
-        help = 'SBAT policy [.sbat section]',
-        default = [],
-        action = 'append',
-        config_key = 'UKI/SBAT',
-    ),
-
-    ConfigItem(
-        '--section',
-        dest = 'sections',
-        metavar = 'NAME:TEXT|@PATH',
-        action = 'append',
-        default = [],
-        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1626,7 +1639,7 @@ def finalize_options(opts):
     elif len(opts.positional) == 1 and opts.positional[0] in VERBS:
         opts.verb = opts.positional[0]
     elif opts.linux or opts.initrd:
-        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+        raise ValueError('--linux=/--initrd= options cannot be used with positional arguments')
     else:
         print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
         if opts.positional:
@@ -1636,7 +1649,7 @@ def finalize_options(opts):
         opts.verb = 'build'
 
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
-    # have either the same number of arguments are are not specified at all.
+    # have either the same number of arguments or are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)

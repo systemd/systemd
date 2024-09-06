@@ -1,0 +1,4 @@
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/test.sh

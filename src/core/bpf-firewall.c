@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/bpf_insn.h>
 #include <net/ethernet.h>
-#include <net/if.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
@@ -420,14 +421,13 @@ static int bpf_firewall_prepare_access_maps(
 
         _cleanup_close_ int ipv4_map_fd = -EBADF, ipv6_map_fd = -EBADF;
         size_t n_ipv4 = 0, n_ipv6 = 0;
-        Unit *p;
         int r;
 
         assert(ret_ipv4_map_fd);
         assert(ret_ipv6_map_fd);
         assert(ret_has_any);
 
-        for (p = u; p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
                 Set *prefixes;
                 bool *reduced;
@@ -458,7 +458,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv4 > 0) {
-                char *name = strjoina("4_", u->id);
+                const char *name = strjoina("4_", u->id);
                 ipv4_map_fd = bpf_map_new(
                                 name,
                                 BPF_MAP_TYPE_LPM_TRIE,
@@ -471,7 +471,7 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv6 > 0) {
-                char *name = strjoina("6_", u->id);
+                const char *name = strjoina("6_", u->id);
                 ipv6_map_fd = bpf_map_new(
                                 name,
                                 BPF_MAP_TYPE_LPM_TRIE,
@@ -483,7 +483,7 @@ static int bpf_firewall_prepare_access_maps(
                         return ipv6_map_fd;
         }
 
-        for (p = u; p; p = UNIT_GET_SLICE(p)) {
+        for (Unit *p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
 
                 cc = unit_get_cgroup_context(p);
@@ -510,7 +510,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
 
         if (enabled) {
                 if (crt->ip_accounting_ingress_map_fd < 0) {
-                        char *name = strjoina("I_", u->id);
+                        const char *name = strjoina("I_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
@@ -519,7 +519,7 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRun
                 }
 
                 if (crt->ip_accounting_egress_map_fd < 0) {
-                        char *name = strjoina("E_", u->id);
+                        const char *name = strjoina("E_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
@@ -970,12 +970,8 @@ void emit_bpf_firewall_warning(Unit *u) {
         warned = true;
 }
 
-void bpf_firewall_close(Unit *u) {
-        assert(u);
-
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
+void bpf_firewall_close(CGroupRuntime *crt) {
+        assert(crt);
 
         crt->ip_accounting_ingress_map_fd = safe_close(crt->ip_accounting_ingress_map_fd);
         crt->ip_accounting_egress_map_fd = safe_close(crt->ip_accounting_egress_map_fd);

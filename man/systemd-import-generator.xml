@@ -1,0 +1,194 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-import-generator"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-import-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-import-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-import-generator</refname>
+    <refpurpose>Generator for automatically downloading disk images at boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-import-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-import-generator</command> may be used to automatically download disk images
+    (tarballs or DDIs) via
+    <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    at boot, based on parameters on the kernel command line or via system credentials. This is useful for
+    automatically deploying an
+    <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>/
+    <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    image at boot. This provides functionality equivalent to
+    <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
+    accessible via the kernel command line and system credentials.</para>
+
+    <para><filename>systemd-import-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-import-generator</filename> understands the following
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.pull=</varname></term>
+
+        <listitem><para>This option takes a colon separate triplet of option string, local target image name
+        and remote URL. The local target image name can be specified as an empty string, in which case the
+        name is derived from the specified remote URL. The remote URL must using the
+        <literal>http://</literal>, <literal>https://</literal>, <literal>file://</literal> schemes. The
+        option string itself is a comma separated list of options:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term>rw</term>
+            <term>ro</term>
+
+            <listitem><para>Controls whether to mark the local image as read-only. If not
+            specified read-only defaults to off.</para>
+
+            <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>verify=</term>
+
+            <listitem><para>Controls whether to cryptographically validate the download before installing it
+            in place. Takes one of <literal>no</literal>, <literal>checksum</literal> or
+            <literal>signature</literal> (the latter being the default if not specified). For details see the
+            <option>--verify=</option> of
+            <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></para>
+
+            <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>sysext</term>
+            <term>confext</term>
+            <term>machine</term>
+            <term>portable</term>
+
+            <listitem><para>Controls the image class to download, and thus ultimately the target directory
+            for the image, depending on this choice the target directory
+            <filename>/var/lib/extensions/</filename>, <filename>/var/lib/confexts/</filename>,
+            <filename>/var/lib/machines/</filename> or <filename>/var/lib/portables/</filename> is
+            selected.</para>
+
+            <para>Specification of exactly one of these options is mandatory.</para>
+
+            <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>tar</term>
+            <term>raw</term>
+
+            <listitem><para>Controls the type of resource to download, i.e. a (possibly compressed) tarball
+            that needs to be unpacked into a file system tree, or (possibly compressed) raw disk image (DDI).</para>
+
+            <para>Specification of exactly one of these options is mandatory.</para>
+
+            <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.pull.success_action=</varname></term>
+        <term><varname>systemd.pull.failure_action=</varname></term>
+
+        <listitem><para>Controls whether to execute an action such as reboot, power-off and similar after
+        completing the download successfully, or unsuccessfully. See
+        <varname>SuccessAction=</varname>/<varname>FailureAction=</varname> on
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about the available actions. If not specified no action is taken, and the system will
+        continue to boot normally.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-import-generator</command> supports the system credentials logic. The following
+    credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>import.pull</varname></term>
+
+        <listitem><para>This credential should be a text file, with each line referencing one download
+        operation. Each line should follow the same format as the value of the
+        <varname>systemd.pull=</varname> kernel command line option described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Download Configuration Extension</title>
+
+      <programlisting>systemd.pull=raw,confext::https://example.com/myconfext.raw.gz</programlisting>
+
+      <para>With a kernel command line option like the above a configuration extension DDI is downloaded
+      automatically at boot from the specified URL, validated cryptographically, uncompressed and installed.</para>
+    </example>
+
+    <example>
+      <title>Download System Extension (Without Validation)</title>
+
+      <programlisting>systemd.pull=tar,sysext,verify=no::https://example.com/mysysext.tar.gz</programlisting>
+
+      <para>With a kernel command line option like the above a system extension tarball is downloaded
+      automatically at boot from the specified URL, uncompressed and installed – without any cryptographic
+      validation. This is useful for development purposes in virtual machines and containers. Warning: do not
+      deploy a system with validation disabled like this!</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

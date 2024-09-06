@@ -6,3 +6,5 @@ Name=veth-peer
 IPv6AcceptRA=no
 Address=2600::1/0
 Address=192.168.5.1/24
+# To make the kernel send NA with IsRouter flag.
+IPv6Forwarding=yes

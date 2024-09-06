@@ -128,13 +128,15 @@
 
     <variablelist class='system-credentials'>
       <varlistentry>
-        <term><varname>network.netdev.*</varname></term>
+        <term><varname>network.conf.*</varname></term>
         <term><varname>network.link.*</varname></term>
+        <term><varname>network.netdev.*</varname></term>
         <term><varname>network.network.*</varname></term>
 
         <listitem><para>These credentials should contain valid
-        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         configuration data. From each matching credential a separate file is created. Example: a passed
         credential <filename>network.link.50-foobar</filename> will be copied into a configuration file

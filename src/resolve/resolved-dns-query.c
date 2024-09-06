@@ -57,6 +57,21 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
         }
 }
 
+static void dns_query_candidate_abandon(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        assert(c);
+
+        /* Abandon all the DnsTransactions attached to this query */
+
+        while ((t = set_steal_first(c->transactions))) {
+                t->wait_for_answer = true;
+                set_remove(t->notify_query_candidates, c);
+                set_remove(t->notify_query_candidates_done, c);
+                dns_transaction_gc(t);
+        }
+}
+
 static DnsQueryCandidate* dns_query_candidate_unlink(DnsQueryCandidate *c) {
         assert(c);
 
@@ -354,6 +369,16 @@ static void dns_query_stop(DnsQuery *q) {
                 dns_query_candidate_stop(c);
 }
 
+static void dns_query_abandon(DnsQuery *q) {
+        assert(q);
+
+        /* Thankfully transactions have their own timeouts */
+        event_source_disable(q->timeout_event_source);
+
+        LIST_FOREACH(candidates_by_query, c, q->candidates)
+                dns_query_candidate_abandon(c);
+}
+
 static void dns_query_unlink_candidates(DnsQuery *q) {
         assert(q);
 
@@ -407,8 +432,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_track_unref(q->bus_track);
 
         if (q->varlink_request) {
-                varlink_set_userdata(q->varlink_request, NULL);
-                varlink_unref(q->varlink_request);
+                sd_varlink_set_userdata(q->varlink_request, NULL);
+                sd_varlink_unref(q->varlink_request);
         }
 
         if (q->request_packet)
@@ -591,7 +616,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         (void) manager_monitor_send(q->manager, q);
 
-        dns_query_stop(q);
+        dns_query_abandon(q);
         if (q->complete)
                 q->complete(q);
 }
@@ -1257,7 +1282,7 @@ DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) 
         }
 }
 
-const char *dns_query_string(DnsQuery *q) {
+const char* dns_query_string(DnsQuery *q) {
         const char *name;
         int r;
 

@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+/* Forward declare this type so that Transfers can point at it */
+typedef struct Context Context;
+
 extern bool arg_sync;
 extern uint64_t arg_instances_max;
 extern char *arg_root;

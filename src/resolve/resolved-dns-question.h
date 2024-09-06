@@ -45,7 +45,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
 void dns_question_dump(DnsQuestion *q, FILE *f);
 
-const char *dns_question_first_name(DnsQuestion *q);
+const char* dns_question_first_name(DnsQuestion *q);
 
 static inline DnsResourceKey *dns_question_first_key(DnsQuestion *q) {
         return (q && q->n_keys > 0) ? q->items[0].key : NULL;

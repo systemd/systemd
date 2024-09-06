@@ -17,12 +17,17 @@
 #include "log.h"
 #include "udev-builtin.h"
 
-static int builtin_uaccess(UdevEvent *event, int argc, char *argv[], bool test) {
+static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *path = NULL, *seat;
         bool changed_acl = false;
         uid_t uid;
         int r;
+
+        if (event->event_mode != EVENT_UDEV_WORKER) {
+                log_device_debug(dev, "Running in test mode, skipping execution of 'uaccess' builtin command.");
+                return 0;
+        }
 
         umask(0022);
 

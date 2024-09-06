@@ -49,9 +49,47 @@
         <term><varname>keyname=</varname></term>
 
         <listitem><para>Takes a string argument which sets the keyname to read.
-        The default is <literal>cryptsetup</literal>, which is used by
+        The default is <literal>cryptsetup</literal>.
+        During boot,
         <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        to store LUKS passphrase during boot.</para>
+        stores a passphrase or PIN in the keyring.
+        The LUKS2 volume key can also be used, via the <option>link-volume-key</option> option in
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <table>
+          <title>
+            Possible values for <varname>keyname</varname>.
+          </title>
+
+          <tgroup cols='2'>
+            <colspec colname='value' />
+            <colspec colname='description' />
+            <thead>
+              <row>
+                <entry>Value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>cryptsetup</entry>
+                <entry>Passphrase or recovery key</entry>
+              </row>
+              <row>
+                <entry>fido2-pin</entry>
+                <entry>Security token PIN</entry>
+              </row>
+              <row>
+                <entry>luks2-pin</entry>
+                <entry>LUKS2 token PIN</entry>
+              </row>
+              <row>
+                <entry>tpm2-pin</entry>
+                <entry>TPM2 PIN</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -78,6 +116,7 @@
 
     <programlisting>
 -auth       optional    pam_systemd_loadkey.so
+-auth       optional    pam_gnome_keyring.so
 -session    optional    pam_gnome_keyring.so auto_start
 -session    optional    pam_kwallet5.so auto_start
     </programlisting>

@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Tips & Tricks
 
-Also check out the [Frequently Asked Questions](http://www.freedesktop.org/wiki/Software/systemd/FrequentlyAskedQuestions)!
+Also check out the [Frequently Asked Questions](/FAQ)!
 
 ## Listing running services
 
@@ -155,13 +155,16 @@ $ psc
 $ ln -sf /usr/lib/systemd/system/multi-user.target /etc/systemd/system/default.target
 ```
 
-This line makes the multi user target (i.e. full system, but no graphical UI) the default target to boot into. This is kinda equivalent to setting runlevel 3 as the default runlevel on Fedora/sysvinit systems.
+This line makes the multi user target (i.e. full system, but no graphical UI) the default target to boot into.
+This is kinda equivalent to setting runlevel 3 as the default runlevel on Fedora/sysvinit systems.
 
 ```sh
 $ ln -sf /usr/lib/systemd/system/graphical.target /etc/systemd/system/default.target
 ```
 
-This line makes the graphical target (i.e. full system, including graphical UI) the default target to boot into. Kinda equivalent to runlevel 5 on fedora/sysvinit systems. This is how things are shipped by default.
+This line makes the graphical target (i.e. full system, including graphical UI) the default target to boot into.
+Kinda equivalent to runlevel 5 on fedora/sysvinit systems.
+This is how things are shipped by default.
 
 ## What other units does a unit depend on?
 
@@ -172,7 +175,8 @@ $ systemctl show -p "Wants" multi-user.target
 Wants=rc-local.service avahi-daemon.service rpcbind.service NetworkManager.service acpid.service dbus.service atd.service crond.service auditd.service ntpd.service udisks.service bluetooth.service cups.service wpa_supplicant.service getty.target modem-manager.service portreserve.service abrtd.service yum-updatesd.service upowerd.service test-first.service pcscd.service rsyslog.service haldaemon.service remote-fs.target plymouth-quit.service systemd-update-utmp-runlevel.service sendmail.service lvm2-monitor.service cpuspeed.service udev-post.service mdmonitor.service iscsid.service livesys.service livesys-late.service irqbalance.service iscsi.service netfs.service
 ```
 
-Instead of "Wants" you might also try "WantedBy", "Requires", "RequiredBy", "Conflicts", "ConflictedBy", "Before", "After" for the respective types of dependencies and their inverse.
+Instead of "Wants" you might also try "WantedBy", "Requires", "RequiredBy", "Conflicts", "ConflictedBy", "Before", "After"
+for the respective types of dependencies and their inverse.
 
 ## What would get started if I booted into a specific target?
 
@@ -182,4 +186,6 @@ If you want systemd to calculate the "initial" transaction it would execute on b
 $ systemd --test --system --unit=foobar.target
 ```
 
-for a boot target foobar.target. Note that this is mostly a debugging tool that actually does a lot more than just calculate the initial transaction, so don't build scripts based on this.
+for a boot target foobar.target.
+Note that this is mostly a debugging tool that actually does a lot more than just calculate the initial transaction,
+so don't build scripts based on this.

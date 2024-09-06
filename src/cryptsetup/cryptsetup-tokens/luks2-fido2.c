@@ -4,7 +4,7 @@
 
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
-#include "json.h"
+#include "json-util.h"
 #include "luks2-fido2.h"
 #include "memory-util.h"
 #include "strv.h"
@@ -84,8 +84,8 @@ int parse_luks2_fido2_data(
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        JsonVariant *w;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w;
         Fido2EnrollFlags required = 0;
 
         assert(json);
@@ -96,54 +96,54 @@ int parse_luks2_fido2_data(
         assert(ret_cid_size);
         assert(ret_required);
 
-        r = json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, 0, &v, NULL, NULL);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse JSON token data: %m");
 
-        w = json_variant_by_key(v, "fido2-credential");
+        w = sd_json_variant_by_key(v, "fido2-credential");
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), &cid, &cid_size);
+        r = sd_json_variant_unbase64(w, &cid, &cid_size);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse 'fido2-credentials' field: %m");
 
-        w = json_variant_by_key(v, "fido2-salt");
+        w = sd_json_variant_by_key(v, "fido2-salt");
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), &salt, &salt_size);
+        r = sd_json_variant_unbase64(w, &salt, &salt_size);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse 'fido2-salt' field: %m");
 
-        w = json_variant_by_key(v, "fido2-rp");
+        w = sd_json_variant_by_key(v, "fido2-rp");
         if (w) {
                 /* The "rp" field is optional. */
-                rp = strdup(json_variant_string(w));
+                rp = strdup(sd_json_variant_string(w));
                 if (!rp) {
                         crypt_log_error(cd, "Not enough memory.");
                         return -ENOMEM;
                 }
         }
 
-        w = json_variant_by_key(v, "fido2-clientPin-required");
+        w = sd_json_variant_by_key(v, "fido2-clientPin-required");
         if (w)
                 /* The "fido2-clientPin-required" field is optional. */
-                SET_FLAG(required, FIDO2ENROLL_PIN, json_variant_boolean(w));
+                SET_FLAG(required, FIDO2ENROLL_PIN, sd_json_variant_boolean(w));
         else
                 required |= FIDO2ENROLL_PIN_IF_NEEDED; /* compat with 248, where the field was unset */
 
-        w = json_variant_by_key(v, "fido2-up-required");
+        w = sd_json_variant_by_key(v, "fido2-up-required");
         if (w)
                 /* The "fido2-up-required" field is optional. */
-                SET_FLAG(required, FIDO2ENROLL_UP, json_variant_boolean(w));
+                SET_FLAG(required, FIDO2ENROLL_UP, sd_json_variant_boolean(w));
         else
                 required |= FIDO2ENROLL_UP_IF_NEEDED; /* compat with 248 */
 
-        w = json_variant_by_key(v, "fido2-uv-required");
+        w = sd_json_variant_by_key(v, "fido2-uv-required");
         if (w)
                 /* The "fido2-uv-required" field is optional. */
-                SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
+                SET_FLAG(required, FIDO2ENROLL_UV, sd_json_variant_boolean(w));
         else
                 required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
 

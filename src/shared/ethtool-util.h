@@ -181,17 +181,17 @@ int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_chann
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
 
-const char *duplex_to_string(Duplex d) _const_;
+const char* duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
 
 int wol_options_to_string_alloc(uint32_t opts, char **ret);
 
-const char *port_to_string(NetDevPort port) _const_;
+const char* port_to_string(NetDevPort port) _const_;
 NetDevPort port_from_string(const char *port) _pure_;
 
-const char *mdi_to_string(int mdi) _const_;
+const char* mdi_to_string(int mdi) _const_;
 
-const char *ethtool_link_mode_bit_to_string(enum ethtool_link_mode_bit_indices val) _const_;
+const char* ethtool_link_mode_bit_to_string(enum ethtool_link_mode_bit_indices val) _const_;
 enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char *str) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);

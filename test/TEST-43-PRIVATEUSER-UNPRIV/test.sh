@@ -12,6 +12,7 @@ has_user_dbus_socket || exit 0
 test_require_bin mksquashfs
 
 test_append_files() {
+    inst_binary mksquashfs
     inst_binary unsquashfs
     install_verity_minimal
 }

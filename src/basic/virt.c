@@ -179,6 +179,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 { "VMW",                   VIRTUALIZATION_VMWARE    },
                 { "innotek GmbH",          VIRTUALIZATION_ORACLE    },
                 { "VirtualBox",            VIRTUALIZATION_ORACLE    },
+                { "Oracle Corporation",    VIRTUALIZATION_ORACLE    }, /* Detect VirtualBox on some proprietary systems via the board_vendor */
                 { "Xen",                   VIRTUALIZATION_XEN       },
                 { "Bochs",                 VIRTUALIZATION_BOCHS     },
                 { "Parallels",             VIRTUALIZATION_PARALLELS },
@@ -446,7 +447,7 @@ static Virtualization detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 Virtualization detect_vm(void) {
         static thread_local Virtualization cached_found = _VIRTUALIZATION_INVALID;
-        bool other = false;
+        bool other = false, hyperv = false;
         int xen_dom0 = 0;
         Virtualization v, dmi;
 
@@ -503,7 +504,12 @@ Virtualization detect_vm(void) {
         v = detect_vm_cpuid();
         if (v < 0)
                 return v;
-        if (v == VIRTUALIZATION_VM_OTHER)
+        if (v == VIRTUALIZATION_MICROSOFT)
+                /* QEMU sets the CPUID string to hyperv's, in case it provides hyperv enlightenments. Let's
+                 * hence not return Microsoft here but just use the other mechanisms first to make a better
+                 * decision. */
+                hyperv = true;
+        else if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
         else if (v != VIRTUALIZATION_NONE)
                 goto finish;
@@ -544,8 +550,15 @@ Virtualization detect_vm(void) {
                 return v;
 
 finish:
-        if (v == VIRTUALIZATION_NONE && other)
-                v = VIRTUALIZATION_VM_OTHER;
+        /* None of the checks above gave us a clear answer, hence let's now use fallback logic: if hyperv
+         * enlightenments are available but the VMM wasn't recognized as anything yet, it's probably
+         * Microsoft. */
+        if (v == VIRTUALIZATION_NONE) {
+                if (hyperv)
+                        v = VIRTUALIZATION_MICROSOFT;
+                else if (other)
+                        v = VIRTUALIZATION_VM_OTHER;
+        }
 
         cached_found = v;
         log_debug("Found VM virtualization %s", virtualization_to_string(v));
@@ -883,6 +896,13 @@ int running_in_chroot(void) {
          * mount /proc, so all other programs can assume that if /proc is *not* available, we're in some
          * chroot. */
 
+        r = getenv_bool("SYSTEMD_IN_CHROOT");
+        if (r >= 0)
+                return r > 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_IN_CHROOT, ignoring: %m");
+
+        /* Deprecated but kept for backwards compatibility. */
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 

@@ -33,8 +33,7 @@ static inline void fuzz_setup_logging(void) {
          * in a fuzzing mode, so disable most of the logging. */
         log_set_assert_return_is_critical(true);
         log_set_max_level(LOG_CRIT);
-        log_parse_environment();
-        log_open();
+        log_setup();
 }
 
 /* Force value to not be optimized away. */

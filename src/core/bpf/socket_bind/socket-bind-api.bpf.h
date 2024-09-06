@@ -7,13 +7,17 @@
  */
 
 #include <linux/types.h>
+#include <stdint.h>
 
 /*
  * Bind rule is matched with socket fields accessible to cgroup/bind{4,6} hook
  * through bpf_sock_addr struct.
- * 'address_family' is expected to be one of AF_UNSPEC, AF_INET or AF_INET6.
+ * 'address_family' is expected to be one of AF_UNSPEC, AF_INET, AF_INET6 or the
+ * magic SOCKET_BIND_RULE_AF_MATCH_NOTHING.
  * Matching by family is bypassed for rules with AF_UNSPEC set, which makes the
  * rest of a rule applicable for both IPv4 and IPv6 addresses.
+ * If SOCKET_BIND_RULE_AF_MATCH_NOTHING is set the rule fails unconditionally
+ * and other checks are skipped.
  * If matching by family is either successful or bypassed, a rule and a socket
  * are matched by ip protocol.
  * If 'protocol' is 0, matching is bypassed.
@@ -49,3 +53,4 @@ struct socket_bind_rule {
 };
 
 #define SOCKET_BIND_MAX_RULES 128
+#define SOCKET_BIND_RULE_AF_MATCH_NOTHING UINT32_MAX

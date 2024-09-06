@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "ansi-color.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 
@@ -31,13 +32,13 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags);
 #define RED_CROSS_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_RED) + STRLEN("✗") + STRLEN(ANSI_NORMAL) + 1)
 #define GREEN_CHECK_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_GREEN) + STRLEN("✓") + STRLEN(ANSI_NORMAL) + 1)
 
-static inline const char *red_cross_mark_internal(char buffer[static RED_CROSS_MARK_MAX]) {
+static inline const char* red_cross_mark_internal(char buffer[static RED_CROSS_MARK_MAX]) {
         assert(buffer);
         assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_red()), special_glyph(SPECIAL_GLYPH_CROSS_MARK)), ansi_normal()) < buffer + RED_CROSS_MARK_MAX);
         return buffer;
 }
 
-static inline const char *green_check_mark_internal(char buffer[static GREEN_CHECK_MARK_MAX]) {
+static inline const char* green_check_mark_internal(char buffer[static GREEN_CHECK_MARK_MAX]) {
         assert(buffer);
         assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_green()), special_glyph(SPECIAL_GLYPH_CHECK_MARK)), ansi_normal()) < buffer + GREEN_CHECK_MARK_MAX);
         return buffer;
@@ -50,5 +51,38 @@ static inline const char *green_check_mark_internal(char buffer[static GREEN_CHE
 
 int terminal_tint_color(double hue, char **ret);
 
+bool shall_tint_background(void);
+
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);
+void draw_progress_bar_impl(const char *prefix, double percentage);
+void clear_progress_bar_impl(const char *prefix);
+
+static inline FILE* enable_buffering(FILE *f, char *buffer, size_t size) {
+        assert(f);
+        assert(buffer);
+        assert(size > 0);
+
+        if (setvbuf(f, buffer, _IOFBF, size) != 0)
+                return NULL;
+
+        return f;
+}
+
+static inline void fflush_and_disable_bufferingp(FILE **p) {
+        assert(p);
+
+        if (*p) {
+                fflush(*p);
+                setvbuf(*p, NULL, _IONBF, 0); /* Disable buffering again. */
+        }
+}
+
+/* Even though the macro below is slightly generic, but it may not work most streams except for stderr,
+ * as stdout is buffered and fopen() enables buffering by default. */
+#define _WITH_BUFFERED_STREAM(f, size, p)                               \
+        _unused_ _cleanup_(fflush_and_disable_bufferingp) FILE *p =     \
+                enable_buffering(f, (char[size]) {}, size)
+
+#define WITH_BUFFERED_STDERR                                            \
+        _WITH_BUFFERED_STREAM(stderr, LONG_LINE_MAX, UNIQ_T(p, UNIQ))

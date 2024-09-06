@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: MIT-0 */
 
+#define _GNU_SOURCE 1
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sd-event.h>
+#include <systemd/sd-event.h>
 
 int main(int argc, char **argv) {
   pid_t pid = fork();

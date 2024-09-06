@@ -54,7 +54,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
                 /* And for everybody else consult polkit */
-                r = bus_verify_manage_units_async(j->unit->manager, message, error);
+                r = bus_verify_manage_units_async(j->manager, message, error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -263,7 +263,7 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
         if (!j->sent_dbus_new_signal && !including_new)
                 return;
 
-        if (MANAGER_IS_RELOADING(j->unit->manager))
+        if (MANAGER_IS_RELOADING(j->manager))
                 return;
 
         bus_job_send_change_signal(j);
@@ -332,12 +332,12 @@ static int bus_job_allocate_bus_track(Job *j) {
         if (j->bus_track)
                 return 0;
 
-        return sd_bus_track_new(j->unit->manager->api_bus, &j->bus_track, bus_job_track_handler, j);
+        return sd_bus_track_new(j->manager->api_bus, &j->bus_track, bus_job_track_handler, j);
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
-        int r;
         _cleanup_strv_free_ char **deserialized_clients = NULL;
+        int r;
 
         assert(j);
 
@@ -362,7 +362,7 @@ int bus_job_track_sender(Job *j, sd_bus_message *m) {
         assert(j);
         assert(m);
 
-        if (sd_bus_message_get_bus(m) != j->unit->manager->api_bus) {
+        if (sd_bus_message_get_bus(m) != j->manager->api_bus) {
                 j->ref_by_private_bus = true;
                 return 0;
         }

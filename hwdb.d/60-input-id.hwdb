@@ -59,6 +59,10 @@ id-input:modalias:input:b0003v28bdp0078*
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
 
+# Logitech G915 TKL Keyboard (Bluetooth)
+id-input:modalias:input:b0005v046DpB35Fe0022*
+ ID_INPUT_MOUSE=0
+
 # Logitech Ultrathin Touch Mouse
 id-input:modalias:input:b0005v046DpB00De0700*
  ID_INPUT_MOUSE=1
@@ -79,3 +83,9 @@ id-input:modalias:input:b0003v068Ep00F2*
 # TEX Shinobi Trackpoint
 id-input:modalias:input:b0003v04D9p0407e0111-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
+
+# ASRock LED Controller
+id-input:modalias:input:b0003v26CEp01A2*
+ ID_INPUT_JOYSTICK=
+ ID_INPUT_KEY=
+ ID_INPUT=

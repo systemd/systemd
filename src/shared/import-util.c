@@ -126,9 +126,16 @@ int import_url_change_suffix(
         return 0;
 }
 
+static const char* const import_type_table[_IMPORT_TYPE_MAX] = {
+        [IMPORT_RAW] = "raw",
+        [IMPORT_TAR] = "tar",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(import_type, ImportType);
+
 static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
-        [IMPORT_VERIFY_NO] = "no",
-        [IMPORT_VERIFY_CHECKSUM] = "checksum",
+        [IMPORT_VERIFY_NO]        = "no",
+        [IMPORT_VERIFY_CHECKSUM]  = "checksum",
         [IMPORT_VERIFY_SIGNATURE] = "signature",
 };
 

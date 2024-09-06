@@ -13,6 +13,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "parse-util.h"
@@ -268,9 +269,10 @@ static int dhcp_pd_check_ready(Link *link) {
 static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to add prefix route for DHCP delegated subnet prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to add prefix route for DHCP delegated subnet prefix");
         if (r <= 0)
                 return r;
 
@@ -353,14 +355,50 @@ static void log_dhcp_pd_address(Link *link, const Address *address) {
                       FORMAT_LIFETIME(address->lifetime_preferred_usec));
 }
 
+static int dhcp_pd_request_address_one(Address *address, Link *link) {
+        Address *existing;
+
+        assert(address);
+        assert(link);
+
+        log_dhcp_pd_address(link, address);
+
+        if (address_get(link, address, &existing) < 0)
+                link->dhcp_pd_configured = false;
+        else
+                address_unmark(existing);
+
+        return link_request_address(link, address, &link->dhcp_pd_messages, dhcp_pd_address_handler, NULL);
+}
+
+int dhcp_pd_reconfigure_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_DHCP_PD);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = dhcp_pd_request_address_one(address, link);
+        if (r < 0)
+                return r;
+
+        if (!link->dhcp_pd_configured)
+                link_set_state(link, LINK_STATE_CONFIGURING);
+
+        link_check_ready(link);
+        return 0;
+}
+
 static int dhcp_pd_request_address(
                 Link *link,
                 const struct in6_addr *prefix,
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_set_free_ Set *addresses = NULL;
-        struct in6_addr *a;
         int r;
 
         assert(link);
@@ -370,13 +408,15 @@ static int dhcp_pd_request_address(
         if (!link->network->dhcp_pd_assign)
                 return 0;
 
-        r = dhcp_pd_generate_addresses(link, prefix, &addresses);
+        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        r = dhcp_pd_generate_addresses(link, prefix, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");
 
-        SET_FOREACH(a, addresses) {
+        IPv6Token *token;
+        struct in6_addr *a;
+        HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
                 _cleanup_(address_unrefp) Address *address = NULL;
-                Address *existing;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -390,20 +430,13 @@ static int dhcp_pd_request_address(
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp_pd_manage_temporary_address);
                 address->route_metric = link->network->dhcp_pd_route_metric;
-
-                log_dhcp_pd_address(link, address);
+                address->token = ipv6_token_ref(token);
 
                 r = free_and_strdup_warn(&address->netlabel, link->network->dhcp_pd_netlabel);
                 if (r < 0)
                         return r;
 
-                if (address_get(link, address, &existing) < 0)
-                        link->dhcp_pd_configured = false;
-                else
-                        address_unmark(existing);
-
-                r = link_request_address(link, address, &link->dhcp_pd_messages,
-                                         dhcp_pd_address_handler, NULL);
+                r = dhcp_pd_request_address_one(address, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request DHCP delegated prefix address: %m");
         }
@@ -630,9 +663,10 @@ void dhcp4_pd_prefix_lost(Link *uplink) {
 static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to set unreachable route for DHCPv4 delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv4 delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -646,9 +680,10 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
 static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Failed to set unreachable route for DHCPv6 delegated prefix");
+        r = route_configure_handler_internal(rtnl, m, req, "Failed to set unreachable route for DHCPv6 delegated prefix");
         if (r <= 0)
                 return r;
 
@@ -666,6 +701,7 @@ static int dhcp_request_unreachable_route(
                 usec_t lifetime_usec,
                 NetworkConfigSource source,
                 const union in_addr_union *server_address,
+                uint8_t type, /* RTN_* */
                 unsigned *counter,
                 route_netlink_handler_t callback,
                 bool *configured) {
@@ -679,9 +715,13 @@ static int dhcp_request_unreachable_route(
         assert(addr);
         assert(IN_SET(source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6));
         assert(server_address);
+        assert(type == RTN_UNSPEC || route_type_is_reject(type));
         assert(counter);
         assert(callback);
         assert(configured);
+
+        if (type == RTN_UNSPEC)
+                return 0; /* Disabled. */
 
         if (prefixlen >= 64) {
                 log_link_debug(link, "Not adding a blocking route for DHCP delegated prefix %s since the prefix has length >= 64.",
@@ -698,7 +738,7 @@ static int dhcp_request_unreachable_route(
         route->family = AF_INET6;
         route->dst.in6 = *addr;
         route->dst_prefixlen = prefixlen;
-        route->type = RTN_UNREACHABLE;
+        route->type = type;
         route->protocol = RTPROT_DHCP;
         route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
@@ -727,8 +767,12 @@ static int dhcp4_request_unreachable_route(
                 usec_t lifetime_usec,
                 const union in_addr_union *server_address) {
 
+        assert(link);
+        assert(link->network);
+
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP4, server_address,
+                                              link->network->dhcp_6rd_prefix_route_type,
                                               &link->dhcp4_messages, dhcp4_unreachable_route_handler,
                                               &link->dhcp4_configured);
 }
@@ -740,8 +784,12 @@ static int dhcp6_request_unreachable_route(
                 usec_t lifetime_usec,
                 const union in_addr_union *server_address) {
 
+        assert(link);
+        assert(link->network);
+
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP6, server_address,
+                                              link->network->dhcp6_pd_prefix_route_type,
                                               &link->dhcp6_messages, dhcp6_unreachable_route_handler,
                                               &link->dhcp6_configured);
 }
@@ -1264,5 +1312,53 @@ int config_parse_dhcp_pd_subnet_id(
 
         *p = (int64_t) t;
 
+        return 0;
+}
+
+int config_parse_dhcp_pd_prefix_route_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *p = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *p = RTN_UNREACHABLE; /* Defaults to unreachable. */
+                return 0;
+        }
+
+        if (streq(rvalue, "none")) {
+                *p = RTN_UNSPEC; /* Indicate that the route is disabled. */
+                return 0;
+        }
+
+        r = route_type_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        if (!route_type_is_reject(r)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid route type is specified to %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *p = r;
         return 0;
 }

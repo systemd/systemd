@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/icmpv6.h>
 #include <linux/ipv6_route.h>
 #include <linux/nexthop.h>
 
@@ -671,40 +670,104 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
         return 1;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg) {
+static int route_update_by_request(Route *route, Request *req) {
+        assert(route);
+        assert(req);
+
+        Route *rt = ASSERT_PTR(req->userdata);
+
+        route->provider = rt->provider;
+        route->source = rt->source;
+        route->lifetime_usec = rt->lifetime_usec;
+
+        return 0;
+}
+
+static int route_update_on_existing_one(Request *req, Route *requested) {
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(req)->manager);
+        Route *existing;
+        int r;
+
+        assert(requested);
+
+        if (route_get(manager, requested, &existing) < 0)
+                return 0;
+
+        r = route_update_by_request(existing, req);
+        if (r < 0)
+                return r;
+
+        r = route_setup_timer(existing, NULL);
+        if (r < 0)
+                return r;
+
+        /* This may be a bug in the kernel, but the MTU of an IPv6 route can be updated only when the
+         * route has an expiration timer managed by the kernel (not by us). See fib6_add_rt2node() in
+         * net/ipv6/ip6_fib.c of the kernel. */
+        if (existing->family == AF_INET6 &&
+            existing->expiration_managed_by_kernel) {
+                r = route_metric_set(&existing->metric, RTAX_MTU, route_metric_get(&requested->metric, RTAX_MTU));
+                if (r < 0)
+                        return r;
+        }
+
+        route_enter_configured(existing);
+        return 0;
+}
+
+static int route_update_on_existing(Request *req) {
+        Route *rt = ASSERT_PTR(ASSERT_PTR(req)->userdata);
+        int r;
+
+        if (!req->manager)
+                /* Already detached? At least there are two posibilities then.
+                 * 1) The interface is removed, and all queued requests for the interface are cancelled.
+                 * 2) networkd is now stopping, hence all queued requests are cancelled.
+                 * Anyway, we can ignore the request, and there is nothing we can do. */
+                return 0;
+
+        if (rt->family == AF_INET || ordered_set_isempty(rt->nexthops))
+                return route_update_on_existing_one(req, rt);
+
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, rt->nexthops) {
+                _cleanup_(route_unrefp) Route *dup = NULL;
+
+                r = route_dup(rt, nh, &dup);
+                if (r < 0)
+                        return r;
+
+                r = route_update_on_existing_one(req, dup);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg) {
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->manager);
-        assert(route);
+        assert(req);
         assert(error_msg);
+
+        Link *link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST) {
-                Route *existing;
-
-                if (route_get(link->manager, route, &existing) >= 0) {
-                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
-                         * notification, so we need to update the timer here. */
-                        existing->lifetime_usec = route->lifetime_usec;
-                        (void) route_setup_timer(existing, NULL);
-
-                        /* This may be a bug in the kernel, but the MTU of an IPv6 route can be updated only
-                         * when the route has an expiration timer managed by the kernel (not by us).
-                         * See fib6_add_rt2node() in net/ipv6/ip6_fib.c of the kernel. */
-                        if (existing->family == AF_INET6 &&
-                            existing->expiration_managed_by_kernel) {
-                                r = route_metric_set(&existing->metric, RTAX_MTU, route_metric_get(&route->metric, RTAX_MTU));
-                                if (r < 0) {
-                                        log_oom();
-                                        link_enter_failed(link);
-                                        return 0;
-                                }
-                        }
+                /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE notification, so
+                 * here we need to update the state, provider, source, timer, and so on. */
+                r = route_update_on_existing(req);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to update existing route: %m");
+                        link_enter_failed(link);
+                        return 0;
                 }
 
-        } else if (r < 0) {
+                return 1;
+        }
+        if (r < 0) {
                 log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
@@ -791,8 +854,6 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
 }
 
 static int route_is_ready_to_configure(const Route *route, Link *link) {
-        int r;
-
         assert(route);
         assert(link);
 
@@ -800,9 +861,13 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 return false;
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                r = manager_has_address(link->manager, route->family, &route->prefsrc);
-                if (r <= 0)
-                        return r;
+                Address *a;
+
+                if (manager_get_address(link->manager, route->family, &route->prefsrc, &a) < 0)
+                        return false;
+
+                if (!address_is_ready(a))
+                        return false;
         }
 
         return route_nexthops_is_ready_to_configure(route, link->manager);
@@ -911,7 +976,7 @@ int link_request_route(
         assert(route);
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (route->family == AF_INET || route_type_is_reject(route) || ordered_set_isempty(route->nexthops))
+        if (route->family == AF_INET || route_is_reject(route) || ordered_set_isempty(route->nexthops))
                 return link_request_route_one(link, route, NULL, message_counter, netlink_handler);
 
         RouteNextHop *nh;
@@ -929,7 +994,7 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set route");
+        r = route_configure_handler_internal(rtnl, m, req, "Could not set static route");
         if (r <= 0)
                 return r;
 
@@ -1046,17 +1111,32 @@ static int process_route_one(
                         route = route_ref(tmp);
                         is_new = true;
 
-                } else
+                } else {
                         /* Update remembered route with the received notification. */
-                        route->nexthop.weight = tmp->nexthop.weight;
+
+                        /* Here, update weight only when a non-zero weight is received. As the kernel does
+                         * not provide the weight of a single-path route. In such case, tmp->nexthop.weight
+                         * is zero, hence we should not overwrite the known weight of the route. */
+                        if (tmp->nexthop.weight != 0)
+                                route->nexthop.weight = tmp->nexthop.weight;
+                }
 
                 /* Also update information that cannot be obtained through netlink notification. */
                 if (req && req->waiting_reply) {
-                        Route *rt = ASSERT_PTR(req->userdata);
+                        r = route_update_by_request(route, req);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to update route by request: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
 
-                        route->source = rt->source;
-                        route->provider = rt->provider;
-                        route->lifetime_usec = rt->lifetime_usec;
+                        /* We configure IPv6 multipath route separately. When the first path is configured,
+                         * the kernel does not provide the weight of the path. So, we need to adjust it here.
+                         * Hopefully, the weight is assigned correctly. */
+                        if (route->nexthop.weight == 0) {
+                                Route *rt = ASSERT_PTR(req->userdata);
+                                route->nexthop.weight = rt->nexthop.weight;
+                        }
                 }
 
                 route_enter_configured(route);
@@ -1321,7 +1401,7 @@ bool route_can_update(const Route *existing, const Route *requesting) {
                         return false;
                 if (existing->pref != requesting->pref)
                         return false;
-                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec != USEC_INFINITY)
+                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec == USEC_INFINITY)
                         return false; /* We cannot disable expiration timer in the kernel. */
                 if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel))
                         return false;
@@ -1431,16 +1511,16 @@ static int link_mark_routes(Link *link, bool foreign) {
                                 }
                         }
                 }
-        }
 
-        /* Also unmark routes requested in .netdev file. */
-        if (foreign && link->netdev && link->netdev->kind == NETDEV_KIND_WIREGUARD) {
-                Wireguard *w = WIREGUARD(link->netdev);
+                /* Also unmark routes requested in .netdev file. */
+                if (other->netdev && other->netdev->kind == NETDEV_KIND_WIREGUARD) {
+                        Wireguard *w = WIREGUARD(other->netdev);
 
-                SET_FOREACH(route, w->routes) {
-                        r = link_unmark_route(link, route, NULL);
-                        if (r < 0)
-                                return r;
+                        SET_FOREACH(route, w->routes) {
+                                r = link_unmark_route(other, route, NULL);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -1810,11 +1890,11 @@ int config_parse_ipv6_route_preference(
         }
 
         if (streq(rvalue, "low"))
-                route->pref = ICMPV6_ROUTER_PREF_LOW;
+                route->pref = SD_NDISC_PREFERENCE_LOW;
         else if (streq(rvalue, "medium"))
-                route->pref = ICMPV6_ROUTER_PREF_MEDIUM;
+                route->pref = SD_NDISC_PREFERENCE_MEDIUM;
         else if (streq(rvalue, "high"))
-                route->pref = ICMPV6_ROUTER_PREF_HIGH;
+                route->pref = SD_NDISC_PREFERENCE_HIGH;
         else {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route preference: %s", rvalue);
                 return 0;

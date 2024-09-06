@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
@@ -108,7 +109,7 @@ static int show_cgroup_one_by_path(
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
                  * the subtree and is not readable in the subtree proper. */
-                r = cg_read_pid(f, &pid);
+                r = cg_read_pid(f, &pid, /* flags = */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
@@ -150,18 +151,9 @@ static int show_cgroup_name(
         delegate = r > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
-                cg_file_handle fh = CG_FILE_HANDLE_INIT;
-                int mnt_id = -1;
-
-                if (name_to_handle_at(
-                                    fd,
-                                    "",
-                                    &fh.file_handle,
-                                    &mnt_id,
-                                    AT_EMPTY_PATH) < 0)
-                        log_debug_errno(errno, "Failed to determine cgroup ID of %s, ignoring: %m", path);
-                else
-                        cgroupid = CG_FILE_HANDLE_CGROUPID(fh);
+                r = cg_fd_get_cgroupid(fd, &cgroupid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine cgroup ID of %s, ignoring: %m", path);
         }
 
         r = path_extract_filename(path, &b);

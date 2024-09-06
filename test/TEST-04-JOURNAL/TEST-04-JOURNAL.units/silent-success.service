@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Silent successful service
+
+[Service]
+Type=oneshot
+LogLevelMax=notice
+ExecStart=/bin/true
+# If the service finishes extremely fast, journald cannot find the source of the
+# stream. Hence, we need to call 'journalctl --sync' before service finishes.
+ExecStart=journalctl --sync

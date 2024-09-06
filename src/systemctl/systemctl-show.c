@@ -196,15 +196,19 @@ typedef struct UnitStatusInfo {
 
         uint64_t runtime_max_sec;
 
+        sd_id128_t invocation_id;
+
         bool need_daemon_reload;
         bool transient;
 
         /* Service */
+        bool running;
         pid_t main_pid;
         pid_t control_pid;
-        const char *status_text;
         const char *pid_file;
-        bool running;
+        const char *status_text;
+        const char *status_bus_error;
+        const char *status_varlink_error;
         int status_errno;
 
         uint32_t fd_store_max;
@@ -297,7 +301,7 @@ static void format_active_state(const char *active_state, const char **active_on
         if (streq_ptr(active_state, "failed")) {
                 *active_on = ansi_highlight_red();
                 *active_off = ansi_normal();
-        } else if (STRPTR_IN_SET(active_state, "active", "reloading")) {
+        } else if (STRPTR_IN_SET(active_state, "active", "reloading", "refreshing")) {
                 *active_on = ansi_highlight_green();
                 *active_off = ansi_normal();
         } else
@@ -436,10 +440,10 @@ static void print_status_info(
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
 
-        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading") ? i->active_enter_timestamp :
-                    STRPTR_IN_SET(i->active_state, "inactive", "failed")  ? i->inactive_enter_timestamp :
-                    STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
-                                                                            i->active_exit_timestamp;
+        timestamp = STRPTR_IN_SET(i->active_state, "active", "reloading", "refreshing") ? i->active_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "inactive", "failed")                ? i->inactive_enter_timestamp :
+                    STRPTR_IN_SET(i->active_state, "activating")                        ? i->inactive_exit_timestamp :
+                                                                                          i->active_exit_timestamp;
 
         if (timestamp_is_set(timestamp)) {
                 printf(" since %s; %s\n",
@@ -467,6 +471,9 @@ static void print_status_info(
                 }
         } else
                 printf("\n");
+
+        if (!sd_id128_is_null(i->invocation_id))
+                printf(" Invocation: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(i->invocation_id));
 
         STRV_FOREACH(t, i->triggered_by) {
                 UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
@@ -676,9 +683,26 @@ static void print_status_info(
 
         if (i->status_text)
                 printf("     Status: \"%s%s%s\"\n", ansi_highlight_cyan(), i->status_text, ansi_normal());
-        if (i->status_errno > 0) {
-                errno = i->status_errno;
-                printf("      Error: %i (%m)\n", i->status_errno);
+
+        if (i->status_errno > 0 || i->status_bus_error || i->status_varlink_error) {
+                const char *prefix = " ";
+
+                printf("      Error:");
+
+                if (i->status_errno > 0) {
+                        printf("%scode: %i (%s)", prefix, i->status_errno, STRERROR(i->status_errno));
+                        prefix = "; ";
+                }
+                if (i->status_bus_error) {
+                        printf("%sD-Bus: %s", prefix, i->status_bus_error);
+                        prefix = "; ";
+                }
+                if (i->status_varlink_error) {
+                        printf("%sVarlink: %s", prefix, i->status_varlink_error);
+                        prefix = "; ";
+                }
+
+                putchar('\n');
         }
 
         if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
@@ -709,13 +733,12 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
-                /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
-                   memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX).
-                   Only show the available memory if it was artificially limited. */
                 bool show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX),
-                     show_memory_available = i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX;
+                     /* Only show the available memory if it was artificially limited. */
+                     show_memory_available = i->memory_available != CGROUP_LIMIT_MAX &&
+                                             (i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX);
                 if (show_memory_peak ||
-                    show_memory_swap_peak ||
+                    show_memory_swap_peak || /* We don't need to check memory_swap_current, as if peak is 0 that must also be 0 */
                     show_memory_zswap_current ||
                     show_memory_available ||
                     i->memory_min > 0 ||
@@ -724,7 +747,6 @@ static void print_status_info(
                     i->memory_max != CGROUP_LIMIT_MAX || i->startup_memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX || i->startup_memory_swap_max != CGROUP_LIMIT_MAX ||
                     i->memory_zswap_max != CGROUP_LIMIT_MAX || i->startup_memory_zswap_max != CGROUP_LIMIT_MAX ||
-                    i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
@@ -844,10 +866,9 @@ static void print_status_info(
                                 i->id,
                                 i->log_namespace,
                                 arg_output,
-                                0,
+                                /* n_columns = */ 0,
                                 i->inactive_exit_timestamp_monotonic,
                                 arg_lines,
-                                getuid(),
                                 get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                 SD_JOURNAL_LOCAL_ONLY,
                                 arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
@@ -2031,16 +2052,19 @@ static int show_one(
                 { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
                 { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
-                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
+                { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
+                { "InvocationID",                   "s",               bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
                 { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
                 { "MainPID",                        "u",               map_main_pid,   0                                                           },
                 { "ControlPID",                     "u",               NULL,           offsetof(UnitStatusInfo, control_pid)                       },
-                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
                 { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                          },
+                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
                 { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "StatusBusError",                 "s",               NULL,           offsetof(UnitStatusInfo, status_bus_error)                  },
+                { "StatusVarlinkError",             "s",               NULL,           offsetof(UnitStatusInfo, status_varlink_error)              },
                 { "FileDescriptorStoreMax",         "u",               NULL,           offsetof(UnitStatusInfo, fd_store_max)                      },
                 { "NFileDescriptorStore",           "u",               NULL,           offsetof(UnitStatusInfo, n_fd_store)                        },
                 { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
@@ -2175,7 +2199,7 @@ static int show_one(
         if (show_mode == SYSTEMCTL_SHOW_STATUS) {
                 print_status_info(bus, &info, ellipsized);
 
-                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
+                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading", "refreshing"))
                         return EXIT_PROGRAM_NOT_RUNNING;
 
                 return EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;

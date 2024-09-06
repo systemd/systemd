@@ -26,6 +26,7 @@
     <para><simplelist>
       <member><filename>/etc/binfmt.d/*.conf</filename></member>
       <member><filename>/run/binfmt.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/binfmt.d/*.conf</filename></member>
       <member><filename>/usr/lib/binfmt.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

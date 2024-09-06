@@ -25,6 +25,7 @@
     <para><simplelist>
       <member><filename>/etc/repart.d/*.conf</filename></member>
       <member><filename>/run/repart.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/repart.d/*.conf</filename></member>
       <member><filename>/usr/lib/repart.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
@@ -361,12 +362,14 @@
       <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
-        <listitem><para>Takes a path to a regular file, block device node or directory, or the special value
-        <literal>auto</literal>. If specified and the partition is newly created, the data from the specified
-        path is written to the newly created partition, on the block level. If a directory is specified, the
-        backing block device of the file system the directory is on is determined, and the data read directly
-        from that. This option is useful to efficiently replicate existing file systems onto new partitions
-        on the block level — for example to build a simple OS installer or an OS image builder.</para>
+        <listitem><para>Takes a path to a regular file, block device node, char device node or directory, or
+        the special value <literal>auto</literal>. If specified and the partition is newly created, the data
+        from the specified path is written to the newly created partition, on the block level. If a directory
+        is specified, the backing block device of the file system the directory is on is determined, and the
+        data read directly from that. This option is useful to efficiently replicate existing file systems
+        onto new partitions on the block level — for example to build a simple OS installer or an OS image
+        builder. Specify <filename>/dev/urandom</filename> as value to initialize a partition with random
+        data.</para>
 
         <para>If the special value <literal>auto</literal> is specified, the source to copy from is
         automatically picked up from the running system (or the image specified with
@@ -383,7 +386,7 @@
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
-        created as least as big as required to fit the data in, i.e. the data size is an additional minimum
+        created at least as big as required to fit the data in, i.e. the data size is an additional minimum
         size value taken into consideration for the allocation algorithm, similar to and in addition to the
         <varname>SizeMin=</varname> value configured above.</para>
 
@@ -407,7 +410,7 @@
         <literal>squashfs</literal> or the special value <literal>swap</literal>. If specified and the partition
         is newly created it is formatted with the specified file system (or as swap device). The file system
         UUID and label are automatically derived from the partition UUID and label. If this option is used,
-        the size allocation algorithm is slightly altered: the partition is created as least as big as
+        the size allocation algorithm is slightly altered: the partition is created at least as big as
         required for the minimal file system of the specified type (or 4KiB if the minimal size is not
         known).</para>
 
@@ -538,17 +541,55 @@
         <term><varname>Subvolumes=</varname></term>
 
         <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
-        that should be a subvolume within the new file system. This option may be used more than once to
-        specify multiple directories. Note that this setting does not create the directories themselves, that
-        can be configured with <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
+        that should be a subvolume within the new file system. Each path may optionally be followed by a
+        colon and a list of comma-separated subvolume flags. The following flags are understood:</para>
+
+        <table class='flags'>
+          <title>Subvolume Flags</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="spec" />
+            <colspec colname="purpose" />
+            <thead>
+              <row>
+                <entry>Flag</entry>
+                <entry>Purpose</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row id='R'>
+                <entry><literal>ro</literal></entry>
+                <entry>Make this subvolume read-only.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Note that this option does not create the directories themselves, that can be configured with
+        <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
 
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
         <literal>btrfs</literal>.</para>
 
-        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
-        when running with <option>--offline=no</option>.</para>
+        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        since btrfs-progs 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultSubvolume=</varname></term>
+
+        <listitem><para>Takes an absolute path specifying the default subvolume within the new filesystem.
+        Note that this setting does not create the subvolume itself, that can be configured with
+        <varname>Subvolumes=</varname>.</para>
+
+        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
+        <literal>btrfs</literal>.</para>
+
+        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        since btrfs-progs 6.11 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -691,7 +732,7 @@
         <citerefentry
         project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        <para>If both bit 60 and 59 are set for a partition (i.e. the partition is marked both read-only and
         marked for file system growing) the latter is typically without effect: the read-only flag takes
         precedence in most tools reading these flags, and since growing the file system involves writing to
         the partition it is consequently ignored.</para>
@@ -770,6 +811,68 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression algorithm.</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs). Here's an incomplete list
+        of compression algorithms supported by the filesystems known to
+        <command>systemd-repart</command>:</para>
+
+        <table>
+          <title>File System Compression Algorithms</title>
+
+          <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+            <colspec colname="filesystem" />
+            <colspec colname="algorithms" />
+            <colspec colname="manpage" />
+
+            <thead>
+              <row>
+                <entry>File System</entry>
+                <entry>Compression Algorithms</entry>
+                <entry>Documentation</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry><constant>squashfs</constant></entry>
+                <entry>gzip, lzo, lz4, xz, zstd, lzma</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mksquashfs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+
+              <row>
+                <entry><constant>erofs</constant></entry>
+                <entry>lz4, lz4hc, lzma, deflate, libdeflate, zstd</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mkfs.erofs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
+        configured compression algorithm. The possible compression levels and their meaning are filesystem
+        specific (refer to the filesystem's documentation for the exact meaning of a particular compression
+        level).</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression and the <varname>Compression=</varname> setting is
+        configured explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -802,6 +905,7 @@
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
@@ -851,6 +955,19 @@
           </tbody>
         </tgroup>
       </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <para>Extra filesystem formatting options can be provided using filesystem-specific environment variables:
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_BTRFS</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_XFS</varname>,
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_VFAT</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_EROFS</varname>,
+    and <varname>$SYSTEMD_REPART_MKFS_OPTIONS_SQUASHFS</varname>. Each variable accepts valid
+    <command>mkfs.<replaceable>filesystem</replaceable></command> command-line arguments.
+    The content of those variables is passed as-is to the command, without any verification.
+    </para>
+
   </refsect1>
 
   <refsect1>

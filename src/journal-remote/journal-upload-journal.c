@@ -388,7 +388,7 @@ int open_journal_for_upload(Uploader *u,
                 else
                         u->timeout = JOURNAL_UPLOAD_POLL_TIMEOUT;
 
-                r = sd_event_add_io(u->events, &u->input_event,
+                r = sd_event_add_io(u->event, &u->input_event,
                                     fd, events, dispatch_journal_input, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to register input event: %m");

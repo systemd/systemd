@@ -11,13 +11,13 @@
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 
-DLSYM_PROTOTYPE(pcre2_match_data_create);
-DLSYM_PROTOTYPE(pcre2_match_data_free);
-DLSYM_PROTOTYPE(pcre2_code_free);
-DLSYM_PROTOTYPE(pcre2_compile);
-DLSYM_PROTOTYPE(pcre2_get_error_message);
-DLSYM_PROTOTYPE(pcre2_match);
-DLSYM_PROTOTYPE(pcre2_get_ovector_pointer);
+extern DLSYM_PROTOTYPE(pcre2_match_data_create);
+extern DLSYM_PROTOTYPE(pcre2_match_data_free);
+extern DLSYM_PROTOTYPE(pcre2_code_free);
+extern DLSYM_PROTOTYPE(pcre2_compile);
+extern DLSYM_PROTOTYPE(pcre2_get_error_message);
+extern DLSYM_PROTOTYPE(pcre2_match);
+extern DLSYM_PROTOTYPE(pcre2_get_ovector_pointer);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_match_data*, sym_pcre2_match_data_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);

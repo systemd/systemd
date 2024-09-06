@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"
@@ -31,6 +32,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-address-label.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server-bus.h"
@@ -85,13 +87,8 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 
         log_debug("Coming back from suspend, reconfiguring all connections...");
 
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_reconfigure(link, /* force = */ true);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                        link_enter_failed(link);
-                }
-        }
+        HASHMAP_FOREACH(link, m->links_by_index)
+                (void) link_reconfigure(link, /* force = */ true);
 
         return 0;
 }
@@ -557,27 +554,27 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
-static bool persistent_storage_is_ready(void) {
+static int persistent_storage_open(void) {
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
-        if (access("/run/systemd/netif/persistent-storage-ready", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not: %m");
-                return false;
-        }
+        r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");
+        if (r < 0 && r != -ENXIO)
+                return log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY environment variable, ignoring: %m");
+        if (r <= 0)
+                return -EBADF;
 
-        r = path_is_read_only_fs("/var/lib/systemd/network/");
-        if (r == 0)
-                return true;
+        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
+
+        r = fd_is_read_only_fs(fd);
         if (r < 0)
-                log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
-        else
-                log_debug("The directory /var/lib/systemd/network/ is read-only.");
+                return log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EROFS), "The directory /var/lib/systemd/network/ is on read-only filesystem.");
 
-        if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
-                log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
-
-        return false;
+        return TAKE_FD(fd);
 }
 
 int manager_new(Manager **ret, bool test_mode) {
@@ -591,16 +588,20 @@ int manager_new(Manager **ret, bool test_mode) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
-                .persistent_storage_is_ready = persistent_storage_is_ready(),
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
                 .manage_foreign_rules = true,
                 .manage_foreign_nexthops = true,
                 .ethtool_fd = -EBADF,
+                .persistent_storage_fd = persistent_storage_open(),
+                .dhcp_use_domains = _USE_DOMAINS_INVALID,
+                .dhcp6_use_domains = _USE_DOMAINS_INVALID,
+                .ndisc_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
         };
 
@@ -659,6 +660,8 @@ Manager* manager_free(Manager *m) {
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
         m->nexthop_ids = set_free(m->nexthop_ids);
 
+        m->address_labels_by_section = hashmap_free(m->address_labels_by_section);
+
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
 
@@ -672,6 +675,7 @@ Manager* manager_free(Manager *m) {
         free(m->dynamic_hostname);
 
         safe_close(m->ethtool_fd);
+        safe_close(m->persistent_storage_fd);
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
@@ -685,6 +689,10 @@ int manager_start(Manager *m) {
         assert(m);
 
         manager_set_sysctl(m);
+
+        r = manager_request_static_address_labels(m);
+        if (r < 0)
+                return r;
 
         r = manager_start_speed_meter(m);
         if (r < 0)
@@ -1118,10 +1126,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         assert(m);
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         r = netdev_load(m, /* reload= */ true);
         if (r < 0)
@@ -1133,13 +1138,9 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         HASHMAP_FOREACH(link, m->links_by_index) {
                 if (message)
-                        r = link_reconfigure_on_bus_method_reload(link, message);
+                        (void) link_reconfigure_on_bus_method_reload(link, message);
                 else
-                        r = link_reconfigure(link, /* force = */ false);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to reconfigure the interface: %m");
-                        link_enter_failed(link);
-                }
+                        (void) link_reconfigure(link, /* force = */ false);
         }
 
         r = 0;

@@ -55,6 +55,10 @@ static int has_multiple_graphics_cards(void) {
         if (r < 0)
                 return r;
 
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
         r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match = */ true);
         if (r < 0)
                 return r;

@@ -88,11 +88,12 @@ _localectl_commands() {
 }
 
 _arguments \
-    {-h,--help}'[Show this help]' \
+    '(- *)'{-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     "--no-convert[Don't convert keyboard mappings]" \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
-    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machine' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize the output]' \
     '*::localectl commands:_localectl_commands'

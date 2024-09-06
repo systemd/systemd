@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_IMPORTD') != 1
+        subdir_done()
+endif
+
 systemd_importd_sources = files(
         'importd.c',
 )
@@ -106,6 +110,11 @@ executables += [
                 'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : files('importctl.c'),
         },
+        generator_template + {
+                'name' : 'systemd-import-generator',
+                'sources' : files('import-generator.c'),
+                'conditions' : ['ENABLE_IMPORTD'],
+        },
         test_template + {
                 'sources' : files(
                         'test-qcow2.c',
@@ -117,15 +126,13 @@ executables += [
         },
 ]
 
-if conf.get('ENABLE_IMPORTD') == 1
-        install_data('org.freedesktop.import1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.import1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.import1.policy',
-                     install_dir : polkitpolicydir)
+install_data('org.freedesktop.import1.conf',
+             install_dir : dbuspolicydir)
+install_data('org.freedesktop.import1.service',
+             install_dir : dbussystemservicedir)
+install_data('org.freedesktop.import1.policy',
+             install_dir : polkitpolicydir)
 
-        install_data('import-pubring.gpg',
-                     install_dir : libexecdir)
-        # TODO: shouldn't this be in pkgdatadir?
-endif
+install_data('import-pubring.gpg',
+             install_dir : libexecdir)
+# TODO: shouldn't this be in pkgdatadir?

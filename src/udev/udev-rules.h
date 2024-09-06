@@ -43,4 +43,4 @@ int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event);
 int udev_rules_apply_static_dev_perms(UdevRules *rules);
 
 ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
-const char *resolve_name_timing_to_string(ResolveNameTiming i) _const_;
+const char* resolve_name_timing_to_string(ResolveNameTiming i) _const_;

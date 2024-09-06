@@ -101,6 +101,8 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_bool(f, "transient", u->transient);
         (void) serialize_bool(f, "in-audit", u->in_audit);
 
+        (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
+
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
         (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
         (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
@@ -117,7 +119,8 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         if (!sd_id128_is_null(u->invocation_id))
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
-        (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
+        (void) serialize_item(f, "freezer-state", freezer_state_to_string(u->freezer_state));
+
         (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
@@ -262,6 +265,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
 
                 else if (MATCH_DESERIALIZE("in-audit", l, v, parse_boolean, u->in_audit))
+                        continue;
+
+                else if (MATCH_DESERIALIZE("debug-invocation", l, v, parse_boolean, u->debug_invocation))
                         continue;
 
                 else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
@@ -451,8 +457,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
-                "%s-> Unit %s:\n",
-                prefix, u->id);
+                "%s%s Unit %s:\n",
+                prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), u->id);
 
         SET_FOREACH(t, u->aliases)
                 fprintf(f, "%s\tAlias: %s\n", prefix, t);

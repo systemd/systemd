@@ -11,8 +11,8 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#ifndef _UAPI_LINUX_IPV6_ROUTE_H
-#define _UAPI_LINUX_IPV6_ROUTE_H
+#ifndef _LINUX_IPV6_ROUTE_H
+#define _LINUX_IPV6_ROUTE_H
 
 #include <linux/types.h>
 #include <linux/in6.h>			/* For struct in6_addr. */
@@ -61,4 +61,4 @@ struct in6_rtmsg {
 #define IP6_RT_PRIO_USER	1024
 #define IP6_RT_PRIO_ADDRCONF	256
 
-#endif /* _UAPI_LINUX_IPV6_ROUTE_H */
+#endif /* _LINUX_IPV6_ROUTE_H */

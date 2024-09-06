@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "constants.h"
 #include "escape.h"
 #include "string-util.h"
@@ -57,9 +58,9 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
                 assert_se(utf8_console_width(t3) <= max_width);
 
         if (new_length >= old_length) {
-                assert_se(streq(t1, n));
-                assert_se(streq(t2, n));
-                assert_se(streq(t3, n));
+                ASSERT_STREQ(t1, n);
+                ASSERT_STREQ(t2, n);
+                ASSERT_STREQ(t3, n);
         }
 }
 
@@ -143,17 +144,17 @@ TEST(ellipsize_ansi_cats) {
 
         e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
         puts(e);
-        assert_se(streq(e, "01" ANSI_NORMAL "23"));
+        ASSERT_STREQ(e, "01" ANSI_NORMAL "23");
         f = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
         puts(f);
-        assert_se(streq(f, "ab" ANSI_NORMAL "cd"));
+        ASSERT_STREQ(f, "ab" ANSI_NORMAL "cd");
 
         g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 0);
         puts(g);
-        assert_se(streq(g, "…" ANSI_NORMAL "🐱🐱" ANSI_NORMAL));
+        ASSERT_STREQ(g, "…" ANSI_NORMAL "🐱🐱" ANSI_NORMAL);
         h = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 90);
         puts(h);
-        assert_se(streq(h, "🐱…" ANSI_NORMAL "🐱" ANSI_NORMAL));
+        ASSERT_STREQ(h, "🐱…" ANSI_NORMAL "🐱" ANSI_NORMAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

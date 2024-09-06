@@ -25,12 +25,11 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
-#include "spawn-polkit-agent.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysfs-show.h"
@@ -44,7 +43,7 @@ static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -733,16 +732,15 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
-                                        NULL,
+                                        /* namespace = */ NULL,
                                         arg_output,
-                                        0,
+                                        /* n_columns = */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
-                                        0,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        true,
-                                        NULL);
+                                        /* system_unit = */ true,
+                                        /* ellipsized = */ NULL);
         }
 
         return 0;
@@ -839,16 +837,15 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                         show_journal_by_unit(
                                         stdout,
                                         i.slice,
-                                        NULL,
+                                        /* namespace = */ NULL,
                                         arg_output,
-                                        0,
+                                        /* n_columns = */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
-                                        0,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        true,
-                                        NULL);
+                                        /* system_unit = */ true,
+                                        /* ellipsized = */ NULL);
         }
 
         return 0;
@@ -1028,7 +1025,6 @@ static int get_bus_path_by_id(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *p = NULL;
         const char *path;
         int r;
 
@@ -1047,12 +1043,7 @@ static int get_bus_path_by_id(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        p = strdup(path);
-        if (!p)
-                return log_oom();
-
-        *ret = TAKE_PTR(p);
-        return 0;
+        return strdup_to(ret, path);
 }
 
 static int show_session(int argc, char *argv[], void *userdata) {
@@ -1205,7 +1196,7 @@ static int activate(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
                 r = sd_bus_call_method(
@@ -1248,7 +1239,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
@@ -1276,7 +1267,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         b = streq(argv[0], "enable-linger");
 
@@ -1322,7 +1313,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
@@ -1352,7 +1343,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (!arg_kill_whom)
                 arg_kill_whom = "all";
@@ -1390,7 +1381,7 @@ static int attach(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 2; i < argc; i++) {
 
@@ -1414,7 +1405,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
         if (r < 0)
@@ -1430,7 +1421,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_method(
                         bus,
@@ -1451,7 +1442,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
 
@@ -1629,7 +1620,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         arg_legend = false;
                         break;
 
@@ -1638,7 +1629,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
-                        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                                 arg_legend = false;
 
                         break;
@@ -1724,14 +1715,11 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        journal_browse_prepare();
 
         r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
         if (r < 0)

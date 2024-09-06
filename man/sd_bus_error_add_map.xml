@@ -120,7 +120,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_error_add_map()</function> was added in version 223.</para>
+    <para><function>sd_bus_error_add_map()</function> was added in version 221.</para>
   </refsect1>
 
   <refsect1>

@@ -114,7 +114,7 @@ static char* systemd_crypt_ra(const char *phrase, const char *setting, void **da
         if (!*data) {
                 *data = new0(struct crypt_data, 1);
                 if (!*data) {
-                        errno = -ENOMEM;
+                        errno = ENOMEM;
                         return NULL;
                 }
 
@@ -140,7 +140,7 @@ static char* systemd_crypt_ra(const char *phrase, const char *setting, void **da
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
         _cleanup_free_ char *salt = NULL;
         _cleanup_(erase_and_freep) void *_cd_data = NULL;
-        char *p;
+        const char *p;
         int r, _cd_size = 0;
 
         assert(!!cd_data == !!cd_size);
@@ -155,12 +155,7 @@ int hash_password_full(const char *password, void **cd_data, int *cd_size, char 
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
                                        CRYPT_RA_NAME "() failed: %m");
 
-        p = strdup(p);
-        if (!p)
-                return -ENOMEM;
-
-        *ret = p;
-        return 0;
+        return strdup_to(ret, p);
 }
 
 bool looks_like_hashed_password(const char *s) {

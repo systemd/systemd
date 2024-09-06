@@ -309,7 +309,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         return 1;
 }
 
-const char *dns_question_first_name(DnsQuestion *q) {
+const char* dns_question_first_name(DnsQuestion *q) {
 
         if (!q)
                 return NULL;

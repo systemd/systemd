@@ -15,38 +15,38 @@ TEST(strip_tab_ansi) {
         assert_se(p = strdup("\tFoobar\tbar\twaldo\t"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
         fprintf(stdout, "<%s>\n", p);
-        assert_se(streq(p, "        Foobar        bar        waldo        "));
+        ASSERT_STREQ(p, "        Foobar        bar        waldo        ");
         free(p);
 
         assert_se(p = strdup(ANSI_HIGHLIGHT "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
         fprintf(stdout, "<%s>\n", p);
-        assert_se(streq(p, "Hello world!"));
+        ASSERT_STREQ(p, "Hello world!");
         free(p);
 
         assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!"));
+        ASSERT_STREQ(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!");
         free(p);
 
         assert_se(p = strdup("\x1B[waldo"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "\x1B[waldo"));
+        ASSERT_STREQ(p, "\x1B[waldo");
         free(p);
 
         assert_se(p = strdup("\r\rwaldo"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "\r\rwaldo"));
+        ASSERT_STREQ(p, "\r\rwaldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "waldo"));
+        ASSERT_STREQ(p, "waldo");
         free(p);
 
         assert_se(p = strdup("waldo\r\r\n\r\n"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "waldo\n\n"));
+        ASSERT_STREQ(p, "waldo\n\n");
         free(p);
 
         assert_se(terminal_urlify_path("/etc/fstab", "i am a fabulous link", &urlified) >= 0);
@@ -55,7 +55,7 @@ TEST(strip_tab_ansi) {
         printf("<%s>\n", p);
         assert_se(strip_tab_ansi(&p, NULL, NULL));
         printf("<%s>\n", p);
-        assert_se(streq(p, "something i am a fabulous link something-else"));
+        ASSERT_STREQ(p, "something i am a fabulous link something-else");
         p = mfree(p);
 
         /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch the
@@ -65,7 +65,7 @@ TEST(strip_tab_ansi) {
                 *z = 0;
                 assert_se(qq = strdup(q));
                 assert_se(strip_tab_ansi(&q, NULL, NULL));
-                assert_se(streq(q, qq));
+                ASSERT_STREQ(q, qq);
         }
 }
 

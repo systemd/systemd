@@ -21,8 +21,7 @@ if get_option('link-timesyncd-shared')
         timesyncd_link_with = [libshared]
 else
         timesyncd_link_with = [libsystemd_static,
-                               libshared_static,
-                               libbasic_gcrypt]
+                               libshared_static]
 endif
 
 libtimesyncd_core = static_library(

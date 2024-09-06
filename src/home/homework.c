@@ -14,6 +14,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework.h"
 #include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
@@ -22,7 +23,7 @@
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "homework-pkcs11.h"
-#include "homework.h"
+#include "json-util.h"
 #include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -56,6 +57,7 @@ int user_record_authenticate(
 
         assert(h);
         assert(secret);
+        assert(cache);
 
         /* Tries to authenticate a user record with the supplied secrets. i.e. checks whether at least one
          * supplied plaintext passwords matches a hashed password field of the user record. Or if a
@@ -66,9 +68,25 @@ int user_record_authenticate(
          * times over the course of an operation (think: on login we authenticate the host user record, the
          * record embedded in the LUKS record and the one embedded in $HOME). Hence we keep a list of
          * passwords we already decrypted, so that we don't have to do the (slow and potentially interactive)
-         * PKCS#11/FIDO2 dance for the relevant token again and again. */
+         * PKCS#11/FIDO2 dance for the relevant token again and again.
+         *
+         * The 'cache' parameter might also contain the LUKS volume key, loaded from the kernel keyring.
+         * In this case, authentication becomes optional - if a secret section is provided it will be
+         * verified, but if missing then authentication is skipped entirely. Thus, callers should
+         * consider carefully whether it is safe to load the volume key into 'cache' before doing so.
+         * Note that most of the time this is safe, because the home area must be active for the key
+         * to exist in the keyring, and the user would have had to authenticate when activating their
+         * home area; however, for some methods (i.e. ChangePassword, Authenticate) it makes more sense
+         * to force re-authentication. */
 
-        /* First, let's see if the supplied plain-text passwords work? */
+        /* First, let's see if we already have a volume key from the keyring */
+        if (cache->volume_key &&
+            sd_json_variant_is_blank_object(sd_json_variant_by_key(secret->json, "secret"))) {
+                log_info("LUKS volume key from keyring unlocks user record.");
+                return 1;
+        }
+
+        /* Next, let's see if the supplied plain-text passwords work? */
         r = user_record_test_password(h, secret);
         if (r == -ENOKEY)
                 need_password = true;
@@ -101,10 +119,10 @@ int user_record_authenticate(
         else
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
-        /* Second, test cached PKCS#11 passwords */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
+        /* Next, test cached PKCS#11 passwords */
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
-                        r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
+                        r = test_password_one(i->hashed_password, *pp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check supplied PKCS#11 password: %m");
                         if (r > 0) {
@@ -113,11 +131,11 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Third, test cached FIDO2 passwords */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
+        /* Next, test cached FIDO2 passwords */
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
-                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, *pp);
+                        r = test_password_one(i->hashed_password, *pp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
                         if (r > 0) {
@@ -126,13 +144,13 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        /* Next, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
                         .secret = secret,
-                        .encrypted_key = h->pkcs11_encrypted_key + n,
+                        .encrypted_key = i,
                 };
 
                 r = pkcs11_find_token(data.encrypted_key->uri, pkcs11_callback, &data);
@@ -166,7 +184,9 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test PKCS#11 password: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Configured PKCS#11 security token %s does not decrypt encrypted key correctly.", data.encrypted_key->uri);
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Configured PKCS#11 security token %s does not decrypt encrypted key correctly.",
+                                                       data.encrypted_key->uri);
 
                         log_info("Decrypted password from PKCS#11 security token %s unlocks user record.", data.encrypted_key->uri);
 
@@ -182,12 +202,12 @@ int user_record_authenticate(
 #endif
         }
 
-        /* Fifth, let's see if any of the FIDO2 security tokens are plugged in and help us */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
+        /* Next, let's see if any of the FIDO2 security tokens are plugged in and help us */
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, secret, h->fido2_hmac_salt + n, &decrypted_password);
+                r = fido2_use_token(h, secret, i, &decrypted_password);
                 switch (r) {
                 case -EAGAIN:
                         need_token = true;
@@ -214,11 +234,12 @@ int user_record_authenticate(
                         if (r < 0)
                                 return r;
 
-                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                        r = test_password_one(i->hashed_password, decrypted_password);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test FIDO2 password: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Configured FIDO2 security token does not decrypt encrypted key correctly.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Configured FIDO2 security token does not decrypt encrypted key correctly.");
 
                         log_info("Decrypted password from FIDO2 security token unlocks user record.");
 
@@ -280,10 +301,10 @@ static void drop_caches_now(void) {
         int r;
 
         /* Drop file system caches now. See https://docs.kernel.org/admin-guide/sysctl/vm.html
-         * for details. We write "2" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
+         * for details. We write "3" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
          * not more. */
 
-        r = write_string_file("/proc/sys/vm/drop_caches", "2\n", WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file("/proc/sys/vm/drop_caches", "3\n", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to drop caches, ignoring: %m");
         else
@@ -358,6 +379,9 @@ static int keyring_flush(UserRecord *h) {
         long serial;
 
         assert(h);
+
+        if (user_record_storage(h) == USER_FSCRYPT)
+                (void) home_flush_keyring_fscrypt(h);
 
         name = strjoin("homework-user-", h->user_name);
         if (!name)
@@ -515,7 +539,7 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
         return 0;
 }
 
-static int read_identity_file(int root_fd, JsonVariant **ret) {
+static int read_identity_file(int root_fd, sd_json_variant **ret) {
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         unsigned line, column;
@@ -536,7 +560,7 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         if (!identity_file)
                 return log_oom();
 
-        r = json_parse_file(identity_file, ".identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
@@ -545,8 +569,8 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         return 0;
 }
 
-static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
-        _cleanup_(json_variant_unrefp) JsonVariant *normalized = NULL;
+static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
@@ -555,9 +579,9 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         assert(root_fd >= 0);
         assert(v);
 
-        normalized = json_variant_ref(v);
+        normalized = sd_json_variant_ref(v);
 
-        r = json_variant_normalize(&normalized);
+        r = sd_json_variant_normalize(&normalized);
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
@@ -575,7 +599,7 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
                 goto fail;
         }
 
-        json_variant_dump(normalized, JSON_FORMAT_PRETTY, identity_file, NULL);
+        sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, NULL);
 
         r = fflush_and_check(identity_file);
         if (r < 0) {
@@ -612,7 +636,7 @@ int home_load_embedded_identity(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *intermediate_home = NULL, *new_home = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(h);
@@ -1039,12 +1063,13 @@ static int home_deactivate(UserRecord *h, bool force) {
         return 0;
 }
 
-static int copy_skel(int root_fd, const char *skel) {
+static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
         int r;
 
+        assert(h);
         assert(root_fd >= 0);
 
-        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", UID_INVALID, GID_INVALID, COPY_MERGE|COPY_REPLACE, NULL, NULL);
+        r = copy_tree_at(AT_FDCWD, skel, root_fd, ".", h->uid, h->gid, COPY_MERGE|COPY_REPLACE, NULL, NULL);
         if (r == -ENOENT) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;
@@ -1072,7 +1097,7 @@ int home_populate(UserRecord *h, int dir_fd) {
         assert(h);
         assert(dir_fd >= 0);
 
-        r = copy_skel(dir_fd, user_record_skeleton_directory(h));
+        r = copy_skel(h, dir_fd, user_record_skeleton_directory(h));
         if (r < 0)
                 return r;
 
@@ -1101,7 +1126,6 @@ static int user_record_compile_effective_passwords(
                 char ***ret_effective_passwords) {
 
         _cleanup_strv_free_erase_ char **effective = NULL;
-        size_t n;
         int r;
 
         assert(h);
@@ -1146,17 +1170,16 @@ static int user_record_compile_effective_passwords(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Missing plaintext password for defined hashed password");
         }
 
-        for (n = 0; n < h->n_recovery_key; n++) {
+        FOREACH_ARRAY(i, h->recovery_key, h->n_recovery_key) {
                 bool found = false;
 
-                log_debug("Looking for plaintext recovery key for: %s", h->recovery_key[n].hashed_password);
+                log_debug("Looking for plaintext recovery key for: %s", i->hashed_password);
 
                 STRV_FOREACH(j, h->password) {
                         _cleanup_(erase_and_freep) char *mangled = NULL;
                         const char *p;
 
-                        if (streq(h->recovery_key[n].type, "modhex64")) {
-
+                        if (streq(i->type, "modhex64")) {
                                 r = normalize_recovery_key(*j, &mangled);
                                 if (r == -EINVAL) /* Not properly formatted, probably a regular password. */
                                         continue;
@@ -1167,7 +1190,7 @@ static int user_record_compile_effective_passwords(
                         } else
                                 p = *j;
 
-                        r = test_password_one(h->recovery_key[n].hashed_password, p);
+                        r = test_password_one(i->hashed_password, p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test plaintext recovery key: %m");
                         if (r > 0) {
@@ -1184,15 +1207,16 @@ static int user_record_compile_effective_passwords(
                 }
 
                 if (!found)
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO), "Missing plaintext recovery key for defined recovery key");
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO),
+                                               "Missing plaintext recovery key for defined recovery key.");
         }
 
-        for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
                         .secret = h,
-                        .encrypted_key = h->pkcs11_encrypted_key + n,
+                        .encrypted_key = i,
                 };
 
                 r = pkcs11_find_token(data.encrypted_key->uri, pkcs11_callback, &data);
@@ -1221,19 +1245,20 @@ static int user_record_compile_effective_passwords(
 #endif
         }
 
-        for (n = 0; n < h->n_fido2_hmac_salt; n++) {
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, h, h->fido2_hmac_salt + n, &decrypted_password);
+                r = fido2_use_token(h, h, i, &decrypted_password);
                 if (r < 0)
                         return r;
 
-                r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                r = test_password_one(i->hashed_password, decrypted_password);
                 if (r < 0)
                         return log_error_errno(r, "Failed to test FIDO2 password: %m");
                 if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Decrypted password from token is not correct, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Decrypted password from token is not correct, refusing.");
 
                 if (ret_effective_passwords) {
                         r = strv_extend(&effective, decrypted_password);
@@ -1535,6 +1560,21 @@ static int home_remove(UserRecord *h) {
         return 0;
 }
 
+static int home_basic_validate_update(UserRecord *h) {
+        assert(h);
+
+        if (!h->user_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
+
+        if (!uid_is_valid(h->uid))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
+
+        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+
+        return 0;
+}
+
 static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
@@ -1542,12 +1582,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         assert(h);
         assert(setup);
 
-        if (!h->user_name)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
-        if (!uid_is_valid(h->uid))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
-        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+        r = home_basic_validate_update(h);
+        if (r < 0)
+                return r;
 
         r = user_record_test_home_directory_and_warn(h);
         if (r < 0)
@@ -1594,23 +1631,42 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        bool offline;
         int r;
 
         assert(h);
         assert(ret);
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        offline = getenv_bool("SYSTEMD_HOMEWORK_UPDATE_OFFLINE") > 0;
 
-        r = home_validate_update(h, &setup, &flags);
+        if (!offline) {
+                password_cache_load_keyring(h, &cache);
+
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+
+                r = home_validate_update(h, &setup, &flags);
+        } else {
+                /* In offline mode we skip all authentication, since we're
+                 * not propagating anything into the home area. The new home
+                 * records's authentication will still be checked when the user
+                 * next logs in, so this is fine */
+
+                r = home_basic_validate_update(h);
+        }
         if (r < 0)
                 return r;
 
         r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
+
+        if (offline) {
+                log_info("Offline update requested. Not touching embedded records.");
+                return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+        }
 
         r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
@@ -1654,7 +1710,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         return 0;
 }
 
-static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
+static int home_resize(UserRecord *h, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1666,25 +1722,16 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        if (automatic)
-                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
-                password_cache_load_keyring(h, &cache);
-        else {
-                /* In manual mode let's ensure the user is fully authenticated */
-                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-                if (r < 0)
-                        return r;
-                assert(r > 0); /* Insist that a password was verified */
-        }
+        password_cache_load_keyring(h, &cache);
+
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+        if (r < 0)
+                return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
-
-        /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
-         * ask the user for reauthentication */
-        if (automatic)
-                flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
         switch (user_record_storage(h)) {
 
@@ -1823,37 +1870,33 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
-static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
+static int user_session_freezer_new(uid_t uid, UnitFreezer **ret) {
         _cleanup_free_ char *unit = NULL;
         int r;
 
+        assert(uid_is_valid(uid));
+        assert(ret);
+
         r = getenv_bool("SYSTEMD_HOME_LOCK_FREEZE_SESSION");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring.");
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring: %m");
         else if (r == 0) {
-                if (freeze_now)
-                        log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION "
-                                   "is set to false). This is not recommended, and might result in unexpected behavior "
-                                   "including data loss!");
-                *ret = (UnitFreezer) {};
+                *ret = NULL;
                 return 0;
         }
 
         if (asprintf(&unit, "user-" UID_FMT ".slice", uid) < 0)
                 return log_oom();
 
-        if (freeze_now)
-                r = unit_freezer_new_freeze(unit, ret);
-        else
-                r = unit_freezer_new(unit, ret);
+        r = unit_freezer_new(unit, ret);
         if (r < 0)
                 return r;
+
         return 1;
 }
 
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         int r;
 
         assert(h);
@@ -1869,19 +1912,29 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = user_session_freezer(h->uid, /* freeze_now= */ true, &freezer);
-        if (r < 0)
-                log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
-        else if (r == 0)
-                log_info("User session freeze disabled, skipping.");
-        else
-                log_info("Froze user session.");
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
 
-        r = home_lock_luks(h, &setup);
+        r = user_session_freezer_new(h->uid, &f);
         if (r < 0)
                 return r;
+        if (r > 0) {
+                r = unit_freezer_freeze(f);
+                if (r < 0)
+                        return r;
+        } else
+                log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION=0).\n"
+                           "This is not recommended, and might result in unexpected behavior including data loss!");
 
-        unit_freezer_done(&freezer); /* Don't thaw the user session. */
+        r = home_lock_luks(h, &setup);
+        if (r < 0) {
+                if (f)
+                        (void) unit_freezer_thaw(f);
+
+                return r;
+        }
+
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
 
         log_info("Everything completed.");
         return 1;
@@ -1889,7 +1942,6 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1911,10 +1963,14 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+
         /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer(h->uid, /* freeze_now= */ false, &freezer);
+        r = user_session_freezer_new(h->uid, &f);
+        if (r > 0)
+                r = unit_freezer_thaw(f);
         if (r < 0)
-                log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
+                return r;
 
         log_info("Everything completed.");
         return 1;
@@ -1922,14 +1978,14 @@ static int home_unlock(UserRecord *h) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         unsigned line = 0, column = 0;
         const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
-        JsonVariant *fdmap, *blob_fd_variant;
+        sd_json_variant *fdmap, *blob_fd_variant;
         int r;
 
         start = now(CLOCK_MONOTONIC);
@@ -1956,11 +2012,11 @@ static int run(int argc, char *argv[]) {
                 json_file = stdin;
         }
 
-        r = json_parse_file(json_file, json_path, JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
 
-        fdmap = json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
+        fdmap = sd_json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
         if (fdmap) {
                 r = hashmap_ensure_allocated(&blobs, &blob_fd_hash_ops);
                 if (r < 0)
@@ -1970,10 +2026,10 @@ static int run(int argc, char *argv[]) {
                         _cleanup_free_ char *filename = NULL;
                         _cleanup_close_ int fd = -EBADF;
 
-                        assert(json_variant_is_integer(blob_fd_variant));
-                        assert(json_variant_integer(blob_fd_variant) >= 0);
-                        assert(json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
-                        fd = SD_LISTEN_FDS_START + (int) json_variant_integer(blob_fd_variant);
+                        assert(sd_json_variant_is_integer(blob_fd_variant));
+                        assert(sd_json_variant_integer(blob_fd_variant) >= 0);
+                        assert(sd_json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
+                        fd = SD_LISTEN_FDS_START + (int) sd_json_variant_integer(blob_fd_variant);
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *resolved = NULL;
@@ -1997,7 +2053,7 @@ static int run(int argc, char *argv[]) {
                         TAKE_FD(fd);
                 }
 
-                r = json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
+                r = sd_json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip internal fdmap from JSON: %m");
         }
@@ -2050,10 +2106,8 @@ static int run(int argc, char *argv[]) {
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
                 r = home_update(home, blobs, &new_home);
-        else if (streq(argv[1], "resize")) /* Resize on user request */
-                r = home_resize(home, false, &new_home);
-        else if (streq(argv[1], "resize-auto")) /* Automatic resize */
-                r = home_resize(home, true, &new_home);
+        else if (streq(argv[1], "resize"))
+                r = home_resize(home, &new_home);
         else if (streq(argv[1], "passwd"))
                 r = home_passwd(home, &new_home);
         else if (streq(argv[1], "inspect"))
@@ -2088,7 +2142,7 @@ static int run(int argc, char *argv[]) {
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
         if (new_home)
-                json_variant_dump(new_home->json, JSON_FORMAT_NEWLINE, stdout, NULL);
+                sd_json_variant_dump(new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         return 0;
 }

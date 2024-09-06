@@ -17,7 +17,7 @@
 #include "stdio-util.h"
 #include "user-util.h"
 
-const struct namespace_info namespace_info[] = {
+const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
         [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,                          },
         [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                             },
         [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,                             },
@@ -34,8 +34,16 @@ const struct namespace_info namespace_info[] = {
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
-int namespace_open(
-                pid_t pid,
+static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
+                if (((namespace_info[t].clone_flag ^ clone_flag) & (CLONE_NEWCGROUP|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUSER|CLONE_NEWUTS|CLONE_NEWTIME)) == 0)
+                        return t;
+
+        return _NAMESPACE_TYPE_INVALID;
+}
+
+int pidref_namespace_open(
+                const PidRef *pidref,
                 int *ret_pidns_fd,
                 int *ret_mntns_fd,
                 int *ret_netns_fd,
@@ -44,13 +52,14 @@ int namespace_open(
 
         _cleanup_close_ int pidns_fd = -EBADF, mntns_fd = -EBADF, netns_fd = -EBADF,
                 userns_fd = -EBADF, root_fd = -EBADF;
+        int r;
 
-        assert(pid >= 0);
+        assert(pidref_is_set(pidref));
 
         if (ret_pidns_fd) {
                 const char *pidns;
 
-                pidns = pid_namespace_path(pid, NAMESPACE_PID);
+                pidns = pid_namespace_path(pidref->pid, NAMESPACE_PID);
                 pidns_fd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (pidns_fd < 0)
                         return -errno;
@@ -59,7 +68,7 @@ int namespace_open(
         if (ret_mntns_fd) {
                 const char *mntns;
 
-                mntns = pid_namespace_path(pid, NAMESPACE_MOUNT);
+                mntns = pid_namespace_path(pidref->pid, NAMESPACE_MOUNT);
                 mntns_fd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (mntns_fd < 0)
                         return -errno;
@@ -68,7 +77,7 @@ int namespace_open(
         if (ret_netns_fd) {
                 const char *netns;
 
-                netns = pid_namespace_path(pid, NAMESPACE_NET);
+                netns = pid_namespace_path(pidref->pid, NAMESPACE_NET);
                 netns_fd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (netns_fd < 0)
                         return -errno;
@@ -77,7 +86,7 @@ int namespace_open(
         if (ret_userns_fd) {
                 const char *userns;
 
-                userns = pid_namespace_path(pid, NAMESPACE_USER);
+                userns = pid_namespace_path(pidref->pid, NAMESPACE_USER);
                 userns_fd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (userns_fd < 0 && errno != ENOENT)
                         return -errno;
@@ -86,11 +95,15 @@ int namespace_open(
         if (ret_root_fd) {
                 const char *root;
 
-                root = procfs_file_alloca(pid, "root");
+                root = procfs_file_alloca(pidref->pid, "root");
                 root_fd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
                 if (root_fd < 0)
                         return -errno;
         }
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
 
         if (ret_pidns_fd)
                 *ret_pidns_fd = TAKE_FD(pidns_fd);
@@ -108,6 +121,22 @@ int namespace_open(
                 *ret_root_fd = TAKE_FD(root_fd);
 
         return 0;
+}
+
+int namespace_open(
+                pid_t pid,
+                int *ret_pidns_fd,
+                int *ret_mntns_fd,
+                int *ret_netns_fd,
+                int *ret_userns_fd,
+                int *ret_root_fd) {
+
+        assert(pid >= 0);
+
+        if (pid == 0)
+                pid = getpid_cached();
+
+        return pidref_namespace_open(&PIDREF_MAKE_FROM_PID(pid), ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
@@ -212,6 +241,88 @@ int detach_mount_namespace(void) {
                 return log_debug_errno(errno, "Failed to set mount propagation back to MS_SHARED for all mounts: %m");
 
         return 0;
+}
+
+int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
+        int r;
+
+        /* Tried detach_mount_namespace() first. If that doesn't work due to permissions, opens up an
+         * unprivileged user namespace with a mapping of the originating UID/GID to the specified target
+         * UID/GID. Then, tries detach_mount_namespace() again.
+         *
+         * Or in other words: tries much harder to get a mount namespace, making use of unprivileged user
+         * namespaces if need be.
+         *
+         * Note that after this function completed:
+         *
+         *    → if we had privs, afterwards uids/gids on files and processes are as before
+         *
+         *    → if we had no privs, our own id and all our files will show up owned by target_uid/target_gid,
+         *    and everything else owned by nobody.
+         *
+         * Yes, that's quite a difference. */
+
+        if (!uid_is_valid(target_uid))
+                return -EINVAL;
+        if (!gid_is_valid(target_gid))
+                return -EINVAL;
+
+        r = detach_mount_namespace();
+        if (r != -EPERM)
+                return r;
+
+        if (unshare(CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to acquire user namespace: %m");
+
+        r = write_string_filef("/proc/self/uid_map", 0,
+                               UID_FMT " " UID_FMT " 1\n", target_uid, getuid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write uid map: %m");
+
+        r = write_string_file("/proc/self/setgroups", "deny", 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write setgroups file: %m");
+
+        r = write_string_filef("/proc/self/gid_map", 0,
+                               GID_FMT " " GID_FMT " 1\n", target_gid, getgid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write gid map: %m");
+
+        return detach_mount_namespace();
+}
+
+int detach_mount_namespace_userns(int userns_fd) {
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to join user namespace: %m");
+
+        r = reset_uid_gid();
+        if (r < 0)
+                return log_debug_errno(r, "Failed to become root in user namespace: %m");
+
+        return detach_mount_namespace();
+}
+
+int userns_acquire_empty(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -EBADF;
+        int r;
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open userns fd: %m");
+
+        return TAKE_FD(userns_fd);
 }
 
 int userns_acquire(const char *uid_map, const char *gid_map) {
@@ -343,4 +454,51 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
                 *ret_uid_range = uid_range;
 
         return 0;
+}
+
+int namespace_open_by_type(NamespaceType type) {
+        const char *p;
+        int fd;
+
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        p = pid_namespace_path(0, type);
+
+        fd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        if (fd == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
+
+        return fd;
+}
+
+int is_our_namespace(int fd, NamespaceType request_type) {
+        int clone_flag;
+
+        assert(fd >= 0);
+
+        clone_flag = ioctl(fd, NS_GET_NSTYPE);
+        if (clone_flag < 0)
+                return -errno;
+
+        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
+        if (found_type < 0)
+                return -EBADF; /* Uh? Unknown namespace type? */
+
+        if (request_type >= 0 && request_type != found_type) /* It's a namespace, but not of the right type? */
+                return -EUCLEAN;
+
+        struct stat st_fd, st_ours;
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        const char *p = pid_namespace_path(0, found_type);
+        if (stat(p, &st_ours) < 0) {
+                if (errno == ENOENT)
+                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
+
+                return -errno;
+        }
+
+        return stat_inode_same(&st_ours, &st_fd);
 }

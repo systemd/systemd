@@ -440,6 +440,16 @@
           <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>FDBMaxLearned=</varname></term>
+        <listitem>
+          <para>Specifies the maximum number of learned Ethernet addresses for the bridge. When the limit is
+          reached, no more addresses are learned. When unset, the kernel's default will be used. 0 disables the limit.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1007,6 +1017,17 @@
         <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinSourcePort=</varname></term>
+        <listitem>
+          <para>Specifies the lowest value of the UDP tunnel source UDP port (in range 1…65535).
+          Defaults to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -1906,7 +1927,7 @@
         <listitem>
           <para>The Base64 encoded private key for the interface. It can be generated using
           the <command>wg genkey</command> command
-          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+          (see <citerefentry project='man-pages'><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
           Specially, if the specified key is prefixed with <literal>@</literal>, it is interpreted as
           the name of the credential from which the actual key shall be read. <command>systemd-networkd.service</command>
           automatically imports credentials matching <literal>network.wireguard.*</literal>. For more details
@@ -1997,12 +2018,25 @@
         <term><varname>PublicKey=</varname></term>
         <listitem>
           <para>Sets a Base64 encoded public key calculated by <command>wg pubkey</command>
-          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          (see <citerefentry project='man-pages'><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           from a private key, and usually transmitted out of band to the author of the configuration file.
           This option honors the <literal>@</literal> prefix in the same way as the <option>PrivateKey=</option>
           setting of the <option>[WireGuard]</option> section. This option is mandatory for this section.</para>
 
         <xi:include href="version-info.xml" xpointer="v237"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PublicKeyFile=</varname></term>
+        <listitem>
+          <para>Takes an absolute path to a file which contains the Base64 encoded public key for the peer.
+          When this option is specified, then <varname>PublicKey=</varname> will be ignored. Note that the
+          file must be readable by the user <literal>systemd-network</literal>, so it should be, e.g., owned
+          by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode. If the path
+          refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made to
+          it and the key read from it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
       <varlistentry>

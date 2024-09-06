@@ -18,10 +18,12 @@ if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
                 output : '20-systemd-ssh-proxy.conf',
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : true,
-                install_dir : libexecdir / 'ssh_config.d')
+                install_dir : sshconfdir.startswith('/usr/') ? sshconfdir : libexecdir / 'ssh_config.d')
 
-        install_emptydir(sshconfdir)
+        if not sshconfdir.startswith('/usr/')
+                install_emptydir(sshconfdir)
 
-        meson.add_install_script(sh, '-c',
-                ln_s.format(libexecdir / 'ssh_config.d' / '20-systemd-ssh-proxy.conf', sshconfdir / '20-systemd-ssh-proxy.conf'))
+                meson.add_install_script(sh, '-c',
+                        ln_s.format(libexecdir / 'ssh_config.d' / '20-systemd-ssh-proxy.conf', sshconfdir / '20-systemd-ssh-proxy.conf'))
+        endif
 endif

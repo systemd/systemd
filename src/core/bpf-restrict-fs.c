@@ -51,7 +51,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
         /* If bpf_program__attach_lsm fails the resulting value stores libbpf error code instead of memory
          * pointer. That is the case when the helper is called on architectures where BPF trampoline (hence
          * BPF_LSM_MAC attach type) is not supported. */
-        return sym_libbpf_get_error(link) == 0;
+        return bpf_get_error_translated(link) == 0;
 }
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
@@ -111,8 +111,7 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
         }
         if (r == 0) {
-                log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported");
+                log_info("bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.");
                 return (supported = false);
         }
 
@@ -121,8 +120,7 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
 
         if (!bpf_can_link_lsm_program(obj->progs.restrict_filesystems)) {
-                log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "bpf-restrict-fs: Failed to link program; assuming BPF LSM is not available");
+                log_warning("bpf-restrict-fs: Failed to link program; assuming BPF LSM is not available.");
                 return (supported = false);
         }
 
@@ -141,7 +139,7 @@ int bpf_restrict_fs_setup(Manager *m) {
                 return r;
 
         link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
-        r = sym_libbpf_get_error(link);
+        r = bpf_get_error_translated(link);
         if (r != 0)
                 return log_error_errno(r, "bpf-restrict-fs: Failed to link '%s' LSM BPF program: %m",
                                        sym_bpf_program__name(obj->progs.restrict_filesystems));
@@ -258,11 +256,11 @@ bool bpf_restrict_fs_supported(bool initialize) {
 }
 
 int bpf_restrict_fs_setup(Manager *m) {
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: Failed to set up LSM BPF: %m");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: BPF framework is not supported.");
 }
 
 int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, const bool allow_list) {
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: Failed to restrict filesystems using LSM BPF: %m");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: BPF framework is not supported.");
 }
 
 int bpf_restrict_fs_cleanup(Unit *u) {

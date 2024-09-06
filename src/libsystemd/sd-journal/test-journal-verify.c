@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "ansi-color.h"
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"

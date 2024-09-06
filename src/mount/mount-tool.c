@@ -28,10 +28,10 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "sort-util.h"
-#include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -74,6 +74,7 @@ static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 static bool arg_tmpfs = false;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_mount_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mount_where, freep);
@@ -119,7 +120,7 @@ static int help(void) {
                "systemd-mount [OPTIONS...] --tmpfs [NAME] WHERE\n"
                "systemd-mount [OPTIONS...] --list\n"
                "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
-               "Establish a mount or auto-mount point transiently.\n\n"
+               "%sEstablish a mount or auto-mount point transiently.%s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-block                   Do not wait until operation finished\n"
@@ -128,6 +129,7 @@ static int help(void) {
                "  -l --full                       Do not ellipsize output\n"
                "     --no-ask-password            Do not prompt for password\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
+               "     --json=pretty|short|off      Generate JSON output\n"
                "     --user                       Run as user unit\n"
                "  -H --host=[USER@]HOST           Operate on remote host\n"
                "  -M --machine=CONTAINER          Operate on local container\n"
@@ -150,6 +152,8 @@ static int help(void) {
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ",
+               ansi_highlight(),
+               ansi_normal(),
                link);
 
         return 0;
@@ -176,6 +180,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTOMOUNT_PROPERTY,
                 ARG_BIND_DEVICE,
                 ARG_LIST,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -207,6 +212,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
+                { "json",               required_argument, NULL, ARG_JSON               },
                 {},
         };
 
@@ -359,6 +365,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'T':
                         arg_tmpfs = true;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
@@ -625,10 +638,6 @@ static int start_transient_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", mount_unit, "fail");
         if (r < 0)
@@ -652,7 +661,7 @@ static int start_transient_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -703,10 +712,6 @@ static int start_transient_automount(
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -761,7 +766,7 @@ static int start_transient_automount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -910,16 +915,12 @@ static int stop_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", mount_unit, "fail");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -1399,6 +1400,7 @@ static int discover_device(void) {
 static int list_devices(void) {
         enum {
                 COLUMN_NODE,
+                COLUMN_DISKSEQ,
                 COLUMN_PATH,
                 COLUMN_MODEL,
                 COLUMN_WWN,
@@ -1424,7 +1426,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        table = table_new("NODE", "PATH", "MODEL", "WWN", "FSTYPE", "LABEL", "UUID");
+        table = table_new("node", "diskseq", "path", "model", "wwn", "fstype", "label", "uuid");
         if (!table)
                 return log_oom();
 
@@ -1435,7 +1437,6 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort index: %m");
 
-        table_set_header(table, arg_legend);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         FOREACH_DEVICE(e, d) {
@@ -1447,6 +1448,21 @@ static int list_devices(void) {
                         case COLUMN_NODE:
                                 (void) sd_device_get_devname(d, &x);
                                 break;
+
+                        case COLUMN_DISKSEQ: {
+                                uint64_t ds;
+
+                                r = sd_device_get_diskseq(d, &ds);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to get diskseq of block device, ignoring: %m");
+                                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                                } else
+                                        r = table_add_cell(table, NULL, TABLE_UINT64, &ds);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+
+                                continue;
+                        }
 
                         case COLUMN_PATH:
                                 (void) sd_device_get_property_value(d, "ID_PATH", &x);
@@ -1479,22 +1495,14 @@ static int list_devices(void) {
                 }
         }
 
-        pager_open(arg_pager_flags);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1506,6 +1514,8 @@ static int run(int argc, char* argv[]) {
         r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);

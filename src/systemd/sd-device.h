@@ -34,7 +34,7 @@ typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
 typedef struct sd_device_monitor sd_device_monitor;
 
-__extension__ typedef enum sd_device_action_t {
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_device_action_t) {
         SD_DEVICE_ADD,
         SD_DEVICE_REMOVE,
         SD_DEVICE_CHANGE,
@@ -74,6 +74,7 @@ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *su
 
 int sd_device_get_syspath(sd_device *device, const char **ret);
 int sd_device_get_subsystem(sd_device *device, const char **ret);
+int sd_device_get_driver_subsystem(sd_device *device, const char **ret);
 int sd_device_get_devtype(sd_device *device, const char **ret);
 int sd_device_get_devnum(sd_device *device, dev_t *devnum);
 int sd_device_get_ifindex(sd_device *device, int *ifindex);
@@ -85,21 +86,22 @@ int sd_device_get_sysnum(sd_device *device, const char **ret);
 int sd_device_get_action(sd_device *device, sd_device_action_t *ret);
 int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 int sd_device_get_diskseq(sd_device *device, uint64_t *ret);
+int sd_device_get_device_id(sd_device *device, const char **ret);
 
 int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret);
 int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret);
 
-const char *sd_device_get_tag_first(sd_device *device);
-const char *sd_device_get_tag_next(sd_device *device);
-const char *sd_device_get_current_tag_first(sd_device *device);
-const char *sd_device_get_current_tag_next(sd_device *device);
-const char *sd_device_get_devlink_first(sd_device *device);
-const char *sd_device_get_devlink_next(sd_device *device);
-const char *sd_device_get_property_first(sd_device *device, const char **value);
-const char *sd_device_get_property_next(sd_device *device, const char **value);
-const char *sd_device_get_sysattr_first(sd_device *device);
-const char *sd_device_get_sysattr_next(sd_device *device);
+const char* sd_device_get_tag_first(sd_device *device);
+const char* sd_device_get_tag_next(sd_device *device);
+const char* sd_device_get_current_tag_first(sd_device *device);
+const char* sd_device_get_current_tag_next(sd_device *device);
+const char* sd_device_get_devlink_first(sd_device *device);
+const char* sd_device_get_devlink_next(sd_device *device);
+const char* sd_device_get_property_first(sd_device *device, const char **value);
+const char* sd_device_get_property_next(sd_device *device, const char **value);
+const char* sd_device_get_sysattr_first(sd_device *device);
+const char* sd_device_get_sysattr_next(sd_device *device);
 sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix);
 sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix);
 
@@ -142,6 +144,9 @@ int sd_device_monitor_new(sd_device_monitor **ret);
 sd_device_monitor *sd_device_monitor_ref(sd_device_monitor *m);
 sd_device_monitor *sd_device_monitor_unref(sd_device_monitor *m);
 
+int sd_device_monitor_get_fd(sd_device_monitor *m);
+int sd_device_monitor_get_events(sd_device_monitor *m);
+int sd_device_monitor_get_timeout(sd_device_monitor *m, uint64_t *ret);
 int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size);
 int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event);
 int sd_device_monitor_detach_event(sd_device_monitor *m);
@@ -149,8 +154,10 @@ sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
 sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
 int sd_device_monitor_set_description(sd_device_monitor *m, const char *description);
 int sd_device_monitor_get_description(sd_device_monitor *m, const char **ret);
+int sd_device_monitor_is_running(sd_device_monitor *m);
 int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata);
 int sd_device_monitor_stop(sd_device_monitor *m);
+int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret);
 
 int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
 int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);

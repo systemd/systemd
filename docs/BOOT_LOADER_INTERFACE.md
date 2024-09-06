@@ -78,7 +78,7 @@ variables. All EFI variables use the vendor UUID
   * `1 << 1` → The boot loader honours `LoaderConfigTimeoutOneShot` when set.
   * `1 << 2` → The boot loader honours `LoaderEntryDefault` when set.
   * `1 << 3` → The boot loader honours `LoaderEntryOneShot` when set.
-  * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](AUTOMATIC_BOOT_ASSESSMENT).
+  * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](/AUTOMATIC_BOOT_ASSESSMENT).
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
   * `1 << 13` → The boot loader honours `menu-disabled` option when set.

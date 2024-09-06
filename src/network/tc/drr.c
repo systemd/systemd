@@ -54,7 +54,7 @@ int config_parse_drr_size(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(tclass_free_or_set_invalidp) TClass *tclass = NULL;
+        _cleanup_(tclass_unref_or_set_invalidp) TClass *tclass = NULL;
         DeficitRoundRobinSchedulerClass *drr;
         Network *network = ASSERT_PTR(data);
         uint64_t u;

@@ -39,9 +39,9 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name), value, filtered,
                  r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
-        assert_se(streq_ptr(value, value_expected));
-        assert_se(streq_ptr(filtered, filtered_expected ?: opts));
+        ASSERT_STREQ(name, name_expected);
+        ASSERT_STREQ(value, value_expected);
+        ASSERT_STREQ(filtered, filtered_expected ?: opts);
 
         /* test mode which returns all the values */
 
@@ -51,8 +51,8 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name), joined,
                  r_values_expected, strnull(name_expected), strnull(values_expected));
         assert_se(r == r_values_expected);
-        assert_se(streq_ptr(name, r_values_expected > 0 ? name_expected : NULL));
-        assert_se(streq_ptr(joined, values_expected));
+        ASSERT_STREQ(name, r_values_expected > 0 ? name_expected : NULL);
+        ASSERT_STREQ(joined, values_expected);
 
         /* also test the malloc-less mode */
         r = fstab_filter_options(opts, remove, &name, NULL, NULL, NULL);
@@ -60,7 +60,7 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name),
                  r_expected, strnull(name_expected));
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
+        ASSERT_STREQ(name, name_expected);
 }
 
 TEST(fstab_filter_options) {
@@ -160,32 +160,32 @@ TEST(fstab_node_to_udev_node) {
 
         n = fstab_node_to_udev_node("LABEL=applé/jack");
         puts(n);
-        assert_se(streq(n, "/dev/disk/by-label/applé\\x2fjack"));
+        ASSERT_STREQ(n, "/dev/disk/by-label/applé\\x2fjack");
         free(n);
 
         n = fstab_node_to_udev_node("PARTLABEL=pinkié pie");
         puts(n);
-        assert_se(streq(n, "/dev/disk/by-partlabel/pinkié\\x20pie"));
+        ASSERT_STREQ(n, "/dev/disk/by-partlabel/pinkié\\x20pie");
         free(n);
 
         n = fstab_node_to_udev_node("UUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
         puts(n);
-        assert_se(streq(n, "/dev/disk/by-uuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
+        ASSERT_STREQ(n, "/dev/disk/by-uuid/037b9d94-148e-4ee4-8d38-67bfe15bb535");
         free(n);
 
         n = fstab_node_to_udev_node("PARTUUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
         puts(n);
-        assert_se(streq(n, "/dev/disk/by-partuuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
+        ASSERT_STREQ(n, "/dev/disk/by-partuuid/037b9d94-148e-4ee4-8d38-67bfe15bb535");
         free(n);
 
         n = fstab_node_to_udev_node("PONIES=awesome");
         puts(n);
-        assert_se(streq(n, "PONIES=awesome"));
+        ASSERT_STREQ(n, "PONIES=awesome");
         free(n);
 
         n = fstab_node_to_udev_node("/dev/xda1");
         puts(n);
-        assert_se(streq(n, "/dev/xda1"));
+        ASSERT_STREQ(n, "/dev/xda1");
         free(n);
 }
 

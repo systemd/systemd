@@ -67,9 +67,7 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+          <listitem><para>The bus connection has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

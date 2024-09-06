@@ -2,18 +2,16 @@
 #pragma once
 
 #include "efi.h"
+#include "iovec-util-fundamental.h"
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
-                const void *linux_buffer,
-                size_t linux_length,
-                const void *initrd_buffer,
-                size_t initrd_length);
+                const struct iovec *kernel,
+                const struct iovec *initrd);
 EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
                 const char16_t *cmdline,
-                const void *linux_buffer,
-                size_t linux_length,
-                const void *initrd_buffer,
-                size_t initrd_length);
+                const struct iovec *kernel,
+                const struct iovec *initrd,
+                size_t kernel_size_in_memory);

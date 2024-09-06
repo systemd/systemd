@@ -13,5 +13,5 @@ typedef enum GeneveDF {
         _NETDEV_GENEVE_DF_INVALID = -EINVAL,
 } GeneveDF;
 
-const char *geneve_df_to_string(GeneveDF d) _const_;
+const char* geneve_df_to_string(GeneveDF d) _const_;
 GeneveDF geneve_df_from_string(const char *d) _pure_;

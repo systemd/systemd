@@ -10,7 +10,7 @@
 [Unit]
 Description=Kernel Trace File System
 Documentation=https://docs.kernel.org/trace/ftrace.html
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+Documentation=https://systemd.io/API_FILE_SYSTEMS
 DefaultDependencies=no
 ConditionVirtualization=!lxc
 ConditionPathExists=/sys/kernel/tracing

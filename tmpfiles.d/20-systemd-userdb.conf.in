@@ -7,4 +7,6 @@
 
 # See tmpfiles.d(5) for details
 
+{% if LINK_SSHD_USERDB_DROPIN %}
 L {{SSHDCONFDIR}}/20-systemd-userdb.conf - - - - {{LIBEXECDIR}}/sshd_config.d/20-systemd-userdb.conf
+{% endif %}

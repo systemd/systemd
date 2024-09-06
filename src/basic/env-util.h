@@ -59,7 +59,7 @@ static inline char* strv_env_get(char * const *x, const char *n) {
         return strv_env_get_n(x, n, SIZE_MAX, 0);
 }
 
-char *strv_env_pairs_get(char **l, const char *name) _pure_;
+char* strv_env_pairs_get(char **l, const char *name) _pure_;
 
 int getenv_bool(const char *p);
 int secure_getenv_bool(const char *p);

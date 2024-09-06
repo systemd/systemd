@@ -7,13 +7,13 @@
 #if HAVE_PCRE2
 static void *pcre2_dl = NULL;
 
-DLSYM_FUNCTION(pcre2_match_data_create);
-DLSYM_FUNCTION(pcre2_match_data_free);
-DLSYM_FUNCTION(pcre2_code_free);
-DLSYM_FUNCTION(pcre2_compile);
-DLSYM_FUNCTION(pcre2_get_error_message);
-DLSYM_FUNCTION(pcre2_match);
-DLSYM_FUNCTION(pcre2_get_ovector_pointer);
+DLSYM_PROTOTYPE(pcre2_match_data_create) = NULL;
+DLSYM_PROTOTYPE(pcre2_match_data_free) = NULL;
+DLSYM_PROTOTYPE(pcre2_code_free) = NULL;
+DLSYM_PROTOTYPE(pcre2_compile) = NULL;
+DLSYM_PROTOTYPE(pcre2_get_error_message) = NULL;
+DLSYM_PROTOTYPE(pcre2_match) = NULL;
+DLSYM_PROTOTYPE(pcre2_get_ovector_pointer) = NULL;
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         pcre2_code_hash_ops_free,
@@ -27,6 +27,11 @@ const struct hash_ops pcre2_code_hash_ops_free = {};
 
 int dlopen_pcre2(void) {
 #if HAVE_PCRE2
+        ELF_NOTE_DLOPEN("pcre2",
+                        "Support for regular expressions",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpcre2-8.so.0");
+
         /* So here's something weird: PCRE2 actually renames the symbols exported by the library via C
          * macros, so that the exported symbols carry a suffix "_8" but when used from C the suffix is
          * gone. In the argument list below we ignore this mangling. Surprisingly (at least to me), we

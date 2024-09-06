@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
-#include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
@@ -453,6 +454,7 @@ int sockaddr_pretty(
 
         assert(sa);
         assert(salen >= sizeof(sa->sa.sa_family));
+        assert(ret);
 
         switch (sa->sa.sa_family) {
 
@@ -633,7 +635,8 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
         int r;
 
         assert(sa);
-        assert(salen > sizeof(sa_family_t));
+        assert(salen >= sizeof(sa_family_t));
+        assert(ret);
 
         r = getnameinfo(sa, salen, host, sizeof(host), /* service= */ NULL, /* service_len= */ 0, IDN_FLAGS);
         if (r != 0) {
@@ -647,15 +650,7 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
                 return sockaddr_pretty(sa, salen, /* translate_ipv6= */ true, /* include_port= */ true, ret);
         }
 
-        if (ret) {
-                char *copy = strdup(host);
-                if (!copy)
-                        return -ENOMEM;
-
-                *ret = copy;
-        }
-
-        return 0;
+        return strdup_to(ret, host);
 }
 
 static const char* const netlink_family_table[] = {
@@ -1117,14 +1112,10 @@ ssize_t receive_many_fds_iov(
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                         size_t n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
-                        fds_array = GREEDY_REALLOC(fds_array, n_fds_array + n);
-                        if (!fds_array) {
+                        if (!GREEDY_REALLOC_APPEND(fds_array, n_fds_array, CMSG_TYPED_DATA(cmsg, int), n)) {
                                 cmsg_close_all(&mh);
                                 return -ENOMEM;
                         }
-
-                        memcpy(fds_array + n_fds_array, CMSG_TYPED_DATA(cmsg, int), sizeof(int) * n);
-                        n_fds_array += n;
                 }
 
         if (n_fds_array == 0) {
@@ -1456,18 +1447,22 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
 
-        /* A wrapper around recvmsg() that checks for MSG_CTRUNC, and turns it into an error, in a reasonably
-         * safe way, closing any SCM_RIGHTS fds in the error path.
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
+         * in a reasonably safe way, closing any received fds in the error path.
          *
          * Note that unlike our usual coding style this might modify *msg on failure. */
+
+        assert(sockfd >= 0);
+        assert(msg);
 
         n = recvmsg(sockfd, msg, flags);
         if (n < 0)
                 return -errno;
 
-        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC)) {
+        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ||
+            (!FLAGS_SET(flags, MSG_PEEK) && FLAGS_SET(msg->msg_flags, MSG_TRUNC))) {
                 cmsg_close_all(msg);
-                return -EXFULL; /* a recognizable error code */
+                return FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ? -ECHRNG : -EXFULL;
         }
 
         return n;
@@ -1766,14 +1761,48 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
 int vsock_get_local_cid(unsigned *ret) {
         _cleanup_close_ int vsock_fd = -EBADF;
 
-        assert(ret);
-
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)
                 return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
 
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret) < 0)
+        unsigned tmp;
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
+
+        return 0;
+}
+
+int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups) {
+        _cleanup_free_ uint32_t *groups = NULL;
+        socklen_t len = 0, old_len;
+
+        assert(fd >= 0);
+
+        /* This returns ENOPROTOOPT if the kernel is older than 4.2. */
+
+        if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0)
+                return -errno;
+
+        if (len == 0)
+                goto finalize;
+
+        groups = new0(uint32_t, len);
+        if (!groups)
+                return -ENOMEM;
+
+        old_len = len;
+
+        if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, groups, &len) < 0)
+                return -errno;
+
+        if (old_len != len)
+                return -EIO;
+
+finalize:
+        if (ret_len)
+                *ret_len = len;
+        if (ret_groups)
+                *ret_groups = TAKE_PTR(groups);
 
         return 0;
 }

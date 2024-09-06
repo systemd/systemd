@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
+#include <sys/stat.h>
 
+#include "errno-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "macro.h"
 #include "tests.h"
@@ -500,12 +503,12 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(p, p_1, NULL, p_2, p_3, NULL, p_4, NULL) {
                 switch (i++) {
                 case 0: assert_se(p == p_1); break;
-                case 1: assert_se(p == NULL); break;
+                case 1: ASSERT_NULL(p); break;
                 case 2: assert_se(p == p_2); break;
                 case 3: assert_se(p == p_3); break;
-                case 4: assert_se(p == NULL); break;
+                case 4: ASSERT_NULL(p); break;
                 case 5: assert_se(p == p_4); break;
-                case 6: assert_se(p == NULL); break;
+                case 6: ASSERT_NULL(p); break;
                 default: assert_se(false);
                 }
         }
@@ -525,20 +528,20 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(v, v_1, NULL, u32p, v_3, p_2, p_4, v_2, NULL) {
                 switch (i++) {
                 case 0: assert_se(v == v_1); break;
-                case 1: assert_se(v == NULL); break;
+                case 1: ASSERT_NULL(v); break;
                 case 2: assert_se(v == u32p); break;
                 case 3: assert_se(v == v_3); break;
                 case 4: assert_se(v == p_2); break;
                 case 5: assert_se(v == p_4); break;
                 case 6: assert_se(v == v_2); break;
-                case 7: assert_se(v == NULL); break;
+                case 7: ASSERT_NULL(v); break;
                 default: assert_se(false);
                 }
         }
         assert_se(i == 8);
         i = 0;
         FOREACH_ARGUMENT(v, NULL) {
-                assert_se(v == NULL);
+                ASSERT_NULL(v);
                 assert_se(i++ == 0);
         }
         assert_se(i == 1);
@@ -1103,6 +1106,114 @@ TEST(u64_multiply_safe) {
         assert_se(u64_multiply_safe(3, UINT64_MAX / 2) == 0);
 
         assert_se(u64_multiply_safe(UINT64_MAX, UINT64_MAX) == 0);
+}
+
+TEST(ASSERT) {
+        char *null = NULL;
+
+        ASSERT_OK(0);
+        ASSERT_OK(255);
+        ASSERT_OK(printf("Hello world\n"));
+        ASSERT_SIGNAL(ASSERT_OK(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK(-ENOANO), SIGABRT);
+
+        ASSERT_OK_POSITIVE(1);
+        ASSERT_OK_POSITIVE(255);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(-ENOANO), SIGABRT);
+
+        ASSERT_OK_ZERO(0);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(255), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(-ENOANO), SIGABRT);
+
+        ASSERT_OK_EQ(0, 0);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(255, 5), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(-1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(-ENOANO, 0), SIGABRT);
+
+        ASSERT_OK_ERRNO(0 >= 0);
+        ASSERT_OK_ERRNO(255 >= 0);
+        ASSERT_OK_ERRNO(printf("Hello world\n"));
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-ENOANO), SIGABRT);
+
+        ASSERT_FAIL(-ENOENT);
+        ASSERT_FAIL(-EPERM);
+        ASSERT_SIGNAL(ASSERT_FAIL(0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_FAIL(255), SIGABRT);
+
+        ASSERT_ERROR(-ENOENT, ENOENT);
+        ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR(0, ENOENT), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOANO), SIGABRT);
+
+        errno = ENOENT;
+        ASSERT_ERROR_ERRNO(-1, ENOENT);
+        errno = 0;
+        ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(0, ENOENT), SIGABRT);
+        errno = 0;
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOANO), SIGABRT);
+
+        ASSERT_TRUE(true);
+        ASSERT_TRUE(255);
+        ASSERT_TRUE(getpid());
+        ASSERT_SIGNAL(ASSERT_TRUE(1 == 0), SIGABRT);
+
+        ASSERT_FALSE(false);
+        ASSERT_FALSE(1 == 0);
+        ASSERT_SIGNAL(ASSERT_FALSE(1 > 0), SIGABRT);
+
+        ASSERT_NULL(NULL);
+        ASSERT_SIGNAL(ASSERT_NULL(signal_to_string(SIGINT)), SIGABRT);
+
+        ASSERT_NOT_NULL(signal_to_string(SIGTERM));
+        ASSERT_SIGNAL(ASSERT_NOT_NULL(NULL), SIGABRT);
+
+        ASSERT_STREQ(NULL, null);
+        ASSERT_STREQ("foo", "foo");
+        ASSERT_SIGNAL(ASSERT_STREQ(null, "bar"), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_STREQ("foo", "bar"), SIGABRT);
+
+        ASSERT_EQ(0, 0);
+        ASSERT_EQ(-1, -1);
+        ASSERT_SIGNAL(ASSERT_EQ(255, -1), SIGABRT);
+
+        ASSERT_GE(0, 0);
+        ASSERT_GE(1, -1);
+        ASSERT_SIGNAL(ASSERT_GE(-1, 1), SIGABRT);
+
+        ASSERT_LE(0, 0);
+        ASSERT_LE(-1, 1);
+        ASSERT_SIGNAL(ASSERT_LE(1, -1), SIGABRT);
+
+        ASSERT_NE(0, (int64_t) UINT_MAX);
+        ASSERT_NE(-1, 1);
+        ASSERT_SIGNAL(ASSERT_NE(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NE(-1, -1), SIGABRT);
+
+        ASSERT_GT(1, 0);
+        ASSERT_GT(1, -1);
+        ASSERT_SIGNAL(ASSERT_GT(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_GT(-1, 1), SIGABRT);
+
+        ASSERT_LT(0, 1);
+        ASSERT_LT(-1, 1);
+        ASSERT_SIGNAL(ASSERT_LT(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_LT(1, -1), SIGABRT);
+
+        ASSERT_EQ_ID128(SD_ID128_NULL, SD_ID128_NULL);
+        ASSERT_NE_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                        SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e));
+        ASSERT_SIGNAL(
+                ASSERT_EQ_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                                SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e)),
+                SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

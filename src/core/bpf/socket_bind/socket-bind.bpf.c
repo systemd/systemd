@@ -55,6 +55,9 @@ static __always_inline bool match(
                 __u32 protocol,
                 __u16 port,
                 const struct socket_bind_rule *r) {
+        if (r->address_family == SOCKET_BIND_RULE_AF_MATCH_NOTHING)
+                return false;
+
         return match_af(address_family, r) &&
                 match_protocol(protocol, r) &&
                 match_user_port(port, r);

@@ -12,12 +12,12 @@ install_emptydir(bindir)
 
 meson.add_install_script(sh, '-c',
                              ln_s.format(bindir / 'systemd-run',
-                                         bindir / 'uid0'))
+                                         bindir / 'run0'))
 
 custom_target(
-        'systemd-uid0',
-        input : 'systemd-uid0.in',
-        output : 'systemd-uid0',
+        'systemd-run0',
+        input : 'systemd-run0.in',
+        output : 'systemd-run0',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pamconfdir != 'no',
         install_dir : pamconfdir)

@@ -108,6 +108,8 @@ int btrfs_subvol_set_subtree_quota_limit_fd(int fd, uint64_t subvol_id, uint64_t
 int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool new_qgroup);
 int btrfs_subvol_auto_qgroup(const char *path, uint64_t subvol_id, bool create_intermediary_qgroup);
 
+int btrfs_subvol_make_default(const char *path);
+
 int btrfs_qgroupid_make(uint64_t level, uint64_t id, uint64_t *ret);
 int btrfs_qgroupid_split(uint64_t qgroupid, uint64_t *level, uint64_t *id);
 

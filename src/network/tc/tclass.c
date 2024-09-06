@@ -24,8 +24,54 @@ const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX] = {
         [TCLASS_KIND_QFQ] = &qfq_tclass_vtable,
 };
 
+static TClass* tclass_detach_impl(TClass *tclass) {
+        assert(tclass);
+        assert(!tclass->link || !tclass->network);
+
+        if (tclass->network) {
+                assert(tclass->section);
+                hashmap_remove(tclass->network->tclasses_by_section, tclass->section);
+
+                tclass->network = NULL;
+                return tclass;
+        }
+
+        if (tclass->link) {
+                set_remove(tclass->link->tclasses, tclass);
+
+                tclass->link = NULL;
+                return tclass;
+        }
+
+        return NULL;
+}
+
+static void tclass_detach(TClass *tclass) {
+        assert(tclass);
+
+        tclass_unref(tclass_detach_impl(tclass));
+}
+
+static void tclass_hash_func(const TClass *tclass, struct siphash *state);
+static int tclass_compare_func(const TClass *a, const TClass *b);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        tclass_hash_ops,
+        TClass,
+        tclass_hash_func,
+        tclass_compare_func,
+        tclass_detach);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        tclass_section_hash_ops,
+        ConfigSection,
+        config_section_hash_func,
+        config_section_compare_func,
+        TClass,
+        tclass_detach);
+
 static int tclass_new(TClassKind kind, TClass **ret) {
-        _cleanup_(tclass_freep) TClass *tclass = NULL;
+        _cleanup_(tclass_unrefp) TClass *tclass = NULL;
         int r;
 
         if (kind == _TCLASS_KIND_INVALID) {
@@ -34,6 +80,7 @@ static int tclass_new(TClassKind kind, TClass **ret) {
                         return -ENOMEM;
 
                 *tclass = (TClass) {
+                        .n_ref = 1,
                         .parent = TC_H_ROOT,
                         .kind = kind,
                 };
@@ -43,6 +90,7 @@ static int tclass_new(TClassKind kind, TClass **ret) {
                 if (!tclass)
                         return -ENOMEM;
 
+                tclass->n_ref = 1;
                 tclass->parent = TC_H_ROOT;
                 tclass->kind = kind;
 
@@ -60,7 +108,7 @@ static int tclass_new(TClassKind kind, TClass **ret) {
 
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(tclass_freep) TClass *tclass = NULL;
+        _cleanup_(tclass_unrefp) TClass *tclass = NULL;
         TClass *existing;
         int r;
 
@@ -90,7 +138,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         tclass->section = TAKE_PTR(n);
         tclass->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->tclasses_by_section, &config_section_hash_ops, tclass->section, tclass);
+        r = hashmap_ensure_put(&network->tclasses_by_section, &tclass_section_hash_ops, tclass->section, tclass);
         if (r < 0)
                 return r;
 
@@ -98,21 +146,19 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         return 0;
 }
 
-TClass* tclass_free(TClass *tclass) {
+static TClass* tclass_free(TClass *tclass) {
         if (!tclass)
                 return NULL;
 
-        if (tclass->network && tclass->section)
-                hashmap_remove(tclass->network->tclasses_by_section, tclass->section);
+        tclass_detach_impl(tclass);
 
         config_section_free(tclass->section);
-
-        if (tclass->link)
-                set_remove(tclass->link->tclasses, tclass);
 
         free(tclass->tca_kind);
         return mfree(tclass);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass, tclass_free);
 
 static const char *tclass_get_tca_kind(const TClass *tclass) {
         assert(tclass);
@@ -147,13 +193,6 @@ static int tclass_compare_func(const TClass *a, const TClass *b) {
         return strcmp_ptr(tclass_get_tca_kind(a), tclass_get_tca_kind(b));
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        tclass_hash_ops,
-        TClass,
-        tclass_hash_func,
-        tclass_compare_func,
-        tclass_free);
-
 static int tclass_get(Link *link, const TClass *in, TClass **ret) {
         TClass *existing;
 
@@ -169,11 +208,37 @@ static int tclass_get(Link *link, const TClass *in, TClass **ret) {
         return 0;
 }
 
-static int tclass_add(Link *link, TClass *tclass) {
+static int tclass_get_request(Link *link, const TClass *tclass, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(tclass);
+
+        req = ordered_set_get(
+                        link->manager->request_queue,
+                        &(Request) {
+                                .link = link,
+                                .type = REQUEST_TYPE_TC_CLASS,
+                                .userdata = (void*) tclass,
+                                .hash_func = (hash_func_t) tclass_hash_func,
+                                .compare_func = (compare_func_t) tclass_compare_func,
+                        });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
+static int tclass_attach(Link *link, TClass *tclass) {
         int r;
 
         assert(link);
         assert(tclass);
+        assert(!tclass->link);
+        assert(!tclass->network);
 
         r = set_ensure_put(&link->tclasses, &tclass_hash_ops, tclass);
         if (r < 0)
@@ -182,11 +247,12 @@ static int tclass_add(Link *link, TClass *tclass) {
                 return -EEXIST;
 
         tclass->link = link;
+        tclass_ref(tclass);
         return 0;
 }
 
 static int tclass_dup(const TClass *src, TClass **ret) {
-        _cleanup_(tclass_freep) TClass *dst = NULL;
+        _cleanup_(tclass_unrefp) TClass *dst = NULL;
 
         assert(src);
         assert(ret);
@@ -198,7 +264,8 @@ static int tclass_dup(const TClass *src, TClass **ret) {
         if (!dst)
                 return -ENOMEM;
 
-        /* clear all pointers */
+        /* clear the reference counter and all pointers */
+        dst->n_ref = 1;
         dst->network = NULL;
         dst->section = NULL;
         dst->link = NULL;
@@ -252,31 +319,58 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        strna(tclass_get_tca_kind(tclass)));
 }
 
-TClass* tclass_drop(TClass *tclass) {
+void tclass_mark_recursive(TClass *tclass) {
         QDisc *qdisc;
-        Link *link;
 
         assert(tclass);
+        assert(tclass->link);
 
-        link = ASSERT_PTR(tclass->link);
+        if (tclass_is_marked(tclass))
+                return;
 
-        /* Also drop all child qdiscs assigned to the class. */
-        SET_FOREACH(qdisc, link->qdiscs) {
+        tclass_mark(tclass);
+
+        /* Also mark all child qdiscs assigned to the class. */
+        SET_FOREACH(qdisc, tclass->link->qdiscs) {
                 if (qdisc->parent != tclass->classid)
                         continue;
 
-                qdisc_drop(qdisc);
+                qdisc_mark_recursive(qdisc);
         }
+}
 
-        tclass_enter_removed(tclass);
+void link_tclass_drop_marked(Link *link) {
+        TClass *tclass;
 
-        if (tclass->state == 0) {
-                log_tclass_debug(tclass, link, "Forgetting");
-                tclass = tclass_free(tclass);
-        } else
-                log_tclass_debug(tclass, link, "Removed");
+        assert(link);
 
-        return tclass;
+        SET_FOREACH(tclass, link->tclasses) {
+                Request *req;
+
+                if (!tclass_is_marked(tclass))
+                        continue;
+
+                tclass_unmark(tclass);
+                tclass_enter_removed(tclass);
+                if (tclass_get_request(link, tclass, &req) >= 0)
+                        tclass_enter_removed(req->userdata);
+
+                if (tclass->state == 0) {
+                        log_tclass_debug(tclass, link, "Forgetting");
+                        tclass_detach(tclass);
+                } else
+                        log_tclass_debug(tclass, link, "Removed");
+        }
+}
+
+static void tclass_drop(TClass *tclass) {
+        assert(tclass);
+
+        tclass_mark_recursive(tclass);
+
+        /* link_tclass_drop_marked() may invalidate tclass, so run link_qdisc_drop_marked() first. */
+        link_qdisc_drop_marked(tclass->link);
+        link_tclass_drop_marked(tclass->link);
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {
@@ -343,6 +437,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
 }
 
 static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
+        TClass *existing;
         int r;
 
         assert(req);
@@ -357,51 +452,56 @@ static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
                 return log_link_warning_errno(link, r, "Failed to configure TClass: %m");
 
         tclass_enter_configuring(tclass);
+        if (tclass_get(link, tclass, &existing) >= 0)
+                tclass_enter_configuring(existing);
+
         return 1;
 }
 
-int link_request_tclass(Link *link, TClass *tclass) {
-        TClass *existing;
+int link_request_tclass(Link *link, const TClass *tclass) {
+        _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        TClass *existing = NULL;
         int r;
 
         assert(link);
         assert(tclass);
+        assert(tclass->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (tclass_get(link, tclass, &existing) < 0) {
-                _cleanup_(tclass_freep) TClass *tmp = NULL;
+        if (tclass_get_request(link, tclass, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
-                r = tclass_dup(tclass, &tmp);
-                if (r < 0)
-                        return log_oom();
+        r = tclass_dup(tclass, &tmp);
+        if (r < 0)
+                return r;
 
-                r = tclass_add(link, tmp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to store TClass: %m");
+        if (tclass_get(link, tclass, &existing) >= 0)
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
 
-                existing = TAKE_PTR(tmp);
-        } else
-                existing->source = tclass->source;
-
-        log_tclass_debug(existing, link, "Requesting");
+        log_tclass_debug(tmp, link, "Requesting");
         r = link_queue_request_safe(link, REQUEST_TYPE_TC_CLASS,
-                                    existing, NULL,
+                                    tmp,
+                                    tclass_unref,
                                     tclass_hash_func,
                                     tclass_compare_func,
                                     tclass_process_request,
                                     &link->tc_messages,
                                     tclass_handler,
                                     NULL);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to request TClass: %m");
-        if (r == 0)
-                return 0;
+        if (r <= 0)
+                return r;
 
-        tclass_enter_requesting(existing);
+        tclass_enter_requesting(tmp);
+        if (existing)
+                tclass_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
 }
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(tclass_freep) TClass *tmp = NULL;
+        _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        Request *req = NULL;
         TClass *tclass = NULL;
         Link *link;
         uint16_t type;
@@ -466,39 +566,42 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         }
 
         (void) tclass_get(link, tmp, &tclass);
+        (void) tclass_get_request(link, tmp, &req);
 
-        switch (type) {
-        case RTM_NEWTCLASS:
-                if (tclass) {
-                        tclass_enter_configured(tclass);
-                        log_tclass_debug(tclass, link, "Received remembered");
-                } else {
-                        tclass_enter_configured(tmp);
-                        log_tclass_debug(tmp, link, "Received new");
-
-                        r = tclass_add(link, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember TClass, ignoring: %m");
-                                return 0;
-                        }
-
-                        tclass = TAKE_PTR(tmp);
-                }
-
-                break;
-
-        case RTM_DELTCLASS:
+        if (type == RTM_DELTCLASS) {
                 if (tclass)
-                        (void) tclass_drop(tclass);
+                        tclass_drop(tclass);
                 else
                         log_tclass_debug(tmp, link, "Kernel removed unknown");
 
-                break;
-
-        default:
-                assert_not_reached();
+                return 0;
         }
 
+        bool is_new = false;
+        if (!tclass) {
+                /* If we did not know the tclass, then save it. */
+                r = tclass_attach(link, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to remember TClass, ignoring: %m");
+                        return 0;
+                }
+
+                tclass = tmp;
+                is_new = true;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                TClass *t = ASSERT_PTR(req->userdata);
+
+                tclass->source = t->source;
+        }
+
+        tclass_enter_configured(tclass);
+        if (req)
+                tclass_enter_configured(req->userdata);
+
+        log_tclass_debug(tclass, link, is_new ? "Remembering" : "Received remembered");
         return 1;
 }
 
@@ -541,7 +644,7 @@ void network_drop_invalid_tclass(Network *network) {
 
         HASHMAP_FOREACH(tclass, network->tclasses_by_section)
                 if (tclass_section_verify(tclass) < 0)
-                        tclass_free(tclass);
+                        tclass_detach(tclass);
 }
 
 int config_parse_tclass_parent(
@@ -556,7 +659,7 @@ int config_parse_tclass_parent(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(tclass_free_or_set_invalidp) TClass *tclass = NULL;
+        _cleanup_(tclass_unref_or_set_invalidp) TClass *tclass = NULL;
         Network *network = ASSERT_PTR(data);
         int r;
 
@@ -602,7 +705,7 @@ int config_parse_tclass_classid(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(tclass_free_or_set_invalidp) TClass *tclass = NULL;
+        _cleanup_(tclass_unref_or_set_invalidp) TClass *tclass = NULL;
         Network *network = ASSERT_PTR(data);
         int r;
 

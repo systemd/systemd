@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if_arp.h>
+#include <netinet/in.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -25,7 +26,7 @@ static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF);
 
 static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         assert(m);

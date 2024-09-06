@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+make_sysext_unsigned() {
+    if ! ((SYSEXT)); then
+        return
+    fi
+
+    mkdir -p /usr/lib/systemd/repart/definitions/sysext-unsigned.repart.d
+    cat >/usr/lib/systemd/repart/definitions/sysext-unsigned.repart.d/10-root.conf <<EOF
+[Partition]
+Type=root
+Format=erofs
+CopyFiles=/usr/
+Minimize=best
+EOF
+
+    . /usr/lib/os-release
+
+    mkdir -p "$1"/usr/lib/extension-release.d
+    cat >"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+ID=$ID
+SYSEXT_ID=systemd
+SYSEXT_SCOPE=system
+ARCHITECTURE=$ARCHITECTURE
+EOF
+
+    if [[ -n "$VERSION_ID" ]]; then
+        cat >>"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+VERSION_ID=$VERSION_ID
+EOF
+    fi
+
+    if [[ -n "$SYSEXT_LEVEL" ]]; then
+        cat >>"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+SYSEXT_LEVEL=$SYSEXT_LEVEL
+EOF
+    fi
+
+    rm -f "$BUILDDIR"/systemd.raw
+
+    local fstype
+
+    if command -v mkfs.erofs; then
+        fstype=erofs
+    else
+        fstype=squashfs
+    fi
+
+    env SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT="$fstype" \
+    "$BUILDDIR"/systemd-repart \
+        --make-ddi=sysext-unsigned \
+        --copy-source="$1" \
+        --pretty=no \
+        "$BUILDDIR"/systemd.raw
+
+    cp "$BUILDDIR"/systemd.raw "$OUTPUTDIR"
+}

@@ -1,6 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-vmspawn" conditional="ENABLE_VMSPAWN"
@@ -18,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-vmspawn</refname>
-    <refpurpose>Spawn an OS in a virtual machine.</refpurpose>
+    <refpurpose>Spawn an OS in a virtual machine</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -31,8 +34,8 @@
 
   <refsect1>
     <title>Description</title>
-    <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
-    project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
+    <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry>
+    <refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
     launches a full virtual machine instead of using namespaces.</para>
 
     <para>File descriptors for <filename>/dev/kvm</filename> and <filename>/dev/vhost-vsock</filename> can be
@@ -71,22 +74,24 @@
     <refsect2>
       <title>Image Options</title>
 
-      <varlistentry>
-        <term><option>-D</option></term>
-        <term><option>--directory=</option></term>
-
-        <listitem><para>Directory to use as file system root for the virtual machine.</para>
-
-        <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.</para>
-
-        <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
-              to map into the user's subuid namespace.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
-
       <variablelist>
+        <varlistentry>
+          <term><option>-D</option></term>
+          <term><option>--directory=</option></term>
+
+          <listitem><para>Directory to use as file system root for the virtual machine.</para>
+
+          <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
+          If neither are specified <option>--directory=.</option> is assumed.</para>
+
+          <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
+          to map into the user's subuid namespace. An example of how to use <constant>/etc/subuid</constant>
+          for this is given later.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>
@@ -104,9 +109,9 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--cpus=</option><replaceable>CPUS</replaceable></term>
+          <term><option>--cpus=<replaceable>CPUS</replaceable></option></term>
 
-          <listitem><para>Configures the number of CPUs to start the virtual machine with.
+          <listitem><para>The number of CPUs to start the virtual machine with.
           Defaults to 1.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
@@ -114,9 +119,9 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ram=</option><replaceable>BYTES</replaceable></term>
+          <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
 
-          <listitem><para>Configures the amount of memory to start the virtual machine with.
+          <listitem><para>The amount of memory to start the virtual machine with.
           Defaults to 2G.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
@@ -124,51 +129,44 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--kvm=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--kvm=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          <listitem><para>If <option>--kvm=</option> is not specified KVM support will be
           detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--vsock=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>If <option>--vsock=</option> is not specified VSOCK networking support will be
+          detected automatically. If true, VSOCK networking is always used, and if false, VSOCK networking is never used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--vsock-cid=<replaceable>CID</replaceable></option></term>
 
           <listitem>
-            <para>Configure whether to use VSOCK networking.</para>
+            <para>Sets the specific CID to use for the guest.
+            Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+            CIDs outside of this range are reserved. By default vmspawn will attempt to derive a CID for the guest derived from the machine name,
+            falling back to a random CID if this CID is taken.</para>
 
-            <para>If the option is not specified VSOCK support will be detected automatically.  If yes is
-            specified VSOCK is always used, and vice versa if no is set VSOCK are never used.</para>
             <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+          <term><option>--tpm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
-            <para>Configure vmspawn to use a specific CID for the guest.</para>
-
-            <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
-
-            <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
-            CIDs outside of this range are reserved.</para>
-
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--tpm=</option><replaceable>BOOL</replaceable></term>
-
-          <listitem>
-            <para>Configure whether to use VM with a virtual TPM or not.</para>
-
-            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+            <para>If <option>--tpm=</option> is not specified vmspawn will detect the presence of <citerefentry project='debian'>
             <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-            If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            If yes is specified <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
             <manvolnum>8</manvolnum></citerefentry> is never used.</para>
 
             <para>Note: the virtual TPM used may change in future.</para>
@@ -178,28 +176,31 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--linux=</option><replaceable>PATH</replaceable></term>
+          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
 
           <listitem>
-            <para>Set the linux kernel image to use for direct kernel boot.</para>
-
-            <para>If no kernel was installed into the image then the image will fail to boot.</para>
+            <para>Set the linux kernel image to use for direct kernel boot.
+            If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
+            according to the
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> assuming
+            XBOOTLDR to be located at /boot and ESP to be /efi respectively.
+            If no kernel was installed into the image then the image will fail to boot.</para>
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>--initrd=</option><replaceable>PATH</replaceable></term>
+          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
 
           <listitem>
-            <para>Set the initrd to use for direct kernel boot.</para>
+            <para>Set the initrd to use for direct kernel boot.
+            If the <option>--linux=</option> supplied is a
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+            Type #2 entry, then this argument is not required.
+            If no initrd was installed into the image then the image will fail to boot.</para>
 
-            <para>If the linux kernel supplied is a UKI then this argument is not required.</para>
-
-            <para>If the option is specified multiple times vmspawn will merge the initrds together.</para>
-
-            <para>If no initrd was installed into the image then the image will fail to boot.</para>
+            <para><option>--initrd=</option> can be specified multiple times and vmspawn will merge them together.</para>
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
@@ -233,7 +234,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
+          <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes an absolute path, or a relative path beginning with
           <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
@@ -244,7 +245,17 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
 
@@ -317,13 +328,15 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--private-users=</option><replaceable>UID_SHIFT[:UID_RANGE]</replaceable></term>
+          <term><option>--private-users=<replaceable>UID_SHIFT[:UID_RANGE]</replaceable></option></term>
 
           <listitem><para>Controls user namespacing under <option>--directory=</option>.
-          If enabled, <citerefentry project='man-pages'><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          is instructed to map user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the virtual machine
-          (starting with the virtual machine's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
-          purposes (usually in the range beyond the host's UID/GID 65536).</para>
+          If enabled,
+          <citerefentry><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          is instructed to map user and group ids (UIDs and GIDs).
+          This involves mapping the private UIDs/GIDs used in the virtual machine (starting with the virtual machine's
+          root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other purposes (usually in the
+          range beyond the host's UID/GID 65536).</para>
 
           <para>If one or two colon-separated numbers are specified, user namespacing is turned on. <replaceable>UID_SHIFT</replaceable>
           specifies the first host UID/GID to map, <replaceable>UID_RANGE</replaceable> is optional and specifies number of host
@@ -343,8 +356,8 @@
       <variablelist>
 
         <varlistentry>
-          <term><option>--bind=</option><replaceable>PATH</replaceable></term>
-          <term><option>--bind-ro=</option><replaceable>PATH</replaceable></term>
+          <term><option>--bind=<replaceable>PATH</replaceable></option></term>
+          <term><option>--bind-ro=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Mount a directory from the host into the virtual machine. Takes one of: a path
           argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
@@ -358,7 +371,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=</option><replaceable>PATH</replaceable></term>
+          <term><option>--extra-drive=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual machine as another drive.</para>
 
@@ -373,7 +386,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--forward-journal=</option><replaceable>FILE|DIR</replaceable></term>
+          <term><option>--forward-journal=<replaceable>FILE|DIR</replaceable></option></term>
 
           <listitem><para>Forward the virtual machine's journal to the host.
           <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -381,6 +394,33 @@
           this journal is saved on the host and has the same semantics as
           <option>-o</option>/<option>--output</option> described in
           <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>By default an SSH key is generated to allow <command>systemd-vmspawn</command> to open
+          a D-Bus connection to the VM's systemd bus. Setting this to "no" will disable SSH key generation.</para>
+
+          <para>The generated keys are ephemeral. That is they are valid only for the current invocation of <command>systemd-vmspawn</command>,
+          and are typically not persisted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--ssh-key-type=<replaceable>TYPE</replaceable></option></term>
+
+          <listitem><para>Configures the type of SSH key to generate, see
+          <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for more information.</para>
+
+          <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
+          may also be useful if the VM has a particularly old version of <command>sshd</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
@@ -393,7 +433,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--console=</option><replaceable>MODE</replaceable></term>
+          <term><option>--console=<replaceable>MODE</replaceable></option></term>
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
@@ -429,8 +469,8 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
-          <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+          <term><option>--load-credential=<replaceable>ID</replaceable>:<replaceable>PATH</replaceable></option></term>
+          <term><option>--set-credential=<replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></option></term>
 
           <listitem><para>Pass a credential to the virtual machine. These two options correspond to the
           <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
@@ -440,7 +480,7 @@
           <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
-          once, hence this might require double escaping!.</para>
+          once, hence this might require double escaping!</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -470,6 +510,53 @@ $ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
 $ systemd-vmspawn --image=image.raw
       </programlisting>
     </example>
+
+    <example>
+      <title>Import and run a Fedora 39 Cloud image using machinectl</title>
+
+      <programlisting>
+$ curl -L \
+       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM \
+       -O https://fedoraproject.org/fedora.gpg
+$ gpgv --keyring ./fedora.gpg Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
+$ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
+# machinectl import-raw Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz fedora-&fedora_latest_version;-cloud
+# systemd-vmspawn -M fedora-&fedora_latest_version;-cloud
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Build and run systemd's system image and forward the VM's journal to a local file</title>
+
+      <programlisting>
+$ mkosi build
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --forward-journal=vm.journal \
+    enforcing=0
+      </programlisting>
+
+      <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in enforcing mode.</para>
+    </example>
+
+    <example>
+      <title>SSH into a running VM using <command>systemd-ssh-proxy</command></title>
+
+      <programlisting>
+$ mkosi build
+$ my_vsock_cid=3735928559
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --vsock-cid $my_vsock_cid \
+    enforcing=0
+$ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-system-ed25519
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -484,9 +571,10 @@ $ systemd-vmspawn --image=image.raw
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='debian'><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
     </simplelist></para>
   </refsect1>
 </refentry>

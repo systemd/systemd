@@ -5,6 +5,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "daemon-util.h"
@@ -50,6 +51,7 @@ static int help(void) {
                "     --version         Show package version\n"
                "     --nqn=STRING      Select NQN (NVMe Qualified Name)\n"
                "  -a --all             Expose all devices\n"
+               "     --list-devices    List candidate block devices to operate on\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -64,13 +66,15 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_NQN = 0x100,
                 ARG_VERSION,
+                ARG_LIST_DEVICES,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "nqn",       required_argument, NULL, ARG_NQN       },
-                { "all",       no_argument,       NULL, 'a'           },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "nqn",          required_argument, NULL, ARG_NQN          },
+                { "all",          no_argument,       NULL, 'a'              },
+                { "list-devices", no_argument,       NULL, ARG_LIST_DEVICES },
                 {}
         };
 
@@ -101,6 +105,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'a':
                         arg_all++;
                         break;
+
+                case ARG_LIST_DEVICES:
+                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
 
                 case '?':
                         return -EINVAL;
@@ -1054,7 +1065,7 @@ static int on_display_refresh(sd_event_source *s, uint64_t usec, void *userdata)
 
         c->display_refresh_scheduled = false;
 
-        if (isatty(STDERR_FILENO))
+        if (isatty_safe(STDERR_FILENO))
                 fputs(ANSI_HOME_CLEAR, stderr);
 
         /* If we have both IPv4 and IPv6, we display IPv4 info via Plymouth, since it doesn't have much
@@ -1111,9 +1122,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_(context_done) Context context = {};
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1214,8 +1223,11 @@ static int run(int argc, char* argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to exclude loop devices: %m");
 
-                FOREACH_DEVICE(enumerator, device)
+                FOREACH_DEVICE(enumerator, device) {
+                        if (device_is_processed(device) <= 0)
+                                continue;
                         device_added(&context, device);
+                }
         }
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -1235,7 +1247,7 @@ static int run(int argc, char* argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR events: %m");
 
-        if (isatty(STDIN_FILENO))
+        if (isatty_safe(STDIN_FILENO))
                 log_info("Hit Ctrl-C to exit target mode.");
 
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =

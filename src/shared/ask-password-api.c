@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "creds-util.h"
 #include "fd-util.h"
@@ -872,10 +873,15 @@ int ask_password_agent(
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (ERRNO_IS_NEG_TRANSIENT(n))
                         continue;
-                else if (n == -EXFULL) {
-                        log_debug("Got message with truncated control data, ignoring.");
+                if (n == -ECHRNG) {
+                        log_debug_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
                         continue;
-                } else if (n < 0) {
+                }
+                if (n == -EXFULL) {
+                        log_debug_errno(n, "Got message with truncated payload data, ignoring.");
+                        continue;
+                }
+                if (n < 0) {
                         r = (int) n;
                         goto finish;
                 }
@@ -987,14 +993,14 @@ int ask_password_auto(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) &&
             req && req->keyring &&
-            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
+            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty_safe(STDIN_FILENO)) &&
             FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT)) {
                 r = ask_password_keyring(req, flags, ret);
                 if (r != -ENOKEY)
                         return r;
         }
 
-        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO))
+        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
                 return ask_password_tty(-EBADF, req, until, flags, NULL, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))

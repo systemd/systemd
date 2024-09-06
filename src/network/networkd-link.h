@@ -161,10 +161,13 @@ typedef struct Link {
 
         sd_ndisc *ndisc;
         sd_event_source *ndisc_expire;
+        Hashmap *ndisc_routers_by_sender;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
         Set *ndisc_captive_portals;
         Set *ndisc_pref64;
+        Set *ndisc_redirects;
+        uint32_t ndisc_mtu;
         unsigned ndisc_messages;
         bool ndisc_configured:1;
 
@@ -257,7 +260,7 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret);
-const char *kernel_operstate_to_string(int t) _const_;
+const char* kernel_operstate_to_string(int t) _const_;
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret);
 AddressFamily link_required_family_for_online(Link *link);

@@ -220,7 +220,7 @@ int dns_type_to_af(uint16_t t) {
         }
 }
 
-const char *dns_class_to_string(uint16_t class) {
+const char* dns_class_to_string(uint16_t class) {
 
         switch (class) {
 

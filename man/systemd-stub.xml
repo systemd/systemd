@@ -70,6 +70,9 @@
 
       <listitem><para>An <literal>.initrd</literal> section with the initrd.</para></listitem>
 
+      <listitem><para>A <literal>.ucode</literal> section with an initrd containing microcode, to be handed
+      to the kernel before any other initrd. This initrd must not be compressed.</para></listitem>
+
       <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
@@ -89,7 +92,7 @@
       specific key.</para></listitem>
 
       <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
-      signature data in the the <literal>.pcrsig</literal> section.</para></listitem>
+      signature data in the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
     <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed
@@ -179,13 +182,13 @@
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
-      PE binaries, and a <literal>.cmdline</literal> section is parsed from them. Addons are supposed to be
-      used to pass additional kernel command line parameters or Devicetree blobs, regardless of the kernel
-      image being booted, for example to allow platform vendors to ship platform-specific
-      configuration.</para>
+      PE binaries, and a <literal>.cmdline</literal> or <literal>.ucode</literal> section is parsed from them.
+      Addons are supposed to be used to pass additional kernel command line parameters, or Devicetree blobs,
+      and microcode updates, regardless of the kernel image being booted, for example to allow platform vendors
+      to ship platform-specific configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
-      Shim's MOK, and will be rejected otherwise. Additionally, if the both the addon and the UKI contain a a
+      Shim's MOK, and will be rejected otherwise. Additionally, if both the addon and the UKI contain a
       <literal>.uname</literal> section, the addon will be rejected if they do not match exactly. It is
       recommended to always add a <literal>.sbat</literal> section to all signed addons, so that they may be
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
@@ -196,7 +199,9 @@
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
       to the kernel command line. UKI command line options are listed first, then options from addons in
       <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
-      loaded and measured following the same algorithm. Addons are always loaded in the same order based on
+      loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
+      order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
+      driver stops on the first matching filename. Addons are always loaded in the same order based on
       the filename, so that, given the same set of addons, the same set of measurements can be expected in
       PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
       with write access to the ESP could potentially rename these files to change the order in which they are
@@ -212,9 +217,10 @@
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and <literal>.cmdline</literal> and/or <literal>.dtb</literal> sections are
-      parsed from them. This is supposed to be used to pass additional command line parameters or Devicetree
-      blobs to the kernel, regardless of the kernel being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal> and/or
+      <literal>.ucode</literal>sections are parsed from them. This is supposed to be used to pass additional
+      command line parameters, Devicetree blobs and microcode updates to the kernel, regardless of the
+      kernel being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
@@ -233,7 +239,7 @@
     core kernel, the embedded initrd and kernel command line (see above for a full list).</para>
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
-    every type of initrd will be measured two or three times: the initrd embedded in the kernel image will be
+    every type of initrd will be measured two or three times: the initrds embedded in the kernel image will be
     measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials (and the one synthesized
     from configuration extensions) will be measured to both PCR 9 and PCR 12; the initrd synthesized from
     system extensions will be measured to both PCR 4 and PCR 9. Let's summarize the OS resources and the PCRs
@@ -271,6 +277,11 @@
 
           <row>
             <entry>Main initrd (embedded in unified PE binary)</entry>
+            <entry>4 + 9 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Microcode initrd (embedded in unified PE binary)</entry>
             <entry>4 + 9 + 11</entry>
           </row>
 

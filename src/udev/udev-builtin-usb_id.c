@@ -224,7 +224,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(UdevEvent *event, int argc, char *argv[], bool test) {
+static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         char vendor_str[64] = "";
         char vendor_str_enc[256];
@@ -429,55 +429,55 @@ fallback:
         if (sd_device_get_property_value(dev, "ID_BUS", NULL) >= 0)
                 log_device_debug(dev, "ID_BUS property is already set, setting only properties prefixed with \"ID_USB_\".");
         else {
-                udev_builtin_add_property(dev, test, "ID_BUS", "usb");
+                udev_builtin_add_property(dev, event->event_mode, "ID_BUS", "usb");
 
-                udev_builtin_add_property(dev, test, "ID_MODEL", model_str);
-                udev_builtin_add_property(dev, test, "ID_MODEL_ENC", model_str_enc);
-                udev_builtin_add_property(dev, test, "ID_MODEL_ID", product_id);
+                udev_builtin_add_property(dev, event->event_mode, "ID_MODEL", model_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_MODEL_ENC", model_str_enc);
+                udev_builtin_add_property(dev, event->event_mode, "ID_MODEL_ID", product_id);
 
-                udev_builtin_add_property(dev, test, "ID_SERIAL", serial);
+                udev_builtin_add_property(dev, event->event_mode, "ID_SERIAL", serial);
                 if (!isempty(serial_str))
-                        udev_builtin_add_property(dev, test, "ID_SERIAL_SHORT", serial_str);
+                        udev_builtin_add_property(dev, event->event_mode, "ID_SERIAL_SHORT", serial_str);
 
-                udev_builtin_add_property(dev, test, "ID_VENDOR", vendor_str);
-                udev_builtin_add_property(dev, test, "ID_VENDOR_ENC", vendor_str_enc);
-                udev_builtin_add_property(dev, test, "ID_VENDOR_ID", vendor_id);
+                udev_builtin_add_property(dev, event->event_mode, "ID_VENDOR", vendor_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_VENDOR_ENC", vendor_str_enc);
+                udev_builtin_add_property(dev, event->event_mode, "ID_VENDOR_ID", vendor_id);
 
-                udev_builtin_add_property(dev, test, "ID_REVISION", revision_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_REVISION", revision_str);
 
                 if (!isempty(type_str))
-                        udev_builtin_add_property(dev, test, "ID_TYPE", type_str);
+                        udev_builtin_add_property(dev, event->event_mode, "ID_TYPE", type_str);
 
                 if (!isempty(instance_str))
-                        udev_builtin_add_property(dev, test, "ID_INSTANCE", instance_str);
+                        udev_builtin_add_property(dev, event->event_mode, "ID_INSTANCE", instance_str);
         }
 
         /* Also export the same values in the above by prefixing ID_USB_. */
-        udev_builtin_add_property(dev, test, "ID_USB_MODEL", model_str);
-        udev_builtin_add_property(dev, test, "ID_USB_MODEL_ENC", model_str_enc);
-        udev_builtin_add_property(dev, test, "ID_USB_MODEL_ID", product_id);
-        udev_builtin_add_property(dev, test, "ID_USB_SERIAL", serial);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_MODEL", model_str);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_MODEL_ENC", model_str_enc);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_MODEL_ID", product_id);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_SERIAL", serial);
         if (!isempty(serial_str))
-                udev_builtin_add_property(dev, test, "ID_USB_SERIAL_SHORT", serial_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_SERIAL_SHORT", serial_str);
 
-        udev_builtin_add_property(dev, test, "ID_USB_VENDOR", vendor_str);
-        udev_builtin_add_property(dev, test, "ID_USB_VENDOR_ENC", vendor_str_enc);
-        udev_builtin_add_property(dev, test, "ID_USB_VENDOR_ID", vendor_id);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_VENDOR", vendor_str);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_VENDOR_ENC", vendor_str_enc);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_VENDOR_ID", vendor_id);
 
-        udev_builtin_add_property(dev, test, "ID_USB_REVISION", revision_str);
+        udev_builtin_add_property(dev, event->event_mode, "ID_USB_REVISION", revision_str);
 
         if (!isempty(type_str))
-                udev_builtin_add_property(dev, test, "ID_USB_TYPE", type_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_TYPE", type_str);
 
         if (!isempty(instance_str))
-                udev_builtin_add_property(dev, test, "ID_USB_INSTANCE", instance_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_INSTANCE", instance_str);
 
         if (!isempty(packed_if_str))
-                udev_builtin_add_property(dev, test, "ID_USB_INTERFACES", packed_if_str);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_INTERFACES", packed_if_str);
         if (ifnum)
-                udev_builtin_add_property(dev, test, "ID_USB_INTERFACE_NUM", ifnum);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_INTERFACE_NUM", ifnum);
         if (driver)
-                udev_builtin_add_property(dev, test, "ID_USB_DRIVER", driver);
+                udev_builtin_add_property(dev, event->event_mode, "ID_USB_DRIVER", driver);
         return 0;
 }
 

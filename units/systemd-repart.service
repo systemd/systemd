@@ -1,0 +1,37 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Repartition Root Disk
+Documentation=man:systemd-repart.service(8)
+
+ConditionVirtualization=!container
+ConditionDirectoryNotEmpty=|/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/repart.d
+ConditionDirectoryNotEmpty=|/etc/repart.d
+ConditionDirectoryNotEmpty=|/run/repart.d
+ConditionDirectoryNotEmpty=|/sysusr/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
+
+DefaultDependencies=no
+Wants=modprobe@loop.service modprobe@dm_mod.service
+After=initrd-usr-fs.target modprobe@loop.service modprobe@dm_mod.service systemd-tpm2-setup-early.service
+Before=initrd-root-fs.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-repart --dry-run=no
+
+# The tool returns 76 if it can't find the root block device
+SuccessExitStatus=76
+# The tool returns 77 if there's no existing GPT partition table
+SuccessExitStatus=77

@@ -34,9 +34,8 @@ typedef struct FouTunnel {
 DEFINE_NETDEV_CAST(FOU, FouTunnel);
 extern const NetDevVTable foutnl_vtable;
 
-const char *fou_encap_type_to_string(FooOverUDPEncapType d) _const_;
+const char* fou_encap_type_to_string(FooOverUDPEncapType d) _const_;
 FooOverUDPEncapType fou_encap_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fou_encap_type);
-CONFIG_PARSER_PROTOTYPE(config_parse_ip_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_fou_tunnel_address);

@@ -16,11 +16,11 @@
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
-static sd_id128_t arg_app = {};
+static sd_id128_t arg_app = SD_ID128_NULL;
 static bool arg_value = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -71,16 +71,29 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         return id128_pretty_print(id, arg_mode);
 }
 
+static int verb_var_uuid(int argc, char **argv, void *userdata) {
+        sd_id128_t id;
+        int r;
+
+        if (!sd_id128_is_null(arg_app))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"var-partition-uuid\" cannot be combined with --app-specific=.");
+
+        /* The DPS says that the UUID for /var/ should be keyed with machine-id. */
+        r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate machine-specific /var/ UUID: %m");
+
+        return id128_pretty_print(id, arg_mode);
+}
+
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
-        sd_id128_t u;
         int r;
 
         assert(table);
 
-        if (sd_id128_is_null(arg_app))
-                u = uuid;
-        else
-                assert_se(sd_id128_get_app_specific(uuid, arg_app, &u) == 0);
+        if (!name)
+                name = "XYZ";
 
         if (arg_mode == ID128_PRINT_PRETTY) {
                 _cleanup_free_ char *id = NULL;
@@ -91,7 +104,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
                 ascii_strupper(id);
 
-                r = id128_pretty_print_sample(id, u);
+                r = id128_pretty_print_sample(id, uuid);
                 if (r < 0)
                         return r;
                 if (!first)
@@ -100,19 +113,19 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
         }
 
         if (arg_value)
-                return id128_pretty_print(u, arg_mode);
+                return id128_pretty_print(uuid, arg_mode);
 
         if (!*table) {
                 *table = table_new("name", "id");
                 if (!*table)
                         return log_oom();
+
                 table_set_width(*table, 0);
         }
 
         return table_add_many(*table,
                               TABLE_STRING, name,
-                              arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
-                              u);
+                              arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID, uuid);
 }
 
 static int verb_show(int argc, char **argv, void *userdata) {
@@ -120,23 +133,26 @@ static int verb_show(int argc, char **argv, void *userdata) {
         int r;
 
         argv = strv_skip(argv, 1);
-        if (strv_isempty(argv))
+        if (strv_isempty(argv)) {
+                if (!sd_id128_is_null(arg_app))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "'show --app-specific=' can only be used with explicit UUID input.");
+
                 for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
                         r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
                         if (r < 0)
                                 return r;
                 }
-        else
+        } else
                 STRV_FOREACH(p, argv) {
                         sd_id128_t uuid;
-                        bool have_uuid;
-                        const char *id;
+                        const char *id = NULL;
 
                         /* Check if the argument is an actual UUID first */
-                        have_uuid = sd_id128_from_string(*p, &uuid) >= 0;
+                        bool is_uuid = sd_id128_from_string(*p, &uuid) >= 0;
 
-                        if (have_uuid)
-                                id = gpt_partition_type_uuid_to_string(uuid) ?: "XYZ";
+                        if (is_uuid)
+                                id = gpt_partition_type_uuid_to_string(uuid);
                         else {
                                 GptPartitionType type;
 
@@ -147,6 +163,9 @@ static int verb_show(int argc, char **argv, void *userdata) {
                                 uuid = type.uuid;
                                 id = *p;
                         }
+
+                        if (!sd_id128_is_null(arg_app))
+                                assert_se(sd_id128_get_app_specific(uuid, arg_app, &uuid) >= 0);
 
                         r = show_one(&table, id, uuid, p == argv);
                         if (r < 0)
@@ -177,6 +196,7 @@ static int help(void) {
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
+               "  var-partition-uuid      Print the UUID for the /var/ partition\n"
                "  show [NAME|UUID]        Print one or more UUIDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
@@ -248,7 +268,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
@@ -292,12 +312,13 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int id128_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "new",            VERB_ANY, 1,        0,  verb_new           },
-                { "machine-id",     VERB_ANY, 1,        0,  verb_machine_id    },
-                { "boot-id",        VERB_ANY, 1,        0,  verb_boot_id       },
-                { "invocation-id",  VERB_ANY, 1,        0,  verb_invocation_id },
-                { "show",           VERB_ANY, VERB_ANY, 0,  verb_show          },
-                { "help",           VERB_ANY, VERB_ANY, 0,  verb_help          },
+                { "new",                VERB_ANY, 1,        0,  verb_new           },
+                { "machine-id",         VERB_ANY, 1,        0,  verb_machine_id    },
+                { "boot-id",            VERB_ANY, 1,        0,  verb_boot_id       },
+                { "invocation-id",      VERB_ANY, 1,        0,  verb_invocation_id },
+                { "var-partition-uuid", VERB_ANY, 1,        0,  verb_var_uuid      },
+                { "show",               VERB_ANY, VERB_ANY, 0,  verb_show          },
+                { "help",               VERB_ANY, VERB_ANY, 0,  verb_help          },
                 {}
         };
 

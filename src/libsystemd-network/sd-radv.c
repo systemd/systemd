@@ -19,6 +19,7 @@
 #include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "ndisc-router-solicit-internal.h"
 #include "network-common.h"
 #include "radv-internal.h"
 #include "random-util.h"
@@ -81,7 +82,8 @@ sd_event *sd_radv_get_event(sd_radv *ra) {
 }
 
 int sd_radv_is_running(sd_radv *ra) {
-        assert_return(ra, false);
+        if (!ra)
+                return false;
 
         return ra->state != RADV_STATE_IDLE;
 }
@@ -127,17 +129,41 @@ static bool router_lifetime_is_valid(usec_t lifetime_usec) {
                  lifetime_usec <= RADV_MAX_ROUTER_LIFETIME_USEC);
 }
 
-static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
+static int radv_send_router_on_stop(sd_radv *ra) {
+        static const struct nd_router_advert adv = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+        };
+
+        _cleanup_set_free_ Set *options = NULL;
+        usec_t time_now;
+        int r;
+
         assert(ra);
-        assert(router_lifetime_is_valid(lifetime_usec));
+
+        r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
+        if (r < 0)
+                return r;
+
+        if (!ether_addr_is_null(&ra->mac_addr)) {
+                r = ndisc_option_set_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, &ra->mac_addr);
+                if (r < 0)
+                        return r;
+        }
+
+        return ndisc_send(ra->fd, &IN6_ADDR_ALL_NODES_MULTICAST, &adv.nd_ra_hdr, options, time_now);
+}
+
+static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
+        assert(ra);
 
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                .sin6_addr = IN6_ADDR_ALL_NODES_MULTICAST,
         };
         struct nd_router_advert adv = {
                 .nd_ra_type = ND_ROUTER_ADVERT,
-                .nd_ra_router_lifetime = usec_to_be16_sec(lifetime_usec),
+                .nd_ra_router_lifetime = usec_to_be16_sec(ra->lifetime_usec),
+                .nd_ra_reachable = usec_to_be32_msec(ra->reachable_usec),
                 .nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec),
         };
         struct {
@@ -176,7 +202,9 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
         /* The nd_ra_curhoplimit and nd_ra_flags_reserved fields cannot specified with nd_ra_router_lifetime
          * simultaneously in the structured initializer in the above. */
         adv.nd_ra_curhoplimit = ra->hop_limit;
-        adv.nd_ra_flags_reserved = ra->flags;
+        /* RFC 4191, Section 2.2,
+         * "...If the Router Lifetime is zero, the preference value MUST be set to (00) by the sender..." */
+        adv.nd_ra_flags_reserved = ra->flags | (ra->lifetime_usec > 0 ? (ra->preference << 3) : 0);
         iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2 addresses or load sharing is
@@ -236,86 +264,90 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
         return 0;
 }
 
-static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_radv *ra = ASSERT_PTR(userdata);
-        struct in6_addr src;
-        triple_timestamp timestamp;
+static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
         int r;
 
-        assert(s);
-        assert(ra->event);
+        assert(ra);
+        assert(packet);
 
-        ssize_t buflen = next_datagram_size_fd(fd);
-        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
-                return 0;
-        if (buflen < 0) {
-                log_radv_errno(ra, buflen, "Failed to determine datagram size to read, ignoring: %m");
+        if (icmp6_packet_get_type(packet) != ND_ROUTER_SOLICIT)
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EBADMSG), "Received ICMP6 packet with unexpected type, ignoring.");
+
+        _cleanup_(sd_ndisc_router_solicit_unrefp) sd_ndisc_router_solicit *rs = NULL;
+        rs = ndisc_router_solicit_new(packet);
+        if (!rs)
+                return log_oom_debug();
+
+        r = ndisc_router_solicit_parse(ra, rs);
+        if (r < 0)
+                return r;
+
+        struct in6_addr src;
+        r = sd_ndisc_router_solicit_get_sender_address(rs, &src);
+        if (r == -ENODATA) /* null address is allowed */
+                return sd_radv_send(ra); /* When an unsolicited RA, we need to also update timer. */
+        if (r < 0)
+                return log_radv_errno(ra, r, "Failed to get sender address of RS, ignoring: %m");
+        if (in6_addr_equal(&src, &ra->ipv6ll))
+                /* This should be definitely caused by a misconfiguration. If we send RA to ourself, the
+                 * kernel complains about that. Let's ignore the packet. */
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EADDRINUSE), "Received RS from the same interface, ignoring.");
+
+        r = radv_send_router(ra, &src);
+        if (r < 0)
+                return log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", IN6_ADDR_TO_STRING(&src));
+
+        log_radv(ra, "Sent solicited Router Advertisement to %s.", IN6_ADDR_TO_STRING(&src));
+        return 0;
+}
+
+static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        sd_radv *ra = ASSERT_PTR(userdata);
+        int r;
+
+        assert(fd >= 0);
+
+        r = icmp6_packet_receive(fd, &packet);
+        if (r < 0) {
+                log_radv_errno(ra, r, "Failed to receive ICMPv6 packet, ignoring: %m");
                 return 0;
         }
 
-        _cleanup_free_ char *buf = new0(char, buflen);
-        if (!buf)
-                return -ENOMEM;
-
-        r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
-        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
-                return 0;
-        if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        log_radv(ra, "Received RS from neither link-local nor null address, ignoring.");
-                        return 0;
-
-                case -EMULTIHOP:
-                        log_radv(ra, "Received RS with invalid hop limit, ignoring.");
-                        return 0;
-
-                case -EPFNOSUPPORT:
-                        log_radv(ra, "Received invalid source address from ICMPv6 socket, ignoring.");
-                        return 0;
-
-                default:
-                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, ignoring: %m");
-                        return 0;
-                }
-
-        if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
-                log_radv(ra, "Too short packet received, ignoring");
-                return 0;
-        }
-
-        /* TODO: if the sender address is null, check that the message does not have the source link-layer
-         * address option. See RFC 4861 Section 6.1.1. */
-
-        const char *addr = IN6_ADDR_TO_STRING(&src);
-        r = radv_send_router(ra, &src, ra->lifetime_usec);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", addr);
-        else
-                log_radv(ra, "Sent solicited Router Advertisement to %s.", addr);
-
+        (void) radv_process_packet(ra, packet);
         return 0;
 }
 
 static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        usec_t min_timeout, max_timeout, time_now, timeout;
         sd_radv *ra = ASSERT_PTR(userdata);
+
+        if (sd_radv_send(ra) < 0)
+                (void) sd_radv_stop(ra);
+
+        return 0;
+}
+
+int sd_radv_send(sd_radv *ra) {
+        usec_t min_timeout, max_timeout, time_now, timeout;
         int r;
 
-        assert(s);
-        assert(ra->event);
+        assert_return(ra, -EINVAL);
+        assert_return(ra->event, -EINVAL);
+        assert_return(sd_radv_is_running(ra), -EINVAL);
         assert(router_lifetime_is_valid(ra->lifetime_usec));
 
         r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
+        r = radv_send_router(ra, NULL);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement, ignoring: %m");
+                return log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
+
+        ra->ra_sent++;
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
-        if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
+        if (ra->ra_sent <= RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
                 max_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
         else
                 max_timeout = RADV_DEFAULT_MAX_TIMEOUT_USEC;
@@ -339,41 +371,29 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(min_timeout <= max_timeout * 3 / 4);
 
         timeout = min_timeout + random_u64_range(max_timeout - min_timeout);
-        log_radv(ra, "Next Router Advertisement in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+        log_radv(ra, "Sent unsolicited Router Advertisement. Next advertisement will be in %s.",
+                 FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
-        r = event_reset_time(ra->event, &ra->timeout_event_source,
-                             CLOCK_BOOTTIME,
-                             usec_add(time_now, timeout), MSEC_PER_SEC,
-                             radv_timeout, ra,
-                             ra->event_priority, "radv-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        ra->ra_sent++;
-
-        return 0;
-
-fail:
-        sd_radv_stop(ra);
-
-        return 0;
+        return event_reset_time(
+                        ra->event, &ra->timeout_event_source,
+                        CLOCK_BOOTTIME,
+                        usec_add(time_now, timeout), MSEC_PER_SEC,
+                        radv_timeout, ra,
+                        ra->event_priority, "radv-timeout", true);
 }
 
 int sd_radv_stop(sd_radv *ra) {
         int r;
 
-        if (!ra)
-                return 0;
-
-        if (ra->state == RADV_STATE_IDLE)
-                return 0;
+        if (!sd_radv_is_running(ra))
+                return 0; /* Already stopped. */
 
         log_radv(ra, "Stopping IPv6 Router Advertisement daemon");
 
         /* RFC 4861, Section 6.2.5:
          * the router SHOULD transmit one or more (but not more than MAX_FINAL_RTR_ADVERTISEMENTS) final
          * multicast Router Advertisements on the interface with a Router Lifetime field of zero. */
-        r = radv_send_router(ra, NULL, 0);
+        r = radv_send_router_on_stop(ra);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero, ignoring: %m");
 
@@ -419,8 +439,8 @@ int sd_radv_start(sd_radv *ra) {
         assert_return(ra->event, -EINVAL);
         assert_return(ra->ifindex > 0, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return 0;
+        if (sd_radv_is_running(ra))
+                return 0; /* Already started. */
 
         r = radv_setup_recv_event(ra);
         if (r < 0)
@@ -448,13 +468,10 @@ int sd_radv_start(sd_radv *ra) {
 
 int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         assert_return(ra, -EINVAL);
+        assert_return(!sd_radv_is_running(ra), -EBUSY);
         assert_return(ifindex > 0, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->ifindex = ifindex;
-
         return 0;
 }
 
@@ -483,11 +500,20 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
         return 0;
 }
 
+int sd_radv_set_link_local_address(sd_radv *ra, const struct in6_addr *addr) {
+        assert_return(ra, -EINVAL);
+        assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
+
+        if (addr)
+                ra->ipv6ll = *addr;
+        else
+                zero(ra->ipv6ll);
+
+        return 0;
+}
+
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
 
         if (mac_addr)
                 ra->mac_addr = *mac_addr;
@@ -509,22 +535,19 @@ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->hop_limit = hop_limit;
+        return 0;
+}
 
+int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec) {
+        assert_return(ra, -EINVAL);
+
+        ra->reachable_usec = usec;
         return 0;
 }
 
 int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        if (usec > RADV_MAX_RETRANSMIT_USEC)
-                return -EINVAL;
 
         ra->retransmit_usec = usec;
         return 0;
@@ -533,88 +556,54 @@ int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec) {
 int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         if (!router_lifetime_is_valid(usec))
-                return -EINVAL;
-
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
-         * to (00) by the sender..." */
-        if (usec == 0 &&
-            (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
                 return -EINVAL;
 
         ra->lifetime_usec = usec;
         return 0;
 }
 
-int sd_radv_set_managed_information(sd_radv *ra, int managed) {
+int sd_radv_set_managed_information(sd_radv *ra, int b) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        SET_FLAG(ra->flags, ND_RA_FLAG_MANAGED, managed);
-
+        SET_FLAG(ra->flags, ND_RA_FLAG_MANAGED, b);
         return 0;
 }
 
-int sd_radv_set_other_information(sd_radv *ra, int other) {
+int sd_radv_set_other_information(sd_radv *ra, int b) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        SET_FLAG(ra->flags, ND_RA_FLAG_OTHER, other);
-
+        SET_FLAG(ra->flags, ND_RA_FLAG_OTHER, b);
         return 0;
 }
 
-int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
+int sd_radv_set_preference(sd_radv *ra, uint8_t preference) {
         assert_return(ra, -EINVAL);
         assert_return(IN_SET(preference,
                              SD_NDISC_PREFERENCE_LOW,
                              SD_NDISC_PREFERENCE_MEDIUM,
                              SD_NDISC_PREFERENCE_HIGH), -EINVAL);
 
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
-         * to (00) by the sender..." */
-        if (ra->lifetime_usec == 0 && preference != SD_NDISC_PREFERENCE_MEDIUM)
-                return -EINVAL;
-
-        ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
-
+        ra->preference = preference;
         return 0;
 }
 
 int sd_radv_set_home_agent_information(sd_radv *ra, int home_agent) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         SET_FLAG(ra->flags, ND_RA_FLAG_HOME_AGENT, home_agent);
-
         return 0;
 }
 
 int sd_radv_set_home_agent_preference(sd_radv *ra, uint16_t preference) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->home_agent.nd_opt_home_agent_info_preference = htobe16(preference);
-
         return 0;
 }
 
 int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
 
         if (lifetime_usec > RADV_HOME_AGENT_MAX_LIFETIME_USEC)
                 return -EINVAL;
@@ -625,7 +614,6 @@ int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         sd_radv_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
@@ -637,19 +625,13 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->opt.in6_addr,
-                                             cur->opt.prefixlen,
-                                             (const union in_addr_union*) &p->opt.in6_addr,
-                                             p->opt.prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
+                if (!in6_addr_prefix_intersect(&cur->opt.in6_addr, cur->opt.prefixlen,
+                                               &p->opt.in6_addr, p->opt.prefixlen))
+                        continue; /* no intersection */
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
                         found = cur;
-                        break;
+                        break; /* same prefix */
                 }
 
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
@@ -683,19 +665,6 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 log_radv(ra, "Added prefix %s", addr_p);
         }
 
-        if (ra->state == RADV_STATE_IDLE)
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s, ignoring: %m", addr_p);
-        else
-                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", addr_p);
-
         return 0;
 }
 
@@ -726,34 +695,16 @@ void sd_radv_remove_prefix(
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         sd_radv_route_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
 
-        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
-
-        LIST_FOREACH(prefix, cur, ra->route_prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->opt.in6_addr,
-                                             cur->opt.prefixlen,
-                                             (const union in_addr_union*) &p->opt.in6_addr,
-                                             p->opt.prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                if (cur->opt.prefixlen == p->opt.prefixlen) {
+        LIST_FOREACH(prefix, cur, ra->route_prefixes)
+                if (cur->opt.prefixlen == p->opt.prefixlen &&
+                    in6_addr_equal(&cur->opt.in6_addr, &p->opt.in6_addr)) {
                         found = cur;
                         break;
                 }
-
-                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
-                                      "IPv6 route prefix %s conflicts with %s, ignoring.",
-                                      addr_p,
-                                      IN6_ADDR_PREFIX_TO_STRING(&cur->opt.in6_addr, cur->opt.prefixlen));
-        }
 
         if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
@@ -767,7 +718,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 LIST_APPEND(prefix, ra->route_prefixes, p);
 
                 log_radv(ra, "Updated/replaced IPv6 route prefix %s (lifetime: %s)",
-                         strna(addr_p),
+                         IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen),
                          FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
         } else {
                 /* The route prefix is new. Let's simply add it. */
@@ -776,56 +727,25 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 LIST_APPEND(prefix, ra->route_prefixes, p);
                 ra->n_route_prefixes++;
 
-                log_radv(ra, "Added route prefix %s", strna(addr_p));
+                log_radv(ra, "Added route prefix %s",
+                         IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen));
         }
-
-        if (ra->state == RADV_STATE_IDLE)
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added route prefix %s.", strna(addr_p));
 
         return 0;
 }
 
 int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
         sd_radv_pref64_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
 
-        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen);
-
-        LIST_FOREACH(prefix, cur, ra->pref64_prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->in6_addr,
-                                             cur->prefixlen,
-                                             (const union in_addr_union*) &p->in6_addr,
-                                             p->prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                if (cur->prefixlen == p->prefixlen) {
+        LIST_FOREACH(prefix, cur, ra->pref64_prefixes)
+                if (cur->prefixlen == p->prefixlen &&
+                    in6_addr_equal(&cur->in6_addr, &p->in6_addr)) {
                         found = cur;
                         break;
                 }
-
-                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
-                                      "IPv6 PREF64 prefix %s conflicts with %s, ignoring.",
-                                      addr_p,
-                                      IN6_ADDR_PREFIX_TO_STRING(&cur->in6_addr, cur->prefixlen));
-        }
 
         if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
@@ -839,7 +759,7 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 LIST_APPEND(prefix, ra->pref64_prefixes, p);
 
                 log_radv(ra, "Updated/replaced IPv6 PREF64 prefix %s (lifetime: %s)",
-                         strna(addr_p),
+                         IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen),
                          FORMAT_TIMESPAN(p->lifetime_usec, USEC_PER_SEC));
         } else {
                 /* The route prefix is new. Let's simply add it. */
@@ -848,22 +768,9 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 LIST_APPEND(prefix, ra->pref64_prefixes, p);
                 ra->n_pref64_prefixes++;
 
-                log_radv(ra, "Added PREF64 prefix %s", strna(addr_p));
+                log_radv(ra, "Added PREF64 prefix %s",
+                         IN6_ADDR_PREFIX_TO_STRING(&p->in6_addr, p->prefixlen));
         }
-
-        if (ra->state == RADV_STATE_IDLE)
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added PREF64 prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added PREF64 prefix %s.", strna(addr_p));
 
         return 0;
 }

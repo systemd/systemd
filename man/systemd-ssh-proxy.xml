@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <programlisting>
-Host unix/* vsock/*
+Host unix/* vsock/* vsock-mux/*
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
     ProxyUseFdpass yes
 </programlisting>
@@ -46,7 +46,7 @@ Host unix/* vsock/*
     configuration fragment like the following:</para>
 
     <programlisting>
-Host unix/* vsock/*
+Host unix/* vsock/* vsock-mux/*
     ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
     ProxyUseFdpass yes
     CheckHostIP no
@@ -58,13 +58,20 @@ Host .host
 </programlisting>
 
     <para>A configuration fragment along these lines is by default installed into
-    <filename>/etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf.in</filename>.</para>
+    <filename>/etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf</filename>.</para>
 
     <para>With this in place, SSH connections to host string <literal>unix/</literal> followed by an absolute
     <constant>AF_UNIX</constant> file system path to a socket will be directed to the specified socket, which
     must be of type <constant>SOCK_STREAM</constant>. Similar, SSH connections to <literal>vsock/</literal>
     followed by an <constant>AF_VSOCK</constant> CID will result in an SSH connection made to that
-    CID. Moreover connecting to <literal>.host</literal> will connect to the local host via SSH, without
+    CID. <literal>vsock-mux/</literal> followed by an absolute <constant>AF_UNIX</constant> file system
+    path to a socket is similar but for cloud-hypervisor/firecracker which don't allow
+    direct <constant>AF_VSOCK</constant> communication between the host and guests, and provide their own
+    multiplexer over <constant>AF_UNIX</constant> sockets. See
+    <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
+    and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.</para>
+
+    <para>Moreover connecting to <literal>.host</literal> will connect to the local host via SSH, without
     involving networking.</para>
 
     <para>This tool is supposed to be used together with
@@ -89,6 +96,12 @@ Host .host
       <title>Talk to a local VM with CID 4711</title>
 
       <programlisting>ssh vsock/4711</programlisting>
+  </example>
+
+    <example>
+      <title>Talk to a VM guest hosted with cloud-hypervisor/firecracker</title>
+
+      <programlisting>ssh vsock-mux/run/vm-1234.sock</programlisting>
     </example>
 
     <example>

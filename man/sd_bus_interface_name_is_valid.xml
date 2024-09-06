@@ -77,9 +77,7 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>p</parameter> parameter is
-          <constant>NULL</constant>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <constant>NULL</constant>.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

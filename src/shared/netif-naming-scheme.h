@@ -40,9 +40,11 @@ typedef enum NamingSchemeFlags {
         NAMING_XEN_VIF                   = 1 << 13, /* Generate names for Xen netfront devices */
         NAMING_BRIDGE_MULTIFUNCTION_SLOT = 1 << 14, /* Use PCI hotplug slot information associated with bridge, but only if PCI device is multifunction.
                                                      * This is disabled since v255, as it seems not to work at least for some setups. See issue #28929. */
-        NAMING_DEVICETREE_ALIASES        = 1 << 15, /* Generate names from devicetree aliases */
+        NAMING_DEVICETREE_ALIASES        = 1 << 15, /* Generate names from devicetree aliases of a netdev's parent's OF node */
         NAMING_USB_HOST                  = 1 << 16, /* Generate names for usb host */
         NAMING_SR_IOV_R                  = 1 << 17, /* Use "r" suffix for SR-IOV VF representors */
+        NAMING_FIRMWARE_NODE_SUN         = 1 << 18, /* Use firmware_node/sun to get PCI slot number */
+        NAMING_DEVICETREE_PORT_ALIASES   = 1 << 19, /* Include aliases of OF nodes of a netdev itself, not just its parent. See PR #33958. */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -62,6 +64,7 @@ typedef enum NamingSchemeFlags {
                                                        * patch later. NAMING_SR_IOV_R is enabled by default in
                                                        * systemd version 255, naming scheme "v255". */
         NAMING_V255 = NAMING_V254 & ~NAMING_BRIDGE_MULTIFUNCTION_SLOT,
+        NAMING_V257 = NAMING_V255 | NAMING_FIRMWARE_NODE_SUN | NAMING_DEVICETREE_PORT_ALIASES,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -92,10 +95,10 @@ typedef enum NamePolicy {
         _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
-const char *name_policy_to_string(NamePolicy p) _const_;
+const char* name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;
 
-const char *alternative_names_policy_to_string(NamePolicy p) _const_;
+const char* alternative_names_policy_to_string(NamePolicy p) _const_;
 NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
 
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);

@@ -1,0 +1,47 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Namespace Resource Manager
+Documentation=man:systemd-nsresourced.service(8)
+Requires=systemd-nsresourced.socket
+After=systemd-nsresourced.socket
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+DefaultDependencies=no
+
+[Service]
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_SYS_ADMIN CAP_CHOWN CAP_FOWNER
+ExecStart={{LIBEXECDIR}}/systemd-nsresourced
+IPAddressDeny=any
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service bpf perf_event_open open_by_handle_at
+Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4096
+{{SERVICE_WATCHDOG}}
+
+[Install]
+Also=systemd-nsresourced.socket

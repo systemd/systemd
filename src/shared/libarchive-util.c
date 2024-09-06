@@ -5,31 +5,36 @@
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;
 
-DLSYM_FUNCTION(archive_entry_free);
-DLSYM_FUNCTION(archive_entry_new);
-DLSYM_FUNCTION(archive_entry_set_ctime);
-DLSYM_FUNCTION(archive_entry_set_filetype);
-DLSYM_FUNCTION(archive_entry_set_gid);
-DLSYM_FUNCTION(archive_entry_set_mtime);
-DLSYM_FUNCTION(archive_entry_set_pathname);
-DLSYM_FUNCTION(archive_entry_set_perm);
-DLSYM_FUNCTION(archive_entry_set_rdevmajor);
-DLSYM_FUNCTION(archive_entry_set_rdevminor);
-DLSYM_FUNCTION(archive_entry_set_symlink);
-DLSYM_FUNCTION(archive_entry_set_size);
-DLSYM_FUNCTION(archive_entry_set_uid);
-DLSYM_FUNCTION(archive_error_string);
-DLSYM_FUNCTION(archive_write_close);
-DLSYM_FUNCTION(archive_write_data);
-DLSYM_FUNCTION(archive_write_free);
-DLSYM_FUNCTION(archive_write_header);
-DLSYM_FUNCTION(archive_write_new);
-DLSYM_FUNCTION(archive_write_open_FILE);
-DLSYM_FUNCTION(archive_write_open_fd);
-DLSYM_FUNCTION(archive_write_set_format_filter_by_ext);
-DLSYM_FUNCTION(archive_write_set_format_gnutar);
+DLSYM_PROTOTYPE(archive_entry_free) = NULL;
+DLSYM_PROTOTYPE(archive_entry_new) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_ctime) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_filetype) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_gid) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_mtime) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_pathname) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_perm) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_rdevmajor) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_rdevminor) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_symlink) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_size) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
+DLSYM_PROTOTYPE(archive_error_string) = NULL;
+DLSYM_PROTOTYPE(archive_write_close) = NULL;
+DLSYM_PROTOTYPE(archive_write_data) = NULL;
+DLSYM_PROTOTYPE(archive_write_free) = NULL;
+DLSYM_PROTOTYPE(archive_write_header) = NULL;
+DLSYM_PROTOTYPE(archive_write_new) = NULL;
+DLSYM_PROTOTYPE(archive_write_open_FILE) = NULL;
+DLSYM_PROTOTYPE(archive_write_open_fd) = NULL;
+DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
+DLSYM_PROTOTYPE(archive_write_set_format_gnutar) = NULL;
 
 int dlopen_libarchive(void) {
+        ELF_NOTE_DLOPEN("archive",
+                        "Support for decompressing archive files",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libarchive.so.13");
+
         return dlopen_many_sym_or_warn(
                         &libarchive_dl,
                         "libarchive.so.13",

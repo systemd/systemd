@@ -29,7 +29,7 @@ static void test_one(const char *data, ...) {
                         break;
 
                 nn = va_arg(ap, const char *);
-                assert_se(streq_ptr(nn, name));
+                ASSERT_STREQ(nn, name);
         }
 
         va_end(ap);

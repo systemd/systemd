@@ -93,6 +93,17 @@ lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileg
     <filename>.user-privileged</filename> and <filename>.group-privileged</filename> suffixes) should
     contain this section, exclusively.</para>
 
+    <para>In addition to the two types of user record files and the two types of group record files there's a
+    fifth type of file that may be placed in the searched directories: files that indicate membership of
+    users in groups. Specifically, for every pair of user/group where the user shall be a member of a group a
+    file named
+    <literal><replaceable>username</replaceable>:<replaceable>groupname</replaceable>.membership</literal>
+    should be created, i.e. the textual UNIX user name, followed by a colon, followed by the textual UNIX
+    group name, suffixed by <literal>.membership</literal>. The contents of these files are currently not
+    read, and the files should be created empty. The mere existence of these files is enough to effect a
+    user/group membership. If a program provides user and/or group record files in the searched directories,
+    it should always also create such files, both for primary and auxiliary group memberships.</para>
+
     <para>Note that static user/group records generally do not override conflicting records in
     <filename>/etc/passwd</filename> or <filename>/etc/group</filename> or other account databases. In fact,
     before dropping in these files a reasonable level of care should be taken to avoid user/group name and

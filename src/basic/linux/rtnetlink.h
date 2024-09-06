@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-#ifndef _UAPI__LINUX_RTNETLINK_H
-#define _UAPI__LINUX_RTNETLINK_H
+#ifndef __LINUX_RTNETLINK_H
+#define __LINUX_RTNETLINK_H
 
 #include <linux/types.h>
 #include <linux/netlink.h>
@@ -677,7 +677,6 @@ enum {
 
 #define NDUSEROPT_MAX	(__NDUSEROPT_MAX - 1)
 
-#ifndef __KERNEL__
 /* RTnetlink multicast groups - backwards compatibility for userspace */
 #define RTMGRP_LINK		1
 #define RTMGRP_NOTIFY		2
@@ -698,7 +697,6 @@ enum {
 #define RTMGRP_DECnet_ROUTE     0x4000
 
 #define RTMGRP_IPV6_PREFIX	0x20000
-#endif
 
 /* RTnetlink multicast groups */
 enum rtnetlink_groups {
@@ -829,4 +827,4 @@ enum {
 
 
 
-#endif /* _UAPI__LINUX_RTNETLINK_H */
+#endif /* __LINUX_RTNETLINK_H */

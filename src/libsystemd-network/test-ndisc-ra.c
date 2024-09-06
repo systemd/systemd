@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "icmp6-util-unix.h"
+#include "icmp6-test-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -191,12 +191,6 @@ TEST(radv) {
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_preference(ra, ~0) < 0);
 
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) < 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_managed_information(NULL, true) < 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_managed_information(ra, false) >= 0);
@@ -205,10 +199,15 @@ TEST(radv) {
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, false) >= 0);
 
+        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_reachable_time(NULL, 10 * USEC_PER_MSEC) < 0);
+        assert_se(sd_radv_set_reachable_time(ra, 10 * USEC_PER_MSEC) >= 0);
+        assert_se(sd_radv_set_reachable_time(ra, 0) >= 0);
+        assert_se(sd_radv_set_reachable_time(ra, USEC_INFINITY) >= 0);
+
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC) < 0);
         assert_se(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC) >= 0);
         assert_se(sd_radv_set_retransmit(ra, 0) >= 0);
-        assert_se(sd_radv_set_retransmit(ra, usec_add(UINT32_MAX * USEC_PER_MSEC, USEC_PER_MSEC)) < 0);
+        assert_se(sd_radv_set_retransmit(ra, USEC_INFINITY) >= 0);
 
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_rdnss(NULL, 0, NULL, 0) < 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
@@ -294,8 +293,13 @@ static void verify_message(const uint8_t *buf, size_t len) {
         /* verify only up to known options, rest is not yet implemented */
         for (size_t i = 0, m = MIN(len, sizeof(advertisement)); i < m; i++) {
                 if (test_stopped)
+                        /* on stop, many header fields are zero */
                         switch (i) {
-                        case 6 ... 7: /* router lifetime must be zero on stop. */
+                        case 4: /* hop limit */
+                        case 5: /* flags */
+                        case 6 ... 7: /* router lifetime */
+                        case 8 ... 11: /* reachable time */
+                        case 12 ... 15: /* retrans timer */
                                 assert_se(buf[i] == 0);
                                 continue;
                         }
@@ -376,7 +380,7 @@ TEST(ra) {
         assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             2 * USEC_PER_SEC, 0,
+                                             30 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);

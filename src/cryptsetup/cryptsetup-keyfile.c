@@ -5,18 +5,12 @@
 #include "path-util.h"
 #include "strv.h"
 
-int find_key_file(
-                const char *key_file,
-                char **search_path,
-                const char *bindname,
-                void **ret_key,
-                size_t *ret_key_size) {
+int find_key_file(const char *key_file, char **search_path, const char *bindname, struct iovec *ret_key) {
 
         int r;
 
         assert(key_file);
         assert(ret_key);
-        assert(ret_key_size);
 
         if (strv_isempty(search_path) || path_is_absolute(key_file)) {
 
@@ -24,7 +18,7 @@ int find_key_file(
                                 AT_FDCWD, key_file, UINT64_MAX, SIZE_MAX,
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) ret_key, ret_key_size);
+                                (char**) &ret_key->iov_base, &ret_key->iov_len);
                 if (r == -E2BIG)
                         return log_error_errno(r, "Key file '%s' too large.", key_file);
                 if (r < 0)
@@ -44,7 +38,7 @@ int find_key_file(
                                 AT_FDCWD, joined, UINT64_MAX, SIZE_MAX,
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) ret_key, ret_key_size);
+                                (char**) &ret_key->iov_base, &ret_key->iov_len);
                 if (r >= 0)
                         return 1;
                 if (r == -E2BIG) {
@@ -56,7 +50,6 @@ int find_key_file(
         }
 
         /* Search path supplied, but file not found, report by returning NULL, but not failing */
-        *ret_key = NULL;
-        *ret_key_size = 0;
+        *ret_key = IOVEC_MAKE(NULL, 0);
         return 0;
 }
