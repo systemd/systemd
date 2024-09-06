@@ -3995,11 +3995,14 @@ static int outer_child(
             arg_uid_shift != 0) {
                 _cleanup_strv_free_ char **dirs = NULL;
 
-                r = strv_extend(&dirs, directory);
-                if (r < 0)
-                        return log_oom();
+                if (arg_volatile_mode != VOLATILE_YES) {
+                        r = strv_extend(&dirs, directory);
+                        if (r < 0)
+                                return log_oom();
+                }
 
-                if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
+                if ((dissected_image && dissected_image->partitions[PARTITION_USR].found) ||
+                    arg_volatile_mode == VOLATILE_YES) {
                         char *s = path_join(directory, "/usr");
                         if (!s)
                                 return log_oom();
