@@ -1163,7 +1163,9 @@ static void calculate_seal_and_unseal(
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
                         &blob,
+                        /* n_blobs= */ 1,
                         /* known_policy_hash= */ NULL,
+                        /* n_known_policy_hash= */ 0,
                         &serialized_parent,
                         &unsealed_secret) >= 0);
 
@@ -1222,14 +1224,20 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
 
         log_debug("Check seal/unseal for handle 0x%" PRIx32, handle);
 
-        _cleanup_(iovec_done) struct iovec secret = {}, blob = {}, srk = {}, unsealed_secret = {};
+        _cleanup_(iovec_done) struct iovec secret = {}, srk = {}, unsealed_secret = {};
+        struct iovec *blobs = NULL;
+        size_t n_blobs = 0;
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
         assert_se(tpm2_seal(
                         c,
                         handle,
                         &policy,
+                        1,
                         /* pin= */ NULL,
                         &secret,
-                        &blob,
+                        &blobs,
+                        &n_blobs,
                         /* ret_primary_alg= */ NULL,
                         &srk) >= 0);
 
@@ -1243,8 +1251,10 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* pin= */ NULL,
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
-                        &blob,
+                        blobs,
+                        n_blobs,
                         /* policy_hash= */ NULL,
+                        /* n_policy_hash= */ 0,
                         &srk,
                         &unsealed_secret) >= 0);
 
