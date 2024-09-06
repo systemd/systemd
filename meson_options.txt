@@ -225,6 +225,8 @@ option('sshdprivsepdir', type : 'string',
        description : 'directory for SSH privilege separation ["no" disables]', value : '/run/sshd')
 option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
+option('shellprofiledir', type : 'string',
+       description : 'directory for Shell profile drop-ins ["no" disables]')
 option('docdir', type : 'string',
        description : 'documentation directory')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
