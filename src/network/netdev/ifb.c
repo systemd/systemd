@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "ifb.h"
 

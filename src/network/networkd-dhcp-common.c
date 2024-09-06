@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <netinet/in.h>
-#include <linux/if_arp.h>
 
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -10,6 +11,7 @@
 #include "escape.h"
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
+#include "missing_arphrd.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

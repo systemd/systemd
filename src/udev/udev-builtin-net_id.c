@@ -13,15 +13,15 @@
  */
 
 /* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
-#include <unistd.h>
+#include <net/if.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/netdevice.h>
 #include <linux/pci_regs.h>
+#include <stdarg.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"

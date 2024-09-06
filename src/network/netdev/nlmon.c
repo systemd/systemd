@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
+#include <net/if_arp.h>
 
 #include "nlmon.h"
+#include "missing_arphrd.h"
 
 static int netdev_nlmon_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
