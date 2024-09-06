@@ -133,7 +133,7 @@ testcase_sanity() {
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
-    # volatile=state: tmpfs overlay is mounted over rootfs
+    # volatile=overlay: tmpfs overlay is mounted over rootfs
     systemd-nspawn --directory="$root" \
                    --volatile=overlay \
                    bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
