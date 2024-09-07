@@ -118,74 +118,6 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         return 0;
 }
 
-static char** user_dirs(
-                const char *persistent_config,
-                const char *runtime_config,
-                const char *global_persistent_config,
-                const char *global_runtime_config,
-                const char *generator,
-                const char *generator_early,
-                const char *generator_late,
-                const char *transient,
-                const char *persistent_control,
-                const char *runtime_control) {
-
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
-        _cleanup_free_ char *data_home = NULL;
-        _cleanup_strv_free_ char **res = NULL;
-        int r;
-
-        r = xdg_user_dirs(&config_dirs, &data_dirs);
-        if (r < 0)
-                return NULL;
-
-        r = xdg_user_data_dir("/systemd/user", &data_home);
-        if (r < 0 && r != -ENXIO)
-                return NULL;
-
-        /* Now merge everything we found. */
-        if (strv_extend_many(
-                            &res,
-                            persistent_control,
-                            runtime_control,
-                            transient,
-                            generator_early,
-                            persistent_config) < 0)
-                return NULL;
-
-        if (strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/systemd/user") < 0)
-                return NULL;
-
-        /* global config has lower priority than the user config of the same type */
-        if (strv_extend(&res, global_persistent_config) < 0)
-                return NULL;
-
-        if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
-                return NULL;
-
-        if (strv_extend_many(
-                            &res,
-                            runtime_config,
-                            global_runtime_config,
-                            generator,
-                            data_home) < 0)
-                return NULL;
-
-        if (strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/systemd/user") < 0)
-                return NULL;
-
-        if (strv_extend_strv(&res, (char**) user_data_unit_paths, false) < 0)
-                return NULL;
-
-        if (strv_extend(&res, generator_late) < 0)
-                return NULL;
-
-        if (path_strv_make_absolute_cwd(res) < 0)
-                return NULL;
-
-        return TAKE_PTR(res);
-}
-
 bool path_is_user_data_dir(const char *path) {
         assert(path);
 
@@ -417,6 +349,70 @@ static int get_paths_from_environ(const char *var, char ***ret) {
         return append;
 }
 
+static char** user_unit_search_dirs(
+                const char *persistent_config,
+                const char *runtime_config,
+                const char *global_persistent_config,
+                const char *global_runtime_config,
+                const char *generator,
+                const char *generator_early,
+                const char *generator_late,
+                const char *transient,
+                const char *persistent_control,
+                const char *runtime_control) {
+
+        _cleanup_strv_free_ char **paths = NULL, **config_dirs = NULL, **data_dirs = NULL;
+
+        /* The returned strv might contain duplicates, and we expect caller to filter them. */
+
+        assert(persistent_config);
+        assert(global_persistent_config);
+        assert(global_runtime_config);
+        assert(persistent_control);
+
+        if (user_search_dirs("/systemd/user", &config_dirs, &data_dirs) < 0)
+                return NULL;
+
+        paths = strv_new(persistent_control,
+                         STRV_IFNOTNULL(runtime_control),
+                         STRV_IFNOTNULL(transient),
+                         STRV_IFNOTNULL(generator_early),
+                         persistent_config);
+        if (!paths)
+                return NULL;
+
+        if (strv_extend_strv_consume(&paths, TAKE_PTR(config_dirs), /* filter_duplicates = */ false) < 0)
+                return NULL;
+
+        /* global config has lower priority than the user config of the same type */
+        if (strv_extend(&paths, global_persistent_config) < 0)
+                return NULL;
+
+        if (strv_extend_strv(&paths, (char* const*) user_config_unit_paths, /* filter_duplicates = */ false) < 0)
+                return NULL;
+
+        /* strv_extend_many() can deal with NULL-s in arguments */
+        if (strv_extend_many(&paths,
+                             runtime_config,
+                             global_runtime_config,
+                             generator) < 0)
+                return NULL;
+
+        if (strv_extend_strv_consume(&paths, TAKE_PTR(data_dirs), /* filter_duplicates = */ false) < 0)
+                return NULL;
+
+        if (strv_extend_strv(&paths, (char* const*) user_data_unit_paths, false) < 0)
+                return NULL;
+
+        if (strv_extend(&paths, generator_late) < 0)
+                return NULL;
+
+        if (path_strv_make_absolute_cwd(paths) < 0)
+                return NULL;
+
+        return TAKE_PTR(paths);
+}
+
 int lookup_paths_init(
                 LookupPaths *lp,
                 RuntimeScope scope,
@@ -455,7 +451,7 @@ int lookup_paths_init(
                         return -ENOMEM;
         }
 
-        if (flags & LOOKUP_PATHS_TEMPORARY_GENERATED) {
+        if (FLAGS_SET(flags, LOOKUP_PATHS_TEMPORARY_GENERATED)) {
                 r = mkdtemp_malloc("/tmp/systemd-temporary-XXXXXX", &tempdir);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
@@ -480,7 +476,7 @@ int lookup_paths_init(
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
-        if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
+        if (!FLAGS_SET(flags, LOOKUP_PATHS_EXCLUDE_GENERATED)) {
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
                 r = acquire_generator_dirs(scope, tempdir,
                                            &generator, &generator_early, &generator_late);
@@ -503,67 +499,65 @@ int lookup_paths_init(
 
                 _cleanup_strv_free_ char **add = NULL;
 
-                /* For the user units we include share/ in the search
-                 * path in order to comply with the XDG basedir spec.
-                 * For the system stuff we avoid such nonsense. OTOH
-                 * we include /lib in the search path for the system
-                 * stuff but avoid it for user stuff. */
+                /* For the user units we include share/ in the search paths in order to comply with
+                 * the XDG basedir spec. For the system stuff we avoid such nonsense. OTOH we include (/usr/)lib/
+                 * in the search paths for the system stuff but avoid it for user stuff. */
+
+                assert(persistent_config);
 
                 switch (scope) {
 
                 case RUNTIME_SCOPE_SYSTEM:
-                        add = strv_new(
-                                        /* If you modify this you also want to modify
-                                         * systemdsystemunitpath= in systemd.pc.in! */
-                                        STRV_IFNOTNULL(persistent_control),
-                                        STRV_IFNOTNULL(runtime_control),
-                                        STRV_IFNOTNULL(transient),
-                                        STRV_IFNOTNULL(generator_early),
-                                        persistent_config,
-                                        SYSTEM_CONFIG_UNIT_DIR,
-                                        "/etc/systemd/system",
-                                        STRV_IFNOTNULL(persistent_attached),
-                                        runtime_config,
-                                        "/run/systemd/system",
-                                        STRV_IFNOTNULL(runtime_attached),
-                                        STRV_IFNOTNULL(generator),
-                                        "/usr/local/lib/systemd/system",
-                                        SYSTEM_DATA_UNIT_DIR,
-                                        "/usr/lib/systemd/system",
-                                        /* To be used ONLY for images which might be legacy split-usr */
-                                        STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
-                                        STRV_IFNOTNULL(generator_late));
+                        /* If you modify this you also want to modify systemdsystemunitpath= in systemd.pc.in! */
+                        add = strv_new(ASSERT_PTR(persistent_control),
+                                       ASSERT_PTR(runtime_control),
+                                       ASSERT_PTR(transient),
+                                       STRV_IFNOTNULL(generator_early),
+                                       persistent_config,
+                                       SYSTEM_CONFIG_UNIT_DIR,
+                                       "/etc/systemd/system",
+                                       ASSERT_PTR(persistent_attached),
+                                       ASSERT_PTR(runtime_config),
+                                       "/run/systemd/system",
+                                       ASSERT_PTR(runtime_attached),
+                                       STRV_IFNOTNULL(generator),
+                                       "/usr/local/lib/systemd/system",
+                                       SYSTEM_DATA_UNIT_DIR,
+                                       "/usr/lib/systemd/system",
+                                       /* To be used ONLY for images which might be legacy split-usr */
+                                       FLAGS_SET(flags, LOOKUP_PATHS_SPLIT_USR) ? "/lib/systemd/system" : STRV_IGNORE,
+                                       STRV_IFNOTNULL(generator_late));
                         break;
 
                 case RUNTIME_SCOPE_GLOBAL:
-                        add = strv_new(
-                                        /* If you modify this you also want to modify
-                                         * systemduserunitpath= in systemd.pc.in, and
-                                         * the arrays in user_dirs() above! */
-                                        STRV_IFNOTNULL(persistent_control),
-                                        STRV_IFNOTNULL(runtime_control),
-                                        STRV_IFNOTNULL(transient),
-                                        STRV_IFNOTNULL(generator_early),
-                                        persistent_config,
-                                        USER_CONFIG_UNIT_DIR,
-                                        "/etc/systemd/user",
-                                        runtime_config,
-                                        "/run/systemd/user",
-                                        STRV_IFNOTNULL(generator),
-                                        "/usr/local/share/systemd/user",
-                                        "/usr/share/systemd/user",
-                                        "/usr/local/lib/systemd/user",
-                                        USER_DATA_UNIT_DIR,
-                                        "/usr/lib/systemd/user",
-                                        STRV_IFNOTNULL(generator_late));
+                        /* If you modify this you also want to modify systemduserunitpath= in systemd.pc.in,
+                         * and RUNTIME_SCOPE_USER search paths below! */
+
+                        assert(!persistent_control);
+                        assert(!runtime_control);
+                        assert(!transient);
+                        assert(!generator_early);
+                        assert(!generator);
+                        assert(!generator_late);
+
+                        add = strv_new(persistent_config,
+                                       USER_CONFIG_UNIT_DIR,
+                                       "/etc/systemd/user",
+                                       ASSERT_PTR(runtime_config),
+                                       "/run/systemd/user",
+                                       "/usr/local/share/systemd/user",
+                                       "/usr/share/systemd/user",
+                                       "/usr/local/lib/systemd/user",
+                                       USER_DATA_UNIT_DIR,
+                                       "/usr/lib/systemd/user");
                         break;
 
                 case RUNTIME_SCOPE_USER:
-                        add = user_dirs(persistent_config, runtime_config,
-                                        global_persistent_config, global_runtime_config,
-                                        generator, generator_early, generator_late,
-                                        transient,
-                                        persistent_control, runtime_control);
+                        add = user_unit_search_dirs(persistent_config, runtime_config,
+                                                    global_persistent_config, global_runtime_config,
+                                                    generator, generator_early, generator_late,
+                                                    transient,
+                                                    persistent_control, runtime_control);
                         break;
 
                 default:
@@ -573,14 +567,10 @@ int lookup_paths_init(
                 if (!add)
                         return -ENOMEM;
 
-                if (paths) {
-                        r = strv_extend_strv(&paths, add, true);
-                        if (r < 0)
-                                return r;
-                } else
-                        /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
-                         * and don't have to copy anything */
-                        paths = TAKE_PTR(add);
+                /* strv_uniq() below would filter all duplicates against the final strv */
+                r = strv_extend_strv_consume(&paths, TAKE_PTR(add), /* filter_duplicates = */ false);
+                if (r < 0)
+                        return r;
         }
 
         r = patch_root_prefix(&persistent_config, root);
