@@ -645,6 +645,26 @@ static int link_save(Link *link) {
 
                 /************************************************************/
 
+                if (link->netdev) {
+                        fprintf(f, "NETDEV_FILE=%s\n", link->netdev->filename);
+
+                        space = false;
+
+                        fputs("NETDEV_FILE_DROPINS=\"", f);
+                        STRV_FOREACH(d, link->netdev->dropins) {
+                                _cleanup_free_ char *escaped = NULL;
+
+                                escaped = xescape(*d, ":");
+                                if (!escaped)
+                                        return -ENOMEM;
+
+                                fputs_with_separator(f, escaped, ":", &space);
+                        }
+                        fputs("\"\n", f);
+                }
+
+                /************************************************************/
+
                 fputs("DNS=", f);
                 if (link->n_dns != UINT_MAX)
                         link_save_dns(link, f, link->dns, link->n_dns, NULL);
