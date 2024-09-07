@@ -569,8 +569,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
 }
 
 static int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state,
-                *captive_portal;
+        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -584,23 +583,12 @@ static int link_save(Link *link) {
         if (link->state == LINK_STATE_LINGER)
                 return 0;
 
-        admin_state = link_state_to_string(link->state);
-        assert(admin_state);
-
-        oper_state = link_operstate_to_string(link->operstate);
-        assert(oper_state);
-
-        carrier_state = link_carrier_state_to_string(link->carrier_state);
-        assert(carrier_state);
-
-        address_state = link_address_state_to_string(link->address_state);
-        assert(address_state);
-
-        ipv4_address_state = link_address_state_to_string(link->ipv4_address_state);
-        assert(ipv4_address_state);
-
-        ipv6_address_state = link_address_state_to_string(link->ipv6_address_state);
-        assert(ipv6_address_state);
+        admin_state = ASSERT_PTR(link_state_to_string(link->state));
+        oper_state = ASSERT_PTR(link_operstate_to_string(link->operstate));
+        carrier_state = ASSERT_PTR(link_carrier_state_to_string(link->carrier_state));
+        address_state = ASSERT_PTR(link_address_state_to_string(link->address_state));
+        ipv4_address_state = ASSERT_PTR(link_address_state_to_string(link->ipv4_address_state));
+        ipv6_address_state = ASSERT_PTR(link_address_state_to_string(link->ipv6_address_state));
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -619,7 +607,7 @@ static int link_save(Link *link) {
                 admin_state, oper_state, carrier_state, address_state, ipv4_address_state, ipv6_address_state);
 
         if (link->network) {
-                const char *online_state;
+                const char *online_state, *captive_portal;
                 bool space = false;
 
                 online_state = link_online_state_to_string(link->online_state);
