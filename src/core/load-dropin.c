@@ -25,10 +25,14 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                 return r;
 
         STRV_FOREACH(p, paths) {
-                _cleanup_free_ char *target = NULL;
-                const char *entry;
+                _cleanup_free_ char *target = NULL, *target_file = NULL, *entry = NULL;
 
-                entry = basename(*p);
+                r = path_extract_filename(*p, &entry);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "%s couldn't read basename of dropin %s, ignoring: %m",
+                                               unit_dependency_to_string(dependency), *p);
+                        continue;
+                }
 
                 if (null_or_empty_path(*p) > 0) {
                         /* an error usually means an invalid symlink, which is not a mask */
@@ -63,10 +67,16 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 /* We don't treat this as an error, especially because we didn't check this for a
                  * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
-                r = unit_symlink_name_compatible(entry, basename(target), u->instance);
+                r = path_extract_filename(target, &target_file);
+                if (r < 0) {
+                        log_unit_warning_errno(u, r, "Can't extract basename from dropin target %s, ignoring: %m",
+                                               target);
+                        continue;
+                }
+                r = unit_symlink_name_compatible(entry, target_file, u->instance);
                 if (r < 0) {
                         log_unit_warning_errno(u, r, "Can't check if names %s and %s are compatible, ignoring: %m",
-                                               entry, basename(target));
+                                               entry, target_file);
                         continue;
                 }
                 if (r == 0)
