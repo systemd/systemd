@@ -230,7 +230,7 @@ static int link_adjust_wol_options(LinkConfig *config) {
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_(link_config_freep) LinkConfig *config = NULL;
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
-        _cleanup_free_ char *name = NULL;
+        _cleanup_free_ char *name = NULL, *file_basename = NULL;
         const char *dropin_dirname;
         int r;
 
@@ -276,7 +276,11 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         FOREACH_ELEMENT(feature, config->features)
                 *feature = -1;
 
-        dropin_dirname = strjoina(basename(filename), ".d");
+        r = path_extract_filename(filename, &file_basename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name of '%s': %m", filename);
+
+        dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
                         STRV_MAKE_CONST(filename),
                         NETWORK_DIRS,
