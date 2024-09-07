@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <linux/ipv6.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
