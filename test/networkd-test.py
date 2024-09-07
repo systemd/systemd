@@ -1027,6 +1027,7 @@ DNS=127.0.0.1
         subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface', 'dummy0', '--timeout=10'])
 
         out = subprocess.check_output(['networkctl', 'status', 'dummy0'])
+        self.assertIn(b'50-test.netdev', out)
         self.assertIn(b'50-test.network.d/dns.conf', out)
 
         for _ in range(50):
