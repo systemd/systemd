@@ -93,11 +93,9 @@ int chattr_full(
          * supported, and we can ignore it too */
 
         unsigned current_attr = old_attr;
-        for (unsigned i = 0; i < sizeof(unsigned) * 8; i++) {
-                unsigned new_one, mask_one = 1u << i;
 
-                if (!FLAGS_SET(mask, mask_one))
-                        continue;
+        BIT_FOREACH(i, mask) {
+                unsigned new_one, mask_one = 1u << i;
 
                 new_one = UPDATE_FLAG(current_attr, mask_one, FLAGS_SET(value, mask_one));
                 if (new_one == current_attr)
@@ -138,6 +136,7 @@ int read_attr_fd(int fd, unsigned *ret) {
         struct stat st;
 
         assert(fd >= 0);
+        assert(ret);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -156,7 +155,7 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         assert(ret);
 
         if (isempty(path)) {
-                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC, O_PATH, &fd_close); /* drop O_PATH if it is set */
+                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
                 if (fd < 0)
                         return fd;
         } else {
