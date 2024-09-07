@@ -536,10 +536,10 @@ CHANGES WITH 256:
           of sshd_config. Note that sshd only allows a single command to be
           configured this way, hence this drop-in might conflict with other
           uses of the logic. It is possible to chainload another, similar tool
-          of another subystem via the --chain switch of userdbctl, to support
+          of another subsystem via the --chain switch of userdbctl, to support
           both in parallel. See the "INTEGRATION WITH SSH" section in
           userdbctl(1) for details on this. Our recommendation how to combine
-          other subsystem's use of the SSH authroized keys logic with systemd's
+          other subsystem's use of the SSH authorized keys logic with systemd's
           userbctl functionality however is to implement the APIs described
           here: https://systemd.io/USER_GROUP_API – in that case this newly
           added sshd_config integration would just work and do the right thing
