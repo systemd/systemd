@@ -567,17 +567,21 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
-                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
-                const char *dst;
+                _cleanup_free_ char *inst = NULL, *dst_inst = NULL, *dst = NULL;
+                const char *dst_path;
 
-                r = unit_ids_map_get(ids, src, &dst);
+                r = unit_ids_map_get(ids, src, &dst_path);
                 if (r < 0)
                         continue;
 
-                if (null_or_empty_path(dst) != 0)
+                if (null_or_empty_path(dst_path) != 0)
                         continue;
 
-                dst = basename(dst);
+                r = path_extract_filename(dst_path, &dst);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract basename from %s, ignoring: %m", dst_path);
+                        continue;
+                }
 
                 /* If we have an symlink from an instance name to a template name, it is an alias just for
                  * this specific instance, foo@id.service ↔ template@id.service. */
