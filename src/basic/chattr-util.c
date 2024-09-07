@@ -138,6 +138,7 @@ int read_attr_fd(int fd, unsigned *ret) {
         struct stat st;
 
         assert(fd >= 0);
+        assert(ret);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -156,7 +157,7 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
         assert(ret);
 
         if (isempty(path)) {
-                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC, O_PATH, &fd_close); /* drop O_PATH if it is set */
+                fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
                 if (fd < 0)
                         return fd;
         } else {
