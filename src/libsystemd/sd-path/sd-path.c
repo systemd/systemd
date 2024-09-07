@@ -581,25 +581,16 @@ static int get_search(uint64_t type, char ***ret) {
         }
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR:
-        case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR: {
-                RuntimeScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR ?
-                        RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
-                char **t;
-
-                t = generator_binary_paths(scope);
-                if (!t)
-                        return -ENOMEM;
-
-                *ret = t;
-                return 0;
-        }
-
+        case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR:
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR:
         case SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR: {
-                char **t;
+                RuntimeScope scope = IN_SET(type, SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR,
+                                                  SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR) ?
+                                     RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+                bool env_generator = IN_SET(type, SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR,
+                                                  SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR);
 
-                t = env_generator_binary_paths(type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR ?
-                                               RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER);
+                char **t = generator_binary_paths_internal(scope, env_generator);
                 if (!t)
                         return -ENOMEM;
 
