@@ -2,10 +2,12 @@
 #pragma once
 
 #include <inttypes.h>
-#include <linux/netlink.h>
 #include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
+#include <linux/netlink.h>
+#include <sys/socket.h> /* linux/vms_sockets.h requires 'struct sockaddr' */
+#include <linux/vm_sockets.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
