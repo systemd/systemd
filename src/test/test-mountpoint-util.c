@@ -273,6 +273,7 @@ TEST(path_is_mount_point) {
 
 TEST(fd_is_mount_point) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+	_cleanup_free_ char *tmpdir_basename = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -300,8 +301,9 @@ TEST(fd_is_mount_point) {
         assert_se(fd >= 0);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
-        assert_se(fd_is_mount_point(fd, basename(tmpdir), 0) == 0);
-        assert_se(fd_is_mount_point(fd, strjoina(basename(tmpdir), "/"), 0) == 0);
+	assert_se(path_extract_filename(tmpdir, &tmpdir_basename) >= 0);
+        assert_se(fd_is_mount_point(fd, tmpdir_basename, 0) == 0);
+        assert_se(fd_is_mount_point(fd, strjoina(tmpdir_basename, "/"), 0) == 0);
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);

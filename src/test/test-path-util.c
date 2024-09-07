@@ -26,11 +26,6 @@ TEST(path) {
         assert_se( path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
 
-        ASSERT_STREQ(basename("./aa/bb/../file.da."), "file.da.");
-        ASSERT_STREQ(basename("/aa///.file"), ".file");
-        ASSERT_STREQ(basename("/aa///file..."), "file...");
-        ASSERT_STREQ(basename("file.../"), "");
-
         assert_se( PATH_IN_SET("/bin", "/", "/bin", "/foo"));
         assert_se( PATH_IN_SET("/bin", "/bin"));
         assert_se( PATH_IN_SET("/bin", "/foo/bar", "/bin"));
@@ -373,18 +368,20 @@ TEST(path_equal_root) {
 
 TEST(find_executable_full) {
         char *p;
-        char* test_file_name;
+	_cleanup_free_ char *test_file_name = NULL, *bp = NULL;
         _cleanup_close_ int fd = -EBADF;
         char fn[] = "/tmp/test-XXXXXX";
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+	assert_se(path_extract_filename(p, &bp) >= 0);
+        ASSERT_STREQ(bp, "sh");
         free(p);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+	assert_se(path_extract_filename(p, &bp) >= 0);
+        ASSERT_STREQ(bp, "sh");
         free(p);
 
         _cleanup_free_ char *oldpath = NULL;
@@ -396,12 +393,14 @@ TEST(find_executable_full) {
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+	assert_se(path_extract_filename(p, &bp) >= 0);
+        ASSERT_STREQ(bp, "sh");
         free(p);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        ASSERT_STREQ(basename(p), "sh");
+	assert_se(path_extract_filename(p, &bp) >= 0);
+        ASSERT_STREQ(bp, "sh");
         free(p);
 
         if (oldpath)
@@ -410,7 +409,7 @@ TEST(find_executable_full) {
         assert_se((fd = mkostemp_safe(fn)) >= 0);
         assert_se(fchmod(fd, 0755) >= 0);
 
-        test_file_name = basename(fn);
+	assert_se(path_extract_filename(fn, &test_file_name) >= 0);
 
         assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == 0);
         puts(p);
@@ -423,6 +422,7 @@ TEST(find_executable_full) {
 
 TEST(find_executable) {
         char *p;
+	_cleanup_free_ char *bp = NULL;
 
         assert_se(find_executable("/bin/sh", &p) == 0);
         puts(p);
@@ -447,7 +447,8 @@ TEST(find_executable) {
 
         assert_se(find_executable("touch", &p) == 0);
         assert_se(path_is_absolute(p));
-        ASSERT_STREQ(basename(p), "touch");
+	assert_se(path_extract_filename(p, &bp) >= 0);
+        ASSERT_STREQ(bp, "touch");
         free(p);
 
         assert_se(find_executable("xxxx-xxxx", &p) == -ENOENT);
