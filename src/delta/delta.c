@@ -222,7 +222,7 @@ static int enumerate_dir_d(
         STRV_FOREACH(file, list) {
                 OrderedHashmap *h;
                 int k;
-                char *p;
+                char *p, *bp = NULL;
                 char *d;
 
                 if (!endswith(*file, ".conf"))
@@ -268,11 +268,16 @@ static int enumerate_dir_d(
                 if (!p)
                         return -ENOMEM;
 
+                k = path_extract_filename(p, &bp);
+                if (k < 0)
+                        return k;
+
                 log_debug("Adding to drops: %s %s %s %s %s",
-                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                k = ordered_hashmap_put(h, basename(p), p);
+                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                k = ordered_hashmap_put(h, bp, p);
                 if (k < 0) {
                         free(p);
+                        free(bp);
                         if (k != -EEXIST)
                                 return k;
                 }
@@ -340,23 +345,29 @@ static int enumerate_dir(
 
         STRV_FOREACH(t, files) {
                 _cleanup_free_ char *p = NULL;
+                char *bp = NULL;
 
                 p = path_join(path, *t);
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding at top: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                r = ordered_hashmap_put(top, basename(p), p);
+                r = path_extract_filename(p, &bp);
+                if (r < 0)
+                        return r;
+
+                log_debug("Adding at top: %s %s %s", bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                r = ordered_hashmap_put(top, bp, p);
                 if (r >= 0) {
                         p = strdup(p);
                         if (!p)
                                 return -ENOMEM;
-                } else if (r != -EEXIST)
+                } else if (r != -EEXIST) {
                         return r;
+                }
 
-                log_debug("Adding at bottom: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                free(ordered_hashmap_remove(bottom, basename(p)));
-                r = ordered_hashmap_put(bottom, basename(p), p);
+                log_debug("Adding at bottom: %s %s %s", bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                free(ordered_hashmap_remove(bottom, bp));
+                r = ordered_hashmap_put(bottom, bp, p);
                 if (r < 0)
                         return r;
                 p = NULL;
@@ -426,7 +437,12 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
 finish:
         ordered_hashmap_free_free(top);
-        ordered_hashmap_free_free(bottom);
+
+        ORDERED_HASHMAP_FOREACH_KEY(h, key, bottom) {
+                free(ordered_hashmap_remove(bottom, key));
+                free(key);
+        }
+        ordered_hashmap_free(bottom);
 
         ORDERED_HASHMAP_FOREACH_KEY(h, key, drops) {
                 ordered_hashmap_free_free(ordered_hashmap_remove(drops, key));
