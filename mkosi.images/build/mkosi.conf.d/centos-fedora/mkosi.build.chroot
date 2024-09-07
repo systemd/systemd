@@ -97,7 +97,6 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
-    --define "_fixperms true" \
     --undefine _package_note_flags \
     --noclean \
     "pkg/$PKG_SUBDIR/systemd.spec"
