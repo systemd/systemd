@@ -561,6 +561,30 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
         }
 }
 
+static int serialize_config_files(FILE *f, const char *prefix, const char *main_config, char * const *dropins) {
+        assert(f);
+        assert(prefix);
+        assert(main_config);
+
+        fprintf(f, "%s_FILE=%s\n", prefix, main_config);
+
+        bool space = false;
+
+        fprintf(f, "%s_DROPINS=\"", prefix);
+        STRV_FOREACH(d, dropins) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = xescape(*d, ":");
+                if (!escaped)
+                        return -ENOMEM;
+
+                fputs_with_separator(f, escaped, ":", &space);
+        }
+        fputs("\"\n", f);
+
+        return 0;
+}
+
 static int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -601,7 +625,6 @@ static int link_save(Link *link) {
 
         if (link->network) {
                 const char *online_state, *captive_portal;
-                bool space = false;
 
                 online_state = link_online_state_to_string(link->online_state);
                 if (online_state)
@@ -622,19 +645,13 @@ static int link_save(Link *link) {
                 fprintf(f, "ACTIVATION_POLICY=%s\n",
                         activation_policy_to_string(link->network->activation_policy));
 
-                fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
+                r = serialize_config_files(f, "NETWORK", link->network->filename, link->network->dropins);
+                if (r < 0)
+                        return r;
 
-                fputs("NETWORK_FILE_DROPINS=\"", f);
-                STRV_FOREACH(d, link->network->dropins) {
-                        _cleanup_free_ char *escaped = NULL;
-
-                        escaped = xescape(*d, ":");
-                        if (!escaped)
-                                return -ENOMEM;
-
-                        fputs_with_separator(f, escaped, ":", &space);
-                }
-                fputs("\"\n", f);
+                r = serialize_config_files(f, "NETDEV", link->netdev->filename, link->netdev->dropins);
+                if (r < 0)
+                        return r;
 
                 /************************************************************/
 
@@ -758,9 +775,9 @@ static int link_save(Link *link) {
 
                 if (!set_isempty(nta_anchors)) {
                         const char *n;
+                        bool space = false;
 
                         fputs("DNSSEC_NTA=", f);
-                        space = false;
                         SET_FOREACH(n, nta_anchors)
                                 fputs_with_separator(f, n, NULL, &space);
                         fputc('\n', f);
@@ -775,9 +792,7 @@ static int link_save(Link *link) {
                 if (r < 0)
                         return r;
 
-                fprintf(f,
-                        "DHCP_LEASE=%s\n",
-                        link->lease_file);
+                fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
         } else
                 (void) unlink(link->lease_file);
 
