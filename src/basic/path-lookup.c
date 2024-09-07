@@ -673,43 +673,67 @@ void lookup_paths_log(LookupPaths *lp) {
         }
 }
 
-char **generator_binary_paths(RuntimeScope scope) {
+static char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
+
+        static const struct {
+                const char *env_name;
+                const char * const *paths[_RUNTIME_SCOPE_MAX];
+        } unit_generator = {
+                "SYSTEMD_GENERATOR_PATH",
+                {
+                        [RUNTIME_SCOPE_SYSTEM] = {
+                                "/run/systemd/system-generators",
+                                "/etc/systemd/system-generators",
+                                "/usr/local/lib/systemd/system-generators",
+                                SYSTEM_GENERATOR_DIR,
+                                NULL,
+                        },
+                        [RUNTIME_SCOPE_USER] = {
+                                "/run/systemd/user-generators",
+                                "/etc/systemd/user-generators",
+                                "/usr/local/lib/systemd/user-generators",
+                                USER_GENERATOR_DIR,
+                                NULL,
+                        }
+                }
+        }, environment_generator = {
+                "SYSTEMD_ENVIRONMENT_GENERATOR_PATH",
+                {
+                        [RUNTIME_SCOPE_SYSTEM] = {
+                                "/run/systemd/system-environment-generators",
+                                "/etc/systemd/system-environment-generators",
+                                "/usr/local/lib/systemd/system-environment-generators",
+                                SYSTEM_ENV_GENERATOR_DIR,
+                                NULL,
+                        },
+                        [RUNTIME_SCOPE_USER] = {
+                                "/run/systemd/user-environment-generators",
+                                "/etc/systemd/user-environment-generators",
+                                "/usr/local/lib/systemd/user-environment-generators",
+                                USER_ENV_GENERATOR_DIR,
+                                NULL,
+                        }
+                }
+        }
+
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
+        const char *env_name = ASSERT_PTR((env_generator ? environment_generator : unit_generator).env_name);
+        const char * const *search_paths = ASSERT_PTR((env_generator ? environment_generator : unit_generator).paths[scope]);
+
         /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_GENERATOR_PATH", &paths);
+        r = get_paths_from_environ(env_name, &paths);
         if (r < 0)
                 return NULL;
 
         if (!paths || r > 0) {
-                _cleanup_strv_free_ char **add = NULL;
-
-                switch (scope) {
-
-                case RUNTIME_SCOPE_SYSTEM:
-                        add = strv_new("/run/systemd/system-generators",
-                                       "/etc/systemd/system-generators",
-                                       "/usr/local/lib/systemd/system-generators",
-                                       SYSTEM_GENERATOR_DIR);
-                        break;
-
-                case RUNTIME_SCOPE_GLOBAL:
-                case RUNTIME_SCOPE_USER:
-                        add = strv_new("/run/systemd/user-generators",
-                                       "/etc/systemd/user-generators",
-                                       "/usr/local/lib/systemd/user-generators",
-                                       USER_GENERATOR_DIR);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
+                _cleanup_strv_free_ char **add = strv_copy((char* const*) search_paths);
                 if (!add)
                         return NULL;
 
                 if (paths) {
-                        r = strv_extend_strv(&paths, add, true);
+                        r = strv_extend_strv(&paths, add, /* filter_duplicates = */ true);
                         if (r < 0)
                                 return NULL;
                 } else
@@ -721,49 +745,14 @@ char **generator_binary_paths(RuntimeScope scope) {
         return TAKE_PTR(paths);
 }
 
-char **env_generator_binary_paths(RuntimeScope runtime_scope) {
-        _cleanup_strv_free_ char **paths = NULL, **add = NULL;
-        int r;
+char** generator_binary_paths(RuntimeScope runtime_scope) {
+        assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        return generator_binary_paths_internal(runtime_scope, /* env_generator = */ false);
+}
 
-        /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", &paths);
-        if (r < 0)
-                return NULL;
-
-        if (!paths || r > 0) {
-                switch (runtime_scope) {
-
-                case RUNTIME_SCOPE_SYSTEM:
-                        add = strv_new("/run/systemd/system-environment-generators",
-                                        "/etc/systemd/system-environment-generators",
-                                        "/usr/local/lib/systemd/system-environment-generators",
-                                        SYSTEM_ENV_GENERATOR_DIR);
-                        break;
-
-                case RUNTIME_SCOPE_USER:
-                        add = strv_new("/run/systemd/user-environment-generators",
-                                       "/etc/systemd/user-environment-generators",
-                                       "/usr/local/lib/systemd/user-environment-generators",
-                                       USER_ENV_GENERATOR_DIR);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-                if (!add)
-                        return NULL;
-        }
-
-        if (paths) {
-                r = strv_extend_strv(&paths, add, true);
-                if (r < 0)
-                        return NULL;
-        } else
-                /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
-                 * and don't have to copy anything */
-                paths = TAKE_PTR(add);
-
-        return TAKE_PTR(paths);
+char** env_generator_binary_paths(RuntimeScope runtime_scope) {
+        assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        return generator_binary_paths_internal(runtime_scope, /* env_generator = */ true);
 }
 
 int find_portable_profile(const char *name, const char *unit, char **ret_path) {
