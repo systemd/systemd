@@ -222,7 +222,7 @@ static int enumerate_dir_d(
         STRV_FOREACH(file, list) {
                 OrderedHashmap *h;
                 int k;
-                char *p;
+                _cleanup_free_ char *p = NULL, *bp = NULL;
                 char *d;
 
                 if (!endswith(*file, ".conf"))
@@ -240,18 +240,14 @@ static int enumerate_dir_d(
                         if (!p)
                                 return -ENOMEM;
                         d = p + strlen(toppath) + 1;
-                } else if (k != -EEXIST) {
-                        free(p);
+                } else if (k != -EEXIST)
                         return k;
-                }
 
                 log_debug("Adding at bottom: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
                 free(ordered_hashmap_remove(bottom, d));
                 k = ordered_hashmap_put(bottom, d, p);
-                if (k < 0) {
-                        free(p);
+                if (k < 0)
                         return k;
-                }
 
                 h = ordered_hashmap_get(drops, unit);
                 if (!h) {
@@ -268,14 +264,15 @@ static int enumerate_dir_d(
                 if (!p)
                         return -ENOMEM;
 
+                k = path_extract_filename(p, &bp);
+                if (k < 0)
+                        return k;
+
                 log_debug("Adding to drops: %s %s %s %s %s",
-                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                k = ordered_hashmap_put(h, basename(p), p);
-                if (k < 0) {
-                        free(p);
-                        if (k != -EEXIST)
-                                return k;
-                }
+                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                k = ordered_hashmap_put(h, bp, p);
+                if (k < 0 && k != -EEXIST)
+                        return k;
         }
         return 0;
 }
@@ -339,14 +336,18 @@ static int enumerate_dir(
         }
 
         STRV_FOREACH(t, files) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *bp = NULL;
 
                 p = path_join(path, *t);
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding at top: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                r = ordered_hashmap_put(top, basename(p), p);
+                r = path_extract_filename(p, &bp);
+                if (r < 0)
+                        return r;
+
+                log_debug("Adding at top: %s %s %s", bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                r = ordered_hashmap_put(top, bp, p);
                 if (r >= 0) {
                         p = strdup(p);
                         if (!p)
@@ -354,9 +355,9 @@ static int enumerate_dir(
                 } else if (r != -EEXIST)
                         return r;
 
-                log_debug("Adding at bottom: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
-                free(ordered_hashmap_remove(bottom, basename(p)));
-                r = ordered_hashmap_put(bottom, basename(p), p);
+                log_debug("Adding at bottom: %s %s %s", bp, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                free(ordered_hashmap_remove(bottom, bp));
+                r = ordered_hashmap_put(bottom, bp, p);
                 if (r < 0)
                         return r;
                 p = NULL;
