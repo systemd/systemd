@@ -24,7 +24,9 @@ int main(int argc, char* argv[]) {
         UnitFileList *p;
         int r;
         const char *const files[] = { "avahi-daemon.service", NULL };
+        const char *files_name = "avahi-daemon.service";
         const char *const files2[] = { "/home/lennart/test.service", NULL };
+        const char *files2_name = "test.service";
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileState state = 0;
@@ -35,8 +37,10 @@ int main(int argc, char* argv[]) {
 
         HASHMAP_FOREACH(p, h) {
                 UnitFileState s = _UNIT_FILE_STATE_INVALID;
+                _cleanup_free_ char *unit_filename = NULL;
 
-                r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(p->path), &s);
+                assert_se(path_extract_filename(p->path, &unit_filename) >= 0);
+                r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, unit_filename, &s);
 
                 assert_se((r < 0 && p->state == UNIT_FILE_BAD) ||
                           (p->state == s));
@@ -166,7 +170,7 @@ int main(int argc, char* argv[]) {
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
@@ -174,13 +178,13 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(files2_name), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r < 0);
 
         log_info("/*** link files2 ***/");
@@ -193,7 +197,7 @@ int main(int argc, char* argv[]) {
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_LINKED);
 
@@ -201,13 +205,13 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(files2_name), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r < 0);
 
         log_info("/*** link files2 ***/");
@@ -220,7 +224,7 @@ int main(int argc, char* argv[]) {
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_LINKED);
 
@@ -234,7 +238,7 @@ int main(int argc, char* argv[]) {
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
@@ -242,13 +246,13 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(files2_name), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files2[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files2_name, &state);
         assert_se(r < 0);
         log_info("/*** preset files ***/");
         changes = NULL;
@@ -260,7 +264,7 @@ int main(int argc, char* argv[]) {
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
 
-        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, basename(files[0]), &state);
+        r = unit_file_get_state(RUNTIME_SCOPE_SYSTEM, NULL, files_name, &state);
         assert_se(r >= 0);
         assert_se(state == UNIT_FILE_ENABLED);
 
