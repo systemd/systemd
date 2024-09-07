@@ -277,10 +277,6 @@ int manager_save(Manager *m) {
                 address_state = LINK_ADDRESS_STATE_OFF;
         LinkOnlineState online_state;
         size_t links_offline = 0, links_online = 0;
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_strv_free_ char **p = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        Link *link;
         int r;
 
         assert(m);
@@ -288,6 +284,7 @@ int manager_save(Manager *m) {
         if (isempty(m->state_file))
                 return 0; /* Do not update state file when running in test mode. */
 
+        Link *link;
         HASHMAP_FOREACH(link, m->links_by_index) {
                 if (link->flags & IFF_LOOPBACK)
                         continue;
@@ -336,20 +333,14 @@ int manager_save(Manager *m) {
                 (links_offline > 0 ? LINK_ONLINE_STATE_PARTIAL : LINK_ONLINE_STATE_ONLINE) :
                 (links_offline > 0 ? LINK_ONLINE_STATE_OFFLINE : _LINK_ONLINE_STATE_INVALID);
 
-        operstate_str = link_operstate_to_string(operstate);
-        assert(operstate_str);
+        operstate_str = ASSERT_PTR(link_operstate_to_string(operstate));
+        carrier_state_str = ASSERT_PTR(link_carrier_state_to_string(carrier_state));
+        address_state_str = ASSERT_PTR(link_address_state_to_string(address_state));
+        ipv4_address_state_str = ASSERT_PTR(link_address_state_to_string(ipv4_address_state));
+        ipv6_address_state_str = ASSERT_PTR(link_address_state_to_string(ipv6_address_state));
 
-        carrier_state_str = link_carrier_state_to_string(carrier_state);
-        assert(carrier_state_str);
-
-        address_state_str = link_address_state_to_string(address_state);
-        assert(address_state_str);
-
-        ipv4_address_state_str = link_address_state_to_string(ipv4_address_state);
-        assert(ipv4_address_state_str);
-
-        ipv6_address_state_str = link_address_state_to_string(ipv6_address_state);
-        assert(ipv6_address_state_str);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
@@ -385,6 +376,8 @@ int manager_save(Manager *m) {
                 return r;
 
         temp_path = mfree(temp_path);
+
+        _cleanup_strv_free_ char **p = NULL;
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
@@ -569,8 +562,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
 }
 
 static int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state,
-                *captive_portal;
+        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -584,23 +576,12 @@ static int link_save(Link *link) {
         if (link->state == LINK_STATE_LINGER)
                 return 0;
 
-        admin_state = link_state_to_string(link->state);
-        assert(admin_state);
-
-        oper_state = link_operstate_to_string(link->operstate);
-        assert(oper_state);
-
-        carrier_state = link_carrier_state_to_string(link->carrier_state);
-        assert(carrier_state);
-
-        address_state = link_address_state_to_string(link->address_state);
-        assert(address_state);
-
-        ipv4_address_state = link_address_state_to_string(link->ipv4_address_state);
-        assert(ipv4_address_state);
-
-        ipv6_address_state = link_address_state_to_string(link->ipv6_address_state);
-        assert(ipv6_address_state);
+        admin_state = ASSERT_PTR(link_state_to_string(link->state));
+        oper_state = ASSERT_PTR(link_operstate_to_string(link->operstate));
+        carrier_state = ASSERT_PTR(link_carrier_state_to_string(link->carrier_state));
+        address_state = ASSERT_PTR(link_address_state_to_string(link->address_state));
+        ipv4_address_state = ASSERT_PTR(link_address_state_to_string(link->ipv4_address_state));
+        ipv6_address_state = ASSERT_PTR(link_address_state_to_string(link->ipv6_address_state));
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
@@ -619,7 +600,7 @@ static int link_save(Link *link) {
                 admin_state, oper_state, carrier_state, address_state, ipv4_address_state, ipv6_address_state);
 
         if (link->network) {
-                const char *online_state;
+                const char *online_state, *captive_portal;
                 bool space = false;
 
                 online_state = link_online_state_to_string(link->online_state);
