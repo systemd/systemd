@@ -93,11 +93,9 @@ int chattr_full(
          * supported, and we can ignore it too */
 
         unsigned current_attr = old_attr;
-        for (unsigned i = 0; i < sizeof(unsigned) * 8; i++) {
-                unsigned new_one, mask_one = 1u << i;
 
-                if (!FLAGS_SET(mask, mask_one))
-                        continue;
+        BIT_FOREACH(i, mask) {
+                unsigned new_one, mask_one = 1u << i;
 
                 new_one = UPDATE_FLAG(current_attr, mask_one, FLAGS_SET(value, mask_one));
                 if (new_one == current_attr)
