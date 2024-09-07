@@ -131,7 +131,7 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, config_h],
+        command : [generate_arphrd_list, cpp, files('linux/if_arp.h'), config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
