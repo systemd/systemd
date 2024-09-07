@@ -227,8 +227,10 @@ static int table_add_string_line(Table *table, const char *key, const char *valu
         return 0;
 }
 
-static int format_dropins(char **dropins) {
-        STRV_FOREACH(d, dropins) {
+static int format_config_files(char ***files, const char *main_config) {
+        assert(files);
+
+        STRV_FOREACH(d, *files) {
                 _cleanup_free_ char *s = NULL;
                 int glyph = *(d + 1) == NULL ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH;
 
@@ -238,6 +240,9 @@ static int format_dropins(char **dropins) {
 
                 free_and_replace(*d, s);
         }
+
+        if (strv_prepend(files, main_config) < 0)
+                return log_oom();
 
         return 0;
 }
@@ -250,8 +255,8 @@ static int link_status_one(
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
-                **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
+                **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL, **netdev_dropins = NULL;
+        _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
@@ -282,6 +287,8 @@ static int link_status_one(
         (void) sd_network_link_get_captive_portal(info->ifindex, &captive_portal);
         (void) sd_network_link_get_network_file(info->ifindex, &network);
         (void) sd_network_link_get_network_file_dropins(info->ifindex, &network_dropins);
+        (void) sd_network_link_get_netdev_file(info->ifindex, &netdev);
+        (void) sd_network_link_get_netdev_file_dropins(info->ifindex, &netdev_dropins);
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
         (void) sd_network_link_get_activation_policy(info->ifindex, &activation_policy);
@@ -312,19 +319,17 @@ static int link_status_one(
 
         (void) dhcp_lease_load(&lease, lease_file);
 
-        r = format_dropins(network_dropins);
+        r = format_config_files(&network_dropins, network);
         if (r < 0)
                 return r;
 
-        if (strv_prepend(&network_dropins, network) < 0)
-                return log_oom();
-
-        r = format_dropins(link_dropins);
+        r = format_config_files(&link_dropins, link);
         if (r < 0)
                 return r;
 
-        if (strv_prepend(&link_dropins, link) < 0)
-                return log_oom();
+        r = format_config_files(&netdev_dropins, netdev);
+        if (r < 0)
+                return r;
 
         table = table_new_vertical();
         if (!table)
@@ -333,7 +338,15 @@ static int link_status_one(
         if (arg_full)
                 table_set_width(table, 0);
 
-        /* unit files and basic states. */
+        /* Config files and basic states. */
+        if (netdev_dropins) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "NetDev File",
+                                   TABLE_STRV, netdev_dropins);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         r = table_add_many(table,
                            TABLE_FIELD, "Link File",
                            TABLE_STRV, link_dropins ?: STRV_MAKE("n/a"),
