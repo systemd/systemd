@@ -7,6 +7,7 @@
 #include "fs-util.h"
 #include "install.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "special.h"
 #include "string-util.h"
@@ -612,6 +613,7 @@ TEST(preset_and_list) {
         bool got_yes = false, got_no = false;
         UnitFileList *fl;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free_ char *unit_filename = NULL;
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
@@ -706,7 +708,8 @@ TEST(preset_and_list) {
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
 
         HASHMAP_FOREACH(fl, h) {
-                assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, basename(fl->path), &state) >= 0);
+                assert_se(path_extract_filename(fl->path, &unit_filename) >= 0);
+                assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, unit_filename, &state) >= 0);
                 assert_se(fl->state == state);
 
                 if (streq(fl->path, p)) {
