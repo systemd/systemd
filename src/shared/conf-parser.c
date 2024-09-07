@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <linux/ipv6.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
