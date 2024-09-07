@@ -4,7 +4,7 @@
 
 To run the integration tests with meson + mkosi, make sure you're running the
 latest version of mkosi. See
-[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/test/README.md)
+[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/docs/HACKING.md)
 for more specific details. Make sure `mkosi` is available in `$PATH` when
 reconfiguring meson to make sure it is picked up properly.
 
