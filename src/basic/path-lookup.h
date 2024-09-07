@@ -80,8 +80,16 @@ bool path_is_user_config_dir(const char *path);
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_done(LookupPaths *p);
 
-char **generator_binary_paths(RuntimeScope scope);
-char **env_generator_binary_paths(RuntimeScope scope);
+char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator);
+static inline char** generator_binary_paths(RuntimeScope runtime_scope) {
+        return generator_binary_paths_internal(runtime_scope, false);
+}
+static inline char** env_generator_binary_paths(RuntimeScope runtime_scope) {
+        return generator_binary_paths_internal(runtime_scope, true);
+}
+
+char** generator_binary_paths(RuntimeScope runtime_scope);
+char** env_generator_binary_paths(RuntimeScope runtime_scope);
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
 #define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
