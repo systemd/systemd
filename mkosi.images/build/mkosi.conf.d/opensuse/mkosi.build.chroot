@@ -97,7 +97,6 @@ build() {
         --define "__script_requires %{nil}" \
         --define "_find_debuginfo_dwz_opts %{nil}" \
         --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
-        --define "_fixperms true" \
         --noclean \
         "$@" \
         "pkg/$PKG_SUBDIR/systemd.spec"
