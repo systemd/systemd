@@ -116,6 +116,7 @@ typedef struct NetDev {
         unsigned n_ref;
 
         char *filename;
+        char **dropins;
 
         LIST_HEAD(Condition, conditions);
 
