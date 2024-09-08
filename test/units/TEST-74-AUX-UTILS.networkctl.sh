@@ -99,10 +99,19 @@ cmp "/usr/lib/systemd/network/$LINK_NAME" "/etc/systemd/network/$LINK_NAME"
 systemctl unmask systemd-networkd
 systemctl stop systemd-networkd
 (! networkctl cat @test2)
+(! networkctl cat @test2:netdev)
 
 systemctl start systemd-networkd
 SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-networkd-wait-online -i test2:carrier --timeout 20
+
 networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
+networkctl cat @test2:link | cmp - <(networkctl cat "$LINK_NAME")
+networkctl cat @test2:netdev | cmp - <(networkctl cat "$NETDEV_NAME")
+for c in "$NETWORK_NAME" "$LINK_NAME" "$NETDEV_NAME"; do
+    assert_in "$(networkctl cat "$c")" "$(networkctl cat @test2:all)"
+done
+
+(! networkctl edit @test2:all)
 
 EDITOR='cp' script -ec 'networkctl edit @test2 --drop-in test2.conf' /dev/null
 cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test2.conf"
