@@ -555,6 +555,7 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
 int resource_resolve_path(
                 Resource *rr,
                 const char *root,
+                const char *relative_to_directory,
                 const char *node) {
 
         _cleanup_free_ char *p = NULL;
@@ -648,7 +649,14 @@ int resource_resolve_path(
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
                 ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
 
-                if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
+                if (rr->path_relative_to == PATH_RELATIVE_TO_EXPLICIT) {
+                        if (!relative_to_directory)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PathRelativeTo=explicit requires --transfer-source= to be specified");
+
+                        relative_to = strdup(relative_to_directory);
+                        if (!relative_to)
+                                return log_oom();
+                } else if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
                         relative_to = strdup(empty_to_root(root));
                         if (!relative_to)
                                 return log_oom();
@@ -715,6 +723,7 @@ static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
         [PATH_RELATIVE_TO_ESP]      = "esp",
         [PATH_RELATIVE_TO_XBOOTLDR] = "xbootldr",
         [PATH_RELATIVE_TO_BOOT]     = "boot",
+        [PATH_RELATIVE_TO_EXPLICIT] = "explicit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
