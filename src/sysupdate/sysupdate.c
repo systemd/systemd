@@ -48,12 +48,14 @@ static char *arg_component = NULL;
 static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
+char *arg_transfer_source = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
 typedef struct Context {
         Transfer **transfers;
@@ -1436,6 +1438,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
+               "     --transfer-source=PATH\n"
+               "                          Specify the directory to transfer sources from\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1462,6 +1466,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_REBOOT,
                 ARG_VERIFY,
                 ARG_OFFLINE,
+                ARG_TRANSFER_SOURCE,
         };
 
         static const struct option options[] = {
@@ -1480,6 +1485,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "component",         required_argument, NULL, 'C'                   },
                 { "verify",            required_argument, NULL, ARG_VERIFY            },
                 { "offline",           no_argument,       NULL, ARG_OFFLINE           },
+                { "transfer-source",   required_argument, NULL, ARG_TRANSFER_SOURCE   },
                 {}
         };
 
@@ -1585,6 +1591,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_OFFLINE:
                         arg_offline = true;
+                        break;
+
+                case ARG_TRANSFER_SOURCE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_transfer_source);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case '?':
