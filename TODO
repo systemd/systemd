@@ -313,7 +313,7 @@ Features:
   which uses 32bit words).
 
 * In vmspawn/nspawn/machined wait for X_SYSTEMD_UNIT_ACTIVE=ssh-active.target
-  and X_SYSTEMD_SIGNAL_LEVEL=2 as indication whether/when SSH and the POSIX
+  and X_SYSTEMD_SIGNALS_LEVEL=2 as indication whether/when SSH and the POSIX
   signals are available. Similar for D-Bus (but just use sockets.target for
   that). Report as property for the machine.
 
