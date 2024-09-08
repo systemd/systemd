@@ -557,6 +557,10 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks Path=.");
 
+        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !arg_transfer_source)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
+
         if (t->source.path) {
                 if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
                         if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
@@ -618,11 +622,11 @@ int transfer_resolve_paths(
 
         assert(t);
 
-        r = resource_resolve_path(&t->source, root, node);
+        r = resource_resolve_path(&t->source, root, arg_transfer_source, node);
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, node);
+        r = resource_resolve_path(&t->target, root, /*relative_to_directory=*/ NULL, node);
         if (r < 0)
                 return r;
 

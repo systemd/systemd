@@ -305,6 +305,15 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--transfer-source=</option></term>
+
+        <listitem><para>Takes a path as its argument. When specified, all transfer sources configured with
+        <varname>PathRelativeTo=explicit</varname> will be interpreted relative to the specified path.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
