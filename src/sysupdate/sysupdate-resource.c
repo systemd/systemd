@@ -555,6 +555,7 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
 int resource_resolve_path(
                 Resource *rr,
                 const char *root,
+                const char *relative_to_directory,
                 const char *node) {
 
         _cleanup_free_ char *p = NULL;
@@ -648,7 +649,11 @@ int resource_resolve_path(
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
                 ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
 
-                if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
+                if (rr->path_relative_to == PATH_RELATIVE_TO_DIRECTORY) {
+                        relative_to = strdup(empty_to_root(relative_to_directory));
+                        if (!relative_to)
+                                return log_oom();
+                } else if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
                         relative_to = strdup(empty_to_root(root));
                         if (!relative_to)
                                 return log_oom();
@@ -711,10 +716,11 @@ static const char *resource_type_table[_RESOURCE_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
 
 static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
-        [PATH_RELATIVE_TO_ROOT]     = "root",
-        [PATH_RELATIVE_TO_ESP]      = "esp",
-        [PATH_RELATIVE_TO_XBOOTLDR] = "xbootldr",
-        [PATH_RELATIVE_TO_BOOT]     = "boot",
+        [PATH_RELATIVE_TO_ROOT]      = "root",
+        [PATH_RELATIVE_TO_ESP]       = "esp",
+        [PATH_RELATIVE_TO_XBOOTLDR]  = "xbootldr",
+        [PATH_RELATIVE_TO_BOOT]      = "boot",
+        [PATH_RELATIVE_TO_DIRECTORY] = "directory",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
