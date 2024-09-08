@@ -2513,6 +2513,10 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (!np->definition_path)
                         return log_oom();
 
+                np->split_name_format = strdup("%t");
+                if (!np->split_name_format)
+                        return log_oom();
+
                 r = determine_current_padding(c, t, p, secsz, grainsz, &padding);
                 if (r < 0)
                         return r;
