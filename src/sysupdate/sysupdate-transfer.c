@@ -618,11 +618,11 @@ int transfer_resolve_paths(
 
         assert(t);
 
-        r = resource_resolve_path(&t->source, root, node);
+        r = resource_resolve_path(&t->source, root, arg_transfer_source, node);
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, node);
+        r = resource_resolve_path(&t->target, root, /*relative_to_directory=*/ NULL, node);
         if (r < 0)
                 return r;
 
