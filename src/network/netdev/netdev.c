@@ -191,12 +191,31 @@ static bool netdev_is_stacked(NetDev *netdev) {
         return true;
 }
 
-static void netdev_detach_from_manager(NetDev *netdev) {
-        if (netdev->ifname && netdev->manager)
-                hashmap_remove(netdev->manager->netdevs, netdev->ifname);
+NetDev* netdev_detach_name(NetDev *netdev, const char *name) {
+        assert(netdev);
+
+        if (!netdev->manager || !name)
+                return NULL; /* Already detached or not attached yet. */
+
+        return hashmap_remove_value(netdev->manager->netdevs, name, netdev);
 }
 
-static NetDev *netdev_free(NetDev *netdev) {
+static NetDev* netdev_detach_impl(NetDev *netdev) {
+        assert(netdev);
+
+        NetDev *n = netdev_detach_name(netdev, netdev->ifname);
+
+        netdev->manager = NULL;
+        return n; /* Return NULL when it is not attached yet, or already detached. */
+}
+
+void netdev_detach(NetDev *netdev) {
+        assert(netdev);
+
+        netdev_unref(netdev_detach_impl(netdev));
+}
+
+static NetDev* netdev_free(NetDev *netdev) {
         assert(netdev);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
@@ -211,7 +230,7 @@ static NetDev *netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
-        netdev_detach_from_manager(netdev);
+        netdev_detach_impl(netdev);
 
         condition_free_list(netdev->conditions);
         free(netdev->filename);
@@ -245,9 +264,7 @@ void netdev_drop(NetDev *netdev) {
 
         log_netdev_debug(netdev, "netdev removed");
 
-        netdev_detach_from_manager(netdev);
-        netdev_unref(netdev);
-        return;
+        netdev_detach(netdev);
 }
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret) {
@@ -891,9 +908,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
                                                  "Device was already configured by \"%s\", ignoring %s.",
                                                  n->filename, netdev->filename);
 
-                /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
-                 * removed from the hashmap 'manager->netdevs'. */
-                netdev->ifname = mfree(netdev->ifname);
                 return -EEXIST;
         }
         assert(r > 0);
