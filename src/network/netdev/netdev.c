@@ -265,6 +265,43 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         return 0;
 }
 
+void link_assign_netdev(Link *link) {
+        _unused_ _cleanup_(netdev_unrefp) NetDev *old = NULL;
+        NetDev *netdev;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->ifname);
+
+        old = TAKE_PTR(link->netdev);
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return;
+
+        if (netdev->ifindex != link->ifindex)
+                return;
+
+        if (NETDEV_VTABLE(netdev)->iftype != link->iftype)
+                return;
+
+        if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
+                const char *kind;
+
+                if (netdev->kind == NETDEV_KIND_TAP)
+                        kind = "tun"; /* the kernel does not distinguish between tun and tap */
+                else
+                        kind = netdev_kind_to_string(netdev->kind);
+
+                if (!streq_ptr(kind, link->kind))
+                        return;
+        }
+
+        link->netdev = netdev_ref(netdev);
+
+        if (netdev != old)
+                log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+}
+
 void netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
 }
