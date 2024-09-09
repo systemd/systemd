@@ -633,7 +633,11 @@ Manager* manager_free(Manager *m) {
         m->dhcp_pd_subnet_ids = set_free(m->dhcp_pd_subnet_ids);
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
-        m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
+        /* The same object may be registered with multiple names, and netdev_detach() may drop multiple
+         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+        for (NetDev *n; (n = hashmap_first(m->netdevs)); )
+                netdev_detach(n);
+        m->netdevs = hashmap_free(m->netdevs);
 
         m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
 
