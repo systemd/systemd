@@ -183,19 +183,24 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 
         cmsg_close_all(&smsg);
 
+        if (size != sizeof(msg_wire) || FLAGS_SET(smsg->flags, MSG_TRUNC)) {
+                log_warning("Received message with invalid length, ignoring");
+                return 0;
+        }
+
         cred = CMSG_FIND_DATA(&smsg, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!cred) {
-                log_error("No sender credentials received, ignoring message");
+                log_warning("No sender credentials received, ignoring message");
                 return 0;
         }
 
         if (cred->uid != 0) {
-                log_error("Invalid sender uid "UID_FMT", ignoring message", cred->uid);
+                log_warning("Invalid sender uid "UID_FMT", ignoring message", cred->uid);
                 return 0;
         }
 
         if (msg_wire.magic != UDEV_CTRL_MAGIC) {
-                log_error("Message magic 0x%08x doesn't match, ignoring message", msg_wire.magic);
+                log_warning("Message magic 0x%08x doesn't match, ignoring message", msg_wire.magic);
                 return 0;
         }
 

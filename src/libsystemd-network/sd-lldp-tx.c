@@ -590,6 +590,7 @@ int sd_lldp_tx_stop(sd_lldp_tx *lldp_tx) {
 
         return 1;
 }
+
 int sd_lldp_tx_start(sd_lldp_tx *lldp_tx) {
         usec_t delay;
         int r;

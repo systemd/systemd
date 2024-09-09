@@ -1453,10 +1453,31 @@ install_missing_libraries() {
         [[ -e "$libgcc_s" ]] && inst_library "$libgcc_s"
     done < <(ldconfig -p | awk '/\/libgcc_s.so.1$/ { print $4 }')
 
-    local lib path
+    local lib path libs
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive libgcrypt libkmod; do
+    libs=(
+        libarchive
+        libbpf
+        libcryptsetup
+        libdw
+        libelf
+        libfido2
+        libgcrypt
+        libidn
+        libidn2
+        libip4tc
+        libkmod
+        libqrencode
+        p11-kit-1
+        pwquality
+        tss2-esys
+        tss2-mu
+        tss2-rc
+        tss2-tcti-device
+        xkbcommon
+    )
+    for lib in "${libs[@]}"; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"

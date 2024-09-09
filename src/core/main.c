@@ -1921,6 +1921,7 @@ static int do_reexecute(
                 FDSet *fds,
                 const char *switch_root_dir,
                 const char *switch_root_init,
+                uint64_t saved_capability_ambient_set,
                 const char **ret_error_message) {
 
         size_t i, args_size;
@@ -1981,6 +1982,10 @@ static int do_reexecute(
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
+
+        r = capability_ambient_set_apply(saved_capability_ambient_set, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to apply the starting ambient set, ignoring: %m");
 
         args_size = argc + 5;
         args = newa(const char*, args_size);
@@ -2346,9 +2351,11 @@ static int initialize_runtime(
                 bool first_boot,
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
+                uint64_t *saved_ambient_set,
                 const char **ret_error_message) {
         int r;
 
+        assert(saved_ambient_set);
         assert(ret_error_message);
 
         /* Sets up various runtime parameters. Many of these initializations are conditionalized:
@@ -2397,40 +2404,6 @@ static int initialize_runtime(
                 if (r < 0)
                         log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
 
-                break;
-
-        case RUNTIME_SCOPE_USER: {
-                _cleanup_free_ char *p = NULL;
-
-                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
-                 * user mode. In system mode mount_setup() already did that. */
-
-                r = xdg_user_runtime_dir(&p, "/systemd");
-                if (r < 0) {
-                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
-                        return log_struct_errno(LOG_EMERG, r,
-                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
-                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
-                }
-
-                (void) mkdir_p_label(p, 0755);
-                (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
-                r = setup_os_release(RUNTIME_SCOPE_USER);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
-                break;
-        }
-
-        default:
-                assert_not_reached();
-        }
-
-        if (arg_timer_slack_nsec != NSEC_INFINITY)
-                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-
                 if (!cap_test_all(arg_capability_bounding_set)) {
                         r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                         if (r < 0) {
@@ -2457,7 +2430,57 @@ static int initialize_runtime(
                                                         "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
                         }
                 }
+
+                break;
+
+        case RUNTIME_SCOPE_USER: {
+                _cleanup_free_ char *p = NULL;
+
+                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
+                 * user mode. In system mode mount_setup() already did that. */
+
+                r = xdg_user_runtime_dir(&p, "/systemd");
+                if (r < 0) {
+                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
+                        return log_struct_errno(LOG_EMERG, r,
+                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
+                }
+
+                if (!skip_setup) {
+                        (void) mkdir_p_label(p, 0755);
+                        (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+
+                        r = setup_os_release(RUNTIME_SCOPE_USER);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
+                }
+
+                break;
         }
+
+        default:
+                assert_not_reached();
+        }
+
+        /* The two operations on the ambient set are meant for a user serssion manager. They do not affect
+         * system manager operation, because by default it starts with an empty ambient set.
+         *
+         * Preserve the ambient set for later use with sd-executor processes. */
+        r = capability_get_ambient(saved_ambient_set);
+        if (r < 0)
+                log_warning_errno(r, "Failed to save ambient capabilities, ignoring: %m");
+
+        /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+         * not affect the permitted and effective sets which are important for the manager itself to
+         * operate. */
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
+
+        if (arg_timer_slack_nsec != NSEC_INFINITY)
+                if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
+                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
 
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
@@ -2951,6 +2974,7 @@ int main(int argc, char *argv[]) {
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
         const char *error_message = NULL;
+        uint64_t saved_ambient_set = 0;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
         FDSet *fds = NULL;
@@ -3130,11 +3154,6 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
 
-                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
-                 * not affect the permitted and effective sets which are important for the manager itself to
-                 * operate. */
-                capability_ambient_set_apply(0, /* also_inherit= */ false);
-
                 if (mac_init() < 0) {
                         error_message = "Failed to initialize MAC support";
                         goto finish;
@@ -3228,6 +3247,7 @@ int main(int argc, char *argv[]) {
                                first_boot,
                                &saved_rlimit_nofile,
                                &saved_rlimit_memlock,
+                               &saved_ambient_set,
                                &error_message);
         if (r < 0)
                 goto finish;
@@ -3248,6 +3268,8 @@ int main(int argc, char *argv[]) {
         m->timestamps[MANAGER_TIMESTAMP_USERSPACE] = userspace_timestamp;
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_START)] = security_start_timestamp;
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_FINISH)] = security_finish_timestamp;
+
+        m->saved_ambient_set = saved_ambient_set;
 
         set_manager_defaults(m);
         set_manager_settings(m);
@@ -3324,6 +3346,7 @@ finish:
                                  fds,
                                  switch_root_dir,
                                  switch_root_init,
+                                 saved_ambient_set,
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);
