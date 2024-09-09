@@ -186,7 +186,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311-31*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311R-31*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311RN-31*:pvr*
- KEYBOARD_KEY_8a=f20                                    # Microphone mute
+ KEYBOARD_KEY_8a=micmute                                # Microphone mute
 
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:*
@@ -200,7 +200,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G2-MG*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P648-G3-M*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*P645-S*:*
- KEYBOARD_KEY_8a=f20                                    # Microphone mute button; should be micmute
+ KEYBOARD_KEY_8a=micmute                                # Microphone mute button
 
 # on some models this isn't brightnessup
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5210*:*
@@ -223,7 +223,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*:*
 
 # Swift SF314-511
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnSwiftSF314-511:pvr*
- KEYBOARD_KEY_8a=f20                                    # Fn+F12, microphone mute
+ KEYBOARD_KEY_8a=micmute                                # Fn+F12, microphone mute
 
 # Predator PHN16-71
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredatorPHN16-71:*
@@ -242,7 +242,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-47:pvr*
 
 # Nitro AN515-58
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
- KEYBOARD_KEY_8a=f20                                    # Microphone mute button
+ KEYBOARD_KEY_8a=micmute                                # Microphone mute button
  KEYBOARD_KEY_55=power
 
 ###########################################################
@@ -283,11 +283,11 @@ evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
- KEYBOARD_KEY_7c=f20                                    # Remap micmute to f20
+ KEYBOARD_KEY_7c=micmute
 
 # USB keyboard in Asus FX503VD
 evdev:input:b0003v0B05p1869*
- KEYBOARD_KEY_ff31007c=f20                              # Remap micmute to f20
+ KEYBOARD_KEY_ff31007c=micmute
 
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
@@ -353,7 +353,7 @@ evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4xPZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV54x_6x_TU:*
  KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
  KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
- KEYBOARD_KEY_81=f20                                    # Fn+4; Mic Mute
+ KEYBOARD_KEY_81=micmute                                # Fn+4; Mic Mute
 
 ###########################################################
 # Compal
@@ -498,17 +498,17 @@ evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
 # Dell XPS microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:*
- KEYBOARD_KEY_100150=f20                                # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_100150=micmute                            # Mic mute toggle
 
 # Dell Latitude privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 # Dell Precision privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
- KEYBOARD_KEY_120001=f20                                # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_120001=micmute                            # Mic mute toggle
 
 # Dell Professional Sound Bar AE515
 evdev:input:b0003v413CpA506*
- KEYBOARD_KEY_b002f=f20                                # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_b002f=micmute                            # Mic mute toggle
 
 ###########################################################
 # Everex
@@ -694,7 +694,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360Convert
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:*
 # ENVY x360 13
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
- KEYBOARD_KEY_82=f20                                    # Microphone mute button, should be micmute
+ KEYBOARD_KEY_82=micmute                                # Microphone mute button
 
 # Spectre x360 16 2022
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
@@ -707,7 +707,7 @@ evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx3602-in-1*:*
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
  KEYBOARD_KEY_f8=unknown                               # rfkill is also reported by HP Wireless hotkeys
  KEYBOARD_KEY_64=calendar
- KEYBOARD_KEY_81=f20                                   # Microphone mute button
+ KEYBOARD_KEY_81=micmute                               # Microphone mute button
  KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
@@ -813,7 +813,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*:*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
- KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_81=micmute                                # Fn+F8; Microphone mute button
 
 # HP ZBook Studio G5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBookStudioG5*:*
@@ -826,7 +826,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
 
 # HP ProBook 11 G1
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook11G1:*
- KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_81=micmute                                # Fn+F8; Microphone mute button
  KEYBOARD_KEY_d8=f21                                    # touchpad toggle
  KEYBOARD_KEY_d9=f21                                    # touchpad toggle
 
@@ -842,7 +842,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:*
 # HP EliteBook Folio G1
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteBookFolioG1:*
  KEYBOARD_KEY_64=calendar
- KEYBOARD_KEY_81=f20
+ KEYBOARD_KEY_81=micmute
 
 # HP EliteBook 845 G7
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook845G7*:pvr*
@@ -882,7 +882,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_81=micmute                                # Fn+F8; Microphone mute button
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
@@ -900,7 +900,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnOMEN*:pvr*
 
 # HP Dev One
 evdev:atkbd:dmi:*:rvnHP:rn8A78:*
- KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button
+ KEYBOARD_KEY_81=micmute                                # Fn+F8; Microphone mute button
  KEYBOARD_KEY_f9=prog1                                  # Fn+F12; Programmable hotkey
 
 # HP Victus
@@ -937,7 +937,7 @@ evdev:input:b0005v03F0p854Ae044C*
 
 # Huawei WMI hotkeys driver
 evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI:*
- KEYBOARD_KEY_287=f20                                   # Microphone mute button, should be micmute
+ KEYBOARD_KEY_287=micmute                               # Microphone mute button
 
 # Huawei MACH-WX9 and EUL-WX9
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:*
@@ -1030,7 +1030,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_15=volumedown
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
- KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
+ KEYBOARD_KEY_1a=micmute                                # Microphone mute button
  KEYBOARD_KEY_45=bookmarks
  KEYBOARD_KEY_46=selective_screenshot                   # Fn + PrtSc, on Windows: Snipping tool
  KEYBOARD_KEY_4a=prog3                                  # Fn + Right shift, on Windows: No idea
@@ -1051,7 +1051,7 @@ evdev:input:b0003v17EFp6009*
  KEYBOARD_KEY_09001d=zoom                               # Fn+Space
  KEYBOARD_KEY_090011=prog1                              # ThinkVantage button
  KEYBOARD_KEY_090015=camera                             # Fn+F6 headset/camera VoIP key  ??
- KEYBOARD_KEY_090010=f20                                # Microphone mute button; should be micmute
+ KEYBOARD_KEY_090010=micmute                            # Microphone mute button
 
 # Lenovo 3000
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:pvr*
@@ -1110,7 +1110,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:*
 # IdeaPad
 evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_0d=rfkill                                 # airplane mode switch (toggle all wireless devices)
- KEYBOARD_KEY_08=f20                                    # micmute
+ KEYBOARD_KEY_08=micmute
  KEYBOARD_KEY_42=f23
  KEYBOARD_KEY_43=f22
 
@@ -1120,7 +1120,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
  KEYBOARD_KEY_f1=f21
- KEYBOARD_KEY_ce=f20                                    # micmute
+ KEYBOARD_KEY_ce=micmute
 
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 # Lenovo IdeaPad Flex 5
@@ -1150,7 +1150,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
 # Lenovo ThinkCentre M800z/M820z/M920z AIO machines
 # key_scancode 00 is KEY_MICMUTE
 evdev:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
- KEYBOARD_KEY_00=f20
+ KEYBOARD_KEY_00=micmute
 
 # enhanced USB keyboard
 evdev:input:b0003v04B3p301B*
@@ -1549,7 +1549,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
  KEYBOARD_KEY_e4=f21                                    # Fn+F3 Touchpad disable
  KEYBOARD_KEY_ec=email                                  # envelope button
  KEYBOARD_KEY_ee=camera                                 # Fn+F6 camera disable
- KEYBOARD_KEY_f1=f20                                    # Microphone mute
+ KEYBOARD_KEY_f1=micmute                                # Microphone mute
  KEYBOARD_KEY_f2=rotate_display                         # Rotate screen
  KEYBOARD_KEY_f6=wlan                                   # satellite dish1
  KEYBOARD_KEY_f7=brightnessdown                         # Fn+F4
@@ -1664,7 +1664,7 @@ evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
  KEYBOARD_KEY_f3=f17
  KEYBOARD_KEY_f2=f18
  KEYBOARD_KEY_f1=f19
- KEYBOARD_KEY_f0=f20                                    # micmute
+ KEYBOARD_KEY_f0=micmute
  KEYBOARD_KEY_ef=f21
  KEYBOARD_KEY_ee=chat
  KEYBOARD_KEY_e4=chat
@@ -1783,7 +1783,7 @@ evdev:input:b0003v258Ap001E*
 
 # Plantronics .Audio 626 DSP
 evdev:input:b0003v047FpC006*
- KEYBOARD_KEY_b002f=f20                                 # Microphone mute button; should be micmute
+ KEYBOARD_KEY_b002f=micmute                             # Microphone mute button
 
 ###########################################################
 # Purism
