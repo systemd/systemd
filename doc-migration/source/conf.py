@@ -20,7 +20,8 @@ sys.path.append(os.path.abspath("./_ext"))
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinxcontrib.globalsubs', 'directive_roles']
+extensions = ['sphinxcontrib.globalsubs',
+              'directive_roles', 'external_man_links']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -79,7 +80,6 @@ global_substitutions = {f'v{n}': f'{n}' for n in range(183, 300)} | {
     'fedora_latest_version': '40',
     'fedora_cloud_release': '1.10',
 }
-
 
 # Existing lists of directive groups
 directives_data = [

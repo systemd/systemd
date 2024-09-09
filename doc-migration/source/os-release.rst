@@ -122,7 +122,7 @@ suffix removed. In case it is not possible to guarantee that an image file name 
 change between the build and the deployment phases, it is possible to relax this check: if exactly one
 file whose name matches ````extension-release.*```` is present in this
 directory, and the file is tagged with a ``user.extension-release.strict``
-`xattr(7) <https://man7.org/linux/man-pages/man7/xattr.7.html>`_ set to the
+:man-pages:`xattr(7)` set to the
 string ``0``, it will be used instead.
 
 The rest of this document that talks about ``os-release`` should be understood
@@ -557,15 +557,15 @@ Examples
    VERSION_ID=32
 
 Reading ``os-release`` in
-`sh(1) <https://man7.org/linux/man-pages/man1/sh.1.html>`_
-====================================================================================
+:man-pages:`sh(1)`
+============================================
 
 .. literalinclude:: ./check-os-release.sh
                     :language: shell
 
 Reading ``os-release`` in
-`python(1) <http://linux.die.net/man/ 1/python>`_ (versions >= 3.10)
-==============================================================================================
+:die-net:`python(1)` (versions >= 3.10)
+=================================================================
 
 .. literalinclude:: ./check-os-release-simple.py
                     :language: python
@@ -573,8 +573,8 @@ Reading ``os-release`` in
 See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
 
 Reading ``os-release`` in
-`python(1) <http://linux.die.net/man/ 1/python>`_ (any version)
-=========================================================================================
+:die-net:`python(1)` (any version)
+============================================================
 
 .. literalinclude:: ./check-os-release.py
                     :language: python
@@ -585,4 +585,4 @@ in most cases, and the open-coded version here is provided for reference.
 See Also
 ========
 
-:ref:`systemd(1)`, `lsb_release(1) <http://linux.die.net/man/ 1/lsb_release>`_, :ref:`hostname(5)`, :ref:`machine-id(5)`, :ref:`machine-info(5)`
+:ref:`systemd(1)`, :die-net:`lsb_release(1)`, :ref:`hostname(5)`, :ref:`machine-id(5)`, :ref:`machine-info(5)`
