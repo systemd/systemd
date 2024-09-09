@@ -363,7 +363,7 @@ void netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
 }
 
-static int netdev_enter_ready(NetDev *netdev) {
+int netdev_enter_ready(NetDev *netdev) {
         assert(netdev);
         assert(netdev->ifname);
 
@@ -402,6 +402,42 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         return 1;
 }
 
+int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
+        assert(netdev);
+        assert(ifindex > 0);
+
+        if (netdev->ifindex == ifindex)
+                return 0; /* Already set. */
+
+        if (netdev->ifindex > 0 && netdev->ifindex != ifindex)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                "Could not set ifindex to %i, already set to %i.",
+                                                ifindex, netdev->ifindex);
+
+        netdev->ifindex = ifindex;
+        log_netdev_debug(netdev, "Gained index %i.", ifindex);
+        return 1; /* set new ifindex. */
+}
+
+static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
+        int r;
+
+        assert(netdev);
+        assert(name);
+        assert(ifindex > 0);
+
+        if (!streq(netdev->ifname, name))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Received netlink message with unexpected interface name %s (ifindex=%i).",
+                                                name, ifindex);
+
+        r = netdev_set_ifindex_internal(netdev, ifindex);
+        if (r <= 0)
+                return r;
+
+        return netdev_enter_ready(netdev);
+}
+
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         uint16_t type;
         const char *kind;
@@ -432,22 +468,9 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (ifindex <= 0)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Got invalid ifindex: %d", ifindex);
 
-        if (netdev->ifindex > 0) {
-                if (netdev->ifindex != ifindex)
-                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
-                                                        "Could not set ifindex to %d, already set to %d",
-                                                        ifindex, netdev->ifindex);
-
-                /* ifindex already set to the same for this netdev */
-                return 0;
-        }
-
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &received_name);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Could not get IFNAME: %m");
-
-        if (!streq(netdev->ifname, received_name))
-                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Received newlink with wrong IFNAME %s", received_name);
 
         if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
 
@@ -477,13 +500,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
                                                         received_kind, kind);
         }
 
-        netdev->ifindex = ifindex;
-
-        log_netdev_debug(netdev, "netdev has index %d", netdev->ifindex);
-
-        netdev_enter_ready(netdev);
-
-        return 0;
+        return netdev_set_ifindex_impl(netdev, received_name, ifindex);
 }
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)

@@ -199,11 +199,13 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 int netdev_attach_name(NetDev *netdev, const char *name);
 NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
+int netdev_set_ifindex_internal(NetDev *netdev, int ifindex);
 
 int netdev_load(Manager *manager, bool reload);
 int netdev_load_one(Manager *manager, const char *filename);
 void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
+int netdev_enter_ready(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
