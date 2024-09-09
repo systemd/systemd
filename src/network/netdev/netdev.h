@@ -5,6 +5,7 @@
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
+#include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
 #include "networkd-link.h"
@@ -194,6 +195,7 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 /* For casting the various netdev kinds into a netdev */
 #define NETDEV(n) (&(n)->meta)
 
+int netdev_attach_name(NetDev *netdev, const char *name);
 NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
 
