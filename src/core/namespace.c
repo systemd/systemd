@@ -3227,3 +3227,11 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);
+
+static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
+        [PRIVATE_USERS_OFF]      = "off",
+        [PRIVATE_USERS_SELF]     = "self",
+        [PRIVATE_USERS_IDENTITY] = "identity",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
