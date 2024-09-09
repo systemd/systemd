@@ -83,7 +83,7 @@ Similar to ``monitor`` but
 writes the output in pcapng format (for details, see
 `PCAP Next Generation (pcapng) Capture File Format <https://github.com/pcapng/pcapng/>`_).
 Make sure to redirect standard output to a file or pipe. Tools like
-`wireshark(1) <http://linux.die.net/man/ 1/wireshark>`_
+:die-net:`wireshark(1)`
 may be used to dissect and view the resulting
 files.
 
@@ -595,4 +595,4 @@ shown:
 See Also
 ========
 
-`dbus-daemon(1) <https://dbus.freedesktop.org/doc/dbus-daemon.1.html>`_, `D-Bus <https://www.freedesktop.org/wiki/Software/dbus>`_, :ref:`sd-bus(3)`, :ref:`varlinkctl(1)`, :ref:`systemd(1)`, :ref:`machinectl(1)`, `wireshark(1) <http://linux.die.net/man/ 1/wireshark>`_
+:dbus:`dbus-daemon(1)`, `D-Bus <https://www.freedesktop.org/wiki/Software/dbus>`_, :ref:`sd-bus(3)`, :ref:`varlinkctl(1)`, :ref:`systemd(1)`, :ref:`machinectl(1)`, :die-net:`wireshark(1)`
