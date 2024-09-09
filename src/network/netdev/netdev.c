@@ -215,6 +215,7 @@ static NetDev *netdev_free(NetDev *netdev) {
 
         condition_free_list(netdev->conditions);
         free(netdev->filename);
+        strv_free(netdev->dropins);
         free(netdev->description);
         free(netdev->ifname);
 
@@ -832,7 +833,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         NETDEV_VTABLE(netdev)->sections,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        netdev, NULL, NULL);
+                        netdev,
+                        NULL,
+                        &netdev->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
