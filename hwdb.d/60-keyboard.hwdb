@@ -231,6 +231,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredatorPHN16-71:*
  KEYBOARD_KEY_f5=prog1                                  # "predator sense" button
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
 
+# Predator PHN16-72
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredatorPHN16-72:*
+ KEYBOARD_KEY_66=micmute                                # Microphone mute button
+
 # Nitro AN515-58
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
  KEYBOARD_KEY_8a=f20                                    # Microphone mute button
