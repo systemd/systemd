@@ -43,7 +43,7 @@ static int append_machine_properties(
                 return bus_log_create_error(r);
         if (enable_fuse) {
                 r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
-                                          "/dev/fuse", "rw");
+                                          "/dev/fuse", "rwm");
                 if (r < 0)
                         return bus_log_create_error(r);
         }
