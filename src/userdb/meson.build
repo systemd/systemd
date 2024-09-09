@@ -33,7 +33,7 @@ if conf.get('ENABLE_SSH_USERDB_CONFIG') == 1
                 install : true,
                 install_dir : sshdconfdir.startswith('/usr/') ? sshdconfdir : libexecdir / 'sshd_config.d')
 
-        if not sshdconfdir.startswith('/usr/')
+        if conf.get('LINK_SSHD_USERDB_DROPIN') == 1
                 install_emptydir(sshdconfdir)
 
                 meson.add_install_script(sh, '-c',
