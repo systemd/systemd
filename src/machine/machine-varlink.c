@@ -188,3 +188,66 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         return sd_varlink_reply(link, NULL);
 }
+
+int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char *machine_name, Machine **ret_machine) {
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+
+        if (!machine_name)
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (!hostname_is_valid(machine_name, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        Machine *machine = hashmap_get(manager->machines, machine_name);
+        if (!machine)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+        *ret_machine = machine;
+        return 0;
+}
+
+int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "unregister"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_finalize(machine);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "terminate"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_stop(machine);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
