@@ -2804,6 +2804,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
                                 log_netdev_warning_errno(netdev, r, "Could not process new link message for netdev, ignoring: %m");
+                                netdev_enter_failed(netdev);
                                 return 0;
                         }
                 }
