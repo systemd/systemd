@@ -130,14 +130,8 @@ Deprecations and removals:
 
 Features:
 
-* introduce a new system credential "shell.prompt.extra" or so that may contain
-  a string to include in $PS1. Inherit it down into gettys/logins and suchlike.
-  And provide an /etc/profile.d/*.sh drop-in which reads the credential if set,
-  and suffixes $PS1. Usecase: for wsl-like environments use this to include
-  additional information in prompts that is inherited from the execution
-  context. For example include 📦 emoji via this mechanism in the prompt. Or,
-  in run0 include a ☢️  emoji in the prompt. Or in mkosi include a 👷 emoji in
-  the prompt. You get the idea.
+* maybe set shell.prompt.prefix credential in run0 to some warning emoji,
+  i.e. ⚠️ or ☢️ or ⚡ or 👊 or 🧑‍🔧 or so.
 
 * introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
   policy bits into one structure, i.e. public key info, pcr masks, pcrlock
