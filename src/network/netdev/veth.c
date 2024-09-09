@@ -62,6 +62,10 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
                                                 "Veth NetDev without peer name configured in %s. Ignoring",
                                                 filename);
 
+        if (streq(v->ifname_peer, netdev->ifname))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Veth peer name cannot be the same as the main interface name.");
+
         return 0;
 }
 
