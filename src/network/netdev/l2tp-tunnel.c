@@ -752,28 +752,28 @@ static void l2tp_tunnel_init(NetDev *netdev) {
         t->udp6_csum_tx = true;
 }
 
-static int l2tp_session_verify(L2tpSession *session) {
-        NetDev *netdev;
+#define log_session(session, fmt, ...)                                  \
+        ({                                                              \
+                const L2tpSession *_session = (session);                \
+                log_section_warning_errno(                              \
+                                _session ? _session->section : NULL,    \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [L2TPSession] section.", \
+                                ##__VA_ARGS__);                         \
+        })
 
+static int l2tp_session_verify(L2tpSession *session) {
         assert(session);
         assert(session->tunnel);
-
-        netdev = NETDEV(session->tunnel);
 
         if (section_is_invalid(session->section))
                 return -EINVAL;
 
         if (!session->name)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP session without name configured. "
-                                              "Ignoring [L2TPSession] section from line %u",
-                                              session->section->filename, session->section->line);
+                return log_session(session, "L2TP session without name configured.");
 
         if (session->session_id == 0 || session->peer_session_id == 0)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP session without session IDs configured. "
-                                              "Ignoring [L2TPSession] section from line %u",
-                                              session->section->filename, session->section->line);
+                return log_session(session, "L2TP session without session IDs configured.");
 
         return 0;
 }
@@ -785,19 +785,19 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
         L2tpSession *session;
 
         if (!IN_SET(t->family, AF_INET, AF_INET6))
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP tunnel with invalid address family configured. Ignoring",
-                                              filename);
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: L2TP tunnel with invalid address family configured. Ignoring",
+                                                filename);
 
         if (!in_addr_is_set(t->family, &t->remote))
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP tunnel without a remote address configured. Ignoring",
-                                              filename);
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: L2TP tunnel without a remote address configured. Ignoring",
+                                                filename);
 
         if (t->tunnel_id == 0 || t->peer_tunnel_id == 0)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
-                                              filename);
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
+                                                filename);
 
         ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
                 if (l2tp_session_verify(session) < 0)
