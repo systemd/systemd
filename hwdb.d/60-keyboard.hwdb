@@ -127,7 +127,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:*
 
 # Acer kernel driver
 evdev:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:*
- KEYBOARD_KEY_82=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_82=touchpad_toggle                        # Touchpad toggle
 
 # Aspire models
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*:*
@@ -251,7 +251,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:*
- KEYBOARD_KEY_81=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_81=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
  KEYBOARD_KEY_bf=!prog1                                 # graphics amplifier, cable plug-in event
  KEYBOARD_KEY_c1=!prog2                                 # graphics amplifier, undock-button event
@@ -268,7 +268,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pnM17xR3:*
 # Aquarius Cmp NS483
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAquarius*:pnCmp*NS483*:*
  KEYBOARD_KEY_56=backslash
- KEYBOARD_KEY_76=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad Toggle
 
 ###########################################################
 # Asus
@@ -282,7 +282,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
 evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
- KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_6b=touchpad_toggle                        # Touchpad Toggle
  KEYBOARD_KEY_7c=micmute
 
 # USB keyboard in Asus FX503VD
@@ -345,14 +345,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS50_70MU:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4XMB,ME,MZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS5x_NS7xPU:*
- KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
- KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad Toggle
+ KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad Toggle
 
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV5xTNC_TND_TNE:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4xPZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV54x_6x_TU:*
- KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
- KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad Toggle
+ KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad Toggle
  KEYBOARD_KEY_81=micmute                                # Fn+4; Mic Mute
 
 ###########################################################
@@ -374,7 +374,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:*
  KEYBOARD_KEY_9f=homepage
 
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnCompaq:pn*:pvr*:rvn*:rnN14KP6*
- KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+f2 toggle touchpad
 
 evdev:input:b0003v049Fp0051*
 evdev:input:b0003v049Fp008D*
@@ -420,12 +420,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
  KEYBOARD_KEY_99=nextsong                               # Front panel next song
  KEYBOARD_KEY_9a=setup                                  # Tablet tools button
  KEYBOARD_KEY_9b=switchvideomode                        # Display toggle button
- KEYBOARD_KEY_9e=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_9e=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_a2=playpause                              # Front panel play/pause
  KEYBOARD_KEY_a4=stopcd                                 # Front panel stop
  KEYBOARD_KEY_ed=media                                  # MediaDirect button
  KEYBOARD_KEY_d8=screenlock                             # FIXME: Tablet lock button
- KEYBOARD_KEY_d9=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_d9=touchpad_toggle                        # Touchpad toggle
 
 #
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*910:*
@@ -467,7 +467,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio*155[78]:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
  KEYBOARD_KEY_88=!                                      # wireless switch
- KEYBOARD_KEY_9e=!f21
+ KEYBOARD_KEY_9e=!touchpad_toggle
 
 # Dell Latitude E[67]*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E6*:*
@@ -516,7 +516,7 @@ evdev:input:b0003v413CpA506*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnEverex:pnXT5000*:*
  KEYBOARD_KEY_5c=media
- KEYBOARD_KEY_65=f21                                    # Fn+F5 Touchpad toggle
+ KEYBOARD_KEY_65=touchpad_toggle                        # Fn+F5 Touchpad toggle
  KEYBOARD_KEY_67=prog3                                  # Fan speed control button
  KEYBOARD_KEY_6f=brightnessup
  KEYBOARD_KEY_7f=brightnessdown
@@ -555,7 +555,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO*Pro*Edition*V3505*:*
 
 # Amilo Pro v3205
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO*Pro*V3205*:*
- KEYBOARD_KEY_f4=f21                                    # FIXME: silent-mode decrease CPU/GPU clock
+ KEYBOARD_KEY_f4=touchpad_toggle                        # FIXME: silent-mode decrease CPU/GPU clock
  KEYBOARD_KEY_f7=switchvideomode                        # Fn+F3
 
 # Amilo Si 1520
@@ -725,8 +725,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2230s*:*
 
 # Presario
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Presario*CQ*:*
- KEYBOARD_KEY_d8=f21
- KEYBOARD_KEY_d9=f21
+ KEYBOARD_KEY_d8=touchpad_toggle
+ KEYBOARD_KEY_d9=touchpad_toggle
 
 # 2510p 2530p
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2510p*:*
@@ -827,8 +827,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
 # HP ProBook 11 G1
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPProBook11G1:*
  KEYBOARD_KEY_81=micmute                                # Fn+F8; Microphone mute button
- KEYBOARD_KEY_d8=f21                                    # touchpad toggle
- KEYBOARD_KEY_d9=f21                                    # touchpad toggle
+ KEYBOARD_KEY_d8=touchpad_toggle                        # touchpad toggle
+ KEYBOARD_KEY_d9=touchpad_toggle                        # touchpad toggle
 
 # HP ZBook Studio G4
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPZBookStudioG4:*
@@ -998,7 +998,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY*6.0/7.0:*
 
 # LEAP W502
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnJP-IK:pnLEAPW502:pvr*
- KEYBOARD_KEY_76=f21                                    # touchpad toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # touchpad toggle
 
 ###########################################################
 # Kvadra
@@ -1006,7 +1006,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnJP-IK:pnLEAPW502:pvr*
 
 # LE14U/LE15U
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnKVADRA*:pn*LE1*U*:*
- KEYBOARD_KEY_76=f21                                    # Fn+F1 Toggle touchpad, sends meta+ctrl+toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 Toggle touchpad, sends meta+ctrl+toggle
 
 ###########################################################
 # Lenovo
@@ -1019,7 +1019,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_03=sleep
  KEYBOARD_KEY_04=wlan
  KEYBOARD_KEY_06=switchvideomode
- KEYBOARD_KEY_07=f21
+ KEYBOARD_KEY_07=touchpad_toggle
  KEYBOARD_KEY_08=f24
  KEYBOARD_KEY_0b=suspend
  KEYBOARD_KEY_0f=brightnessup
@@ -1044,7 +1044,7 @@ evdev:input:b0003v17EFp6009*
  KEYBOARD_KEY_090013=battery                            # Fn+F3
  KEYBOARD_KEY_090014=wlan                               # Fn+F5
  KEYBOARD_KEY_090016=switchvideomode                    # Fn+F7
- KEYBOARD_KEY_090017=f21                                # Fn+F8  touchpad toggle
+ KEYBOARD_KEY_090017=touchpad_toggle                    # Fn+F8  touchpad toggle
  KEYBOARD_KEY_090019=suspend                            # Fn+F12
  KEYBOARD_KEY_09001a=brightnessup                       # Fn+Home
  KEYBOARD_KEY_09001b=brightnessdown                     # Fn+End
@@ -1073,8 +1073,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:*
  KEYBOARD_KEY_b9=brightnessup                           # does nothing in BIOS
  KEYBOARD_KEY_ba=brightnessdown                         # does nothing in BIOS
  KEYBOARD_KEY_f1=camera                                 # BIOS toggles camera power
- KEYBOARD_KEY_f2=f21                                    # touchpad toggle (key alternately emits F2 and F3)
- KEYBOARD_KEY_f3=f21
+ KEYBOARD_KEY_f2=touchpad_toggle                        # touchpad toggle (key alternately emits F2 and F3)
+ KEYBOARD_KEY_f3=touchpad_toggle
 
 # Lenovo IdeaPad 5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrIdeaPad5*:*
@@ -1119,7 +1119,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
  KEYBOARD_KEY_a3=play
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
- KEYBOARD_KEY_f1=f21
+ KEYBOARD_KEY_f1=touchpad_toggle
  KEYBOARD_KEY_ce=micmute
 
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
@@ -1141,11 +1141,11 @@ evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
 # Lenovo IdeaPad Z500
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*5931*:pvr*
- KEYBOARD_KEY_f3=f21                                    # Fn+F6 (toggle touchpad)
+ KEYBOARD_KEY_f3=touchpad_toggle                        # Fn+F6 (toggle touchpad)
 
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
- KEYBOARD_KEY_f1=f21
+ KEYBOARD_KEY_f1=touchpad_toggle
 
 # Lenovo ThinkCentre M800z/M820z/M920z AIO machines
 # key_scancode 00 is KEY_MICMUTE
@@ -1165,7 +1165,7 @@ evdev:input:b0003v04B3p301B*
 
 # Lenovo Ideapad D330-10IGM
 evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
+ KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+Supr (Touchpad toggle)
 
 evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
@@ -1546,7 +1546,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
  KEYBOARD_KEY_c2=ejectcd
  KEYBOARD_KEY_df=sleep                                  # Fn+F12
  KEYBOARD_KEY_e2=bluetooth                              # satellite dish2
- KEYBOARD_KEY_e4=f21                                    # Fn+F3 Touchpad disable
+ KEYBOARD_KEY_e4=touchpad_toggle                        # Fn+F3 Touchpad disable
  KEYBOARD_KEY_ec=email                                  # envelope button
  KEYBOARD_KEY_ee=camera                                 # Fn+F6 camera disable
  KEYBOARD_KEY_f1=micmute                                # Microphone mute
@@ -1558,7 +1558,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
 
 # MSI GF63 toggles touchpad using Fn+F3 where the keyboard key is 29
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGF63*:*
- KEYBOARD_KEY_85=f21                                    # Toggle touchpad, sends meta+ctrl+toggle
+ KEYBOARD_KEY_85=touchpad_toggle                        # Toggle touchpad, sends meta+ctrl+toggle
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE60*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnGE70*:*
@@ -1586,7 +1586,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
- KEYBOARD_KEY_76=f21                                    # Toggle touchpad, sends meta+ctrl+toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Toggle touchpad, sends meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
  KEYBOARD_KEY_f2=rotate_display                         # Fn+F12 Screen rotation
  KEYBOARD_KEY_8d=prog3                                  # Fn+A Change True Color selections
@@ -1610,7 +1610,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.
 
 # VersaPro VG-S
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNEC:pnPC-VK22TGSGS:pvr*
- KEYBOARD_KEY_a8=f21                                    # Fn+Space touchpad toggle
+ KEYBOARD_KEY_a8=touchpad_toggle                        # Fn+Space touchpad toggle
  KEYBOARD_KEY_67=brightnessdown                         # Fn+F7 brightness down
  KEYBOARD_KEY_65=brightnessup                           # Fn+F8 brightness up
  KEYBOARD_KEY_71=battery                                # Fn+F4 ECO
@@ -1623,7 +1623,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNEC:pnPC-VK22TGSGS:pvr*
 evdev:input:b0003v15BAp003C*
  KEYBOARD_KEY_70066=sleep                               # Fn+F1
  KEYBOARD_KEY_700f6=wlan                                # Fn+F2
- KEYBOARD_KEY_700c7=f21                                 # Fn+F3 touchpad toggle
+ KEYBOARD_KEY_700c7=touchpad_toggle                     # Fn+F3 touchpad toggle
  KEYBOARD_KEY_7006f=brightnessdown                      # Fn+F7
  KEYBOARD_KEY_70070=brightnessup                        # Fn+F8
  KEYBOARD_KEY_7006e=switchvideomode                     # Fn+F9
@@ -1665,7 +1665,7 @@ evdev:name:AT Translated Set 2 keyboard:phys:sp/serio*/input*:ev:120013:*
  KEYBOARD_KEY_f2=f18
  KEYBOARD_KEY_f1=f19
  KEYBOARD_KEY_f0=micmute
- KEYBOARD_KEY_ef=f21
+ KEYBOARD_KEY_ef=touchpad_toggle
  KEYBOARD_KEY_ee=chat
  KEYBOARD_KEY_e4=chat
  KEYBOARD_KEY_dd=menu                                   # Frame
@@ -1707,7 +1707,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnONKYO*CORPORATION:pnONKYOPC:*
  KEYBOARD_KEY_f0=media                                  # Fn+R
  KEYBOARD_KEY_f5=switchvideomode                        # Fn+E
  KEYBOARD_KEY_f6=camera                                 # Fn+T
- KEYBOARD_KEY_f7=f21                                    # Fn+Y (touchpad toggle)
+ KEYBOARD_KEY_f7=touchpad_toggle                        # Fn+Y (touchpad toggle)
  KEYBOARD_KEY_f8=brightnessup                           # Fn+S
  KEYBOARD_KEY_f9=brightnessdown                         # Fn+A
  KEYBOARD_KEY_fb=wlan                                   # Fn+J
@@ -1948,7 +1948,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:sku*SCAI*:*
  KEYBOARD_KEY_81=!esc
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
- KEYBOARD_KEY_76=f21                                    # Fn+F5 Touchpad toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F5 Touchpad toggle
  KEYBOARD_KEY_ae=!volumedown                            # Fn+F7 volume down
  KEYBOARD_KEY_b0=!volumeup                              # Fn+F8 volume up
  KEYBOARD_KEY_ac=unknown                                # Fn+F9 multi-level keyboard backlight toggle - handled by samsung-galaxybook
@@ -2001,7 +2001,7 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVGN-FW250*:*
  KEYBOARD_KEY_10=suspend                                # Fn+F12
 
 evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:*
- KEYBOARD_KEY_05=f21                                    # Fn+F1 -> KEY_F21 (The actual touchpad toggle)
+ KEYBOARD_KEY_05=touchpad_toggle                        # Fn+F1
  KEYBOARD_KEY_0d=down                                   # Fn+F9 zoomout
  KEYBOARD_KEY_0e=up                                     # Fn+F10 zoomin
 
@@ -2010,19 +2010,19 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pn*:*
- KEYBOARD_KEY_f7=f21                                    # Touchpad toggle
- KEYBOARD_KEY_f8=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad toggle
+ KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad toggle
 
 # Pangolin 12
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang12*
- KEYBOARD_KEY_76=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
 
 ###########################################################
 # T-bao
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnT-bao:pnTbookair:*
- KEYBOARD_KEY_76=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
 
 ###########################################################
 # Toshiba
@@ -2067,14 +2067,14 @@ evdev:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITEU940:*
  KEYBOARD_KEY_13c=brightnessdown
  KEYBOARD_KEY_13d=brightnessup
  KEYBOARD_KEY_13e=switchvideomode
- KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
+ KEYBOARD_KEY_13f=touchpad_toggle                       # Touchpad toggle
 
 # Satellite P75-A7200
 evdev:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:*
  KEYBOARD_KEY_13c=brightnessdown
  KEYBOARD_KEY_13d=brightnessup
  KEYBOARD_KEY_13e=switchvideomode
- KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
+ KEYBOARD_KEY_13f=touchpad_toggle                       # Touchpad toggle
  KEYBOARD_KEY_9e=wlan
 
 # Portege Z830 ACPI quickstart buttons
@@ -2085,7 +2085,7 @@ evdev:name:Quickstart Button 2:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
  KEYBOARD_KEY_1=prog2                                   # TOSHIBA Presentation button
 
 evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
- KEYBOARD_KEY_1=f21                                     # Touchpad toggle
+ KEYBOARD_KEY_1=touchpad_toggle                         # Touchpad toggle
 
 ###########################################################
 # VIA
@@ -2099,7 +2099,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnVIA:pnK8N800:*
 ###########################################################
 
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
- KEYBOARD_KEY_70073=f21                                 # Touchpad toggle
+ KEYBOARD_KEY_70073=touchpad_toggle                     # Touchpad toggle
 
 ###########################################################
 # WeiHeng
@@ -2107,7 +2107,7 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
 
 # P325J
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINET:pnP325J:*
- KEYBOARD_KEY_76=f21                                    # Touchpad toggle
+ KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
 
 ###########################################################
 # Xiaomi
@@ -2234,7 +2234,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnViewSonic:pnVPAD10:*
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJPW1[12]F11X*:pvr*:*
 # Vaio FE14 (VJFE41F11X, VJE42F11X, VJFE44F11X, VJFE54F11X)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFE*:pvr*:*
- KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
 
 # VAIO VJFH52
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFH52F11X*:pvr*:*
@@ -2250,23 +2250,23 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnCF40CM-V2*
 # Positivo DUO (k116)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116*
- KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
 
 # Positivo (N14NPE-N, N15NPE-N)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnN1[45]NPE-N*
- KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
  KEYBOARD_KEY_dd=search
 
 # Positivo (N15EPE, N14EPE)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnN1[45]EPE*
- KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+F1 toggle touchpad
  KEYBOARD_KEY_6e=search
 
 # Positivo (CG15D)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCG15D*
 # Positivo Motion (N14AP7, N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14[ADJK]P*
- KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+f2 toggle touchpad
  KEYBOARD_KEY_67=prog1                                  # Programmable button
  KEYBOARD_KEY_68=prog2                                  # Programmable button
  KEYBOARD_KEY_69=prog3                                  # Programmable button
@@ -2282,7 +2282,7 @@ evdev:name:SINO WEALTH USB KEYBOARD:dmi:bvn*:bvr*:svnPositivoInformaticaSA:pn*:p
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:br*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14EP6*
 # Positivo Motion (CW14Q01P) (CW14Q01P-V2)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCW14Q01P*
- KEYBOARD_KEY_70073=f21                                 # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+f2 toggle touchpad
  KEYBOARD_KEY_7006b=prog1                               # Programmable button
  KEYBOARD_KEY_7006c=prog2                               # Programmable button
  KEYBOARD_KEY_7006d=prog3                               # Programmable button
@@ -2293,7 +2293,7 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
 ###########################################################
 # Multilaser Ultra (UL154)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
- KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_76=touchpad_toggle                        # Fn+f2 toggle touchpad
 
 ###########################################################
 # Other
