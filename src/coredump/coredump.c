@@ -1683,7 +1683,7 @@ static int gather_pid_mount_tree_fd(const Context *context) {
                            "(sd-mount-tree)",
                            /* except_fds= */ NULL,
                            /* n_except_fds= */ 0,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG,
                            /* pidns_fd= */ -EBADF,
                            mntns_fd,
                            /* netns_fd= */ -EBADF,
@@ -1691,7 +1691,7 @@ static int gather_pid_mount_tree_fd(const Context *context) {
                            root_fd,
                            &child);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork(): %m");
+                return r;
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
