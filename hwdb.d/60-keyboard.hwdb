@@ -117,7 +117,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:*
  KEYBOARD_KEY_ee=brightnessup                           # Fn+Right
  KEYBOARD_KEY_ef=brightnessdown                         # Fn+Left
  KEYBOARD_KEY_f1=touchpad_on                            # Fn+F7 Touchpad toggle (off-to-on)
- KEYBOARD_KEY_f2=f23                                    # Fn+F7 Touchpad toggle (on-to-off)
+ KEYBOARD_KEY_f2=touchpad_off                           # Fn+F7 Touchpad toggle (on-to-off)
  KEYBOARD_KEY_f3=prog2                                  # "P2" programmable button
  KEYBOARD_KEY_f4=prog1                                  # "P1" programmable button
  KEYBOARD_KEY_f5=presentation
@@ -665,7 +665,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
  KEYBOARD_KEY_88=media                                  # FIXME: quick play
  KEYBOARD_KEY_b7=print
- KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # touchpad on
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:*
@@ -676,7 +676,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
 
 # Pavilion 13 x360 (Tablet mode and SYSRQ key)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:*
- KEYBOARD_KEY_d7=!f23                                   # touchpad off
+ KEYBOARD_KEY_d7=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=unknown
  KEYBOARD_KEY_d2=sysrq                                  # Fn+Print = SYSRQ
 
@@ -732,7 +732,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Presario*CQ*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2510p*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2530p*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:*
- KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # touchpad on
 
 # 2570p
@@ -760,14 +760,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
  KEYBOARD_KEY_87=volumedown
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
- KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # touchpad on
  KEYBOARD_KEY_b3=brightness_auto                        # Auto brightness
 
 # TX2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:*
  KEYBOARD_KEY_c2=media
- KEYBOARD_KEY_d8=!f23                                   # Toggle touchpad button on tx2 (OFF)
+ KEYBOARD_KEY_d8=!touchpad_off                          # Toggle touchpad button on tx2 (OFF)
  KEYBOARD_KEY_d9=!touchpad_on                           # Toggle touchpad button on tx2 (ON)
 
 # Presario 2100
@@ -793,7 +793,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*EliteBook*8460p:*
 # HDX9494nr
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHDX9494NR:*
  KEYBOARD_KEY_b2=www                                    # Fn+F3
- KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # touchpad on
 
 # HP EliteBook 725 G2
@@ -836,7 +836,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPZBookStudioG4:*
 
 # HP EliteBook Folio 1040 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:*
- KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # touchpad on
 
 # HP EliteBook Folio G1
@@ -875,7 +875,7 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*455*G5*:*
 
 # HP ProBook 11G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
- KEYBOARD_KEY_d8=!f23                                   # Fn+F2: touchpad off
+ KEYBOARD_KEY_d8=!touchpad_off                          # Fn+F2: touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # Fn+F2: touchpad on
 
 # HP mt44 Mobile Thin Client
@@ -1111,7 +1111,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:*
 evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_0d=rfkill                                 # airplane mode switch (toggle all wireless devices)
  KEYBOARD_KEY_08=micmute
- KEYBOARD_KEY_42=f23
+ KEYBOARD_KEY_42=touchpad_off
  KEYBOARD_KEY_43=touchpad_on
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
@@ -1597,7 +1597,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
 
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
  KEYBOARD_KEY_0213=touchpad_on
- KEYBOARD_KEY_0214=f23
+ KEYBOARD_KEY_0214=touchpad_off
 
 # MSI Claw
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
@@ -1849,7 +1849,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*:*
  KEYBOARD_KEY_c5=!prog3                                 # Fn+F8 switch power mode (battery/dynamic/performance)
  KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 wlan/airplane switch
  KEYBOARD_KEY_f7=!touchpad_on                           # Fn+F10 Touchpad on
- KEYBOARD_KEY_f9=!f23                                   # Fn+F10 Touchpad off
+ KEYBOARD_KEY_f9=!touchpad_off                          # Fn+F10 Touchpad off
 
 # Series 3
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*300E[457]*:*
@@ -1863,7 +1863,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*355V[45]*:pvr*
  KEYBOARD_KEY_88=!brightnessup           # Fn+F3  brightness up
  KEYBOARD_KEY_82=!switchvideomode        # Fn+F4  display toggle
  KEYBOARD_KEY_f7=!touchpad_on            # Fn+F5  touchpad on
- KEYBOARD_KEY_f9=!f23                    # Fn+F5  touchpad off
+ KEYBOARD_KEY_f9=!touchpad_off           # Fn+F5  touchpad off
  KEYBOARD_KEY_a0=!mute                   # Fn+F6  mute
  KEYBOARD_KEY_ae=!volumedown             # Fn+F7  volume down
  KEYBOARD_KEY_b0=!volumeup               # Fn+F8  volume up
@@ -1939,7 +1939,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*SX20S*:*
  KEYBOARD_KEY_74=mute
  KEYBOARD_KEY_75=mute
  KEYBOARD_KEY_77=touchpad_on                            # Touchpad on
- KEYBOARD_KEY_79=f23                                    # Touchpad off
+ KEYBOARD_KEY_79=touchpad_off                           # Touchpad off
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
  KEYBOARD_KEY_ad=leftmeta
@@ -2039,7 +2039,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*A110:*
  KEYBOARD_KEY_93=www
  KEYBOARD_KEY_94=media
  KEYBOARD_KEY_9e=touchpad_on                            # Touchpad on
- KEYBOARD_KEY_9f=f23                                    # Touchpad off
+ KEYBOARD_KEY_9f=touchpad_off                           # Touchpad off
  KEYBOARD_KEY_b9=nextsong
  KEYBOARD_KEY_d9=brightnessup
  KEYBOARD_KEY_ee=screenlock
@@ -2053,7 +2053,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*M30X:*
  KEYBOARD_KEY_ee=screenlock
  KEYBOARD_KEY_93=media
  KEYBOARD_KEY_9e=touchpad_on                            # touchpad enable
- KEYBOARD_KEY_9f=f23                                    # touchpad disable
+ KEYBOARD_KEY_9f=touchpad_off                           # touchpad disable
 
 # Satellite P75-A
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:*
@@ -2133,7 +2133,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote:*
  KEYBOARD_KEY_93=switchvideomode                        # Fn+F3 Toggle Video Output
  KEYBOARD_KEY_95=brightnessdown                         # Fn+F4 Brightness Down
  KEYBOARD_KEY_91=brightnessup                           # Fn+F5 Brightness Up
- KEYBOARD_KEY_a5=f23                                    # Fn+F6 Disable Touchpad
+ KEYBOARD_KEY_a5=touchpad_off                           # Fn+F6 Disable Touchpad
  KEYBOARD_KEY_a6=touchpad_on                            # Fn+F6 Enable Touchpad
  KEYBOARD_KEY_a7=bluetooth                              # Fn+F10 Enable Bluetooth
  KEYBOARD_KEY_a9=bluetooth                              # Fn+F10 Disable Bluetooth
@@ -2238,7 +2238,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 
 # VAIO VJFH52
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFH52F11X*:pvr*:*
- KEYBOARD_KEY_f7=f23		                        # Fn+F1 toggle touchpad off
+ KEYBOARD_KEY_f7=touchpad_off                           # Fn+F1 toggle touchpad off
  KEYBOARD_KEY_f8=touchpad_on                            # Fn+F1 toggle touchpad on
 
 ###########################################################
