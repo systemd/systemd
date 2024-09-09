@@ -203,6 +203,11 @@ NetDev* netdev_detach_name(NetDev *netdev, const char *name) {
 static NetDev* netdev_detach_impl(NetDev *netdev) {
         assert(netdev);
 
+        if (netdev->state != _NETDEV_STATE_INVALID &&
+            NETDEV_VTABLE(netdev) &&
+            NETDEV_VTABLE(netdev)->detach)
+                NETDEV_VTABLE(netdev)->detach(netdev);
+
         NetDev *n = netdev_detach_name(netdev, netdev->ifname);
 
         netdev->manager = NULL;
@@ -218,6 +223,8 @@ void netdev_detach(NetDev *netdev) {
 static NetDev* netdev_free(NetDev *netdev) {
         assert(netdev);
 
+        netdev_detach_impl(netdev);
+
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
          * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
          * allocation, with no room for per-kind fields), and once to read the kind's properties (with a full,
@@ -229,8 +236,6 @@ static NetDev* netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
-
-        netdev_detach_impl(netdev);
 
         condition_free_list(netdev->conditions);
         free(netdev->filename);
@@ -302,6 +307,12 @@ static int netdev_attach(NetDev *netdev) {
         if (r < 0)
                 return r;
 
+        if (NETDEV_VTABLE(netdev)->attach) {
+                r = NETDEV_VTABLE(netdev)->attach(netdev);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -334,7 +345,10 @@ void link_assign_netdev(Link *link) {
         if (netdev_get(link->manager, link->ifname, &netdev) < 0)
                 return;
 
-        if (netdev->ifindex != link->ifindex)
+        int ifindex = NETDEV_VTABLE(netdev)->get_ifindex ?
+                NETDEV_VTABLE(netdev)->get_ifindex(netdev, link->ifname) :
+                netdev->ifindex;
+        if (ifindex != link->ifindex)
                 return;
 
         if (NETDEV_VTABLE(netdev)->iftype != link->iftype)
@@ -421,6 +435,9 @@ static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex
         assert(netdev);
         assert(name);
         assert(ifindex > 0);
+
+        if (NETDEV_VTABLE(netdev)->set_ifindex)
+                return NETDEV_VTABLE(netdev)->set_ifindex(netdev, name, ifindex);
 
         if (!streq(netdev->ifname, name))
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),

@@ -168,6 +168,16 @@ typedef struct NetDevVTable {
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);
 
+        /* attach/detach additional interfaces, e.g. veth peer or L2TP sessions. */
+        int (*attach)(NetDev *netdev);
+        void (*detach)(NetDev *netdev);
+
+        /* set ifindex of the created interface. */
+        int (*set_ifindex)(NetDev *netdev, const char *name, int ifindex);
+
+        /* get ifindex of the netdev. */
+        int (*get_ifindex)(NetDev *netdev, const char *name);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
