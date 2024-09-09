@@ -207,6 +207,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
 bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
+void link_assign_netdev(Link *link);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
