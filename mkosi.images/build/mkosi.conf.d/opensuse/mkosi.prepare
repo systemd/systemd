@@ -20,7 +20,7 @@ mkosi-chroot \
     --query \
     --buildrequires \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
     "pkg/$PKG_SUBDIR/systemd.spec" |
         grep --invert-match --regexp systemd --regexp /bin/sh --regexp "rpmlib(" --regexp udev |
         sort --unique |
@@ -30,10 +30,11 @@ mkosi-chroot \
 until mkosi-chroot \
     rpmbuild \
     -bd \
+    --noprep \
     --build-in-place \
     --with upstream \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
     "pkg/$PKG_SUBDIR/systemd.spec"
 do

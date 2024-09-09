@@ -1243,6 +1243,8 @@ static int acquire_new_password(
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
+                assert(!strv_isempty(first));
+
                 question = mfree(question);
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();

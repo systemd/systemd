@@ -9,11 +9,7 @@ if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
     exit 1
 fi
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.19.91'))}")" == "-1" ]]; then
     # Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
@@ -57,6 +53,12 @@ if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
 fi
 
+# Hack to work around https://github.com/rpm-software-management/rpm/issues/3216.
+# TODO: Remove when rpm 4.20 gets into Rawhide.
+mkdir -p "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build"
+mkdir -p "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build/SPECPARTS"
+ln -s /work/src "/var/tmp/BUILD/systemd-${VERSION/\~/_}-build/systemd-$VERSION"
+
 IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
@@ -70,12 +72,13 @@ CC_LD="$( ((LLVM)) && echo lld)" \
 CXX_LD="$( ((LLVM)) && echo lld)" \
     rpmbuild \
     -bb \
+    --noprep \
     --build-in-place \
     --with upstream \
     $( ((WITH_TESTS)) || echo "--nocheck") \
     $( ((WITH_DOCS))  || echo "--without=docs") \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
     --define "_rpmdir $OUTPUTDIR" \
     ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -100,7 +103,6 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
-    --define "_fixperms true" \
     --undefine _package_note_flags \
     --noclean \
     "pkg/$PKG_SUBDIR/systemd.spec"
