@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <linux/if_arp.h>
 #include <linux/l2tp.h>
 #include <linux/genetlink.h>
 
@@ -819,6 +820,78 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static int netdev_l2tp_tunnel_attach(NetDev *netdev) {
+        L2tpTunnel *t = L2TP(netdev);
+        L2tpSession *session;
+        int r;
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section) {
+                assert(session->name);
+
+                r = netdev_attach_name(netdev, session->name);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static void netdev_l2tp_tunnel_detach(NetDev *netdev) {
+        L2tpTunnel *t = L2TP(netdev);
+        L2tpSession *session;
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
+                netdev_detach_name(netdev, session->name);
+}
+
+static int netdev_l2tp_tunnel_set_ifindex(NetDev *netdev, const char *name, int ifindex) {
+        L2tpTunnel *t = L2TP(netdev);
+        L2tpSession *session;
+        bool found = false;
+
+        assert(name);
+        assert(ifindex > 0);
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
+                if (streq(session->name, name)) {
+                        if (session->ifindex == ifindex)
+                                return 0; /* already set. */
+                        if (session->ifindex > 0 && session->ifindex != ifindex)
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                                "Could not set ifindex %i for session %s, already set to %i.",
+                                                                ifindex, session->name, session->ifindex);
+
+                        session->ifindex = ifindex;
+                        log_netdev_debug(netdev, "Session %s gained ifindex %i.", session->name, session->ifindex);
+                        found = true;
+                        break;
+                }
+
+        if (!found)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Received netlink message with unexpected interface name %s (ifindex=%i).",
+                                                name, ifindex);
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
+                if (session->ifindex <= 0)
+                        return 0; /* This session is not ready yet. */
+
+        return netdev_enter_ready(netdev);
+}
+
+static int netdev_l2tp_tunnel_get_ifindex(NetDev *netdev, const char *name) {
+        L2tpTunnel *t = L2TP(netdev);
+        L2tpSession *session;
+
+        assert(name);
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
+                if (streq(session->name, name))
+                        return session->ifindex;
+
+        return -ENODEV;
+}
+
 static void l2tp_tunnel_done(NetDev *netdev) {
         L2tpTunnel *t = L2TP(netdev);
 
@@ -835,4 +908,10 @@ const NetDevVTable l2tptnl_vtable = {
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .is_ready_to_create = netdev_l2tp_is_ready_to_create,
         .config_verify = netdev_l2tp_tunnel_verify,
+        .attach = netdev_l2tp_tunnel_attach,
+        .detach = netdev_l2tp_tunnel_detach,
+        .set_ifindex = netdev_l2tp_tunnel_set_ifindex,
+        .get_ifindex = netdev_l2tp_tunnel_get_ifindex,
+        .iftype = ARPHRD_ETHER,
+        .skip_netdev_kind_check = true,
 };
