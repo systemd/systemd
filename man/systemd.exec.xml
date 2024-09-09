@@ -1966,18 +1966,29 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new user namespace for the executed processes and
-        configures a minimal user and group mapping, that maps the <literal>root</literal> user and group as well as
-        the unit's own user and group to themselves and everything else to the <literal>nobody</literal> user and
-        group. This is useful to securely detach the user and group databases used by the unit from the rest of the
-        system, and thus to create an effective sandbox environment. All files, directories, processes, IPC objects and
-        other resources owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible
-        from within the unit but appear owned by the <literal>nobody</literal> user and group. If this mode is enabled,
-        all unit processes are run without privileges in the host user namespace (regardless if the unit's own
-        user/group is <literal>root</literal> or not). Specifically this means that the process will have zero process
-        capabilities on the host's user namespace, but full capabilities within the service's user namespace. Settings
-        such as <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
-        additional capabilities in the host's user namespace. Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
+        <literal>identity</literal>. Defaults to off. If enabled, sets up a new user namespace for the
+        executed processes and configures a user and group mapping. If set to a true value or
+        <literal>self</literal>, a minimal user and group mapping is configured that maps the
+        <literal>root</literal> user and group as well as the unit's own user and group to themselves and
+        everything else to the <literal>nobody</literal> user and group. This is useful to securely detach
+        the user and group databases used by the unit from the rest of the system, and thus to create an
+        effective sandbox environment. All files, directories, processes, IPC objects and other resources
+        owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible from
+        within the unit but appear owned by the <literal>nobody</literal> user and group. </para>
+
+        <para>If the parameter is <literal>identity</literal>, user namespacing is set up with an identity
+        mapping for the first 65536 UIDs/GIDs. Any UIDs/GIDs above 65536 will be mapped to the
+        <literal>nobody</literal> user and group, respectively. While this does not provide UID/GID isolation,
+        since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
+        often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
+
+        <para>If this mode is enabled, all unit processes are run without privileges in the host user
+        namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
+        this means that the process will have zero process capabilities on the host's user namespace, but
+        full capabilities within the service's user namespace. Settings such as
+        <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
+        additional capabilities in the host's user namespace.</para>
 
         <para>When this setting is set up by a per-user instance of the service manager, the mapping of the
         <literal>root</literal> user and group to itself is omitted (unless the user manager is root).
