@@ -821,8 +821,7 @@ static int submit_coredump(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
-        _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
-        _cleanup_free_ char *stacktrace = NULL;
+        _cleanup_free_ char *filename = NULL, *coredump_data = NULL, *stacktrace = NULL;
         const char *module_name, *root = NULL;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false, written = false;
