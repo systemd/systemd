@@ -1664,11 +1664,11 @@ static int gather_pid_mount_tree_fd(const Context *context) {
 
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
 #if !HAVE_DWFL_SET_SYSROOT
-        return -EBADF;
+        return -EOPNOTSUPP;
 #endif
 
         if (!arg_access_container)
-                return -EBADF;
+                return -EOPNOTSUPP;
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_error_errno(errno, "Failed to create socket pair: %m");
@@ -1763,7 +1763,7 @@ static int process_kernel(int argc, char* argv[]) {
                         return 0;
 
                 r = gather_pid_mount_tree_fd(&context);
-                if (r < 0 && r != -EBADF)
+                if (r < 0 && r != -EOPNOTSUPP)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
                 else
                         mount_tree_fd = r;
