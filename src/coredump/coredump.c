@@ -1675,7 +1675,17 @@ static int gather_pid_mount_tree_fd(const Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
 
-        r = namespace_fork("(sd-mount-tree-ns)", "(sd-mount-tree)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, -1, mntns_fd, -1, -1, root_fd, &child);
+        r = namespace_fork("(sd-mount-tree-ns)",
+                           "(sd-mount-tree)",
+                           /* except_fds= */ NULL,
+                           /* n_except_fds= */ 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                           /* pidns_fd= */ -EBADF,
+                           mntns_fd,
+                           /* netns_fd= */ -EBADF,
+                           /* userns_fd= */ -EBADF,
+                           root_fd,
+                           &child);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork(): %m");
         if (r == 0) {
