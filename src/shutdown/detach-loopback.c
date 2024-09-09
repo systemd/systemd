@@ -18,6 +18,7 @@
 #include "detach-loopback.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "shutdown.h"
 
 typedef struct LoopbackDevice {
         char *path;
@@ -111,8 +112,7 @@ static int delete_loopback(const char *device) {
 
         /* Loopback block devices don't sync in-flight blocks when we clear the fd, hence sync explicitly
          * first */
-        if (fsync(fd) < 0)
-                log_debug_errno(errno, "Failed to sync loop block device %s, ignoring: %m", device);
+        (void) sync_with_progress(fd);
 
         if (ioctl(fd, LOOP_CLR_FD, 0) < 0) {
                 if (errno == ENXIO) /* Nothing bound, didn't do anything */
