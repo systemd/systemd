@@ -20,7 +20,7 @@ if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
                 install : true,
                 install_dir : sshconfdir.startswith('/usr/') ? sshconfdir : libexecdir / 'ssh_config.d')
 
-        if not sshconfdir.startswith('/usr/')
+        if conf.get('LINK_SSH_PROXY_DROPIN') == 1
                 install_emptydir(sshconfdir)
 
                 meson.add_install_script(sh, '-c',
