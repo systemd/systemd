@@ -4,6 +4,7 @@
 
 #include "analyze.h"
 #include "analyze-inspect-elf.h"
+#include "chase.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -27,13 +28,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 if (r < 0)
                         return log_error_errno(r, "Could not make an absolute path out of \"%s\": %m", *filename);
 
-                path = path_join(empty_to_root(arg_root), abspath);
-                if (!path)
-                        return log_oom();
-
-                path_simplify(path);
-
-                fd = RET_NERRNO(open(path, O_RDONLY|O_CLOEXEC));
+                fd = chase_and_open(abspath, arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, NULL);
                 if (fd < 0)
                         return log_error_errno(fd, "Could not open \"%s\": %m", path);
 
@@ -65,7 +60,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                  * metadata is parsed recursively in core files, so there might be
                                  * multiple modules. */
                                 if (STR_IN_SET(module_name, "elfType", "elfArchitecture")) {
-                                        if (streq(module_name, "elfType") && streq("coredump", sd_json_variant_string(module_json)))
+                                        if (streq(module_name, "elfType") && streq(sd_json_variant_string(module_json), "coredump"))
                                                 coredump = true;
 
                                         r = table_add_many(
