@@ -38,6 +38,10 @@ static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "VxCan NetDev without peer name configured in %s. Ignoring", filename);
 
+        if (streq(v->ifname_peer, netdev->ifname))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "VxCan peer name cannot be the same as the main interface name.");
+
         return 0;
 }
 
