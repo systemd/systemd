@@ -762,9 +762,12 @@ static void l2tp_tunnel_init(NetDev *netdev) {
                                 ##__VA_ARGS__);                         \
         })
 
-static int l2tp_session_verify(L2tpSession *session) {
+static int l2tp_session_verify(L2tpSession *session, Set **names) {
+        int r;
+
         assert(session);
         assert(session->tunnel);
+        assert(names);
 
         if (section_is_invalid(session->section))
                 return -EINVAL;
@@ -774,6 +777,15 @@ static int l2tp_session_verify(L2tpSession *session) {
 
         if (session->session_id == 0 || session->peer_session_id == 0)
                 return log_session(session, "L2TP session without session IDs configured.");
+
+        if (streq(session->name, NETDEV(session->tunnel)->ifname))
+                return log_session(session, "L2TP session name %s cannot be the same as the netdev name.", session->name);
+
+        r = set_ensure_put(names, &string_hash_ops, session->name);
+        if (r < 0)
+                return log_oom();
+        if (r == 0)
+                return log_session(session, "L2TP session name %s is duplicated.", session->name);
 
         return 0;
 }
@@ -799,8 +811,9 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                                 "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
                                                 filename);
 
+        _cleanup_set_free_ Set *names = NULL;
         ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
-                if (l2tp_session_verify(session) < 0)
+                if (l2tp_session_verify(session, &names) < 0)
                         l2tp_session_free(session);
 
         return 0;
