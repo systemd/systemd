@@ -350,7 +350,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         const char *kind;
         const char *received_kind;
         const char *received_name;
-        int r, ifindex;
+        int r, ifindex, family;
 
         assert(netdev);
         assert(message);
@@ -361,6 +361,13 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
         if (type != RTM_NEWLINK)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
+
+        r = sd_rtnl_message_get_family(message, &family);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Failed to get family from received rtnl message: %m");
+
+        if (family != AF_UNSPEC)
+                return 0; /* IFLA_LINKINFO is only cotained in the message with AF_UNSPEC. */
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
