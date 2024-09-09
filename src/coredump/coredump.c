@@ -1086,11 +1086,34 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-                /* The final zero-length datagram carries the file descriptor and tells us
+                /* The final zero-length datagram carries the file descriptors and tells us
                  * that we're done. */
                 if (n == 0) {
                         struct cmsghdr *found;
 
+                        if (first) {
+                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
+                                if (found) {
+                                        /* This is the first message that carries file descriptors. Maybe
+                                         * there will be one more that actually contains array of two
+                                         * descriptors. */
+                                        assert(input_fd < 0);
+
+                                        input_fd = *CMSG_TYPED_DATA(found, int);
+                                        first = false;
+
+                                        continue;
+                                }
+
+                                /* This is zero length message but it doesn't carry a single descriptor.
+                                 * This is a protocol violation so let's bail out. */
+                                cmsg_close_all(&mh);
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                        "Received zero length message with no file descriptor.");
+                                goto finish;
+                        }
+
+                        /* Second zero length message might carry two file descriptors, coredump fd and mount tree fd. */
                         found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
                         if (found) {
                                 int fds[2] = EBADF_PAIR;
@@ -1098,28 +1121,30 @@ static int process_socket(int fd) {
                                 memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
 
                                 assert(mount_tree_fd < 0);
+                                assert(input_fd >= 0);
 
-                                /* Maybe we already got coredump FD in previous iteration? */
+                                /* Let's close input fd we got in the previous iteration. */
                                 safe_close(input_fd);
 
                                 input_fd = fds[0];
                                 mount_tree_fd = fds[1];
 
-                                /* We have all FDs we need let's take a shortcut here. */
+                                /* We have all FDs we need so let's take a shortcut here. */
                                 break;
-                        } else {
-                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-                                if (found)
-                                        input_fd = *CMSG_TYPED_DATA(found, int);
                         }
 
-                         /* This is the first message that carries file descriptors, maybe there will be one more that actually contains array of descriptors. */
-                        if (first) {
-                                first = false;
-                                continue;
-                        }
+                        /* This is second iteration and we didn't find array of two FDs. */
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
+                        cmsg_close_all(&mh);
 
-                        break;
+                        if (!found)
+                                /* Hence we either have no FDs which is OK and we can break. */
+                                break;
+
+                        /* Or we have some other number of FDs and somebody is playing games with us. */
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected file descriptors.");
+                        goto finish;
+
                 } else
                         cmsg_close_all(&mh);
 
