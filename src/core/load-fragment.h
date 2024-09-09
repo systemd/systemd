@@ -112,6 +112,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_tmp);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
