@@ -62,8 +62,9 @@
         <term><option>--identifier=</option></term>
 
         <listitem><para>Specify a short string that is used to
-        identify the logging tool. If not specified, no identification
-        string is written to the journal.</para></listitem>
+        identify the logging tool. If not specified, identification
+        string is the executable name, or <literal>cat</literal> if the
+        input is read from a pipe.</para></listitem>
       </varlistentry>
 
       <varlistentry>
