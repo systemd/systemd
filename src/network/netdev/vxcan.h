@@ -9,6 +9,7 @@ struct VxCan {
         NetDev meta;
 
         char *ifname_peer;
+        int ifindex_peer;
 };
 
 DEFINE_NETDEV_CAST(VXCAN, VxCan);
