@@ -2077,7 +2077,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2096,31 +2096,45 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
          * For unprivileged users (i.e. without capabilities), the root to root mapping is excluded. As such, it
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
+        if (private_users == PRIVATE_USERS_IDENTITY) {
+                uid_map = strdup("0 0 65536\n");
+                if (!uid_map)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
-        if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid))
+        } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
                              UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
                              ouid, ouid, uid, uid);
-        else
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
                              ouid, ouid);
-        if (r < 0)
-                return -ENOMEM;
+                if (r < 0)
+                        return -ENOMEM;
+        }
 
+        if (private_users == PRIVATE_USERS_IDENTITY) {
+                gid_map = strdup("0 0 65536\n");
+                if (!gid_map)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
-        if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid))
+        } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
                              GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
                              ogid, ogid, gid, gid);
-        else
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
                              ogid, ogid);
-        if (r < 0)
-                return -ENOMEM;
+                if (r < 0)
+                        return -ENOMEM;
+        }
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
          * namespace. */
@@ -3834,7 +3848,7 @@ static bool exec_context_need_unprivileged_private_users(
         if (params->runtime_scope != RUNTIME_SCOPE_USER)
                 return false;
 
-        return context->private_users ||
+        return context->private_users != PRIVATE_USERS_OFF ||
                context->private_tmp != PRIVATE_TMP_OFF ||
                context->private_devices ||
                context->private_network ||
@@ -4744,10 +4758,10 @@ int exec_invoke(
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
 
-                r = setup_private_users(saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
-                if (r < 0 && context->private_users) {
+                if (r < 0 && context->private_users != PRIVATE_USERS_OFF) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing for unprivileged user: %m");
                 }
@@ -4867,8 +4881,8 @@ int exec_invoke(
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
 
-        if (needs_sandboxing && context->private_users && !userns_set_up) {
-                r = setup_private_users(saved_uid, saved_gid, uid, gid);
+        if (needs_sandboxing && context->private_users != PRIVATE_USERS_OFF && !userns_set_up) {
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
