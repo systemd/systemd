@@ -211,8 +211,8 @@ Processes systemd spawns are placed in individual Linux control groups named aft
 they belong to in the private systemd hierarchy. (see `Control Groups v2 <https://docs.kernel.org/admin-guide/cgroup-v2.html>`_ for more information
 about control groups, or short "cgroups").  systemd uses this to effectively keep track of
 processes. Control group information is maintained in the kernel, and is accessible via the file system
-hierarchy (beneath ``/sys/fs/cgroup/``), or in tools such as `systemd-cgls(1) <https://man7.org/linux/man-pages/man1/systemd-cgls.1.html>`_ or
-`ps(1) <https://man7.org/linux/man-pages/man1/ps.1.html>`_ (``ps
+hierarchy (beneath ``/sys/fs/cgroup/``), or in tools such as :man-pages:`systemd-cgls(1)` or
+:man-pages:`ps(1)` (``ps
 xawf -eo pid,user,cgroup,args`` is particularly useful to list all processes and the systemd
 units they belong to.).
 
@@ -1028,9 +1028,9 @@ easier to type.
 Set the system locale to use. This overrides
 the settings in ``/etc/locale.conf``. For
 more information, see
-`locale.conf(5) <https://man7.org/linux/man-pages/man5/locale.conf.5.html>`_
+:man-pages:`locale.conf(5)`
 and
-`locale(7) <https://man7.org/linux/man-pages/man7/locale.7.html>`_.
+:man-pages:`locale(7)`.
 
 .. only:: html
 
@@ -1462,7 +1462,7 @@ the unified cgroup hierarchy.
 See Also
 ========
 
-The `systemd Homepage <https://systemd.io/>`_, :ref:`systemd-system.conf(5)`, `locale.conf(5) <https://man7.org/linux/man-pages/man5/locale.conf.5.html>`_, :ref:`systemctl(1)`, :ref:`journalctl(1)`, :ref:`systemd-notify(1)`, :ref:`daemon(7)`, :ref:`sd-daemon(3)`, :ref:`org.freedesktop.systemd1(5)`, :ref:`systemd.unit(5)`, :ref:`systemd.special(7)`, `pkg-config(1) <http://linux.die.net/man/ 1/pkg-config>`_, :ref:`kernel-command-line(7)`, `bootup(7) <https://man7.org/linux/man-pages/man7/bootup.7.html>`_, :ref:`systemd.directives(7)`
+The `systemd Homepage <https://systemd.io/>`_, :ref:`systemd-system.conf(5)`, :man-pages:`locale.conf(5)`, :ref:`systemctl(1)`, :ref:`journalctl(1)`, :ref:`systemd-notify(1)`, :ref:`daemon(7)`, :ref:`sd-daemon(3)`, :ref:`org.freedesktop.systemd1(5)`, :ref:`systemd.unit(5)`, :ref:`systemd.special(7)`, :die-net:`pkg-config(1)`, :ref:`kernel-command-line(7)`, :man-pages:`bootup(7)`, :ref:`systemd.directives(7)`
 
 For more information about the concepts and
 ideas behind systemd, please refer to the

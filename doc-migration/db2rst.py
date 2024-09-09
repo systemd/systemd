@@ -600,24 +600,23 @@ def date(el):
 
 
 def citerefentry(el):
-    # Handles all external URl conversions from man/custom-html.xsl
     project = el.get("project")
     refentrytitle = el.xpath("refentrytitle")[0].text
     manvolnum = el.xpath("manvolnum")[0].text
-    if project == 'man-pages' or manvolnum == 2 or manvolnum == 4:
-        return f"`{refentrytitle}({manvolnum}) <https://man7.org/linux/man-pages/man{manvolnum}/{refentrytitle}.{manvolnum}.html>`_"
-    if project == 'die-net':
-        return f"`{refentrytitle}({manvolnum}) <http://linux.die.net/man/ {manvolnum}/{refentrytitle}>`_"
-    if project == 'mankier':
-        return f"`{refentrytitle}({manvolnum}) <https://www.mankier.com/{manvolnum}/{refentrytitle}>`_"
-    if project == 'archlinux':
-        return f"`{refentrytitle}({manvolnum}) <https://man.archlinux.org/man/{refentrytitle}.{manvolnum}.en.html>`_"
-    if project == 'debian':
-        return f"`{refentrytitle}({manvolnum}) <https://manpages.debian.org/unstable/{refentrytitle}/{refentrytitle}.{manvolnum}.en.html>`_"
-    if project == 'freebsd':
-        return f"`{refentrytitle}({manvolnum}) <https://www.freebsd.org/cgi/man.cgi?{refentrytitle}({manvolnum})>`_"
-    if project == 'dbus':
-        return f"`{refentrytitle}({manvolnum}) <https://dbus.freedesktop.org/doc/{refentrytitle}.{manvolnum}.html>`_"
+
+    extlink_formats = {
+        'man-pages': f':man-pages:`{refentrytitle}({manvolnum})`',
+        'die-net': f':die-net:`{refentrytitle}({manvolnum})`',
+        'mankier': f':mankier:`{refentrytitle}({manvolnum})`',
+        'archlinux': f':archlinux:`{refentrytitle}({manvolnum})`',
+        'debian': f':debian:`{refentrytitle}({manvolnum})`',
+        'freebsd': f':freebsd:`{refentrytitle}({manvolnum})`',
+        'dbus': f':dbus:`{refentrytitle}({manvolnum})`',
+    }
+
+    if project in extlink_formats:
+        return extlink_formats[project]
+
     if project == 'url':
         url = el.get("url")
         return f"`{refentrytitle}({manvolnum}) <{url}>`_"

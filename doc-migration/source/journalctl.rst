@@ -373,7 +373,7 @@ This parameter can be specified multiple times.
 Filter output by message priorities or priority ranges. Takes either a single numeric
 or textual log level (i.e. between 0/``emerg`` and 7/``debug``), or a
 range of numeric/text log levels in the form FROM..TO. The log levels are the usual syslog log levels
-as documented in `syslog(3) <https://man7.org/linux/man-pages/man3/syslog.3.html>`_,
+as documented in :man-pages:`syslog(3)`,
 i.e. ``emerg``(0), ``alert``(1), ``crit``(2),
 ``err``(3), ``warning``(4), ``notice``(5),
 ``info``(6), ``debug``(7). If a single log level is specified, all
@@ -390,7 +390,7 @@ priorities.
 ---------------
 
 Filter output by syslog facility. Takes a comma-separated list of numbers or
-facility names. The names are the usual syslog facilities as documented in `syslog(3) <https://man7.org/linux/man-pages/man3/syslog.3.html>`_.
+facility names. The names are the usual syslog facilities as documented in :man-pages:`syslog(3)`.
 ``--facility=help`` may be used to display a list of known facility names and exit.
 
 .. only:: html
@@ -747,7 +747,7 @@ Immediately jump to the end of the journal inside the implied pager tool. This
 implies ``-n1000`` to guarantee that the pager will not buffer logs of unbounded
 size. This may be overridden with an explicit ``-n`` with some other numeric value,
 while ``-nall`` will disable this cap.  Note that this option is only supported for
-the `less(1) <https://man7.org/linux/man-pages/man1/less.1.html>`_
+the :man-pages:`less(1)`
 pager.
 
 .. only:: html
