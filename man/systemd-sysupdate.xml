@@ -107,6 +107,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>features</option> <optional><replaceable>FEATURE</replaceable></optional></term>
+
+        <listitem><para>If invoked without an argument, enumerates optional features and shows a summarizing
+        table, including which features are enabled or disabled. If a feature argument is specified, shows
+        details about the specific feature, including the transfers that are controlled by the feature.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>check-new</option></term>
 
         <listitem><para>Checks if there's a new version available. This internally enumerates downloadable and
