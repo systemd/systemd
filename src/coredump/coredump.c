@@ -86,6 +86,8 @@
  * size. See DATA_SIZE_MAX in journal-importer.h. */
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
+#define MOUNT_TREE_ROOT "/run/systemd/mount-rootfs"
+
 enum {
         /* We use these as array indexes for our process metadata cache.
          *
@@ -782,30 +784,32 @@ static int change_uid_gid(const Context *context) {
         return drop_privileges(uid, gid, 0);
 }
 
-static int setup_container_mount_tree(int mount_tree_fd, char **container_root) {
+static int attach_mount_tree(int mount_tree_fd) {
         _cleanup_free_ char *root = NULL;
         int r;
 
         assert(mount_tree_fd >= 0);
-        assert(container_root);
 
-        r = unshare(CLONE_NEWNS);
+        r = detach_mount_namespace();
         if (r < 0)
-                return log_warning_errno(errno, "Failed to unshare mount namespace: %m");
+                return log_warning_errno(r, "Failed to detach mount namespace: %m");
 
-        r = mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL);
+        r = mkdir_p_label(MOUNT_TREE_ROOT, 0555);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to disable mount propagation: %m");
+                return log_warning_errno(r, "Failed to create directory: %m");
 
-        r = mkdtemp_malloc("/tmp/systemd-coredump-root-XXXXXX", &root);
+        r = mount_setattr(mount_tree_fd, "", AT_EMPTY_PATH,
+                                &(struct mount_attr) {
+                                        .attr_set = MOUNT_ATTR_RDONLY|MOUNT_ATTR_NOSUID|MOUNT_ATTR_NODEV|MOUNT_ATTR_NOEXEC,
+                                        .propagation = MS_SLAVE,
+                                }, sizeof(struct mount_attr));
         if (r < 0)
-                return log_warning_errno(r, "Failed to create temporary directory: %m");
+                return log_warning_errno(r, "Failed to change properties mount tree: %m");
 
-        r = move_mount(mount_tree_fd, "", -EBADF, root, MOVE_MOUNT_F_EMPTY_PATH);
+        r = move_mount(mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
                 return log_warning_errno(errno, "Failed to move mount tree: %m");
 
-        *container_root = TAKE_PTR(root);
         return 0;
 }
 
@@ -819,8 +823,7 @@ static int submit_coredump(
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
-        _cleanup_free_ char *root = NULL;
-        const char *module_name;
+        const char *module_name, *root = NULL;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false, written = false;
         sd_json_variant *module_json;
@@ -856,10 +859,10 @@ static int submit_coredump(
                 (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
         }
 
-        if (mount_tree_fd >= 0 && arg_access_container) {
-                r = setup_container_mount_tree(mount_tree_fd, &root);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to setup container mount tree, ignoring: %m");
+        if (mount_tree_fd >= 0) {
+                r = attach_mount_tree(mount_tree_fd);
+                if (r >= 0)
+                        root = MOUNT_TREE_ROOT;
         }
 
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
