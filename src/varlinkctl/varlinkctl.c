@@ -247,7 +247,7 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         if (arg_timeout != 0) {
                 r = sd_varlink_set_relative_timeout(vl, arg_timeout);
                 if (r < 0)
-                        log_error_errno(r, "Failed to set Varlink timeout: %m");
+                        log_warning_errno(r, "Failed to set Varlink timeout, ignoring: %m");
         }
 
         *ret = TAKE_PTR(vl);
