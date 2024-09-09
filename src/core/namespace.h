@@ -53,6 +53,14 @@ typedef enum ProcSubset {
         _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
+typedef enum PrivateUsers {
+        PRIVATE_USERS_OFF,
+        PRIVATE_USERS_SELF,
+        PRIVATE_USERS_IDENTITY,
+        _PRIVATE_USERS_MAX,
+        _PRIVATE_USERS_INVALID = -EINVAL,
+} PrivateUsers;
+
 struct BindMount {
         char *source;
         char *destination;
@@ -183,6 +191,9 @@ ProtectProc protect_proc_from_string(const char *s) _pure_;
 
 const char* proc_subset_to_string(ProcSubset i) _const_;
 ProcSubset proc_subset_from_string(const char *s) _pure_;
+
+const char* private_users_to_string(PrivateUsers i) _const_;
+PrivateUsers private_users_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);

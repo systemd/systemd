@@ -132,6 +132,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc, "Failed to parse /proc/ protection mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers, "Failed to parse private users mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset, "Failed to parse /proc/ subset mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
