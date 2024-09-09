@@ -1674,7 +1674,7 @@ static int gather_pid_mount_tree_fd(const Context *context) {
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_error_errno(errno, "Failed to create socket pair: %m");
 
-        r = namespace_open(context->pid,  NULL, &mntns_fd, NULL, NULL, &root_fd);
+        r = namespace_open(context->pid, NULL, &mntns_fd, NULL, NULL, &root_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
 
