@@ -1694,13 +1694,13 @@ static int gather_pid_mount_tree_fd(const Context *context) {
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
-                r = open_tree(-EBADF, "/", AT_NO_AUTOMOUNT | AT_RECURSIVE | AT_SYMLINK_NOFOLLOW | OPEN_TREE_CLOEXEC | OPEN_TREE_CLONE);
-                if (r < 0) {
+                fd = open_tree(-EBADF, "/", AT_NO_AUTOMOUNT | AT_RECURSIVE | AT_SYMLINK_NOFOLLOW | OPEN_TREE_CLOEXEC | OPEN_TREE_CLONE);
+                if (fd < 0) {
                         log_error_errno(errno, "Failed to clone mount tree: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                r = send_one_fd(pair[1], r, 0);
+                r = send_one_fd(pair[1], fd, 0);
                 if (r < 0) {
                         log_error_errno(r, "Failed to send mount tree to parent: %m");
                         _exit(EXIT_FAILURE);
