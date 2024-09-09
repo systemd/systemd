@@ -1476,8 +1476,8 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL, *filename = NULL;
+        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -1658,6 +1658,18 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_oom();
 
+                /* Also get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &filename);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        return r;
+                }
+
+                r = strv_extend(&extensions_v, filename);
+                if (r < 0)
+                        return log_oom();
+
                 n_extensions++;
         }
 
@@ -1672,8 +1684,9 @@ static int merge_subprocess(
 
         /* Order by version sort with strverscmp_improved() */
         typesafe_qsort(extensions, n_extensions, strverscmp_improvedp);
+        typesafe_qsort(extensions_v, n_extensions, strverscmp_improvedp);
 
-        buf = strv_join(extensions, "', '");
+        buf = strv_join(extensions_v, "', '");
         if (!buf)
                 return log_oom();
 
