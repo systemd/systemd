@@ -63,6 +63,11 @@ int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shif
 bool has_custom_root_mount(const CustomMount *mounts, size_t n);
 
 int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
+int setup_volatile_mode_after_remount_idmap(
+                const char *directory,
+                VolatileMode mode,
+                uid_t uid_shift,
+                const char *selinux_apifs_context);
 
 int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s);
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);
