@@ -56,7 +56,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                  * metadata is parsed recursively in core files, so there might be
                                  * multiple modules. */
                                 if (STR_IN_SET(module_name, "elfType", "elfArchitecture")) {
-                                        if (streq(module_name, "elfType") && streq("coredump", sd_json_variant_string(module_json)))
+                                        if (streq(module_name, "elfType") && streq(sd_json_variant_string(module_json), "coredump"))
                                                 coredump = true;
 
                                         r = table_add_many(
