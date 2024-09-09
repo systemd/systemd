@@ -1904,9 +1904,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
 # Galaxy Book (2021) NP750XDA-KD4SE
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn750XDA:pvr*
  KEYBOARD_KEY_81=!esc
- KEYBOARD_KEY_ce=!prog1 	# Fn+F1 launch settings
- KEYBOARD_KEY_ae=!volumedown 	# Fn+F7 volume down
- KEYBOARD_KEY_b0=!volumeup	# Fn+F8 volume up
+ KEYBOARD_KEY_ce=!prog1                                 #  Fn+F1 launch settings
+ KEYBOARD_KEY_ae=!volumedown                            # Fn+F7 volume down
+ KEYBOARD_KEY_b0=!volumeup                              # Fn+F8 volume up
 
 
 ###########################################################
@@ -2031,10 +2031,10 @@ evdev:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:
 
 # Portege Z830 ACPI quickstart buttons
 evdev:name:Quickstart Button 1:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
- KEYBOARD_KEY_1=prog1					# TOSHIBA eco button
+ KEYBOARD_KEY_1=prog1                                   # TOSHIBA eco button
 
 evdev:name:Quickstart Button 2:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
- KEYBOARD_KEY_1=prog2					# TOSHIBA Presentation button
+ KEYBOARD_KEY_1=prog2                                   # TOSHIBA Presentation button
 
 evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
  KEYBOARD_KEY_1=touchpad_toggle                         # Touchpad toggle
@@ -2070,11 +2070,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINET:pnP325J:*
 # Home: LeftCtrl + Esc -> LeftMeta  (ignore LeftCtrl, map Esc to LeftMeta)
 # Back: Backspace      -> back      (map backspace to back)
 evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
- KEYBOARD_KEY_700e0=unknown	# LeftCtrl -> ignore
- KEYBOARD_KEY_700e3=unknown	# LeftMeta -> ignore
- KEYBOARD_KEY_70016=menu	# S -> menu
- KEYBOARD_KEY_70029=leftmeta	# Esc -> LeftMeta (Windows key / Win8 tablets home)
- KEYBOARD_KEY_7002a=back	# Backspace -> back
+ KEYBOARD_KEY_700e0=unknown     # LeftCtrl -> ignore
+ KEYBOARD_KEY_700e3=unknown     # LeftMeta -> ignore
+ KEYBOARD_KEY_70016=menu        # S -> menu
+ KEYBOARD_KEY_70029=leftmeta    # Esc -> LeftMeta (Windows key / Win8 tablets home)
+ KEYBOARD_KEY_7002a=back        # Backspace -> back
 
 ###########################################################
 # Zepto
