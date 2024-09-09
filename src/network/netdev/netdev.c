@@ -267,6 +267,45 @@ void netdev_drop(NetDev *netdev) {
         netdev_detach(netdev);
 }
 
+int netdev_attach_name(NetDev *netdev, const char *name) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->manager);
+        assert(name);
+
+        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, name, netdev);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r == -EEXIST) {
+                NetDev *n = hashmap_get(netdev->manager->netdevs, name);
+
+                assert(n);
+                if (!streq(netdev->filename, n->filename))
+                        log_netdev_warning_errno(netdev, r,
+                                                 "Device \"%s\" was already configured by \"%s\", ignoring %s.",
+                                                 name, n->filename, netdev->filename);
+
+                return -EEXIST;
+        }
+        assert(r > 0);
+
+        return 0;
+}
+
+static int netdev_attach(NetDev *netdev) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->ifname);
+
+        r = netdev_attach_name(netdev, netdev->ifname);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         NetDev *netdev;
 
@@ -896,21 +935,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r == -EEXIST) {
-                NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
-
-                assert(n);
-                if (!streq(netdev->filename, n->filename))
-                        log_netdev_warning_errno(netdev, r,
-                                                 "Device was already configured by \"%s\", ignoring %s.",
-                                                 n->filename, netdev->filename);
-
-                return -EEXIST;
-        }
-        assert(r > 0);
+        r = netdev_attach(netdev);
+        if (r < 0)
+                return r;
 
         log_netdev_debug(netdev, "loaded \"%s\"", netdev_kind_to_string(netdev->kind));
 
