@@ -870,6 +870,7 @@ static int submit_coredump(
         r = change_uid_gid(context);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
+
         if (written) {
                 /* Try to get a stack trace if we can */
                 if (coredump_size > arg_process_size_max)
