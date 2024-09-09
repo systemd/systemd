@@ -4,6 +4,7 @@
 
 #include "analyze.h"
 #include "analyze-inspect-elf.h"
+#include "chase.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -19,23 +20,13 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
         STRV_FOREACH(filename, filenames) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
                 _cleanup_(table_unrefp) Table *t = NULL;
-                _cleanup_free_ char *abspath = NULL, *path = NULL, *stacktrace = NULL;
+                _cleanup_free_ char *abspath = NULL, *stacktrace = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 bool coredump = false;
 
-                r = path_make_absolute_cwd(*filename, &abspath);
-                if (r < 0)
-                        return log_error_errno(r, "Could not make an absolute path out of \"%s\": %m", *filename);
-
-                path = path_join(empty_to_root(arg_root), abspath);
-                if (!path)
-                        return log_oom();
-
-                path_simplify(path);
-
-                fd = RET_NERRNO(open(path, O_RDONLY|O_CLOEXEC));
+                fd = chase_and_open(*filename, arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &abspath);
                 if (fd < 0)
-                        return log_error_errno(fd, "Could not open \"%s\": %m", path);
+                        return log_error_errno(fd, "Could not open \"%s\": %m", *filename);
 
                 r = parse_elf_object(fd, abspath, arg_root, /* fork_disable_dump= */false, &stacktrace, &package_metadata);
                 if (r < 0)
