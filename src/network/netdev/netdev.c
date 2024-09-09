@@ -358,10 +358,10 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
+                return log_netdev_warning_errno(netdev, r, "Could not get rtnl message type: %m");
 
         if (type != RTM_NEWLINK)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
 
         r = sd_rtnl_message_get_family(message, &family);
         if (r < 0)
@@ -371,69 +371,54 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
                 return 0; /* IFLA_LINKINFO is only contained in the message with AF_UNSPEC. */
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0) {
-                log_netdev_error_errno(netdev, r, "Could not get ifindex: %m");
-                netdev_enter_failed(netdev);
-                return r;
-        } else if (ifindex <= 0) {
-                log_netdev_error(netdev, "Got invalid ifindex: %d", ifindex);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
-        }
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Could not get ifindex: %m");
+        if (ifindex <= 0)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Got invalid ifindex: %d", ifindex);
 
         if (netdev->ifindex > 0) {
-                if (netdev->ifindex != ifindex) {
-                        log_netdev_error(netdev, "Could not set ifindex to %d, already set to %d",
-                                         ifindex, netdev->ifindex);
-                        netdev_enter_failed(netdev);
-                        return -EEXIST;
-                } else
-                        /* ifindex already set to the same for this netdev */
-                        return 0;
+                if (netdev->ifindex != ifindex)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                        "Could not set ifindex to %d, already set to %d",
+                                                        ifindex, netdev->ifindex);
+
+                /* ifindex already set to the same for this netdev */
+                return 0;
         }
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &received_name);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get IFNAME: %m");
+                return log_netdev_warning_errno(netdev, r, "Could not get IFNAME: %m");
 
-        if (!streq(netdev->ifname, received_name)) {
-                log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
-        }
+        if (!streq(netdev->ifname, received_name))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Received newlink with wrong IFNAME %s", received_name);
 
         if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
 
                 r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not get LINKINFO: %m");
 
                 r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not get KIND: %m");
 
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not exit container: %m");
 
                 if (netdev->kind == NETDEV_KIND_TAP)
                         /* the kernel does not distinguish between tun and tap */
                         kind = "tun";
-                else {
+                else
                         kind = netdev_kind_to_string(netdev->kind);
-                        if (!kind) {
-                                log_netdev_error(netdev, "Could not get kind");
-                                netdev_enter_failed(netdev);
-                                return -EINVAL;
-                        }
-                }
+                if (!kind)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Could not get netdev kind.");
 
-                if (!streq(kind, received_kind)) {
-                        log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
-                                         received_kind, kind);
-                        netdev_enter_failed(netdev);
-                        return -EINVAL;
-                }
+                if (!streq(kind, received_kind))
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                        "Received newlink with wrong KIND %s, expected %s",
+                                                        received_kind, kind);
         }
 
         netdev->ifindex = ifindex;
