@@ -161,7 +161,7 @@ $imgs/zzz1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844
 $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
 
     systemd-repart --offline="$OFFLINE" \
-                    --definitions="$defs" \
+                   --definitions="$defs" \
                    --empty=create \
                    --size=50M \
                    --seed="$seed" \
@@ -1286,6 +1286,49 @@ testcase_dropped_partitions() {
 
     sfdisk -q -l "$image"
     [[ "$(sfdisk -q -l "$image" | grep -c "$image")" -eq 2 ]]
+}
+
+testcase_random_seed() {
+    local defs imgs output
+
+    # For issue #34257
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+EOF
+
+    tee "$defs/home.conf" <<EOF
+[Partition]
+Type=home
+Label=home-first
+EOF
+
+    tee "$defs/swap.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+PaddingMinBytes=92M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --seed=random \
+                   --offline="$OFFLINE" \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    sfdisk -d "$imgs/zzz"
+    [[ "$(sfdisk -d "$imgs/zzz" | grep -F 'uuid=' | awk '{ print $8 }' | sort -u | wc -l)" == "3" ]]
 }
 
 OFFLINE="yes"

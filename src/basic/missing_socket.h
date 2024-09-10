@@ -51,6 +51,10 @@ struct sockaddr_vm {
 #define SO_PEERGROUPS 59
 #endif
 
+#ifndef SO_PASSPIDFD
+#define SO_PASSPIDFD 76
+#endif
+
 #ifndef SO_PEERPIDFD
 #define SO_PEERPIDFD 77
 #endif
@@ -72,9 +76,12 @@ struct sockaddr_vm {
 #define SOL_SCTP 132
 #endif
 
-/* Not exposed yet. Defined in include/linux/socket.h */
 #ifndef SCM_SECURITY
 #define SCM_SECURITY 0x03
+#endif
+
+#ifndef SCM_PIDFD
+#define SCM_PIDFD 0x04
 #endif
 
 /* netinet/in.h */
