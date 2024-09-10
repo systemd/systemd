@@ -1,0 +1,19 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# See tmpfiles.d(5) for details
+
+# Copy systemd-stub provided metadata such as PCR signature and public key file
+# from initrd into /run/, so that it will survive the initrd stage
+
+C /run/systemd/stub/profile 0444 root root - /.extra/profile
+C /run/systemd/stub/os-release 0444 root root - /.extra/os-release
+
+{% if ENABLE_TPM %}
+C /run/systemd/tpm2-pcr-signature.json 0444 root root - /.extra/tpm2-pcr-signature.json
+C /run/systemd/tpm2-pcr-public-key.pem 0444 root root - /.extra/tpm2-pcr-public-key.pem
+{% endif %}
