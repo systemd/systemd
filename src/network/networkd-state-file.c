@@ -623,6 +623,12 @@ static int link_save(Link *link) {
                 "IPV6_ADDRESS_STATE=%s\n",
                 admin_state, oper_state, carrier_state, address_state, ipv4_address_state, ipv6_address_state);
 
+        if (link->netdev) {
+                r = serialize_config_files(f, "NETDEV", link->netdev->filename, link->netdev->dropins);
+                if (r < 0)
+                        return r;
+        }
+
         if (link->network) {
                 const char *online_state, *captive_portal;
                 bool space = false;
@@ -649,12 +655,6 @@ static int link_save(Link *link) {
                 r = serialize_config_files(f, "NETWORK", link->network->filename, link->network->dropins);
                 if (r < 0)
                         return r;
-
-                if (link->netdev) {
-                        r = serialize_config_files(f, "NETDEV", link->netdev->filename, link->netdev->dropins);
-                        if (r < 0)
-                                return r;
-                }
 
                 /************************************************************/
 
