@@ -7,6 +7,7 @@
 #include "sd-event.h"
 #include "sd-messages.h"
 
+#include "bus-log-control-api.h"
 #include "capability-util.h"
 #include "clock-util.h"
 #include "daemon-util.h"
@@ -16,6 +17,7 @@
 #include "mkdir-label.h"
 #include "network-util.h"
 #include "process-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
@@ -143,6 +145,13 @@ static int run(int argc, char *argv[]) {
 
         log_set_facility(LOG_CRON);
         log_setup();
+
+        r = service_parse_argv("systemd-timesyncd.service",
+                               "Network time synchronization",
+                               BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 

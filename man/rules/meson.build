@@ -67,6 +67,7 @@ manpages = [
  ['org.freedesktop.systemd1', '5', [], ''],
  ['org.freedesktop.sysupdate1', '5', [], 'ENABLE_SYSUPDATE'],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],
+ ['org.freedesktop.timesync1', '5', [], 'ENABLE_TIMESYNCD'],
  ['os-release', '5', ['extension-release', 'initrd-release'], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],
