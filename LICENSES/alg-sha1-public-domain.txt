@@ -1,0 +1,6 @@
+SHA-1 in C, by Steve Reid <sreid@sea-to-sky.net>, Public Domain
+Modified by James H. Brown <jbrown@burgoyne.com>, 7/98, Public Domain
+Modified by Steve Reid <sreid@sea-to-sky.net>, 8/98, Public Domain
+Modified by Saul Kravitz <Saul.Kravitz@celera.com>, 4/01, Public Domain
+Modified by Ralph Giles <giles@ghostscript.com>, 07/2002, Public Domain
+Modified by Björn Esser <besser82@fedoraproject.org>, 10/2017, Public Domain
