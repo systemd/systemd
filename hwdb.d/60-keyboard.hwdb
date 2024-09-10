@@ -190,7 +190,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311RN-31*:pvr*
 
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:*
- KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
+ KEYBOARD_KEY_67=rotate_display                         # rotate screen
  KEYBOARD_KEY_68=up
  KEYBOARD_KEY_69=down
  KEYBOARD_KEY_6b=fn
@@ -416,7 +416,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
  KEYBOARD_KEY_93=brightness_auto                        # Fn+Left Auto Brightness
  KEYBOARD_KEY_95=camera                                 # Shutter button - Takes a picture if optional camera available
  KEYBOARD_KEY_97=email                                  # Tablet email button
- KEYBOARD_KEY_98=f21                                    # FIXME: Tablet screen rotation
+ KEYBOARD_KEY_98=rotate_display                         # Tablet screen rotation
  KEYBOARD_KEY_99=nextsong                               # Front panel next song
  KEYBOARD_KEY_9a=setup                                  # Tablet tools button
  KEYBOARD_KEY_9b=switchvideomode                        # Display toggle button
@@ -486,7 +486,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDellInc.:pnDellSystemXPSL702X:*
 # Dell XPS12 9Q33
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
  KEYBOARD_KEY_88=wlan
- KEYBOARD_KEY_65=direction                              # Screen Rotate
+ KEYBOARD_KEY_65=rotate_display                         # Screen Rotate
 
 # Dell Pro Rugged microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnDellProRugged*:*
@@ -1068,11 +1068,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*T*:rvn*
  KEYBOARD_KEY_66=screenlock
  KEYBOARD_KEY_67=cyclewindows                           # bezel circular arrow
  KEYBOARD_KEY_68=setup                                  # bezel setup / menu
- KEYBOARD_KEY_6c=direction                              # rotate screen
+ KEYBOARD_KEY_6c=rotate_display                         # rotate screen
 
 # ThinkPad X6 Tablet
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X6*Tablet*:rvn*
- KEYBOARD_KEY_6c=direction                              # rotate
+ KEYBOARD_KEY_6c=rotate_display                         # rotate
  KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
  KEYBOARD_KEY_6d=right                                  # right on d-pad
@@ -1083,7 +1083,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X6*Tablet*:rvn*
 
 # ThinkPad X41 Tablet
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:*
- KEYBOARD_KEY_6c=direction                              # rotate
+ KEYBOARD_KEY_6c=rotate_display                         # rotate
  KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
  KEYBOARD_KEY_69=enter                                  # enter on d-pad
@@ -1551,7 +1551,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
- KEYBOARD_KEY_f2=prog2                                  # Fn+F12 Screen rotation
+ KEYBOARD_KEY_f2=rotate_display                         # Fn+F12 Screen rotation
  KEYBOARD_KEY_8d=prog3                                  # Fn+A Change True Color selections
  KEYBOARD_KEY_8c=prog4                                  # Fn+Z Launch True Color
  KEYBOARD_KEY_f5=fn_esc                                 # Fn+esc Toggle the behaviour of Fn keys
