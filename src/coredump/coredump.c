@@ -2,11 +2,15 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/statvfs.h>
 #include <sys/auxv.h>
 #include <sys/xattr.h>
 #include <unistd.h>
+#if WANT_LINUX_FS_H
+#include <linux/fs.h>
+#endif
 
 #include "sd-daemon.h"
 #include "sd-journal.h"
@@ -1656,28 +1660,35 @@ static int forward_coredump_to_container(Context *context) {
         return 0;
 }
 
-static int gather_pid_mount_tree_fd(const Context *context) {
+static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int fd = -EBADF, r;
-        pid_t child;
 
         assert(context);
+        assert(ret_fd);
 
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
 #if !HAVE_DWFL_SET_SYSROOT
-        return -EOPNOTSUPP;
+        r = 0;
+        goto finish;
 #endif
 
-        if (!arg_access_container)
-                return -EOPNOTSUPP;
+        if (!arg_access_container) {
+                r = 0;
+                goto finish;
+        }
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
-                return log_error_errno(errno, "Failed to create socket pair: %m");
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0) {
+                r = log_error_errno(errno, "Failed to create socket pair: %m");
+                goto finish;
+        }
 
         r = namespace_open(context->pid, NULL, &mntns_fd, NULL, NULL, &root_fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
+        if (r < 0) {
+                log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
+                goto finish;
+        }
 
         r = namespace_fork("(sd-mount-tree-ns)",
                            "(sd-mount-tree)",
@@ -1689,9 +1700,9 @@ static int gather_pid_mount_tree_fd(const Context *context) {
                            /* netns_fd= */ -EBADF,
                            /* userns_fd= */ -EBADF,
                            root_fd,
-                           &child);
+                           NULL);
         if (r < 0)
-                return r;
+                goto finish;
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
@@ -1712,11 +1723,17 @@ static int gather_pid_mount_tree_fd(const Context *context) {
 
         pair[1] = safe_close(pair[1]);
 
-        fd = receive_one_fd(pair[0], MSG_DONTWAIT);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to receive mount tree: %m");
+        r = receive_one_fd(pair[0], MSG_DONTWAIT);
+        if (r < 0) {
+                log_error_errno(r, "Failed to receive mount tree: %m");
+                goto finish;
+        }
 
-        return fd;
+        fd = r;
+        r = 0;
+finish:
+        *ret_fd = TAKE_FD(fd);
+        return r;
 }
 
 static int process_kernel(int argc, char* argv[]) {
@@ -1768,11 +1785,9 @@ static int process_kernel(int argc, char* argv[]) {
                 if (r >= 0)
                         return 0;
 
-                r = gather_pid_mount_tree_fd(&context);
-                if (r < 0 && r != -EOPNOTSUPP)
+                r = gather_pid_mount_tree_fd(&context, &mount_tree_fd);
+                if (r < 0)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
-                else
-                        mount_tree_fd = r;
         }
 
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
