@@ -222,8 +222,11 @@ def _get_path(el):
 
 
 def _make_title(t, level, indentLevel=0):
+    t = t.replace('\n', ' ').strip()
+
     if level == 1:
         return "\n\n" + "=" * len(t) + "\n" + t + "\n" + "=" * len(t)
+
     char = ["#", "=", "-", "~", "^", "."]
     underline = char[level-2] * len(t)
     indentation = " "*indentLevel
@@ -562,7 +565,7 @@ def example(el):
     elements = [i for i in el]
     first, rest = elements[0], elements[1:]
 
-    return _make_title(_concat(first), 3) + "\n\n" + "".join(_conv(i) for i in rest)
+    return _make_title(_concat(first), 4) + "\n\n" + "".join(_conv(i) for i in rest)
 
 
 def sect1(el):
