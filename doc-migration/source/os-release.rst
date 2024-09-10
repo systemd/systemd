@@ -17,12 +17,8 @@ os-release(5)
 
 .. only:: html
 
-``/etc/os-release``
-``/usr/lib/os-release``
-``/etc/initrd-release``
-``/usr/lib/extension-release.d/extension-release.<IMAGE>``
-
-   =====================================================================================================================================
+   ``/etc/os-release`` ``/usr/lib/os-release`` ``/etc/initrd-release`` ``/usr/lib/extension-release.d/extension-release.<IMAGE>``
+   ==============================================================================================================================
 
 .. only:: man
 
@@ -526,7 +522,7 @@ Examples
 ========
 
 ``os-release`` file for Fedora Workstation
-==========================================
+------------------------------------------
 
 .. code-block:: sh
 
@@ -551,32 +547,29 @@ Examples
    VARIANT_ID=workstation
 
 ``extension-release`` file for an extension for Fedora Workstation 32
-=====================================================================
+---------------------------------------------------------------------
 
 .. code-block:: sh
 
    ID=fedora
    VERSION_ID=32
 
-Reading ``os-release`` in
-:man-pages:`sh(1)`
-============================================
+Reading ``os-release`` in :man-pages:`sh(1)`
+--------------------------------------------
 
 .. literalinclude:: ./check-os-release.sh
                     :language: shell
 
-Reading ``os-release`` in
-:die-net:`python(1)` (versions >= 3.10)
-=================================================================
+Reading ``os-release`` in :die-net:`python(1)` (versions >= 3.10)
+-----------------------------------------------------------------
 
 .. literalinclude:: ./check-os-release-simple.py
                     :language: python
 
 See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
 
-Reading ``os-release`` in
-:die-net:`python(1)` (any version)
-============================================================
+Reading ``os-release`` in :die-net:`python(1)` (any version)
+------------------------------------------------------------
 
 .. literalinclude:: ./check-os-release.py
                     :language: python

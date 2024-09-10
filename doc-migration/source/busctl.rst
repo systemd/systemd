@@ -541,7 +541,7 @@ Examples
 ========
 
 Write and Read a Property
-=========================
+-------------------------
 
 The following two commands first write a property and then
 read it back. The property is found on the
@@ -558,7 +558,7 @@ interface. The property contains a single string:
    s "debug"
 
 Terse and Verbose Output
-========================
+------------------------
 
 The following two commands read a property that contains
 an array of strings, and first show it in terse format, followed
@@ -575,7 +575,7 @@ by verbose format:
    };
 
 Invoking a Method
-=================
+-----------------
 
 The following command invokes the
 "StartUnit" method on the
