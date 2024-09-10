@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "efi-string.h"
 #include "log.h"
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
@@ -30,6 +31,19 @@ static inline void freep(void *p) {
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 void *xmalloc(size_t size);
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+static inline void *xcalloc(size_t size) {
+        void *t = xmalloc(size);
+        memzero(t, size);
+        return t;
+}
+
+_malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
+static inline void *xcalloc_multiply(size_t n, size_t size) {
+        assert_se(MUL_ASSIGN_SAFE(&size, n));
+        return xcalloc(size);
+}
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
@@ -188,3 +202,13 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 void *find_configuration_table(const EFI_GUID *guid);
 
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define be32toh(x) __builtin_bswap32(x)
+#else
+#  error "Unexpected byte order in EFI mode?"
+#endif
+
+#define bswap_16(x) __builtin_bswap16(x)
+#define bswap_32(x) __builtin_bswap32(x)
+#define bswap_64(x) __builtin_bswap64(x)
