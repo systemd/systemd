@@ -2208,7 +2208,7 @@ static bool should_enable_fuse(void) {
         if (r < 0) {
                 if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
                         log_debug_errno(r, "Disabling FUSE: FUSE appears to be disabled on the host: %m");
-                else if (r == -ENOSYS)
+                else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_debug_errno(r, "Disabling FUSE: Kernel does not support the fsopen() family of syscalls: %m");
                 else
                         log_warning_errno(r, "Disabling FUSE: Failed to determine FUSE version: %m");

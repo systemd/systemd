@@ -36,9 +36,6 @@ TasksMax=16384
 DevicePolicy=closed
 DeviceAllow=/dev/net/tun rwm
 DeviceAllow=char-pts rw
-{# /dev/fuse gets 'm' here even though it doesn't in nspawn-register.c, since
- # efedb6b0f3 (nspawn: refuse to bind mount device node from host when
- # --private-users= is specified, 2024-09-05) #}
 DeviceAllow=/dev/fuse rwm
 
 # nspawn itself needs access to /dev/loop-control and /dev/loop, to implement
