@@ -173,7 +173,9 @@ static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 static uint64_t arg_max_use = UINT64_MAX;
-static bool arg_access_container = false;
+#if HAVE_DWFL_SET_SYSROOT
+static bool arg_enter_namespace = false;
+#endif
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -185,9 +187,9 @@ static int parse_config(void) {
                 { "Coredump", "KeepFree",        config_parse_iec_uint64,          0,                      &arg_keep_free         },
                 { "Coredump", "MaxUse",          config_parse_iec_uint64,          0,                      &arg_max_use           },
 #if HAVE_DWFL_SET_SYSROOT
-                { "Coredump", "AccessContainer", config_parse_bool,                0,                      &arg_access_container  },
+                { "Coredump", "EnterNamespace",  config_parse_bool,                0,                      &arg_enter_namespace   },
 #else
-                { "Coredump", "AccessContainer", config_parse_warn_compat,         DISABLED_CONFIGURATION, 0                      },
+                { "Coredump", "EnterNamespace",  config_parse_warn_compat,         DISABLED_CONFIGURATION, 0                      },
 #endif
                 {}
         };
@@ -1669,7 +1671,7 @@ static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
         assert(context);
         assert(ret_fd);
 
-        if (!arg_access_container) {
+        if (!arg_enter_namespace) {
                 *ret_fd = -EHOSTDOWN;
                 log_debug("EnterNamespace=no so we won't use mount tree of the crashed process for generating backtrace.");
                 return 0;
