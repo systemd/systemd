@@ -804,8 +804,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBookStudioG5*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
- KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_66=pickup_phone                           # Pickup phone button
+ KEYBOARD_KEY_65=hangup_phone                           # Hangup phone button
 
 # HP ZBook 15 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
@@ -869,8 +869,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
- KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_66=pickup_phone                           # Pickup phone button
+ KEYBOARD_KEY_65=hangup_phone                           # Hangup phone button
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
@@ -1013,11 +1013,11 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_17=prog1
  KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
  KEYBOARD_KEY_45=bookmarks
- KEYBOARD_KEY_46=prog2                                  # Fn + PrtSc, on Windows: Snipping tool
+ KEYBOARD_KEY_46=selective_screenshot                   # Fn + PrtSc, on Windows: Snipping tool
  KEYBOARD_KEY_4a=prog3                                  # Fn + Right shift, on Windows: No idea
- KEYBOARD_KEY_4b=chat                                   # Fn + F9, on Windows: Notifications panel key
- KEYBOARD_KEY_4c=connect                                # Fn + F10, on Windows: Answer (Teams) call
- KEYBOARD_KEY_4d=cancel                                 # Fn + F11, on Windows: Hangup/decline (Teams) call
+ KEYBOARD_KEY_4b=notification_center                    # Fn + F9, on Windows: Notifications panel key
+ KEYBOARD_KEY_4c=pickup_phone                           # Fn + F10, on Windows: Answer (Teams) call
+ KEYBOARD_KEY_4d=hangup_phone                           # Fn + F11, on Windows: Hangup/decline (Teams) call
 
 # ThinkPad Keyboard with TrackPoint
 evdev:input:b0003v17EFp6009*
@@ -1203,8 +1203,8 @@ evdev:input:b0003v046Dp00*
  KEYBOARD_KEY_c102b=cyclewindows                        # Empty window icon
  KEYBOARD_KEY_c102c=fn                                  # Fn key
  KEYBOARD_KEY_c102d=www                                 # www text + magnifierglass icon
- KEYBOARD_KEY_c1031=connect                             # Pickup phone button → connect → XF86Go
- KEYBOARD_KEY_c1032=cancel                              # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_c1031=pickup_phone                        # Pickup phone button
+ KEYBOARD_KEY_c1032=hangup_phone                        # Hangup phone button
  KEYBOARD_KEY_c1041=help                                # Help text or icon (Fn + F1)
  KEYBOARD_KEY_c1042=wordprocessor                       # Word icon (Fn + F2)
  KEYBOARD_KEY_c1043=spreadsheet                         # Excel icon (Fn + F3)
