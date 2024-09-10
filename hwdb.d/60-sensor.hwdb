@@ -152,6 +152,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAF:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAS:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
@@ -163,6 +164,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q551LB:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q551LN:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
