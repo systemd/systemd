@@ -61,15 +61,15 @@ EOF
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 rm /usr/share/makepkg/lint_pkgbuild/*
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
     --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
+
+# Replace cdrom/dialout/tape groups with optical/uucp/storage. We apply this patch manually because we run
+# with --noprepare.
+patch -Np1 -i pkg/arch/0001-Use-Arch-Linux-device-access-groups.patch
 
 # We get around makepkg's root check by setting EUID to something else.
 # shellcheck disable=SC2046
@@ -77,6 +77,7 @@ env --chdir="pkg/$PKG_SUBDIR" \
     EUID=123 \
     makepkg \
     --noextract \
+    --noprepare \
     $( ((WITH_TESTS)) || echo --nocheck) \
     --force \
     _systemd_UPSTREAM=1 \

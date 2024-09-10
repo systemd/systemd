@@ -73,12 +73,7 @@ wrap=(
     lvm
     mdadm
     mkfs.btrfs
-    mkfs.erofs
-    mkfs.ext4
-    mkfs.vfat
-    mkfs.xfs
     mksquashfs
-    mkswap
     multipath
     multipathd
     nvme
