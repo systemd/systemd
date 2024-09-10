@@ -55,6 +55,8 @@ static inline void* xmemdup(const void *p, size_t l) {
 
 #define xnew(type, n) ((type *) xmalloc_multiply((n), sizeof(type)))
 
+bool free_and_xstrdup16(char16_t **p, const char16_t *s);
+
 typedef struct {
         EFI_PHYSICAL_ADDRESS addr;
         size_t n_pages;

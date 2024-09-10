@@ -492,3 +492,24 @@ void *xmalloc(size_t size) {
         assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
         return p;
 }
+
+bool free_and_xstrdup16(char16_t **p, const char16_t *s) {
+        char16_t *t;
+
+        assert(p);
+
+        /* Replaces a string pointer with a strdup()ed new string,
+         * possibly freeing the old one. */
+
+        if (streq_ptr(*p, s))
+                return false;
+
+        if (s)
+                t = xstrdup16(s);
+        else
+                t = NULL;
+
+        free(*p);
+        *p = t;
+        return true;
+}
