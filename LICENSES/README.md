@@ -66,6 +66,9 @@ The following exceptions apply:
    - src/libsystemd/sd-journal/lookup3.h
  * the tools/chromiumos/gen_autosuspend_rules.py script is licensed under the
    **BSD-3-Clause** license.
+ * the following files are licensed under **BSD-3-Clause** license:
+   - src/boot/efi/chid.c
+   - src/boot/efi/chid.h
  * Heebo fonts under docs/fonts/ are licensed under the **SIL Open Font License 1.1**,
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
