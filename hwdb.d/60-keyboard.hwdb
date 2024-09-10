@@ -408,12 +408,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
  KEYBOARD_KEY_89=ejectclosecd                           # Fn+F10 Eject CD
  KEYBOARD_KEY_8a=suspend                                # Fn+F1 hibernate
  KEYBOARD_KEY_8b=switchvideomode                        # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
- KEYBOARD_KEY_8c=unknown                                # Fn+Right Auto Brightness
+ KEYBOARD_KEY_8c=brightness_auto                        # Fn+Right Auto Brightness
  KEYBOARD_KEY_8f=switchvideomode                        # Fn+F7 aspect ratio
  KEYBOARD_KEY_90=previoussong                           # Front panel previous song
  KEYBOARD_KEY_91=prog1                                  # Wi-Fi Catcher (Dell-specific)
  KEYBOARD_KEY_92=media                                  # MediaDirect button (house icon)
- KEYBOARD_KEY_93=unknown                                # FIXME Fn+Left Auto Brightness
+ KEYBOARD_KEY_93=brightness_auto                        # Fn+Left Auto Brightness
  KEYBOARD_KEY_95=camera                                 # Shutter button - Takes a picture if optional camera available
  KEYBOARD_KEY_97=email                                  # Tablet email button
  KEYBOARD_KEY_98=f21                                    # FIXME: Tablet screen rotation
@@ -644,7 +644,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
  KEYBOARD_KEY_8c=media                                  # music
  KEYBOARD_KEY_8e=dvd
  KEYBOARD_KEY_b1=help
- KEYBOARD_KEY_b3=unknown                                # FIXME: Auto brightness
+ KEYBOARD_KEY_b3=brightness_auto                        # Auto brightness
  KEYBOARD_KEY_d7=wlan
  KEYBOARD_KEY_92=brightnessdown                         # Fn+F7 (Fn+F9 on 6730b)
  KEYBOARD_KEY_97=brightnessup                           # Fn+F8 (Fn+F10 on 6730b)
@@ -747,7 +747,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
  KEYBOARD_KEY_97=brightnessup
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
- KEYBOARD_KEY_b3=unknown                                # FIXME: Auto brightness
+ KEYBOARD_KEY_b3=brightness_auto                        # Auto brightness
 
 # TX2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:*
