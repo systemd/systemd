@@ -246,9 +246,9 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", manager_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
+                return r;
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
@@ -264,3 +264,9 @@ int manager_connect_bus(Manager *m) {
 
         return 0;
 }
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/timesync1",
+        "org.freedesktop.timesync1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+};
