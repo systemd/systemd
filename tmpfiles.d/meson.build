@@ -29,14 +29,15 @@ foreach pair : files
         endif
 endforeach
 
-in_files = [['etc.conf',                      ''],
+in_files = [['20-systemd-shell-extra.conf',   'LINK_SHELL_EXTRA_DROPIN'],
+            ['20-systemd-ssh-generator.conf', 'ENABLE_SSH_PROXY_CONFIG'],
+            ['20-systemd-stub.conf',          'ENABLE_EFI'],
+            ['20-systemd-userdb.conf',        'ENABLE_SSH_USERDB_CONFIG'],
+            ['etc.conf',                      ''],
             ['legacy.conf',                   'HAVE_SYSV_COMPAT'],
             ['static-nodes-permissions.conf', ''],
             ['systemd.conf',                  ''],
             ['var.conf',                      ''],
-            ['20-systemd-userdb.conf',        'ENABLE_SSH_USERDB_CONFIG'],
-            ['20-systemd-ssh-generator.conf', 'ENABLE_SSH_PROXY_CONFIG'],
-            ['20-systemd-shell-extra.conf',   'LINK_SHELL_EXTRA_DROPIN'],
            ]
 
 foreach pair : in_files
