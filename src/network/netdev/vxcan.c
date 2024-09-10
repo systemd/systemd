@@ -38,7 +38,72 @@ static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "VxCan NetDev without peer name configured in %s. Ignoring", filename);
 
+        if (streq(v->ifname_peer, netdev->ifname))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "VxCan peer name cannot be the same as the main interface name.");
+
         return 0;
+}
+
+static int netdev_vxcan_attach(NetDev *netdev) {
+        VxCan *v = VXCAN(netdev);
+        assert(v->ifname_peer);
+
+        return netdev_attach_name(netdev, v->ifname_peer);
+}
+
+static void netdev_vxcan_detach(NetDev *netdev) {
+        VxCan *v = VXCAN(netdev);
+
+        netdev_detach_name(netdev, v->ifname_peer);
+}
+
+static int netdev_vxcan_set_ifindex(NetDev *netdev, const char *name, int ifindex) {
+        VxCan *v = VXCAN(netdev);
+        int r;
+
+        assert(name);
+        assert(ifindex > 0);
+
+        if (streq(netdev->ifname, name)) {
+                r = netdev_set_ifindex_internal(netdev, ifindex);
+                if (r <= 0)
+                        return r;
+
+        } else if (streq(v->ifname_peer, name)) {
+                if (v->ifindex_peer == ifindex)
+                        return 0; /* already set */
+                if (v->ifindex_peer > 0 && v->ifindex_peer != ifindex)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                        "Could not set ifindex %i for peer %s, already set to %i.",
+                                                        ifindex, v->ifname_peer, v->ifindex_peer);
+
+                v->ifindex_peer = ifindex;
+                log_netdev_debug(netdev, "Peer interface %s gained index %i.", v->ifname_peer, ifindex);
+
+        } else
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Received netlink message with unexpected interface name %s (ifindex=%i).",
+                                                name, ifindex);
+
+        if (netdev->ifindex > 0 && v->ifindex_peer > 0)
+                return netdev_enter_ready(netdev);
+
+        return 0;
+}
+
+static int netdev_vxcan_get_ifindex(NetDev *netdev, const char *name) {
+        VxCan *v = VXCAN(netdev);
+
+        assert(name);
+
+        if (streq(netdev->ifname, name))
+                return netdev->ifindex;
+
+        if (streq(v->ifname_peer, name))
+                return v->ifindex_peer;
+
+        return -ENODEV;
 }
 
 static void vxcan_done(NetDev *netdev) {
@@ -54,5 +119,9 @@ const NetDevVTable vxcan_vtable = {
         .fill_message_create = netdev_vxcan_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_vxcan_verify,
+        .attach = netdev_vxcan_attach,
+        .detach = netdev_vxcan_detach,
+        .set_ifindex = netdev_vxcan_set_ifindex,
+        .get_ifindex = netdev_vxcan_get_ifindex,
         .iftype = ARPHRD_CAN,
 };

@@ -1307,17 +1307,14 @@ static int link_get_network(Link *link, Network **ret) {
 
 int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
-        NetDev *netdev = NULL;
         int r;
 
         assert(link);
 
+        link_assign_netdev(link);
+
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
-
-        r = netdev_get(link->manager, link->ifname, &netdev);
-        if (r < 0 && r != -ENOENT)
-                return r;
 
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
@@ -1382,9 +1379,6 @@ int link_reconfigure_impl(Link *link, bool force) {
 
         link_free_engines(link);
         link->network = network_unref(link->network);
-
-        netdev_unref(link->netdev);
-        link->netdev = netdev_ref(netdev);
 
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);
@@ -2810,6 +2804,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
                                 log_netdev_warning_errno(netdev, r, "Could not process new link message for netdev, ignoring: %m");
+                                netdev_enter_failed(netdev);
                                 return 0;
                         }
                 }
