@@ -4538,8 +4538,13 @@ static int fallback_shell(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Shell '%s' is a path to a directory, refusing.", shell);
 
         /* Invoke this as login shell, by setting argv[0][0] to '-' (unless we ourselves weren't called as login shell) */
-        if (!argv || isempty(argv[0]) || argv[0][0] == '-')
-                argv0[0] = '-';
+        if (!argv || isempty(argv[0]) || argv[0][0] == '-') {
+                _cleanup_free_ char *prefixed = strjoin("-", argv0);
+                if (!prefixed)
+                        return log_oom();
+
+                free_and_replace(argv0, prefixed);
+        }
 
         l = strv_new(argv0);
         if (!l)
