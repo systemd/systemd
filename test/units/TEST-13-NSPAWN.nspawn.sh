@@ -969,6 +969,11 @@ testcase_check_os_release() {
         --bind-ro="$base/usr:/usr"
     )
 
+    # Might be needed to find libraries
+    if [ -f "$base/etc/ld.so.cache" ]; then
+        common_opts+=("--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.cache")
+    fi
+
     # Empty /etc/ & /usr/
     (! systemd-nspawn "${common_opts[@]}")
     (! SYSTEMD_NSPAWN_CHECK_OS_RELEASE=1 systemd-nspawn "${common_opts[@]}")
