@@ -68,6 +68,9 @@ static inline int crypt_token_max(_unused_ const char *type) {
 }
 #define sym_crypt_token_max(type) crypt_token_max(type)
 #endif
+#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
+extern DLSYM_PROTOTYPE(crypt_token_set_external_path);
+#endif
 extern DLSYM_PROTOTYPE(crypt_token_status);
 extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
