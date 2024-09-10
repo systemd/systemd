@@ -635,6 +635,7 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.Machine.Register",      vl_method_register,
                         "io.systemd.Machine.Unregister",    vl_method_unregister,
                         "io.systemd.Machine.Terminate",     vl_method_terminate,
+                        "io.systemd.Machine.Kill",          vl_method_kill,
                         "io.systemd.Machine.List",          vl_method_list,
                         "io.systemd.Machine.Get",           vl_method_get,
                         "io.systemd.Machine.GetByPID",      vl_method_get_by_pid);

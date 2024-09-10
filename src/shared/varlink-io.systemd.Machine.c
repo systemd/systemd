@@ -61,6 +61,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
+                Kill,
+                SD_VARLINK_FIELD_COMMENT("The name of a machine to sends signal to"),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Who should receive the signal"),
+                SD_VARLINK_DEFINE_INPUT(who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Signal to send"),
+                SD_VARLINK_DEFINE_INPUT(signal, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 List,
                 SD_VARLINK_FIELD_COMMENT("If non-null the name of a running machine to report details on. If null/unspecified enumerates all running machines."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -90,6 +99,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Unregister,
                 SD_VARLINK_SYMBOL_COMMENT("Terminate virtual machine, killing its processes"),
                 &vl_method_Terminate,
+                SD_VARLINK_SYMBOL_COMMENT("Send a UNIX signal to the machine's processes"),
+                &vl_method_Kill,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Get running machine"),
