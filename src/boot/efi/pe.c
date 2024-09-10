@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "devicetree.h"
+#include "chid.h"
 #include "pe.h"
 #include "util.h"
 
@@ -162,6 +164,60 @@ static bool pe_section_name_equal(const char *a, const char *b) {
         return true;
 }
 
+static bool pe_is_multi_dtb_uki(
+                const PeSectionHeader section_table[],
+                size_t n_section_table) {
+        size_t n = 0;
+        FOREACH_ARRAY(i, section_table, n_section_table)
+                if (pe_section_name_equal((const char*) i->Name, ".dtb"))
+                        if (++n > 1)
+                                return true;
+
+        return n > 1;
+}
+
+static bool pe_use_this_dtb(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                void *base,
+                size_t dtb_offset,
+                size_t dtb_size) {
+        EFI_STATUS err;
+
+        const uint8_t *dtb = (const uint8_t *) base + dtb_offset;
+
+        err = devicetree_match(dtb, dtb_size);
+
+        /* Firmware does not provide the devicetree, so try matching against a list from .hwids section */
+        if (err == EFI_UNSUPPORTED) {
+                static const char *const hwids_section_name[] = { ".hwids", NULL };
+                PeSectionVector hwids_section = {};
+                pe_locate_sections(
+                                section_table,
+                                n_section_table,
+                                hwids_section_name,
+                                validate_base,
+                                &hwids_section);
+                if (hwids_section.size == 0)
+                        log_error_status(err, "HWIDs section is missing, no DT blob will be selected");
+                else {
+                        const uint8_t *hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
+                        const char *compatible = NULL;
+                        err = hwid_match(hwids, hwids_section.size, &compatible);
+                        if (err == EFI_SUCCESS)
+                                err = devicetree_match_by_compatible(dtb, dtb_size, compatible);
+                }
+        }
+
+        if (err == EFI_SUCCESS)
+                return true;
+        else if (err == EFI_INVALID_PARAMETER)
+                log_error_status(err, "Found bad DT blob in PE section %zu", i);
+
+        /* No matching .dtb section found, continue searching */
+        return false;
+}
+
 static void pe_locate_sections(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
@@ -176,6 +232,8 @@ static void pe_locate_sections(
         /* Searches for the sections listed in 'sections[]' within the section table. Validates the resulted
          * data. If 'validate_base' is non-zero also takes base offset when loaded into memory into account for
          * checking for overflows. */
+
+        bool is_multi_dtb = pe_is_multi_dtb_uki(section_table, n_section_table);
 
         for (size_t i = 0; section_names[i]; i++)
                 FOREACH_ARRAY(j, section_table, n_section_table) {
@@ -203,6 +261,12 @@ static void pe_locate_sections(
                                 size_max -= validate_base;
 
                                 if (j->VirtualAddress > size_max)
+                                        continue;
+                        }
+
+                        /* Special handling if multiple .dtb sections present */
+                        if (validate_base && pe_section_name_equal(section_names[i], ".dtb") && is_multi_dtb) {
+                                if (!pe_use_this_dtb(section_table, n_section_table, base, j->VirtualAddress, j->VirtualSize))
                                         continue;
                         }
 
@@ -407,40 +471,6 @@ EFI_STATUS pe_section_table_from_file(
 
         *ret_section_table = TAKE_PTR(section_table);
         *ret_n_section_table = n_section_table;
-        return EFI_SUCCESS;
-}
-
-EFI_STATUS pe_file_locate_sections(
-                EFI_FILE *dir,
-                const char16_t *path,
-                const char* const section_names[],
-                PeSectionVector sections[]) {
-
-        _cleanup_free_ PeSectionHeader *section_table = NULL;
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        size_t n_section_table;
-        EFI_STATUS err;
-
-        assert(dir);
-        assert(path);
-        assert(section_names);
-        assert(sections);
-
-        err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        err = pe_section_table_from_file(handle, &section_table, &n_section_table);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        pe_locate_sections(
-                        section_table,
-                        n_section_table,
-                        section_names,
-                        /* validate_base= */ 0, /* don't validate base */
-                        sections);
-
         return EFI_SUCCESS;
 }
 
