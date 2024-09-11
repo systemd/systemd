@@ -1617,7 +1617,9 @@ typedef struct GlobalInfo {
         bool dnssec_supported;
 } GlobalInfo;
 
-static void link_info_clear(LinkInfo *p) {
+static void link_info_done(LinkInfo *p) {
+        assert(p);
+
         free(p->current_dns);
         free(p->current_dns_ex);
         strv_free(p->dns);
@@ -1626,7 +1628,9 @@ static void link_info_clear(LinkInfo *p) {
         strv_free(p->ntas);
 }
 
-static void global_info_clear(GlobalInfo *p) {
+static void global_info_done(GlobalInfo *p) {
+        assert(p);
+
         free(p->current_dns);
         free(p->current_dns_ex);
         strv_free(p->dns);
@@ -1726,7 +1730,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(link_info_clear) LinkInfo link_info = {};
+        _cleanup_(link_info_done) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *p = NULL;
         char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE];
@@ -2008,7 +2012,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(global_info_clear) GlobalInfo global_info = {};
+        _cleanup_(global_info_done) GlobalInfo global_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
