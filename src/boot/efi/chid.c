@@ -102,6 +102,13 @@ static void smbios_info_populate(SmbiosInfo *info) {
         RawSmbiosInfo raw;
         smbios_raw_info_populate(&raw);
 
+        log_error_status(EFI_SUCCESS, "Manufacturer: %s", raw.manufacturer);
+        log_error_status(EFI_SUCCESS, "ProductName: %s", raw.product_name);
+        log_error_status(EFI_SUCCESS, "ProductSKU: %s", raw.product_sku);
+        log_error_status(EFI_SUCCESS, "Family: %s", raw.family);
+        log_error_status(EFI_SUCCESS, "BaseboardProduct: %s", raw.baseboard_product);
+        log_error_status(EFI_SUCCESS, "BaseboardManufacturer: %s", raw.baseboard_manufacturer);
+
         info->manufacturer = smbios_to_hashable_string(raw.manufacturer);
         info->product_name = smbios_to_hashable_string(raw.product_name);
         info->product_sku = smbios_to_hashable_string(raw.product_sku);
