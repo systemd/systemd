@@ -705,28 +705,26 @@ static int import_credentials_trusted(void) {
         _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
                 .target_dir_fd = -EBADF,
         };
-        int q, w, r, y;
+        int r, ret = 0;
 
         /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
          * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
          * yet.) */
 
-        r = import_credentials_qemu(&c);
-        w = import_credentials_smbios(&c);
-        q = import_credentials_proc_cmdline(&c);
-        y = import_credentials_initrd(&c);
+        RET_GATHER(ret, import_credentials_qemu(&c));
+        RET_GATHER(ret, import_credentials_smbios(&c));
+        RET_GATHER(ret, import_credentials_proc_cmdline(&c));
+        RET_GATHER(ret, import_credentials_initrd(&c));
 
         if (c.n_credentials > 0) {
-                int z;
-
                 log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c.n_credentials);
 
-                z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
-                if (z < 0)
-                        return z;
+                r = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
+                if (r < 0)
+                        return r;
         }
 
-        return r < 0 ? r : w < 0 ? w : q < 0 ? q : y;
+        return ret;
 }
 
 static int merge_credentials_trusted(const char *creds_dir) {
