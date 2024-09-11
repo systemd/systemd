@@ -794,3 +794,12 @@ the TPM.
 
 Automatic SRK enrollment on TPMs in such scenarios is not supported. In order to unset the PIN/password
 protection on the owner hierarchy issue a command like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
+
+-- 9cf56b8baf9546cf9478783a8de42113
+Subject: A foreign process changed a sysctl we manage
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A sysctl handle under /proc/sys/net, which is managed by systemd-networkd, has been changed by another process.
+The event is raised only if the written value differs from the current one.
+The program name, the written value, the previous value, and the value initially set by networkd have been logged.
