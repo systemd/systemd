@@ -62,6 +62,13 @@ static void smbios_info_populate(SmbiosInfo *ret_info) {
         RawSmbiosInfo raw;
         smbios_raw_info_populate(&raw);
 
+        log_debug("sd-stub: Manufacturer: %s", raw.manufacturer);
+        log_debug("sd-stub: ProductName: %s", raw.product_name);
+        log_debug("sd-stub: ProductSKU: %s", raw.product_sku);
+        log_debug("sd-stub: Family: %s", raw.family);
+        log_debug("sd-stub: BaseboardProduct: %s", raw.baseboard_product);
+        log_debug("sd-stub: BaseboardManufacturer: %s", raw.baseboard_manufacturer);
+
         ret_info->str[CHID_SMBIOS_MANUFACTURER] = smbios_to_hashable_string(raw.manufacturer);
         ret_info->str[CHID_SMBIOS_PRODUCT_NAME] = smbios_to_hashable_string(raw.product_name);
         ret_info->str[CHID_SMBIOS_PRODUCT_SKU] = smbios_to_hashable_string(raw.product_sku);
