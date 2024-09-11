@@ -23,6 +23,7 @@
 #include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
+#include "smbios.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
