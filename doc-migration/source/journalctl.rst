@@ -39,23 +39,23 @@ If called without parameters, it will show the contents of the journal accessibl
 user, starting with the oldest entry collected.
 
 If one or more match arguments are passed, the output is filtered accordingly. A match is in the
-format ``FIELD=VALUE``, e.g. ``_SYSTEMD_UNIT=httpd.service``, referring to
+format "FIELD=VALUE", e.g. "_SYSTEMD_UNIT=httpd.service", referring to
 the components of a structured journal entry. See
 :ref:`systemd.journal-fields(7)`
 for a list of well-known fields. If multiple matches are specified matching different fields, the log
 entries are filtered by both, i.e. the resulting output will show only entries matching all the specified
 matches of this kind. If two matches apply to the same field, then they are automatically matched as
 alternatives, i.e. the resulting output will show entries matching any of the specified matches for the
-same field. Finally, the character ``+`` may appear as a separate word between other terms
+same field. Finally, the character "+" may appear as a separate word between other terms
 on the command line. This causes all matches before and after to be combined in a disjunction
 (i.e. logical OR).
 
 It is also possible to filter the entries by specifying an absolute file path as an argument. The
 file path may be a file or a symbolic link and the file must exist at the time of the query. If a file
-path refers to an executable binary, an ``_EXE=`` match for the canonicalized binary path
-is added to the query. If a file path refers to an executable script, a ``_COMM=`` match
+path refers to an executable binary, an "_EXE=" match for the canonicalized binary path
+is added to the query. If a file path refers to an executable script, a "_COMM=" match
 for the script name is added to the query. If a file path refers to a device node,
-``_KERNEL_DEVICE=`` matches for the kernel name of the device and for each of its ancestor
+"_KERNEL_DEVICE=" matches for the kernel name of the device and for each of its ancestor
 devices is added to the query. Symbolic links are dereferenced, kernel names are synthesized, and parent
 devices are identified from the environment at the time of the query. In general, a device node is the
 best proxy for an actual device, as log entries do not usually contain fields that identify an actual
@@ -79,9 +79,9 @@ below.
 
 All users are granted access to their private per-user journals. However, by default, only root and
 users who are members of a few special groups are granted access to the system journal and the journals
-of other users. Members of the groups ``systemd-journal``, ``adm``, and
-``wheel`` can read all journal files. Note that the two latter groups traditionally have
-additional privileges specified by the distribution. Members of the ``wheel`` group can
+of other users. Members of the groups "systemd-journal", "adm", and
+"wheel" can read all journal files. Note that the two latter groups traditionally have
+additional privileges specified by the distribution. Members of the "wheel" group can
 often perform administrative tasks.
 
 The output is paged through ``less`` by default, and long lines are "truncated" to
@@ -205,8 +205,8 @@ switch of the same name.
 
 Takes a journal namespace identifier string as argument. If not specified the data
 collected by the default namespace is shown. If specified shows the log data of the specified
-namespace instead. If the namespace is specified as ``*`` data from all namespaces is
-shown, interleaved. If the namespace identifier is prefixed with ``+`` data from the
+namespace instead. If the namespace is specified as "*" data from all namespaces is
+shown, interleaved. If the namespace identifier is prefixed with "+" data from the
 specified namespace and the default namespace is shown, interleaved, but no other. For details about
 journal namespaces see
 :ref:`systemd-journald.service(8)`.
@@ -224,14 +224,14 @@ The following options control how to filter journal records:
 ------------------------------
 
 Start showing entries on or newer than the specified date, or on or older than the
-specified date, respectively. Date specifications should be of the format ``2012-10-30
-18:17:16``.  If the time part is omitted, ``00:00:00`` is assumed.  If only
-the seconds component is omitted, ``:00`` is assumed. If the date component is
-omitted, the current day is assumed. Alternatively the strings ``yesterday``,
-``today``, ``tomorrow`` are understood, which refer to 00:00:00 of the
+specified date, respectively. Date specifications should be of the format "2012-10-30
+18:17:16".  If the time part is omitted, "00:00:00" is assumed.  If only
+the seconds component is omitted, ":00" is assumed. If the date component is
+omitted, the current day is assumed. Alternatively the strings "yesterday",
+"today", "tomorrow" are understood, which refer to 00:00:00 of the
 day before the current day, the current day, or the day after the current day,
-respectively. ``now`` refers to the current time. Finally, relative times may be
-specified, prefixed with ``-`` or ``+``, referring to times before or
+respectively. "now" refers to the current time. Finally, relative times may be
+specified, prefixed with "-" or "+", referring to times before or
 after the current time, respectively. For complete time and date specification, see
 :ref:`systemd.time(7)`. Note
 that ``--output=short-full`` prints timestamps that follow precisely this format.
@@ -278,7 +278,7 @@ calling ``journalctl``.
 --------------------------------------------------------------
 
 Show messages from a specific boot. This will add a match for
-``_BOOT_ID=``.
+"_BOOT_ID=".
 
 The argument may be empty, in which case logs for the current boot will be shown.
 
@@ -312,9 +312,9 @@ Show messages for the specified systemd unit <UNIT> (such as
 a service unit), or for any of the units matched by <PATTERN>.  If a pattern
 is specified, a list of unit names found in the journal is compared with the specified pattern and
 all that match are used. For each unit name, a match is added for messages from the unit
-(``_SYSTEMD_UNIT=<UNIT>``), along with additional matches for
+("_SYSTEMD_UNIT=<UNIT>"), along with additional matches for
 messages from systemd and messages about coredumps for the specified unit. A match is also added for
-``_SYSTEMD_SLICE=<UNIT>``, such that if the provided
+"_SYSTEMD_SLICE=<UNIT>", such that if the provided
 <UNIT> is a
 :ref:`systemd.slice(5)`
 unit, all logs of children of the slice will be shown.
@@ -332,9 +332,9 @@ This parameter can be specified multiple times.
 ----------------
 
 Show messages for the specified user session unit. This will add a match for messages
-from the unit (``_SYSTEMD_USER_UNIT=`` and ``_UID=``) and additional
+from the unit ("_SYSTEMD_USER_UNIT=" and "_UID=") and additional
 matches for messages from session systemd and messages about coredumps for the specified unit. A
-match is also added for ``_SYSTEMD_USER_SLICE=<UNIT>``, such
+match is also added for "_SYSTEMD_USER_SLICE=<UNIT>", such
 that if the provided <UNIT> is a
 :ref:`systemd.slice(5)`
 unit, all logs of children of the unit will be shown.
@@ -373,15 +373,15 @@ This parameter can be specified multiple times.
 -------------------
 
 Filter output by message priorities or priority ranges. Takes either a single numeric
-or textual log level (i.e. between 0/``emerg`` and 7/``debug``), or a
+or textual log level (i.e. between 0/"emerg" and 7/"debug"), or a
 range of numeric/text log levels in the form FROM..TO. The log levels are the usual syslog log levels
 as documented in :man-pages:`syslog(3)`,
-i.e. ``emerg``(0), ``alert``(1), ``crit``(2),
-``err``(3), ``warning``(4), ``notice``(5),
-``info``(6), ``debug``(7). If a single log level is specified, all
+i.e. "emerg"(0), "alert"(1), "crit"(2),
+"err"(3), "warning"(4), "notice"(5),
+"info"(6), "debug"(7). If a single log level is specified, all
 messages with this log level or a lower (hence more important) log level are shown. If a range is
 specified, all messages within the range are shown, including both the start and the end value of the
-range. This will add ``PRIORITY=`` matches for the specified
+range. This will add "PRIORITY=" matches for the specified
 priorities.
 
 .. only:: html
@@ -410,7 +410,7 @@ If the pattern is all lowercase, matching is case insensitive.  Otherwise, match
 sensitive. This can be overridden with the ``--case-sensitive`` option, see
 below.
 
-When used with ``--lines=`` (not prefixed with ``+``),
+When used with ``--lines=`` (not prefixed with "+"),
 ``--reverse`` is implied.
 
 .. only:: html
@@ -430,7 +430,7 @@ Make pattern matching case sensitive or case insensitive.
 ---------------
 
 Show only kernel messages. This implies ``-b`` and adds the match
-``_TRANSPORT=kernel``.
+"_TRANSPORT=kernel".
 
 .. only:: html
 
@@ -501,7 +501,7 @@ following options:
 
    as for ``short-monotonic`` but includes the time difference
    to the previous entry.
-   Maybe unreliable time differences are marked by a ``*``.
+   Maybe unreliable time differences are marked by a "*".
 
    .. only:: html
 
@@ -571,7 +571,7 @@ following options:
    formats entries as JSON data structures, but prefixes them with an ASCII Record
    Separator character (0x1E) and suffixes them with an ASCII Line Feed character (0x0A), in
    accordance with `JavaScript Object Notation
-   (JSON) Text Sequences <https://tools.ietf.org/html/rfc7464>`_ (``application/json-seq``).
+   (JSON) Text Sequences <https://tools.ietf.org/html/rfc7464>`_ ("application/json-seq").
 
    .. only:: html
 
@@ -613,9 +613,9 @@ A comma separated list of the fields which should be included in the output. Thi
 has an effect only for the output modes which would normally show all fields
 (``verbose``, ``export``, ``json``,
 ``json-pretty``, ``json-sse`` and ``json-seq``), as well as
-on ``cat``. For the former, the ``__CURSOR``,
-``__REALTIME_TIMESTAMP``, ``__MONOTONIC_TIMESTAMP``, and
-``_BOOT_ID`` fields are always printed.
+on ``cat``. For the former, the "__CURSOR",
+"__REALTIME_TIMESTAMP", "__MONOTONIC_TIMESTAMP", and
+"_BOOT_ID" fields are always printed.
 
 .. only:: html
 
@@ -625,11 +625,11 @@ on ``cat``. For the former, the ``__CURSOR``,
 ----------------
 
 Show the most recent journal events and limit the number of events shown. The argument
-is a positive integer or ``all`` to disable the limit. Additionally, if the number is
-prefixed with ``+``, the oldest journal events are used instead. The default value is
+is a positive integer or "all" to disable the limit. Additionally, if the number is
+prefixed with "+", the oldest journal events are used instead. The default value is
 10 if no argument is given.
 
-If ``--follow`` is used, this option is implied. When not prefixed with ``+``
+If ``--follow`` is used, this option is implied. When not prefixed with "+"
 and used with ``--grep=``, ``--reverse`` is implied.
 
 ``-r, --reverse``
@@ -823,7 +823,7 @@ journal.
 Show a tabular list of boot numbers (relative to the current boot), their IDs, and the
 timestamps of the first and last message pertaining to the boot. When specified with
 ``-n/--lines=[+]<N>`` option, only the
-first (when the number prefixed with ``+``) or the last (without prefix)
+first (when the number prefixed with "+") or the last (without prefix)
 <N> entries will be shown. When specified with
 ``-r/--reverse``, the list will be shown in the reverse order.
 
@@ -845,14 +845,14 @@ usage of all archived and active journal files.
 ---------------------------------------------------
 
 ``--vacuum-size=`` removes the oldest archived journal files until the
-disk space they use falls below the specified size. Accepts the usual ``K``,
-``M``, ``G`` and ``T`` suffixes (to the base of
+disk space they use falls below the specified size. Accepts the usual "K",
+"M", "G" and "T" suffixes (to the base of
 1024).
 
 ``--vacuum-time=`` removes archived journal files older than the specified
-timespan. Accepts the usual ``s`` (default), ``m``,
-``h``, ``days``, ``weeks``, ``months``,
-and ``years`` suffixes, see
+timespan. Accepts the usual "s" (default), "m",
+"h", "days", "weeks", "months",
+and "years" suffixes, see
 :ref:`systemd.time(7)` for
 details.
 
@@ -1070,7 +1070,7 @@ If two matches refer to the same field, all entries matching either expression a
 
    journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service
 
-If the separator ``+`` is used, two expressions may be combined in a logical OR. The
+If the separator "+" is used, two expressions may be combined in a logical OR. The
 following will show all messages from the Avahi service process with the PID 28097 plus all messages from
 the D-Bus service (from any of its processes):
 

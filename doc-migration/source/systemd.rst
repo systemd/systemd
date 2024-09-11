@@ -195,7 +195,7 @@ and "First Boot Semantics" in
 systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are
 kept loaded into memory are those for which at least one of the following conditions is true:
 
-1. It is in an active, activating, deactivating or failed state (i.e. in any unit state except for ``inactive``)
+1. It is in an active, activating, deactivating or failed state (i.e. in any unit state except for "inactive")
   It has a job queued for it
   It is a dependency of at least one other unit that is loaded into memory
   It has some form of resource still allocated (e.g. a service unit that is inactive but for which
@@ -523,7 +523,7 @@ line.
 ``SIGRTMIN+22``
 ---------------
 
-Sets the service manager's log level to ``debug``, in a fashion equivalent to
+Sets the service manager's log level to "debug", in a fashion equivalent to
 ``systemd.log_level=debug`` on the kernel command line.
 
 ``SIGRTMIN+23``
@@ -532,7 +532,7 @@ Sets the service manager's log level to ``debug``, in a fashion equivalent to
 Restores the log level to its configured value. The configured value is derived from – in order
 of priority – the value specified with ``systemd.log-level=`` on the kernel command line, or the
 value specified with ``LogLevel=`` in the configuration file, or the built-in default of
-``info``.
+"info".
 
 .. only:: html
 
@@ -577,8 +577,8 @@ default.
 ``SIGRTMIN+27, SIGRTMIN+28``
 ----------------------------
 
-Sets the log target to ``console`` on ``SIGRTMIN+27`` (or
-``kmsg`` on ``SIGRTMIN+28``), in a fashion equivalent to
+Sets the log target to "console" on ``SIGRTMIN+27`` (or
+"kmsg" on ``SIGRTMIN+28``), in a fashion equivalent to
 ``systemd.log_target=console`` (or ``systemd.log_target=kmsg`` on
 ``SIGRTMIN+28``) on the kernel command line.
 
@@ -590,7 +590,7 @@ Environment
 ===========
 
 The environment block for the system manager is initially set by the kernel. (In particular,
-``key=value`` assignments on the kernel command line are turned into environment
+"key=value" assignments on the kernel command line are turned into environment
 variables for PID 1). For the user manager, the system manager sets the environment as described in the
 "Environment Variables in Spawned Processes" section of
 :ref:`systemd.exec(5)`. The
@@ -692,8 +692,8 @@ Controls where systemd looks for unit files and
 generators.
 
 These variables may contain a list of paths, separated by colons
-(``:``). When set, if the list ends with an empty
-component (``...:``), this list is prepended to the
+(":"). When set, if the list ends with an empty
+component ("...:"), this list is prepended to the
 usual set of paths. Otherwise, the specified list replaces the usual
 set of paths.
 
@@ -748,10 +748,10 @@ specified as kernel command line arguments which are parsed from a number of sou
 environment in which systemd is executed. If run inside a Linux container, these options are parsed from
 the command line arguments passed to systemd itself, next to any of the command line options listed in
 the Options section above. If run outside of Linux containers, these arguments are parsed from
-``/proc/cmdline`` and from the ``SystemdOptions`` EFI variable
+``/proc/cmdline`` and from the "SystemdOptions" EFI variable
 (on EFI systems) instead. Options from ``/proc/cmdline`` have higher priority.
 
-Note: use of ``SystemdOptions`` is deprecated.
+Note: use of "SystemdOptions" is deprecated.
 
 The following variables are understood:
 
@@ -762,7 +762,7 @@ Overrides the unit to activate on boot.  Defaults to
 ``default.target``. This may be used to temporarily boot into a different boot unit,
 for example ``rescue.target`` or ``emergency.service``. See
 :ref:`systemd.special(7)`
-for details about these units. The option prefixed with ``rd.`` is honored only in the
+for details about these units. The option prefixed with "rd." is honored only in the
 initrd, while the one that is not prefixed only in the main system.
 
 ``systemd.dump_core``
@@ -805,11 +805,11 @@ authentication.
 ``systemd.crash_action=``
 -------------------------
 
-Takes one of ``freeze``, ``reboot`` or
-``poweroff``. Defaults to ``freeze``. If set to
-``freeze``, the system will hang indefinitely when the system manager (PID 1) crashes.
-If set to ``reboot``, the system manager (PID 1) will reboot the machine automatically
-when it crashes, after a 10s delay. If set to ``poweroff``, the system manager (PID 1)
+Takes one of "freeze", "reboot" or
+"poweroff". Defaults to "freeze". If set to
+"freeze", the system will hang indefinitely when the system manager (PID 1) crashes.
+If set to "reboot", the system manager (PID 1) will reboot the machine automatically
+when it crashes, after a 10s delay. If set to "poweroff", the system manager (PID 1)
 will power off the machine immediately when it crashes. If combined with
 :directive:kernel-commandline-options:var:`systemd.crash_shell`, the configured crash action is executed after the shell
 exits.
@@ -826,7 +826,7 @@ where the confirmation messages should be emitted. Can be also specified
 without an argument, with the same effect as a positive boolean. If enabled,
 the system manager (PID 1) asks for confirmation when spawning processes
 using :directive:kernel-commandline-options:option:`/dev/console`. If a path or a console name (such as
-``ttyS0``) is provided, the virtual console pointed to by this
+"ttyS0") is provided, the virtual console pointed to by this
 path or described by the give name will be used instead. Defaults to disabled.
 
 .. only:: html
@@ -1054,7 +1054,7 @@ generators:
   ``io.systemd.credential:<name>=<value>``,
   and
   ``io.systemd.credential.binary:<name>=<value>``.
-  At the same time it will import credentials from QEMU ``fw_cfg``. (Note
+  At the same time it will import credentials from QEMU "fw_cfg". (Note
   that the SMBIOS mechanism is generally preferred, because it is faster and generic.)
   Credentials may be passed via the kernel command line, using the
   ``systemd.set-credential=`` parameter, see above.
@@ -1087,8 +1087,8 @@ the next section for more information. Note that in case the hypervisor does not
 :directive:system-credentials:constant:`SOCK_DGRAM` over :directive:system-credentials:constant:`AF_VSOCK`,
 :directive:system-credentials:constant:`SOCK_SEQPACKET` will be tried instead. The credential payload for
 :directive:system-credentials:constant:`AF_VSOCK` should be a string in the form
-``vsock:CID:PORT``. ``vsock-stream``, ``vsock-dgram``
-and ``vsock-seqpacket`` can be used instead of ``vsock`` to force
+"vsock:CID:PORT". "vsock-stream", "vsock-dgram"
+and "vsock-seqpacket" can be used instead of "vsock" to force
 usage of the corresponding socket type.
 
 This feature is useful for machine managers or other processes on the host to receive a
@@ -1177,8 +1177,8 @@ track its boot progress. Specifically the following fields are sent:
 
      .. versionadded:: 256
   An ``X_SYSTEMD_SHUTDOWN=…`` message will be sent out very shortly before
-  the system shuts down. The value is one of the strings ``reboot``,
-  ``halt``, ``poweroff``, ``kexec`` and indicates which kind
+  the system shuts down. The value is one of the strings "reboot",
+  "halt", "poweroff", "kexec" and indicates which kind
   of shutdown is being executed.
 
   .. only:: html
@@ -1192,8 +1192,8 @@ track its boot progress. Specifically the following fields are sent:
 
      .. versionadded:: 256
 
-Note that these extension fields are sent in addition to the regular ``READY=1`` and
-``RELOADING=1`` notifications.
+Note that these extension fields are sent in addition to the regular "READY=1" and
+"RELOADING=1" notifications.
 
 Options
 =======
