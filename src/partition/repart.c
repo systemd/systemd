@@ -2091,6 +2091,11 @@ static int partition_finalize_fstype(Partition *p, const char *path) {
         return free_and_strdup_warn(&p->format, v);
 }
 
+static bool partition_needs_populate(const Partition *p) {
+        assert(p);
+        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
+}
+
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
@@ -2169,19 +2174,18 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
-        if ((p->copy_blocks_path || p->copy_blocks_auto) &&
-            (p->format || !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)))
+        if ((p->copy_blocks_path || p->copy_blocks_auto) && (p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=/CopyFiles=/MakeDirectories= and CopyBlocks= cannot be combined, refusing.");
 
-        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && streq_ptr(p->format, "swap"))
+        if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=swap and CopyFiles= cannot be combined, refusing.");
+                                  "Format=swap and CopyFiles=/MakeDirectories= cannot be combined, refusing.");
 
         if (!p->format) {
                 const char *format = NULL;
 
-                if (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
+                if (partition_needs_populate(p) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
                         /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
                         format = IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4";
                 else if (p->type.designator == PARTITION_SWAP)
@@ -2202,12 +2206,12 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize=best can only be used with read-only filesystems or Verity=hash.");
 
-        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
+        if (partition_needs_populate(p) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
                                   "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=.",
                                   p->format);
 
-        if (p->format && fstype_is_ro(p->format) && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+        if (p->format && fstype_is_ro(p->format) && !partition_needs_populate(p))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Cannot format %s filesystem without source files, refusing.", p->format);
 
@@ -2227,8 +2231,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "VerityMatchKey= can only be set if Verity= is not \"%s\".",
                                   verity_mode_to_string(p->verity));
 
-        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) &&
-                (p->copy_files || p->copy_blocks_path || p->copy_blocks_auto || p->format || p->make_directories))
+        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) && (p->copy_blocks_path || p->copy_blocks_auto || p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
@@ -5312,11 +5315,6 @@ static int set_default_subvolume(Partition *p, const char *root) {
                 return log_error_errno(r, "Failed to make '%s' the default subvolume: %m", p->default_subvolume);
 
         return 0;
-}
-
-static bool partition_needs_populate(const Partition *p) {
-        assert(p);
-        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
 static int partition_populate_directory(Context *context, Partition *p, char **ret) {
