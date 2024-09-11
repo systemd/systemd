@@ -564,3 +564,13 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 
 #define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
 #define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define bswap_16(x) __builtin_bswap16(x)
+#  define bswap_32(x) __builtin_bswap32(x)
+#  define bswap_64(x) __builtin_bswap64(x)
+#else
+#  define bswap_16(x) (x)
+#  define bswap_32(x) (x)
+#  define bswap_64(x) (x)
+#endif
