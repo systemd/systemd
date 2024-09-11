@@ -110,14 +110,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>AccessContainer=</varname></term>
+        <term><varname>EnterNamespace=</varname></term>
 
         <listitem><para>Controls whether <command>systemd-coredump</command> will attempt to use the mount tree of
-        a process that crashed within a container. Access to the container's filesystem might be necessary to generate
+        a process that crashed in PID namespace. Access to the namespace's mount tree might be necessary to generate
         a fully symbolized backtrace. If set to <literal>yes</literal>, then <command>systemd-coredump</command> will
         obtain the mount tree from corresponding mount namespace and will try to generate the stack trace using the
-        binary and libraries from the mount namespace. Note that the coredump of the containerized process might
-        still be saved in <filename>/var/lib/systemd/coredump/</filename> even if <varname>AccessContainer=</varname>
+        binary and libraries from the mount namespace. Note that the coredump of the namespaced process might
+        still be saved in <filename>/var/lib/systemd/coredump/</filename> even if <varname>EnterNamespace=</varname>
         is set to <literal>no</literal>. Defaults to <literal>no</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/>
