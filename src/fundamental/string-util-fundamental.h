@@ -21,6 +21,25 @@ typedef char16_t sd_char;
 #else
 #  define STR_C(str)       (str)
 typedef char sd_char;
+
+#include <uchar.h>
+
+static inline size_t strnlen16(const char16_t *s, size_t n) {
+        if (!s)
+                return 0;
+
+        size_t len = 0;
+        while (*s) {
+                s++;
+                len++;
+        }
+
+        return len;
+}
+
+static inline size_t strlen16(const char16_t *s) {
+        return strnlen16(s, SIZE_MAX);
+}
 #endif
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
