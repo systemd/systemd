@@ -340,12 +340,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS50_70MU:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4XMB,ME,MZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS5x_NS7xPU:*
-evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4xPZ:*
-evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV54x_6x_TU:*
  KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
  KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
 
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV5xTNC_TND_TNE:*
+evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4xPZ:*
+evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV54x_6x_TU:*
+ KEYBOARD_KEY_f7=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_f8=f21                                    # Touchpad Toggle
  KEYBOARD_KEY_81=f20                                    # Fn+4; Mic Mute
 
 ###########################################################
