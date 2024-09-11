@@ -1175,7 +1175,7 @@ static int wireguard_read_default_key_cred(NetDev *netdev, const char *filename)
                                               "%s: No private key specified and default key cannot be parsed, "
                                               "ignoring network device: %m",
                                               filename);
-        if (len != WG_KEY_LEN)
+        if (len != WG_KEY_LEN || memeqzero(key, len))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: No private key specified and default key is invalid. "
                                               "Ignoring network device.",
