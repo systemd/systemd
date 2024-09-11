@@ -257,7 +257,7 @@ void sha1_process_bytes(const void *buffer, struct sha1_ctx *ctx, size_t size) {
                 memcpy(&ctx->buffer[j], buffer, (i = 64 - j));
                 sha1_do_transform(ctx->state, ctx->buffer);
                 for (; i + 63 < size; i += 64)
-                        sha1_do_transform(ctx->state, (const uint8_t *) buffer + i);
+                        sha1_do_transform(ctx->state, (const void *) ((const uint8_t *) buffer + i));
                 j = 0;
         } else
                 i = 0;
