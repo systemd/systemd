@@ -290,9 +290,10 @@ static bool pe_use_this_dtb(
                 }
         }
 
-        if (err == EFI_SUCCESS)
+        if (err == EFI_SUCCESS) {
+                log_info("Loading DT blob for %s (%s)...", cached_device->name, cached_device->compatible);
                 return true;
-        else if (err == EFI_INVALID_PARAMETER)
+        } else if (err == EFI_INVALID_PARAMETER)
                 log_error_status(err, "Found bad DT blob in PE section %zu", section_nb);
 
         return false;
