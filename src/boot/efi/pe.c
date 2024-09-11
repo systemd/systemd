@@ -279,6 +279,8 @@ static bool pe_use_this_dtb(
                         err = hwid_match(hwids, hwids_section.size, &compatible);
                         if (err == EFI_SUCCESS)
                                 err = devicetree_match_by_compatible(dtb, dtb_size, compatible);
+                        if (err == EFI_SUCCESS)
+                                log_error_status(EFI_SUCCESS, "Loading DT blob for %s...", compatible);
                 }
         }
 
