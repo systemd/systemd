@@ -139,23 +139,15 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s) {
 }
 
 unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
-        unsigned n = 0;
-        DnsServer *i;
-
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return 0;
 
         if (s->link)
-                i = s->link->dns_servers;
+                return s->link->n_dns_servers;
         else
-                i = s->manager->dns_servers;
-
-        for (; i; i = i->servers_next)
-                n++;
-
-        return n;
+                return s->manager->n_dns_servers;
 }
 
 void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
