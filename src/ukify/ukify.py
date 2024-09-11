@@ -788,6 +788,7 @@ def verify(tool, opts, linux=None):
 
     return tool['output'] in info
 
+
 def fetch_pcrpkey(opts):
     pcrpkey = opts.pcrpkey
     if pcrpkey is not None:
@@ -935,10 +936,11 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
+
 def sign_uki(opts):
-    """
-    Unpack UKI, replace cmdline, measure and sign PCR, then repack and sign it.
-    We have to repack as PCR signature should be before the linux section.
+    """Unpack a UKI, replace the cmdline, measure and sign the PCR, then repack and sign the UKI.
+    
+    We have to repack the UKI because the PCR signature should be before the linux section.
     """
     if not opts.sb_key and not opts.sb_cert_name:
         raise ValueError("Signing arguments required to sign UKI")
@@ -958,7 +960,7 @@ def sign_uki(opts):
         '.pcrpkey',
         '.initrd',
         '.ucode',
-        '.linux'
+        '.linux',
     ]
     additional_sections = []
     for section in pe.sections:
@@ -1111,7 +1113,7 @@ def generate_key_cert_pair(
     return key_pem, cert_pem
 
 
-def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes, bytes]:
+def generate_priv_pub_key_pair(keylength: int = 2048) -> tuple[bytes, bytes]:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 

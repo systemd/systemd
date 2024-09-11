@@ -525,7 +525,7 @@
           <term><option>--append-cmdline</option></term>
           <term><option>--no-append-cmdline</option></term>
 
-          <listitem><para>Only used for <command>sign</command>. If specified, the cmdline given binary
+          <listitem><para>Only used for <command>sign</command>. If specified, the given binary
           <varname>Cmdline=</varname>/<option>--cmdline=</option> is appended to the existing cmdline section.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
