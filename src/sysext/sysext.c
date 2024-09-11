@@ -1434,6 +1434,10 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
+        r = bind_mount_submounts(op->resolved_hierarchy, overlay_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move submounts to %s hierarchy: %m", hierarchy);
+
         return 1;
 }
 
