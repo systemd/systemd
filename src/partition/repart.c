@@ -1795,7 +1795,7 @@ static int config_parse_subvolumes(
                         continue;
                 }
 
-                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &d);
+                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /*userdata=*/ NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in Subvolumes= parameter, ignoring: %s", path);
