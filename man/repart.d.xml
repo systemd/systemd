@@ -538,6 +538,30 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MakeSymlinks=</varname></term>
+
+        <listitem><para>Takes one or more arguments, separated by whitespace, each declaring a symlink to
+        create within the new file system. Each argument is a pair of symlink source and target paths,
+        separated by a colon. This option may be used more than once to create multiple symlinks. When
+        <varname>CopyFiles=</varname> and <varname>MakeSymlinks=</varname> are used together the former is
+        applied first.</para>
+
+        <para>The primary use case for this option is to create symlinks that need to exist before
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is executed. For example, when using
+        <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        this setting can be used to create symlinks in <filename>/var/lib/extensions.mutable</filename> to
+        redirect writes to mutable confexts to a custom location.</para>
+
+        <para>Consider using
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        with its <option>--image=</option> option to pre-create other symlinks (as well as other inodes) with
+        fine-grained control of ownership, access modes and other file attributes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Subvolumes=</varname></term>
 
         <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
