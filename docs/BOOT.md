@@ -93,7 +93,7 @@ Hotkeys to select a specific entry in the menu, or when pressed during bootup to
 |--------|------------------------------------------------------------|
 | l | Linux |
 | w | Windows |
-| a | OS X |
+| a | macOS |
 | s | EFI Shell |
 | 1-9 | number of entry |
 
