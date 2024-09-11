@@ -404,8 +404,8 @@ static int import_credentials_qemu(ImportCredentialsContext *c) {
                 return 0;
         }
 
-        for (size_t i = 0; i < de->n_entries; i++) {
-                const struct dirent *d = de->entries[i];
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const struct dirent *d = *i;
                 _cleanup_close_ int vfd = -EBADF, rfd = -EBADF, nfd = -EBADF;
                 _cleanup_free_ char *szs = NULL;
                 uint64_t sz;
