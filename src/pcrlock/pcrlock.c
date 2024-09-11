@@ -4971,7 +4971,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --components=PATH        Directory to read .pcrlock files from\n"
                "     --location=STRING[:STRING]\n"
                "                              Do not process components beyond this component name\n"
-               "     --recovery-pin=yes       Ask for a recovery PIN\n"
+               "     --recovery-pin=MODE      Controls whether to show, hide, or ask for a recovery PIN\n"
                "     --pcrlock=PATH           .pcrlock file to write expected PCR measurement to\n"
                "     --policy=PATH            JSON file to write policy output to\n"
                "     --force                  Write policy even if it matches existing policy\n"
