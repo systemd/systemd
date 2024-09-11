@@ -145,8 +145,10 @@ int efi_get_variable(
 int efi_get_variable_string(const char *variable, char **ret) {
         _cleanup_free_ void *s = NULL;
         size_t ss = 0;
-        int r;
         char *x;
+        int r;
+
+        assert(variable);
 
         r = efi_get_variable(variable, NULL, &s, &ss);
         if (r < 0)
@@ -156,8 +158,25 @@ int efi_get_variable_string(const char *variable, char **ret) {
         if (!x)
                 return -ENOMEM;
 
-        *ret = x;
+        if (ret)
+                *ret = x;
+
         return 0;
+}
+
+int efi_get_variable_path(const char *variable, char **ret) {
+        int r;
+
+        assert(variable);
+
+        r = efi_get_variable_string(variable, ret);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                efi_tilt_backslashes(*ret);
+
+        return r;
 }
 
 static int efi_verify_variable(const char *variable, uint32_t attr, const void *value, size_t size) {
