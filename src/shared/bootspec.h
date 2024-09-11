@@ -38,6 +38,7 @@ typedef struct BootEntry {
         bool reported_by_loader;
         char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
+        char *id_without_profile; /* id without profile suffixed */
         char *path;     /* This is the full path to the drop-in file */
         char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
         char *title;
@@ -55,6 +56,7 @@ typedef struct BootEntry {
         char **device_tree_overlay;
         unsigned tries_left;
         unsigned tries_done;
+        unsigned profile;
 } BootEntry;
 
 #define BOOT_ENTRY_INIT(t)                      \
