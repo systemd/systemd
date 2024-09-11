@@ -248,6 +248,7 @@ void sha1_init_ctx(struct sha1_ctx *ctx) {
 /* Run your data through this. */
 void sha1_process_bytes(const void *buffer, struct sha1_ctx *ctx, size_t size) {
         size_t i, j;
+        uint8_t buffer64[64];
 
         j = (ctx->count[0] >> 3) & 63;
         if ((ctx->count[0] += (uint32_t) size << 3) < ((uint32_t) size << 3))
@@ -256,8 +257,10 @@ void sha1_process_bytes(const void *buffer, struct sha1_ctx *ctx, size_t size) {
         if ((j + size) > 63) {
                 memcpy(&ctx->buffer[j], buffer, (i = 64 - j));
                 sha1_do_transform(ctx->state, ctx->buffer);
-                for (; i + 63 < size; i += 64)
-                        sha1_do_transform(ctx->state, (const uint8_t *) buffer + i);
+                for (; i + 63 < size; i += 64) {
+                        memcpy(buffer64, (const uint8_t *) buffer + i, sizeof(buffer64));
+                        sha1_do_transform(ctx->state, buffer64);
+                }
                 j = 0;
         } else
                 i = 0;
