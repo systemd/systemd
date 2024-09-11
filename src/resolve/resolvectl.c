@@ -1765,52 +1765,56 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
         pager_open(arg_pager_flags);
 
-        if (mode == STATUS_DNS)
+        switch (mode) {
+
+        case STATUS_DNS:
                 return status_print_strv_ifindex(ifindex, name, link_info.dns_ex ?: link_info.dns);
 
-        if (mode == STATUS_DOMAIN)
+        case STATUS_DOMAIN:
                 return status_print_strv_ifindex(ifindex, name, link_info.domains);
 
-        if (mode == STATUS_NTA)
+        case STATUS_NTA:
                 return status_print_strv_ifindex(ifindex, name, link_info.ntas);
 
-        if (mode == STATUS_DEFAULT_ROUTE) {
+        case STATUS_DEFAULT_ROUTE:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        yes_no(link_info.default_route));
 
                 return 0;
-        }
 
-        if (mode == STATUS_LLMNR) {
+        case STATUS_LLMNR:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.llmnr));
 
                 return 0;
-        }
 
-        if (mode == STATUS_MDNS) {
+        case STATUS_MDNS:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.mdns));
 
                 return 0;
-        }
 
-        if (mode == STATUS_PRIVATE) {
+        case STATUS_PRIVATE:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dns_over_tls));
 
                 return 0;
-        }
 
-        if (mode == STATUS_DNSSEC) {
+        case STATUS_DNSSEC:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dnssec));
 
+                return 0;
+
+        case STATUS_ALL:
+                break;
+
+        default:
                 return 0;
         }
 
@@ -2032,40 +2036,45 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         pager_open(arg_pager_flags);
 
-        if (mode == STATUS_DNS)
+        switch (mode) {
+
+        case STATUS_DNS:
                 return status_print_strv_global(global_info.dns_ex ?: global_info.dns);
 
-        if (mode == STATUS_DOMAIN)
+        case STATUS_DOMAIN:
                 return status_print_strv_global(global_info.domains);
 
-        if (mode == STATUS_NTA)
+        case STATUS_NTA:
                 return status_print_strv_global(global_info.ntas);
 
-        if (mode == STATUS_LLMNR) {
+        case STATUS_LLMNR:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.llmnr));
 
                 return 0;
-        }
 
-        if (mode == STATUS_MDNS) {
+        case STATUS_MDNS:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.mdns));
 
                 return 0;
-        }
 
-        if (mode == STATUS_PRIVATE) {
+        case STATUS_PRIVATE:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dns_over_tls));
 
                 return 0;
-        }
 
-        if (mode == STATUS_DNSSEC) {
+        case STATUS_DNSSEC:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dnssec));
 
+                return 0;
+
+        case STATUS_ALL:
+                break;
+
+        default:
                 return 0;
         }
 
