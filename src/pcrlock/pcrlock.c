@@ -4438,6 +4438,9 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         if (r < 0)
                 return r;
 
+        if (!force && new_prediction.pcrs == 0)
+                log_notice("Set of PCRs to use for policy is empty. Generated policy will not provide any protection in its current form. Proceeding.");
+
         usec_t predict_start_usec = now(CLOCK_MONOTONIC);
 
         r = tpm2_pcr_prediction_run(el, &new_prediction);
