@@ -7907,6 +7907,38 @@ Tpm2Support tpm2_support(void) {
         return support;
 }
 
+int verb_has_tpm2_generic(bool quiet) {
+        Tpm2Support s;
+
+        s = tpm2_support();
+
+        if (!quiet) {
+                if (s == TPM2_SUPPORT_FULL)
+                        puts("yes");
+                else if (s == TPM2_SUPPORT_NONE)
+                        puts("no");
+                else
+                        puts("partial");
+
+                printf("%sfirmware\n"
+                       "%sdriver\n"
+                       "%ssystem\n"
+                       "%ssubsystem\n"
+                       "%slibraries\n",
+                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
+                       plus_minus(s & TPM2_SUPPORT_DRIVER),
+                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
+                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
+                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
+        }
+
+        /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
+         * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
+         * what is there, acknowledging the fact that for process exit statuses it is customary to return
+         * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
+        return ~s & TPM2_SUPPORT_FULL;
+}
+
 #if HAVE_TPM2
 static void tpm2_pcr_values_apply_default_hash_alg(Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         TPMI_ALG_HASH default_hash = 0;
