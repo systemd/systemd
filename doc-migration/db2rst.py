@@ -278,6 +278,8 @@ def _normalize_whitespace(s):
 
 def TreeRoot(el):
     output = _conv(el)
+    # add .. SPDX-License-Identifier: LGPL-2.1-or-later:
+    output = '\n\n'.join(['.. SPDX-License-Identifier: LGPL-2.1-or-later:', output])
     # remove trailing whitespace
     output = re.sub(r"[ \t]+\n", "\n", output)
     # leave only one blank line
