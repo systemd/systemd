@@ -425,7 +425,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash mask: %m");
-        } else if (pubkey_pcr_mask != 0) {
+
+        } else if (pubkey_pcr_mask != 0 && !device_key) {
 
                 /* If no literal PCR value policy is used, then let's determine the mask to use automatically
                  * from the measurements of the TPM. */
