@@ -1390,6 +1390,45 @@ EOF
     [[ "$(sfdisk -d "$imgs/zzz" | grep -F 'uuid=' | awk '{ print $8 }' | sort -u | wc -l)" == "3" ]]
 }
 
+testcase_make_symlinks() {
+    local defs imgs output
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping MakeSymlinks= test in container."
+        return
+    fi
+
+    # For issue #34257
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+MakeDirectories=/dir
+MakeSymlinks=/foo:/bar
+MakeSymlinks=/dir/foo:/bar
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
+    assert_eq "$(readlink "$imgs/mnt/foo")" "/bar"
+    assert_eq "$(readlink "$imgs/mnt/dir/foo")" "/bar"
+    systemd-dissect -U "$imgs/mnt"
+}
+
 OFFLINE="yes"
 run_testcases
 
