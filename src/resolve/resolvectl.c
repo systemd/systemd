@@ -1875,6 +1875,12 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return r;
 
+        r = table_add_many(table,
+                           TABLE_FIELD, "Default Route",
+                           TABLE_BOOLEAN, link_info.default_route);
+        if (r < 0)
+                return table_log_add_error(r);
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
