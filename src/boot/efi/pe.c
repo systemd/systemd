@@ -287,6 +287,9 @@ static bool pe_use_this_dtb(
 
                         if (err == EFI_SUCCESS)
                                 err = devicetree_match_by_compatible(dtb, dtb_size, cached_device->compatible);
+
+                        if (err == EFI_SUCCESS)
+                                log_info("sd-stub: Loading DT blob for %s (%s)...", cached_device->name, cached_device->compatible);
                 }
         }
 
