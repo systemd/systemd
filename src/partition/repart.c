@@ -377,6 +377,7 @@ typedef struct Partition {
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
+        char **make_symlinks;
         OrderedHashmap *subvolumes;
         char *default_subvolume;
         EncryptMode encrypt;
@@ -544,6 +545,7 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
+        strv_free(p->make_symlinks);
         ordered_hashmap_free(p->subvolumes);
         free(p->default_subvolume);
         free(p->verity_match_key);
@@ -582,6 +584,7 @@ static void partition_foreignize(Partition *p) {
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
+        p->make_symlinks = strv_free(p->make_symlinks);
         p->subvolumes = ordered_hashmap_free(p->subvolumes);
         p->default_subvolume = mfree(p->default_subvolume);
         p->verity_match_key = mfree(p->verity_match_key);
@@ -1758,6 +1761,64 @@ static int config_parse_make_dirs(
         }
 }
 
+static int config_parse_make_symlinks(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***sv = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *path = NULL, *target = NULL, *d = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                const char *q = word;
+                r = extract_many_words(&q, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &path, &target);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", q);
+                        continue;
+                }
+                if (r != 2) {
+                        log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                   "Missing source or target in %s, ignoring", rvalue);
+                        continue;
+                }
+
+                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /*userdata=*/ NULL, &d);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to expand specifiers in Subvolumes= parameter, ignoring: %s", path);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(d, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                r = strv_consume_pair(sv, TAKE_PTR(d), TAKE_PTR(target));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add symlink to list: %m");
+        }
+}
+
 static int config_parse_subvolumes(
                 const char *unit,
                 const char *filename,
@@ -2094,7 +2155,7 @@ static int partition_finalize_fstype(Partition *p, const char *path) {
 
 static bool partition_needs_populate(const Partition *p) {
         assert(p);
-        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
+        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || !strv_isempty(p->make_symlinks);
 }
 
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
@@ -2117,6 +2178,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "ExcludeFiles",             config_parse_exclude_files,     0,                                  &p->exclude_files_source    },
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,     0,                                  &p->exclude_files_target    },
                 { "Partition", "MakeDirectories",          config_parse_make_dirs,         0,                                  &p->make_directories        },
+                { "Partition", "MakeSymlinks",             config_parse_make_symlinks,     0,                                  &p->make_symlinks           },
                 { "Partition", "Encrypt",                  config_parse_encrypt,           0,                                  &p->encrypt                 },
                 { "Partition", "Verity",                   config_parse_verity,            0,                                  &p->verity                  },
                 { "Partition", "VerityMatchKey",           config_parse_string,            0,                                  &p->verity_match_key        },
@@ -2177,11 +2239,11 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if ((p->copy_blocks_path || p->copy_blocks_auto) && (p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=/CopyFiles=/MakeDirectories= and CopyBlocks= cannot be combined, refusing.");
+                                  "Format=/CopyFiles=/MakeDirectories=/MakeSymlinks= and CopyBlocks= cannot be combined, refusing.");
 
         if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=swap and CopyFiles=/MakeDirectories= cannot be combined, refusing.");
+                                  "Format=swap and CopyFiles=/MakeDirectories=/MakeSymlinks= cannot be combined, refusing.");
 
         if (!p->format) {
                 const char *format = NULL;
@@ -2209,7 +2271,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if (partition_needs_populate(p) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
-                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=.",
+                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=/MakeSymlinks=.",
                                   p->format);
 
         if (p->format && fstype_is_ro(p->format) && !partition_needs_populate(p))
@@ -2234,7 +2296,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) && (p->copy_blocks_path || p->copy_blocks_auto || p->format || partition_needs_populate(p)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s.",
+                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
@@ -5276,6 +5338,27 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
+static int do_make_symlinks(Partition *p, const char *root) {
+        int r;
+
+        assert(p);
+        assert(root);
+
+        STRV_FOREACH_PAIR(path, target, p->make_symlinks) {
+                _cleanup_close_ int parent_fd = -EBADF;
+                _cleanup_free_ char *f = NULL;
+
+                r = chase(*path, root, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_EXTRACT_FILENAME, &f, &parent_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s in %s", *path, root);
+
+                if (symlinkat(*target, parent_fd, f) < 0)
+                        return log_error_errno(errno, "Failed to create symlink at %s to %s: %m", *path, *target);
+        }
+
+        return 0;
+}
+
 static int make_subvolumes_read_only(Partition *p, const char *root) {
         _cleanup_free_ char *path = NULL;
         Subvolume *subvolume;
@@ -5347,6 +5430,10 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         if (r < 0)
                 return r;
 
+        r = do_make_symlinks(p, root);
+        if (r < 0)
+                return r;
+
         log_info("Successfully populated %s filesystem.", p->format);
 
         *ret = TAKE_PTR(root);
@@ -5385,6 +5472,9 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_symlinks(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (make_subvolumes_read_only(p, fs) < 0)
