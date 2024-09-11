@@ -122,10 +122,10 @@ In the ``extension-release.<IMAGE>`` filename, the
 <IMAGE> part must exactly match the file name of the containing image with the
 suffix removed. In case it is not possible to guarantee that an image file name is stable and doesn't
 change between the build and the deployment phases, it is possible to relax this check: if exactly one
-file whose name matches ````extension-release.*```` is present in this
+file whose name matches "``extension-release.*``" is present in this
 directory, and the file is tagged with a ``user.extension-release.strict``
 :man-pages:`xattr(7)` set to the
-string ``0``, it will be used instead.
+string "0", it will be used instead.
 
 The rest of this document that talks about ``os-release`` should be understood
 to apply to ``extension-release`` too.
@@ -142,20 +142,20 @@ General information identifying the operating system
 .. option:: NAME=
 
    A string identifying the operating system, without a version component, and
-   suitable for presentation to the user. If not set, a default of ``NAME=Linux`` may
+   suitable for presentation to the user. If not set, a default of "NAME=Linux" may
    be used.
 
-   Examples: ``NAME=Fedora``, ``NAME="Debian GNU/Linux"``.
+   Examples: "NAME=Fedora", "NAME="Debian GNU/Linux"".
 
 .. option:: ID=
 
    A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
    and "-") identifying the operating system, excluding any version information and suitable for
    processing by scripts or usage in generated filenames. If not set, a default of
-   ``ID=linux`` may be used. Note that even though this string may not include
+   "ID=linux" may be used. Note that even though this string may not include
    characters that require shell quoting, quoting may nevertheless be used.
 
-   Examples: ``ID=fedora``, ``ID=debian``.
+   Examples: "ID=fedora", "ID=debian".
 
 .. option:: ID_LIKE=
 
@@ -170,24 +170,24 @@ General information identifying the operating system
    closely the local operating system relates to the listed ones, starting with the closest. This
    field is optional.
 
-   Examples: for an operating system with ``ID=centos``, an assignment of
-   ``ID_LIKE="rhel fedora"`` would be appropriate. For an operating system with
-   ``ID=ubuntu``, an assignment of ``ID_LIKE=debian`` is appropriate.
+   Examples: for an operating system with "ID=centos", an assignment of
+   "ID_LIKE="rhel fedora"" would be appropriate. For an operating system with
+   "ID=ubuntu", an assignment of "ID_LIKE=debian" is appropriate.
 
 .. option:: PRETTY_NAME=
 
    A pretty operating system name in a format suitable for presentation to the
    user. May or may not contain a release code name or OS version of some kind, as suitable. If not
-   set, a default of ``PRETTY_NAME="Linux"`` may be used
+   set, a default of "PRETTY_NAME="Linux"" may be used
 
-   Example: ``PRETTY_NAME="Fedora 17 (Beefy Miracle)"``.
+   Example: "PRETTY_NAME="Fedora 17 (Beefy Miracle)"".
 
 .. option:: CPE_NAME=
 
    A CPE name for the operating system, in URI binding syntax, following the `Common Platform Enumeration Specification <http://scap.nist.gov/specifications/cpe/>`_ as
    proposed by the NIST. This field is optional.
 
-   Example: ``CPE_NAME="cpe:/o:fedoraproject:fedora:17"``
+   Example: "CPE_NAME="cpe:/o:fedoraproject:fedora:17""
 
 .. option:: VARIANT=
 
@@ -196,8 +196,8 @@ General information identifying the operating system
    this system is subject to a specific divergent set of rules or default configuration settings. This
    field is optional and may not be implemented on all systems.
 
-   Examples: ``VARIANT="Server Edition"``, ``VARIANT="Smart Refrigerator
-   Edition"``.
+   Examples: "VARIANT="Server Edition"", "VARIANT="Smart Refrigerator
+   Edition"".
 
    Note: this field is for display purposes only. The :directive:environment-variables:var:`VARIANT_ID` field should
    be used for making programmatic decisions.
@@ -213,7 +213,7 @@ General information identifying the operating system
    other packages in order to determine a divergent default configuration. This field is optional and
    may not be implemented on all systems.
 
-   Examples: ``VARIANT_ID=server``, ``VARIANT_ID=embedded``.
+   Examples: "VARIANT_ID=server", "VARIANT_ID=embedded".
 
    .. only:: html
 
@@ -228,7 +228,7 @@ Information about the version of the operating system
    information, possibly including a release code name, and suitable for presentation to the
    user. This field is optional.
 
-   Examples: ``VERSION=17``, ``VERSION="17 (Beefy Miracle)"``.
+   Examples: "VERSION=17", "VERSION="17 (Beefy Miracle)"".
 
 .. option:: VERSION_ID=
 
@@ -237,7 +237,7 @@ Information about the version of the operating system
    or release code name, and suitable for processing by scripts or usage in generated filenames. This
    field is optional.
 
-   Examples: ``VERSION_ID=17``, ``VERSION_ID=11.04``.
+   Examples: "VERSION_ID=17", "VERSION_ID=11.04".
 
 .. option:: VERSION_CODENAME=
 
@@ -246,8 +246,8 @@ Information about the version of the operating system
    release version, and suitable for processing by scripts or usage in generated filenames. This field
    is optional and may not be implemented on all systems.
 
-   Examples: ``VERSION_CODENAME=buster``,
-   ``VERSION_CODENAME=xenial``.
+   Examples: "VERSION_CODENAME=buster",
+   "VERSION_CODENAME=xenial".
 
    .. only:: html
 
@@ -263,7 +263,7 @@ Information about the version of the operating system
    during incremental system updates, but :directive:environment-variables:var:`BUILD_ID` would not. This field is
    optional.
 
-   Examples: ``BUILD_ID="2013-03-20.3"``, ``BUILD_ID=201303203``.
+   Examples: "BUILD_ID="2013-03-20.3"", "BUILD_ID=201303203".
 
    .. only:: html
 
@@ -278,8 +278,8 @@ Information about the version of the operating system
    those that are not managed via images but put together and updated from individual packages and on
    the local system.
 
-   Examples: ``IMAGE_ID=vendorx-cashier-system``,
-   ``IMAGE_ID=netbook-image``.
+   Examples: "IMAGE_ID=vendorx-cashier-system",
+   "IMAGE_ID=netbook-image".
 
    .. only:: html
 
@@ -291,7 +291,7 @@ Information about the version of the operating system
    a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
    :directive:environment-variables:var:`IMAGE_ID` described above, to discern different versions of the same image.
 
-   Examples: ``IMAGE_VERSION=33``, ``IMAGE_VERSION=47.1rc1``.
+   Examples: "IMAGE_VERSION=33", "IMAGE_VERSION=47.1rc1".
 
    .. only:: html
 
@@ -322,23 +322,23 @@ Presentation information and links
    only some of these settings is common. These URLs are intended to be exposed in "About this system"
    UIs behind links with captions such as "About this Operating System", "Obtain Support", "Report a
    Bug", or "Privacy Policy". The values should be in `RFC3986 format <https://tools.ietf.org/html/rfc3986>`_, and should be
-   ``http:`` or ``https:`` URLs, and possibly ``mailto:``
-   or ``tel:``. Only one URL shall be listed in each setting. If multiple resources
+   "http:" or "https:" URLs, and possibly "mailto:"
+   or "tel:". Only one URL shall be listed in each setting. If multiple resources
    need to be referenced, it is recommended to provide an online landing page linking all available
    resources.
 
-   Examples: ``HOME_URL="https://fedoraproject.org/"``,
-   ``BUG_REPORT_URL="https://bugzilla.redhat.com/"``.
+   Examples: "HOME_URL="https://fedoraproject.org/"",
+   "BUG_REPORT_URL="https://bugzilla.redhat.com/"".
 
 .. option:: SUPPORT_END=
 
    The date at which support for this version of the OS ends. (What exactly "lack of
    support" means varies between vendors, but generally users should assume that updates, including
    security fixes, will not be provided.) The value is a date in the ISO 8601 format
-   ``YYYY-MM-DD``, and specifies the first day on which support *is
+   "YYYY-MM-DD", and specifies the first day on which support *is
    not* provided.
 
-   For example, ``SUPPORT_END=2001-01-01`` means that the system was supported
+   For example, "SUPPORT_END=2001-01-01" means that the system was supported
    until the end of the last day of the previous millennium.
 
    .. only:: html
@@ -352,7 +352,7 @@ Presentation information and links
    or distributor's logo. This field is optional and may not necessarily be implemented on all
    systems.
 
-   Examples: ``LOGO=fedora-logo``, ``LOGO=distributor-logo-opensuse``
+   Examples: "LOGO=fedora-logo", "LOGO=distributor-logo-opensuse"
 
    .. only:: html
 
@@ -364,8 +364,8 @@ Presentation information and links
    be specified as string suitable for inclusion in the ESC [ m ANSI/ECMA-48 escape code for setting
    graphical rendition. This field is optional.
 
-   Examples: ``ANSI_COLOR="0;31"`` for red, ``ANSI_COLOR="1;34"``
-   for light blue, or ``ANSI_COLOR="0;38;2;60;110;180"`` for Fedora blue.
+   Examples: "ANSI_COLOR="0;31"" for red, "ANSI_COLOR="1;34""
+   for light blue, or "ANSI_COLOR="0;38;2;60;110;180"" for Fedora blue.
 
 .. option:: VENDOR_NAME=
 
@@ -375,8 +375,8 @@ Presentation information and links
    This name is intended to be exposed in "About this system" UIs or software update UIs when
    needed to distinguish the OS vendor from the OS itself. It is intended to be human readable.
 
-   Examples: ``VENDOR_NAME="Fedora Project"`` for Fedora Linux,
-   ``VENDOR_NAME="Canonical"`` for Ubuntu.
+   Examples: "VENDOR_NAME="Fedora Project"" for Fedora Linux,
+   "VENDOR_NAME="Canonical"" for Ubuntu.
 
    .. only:: html
 
@@ -389,11 +389,11 @@ Presentation information and links
    robust against either field not being set.
 
    The value should be in `RFC3986 format <https://tools.ietf.org/html/rfc3986>`_, and should be
-   ``http:`` or ``https:`` URLs. Only one URL shall be listed in the
+   "http:" or "https:" URLs. Only one URL shall be listed in the
    setting.
 
-   Examples: ``VENDOR_URL="https://fedoraproject.org/"``,
-   ``VENDOR_URL="https://canonical.com/"``.
+   Examples: "VENDOR_URL="https://fedoraproject.org/"",
+   "VENDOR_URL="https://canonical.com/"".
 
    .. only:: html
 
@@ -444,7 +444,7 @@ Distribution-level defaults and metadata
    :ref:`systemd-sysext(8)`)
    for more information.
 
-   Examples: ``SYSEXT_LEVEL=2``, ``SYSEXT_LEVEL=15.14``.
+   Examples: "SYSEXT_LEVEL=2", "SYSEXT_LEVEL=15.14".
 
    .. only:: html
 
@@ -456,7 +456,7 @@ Distribution-level defaults and metadata
    See ``/etc/extension-release.d/extension-release.<IMAGE>``
    for more information.
 
-   Examples: ``CONFEXT_LEVEL=2``, ``CONFEXT_LEVEL=15.14``.
+   Examples: "CONFEXT_LEVEL=2", "CONFEXT_LEVEL=15.14".
 
    .. only:: html
 
@@ -465,10 +465,10 @@ Distribution-level defaults and metadata
 .. option:: SYSEXT_SCOPE=
 
    Takes a space-separated list of one or more of the strings
-   ``system``, ``initrd`` and ``portable``. This field is
+   "system", "initrd" and "portable". This field is
    only supported in ``extension-release.d/`` files and indicates what environments
    the system extension is applicable to: i.e. to regular systems, to initrds, or to portable service
-   images. If unspecified, ``SYSEXT_SCOPE=system portable`` is implied, i.e. any system
+   images. If unspecified, "SYSEXT_SCOPE=system portable" is implied, i.e. any system
    extension without this field is applicable to regular systems and to portable service environments,
    but not to initrd environments.
 
@@ -515,7 +515,7 @@ Operating system vendors may extend the file format and introduce new fields. It
 recommended to prefix new fields with an OS specific name in order to avoid name clashes. Applications
 reading this file must ignore unknown fields.
 
-Example: ``DEBIAN_BTS="debbugs://bugs.debian.org/"``.
+Example: "DEBIAN_BTS="debbugs://bugs.debian.org/"".
 
 Container and sandbox runtime managers may make the host's identification data available to
 applications by providing the host's ``/etc/os-release`` (if available, otherwise

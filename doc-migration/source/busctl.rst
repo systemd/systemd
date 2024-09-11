@@ -217,7 +217,7 @@ See
 
 When showing the list of peers, show only
 "unique" names (of the form
-``:<number>.<number>``).
+":<number>.<number>").
 
 .. only:: html
 
@@ -316,8 +316,8 @@ normal output.
 -----------------
 
 When used with the ``call`` or ``get-property`` command, shows output
-formatted as JSON. Expects one of ``short`` (for the shortest possible output without any
-redundant whitespace or line breaks) or ``pretty`` (for a pretty version of the same, with
+formatted as JSON. Expects one of "short" (for the shortest possible output without any
+redundant whitespace or line breaks) or "pretty" (for a pretty version of the same, with
 indentation and line breaks). Note that transformation from D-Bus marshalling to JSON is done in a loss-less
 way, which means type information is embedded into the JSON object tree.
 
@@ -343,13 +343,13 @@ When used with the ``call`` command,
 specifies whether ``busctl`` shall wait for
 completion of the method call, output the returned method
 response data, and return success or failure via the process
-exit code. If this is set to ``no``, the
+exit code. If this is set to "no", the
 method call will be issued but no response is expected, the
 tool terminates immediately, and thus no response can be
 shown, and no success or failure is returned via the exit
 code. To only suppress output of the reply message payload,
 use ``--quiet`` above. Defaults to
-``yes``.
+"yes".
 
 .. only:: html
 
@@ -362,7 +362,7 @@ When used with the ``call`` or ``emit`` command, specifies
 whether the method call should implicitly activate the
 called service, should it not be running yet but is
 configured to be auto-started. Defaults to
-``yes``.
+"yes".
 
 .. only:: html
 
@@ -375,7 +375,7 @@ When used with the ``call`` command,
 specifies whether the services may enforce interactive
 authorization while executing the operation, if the security
 policy is configured for this. Defaults to
-``yes``.
+"yes".
 
 .. only:: html
 
@@ -392,7 +392,7 @@ s, min, h, d, w, month, y). Note that this timeout does not
 apply if ``--expect-reply=no`` is used, as the
 tool does not wait for any reply message then. When not
 specified or when set to 0, the default of
-``25s`` is assumed.
+"25s" is assumed.
 
 .. only:: html
 
@@ -407,7 +407,7 @@ be augmented with data from
 ``/proc/``. When this is turned on, the data
 shown is possibly inconsistent, as the data read from
 ``/proc/`` might be more recent than the rest of
-the credential information. Defaults to ``yes``.
+the credential information. Defaults to "yes".
 
 .. only:: html
 
@@ -489,11 +489,11 @@ on D-Bus signature strings, see the `Type
 system chapter of the D-Bus specification <https://dbus.freedesktop.org/doc/dbus-specification.html#type-system>`_). For simple
 types, each parameter following the signature should simply be the
 parameter's value formatted as string. Positive boolean values may
-be formatted as ``true``, ``yes``,
-``on``, or ``1``; negative boolean
-values may be specified as ``false``,
-``no``, ``off``, or
-``0``. For arrays, a numeric argument for the
+be formatted as "true", "yes",
+"on", or "1"; negative boolean
+values may be specified as "false",
+"no", "off", or
+"0". For arrays, a numeric argument for the
 number of entries followed by the entries shall be specified. For
 variants, the signature of the contents shall be specified,
 followed by the contents. For dictionaries and structs, the
@@ -506,15 +506,15 @@ For example,
    s jawoll
 
 is the formatting
-of a single string ``jawoll``.
+of a single string "jawoll".
 
 .. code-block:: sh
 
    as 3 hello world foobar
 
 is the formatting of a string array with three entries,
-``hello``, ``world`` and
-``foobar``.
+"hello", "world" and
+"foobar".
 
 .. code-block:: sh
 
@@ -522,10 +522,10 @@ is the formatting of a string array with three entries,
 
 is the formatting of a dictionary
 array that maps strings to variants, consisting of three
-entries. The string ``One`` is assigned the
-string ``Eins``. The string
-``Two`` is assigned the 32-bit unsigned
-integer 2. The string ``Yes`` is assigned a
+entries. The string "One" is assigned the
+string "Eins". The string
+"Two" is assigned the 32-bit unsigned
+integer 2. The string "Yes" is assigned a
 positive boolean.
 
 Note that the ``call``,
@@ -545,10 +545,10 @@ Write and Read a Property
 
 The following two commands first write a property and then
 read it back. The property is found on the
-``/org/freedesktop/systemd1`` object of the
-``org.freedesktop.systemd1`` service. The name of
-the property is ``LogLevel`` on the
-``org.freedesktop.systemd1.Manager``
+"/org/freedesktop/systemd1" object of the
+"org.freedesktop.systemd1" service. The name of
+the property is "LogLevel" on the
+"org.freedesktop.systemd1.Manager"
 interface. The property contains a single string:
 
 .. code-block:: sh
@@ -578,14 +578,14 @@ Invoking a Method
 =================
 
 The following command invokes the
-``StartUnit`` method on the
-``org.freedesktop.systemd1.Manager``
+"StartUnit" method on the
+"org.freedesktop.systemd1.Manager"
 interface of the
-``/org/freedesktop/systemd1`` object
-of the ``org.freedesktop.systemd1``
+"/org/freedesktop/systemd1" object
+of the "org.freedesktop.systemd1"
 service, and passes it two strings
-``cups.service`` and
-``replace``. As a result of the method
+"cups.service" and
+"replace". As a result of the method
 call, a single object path parameter is received and
 shown:
 

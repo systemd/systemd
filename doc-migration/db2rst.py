@@ -376,6 +376,8 @@ def command(el):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
+def literal(el):
+    return "\"%s\"" % _concat(el).strip()
 
 def varname(el):
     isInsideTerm = False
@@ -429,7 +431,6 @@ def constant(el):
 
 
 filename = command
-literal = command
 function = command
 
 
