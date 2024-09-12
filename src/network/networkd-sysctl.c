@@ -9,6 +9,7 @@
 #include "af-list.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "missing_network.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
@@ -72,13 +73,13 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
         if (!strneq(value, we->newvalue, sizeof(we->newvalue)))
                 log_struct(LOG_WARNING,
                            "MESSAGE_ID=" SD_MESSAGE_SYSCTL_CHANGED_STR,
-                           "OBJECT_PID=%d", we->pid,
+                           "OBJECT_PID=" PID_FMT, we->pid,
                            "OBJECT_COMM=%s", we->comm,
                            "SYSCTL=/proc/sys/%s", we->path,
                            "OLDVALUE=%s", we->current,
                            "NEWVALUE=%s", we->newvalue,
                            "OURVALUE=%s", value,
-                           LOG_MESSAGE("Foreign process '%s[%d]' changed sysctl '/proc/sys/%s' from '%s' to '%s', conflicting with our setting to '%s'",
+                           LOG_MESSAGE("Foreign process '%s[" PID_FMT "]' changed sysctl '/proc/sys/%s' from '%s' to '%s', conflicting with our setting to '%s'.",
                                        we->comm, we->pid, we->path, we->current, we->newvalue, value));
 
         return 0;
