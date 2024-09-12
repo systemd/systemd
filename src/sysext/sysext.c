@@ -1468,6 +1468,60 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
         return image_class_info[img->class].default_image_policy;
 }
 
+static int move_submounts(const char *src, const char *dst) {
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
+        int r = 0, k;
+
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        r = get_sub_mounts(src, &submounts, &n_submounts);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get submounts for %s: %m", src);
+
+        FOREACH_ARRAY(m, submounts, n_submounts) {
+                _cleanup_free_ char *t = NULL;
+                const char *suffix;
+                struct stat st;
+
+                assert_se(suffix = path_startswith(m->path, src));
+
+                t = path_join(dst, suffix);
+                if (!t)
+                        return -ENOMEM;
+
+                if (fstat(m->mount_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", m->path);
+
+                r = mkdir_parents(t, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create parent directories of %s: %m", t);
+
+                if (S_ISDIR(st.st_mode)) {
+                        if (mkdir(t, 0755) < 0)
+                                return log_error_errno(errno, "Failed to create directory %s: %m", t);
+                } else {
+                        r = touch(t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create file %s: %m", t);
+                }
+
+                k = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
+                if (k < 0) {
+                        RET_GATHER(r, k);
+                        continue;
+                }
+
+                k = umount_recursive(m->path, MNT_DETACH);
+                if (k < 0) {
+                        RET_GATHER(r, k);
+                        continue;
+                }
+        }
+
+        return r;
+}
+
 static int merge_subprocess(
                 ImageClass image_class,
                 char **hierarchies,
@@ -1711,11 +1765,19 @@ static int merge_subprocess(
         /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a reference to the
          * underlying fs. */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *resolved = NULL;
+                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
+
+                submounts_path = path_join(workspace, "submounts", *h);
+                if (!submounts_path)
+                        return log_oom();
 
                 r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(arg_root), *h);
+
+                r = move_submounts(resolved, submounts_path);
+                if (r < 0)
+                        return r;
 
                 r = unmerge_hierarchy(image_class, resolved);
                 if (r < 0)
@@ -1724,7 +1786,7 @@ static int merge_subprocess(
 
         /* Create overlayfs mounts for all hierarchies */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL;
+                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL, *submounts_path = NULL;
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
                 if (!meta_path)
@@ -1739,6 +1801,10 @@ static int merge_subprocess(
                 if (!merge_hierarchy_workspace)
                         return log_oom();
 
+                submounts_path = path_join(workspace, "submounts", *h);
+                if (!submounts_path)
+                        return log_oom();
+
                 r = merge_hierarchy(
                                 image_class,
                                 *h,
@@ -1748,6 +1814,10 @@ static int merge_subprocess(
                                 meta_path,
                                 overlay_path,
                                 merge_hierarchy_workspace);
+                if (r < 0)
+                        return r;
+
+                r = bind_mount_submounts(submounts_path, overlay_path);
                 if (r < 0)
                         return r;
         }
