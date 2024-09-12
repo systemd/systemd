@@ -36,12 +36,14 @@ static int compare_unit_file_list(const UnitFileList *a, const UnitFileList *b) 
         return ascii_strcasecmp_nn(a_id, u, b_id, v);
 }
 
-static bool output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
+static int output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
+        int r;
         _cleanup_free_ char *unit_filename = NULL;
         assert(u);
 
-        if (path_extract_filename(u->path, &unit_filename) < 0)
-                return false;
+        r = path_extract_filename(u->path, &unit_filename);
+        if (r < 0)
+                return r;
 
         if (!strv_fnmatch_or_empty(patterns, unit_filename, FNM_NOESCAPE))
                 return false;
@@ -176,7 +178,10 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
 
                 UnitFileList *u;
                 HASHMAP_FOREACH(u, h) {
-                        if (!output_show_unit_file(u, NULL, NULL))
+                        r = output_show_unit_file(u, /* states= */ NULL, /* patterns= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether to output unit file entry: %m");
+                        if (!r)
                                 continue;
 
                         units[c++] = *u;
@@ -247,9 +252,12 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                                 .state = unit_file_state_from_string(state),
                         };
 
-                        if (output_show_unit_file(&units[c],
+                        r = output_show_unit_file(&units[c],
                             fallback ? arg_states : NULL,
-                            fallback ? strv_skip(argv, 1) : NULL))
+                            fallback ? strv_skip(argv, 1) : NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether to output unit file entry: %m");
+                        if (r > 0)
                                 c++;
                 }
                 if (r < 0)
