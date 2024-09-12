@@ -9,7 +9,7 @@
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "errno-list.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"

@@ -10,6 +10,7 @@
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
