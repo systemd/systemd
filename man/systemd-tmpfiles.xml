@@ -152,10 +152,11 @@
       <varlistentry>
         <term><option>--purge</option></term>
 
-        <listitem><para>If this option is passed, all files and directories marked for
-        <emphasis>creation</emphasis> by the <filename>tmpfiles.d/</filename> files specified on the command
-        line will be <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories
-        marked with <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
+        <listitem><para>If this option is passed, all files and directories declared for
+        <emphasis>creation</emphasis> and marked with the <literal>$</literal> character by the
+        <filename>tmpfiles.d/</filename> files specified on the command line will be
+        <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories marked with
+        <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
         <varname>v</varname>, <varname>q</varname>, <varname>Q</varname>, <varname>p</varname>,
         <varname>L</varname>, <varname>c</varname>, <varname>b</varname>, <varname>C</varname>,
         <varname>w</varname>, <varname>e</varname>. If this switch is used at least one
