@@ -95,7 +95,6 @@ fsopen	6430
 fspick	6433
 fstat	6005
 fstat64
-fstatat
 fstatat64
 fstatfs	6135
 fstatfs64	6218
@@ -247,7 +246,6 @@ munlockall	6149
 munmap	6011
 name_to_handle_at	6303
 nanosleep	6034
-newfstat
 newfstatat	6256
 nice
 old_adjtimex

@@ -95,7 +95,6 @@ fsopen
 fspick
 fstat
 fstat64
-fstatat
 fstatat64
 fstatfs
 fstatfs64
@@ -247,7 +246,6 @@ munlockall
 munmap
 name_to_handle_at
 nanosleep
-newfstat
 newfstatat
 nice
 old_adjtimex
