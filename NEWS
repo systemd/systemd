@@ -93,12 +93,12 @@ CHANGES WITH 257 in spe:
           This is analogous to the systemd-nspawn's --private-users=identity.
 
         * Unit option PrivateTmp=disconnected can be used to specify that a
-          separate tmpfs instance should be used for /tmp and /var/tmp for the
-          unit.
+          separate tmpfs instance should be used for /tmp/ and /var/tmp/ for
+          the unit.
 
-        * A new sleep.conf HibernateOnACPower= option can be used to enable
-          hibernation in suspend-then-hibernate mode even when connected to a
-          power source.
+        * A new sleep.conf HibernateOnACPower= option has been added, which
+          when disabled would suppress hibernation in suspend-then-hibernate
+          mode until the system is disconnected from a power source.
 
         * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
           logged-in users access to the hardware. This is necessary to support
@@ -158,6 +158,10 @@ CHANGES WITH 257 in spe:
 
         * 'networkctl edit' can now read the new contents from standard input
           with the new --stdin option.
+
+        * 'networkctl edit' and 'cat' now supports editing .netdev files by
+          link. 'networkctl cat' can also list all configuration files
+          associated with an interface at once with ':all'.
 
         * networkctl gained a --no-ask-password option to suppress interactive
           polkit authorization.
