@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "env-util.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "network-common.h"
 #include "socket-util.h"
 #include "unaligned.h"
