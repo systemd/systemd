@@ -354,38 +354,61 @@ static int unmerge_hierarchy(
         return 0;
 }
 
+static int unmerge_subprocess(
+                ImageClass image_class,
+                char **hierarchies) {
+
+        int r, ret = 0;
+
+        STRV_FOREACH(h, hierarchies) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = chase(*h, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *h);
+                        continue;
+                }
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *h));
+                        continue;
+                }
+
+                r = unmerge_hierarchy(image_class, resolved);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        continue;
+                }
+        }
+
+        return ret;
+}
+
 static int unmerge(
                 ImageClass image_class,
                 char **hierarchies,
                 bool no_reload) {
 
-        int r, ret = 0;
         bool need_to_reload;
+        pid_t pid;
+        int r;
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
                 return r;
         need_to_reload = r > 0;
 
-        STRV_FOREACH(p, hierarchies) {
-                _cleanup_free_ char *resolved = NULL;
+        r = safe_fork("(sd-unmerge)", FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork off child: %m");
+        if (r == 0) {
+                /* Child with its own mount namespace */
 
-                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
-                if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
-                        continue;
-                }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *p);
-                        if (ret == 0)
-                                ret = r;
+                r = unmerge_subprocess(image_class, hierarchies);
 
-                        continue;
-                }
+                /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
+                 * created below /run. Nice! */
 
-                r = unmerge_hierarchy(image_class, resolved);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         if (need_to_reload) {
@@ -394,7 +417,7 @@ static int unmerge(
                         return r;
         }
 
-        return ret;
+        return 1;
 }
 
 static int verb_unmerge(int argc, char **argv, void *userdata) {
