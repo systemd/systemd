@@ -381,6 +381,29 @@ systemd-analyze verify /tmp/multi-exec-start.service
 echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
 (! systemd-analyze verify /tmp/multi-exec-start.service)
 
+# Prevent regression from #20233 where systemd-analyze will return nonzero exit codes on warnings
+
+# Unit file with warning "Unknown key name 'foo' in section 'Unit', ignoring"
+cat <<EOF >/tmp/testwarnings.service
+[Unit]
+Foo=Bar
+
+[Service]
+ExecStart=echo hello
+EOF
+
+# yes/no/one should all return nonzero exit status for warnings in unit file
+(! systemd-analyze verify --recursive-errors=yes /tmp/testwarnings.service)
+
+(! systemd-analyze verify --recursive-errors=no /tmp/testwarnings.service)
+
+(! systemd-analyze verify --recursive-errors=one /tmp/testwarnings.service)
+
+# zero exit status since no errors and only warnings
+systemd-analyze verify /tmp/testwarnings.service
+
+rm /tmp/testwarnings.service
+
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
 # values from the .json file when required. The default weight for "PrivateNetwork" is 2500, and the new weight
