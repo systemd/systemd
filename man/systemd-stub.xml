@@ -641,7 +641,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/.extra/tpm2-pcr-pkey.pem</filename></term>
+        <term><filename>/.extra/tpm2-pcr-public-key.pem</filename></term>
         <listitem><para>The PEM public key included in the <literal>.pcrpkey</literal> PE section of the
         unified kernel image is copied into the <filename>/.extra/tpm2-pcr-public-key.pem</filename> file in
         the initrd execution environment.</para>
