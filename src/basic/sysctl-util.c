@@ -65,8 +65,11 @@ static int shadow_update(Hashmap **shadow, const char *property, const char *val
         cur_v = hashmap_remove2(*shadow, k, (void**)&cur_k);
 
         r = hashmap_ensure_put(shadow, &path_hash_ops_free_free, k, v);
-        if (r < 0)
+        if (r < 0) {
+                assert(r != -EEXIST);
+
                 return r;
+        }
 
         TAKE_PTR(k);
         TAKE_PTR(v);
