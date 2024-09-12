@@ -170,6 +170,8 @@ typedef struct Item {
 
         bool try_replace:1;
 
+        bool purge:1;
+
         OperationMask done;
 } Item;
 
@@ -3046,6 +3048,9 @@ static int purge_item(Context *c, Item *i) {
         if (!needs_purge(i->type))
                 return 0;
 
+        if (!i->purge)
+                return 0;
+
         log_debug("Running purge action for entry %c %s", (char) i->type, i->path);
 
         if (needs_glob(i->type))
@@ -3602,7 +3607,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
-                unbase64 = false, from_cred = false, missing_user_or_group = false;
+                unbase64 = false, from_cred = false, missing_user_or_group = false, purge = false;
         int r;
 
         assert(fname);
@@ -3668,6 +3673,8 @@ static int parse_line(
                         unbase64 = true;
                 else if (action[pos] == '^' && !from_cred)
                         from_cred = true;
+                else if (action[pos] == '$' && !purge)
+                        purge = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3684,6 +3691,7 @@ static int parse_line(
         i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
         i.try_replace = try_replace;
+        i.purge = purge;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
         if (ERRNO_IS_NOINFO(r))
@@ -3836,6 +3844,12 @@ static int parse_line(
                 *invalid_config = true;
                 return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
                                   "Unknown command type '%c'.", (char) i.type);
+        }
+
+        if (i.purge && !needs_purge(i.type)) {
+                *invalid_config = true;
+                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                  "Purge flag '$' combined with line type '%c' which does not support purging.", (char) i.type);
         }
 
         if (!should_include_path(i.path))
