@@ -21,7 +21,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "format-table.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "gcrypt-util.h"
 #include "hostname-util.h"
 #include "json-util.h"

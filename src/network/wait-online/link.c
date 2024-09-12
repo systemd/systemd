@@ -3,7 +3,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "hashmap.h"
 #include "link.h"
 #include "manager.h"

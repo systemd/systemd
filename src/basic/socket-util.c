@@ -21,7 +21,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
