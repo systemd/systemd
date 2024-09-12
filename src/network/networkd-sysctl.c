@@ -28,12 +28,12 @@
 #include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
 #include "bpf/sysctl_monitor/sysctl-write-event.h"
 
-static struct sysctl_monitor_bpf *sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
+static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
         return NULL;
 }
 
-static struct ring_buffer *rb_free(struct ring_buffer *rb) {
+static struct ring_buffer* rb_free(struct ring_buffer *rb) {
         sym_ring_buffer__free(rb);
         return NULL;
 }

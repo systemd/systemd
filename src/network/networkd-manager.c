@@ -704,11 +704,11 @@ int manager_start(Manager *m) {
          * Drop the capabilities here, regardless if the load succeeds or not. */
         r = drop_capability(CAP_SYS_ADMIN);
         if (r < 0)
-                log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN: %m, ignoring.");
+                log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
 
         r = drop_capability(CAP_BPF);
         if (r < 0)
-                log_warning_errno(r, "Failed to drop CAP_BPF: %m, ignoring.");
+                log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
 
         manager_set_sysctl(m);
 
