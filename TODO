@@ -158,10 +158,6 @@ Features:
   services where mount propagation from the root fs is off, an still have
   confext/sysext propagated in.
 
-* marry pcrlock + signed pcr policies for FDE/credentials by letting each
-  unlock "half" of the volume key, so that the combination of both must be
-  XOR'ed to get the actual volume key
-
 * support F_DUDFD_QUERY for comparing fds in same_fd (requires kernel 6.10)
 
 * generic interface for varlink for setting log level and stuff that all our daemons can implement
@@ -485,13 +481,9 @@ Features:
   nvme-oF
 
 * pcrlock:
-  - make signed PCR work together with pcrlock
   - add kernel-install plugin that automatically creates UKI .pcrlock file when
     UKI is installed, and removes it when it is removed again
   - automatically install PE measurement of sd-boot on "bootctl install"
-  - write generated pcrlock signature files to the ESP as credential, one for
-    each installed OS & pick up generated pcrlock signature file in sd-stub,
-    pass it via initrd to OS
   - pre-calc sysext + kernel cmdline measurements
   - pre-calc cryptsetup root key measurement
   - maybe make systemd-repart generate .pcrlock for old and new GPT header in
