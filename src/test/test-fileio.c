@@ -566,7 +566,7 @@ TEST(search_and_fopen) {
         };
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *bn = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *e;
         int r;
@@ -575,17 +575,19 @@ TEST(search_and_fopen) {
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
+        r = path_extract_filename(name, &bn);
+        assert_se(r >= 0);
+        r = search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
+        r = search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         p = mfree(p);
 
         r = search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p);
@@ -599,17 +601,17 @@ TEST(search_and_fopen) {
         assert_se(path_equal(name, p));
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), "re", "/", (const char**) dirs, &f, &p);
+        r = search_and_fopen(bn, "re", "/", (const char**) dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen(basename(name), NULL, "/", (const char**) dirs, NULL, &p);
+        r = search_and_fopen(bn, NULL, "/", (const char**) dirs, NULL, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         p = mfree(p);
 
         r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p);
@@ -624,9 +626,9 @@ TEST(search_and_fopen) {
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
+        r = search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r == -ENOENT);
-        r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
+        r = search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p);
         assert_se(r == -ENOENT);
 }
 
@@ -637,7 +639,7 @@ TEST(search_and_fopen_nulstr) {
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *bn = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *e;
         int r;
@@ -646,10 +648,11 @@ TEST(search_and_fopen_nulstr) {
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
+        r = path_extract_filename(name, &bn);
+        r = search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        ASSERT_STREQ(basename(name), e);
+        ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
@@ -667,7 +670,7 @@ TEST(search_and_fopen_nulstr) {
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
+        r = search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p);
         assert_se(r == -ENOENT);
 }
 
