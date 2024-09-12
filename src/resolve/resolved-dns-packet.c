@@ -564,6 +564,12 @@ int dns_packet_append_name(
         assert(p);
         assert(name);
 
+        r = dns_name_is_valid(name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
         if (p->refuse_compression)
                 allow_compression = false;
 
