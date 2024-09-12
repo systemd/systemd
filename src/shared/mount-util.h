@@ -12,6 +12,15 @@
 #include "macro.h"
 #include "pidref.h"
 
+typedef struct SubMount {
+        char *path;
+        int mount_fd;
+} SubMount;
+
+void sub_mount_array_free(SubMount *s, size_t n);
+
+int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);
+
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *target, int flags, char **keep);

@@ -1463,11 +1463,6 @@ int remount_idmap(
         return remount_idmap_fd(p, userns_fd);
 }
 
-typedef struct SubMount {
-        char *path;
-        int mount_fd;
-} SubMount;
-
 static void sub_mount_clear(SubMount *s) {
         assert(s);
 
@@ -1475,7 +1470,7 @@ static void sub_mount_clear(SubMount *s) {
         s->mount_fd = safe_close(s->mount_fd);
 }
 
-static void sub_mount_array_free(SubMount *s, size_t n) {
+void sub_mount_array_free(SubMount *s, size_t n) {
         assert(s || n == 0);
 
         for (size_t i = 0; i < n; i++)
@@ -1504,10 +1499,7 @@ static void sub_mount_drop(SubMount *s, size_t n) {
         }
 }
 
-static int get_sub_mounts(
-                const char *prefix,
-                SubMount **ret_mounts,
-                size_t *ret_n_mounts) {
+int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
