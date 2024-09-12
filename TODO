@@ -1068,9 +1068,6 @@ Features:
 * in sd-boot: load EFI drivers from a new PE section. That way, one can have a
   "supercharged" sd-boot binary, that could carry ext4 drivers built-in.
 
-* sd-bus: document that sd_bus_process() only returns messages that non of the
-  filters/handlers installed on the connection took possession of.
-
 * sd-device: add an API for acquiring list of child devices, given a device
   objects (i.e. all child dirents that dirs or symlinks to dirs)
 
