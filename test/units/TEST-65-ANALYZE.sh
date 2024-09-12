@@ -965,6 +965,13 @@ systemd-analyze condition --instance=tmp --unit=systemd-growfs@.service
 systemd-analyze verify --instance=tmp --man=no systemd-growfs@.service
 systemd-analyze security --instance=tmp systemd-growfs@.service
 
+systemd-analyze has-tpm2 ||:
+if systemd-analyze has-tpm2 -q ; then
+    echo "have tpm2"
+else
+    echo "have no tpm2"
+fi
+
 systemd-analyze log-level info
 
 touch /testok
