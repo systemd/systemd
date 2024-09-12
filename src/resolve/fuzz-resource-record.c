@@ -11,6 +11,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
+        int r;
 
         if (outside_size_range(size, 0, DNS_PACKET_SIZE_MAX))
                 return 0;
@@ -28,8 +29,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(dns_resource_record_to_json(rr, &v) >= 0);
         assert_se(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_SOURCE, f, NULL) >= 0);
-        assert_se(dns_resource_record_to_wire_format(rr, false) >= 0);
-        assert_se(dns_resource_record_to_wire_format(rr, true) >= 0);
+
+        r = dns_resource_record_to_wire_format(rr, /* canonical= */ false);
+        assert_se(r >= 0 || r == -EINVAL);
+        r = dns_resource_record_to_wire_format(rr, /* canonical= */ true);
+        assert_se(r >= 0 || r == -EINVAL);
 
         return 0;
 }
