@@ -32,6 +32,7 @@
 #include "edit-util.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "format-ifname.h"
 #include "format-table.h"
 #include "hostname-util.h"
 #include "import-util.h"
