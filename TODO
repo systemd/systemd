@@ -1501,6 +1501,8 @@ Features:
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
+* systemd-analyze inspect-elf should show other notes too, at least build-id.
+
 * Figure out naming of verbs in systemd-analyze: we have (singular) capability,
   exit-status, but (plural) filesystems, architectures.
 
