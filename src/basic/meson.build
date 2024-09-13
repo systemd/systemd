@@ -33,6 +33,7 @@ basic_sources = files(
         'fd-util.c',
         'fileio.c',
         'filesystems.c',
+        'format-ifname.c',
         'format-util.c',
         'fs-util.c',
         'gcrypt-util.c',
