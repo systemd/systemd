@@ -153,7 +153,7 @@
         <term><option>--purge</option></term>
 
         <listitem><para>If this option is passed, all files and directories declared for
-        <emphasis>creation</emphasis> and marked wit the <literal>$</literal> character by the
+        <emphasis>creation</emphasis> and marked with the <literal>$</literal> character by the
         <filename>tmpfiles.d/</filename> files specified on the command line will be
         <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories marked with
         <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
