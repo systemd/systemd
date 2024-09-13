@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "inotify-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
@@ -86,6 +87,28 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
         return 0;
 }
 
+static int get_ask_password_directory_for_flags(AskPasswordFlags flags, char **ret) {
+        if (FLAGS_SET(flags, ASK_PASSWORD_USER))
+                return acquire_user_ask_password_directory(ret);
+
+        return strdup_to_full(ret, "/run/systemd/ask-password/"); /* Returns 1, indicating there's a suitable directory */
+}
+
+static int touch_ask_password_directory(AskPasswordFlags flags) {
+        int r;
+
+        _cleanup_free_ char *p = NULL;
+        r = get_ask_password_directory_for_flags(flags, &p);
+        if (r <= 0)
+                return r;
+
+        r = touch(p);
+        if (r < 0)
+                return r;
+
+        return 1; /* did something */
+}
+
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
         _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_(erase_and_freep) char *p = NULL;
@@ -130,7 +153,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 log_debug_errno(errno, "Failed to adjust kernel keyring key timeout: %m");
 
         /* Tell everyone to check the keyring */
-        (void) touch("/run/systemd/ask-password");
+        (void) touch_ask_password_directory(flags);
 
         log_debug("Added key to kernel keyring as %" PRIi32 ".", serial);
 
@@ -416,8 +439,21 @@ int ask_password_tty(
                 if (r != -ENOKEY)
                         return r;
 
-                if (inotify_add_watch(inotify_fd, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */) < 0)
-                        return -errno;
+                /* Let's watch the askpw directory for mtime changes, which we issue above whenever the
+                 * keyring changes */
+                _cleanup_free_ char *watch_path = NULL;
+                r = get_ask_password_directory_for_flags(flags, &watch_path);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_CLOEXEC|O_RDONLY, 0755);
+                        if (watch_fd < 0)
+                                return watch_fd;
+
+                        r = inotify_add_watch_fd(inotify_fd, watch_fd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         CLEANUP_ERASE(passphrase);
@@ -658,20 +694,21 @@ finish:
         return r;
 }
 
-static int create_socket(char **ret) {
+static int create_socket(const char *askpwdir, char **ret) {
         _cleanup_free_ char *path = NULL;
         union sockaddr_union sa;
         socklen_t sa_len;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(askpwdir);
         assert(ret);
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        if (asprintf(&path, "/run/systemd/ask-password/sck.%" PRIx64, random_u64()) < 0)
+        if (asprintf(&path, "%s/sck.%" PRIx64, askpwdir, random_u64()) < 0)
                 return -ENOMEM;
 
         r = sockaddr_un_set_path(&sa.un, path);
@@ -697,10 +734,9 @@ int ask_password_agent(
                 AskPasswordFlags flags,
                 char ***ret) {
 
-        _cleanup_close_ int socket_fd = -EBADF, signal_fd = -EBADF, inotify_fd = -EBADF, fd = -EBADF;
-        char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
-        char final[sizeof(temp)] = "";
+        _cleanup_close_ int socket_fd = -EBADF, signal_fd = -EBADF, inotify_fd = -EBADF, dfd = -EBADF;
         _cleanup_(unlink_and_freep) char *socket_name = NULL;
+        _cleanup_free_ char *temp = NULL, *final = NULL;
         _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         sigset_t mask, oldmask;
@@ -718,7 +754,20 @@ int ask_password_agent(
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
-        (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+        _cleanup_free_ char *askpwdir = NULL;
+        r = get_ask_password_directory_for_flags(flags, &askpwdir);
+        if (r < 0)
+                goto finish;
+        if (r == 0) {
+                r = -ENXIO;
+                goto finish;
+        }
+
+        dfd = open_mkdir(askpwdir, O_RDONLY|O_CLOEXEC, 0755);
+        if (dfd < 0) {
+                r = log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
+                goto finish;
+        }
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && req && req->keyring) {
                 r = ask_password_keyring(req, flags, ret);
@@ -734,24 +783,19 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                r = RET_NERRNO(inotify_add_watch(inotify_fd, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */));
+                r = inotify_add_watch_fd(inotify_fd, dfd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
                 if (r < 0)
                         goto finish;
         }
 
-        fd = mkostemp_safe(temp);
-        if (fd < 0) {
-                r = fd;
+        if (asprintf(&final, "ask.%" PRIu64, random_u64()) < 0) {
+                r = -ENOMEM;
                 goto finish;
         }
 
-        (void) fchmod(fd, 0644);
-
-        f = take_fdopen(&fd, "w");
-        if (!f) {
-                r = -errno;
+        r = fopen_temporary_at(dfd, final, &f, &temp);
+        if (r < 0)
                 goto finish;
-        }
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
@@ -759,7 +803,7 @@ int ask_password_agent(
                 goto finish;
         }
 
-        socket_fd = create_socket(&socket_name);
+        socket_fd = create_socket(askpwdir, &socket_name);
         if (socket_fd < 0) {
                 r = socket_fd;
                 goto finish;
@@ -791,19 +835,21 @@ int ask_password_agent(
                         fprintf(f, "Id=%s\n", req->id);
         }
 
+        if (fchmod(fileno(f), 0644) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         r = fflush_and_check(f);
         if (r < 0)
                 goto finish;
 
-        memcpy(final, temp, sizeof(temp));
-
-        final[sizeof(final)-11] = 'a';
-        final[sizeof(final)-10] = 's';
-        final[sizeof(final)-9] = 'k';
-
-        r = RET_NERRNO(rename(temp, final));
-        if (r < 0)
+        if (renameat(dfd, temp, dfd, final) < 0) {
+                r = -errno;
                 goto finish;
+        }
+
+        temp = mfree(temp);
 
         enum {
                 POLL_SOCKET,
@@ -908,8 +954,8 @@ int ask_password_agent(
                         continue;
                 }
 
-                if (ucred->uid != 0) {
-                        log_debug("Got request from unprivileged user. Ignoring.");
+                if (ucred->uid != getuid() && ucred->uid != 0) {
+                        log_debug("Got response from bad user. Ignoring.");
                         continue;
                 }
 
@@ -948,10 +994,13 @@ int ask_password_agent(
         r = 0;
 
 finish:
-        (void) unlink(temp);
-
-        if (final[0])
-                (void) unlink(final);
+        if (temp) {
+                assert(dfd >= 0);
+                (void) unlinkat(dfd, temp, 0);
+        } else if (final) {
+                assert(dfd >= 0);
+                (void) unlinkat(dfd, final, 0);
+        }
 
         assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
         return r;
