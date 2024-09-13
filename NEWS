@@ -2,6 +2,15 @@ systemd System and Service Manager
 
 CHANGES WITH 257 in spe:
 
+        Incompatible changes:
+
+        * The --purge switch of systemd-tmpfiles (which was added in v256) has
+          been reworked: it will now only apply to tmpfiles.d/ lines marked
+          with the new "$" flag. This is an incompatible change, and means any
+          tmpfiles.d/ files which shall be used together with --purge need to
+          be updated accordingly. This change has been made to make it harder
+          to accidentally delete too many files when using --purge incorrectly.
+
         Announcements of Future Feature Removals and Incompatible Changes:
 
         * Support for automatic flushing of the nscd user/group database caches
