@@ -44,6 +44,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "selinux-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1198,6 +1199,10 @@ static int mount_overlayfs_with_op(
         r = mkdir_p(meta_path, 0700);
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
+
+        r = mac_selinux_apply(meta_path, "system_u:object_r:usr_t:s0");
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
         if (op->upper_dir && op->work_dir) {
                 r = mkdir_p(op->work_dir, 0700);
