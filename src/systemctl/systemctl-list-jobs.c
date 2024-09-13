@@ -39,7 +39,7 @@ static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const cha
                                     TABLE_EMPTY,
                                     TABLE_EMPTY);
                 if (rc < 0)
-                        return table_log_add_error(r);
+                        return table_log_add_error(rc);
         }
 
         if (r < 0)
