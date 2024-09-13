@@ -44,6 +44,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "selinux-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1187,6 +1188,7 @@ static int mount_overlayfs_with_op(
 
         int r;
         const char *top_layer = NULL;
+        int atfd = -1;
 
         assert(op);
         assert(overlay_path);
@@ -1198,6 +1200,14 @@ static int mount_overlayfs_with_op(
         r = mkdir_p(meta_path, 0700);
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
+
+        atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(atfd, "Failed to open directory '%s': %m", meta_path);
+
+        r = mac_selinux_fix_full(atfd, NULL, op->hierarchy, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
         if (op->upper_dir && op->work_dir) {
                 r = mkdir_p(op->work_dir, 0700);
@@ -1223,9 +1233,10 @@ static int mount_overlayfs_with_op(
         return 0;
 }
 
-static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path) {
+static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path, const char* hierarchy) {
         _cleanup_free_ char *f = NULL, *buf = NULL;
         int r;
+        int atfd = -1;
 
         assert(extensions);
         assert(meta_path);
@@ -1245,13 +1256,22 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
 
+        atfd = open(f, O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(atfd, "Failed to open '%s': %m", f);
+
+        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
+
         return 0;
 }
 
-static int write_dev_file(ImageClass image_class, const char *meta_path, const char *overlay_path) {
+static int write_dev_file(ImageClass image_class, const char *meta_path, const char *overlay_path, const char *hierarchy) {
         _cleanup_free_ char *f = NULL;
         struct stat st;
         int r;
+        int atfd = -1;
 
         assert(meta_path);
         assert(overlay_path);
@@ -1274,13 +1294,22 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
+        atfd = open(f, O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(atfd, "Failed to open '%s': %m", f);
+
+        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
+
         return 0;
 }
 
-static int write_work_dir_file(ImageClass image_class, const char *meta_path, const char *work_dir) {
+static int write_work_dir_file(ImageClass image_class, const char *meta_path, const char *work_dir, const char* hierarchy) {
         _cleanup_free_ char *escaped_work_dir_in_root = NULL, *f = NULL;
         char *work_dir_in_root = NULL;
         int r;
+        int atfd = -1;
 
         assert(meta_path);
 
@@ -1299,6 +1328,14 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         if (!f)
                 return log_oom();
 
+        atfd = open(f, O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(atfd, "Failed to open '%s': %m", f);
+
+        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
+
         /* Paths can have newlines for whatever reason, so better escape them to really get a single
          * line file. */
         escaped_work_dir_in_root = cescape(work_dir_in_root);
@@ -1316,24 +1353,42 @@ static int store_info_in_meta(
                 char **extensions,
                 const char *meta_path,
                 const char *overlay_path,
-                const char *work_dir) {
-
+                const char *work_dir,
+                const char *hierarchy) {
+        _cleanup_free_ char *f = NULL;
         int r;
+        int atfd = -1;
 
         assert(extensions);
         assert(meta_path);
         assert(overlay_path);
         /* work_dir may be NULL */
 
-        r = write_extensions_file(image_class, extensions, meta_path);
+        f = path_join(meta_path, image_class_info[image_class].dot_directory_name);
+        if (!f)
+                return log_oom();
+
+        r = mkdir_p(f, 0755);
         if (r < 0)
                 return r;
 
-        r = write_dev_file(image_class, meta_path, overlay_path);
+        atfd = open(f, O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(atfd, "Failed to open '%s': %m", f);
+
+        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
+
+        r = write_extensions_file(image_class, extensions, meta_path, hierarchy);
         if (r < 0)
                 return r;
 
-        r = write_work_dir_file(image_class, meta_path, work_dir);
+        r = write_dev_file(image_class, meta_path, overlay_path, hierarchy);
+        if (r < 0)
+                return r;
+
+        r = write_work_dir_file(image_class, meta_path, work_dir, hierarchy);
         if (r < 0)
                 return r;
 
@@ -1399,6 +1454,8 @@ static int merge_hierarchy(
         assert(overlay_path);
         assert(workspace_path);
 
+        mac_selinux_init();
+
         r = determine_used_extensions(hierarchy, paths, &used_paths, &extensions_used);
         if (r < 0)
                 return r;
@@ -1426,7 +1483,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir);
+        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir, op->hierarchy);
         if (r < 0)
                 return r;
 
