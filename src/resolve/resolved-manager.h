@@ -123,10 +123,6 @@ struct Manager {
         int hostname_fd;
         sd_event_source *hostname_event_source;
 
-        sd_event_source *sigusr1_event_source;
-        sd_event_source *sigusr2_event_source;
-        sd_event_source *sigrtmin1_event_source;
-
         unsigned n_transactions_total;
         unsigned n_timeouts_total;
         unsigned n_timeouts_served_stale_total;
