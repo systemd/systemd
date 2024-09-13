@@ -1787,17 +1787,15 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+18) >= 0);
-
-        r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
+        r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr1, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, &s->sigusr2_event_source, SIGUSR2, dispatch_sigusr2, s);
+        r = sd_event_add_signal(s->event, &s->sigusr2_event_source, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr2, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, &s->sigterm_event_source, SIGTERM, dispatch_sigterm, s);
+        r = sd_event_add_signal(s->event, &s->sigterm_event_source, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
@@ -1808,7 +1806,7 @@ static int server_setup_signals(Server *s) {
 
         /* When journald is invoked on the terminal (when debugging), it's useful if C-c is handled
          * equivalent to SIGTERM. */
-        r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
+        r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
@@ -1819,7 +1817,7 @@ static int server_setup_signals(Server *s) {
         /* SIGRTMIN+1 causes an immediate sync. We process this very late, so that everything else queued at
          * this point is really written to disk. Clients can watch /run/systemd/journal/synced with inotify
          * until its mtime changes to see when a sync happened. */
-        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
+        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, (SIGRTMIN+1)|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigrtmin1, s);
         if (r < 0)
                 return r;
 
@@ -1827,7 +1825,7 @@ static int server_setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &s->sigrtmin18_info);
+        r = sd_event_add_signal(s->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &s->sigrtmin18_info);
         if (r < 0)
                 return r;
 

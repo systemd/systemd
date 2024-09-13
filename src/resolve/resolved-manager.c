@@ -682,9 +682,9 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_set_signal_exit(m->event, true);
+        if (r < 0)
+                return r;
 
         (void) sd_event_set_watchdog(m->event, true);
 
@@ -720,10 +720,11 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
-        (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
-        (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &m->sigrtmin18_info);
+        (void) sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        (void) sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
+        (void) sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
+        (void) sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
+        (void) sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
 
         manager_cleanup_saved_user(m);
 
@@ -800,10 +801,6 @@ Manager *manager_free(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
-
-        sd_event_source_unref(m->sigusr1_event_source);
-        sd_event_source_unref(m->sigusr2_event_source);
-        sd_event_source_unref(m->sigrtmin1_event_source);
 
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);

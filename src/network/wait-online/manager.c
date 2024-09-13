@@ -410,8 +410,7 @@ int manager_new(Manager **ret,
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_set_signal_exit(m->event, true);
 
         if (timeout > 0) {
                 r = sd_event_add_time_relative(m->event, NULL, CLOCK_BOOTTIME, timeout, 0, NULL, INT_TO_PTR(-ETIMEDOUT));

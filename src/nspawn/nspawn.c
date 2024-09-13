@@ -5601,6 +5601,10 @@ static int run_container(
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
         }
 
+        /* Note: we do not use SD_EVENT_SIGNAL_PROCMASK or sd_event_set_signal_exit(), since we want the
+         * signals to be block continously, even if we destroy the event loop and allocate a new one on
+         * container reboot. */
+
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */
                 (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
