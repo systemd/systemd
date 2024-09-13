@@ -395,9 +395,9 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 }
 #endif
 
-int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_ret) {
-        _cleanup_free_ char *ret = NULL;
-        size_t n = 0;
+int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret) {
+        _cleanup_free_ char *result = NULL;
+        size_t n_result = 0;
         const char *p;
         bool first = true;
         int r;
@@ -428,16 +428,16 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                         break;
                 }
 
-                if (_ret) {
-                        if (!GREEDY_REALLOC(ret, n + !first + DNS_LABEL_ESCAPED_MAX))
+                if (ret) {
+                        if (!GREEDY_REALLOC(result, n_result + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
-                        r = dns_label_escape(label, r, ret + n + !first, DNS_LABEL_ESCAPED_MAX);
+                        r = dns_label_escape(label, r, result + n_result + !first, DNS_LABEL_ESCAPED_MAX);
                         if (r < 0)
                                 return r;
 
                         if (!first)
-                                ret[n] = '.';
+                                result[n_result] = '.';
                 } else {
                         char escaped[DNS_LABEL_ESCAPED_MAX];
 
@@ -446,28 +446,28 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                                 return r;
                 }
 
-                n += r + !first;
+                n_result += r + !first;
                 first = false;
         }
 
 finish:
-        if (n > DNS_HOSTNAME_MAX)
+        if (n_result > DNS_HOSTNAME_MAX)
                 return -EINVAL;
 
-        if (_ret) {
-                if (n == 0) {
+        if (ret) {
+                if (n_result == 0) {
                         /* Nothing appended? If so, generate at least a single dot, to indicate the DNS root domain */
-                        if (!GREEDY_REALLOC(ret, 2))
+                        if (!GREEDY_REALLOC(result, 2))
                                 return -ENOMEM;
 
-                        ret[n++] = '.';
+                        result[n_result++] = '.';
                 } else {
-                        if (!GREEDY_REALLOC(ret, n + 1))
+                        if (!GREEDY_REALLOC(result, n_result + 1))
                                 return -ENOMEM;
                 }
 
-                ret[n] = 0;
-                *_ret = TAKE_PTR(ret);
+                result[n_result] = 0;
+                *ret = TAKE_PTR(result);
         }
 
         return 0;
