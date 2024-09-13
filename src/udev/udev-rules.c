@@ -1121,11 +1121,30 @@ static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         char *i, *j;
-        bool is_escaped;
+        bool is_escaped = false, to_lowercase = false;
+
+        /* check if string is prefixed with:
+         * - "e" for escaped
+         * - "i" for ASCII lowercase
+         *
+         * Note ei can both be set but do not allow duplicates (eei, eii)
+         */
+        for (j = str; *j != '"' && j < str + 2; j++) {
+             if (*j == '\0') {
+                return -EINVAL;
+             } else if (*j == 'i') {
+                     if (to_lowercase)
+                             return -EINVAL;
+                     to_lowercase = true;
+             } else if (*j == 'e') {
+                     if (is_escaped)
+                             return -EINVAL;
+                     is_escaped = true;
+             }
+        }
 
         /* value must be double quotated */
-        is_escaped = str[0] == 'e';
-        str += is_escaped;
+        str += is_escaped + to_lowercase;
         if (str[0] != '"')
                 return -EINVAL;
 
@@ -1169,6 +1188,10 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                  */
                 str[l + 1] = '\0';
         }
+
+        /* convert to lowercase after string is escaped */
+        if (to_lowercase)
+                ascii_strlower(str);
 
         *ret_value = str;
         *ret_endpos = i + 1;

@@ -644,6 +644,17 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \"printf %%s 'foo1 foo2' | grep 'foo1 f
         """),
 
     Rules.new(
+        "lowercase value modifier",
+        Device(
+            "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+            exp_links       = ["lower"],
+
+        ),
+        rules = r"""
+        KERNEL=="ttyACM0", SYMLINK+=i"LOWER"
+        """),
+
+    Rules.new(
         "characters before the %c{N} substitution",
         Device(
             "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
