@@ -184,19 +184,13 @@ static int run(int argc, char * argv[]) {
         };
         int r;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        r = sd_event_set_signal_exit(event, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to create sigterm event source: %m");
-
-        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create sigint event source: %m");
+                return log_error_errno(r, "Failed to enable SIGTERM/SIGINT handling: %m");
 
         r = sd_event_set_watchdog(event, true);
         if (r < 0)
