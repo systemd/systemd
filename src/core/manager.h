@@ -433,7 +433,6 @@ struct Manager {
 
         /* Do we have any outstanding password prompts? */
         int have_ask_password;
-        int ask_password_inotify_fd;
         sd_event_source *ask_password_event_source;
 
         /* Type=idle pipes */
