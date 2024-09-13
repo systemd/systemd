@@ -397,7 +397,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 
 int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret) {
         _cleanup_free_ char *result = NULL;
-        size_t n_result = 0;
+        size_t n_result = 0, n_unescaped = 0;
         const char *p;
         bool first = true;
         int r;
@@ -427,6 +427,7 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **re
 
                         break;
                 }
+                n_unescaped += r + !first; /* Count unescaped length to make max length determination below */
 
                 if (ret) {
                         if (!GREEDY_REALLOC(result, n_result + !first + DNS_LABEL_ESCAPED_MAX))
@@ -451,20 +452,26 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **re
         }
 
 finish:
-        if (n_result > DNS_HOSTNAME_MAX)
-                return -EINVAL;
+        if (n_unescaped == 0) {
+                /* Nothing appended? If so, generate at least a single dot, to indicate the DNS root domain */
 
-        if (ret) {
-                if (n_result == 0) {
-                        /* Nothing appended? If so, generate at least a single dot, to indicate the DNS root domain */
-                        if (!GREEDY_REALLOC(result, 2))
+                if (ret) {
+                        if (!GREEDY_REALLOC(result, 2)) /* Room for dot, and already pre-allocate space for the trailing NUL byte at the same time */
                                 return -ENOMEM;
 
                         result[n_result++] = '.';
-                } else {
-                        if (!GREEDY_REALLOC(result, n_result + 1))
-                                return -ENOMEM;
                 }
+
+                n_unescaped++;
+        }
+
+        if (n_unescaped > DNS_HOSTNAME_MAX) /* Enforce max length check on unescaped length */
+                return -EINVAL;
+
+        if (ret) {
+                /* Suffix with a NUL byte */
+                if (!GREEDY_REALLOC(result, n_result + 1))
+                        return -ENOMEM;
 
                 result[n_result] = 0;
                 *ret = TAKE_PTR(result);
