@@ -2175,14 +2175,14 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
                         if (errno != ENOENT) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to open %s: %m", a);
                                 goto child_fail;
                         }
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
                         if (write(fd, "deny\n", 5) < 0) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
                                 goto child_fail;
                         }
 
@@ -2193,11 +2193,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "gid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
                         goto child_fail;
                 }
                 fd = safe_close(fd);
@@ -2206,11 +2206,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "uid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
                         goto child_fail;
                 }
 
@@ -2224,7 +2224,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         errno_pipe[1] = safe_close(errno_pipe[1]);
 
         if (unshare(CLONE_NEWUSER) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to unshare user namespace: %m");
 
         /* Let the child know that the namespace is ready now */
         if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
