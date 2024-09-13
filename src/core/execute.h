@@ -317,7 +317,7 @@ struct ExecContext {
         bool private_tmp;
         bool private_network;
         bool private_devices;
-        bool private_users;
+        PrivateUsers private_users;
         bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;

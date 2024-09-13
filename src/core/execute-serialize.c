@@ -1880,7 +1880,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-private-users", c->private_users);
+        r = serialize_item(f, "exec-context-private-users", private_users_to_string(c->private_users));
         if (r < 0)
                 return r;
 
@@ -2772,10 +2772,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->private_network = r;
                 } else if ((val = startswith(l, "exec-context-private-users="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->private_users = r;
+                        c->private_users = private_users_from_string(val);
+                        if (c->private_users < 0)
+                                return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-private-ipc="))) {
                         r = parse_boolean(val);
                         if (r < 0)
