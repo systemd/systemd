@@ -6,11 +6,14 @@
 
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
+#include "dissect-image.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
+#include "missing_loop.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -274,6 +277,95 @@ static int parse_options(const char *options) {
         return r;
 }
 
+static int find_dps_signature(
+                const char *data_device,
+                void *root_hash,
+                size_t root_hash_size,
+                char **ret_root_hash_signature) {
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        sd_device *parent = NULL;
+        _cleanup_free_ char *decoded_signature = NULL, *encoded_signature = NULL;
+        const char *block_device_path;
+        DissectImageFlags dissect_image_flags =
+                DISSECT_IMAGE_GPT_ONLY |
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_DEVICE_READ_ONLY;
+        ssize_t len;
+        int r;
+
+        assert(data_device);
+        assert(root_hash);
+        assert(root_hash_size > 0);
+        assert(ret_root_hash_signature);
+
+        if (!startswith(data_device, "/dev/"))
+                return -EINVAL;
+
+        verity.root_hash_size = root_hash_size;
+        verity.root_hash = malloc(root_hash_size);
+        if (!verity.root_hash)
+                return log_oom_debug();
+        memcpy(verity.root_hash, root_hash, root_hash_size);
+
+        r = sd_device_new_from_devname(&device, data_device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get udev device for data device: %m");
+
+        r = sd_device_get_parent(device, &parent);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get parent device for data device: %m");
+
+        r = sd_device_get_devname(parent, &block_device_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get block device path for data device: %m");
+
+        r = loop_device_make_by_path(
+                        block_device_path,
+                        O_RDONLY,
+                        /* sector_size= */ UINT32_MAX,
+                        LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
+                        &loop_device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create loop device for root image: %m");
+
+        r = dissect_loop_device(
+                        loop_device,
+                        &verity,
+                        NULL,
+                        NULL,
+                        dissect_image_flags,
+                        &dissected_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dissect image: %m");
+
+        r = dissected_image_load_verity_sig_partition(
+                        dissected_image,
+                        loop_device->fd,
+                        &verity);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load verity signature partition: %m");
+        if (r == 0)
+                return -ENOENT;
+
+        len = base64mem(verity.root_hash_sig, verity.root_hash_sig_size, &decoded_signature);
+        if (len < 0)
+                return log_debug_errno(len, "Failed to encode root hash signature: %m");
+
+        encoded_signature = strjoin("base64:", decoded_signature);
+        if (!encoded_signature)
+                return log_oom_debug();
+
+        *ret_root_hash_signature = TAKE_PTR(encoded_signature);
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         const char *verb;
@@ -370,6 +462,13 @@ static int run(int argc, char *argv[]) {
                 r = crypt_set_data_device(cd, data_device);
                 if (r < 0)
                         return log_error_errno(r, "Failed to configure data device: %m");
+
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+                /* If we can support signature checks but we weren't given one, try to find it following the
+                 * DPS on the same GPT device */
+                if (!arg_root_hash_signature)
+                        (void) find_dps_signature(data_device, m, l, &arg_root_hash_signature);
+#endif
 
                 if (arg_root_hash_signature) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
