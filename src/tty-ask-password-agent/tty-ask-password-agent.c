@@ -295,19 +295,21 @@ static int wall_tty_block(void) {
         return fd;
 }
 
-static int process_password_files(void) {
+static int process_password_files(const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
         int ret = 0, r;
 
-        d = opendir("/run/systemd/ask-password");
+        assert(path);
+
+        d = opendir(path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/ask-password: %m");
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
         }
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory '%s': %m", path)) {
                 _cleanup_free_ char *p = NULL;
 
                 if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
@@ -316,7 +318,7 @@ static int process_password_files(void) {
                 if (!startswith(de->d_name, "ask."))
                         continue;
 
-                p = path_join("/run/systemd/ask-password", de->d_name);
+                p = path_join(path, de->d_name);
                 if (!p)
                         return log_oom();
 
@@ -340,6 +342,7 @@ static int process_and_watch_password_files(bool watch) {
                 _FD_MAX
         };
 
+        _cleanup_free_ char *user_ask_password_directory = NULL;
         _unused_ _cleanup_close_ int tty_block_fd = -EBADF;
         _cleanup_close_ int notify = -EBADF, signal_fd = -EBADF;
         struct pollfd pollfd[_FD_MAX];
@@ -349,6 +352,12 @@ static int process_and_watch_password_files(bool watch) {
         tty_block_fd = wall_tty_block();
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+
+        r = acquire_user_ask_password_directory(&user_ask_password_directory);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine per-user password directory: %m");
+        if (r > 0)
+                (void) mkdir_p_label(user_ask_password_directory, 0755);
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGTERM) >= 0);
@@ -365,9 +374,15 @@ static int process_and_watch_password_files(bool watch) {
                 if (notify < 0)
                         return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
-                r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO);
+                r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO|IN_ONLYDIR);
                 if (r < 0)
                         return r;
+
+                if (user_ask_password_directory) {
+                        r = inotify_add_watch_and_warn(notify, user_ask_password_directory, IN_CLOSE_WRITE|IN_MOVED_TO|IN_ONLYDIR);
+                        if (r < 0)
+                                return r;
+                }
 
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
@@ -375,7 +390,9 @@ static int process_and_watch_password_files(bool watch) {
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
 
-                r = process_password_files();
+                r = process_password_files("/run/systemd/ask-password");
+                if (user_ask_password_directory)
+                        RET_GATHER(r, process_password_files(user_ask_password_directory));
                 if (r == -ECANCELED)
                         /* Disable poll() timeout since at least one password has been skipped and therefore
                          * one file remains and is unlikely to trigger any events. */
