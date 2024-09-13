@@ -557,11 +557,18 @@ int dns_packet_append_name(
                 bool canonical_candidate,
                 size_t *start) {
 
-        size_t saved_size;
+        _cleanup_free_ char **added_entries = NULL; /* doesn't own the strings! this is just regular pointer array, not a NULL-terminated strv! */
+        size_t n_added_entries = 0, saved_size;
         int r;
 
         assert(p);
         assert(name);
+
+        r = dns_name_is_valid(name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
         if (p->refuse_compression)
                 allow_compression = false;
@@ -598,6 +605,11 @@ int dns_packet_append_name(
                 if (allow_compression) {
                         _cleanup_free_ char *s = NULL;
 
+                        if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
                         s = strdup(z);
                         if (!s) {
                                 r = -ENOMEM;
@@ -608,7 +620,8 @@ int dns_packet_append_name(
                         if (r < 0)
                                 goto fail;
 
-                        TAKE_PTR(s);
+                        /* Keep track of the entries we just added (note that the string is owned by the hashtable, not this array!) */
+                        added_entries[n_added_entries++] = TAKE_PTR(s);
                 }
         }
 
@@ -623,6 +636,12 @@ done:
         return 0;
 
 fail:
+        /* Remove all label compression names we added again */
+        FOREACH_ARRAY(s, added_entries, n_added_entries) {
+                hashmap_remove(p->names, *s);
+                free(*s);
+        }
+
         dns_packet_truncate(p, saved_size);
         return r;
 }
