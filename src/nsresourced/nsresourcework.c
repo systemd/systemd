@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
+#include <net/if.h>
 #include <sys/eventfd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
