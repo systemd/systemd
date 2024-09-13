@@ -31,3 +31,5 @@ int ask_password_tty(int tty_fd, const AskPasswordRequest *req, usec_t until, As
 int ask_password_plymouth(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
 int ask_password_agent(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
 int ask_password_auto(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
+
+int acquire_user_ask_password_directory(char **ret);
