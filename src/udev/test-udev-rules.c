@@ -72,6 +72,20 @@ TEST(udev_rule_parse_value) {
                 "e\"s\\u1d1c\\u1d04\\u029c \\u1d1c\\u0274\\u026a\\u1d04\\u1d0f\\u1d05\\u1d07 \\U0001d568\\U0001d560\\U0001d568\"",
                 "s\xe1\xb4\x9c\xe1\xb4\x84\xca\x9c \xe1\xb4\x9c\xc9\xb4\xc9\xaa\xe1\xb4\x84\xe1\xb4\x8f\xe1\xb4\x85\xe1\xb4\x87 \xf0\x9d\x95\xa8\xf0\x9d\x95\xa0\xf0\x9d\x95\xa8",
                 0);
+        /* input: i"ABCD1234" */
+        test_udev_rule_parse_value_one("i\"ABCD1234\"", "abcd1234", 0);
+        /* input: i"ABCD1234" */
+        test_udev_rule_parse_value_one("i\"ABCD1234\"", "abcd1234", 0);
+        /* input: ei"\\"ABCD1234 */
+        test_udev_rule_parse_value_one("ei\"\\\\ABCD1234\"", "\\abcd1234", 0);
+        /* input: ie"\\"ABCD1234 */
+        test_udev_rule_parse_value_one("ie\"\\\\ABCD1234\"", "\\abcd1234", 0);
+        /* input: i */
+        test_udev_rule_parse_value_one("i", NULL, -EINVAL);
+        /* input: ee"" */
+        test_udev_rule_parse_value_one("ee\"\"", NULL, -EINVAL);
+        /* input: iei"" */
+        test_udev_rule_parse_value_one("iei\"\"", NULL, -EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
