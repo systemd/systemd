@@ -3622,7 +3622,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                          "Invalid mode specification %s", mode);
 
         /* Delay is only supported for shutdown/sleep */
-        if (IN_SET(mm, INHIBIT_DELAY, INHIBIT_DELAY_WEAK) && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Delay inhibitors only supported for shutdown and sleep");
 
