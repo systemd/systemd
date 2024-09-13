@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* find a nice way to opt-in into auto-masking SIGCHLD on first
+  sd_event_add_child(), and then get rid of many more explicit sigprocmask()
+  calls.
+
 * maybe set shell.prompt.prefix credential in run0 to some warning emoji,
   i.e. ⚠️ or ☢️ or ⚡ or 👊 or 🧑‍🔧 or so.
 
@@ -994,12 +998,6 @@ Features:
 
 * in the initrd, once the rootfs encryption key has been measured to PCR 15,
   derive default machine ID to use from it, and pass it to host PID 1.
-
-* tree-wide: convert as much as possible over to use sd_event_set_signal_exit(), instead
-  of manually hooking into SIGINT/SIGTERM
-
-* tree-wide: convert as much as possible over to SD_EVENT_SIGNAL_PROCMASK
-  instead of manual blocking.
 
 * sd-boot: for each installed OS, grey out older entries (i.e. all but the
   newest), to indicate they are obsolete
