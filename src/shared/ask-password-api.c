@@ -36,6 +36,7 @@
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
+#include "path-lookup.h"
 #include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -1020,4 +1021,19 @@ int ask_password_auto(
                 return ask_password_agent(req, until, flags, ret);
 
         return -EUNATCH;
+}
+
+int acquire_user_ask_password_directory(char **ret) {
+        int r;
+
+        r = xdg_user_runtime_dir("systemd/ask-password", ret);
+        if (r == -ENXIO) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        return 1;
 }
