@@ -35,9 +35,6 @@ typedef struct Manager {
 
         sd_event_source *kill_workers_event;
 
-        sd_event_source *memory_pressure_event_source;
-        sd_event_source *sigrtmin18_event_source;
-
         usec_t last_usec;
 
         ResolveNameTiming resolve_name_timing;
