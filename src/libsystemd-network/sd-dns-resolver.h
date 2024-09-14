@@ -36,7 +36,6 @@ int sd_dns_resolver_get_transports(sd_dns_resolver *res, sd_dns_alpn_flags *ret_
 int sd_dns_resolver_get_port(sd_dns_resolver *res, uint16_t *ret_port);
 int sd_dns_resolver_get_dohpath(sd_dns_resolver *res, const char **ret_dohpath);
 
-void sd_dns_resolver_done(sd_dns_resolver *res);
 sd_dns_resolver *sd_dns_resolver_unref(sd_dns_resolver *res);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dns_resolver, sd_dns_resolver_unref);
 

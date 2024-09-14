@@ -54,4 +54,6 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
 
 int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolvers, char ***ret_names);
 
+void sd_dns_resolver_done(sd_dns_resolver *res);
+
 void dns_resolver_done_many(sd_dns_resolver *resolvers, size_t n);
