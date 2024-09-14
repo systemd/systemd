@@ -103,15 +103,15 @@ int sd_dns_resolver_get_inet6_addresses(sd_dns_resolver *res, const struct in6_a
         return 0;
 }
 
-int sd_dns_resolver_get_transports(sd_dns_resolver *res, sd_dns_alpn_flags *ret_transports) {
+int sd_dns_resolver_get_alpn(sd_dns_resolver *res, sd_dns_alpn_flags *ret_alpn) {
         assert_return(res, -EINVAL);
-        assert_return(ret_transports, -EINVAL);
+        assert_return(ret_alpn, -EINVAL);
 
         /* ADN-only mode has no transports */
         if (!res->transports)
                 return -ENODATA;
 
-        *ret_transports = res->transports;
+        *ret_alpn = res->transports;
         return 0;
 }
 
