@@ -1883,7 +1883,7 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get encrypted dns resolvers: %m");
 
-        NDiscDNR *dnr, d = (NDiscDNR){ .resolver = *res };
+        NDiscDNR *dnr, d = { .resolver = *res };
         if (lifetime_usec == 0) {
                 dnr = set_remove(link->ndisc_dnr, &d);
                 if (dnr) {
