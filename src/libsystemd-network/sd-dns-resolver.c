@@ -250,14 +250,14 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                                 uint8_t alen = option[poff++];
                                 if (poff + alen > len)
                                         return -EBADMSG;
-                                if (memcmp_nn((const char*) &option[poff], alen, "dot", STRLEN("dot")) == 0)
-                                        SET_FLAG(transports, SD_DNS_ALPN_DOT, true);
-                                if (memcmp_nn((const char*) &option[poff], alen, "h2", STRLEN("h2")) == 0)
-                                        SET_FLAG(transports, SD_DNS_ALPN_HTTP_2_TLS, true);
-                                if (memcmp_nn((const char*) &option[poff], alen, "h3", STRLEN("h3")) == 0)
-                                        SET_FLAG(transports, SD_DNS_ALPN_HTTP_3, true);
-                                if (memcmp_nn((const char*) &option[poff], alen, "doq", STRLEN("doq")) == 0)
-                                        SET_FLAG(transports, SD_DNS_ALPN_DOQ, true);
+                                if (memcmp_nn(&option[poff], alen, "dot", STRLEN("dot")) == 0)
+                                        transports |= SD_DNS_ALPN_DOT;
+                                if (memcmp_nn(&option[poff], alen, "h2", STRLEN("h2")) == 0)
+                                        transports |= SD_DNS_ALPN_HTTP_2_TLS;
+                                if (memcmp_nn(&option[poff], alen, "h3", STRLEN("h3")) == 0)
+                                        transports |= SD_DNS_ALPN_HTTP_3;
+                                if (memcmp_nn(&option[poff], alen, "doq", STRLEN("doq")) == 0)
+                                        transports |= SD_DNS_ALPN_DOQ;
                                 poff += alen;
                         }
                         if (poff != pend)
