@@ -1046,7 +1046,7 @@ static int creds_main(int argc, char *argv[]) {
                 { "decrypt",  2,        3,        0,            verb_decrypt  },
                 { "setup",    VERB_ANY, 1,        0,            verb_setup    },
                 { "help",     VERB_ANY, 1,        0,            verb_help     },
-                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 },
+                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 }, /* for backward compatibility */
                 {}
         };
 
