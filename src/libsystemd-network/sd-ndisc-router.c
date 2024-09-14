@@ -5,11 +5,11 @@
 
 #include <netinet/icmp6.h>
 
-#include "dns-resolver-internal.h"
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
 #include "string-table.h"
