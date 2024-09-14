@@ -86,15 +86,11 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -826,7 +822,7 @@ static int manager_connect_console(Manager *m) {
                 return log_error_errno(r, "Failed to watch foreground console: %m");
 
         /*
-         * SIGRTMIN is used as global VT-release signal, SIGRTMIN + 1 is used
+         * SIGRTMIN + 0 is used as global VT-release signal, SIGRTMIN + 1 is used
          * as VT-acquire signal. We ignore any acquire-events (yes, we still
          * have to provide a valid signal-number for it!) and acknowledge all
          * release events immediately.
@@ -838,11 +834,10 @@ static int manager_connect_console(Manager *m) {
                                        SIGRTMIN, SIGRTMAX);
 
         assert_se(ignore_signals(SIGRTMIN + 1) >= 0);
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN) >= 0);
 
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN + 0) | SD_EVENT_SIGNAL_PROCMASK, manager_vt_switch, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to subscribe to signal: %m");
+                return log_error_errno(r, "Failed to subscribe to SIGRTMIN+0 signal: %m");
 
         return 0;
 }
@@ -1097,7 +1092,7 @@ static int manager_startup(Manager *m) {
 
         assert(m);
 
-        r = sd_event_add_signal(m->event, NULL, SIGHUP, manager_dispatch_reload_signal, m);
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP|SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register SIGHUP handler: %m");
 
@@ -1247,7 +1242,7 @@ static int run(int argc, char *argv[]) {
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, SIGRTMIN+18) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
