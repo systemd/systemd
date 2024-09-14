@@ -62,6 +62,7 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 /* We don't treat /etc/xdg/systemd in these functions as the xdg base dir spec suggests because we assume
  * that is a link to /etc/systemd/ anyway. */
 
+int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_data_dirs);
 static inline int xdg_user_runtime_dir(const char *suffix, char **ret) {
         return sd_path_lookup(SD_PATH_USER_RUNTIME, suffix, ret);
 }
