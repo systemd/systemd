@@ -23,7 +23,9 @@ typedef enum sd_dns_alpn_flags {
         /* SD_DNS_ALPN_HTTP_2_TCP,              "h2c" [RFC9113] */
         SD_DNS_ALPN_HTTP_3         = 1 << 2, /* "h3"  [RFC9114] [RFC9461] */
         SD_DNS_ALPN_DOT            = 1 << 3, /* "dot" [RFC7858] [RFC9461] */
-        SD_DNS_ALPN_DOQ            = 1 << 4  /* "doq" [RFC9250] [RFC9461] */
+        SD_DNS_ALPN_DOQ            = 1 << 4, /* "doq" [RFC9250] [RFC9461] */
+
+        _SD_ENUM_FORCE_S64(SD_DNS_ALPN)
 } sd_dns_alpn_flags;
 
 int sd_dns_resolver_get_priority(sd_dns_resolver *res, uint16_t *ret_priority);
@@ -36,7 +38,7 @@ int sd_dns_resolver_get_dohpath(sd_dns_resolver *res, const char **ret_dohpath);
 
 void sd_dns_resolver_done(sd_dns_resolver *res);
 sd_dns_resolver *sd_dns_resolver_unref(sd_dns_resolver *res);
-_SD_DEFINE_POINTER_CLEANUP_FUNC (sd_dns_resolver, sd_dns_resolver_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dns_resolver, sd_dns_resolver_unref);
 
 _SD_END_DECLARATIONS;
 
