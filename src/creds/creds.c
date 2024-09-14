@@ -7,7 +7,6 @@
 #include "sd-varlink.h"
 
 #include "build.h"
-#include "build-path.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
@@ -70,11 +69,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
-        [TRANSCODE_OFF] = "off",
-        [TRANSCODE_BASE64] = "base64",
+        [TRANSCODE_OFF]      = "off",
+        [TRANSCODE_BASE64]   = "base64",
         [TRANSCODE_UNBASE64] = "unbase64",
-        [TRANSCODE_HEX] = "hex",
-        [TRANSCODE_UNHEX] = "unhex",
+        [TRANSCODE_HEX]      = "hex",
+        [TRANSCODE_UNHEX]    = "unhex",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
@@ -715,9 +714,9 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          ciphertext credential file\n"
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
-               "\n%3$sOptions:%4$s\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
@@ -1047,7 +1046,7 @@ static int creds_main(int argc, char *argv[]) {
                 { "decrypt",  2,        3,        0,            verb_decrypt  },
                 { "setup",    VERB_ANY, 1,        0,            verb_setup    },
                 { "help",     VERB_ANY, 1,        0,            verb_help     },
-                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 },
+                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 }, /* for backward compatibility */
                 {}
         };
 
