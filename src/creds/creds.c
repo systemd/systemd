@@ -7,7 +7,6 @@
 #include "sd-varlink.h"
 
 #include "build.h"
-#include "build-path.h"
 #include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
