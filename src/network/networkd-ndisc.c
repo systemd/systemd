@@ -1889,8 +1889,8 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
                 if (dnr) {
                         ndisc_dnr_free(dnr);
                         link_dirty(link);
-                        return 0;
                 }
+                return 0;
         }
 
         dnr = set_get(link->ndisc_dnr, &d);
