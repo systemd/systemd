@@ -265,7 +265,7 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                         break;
 
                 case DNS_SVC_PARAM_KEY_PORT:
-                        if (plen != 2)
+                        if (plen != sizeof(uint16_t))
                                 return -EBADMSG;
                         port = unaligned_read_be16(&option[offset]);
                         /* Server should indicate default port by omitting this param */
