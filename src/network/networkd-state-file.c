@@ -628,6 +628,8 @@ static void serialize_resolvers(
                         return (void) log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring.");
 
                 r = dns_resolvers_to_dot_strv(resolvers, r, &names);
+                if (r < 0)
+                        return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring.");
                 if (r > 0)
                         fputstrv(f, names, NULL, space);
         }
