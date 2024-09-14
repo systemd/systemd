@@ -609,7 +609,7 @@ static void serialize_resolvers(
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
                 if (r < 0)
-                        return;
+                        return (void) log_warning_errno(r, "Failed to get DNR from DHCP lease, ignoring.");
 
                 r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                 if (r > 0)
