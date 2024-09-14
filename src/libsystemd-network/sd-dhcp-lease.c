@@ -662,7 +662,7 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
                 if (!res.addrs)
                         return -ENOMEM;
                 for (size_t i = 0; i < n_addrs; i++) {
-                        union in_addr_union addr = (union in_addr_union) {.in = addrs[i]};
+                        union in_addr_union addr = {.in = addrs[i]};
                         /* RFC9463 § 5.2 client MUST discard multicast and host loopback addresses */
                         if (in_addr_is_multicast(AF_INET, &addr) ||
                             in_addr_is_localhost(AF_INET, &addr))
