@@ -69,11 +69,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
-        [TRANSCODE_OFF] = "off",
-        [TRANSCODE_BASE64] = "base64",
+        [TRANSCODE_OFF]      = "off",
+        [TRANSCODE_BASE64]   = "base64",
         [TRANSCODE_UNBASE64] = "unbase64",
-        [TRANSCODE_HEX] = "hex",
-        [TRANSCODE_UNHEX] = "unhex",
+        [TRANSCODE_HEX]      = "hex",
+        [TRANSCODE_UNHEX]    = "unhex",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
