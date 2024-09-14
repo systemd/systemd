@@ -161,7 +161,6 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                         if (r < 0)
                                 return r;
                 }
-
         }
 
         if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
