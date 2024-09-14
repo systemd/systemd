@@ -57,8 +57,6 @@ int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFl
 
 int runtime_directory(RuntimeScope scope, const char *suffix, char **ret);
 
-int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
-
 /* We don't treat /etc/xdg/systemd in these functions as the xdg base dir spec suggests because we assume
  * that is a link to /etc/systemd/ anyway. */
 
