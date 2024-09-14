@@ -17,6 +17,27 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
+int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_data_dirs) {
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        int r;
+
+        assert(ret_config_dirs);
+        assert(ret_data_dirs);
+
+        r = sd_path_lookup_strv(SD_PATH_SEARCH_CONFIGURATION, suffix, &config_dirs);
+        if (r < 0)
+                return r;
+
+        r = sd_path_lookup_strv(SD_PATH_SEARCH_SHARED, suffix, &data_dirs);
+        if (r < 0)
+                return r;
+
+        *ret_config_dirs = TAKE_PTR(config_dirs);
+        *ret_data_dirs = TAKE_PTR(data_dirs);
+
+        return 0;
+}
+
 int runtime_directory(RuntimeScope scope, const char *suffix, char **ret) {
         int r;
 
