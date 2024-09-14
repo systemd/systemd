@@ -516,7 +516,6 @@ static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, Ne
                 r = sd_json_variant_append_arrayb(
                                 &addrs_array,
                                 JSON_BUILD_IN_ADDR(addr, res->family));
-
                 if (r < 0)
                         return r;
         }
