@@ -57,6 +57,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -2917,6 +2918,12 @@ static int initialize_security(
         r = ima_setup();
         if (r < 0) {
                 *ret_error_message = "Failed to load IMA policy";
+                return r;
+        }
+
+        r = ipe_setup();
+        if (r < 0) {
+                *ret_error_message = "Failed to load IPE policy";
                 return r;
         }
 
