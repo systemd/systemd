@@ -490,6 +490,9 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
         offset += ilen;
 
         res.addrs = new(union in_addr_union, n_addrs);
+        if (!res.addrs)
+                return -ENOMEM
+
         for (size_t i = 0; i < n_addrs; i++) {
                 union in_addr_union addr = (union in_addr_union) {.in6 = addrs[i]};
                 /* RFC9463 § 6.2 client MUST discard multicast and host loopback addresses */
