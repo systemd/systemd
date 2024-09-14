@@ -45,6 +45,12 @@ const char* const systemd_features =
         " -IMA"
 #endif
 
+#if ENABLE_IPE
+        " +IPE"
+#else
+        " -IPE"
+#endif
+
 #if ENABLE_SMACK
         " +SMACK"
 #else
