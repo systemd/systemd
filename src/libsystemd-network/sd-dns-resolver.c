@@ -380,7 +380,6 @@ int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolve
                 r = strv_extend_with_size(&names, &len, name);
                 if (r < 0)
                         return r;
-
         }
 
         *ret_names = TAKE_PTR(names);
