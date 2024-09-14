@@ -39,6 +39,7 @@ struct in_addr_full {
 
 struct in_addr_full *in_addr_full_free(struct in_addr_full *a);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct in_addr_full*, in_addr_full_free);
+void in_addr_full_array_free(struct in_addr_full *addrs[], size_t n);
 int in_addr_full_new(int family, const union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret);
 int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
 const char* in_addr_full_to_string(struct in_addr_full *a);
