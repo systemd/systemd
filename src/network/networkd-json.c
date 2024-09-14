@@ -559,7 +559,7 @@ static int dnr_append_json(Link *link, sd_json_variant **v) {
                         return r;
 
                 n_dnr = sd_dhcp_lease_get_dnr(link->dhcp_lease, &dnr);
-                if (n_dnr <= 0)
+                if (n_dnr < 0)
                         return 0;
 
                 FOREACH_ARRAY(res, dnr, n_dnr) {
@@ -583,7 +583,7 @@ static int dnr_append_json(Link *link, sd_json_variant **v) {
                         return r;
 
                 n_dnr = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &dnr);
-                if (n_dnr <= 0)
+                if (n_dnr < 0)
                         return 0;
 
                 FOREACH_ARRAY(res, dnr, n_dnr) {
