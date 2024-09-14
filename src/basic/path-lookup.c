@@ -83,41 +83,6 @@ static const char* const user_config_unit_paths[] = {
         NULL
 };
 
-int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
-        /* Implement the mechanisms defined in
-         *
-         * https://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
-         *
-         * We look in both the config and the data dirs because we
-         * want to encourage that distributors ship their unit files
-         * as data, and allow overriding as configuration.
-         */
-        const char *e;
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
-
-        e = getenv("XDG_CONFIG_DIRS");
-        if (e)
-                config_dirs = strv_split(e, ":");
-        else
-                config_dirs = strv_new("/etc/xdg");
-        if (!config_dirs)
-                return -ENOMEM;
-
-        e = getenv("XDG_DATA_DIRS");
-        if (e)
-                data_dirs = strv_split(e, ":");
-        else
-                data_dirs = strv_new("/usr/local/share",
-                                     "/usr/share");
-        if (!data_dirs)
-                return -ENOMEM;
-
-        *ret_config_dirs = TAKE_PTR(config_dirs);
-        *ret_data_dirs = TAKE_PTR(data_dirs);
-
-        return 0;
-}
-
 bool path_is_user_data_dir(const char *path) {
         assert(path);
 
