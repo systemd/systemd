@@ -166,6 +166,8 @@ static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED]
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
 
 const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
+        assert(buf);
+
         const char *p = dns_svc_param_key_to_string(i);
         if (p)
                 return p;
