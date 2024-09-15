@@ -168,13 +168,13 @@ static char** user_dirs(
 bool path_is_user_data_dir(const char *path) {
         assert(path);
 
-        return strv_contains((char**) user_data_unit_paths, path);
+        return path_strv_contains((char* const*) user_data_unit_paths, path);
 }
 
 bool path_is_user_config_dir(const char *path) {
         assert(path);
 
-        return strv_contains((char**) user_config_unit_paths, path);
+        return path_strv_contains((char* const*) user_config_unit_paths, path);
 }
 
 static int acquire_generator_dirs(
