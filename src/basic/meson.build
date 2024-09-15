@@ -70,7 +70,6 @@ basic_sources = files(
         'ordered-set.c',
         'os-util.c',
         'parse-util.c',
-        'path-lookup.c',
         'path-util.c',
         'percent-util.c',
         'pidref.c',
