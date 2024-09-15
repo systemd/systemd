@@ -44,7 +44,7 @@ sd_journal_sources += [audit_type_to_name]
 
 ############################################################
 
-id128_sources = files(
+sd_id128_sources = files(
         'sd-id128/id128-util.c',
         'sd-id128/sd-id128.c',
 )
@@ -58,6 +58,41 @@ sd_daemon_sources = files('sd-daemon/sd-daemon.c')
 sd_event_sources = files(
         'sd-event/event-util.c',
         'sd-event/sd-event.c',
+)
+
+############################################################
+
+sd_bus_sources = files(
+        'sd-bus/bus-common-errors.c',
+        'sd-bus/bus-container.c',
+        'sd-bus/bus-control.c',
+        'sd-bus/bus-convenience.c',
+        'sd-bus/bus-creds.c',
+        'sd-bus/bus-dump.c',
+        'sd-bus/bus-error.c',
+        'sd-bus/bus-internal.c',
+        'sd-bus/bus-introspect.c',
+        'sd-bus/bus-kernel.c',
+        'sd-bus/bus-match.c',
+        'sd-bus/bus-message.c',
+        'sd-bus/bus-objects.c',
+        'sd-bus/bus-signature.c',
+        'sd-bus/bus-slot.c',
+        'sd-bus/bus-socket.c',
+        'sd-bus/bus-track.c',
+        'sd-bus/bus-type.c',
+        'sd-bus/sd-bus.c',
+)
+
+############################################################
+
+sd_device_sources = files(
+        'sd-device/device-enumerator.c',
+        'sd-device/device-filter.c',
+        'sd-device/device-monitor.c',
+        'sd-device/device-private.c',
+        'sd-device/device-util.c',
+        'sd-device/sd-device.c',
 )
 
 ############################################################
@@ -83,33 +118,14 @@ sd_varlink_sources = files(
 
 ############################################################
 
-libsystemd_sources = files(
-        'sd-bus/bus-common-errors.c',
-        'sd-bus/bus-container.c',
-        'sd-bus/bus-control.c',
-        'sd-bus/bus-convenience.c',
-        'sd-bus/bus-creds.c',
-        'sd-bus/bus-dump.c',
-        'sd-bus/bus-error.c',
-        'sd-bus/bus-internal.c',
-        'sd-bus/bus-introspect.c',
-        'sd-bus/bus-kernel.c',
-        'sd-bus/bus-match.c',
-        'sd-bus/bus-message.c',
-        'sd-bus/bus-objects.c',
-        'sd-bus/bus-signature.c',
-        'sd-bus/bus-slot.c',
-        'sd-bus/bus-socket.c',
-        'sd-bus/bus-track.c',
-        'sd-bus/bus-type.c',
-        'sd-bus/sd-bus.c',
-        'sd-device/device-enumerator.c',
-        'sd-device/device-filter.c',
-        'sd-device/device-monitor.c',
-        'sd-device/device-private.c',
-        'sd-device/device-util.c',
-        'sd-device/sd-device.c',
-        'sd-hwdb/sd-hwdb.c',
+sd_path_sources = files(
+        'sd-path/path-lookup.c',
+        'sd-path/sd-path.c',
+)
+
+############################################################
+
+sd_netlink_sources = files(
         'sd-netlink/netlink-genl.c',
         'sd-netlink/netlink-message-nfnl.c',
         'sd-netlink/netlink-message-rtnl.c',
@@ -122,11 +138,24 @@ libsystemd_sources = files(
         'sd-netlink/netlink-types.c',
         'sd-netlink/netlink-util.c',
         'sd-netlink/sd-netlink.c',
+)
+
+############################################################
+
+sd_network_sources = files(
         'sd-network/network-util.c',
         'sd-network/sd-network.c',
-        'sd-path/sd-path.c',
+)
+
+############################################################
+
+libsystemd_sources = files(
+        'sd-hwdb/sd-hwdb.c',
         'sd-resolve/sd-resolve.c',
-) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources + sd_json_sources + sd_varlink_sources
+) + sd_journal_sources + sd_id128_sources + sd_daemon_sources \
+  + sd_event_sources + sd_bus_sources + sd_device_sources \
+  + sd_login_sources + sd_json_sources + sd_varlink_sources \
+  + sd_path_sources + sd_netlink_sources + sd_network_sources
 
 libsystemd_c_args = ['-fvisibility=default']
 
