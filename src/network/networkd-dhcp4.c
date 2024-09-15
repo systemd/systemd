@@ -6,6 +6,7 @@
 #include <linux/if_arp.h>
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "dhcp-client-internal.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -1428,27 +1429,33 @@ static int dhcp4_set_request_address(Link *link) {
 }
 
 static bool link_needs_dhcp_broadcast(Link *link) {
-        const char *val;
         int r;
 
         assert(link);
         assert(link->network);
 
         /* Return the setting in DHCP[4].RequestBroadcast if specified. Otherwise return the device property
-         * ID_NET_DHCP_BROADCAST setting, which may be set for interfaces requiring that the DHCPOFFER message
-         * is being broadcast because they can't  handle unicast messages while not fully configured.
-         * If neither is set or a failure occurs, return false, which is the default for this flag.
-         */
-        r = link->network->dhcp_broadcast;
-        if (r < 0 && link->dev && sd_device_get_property_value(link->dev, "ID_NET_DHCP_BROADCAST", &val) >= 0) {
-                r = parse_boolean(val);
-                if (r < 0)
-                        log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to parse ID_NET_DHCP_BROADCAST, ignoring: %m");
-                else
-                        log_link_debug(link, "DHCPv4 CLIENT: Detected ID_NET_DHCP_BROADCAST='%d'.", r);
+         * ID_NET_DHCP_BROADCAST setting, which may be set for interfaces requiring that the DHCPOFFER
+         * message is being broadcast because they can't handle unicast messages while not fully configured.
+         * If neither is set or a failure occurs, return false, which is the default for this flag. */
 
+        r = link->network->dhcp_broadcast;
+        if (r >= 0)
+                return r;
+
+        if (!link->dev)
+                return false;
+
+        r = device_get_property_bool(link->dev, "ID_NET_DHCP_BROADCAST");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_link_warning_errno(link, r, "DHCPv4 CLIENT: Failed to get or parse ID_NET_DHCP_BROADCAST, ignoring: %m");
+
+                return false;
         }
-        return r == true;
+
+        log_link_debug(link, "DHCPv4 CLIENT: Detected ID_NET_DHCP_BROADCAST='%d'.", r);
+        return r;
 }
 
 static bool link_dhcp4_ipv6_only_mode(Link *link) {
