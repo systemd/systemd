@@ -9,6 +9,14 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Arrays cannot be exported, so redefine in each test script
+ARGS=()
+if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    # If we're running under sanitizers, we need to use a less restrictive
+    # profile, otherwise LSan syscall would get blocked by seccomp
+    ARGS+=(--profile=trusted)
+fi
+
 portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
 
 portablectl is-attached minimal-app0
