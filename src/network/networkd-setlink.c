@@ -6,6 +6,7 @@
 #include <linux/if_bridge.h>
 #include <linux/ipv6.h>
 
+#include "device-private.h"
 #include "missing_network.h"
 #include "netif-util.h"
 #include "netlink-util.h"
@@ -579,6 +580,25 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         r = link_down_now(link);
                         if (r < 0)
                                 return r;
+                }
+
+                if (link->network->bridge && !FLAGS_SET(link->flags, IFF_UP) && link->dev) {
+                        /* Some devices require the port to be up before joining the bridge.
+                         *
+                         * E.g. Texas Instruments SoC Ethernet running in switch mode:
+                         * https://docs.kernel.org/networking/device_drivers/ethernet/ti/am65_nuss_cpsw_switchdev.html#enabling-switch
+                         * > Port’s netdev devices have to be in UP before joining to the bridge to avoid
+                         * > overwriting of bridge configuration as CPSW switch driver completely reloads its
+                         * > configuration when first port changes its state to UP. */
+
+                        r = device_get_property_bool(link->dev, "ID_NET_BRING_UP_BEFORE_JOINING_BRIDGE");
+                        if (r < 0 && r != -ENOENT)
+                                log_link_warning_errno(link, r, "Failed to get or parse ID_NET_BRING_UP_BEFORE_JOINING_BRIDGE property, ignoring: %m");
+                        else if (r > 0) {
+                                r = link_up_now(link);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 req->userdata = UINT32_TO_PTR(m);
