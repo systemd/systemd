@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 
-#include "constants.h"
-#include "macro.h"
 #include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {
@@ -69,9 +67,3 @@ void lookup_paths_done(LookupPaths *p);
 
 char **generator_binary_paths(RuntimeScope scope);
 char **env_generator_binary_paths(RuntimeScope scope);
-
-#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
-#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
-
-#define PORTABLE_PROFILE_DIRS CONF_PATHS_NULSTR("systemd/portable/profile")
-int find_portable_profile(const char *name, const char *unit, char **ret_path);
