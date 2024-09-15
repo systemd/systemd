@@ -134,9 +134,8 @@ static EFI_STATUS combine_initrds(
 
         assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
 
-        *ret_initrd_pages = pages;
+        *ret_initrd_pages = TAKE_STRUCT(pages);
         *ret_initrd_size = n;
-        pages.n_pages = 0;
 
         return EFI_SUCCESS;
 }
