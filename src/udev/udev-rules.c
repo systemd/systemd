@@ -63,8 +63,13 @@ typedef enum {
         MATCH_TYPE_GLOB_WITH_EMPTY,  /* shell globs ?,*,[] with empty string, e.g., "|foo*" */
         MATCH_TYPE_SUBSYSTEM,        /* "subsystem", "bus", or "class" */
         _MATCH_TYPE_MAX,
-        _MATCH_TYPE_INVALID = -EINVAL,
+
+        _MATCH_TYPE_MASK                 = (1 << 5) - 1,
+        MATCH_REMOVE_TRAILING_WHITESPACE = 1 << 5,  /* Remove trailing whitespaces in attribute */
+        _MATCH_TYPE_INVALID              = -EINVAL,
 } UdevRuleMatchType;
+
+assert_cc(_MATCH_TYPE_MAX <= _MATCH_TYPE_MASK);
 
 typedef enum {
         SUBST_TYPE_PLAIN,  /* no substitution */
@@ -155,8 +160,7 @@ struct UdevRuleToken {
         UdevRuleTokenType type:8;
         UdevRuleOperatorType op:8;
         UdevRuleMatchType match_type:8;
-        UdevRuleSubstituteType attr_subst_type:7;
-        bool attr_match_remove_trailing_whitespace:1;
+        UdevRuleSubstituteType attr_subst_type:8;
         const char *value;
         void *data;
 
@@ -492,8 +496,6 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
         _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
         UdevRuleSubstituteType subst_type = _SUBST_TYPE_INVALID;
-        bool remove_trailing_whitespace = false;
-        size_t len;
 
         assert(rule_line);
         assert(type >= 0 && type < _TK_TYPE_MAX);
@@ -552,12 +554,15 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
         }
 
         if (IN_SET(type, TK_M_ATTR, TK_M_PARENTS_ATTR)) {
+                size_t len;
+
                 assert(value);
                 assert(data);
+                assert(match_type >= 0 && match_type < _MATCH_TYPE_MAX);
 
                 len = strlen(value);
                 if (len > 0 && !isspace(value[len - 1]))
-                        remove_trailing_whitespace = true;
+                        match_type |= MATCH_REMOVE_TRAILING_WHITESPACE;
 
                 subst_type = rule_get_substitution_type(data);
         }
@@ -573,7 +578,6 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                 .data = data,
                 .match_type = match_type,
                 .attr_subst_type = subst_type,
-                .attr_match_remove_trailing_whitespace = remove_trailing_whitespace,
                 .rule_line = rule_line,
         };
 
@@ -1412,7 +1416,6 @@ static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
         assert(b);
 
         return a->attr_subst_type == b->attr_subst_type &&
-               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
                token_type_and_value_eq(a, b) &&
                token_type_and_data_eq(a, b);
 }
@@ -1427,7 +1430,6 @@ static bool nulstr_tokens_conflict(const UdevRuleToken *a, const UdevRuleToken *
               a->op == OP_MATCH &&
               a->match_type == b->match_type &&
               a->attr_subst_type == b->attr_subst_type &&
-              a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
               token_type_and_data_eq(a, b)))
                 return false;
 
@@ -1705,7 +1707,7 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
         str = strempty(str);
         value = token->value;
 
-        switch (token->match_type) {
+        switch (token->match_type & _MATCH_TYPE_MASK) {
         case MATCH_TYPE_EMPTY:
                 match = isempty(str);
                 break;
@@ -1773,7 +1775,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                         return false;
 
                 /* remove trailing whitespace, if not asked to match for it */
-                if (token->attr_match_remove_trailing_whitespace) {
+                if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE)) {
                         strscpy(vbuf, sizeof(vbuf), value);
                         value = delete_trailing_chars(vbuf, NULL);
                 }
@@ -1785,7 +1787,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                         return false;
 
                 /* remove trailing whitespace, if not asked to match for it */
-                if (token->attr_match_remove_trailing_whitespace)
+                if (FLAGS_SET(token->match_type, MATCH_REMOVE_TRAILING_WHITESPACE))
                         delete_trailing_chars(vbuf, NULL);
 
                 return token_match_string(token, vbuf);
