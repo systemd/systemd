@@ -58,9 +58,6 @@ OPTIONS=(
 )
 EOF
 
-# Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
-rm /usr/share/makepkg/lint_pkgbuild/*
-
 TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
@@ -72,9 +69,11 @@ sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
 patch -Np1 -i pkg/arch/0001-Use-Arch-Linux-device-access-groups.patch
 
 # We get around makepkg's root check by setting EUID to something else.
+# Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 # shellcheck disable=SC2046
 env --chdir="pkg/$PKG_SUBDIR" \
     EUID=123 \
+    MAKEPKG_LINT_PKGBUILD=0 \
     makepkg \
     --noextract \
     --noprepare \
