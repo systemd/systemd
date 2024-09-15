@@ -767,6 +767,14 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
+                /* RFC 7084 section 4.2 (https://datatracker.ietf.org/doc/html/rfc7084#section-4.2)
+                 * WPD-4: By default, the IPv6 CE router MUST initiate DHCPv6 prefix delegation when either
+                 * the M or O flags are set to 1 in a received Router Advertisement (RA) message. */
+                if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD)) {
+                        r = dhcp6_option_append_ia(&buf, &offset, (client->lease ? client->lease->ia_pd : NULL) ?: &client->ia_pd);
+                        if (r < 0)
+                                return r;
+                }
                 break;
 
         case DHCP6_STATE_SOLICITATION:
