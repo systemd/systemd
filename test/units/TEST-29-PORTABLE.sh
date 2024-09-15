@@ -29,7 +29,6 @@ EOF
 
 systemctl daemon-reexec
 
-export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 
 udevadm control --log-level debug
 
@@ -42,9 +41,9 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # With the trusted profile DynamicUser is disabled, so the storage is not in private/
     STATE_DIRECTORY=/var/lib/
 fi
-export ARGS
 export STATE_DIRECTORY
 export SYSTEMD_LOG_LEVEL=debug
+export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 
 # Quick smoke tests
 
