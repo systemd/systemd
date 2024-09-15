@@ -769,11 +769,6 @@ static int dhcp6_lease_parse_message(
                 case SD_DHCP6_OPTION_IA_PD: {
                         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
 
-                        if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
-                                log_dhcp6_client(client, "Ignoring IA PD option in information requesting mode.");
-                                break;
-                        }
-
                         r = dhcp6_option_parse_ia(client, client->ia_pd.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
                                 return log_oom_debug();
