@@ -1046,7 +1046,6 @@ static int process_socket(int fd) {
         _cleanup_close_ int input_fd = -EBADF, mount_tree_fd = -EBADF;
         Context context = {};
         struct iovec_wrapper iovw = {};
-        struct iovec iovec;
         bool first = true;
         int r;
 
@@ -1063,8 +1062,7 @@ static int process_socket(int fd) {
                         .msg_controllen = sizeof(control),
                         .msg_iovlen = 1,
                 };
-                ssize_t n;
-                ssize_t l;
+                ssize_t n, l;
 
                 l = next_datagram_size_fd(fd);
                 if (l < 0) {
@@ -1072,8 +1070,10 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-                iovec.iov_len = l;
-                iovec.iov_base = malloc(l + 1);
+                _cleanup_(iovec_done) struct iovec iovec = {
+                        .iov_len = l,
+                        .iov_base = malloc(l + 1),
+                };
                 if (!iovec.iov_base) {
                         r = log_oom();
                         goto finish;
@@ -1083,7 +1083,6 @@ static int process_socket(int fd) {
 
                 n = recvmsg_safe(fd, &mh, MSG_CMSG_CLOEXEC);
                 if (n < 0)  {
-                        free(iovec.iov_base);
                         r = log_error_errno(n, "Failed to receive datagram: %m");
                         goto finish;
                 }
@@ -1092,8 +1091,6 @@ static int process_socket(int fd) {
                  * that we're done. */
                 if (n == 0) {
                         struct cmsghdr *found;
-
-                        free(iovec.iov_base);
 
                         found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
                         if (found) {
@@ -1134,6 +1131,8 @@ static int process_socket(int fd) {
                 r = iovw_put(&iovw, iovec.iov_base, iovec.iov_len);
                 if (r < 0)
                         goto finish;
+
+                TAKE_STRUCT(iovec);
         }
 
         /* Make sure we got all data we really need */
