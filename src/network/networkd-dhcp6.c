@@ -264,25 +264,35 @@ static int dhcp6_address_acquired(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp6_use_hostname) {
-                const char *dhcpname = NULL;
-                _cleanup_free_ char *hostname = NULL;
+        return 0;
+}
 
-                (void) sd_dhcp6_lease_get_fqdn(link->dhcp6_lease, &dhcpname);
+static int dhcp6_request_hostname(Link *link) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *dhcpname = NULL;
+        int r;
 
-                if (dhcpname) {
-                        r = shorten_overlong(dhcpname, &hostname);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s', ignoring: %m", dhcpname);
-                        if (r == 1)
-                                log_link_notice(link, "Overlong DHCP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
-                }
-                if (hostname) {
-                        r = manager_set_hostname(link->manager, hostname);
-                        if (r < 0)
-                                log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
-                }
-        }
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->dhcp6_use_hostname)
+                return 0;
+
+        r = sd_dhcp6_lease_get_fqdn(link->dhcp6_lease, &dhcpname);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = shorten_overlong(dhcpname, &hostname);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s': %m", dhcpname);
+        if (r == 1)
+                log_link_notice(link, "Overlong DHCP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
+
+        r = manager_set_hostname(link->manager, hostname);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to set transient hostname to '%s', ignoring: %m", hostname);
 
         return 0;
 }
@@ -301,6 +311,10 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 
         lease_old = TAKE_PTR(link->dhcp6_lease);
         link->dhcp6_lease = sd_dhcp6_lease_ref(lease);
+
+        r = dhcp6_request_hostname(link);
+        if (r < 0)
+                return r;
 
         r = dhcp6_address_acquired(link);
         if (r < 0)
