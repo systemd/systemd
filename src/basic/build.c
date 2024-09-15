@@ -221,6 +221,12 @@ const char* const systemd_features =
         " -BPF_FRAMEWORK"
 #endif
 
+#if HAVE_VMLINUX_H
+        " +BTF"
+#else
+        " -BTF"
+#endif
+
 #if HAVE_XKBCOMMON
         " +XKBCOMMON"
 #else
@@ -247,7 +253,7 @@ const char* const systemd_features =
 
         ;
 
-static char *systemd_features_with_color(void) {
+static char* systemd_features_with_color(void) {
         const char *p = systemd_features;
         _cleanup_free_ char *ret = NULL;
         int r;
