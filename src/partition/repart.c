@@ -5408,7 +5408,7 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
 
         assert(ret);
 
-        log_info("Populating %s filesystem.", p->format);
+        log_info("Preparing to populate %s filesystem.", p->format);
 
         r = var_tmp_dir(&vt);
         if (r < 0)
@@ -5434,7 +5434,7 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         if (r < 0)
                 return r;
 
-        log_info("Successfully populated %s filesystem.", p->format);
+        log_info("Ready to populate %s filesystem.", p->format);
 
         *ret = TAKE_PTR(root);
         return 0;
