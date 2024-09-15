@@ -6243,17 +6243,18 @@ Name=enp1s0
 [Network]
 DHCP=ipv6
 
+# If the upstream network does not provides any Router Advertisement (RA) messages
+# or provides an RA with both Managed and Other-information bits unset, then
+# uncomment the line below and WithoutRA= setting in the [DHCPv6] section.
+#IPv6AcceptRA=no
+
+[DHCPv6]
+#WithoutRA=solicit
+
 # The below setting is optional, to also assign an address in the delegated prefix
 # to the upstream interface. If not necessary, then comment out the line below and
 # the [DHCPPrefixDelegation] section.
 DHCPPrefixDelegation=yes
-
-# If the upstream network provides Router Advertisement with Managed bit set,
-# then comment out the line below and WithoutRA= setting in the [DHCPv6] section.
-IPv6AcceptRA=no
-
-[DHCPv6]
-WithoutRA=solicit
 
 [DHCPPrefixDelegation]
 UplinkInterface=:self
