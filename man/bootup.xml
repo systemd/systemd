@@ -46,11 +46,10 @@
     the root file system, which is then responsible for probing all remaining hardware, mounting all
     necessary file systems and spawning all configured services.</para>
 
-    <para>On shutdown, the system manager stops all services, unmounts
-    all file systems (detaching the storage technologies backing
-    them), and then (optionally) jumps back into the initrd code which
-    unmounts/detaches the root file system and the storage it resides
-    on. As a last step, the system is powered down.</para>
+    <para>On shutdown, the system manager stops all services, unmounts all non-busy file systems (detaching
+    the storage technologies backing them), and then (optionally) jumps into the exitrd, which is backed by
+    tmpfs, and unmounts/detaches the remaining file systems, including the real root. As a last step,
+    the system is powered down.</para>
 
     <para>Additional information about the system boot process may be
     found in
