@@ -763,8 +763,7 @@ static int dhcp6_lease_parse_message(
                                 continue;
                         }
 
-                        dhcp6_ia_free(lease->ia_na);
-                        lease->ia_na = TAKE_PTR(ia);
+                        free_and_replace_full(lease->ia_na, ia, dhcp6_ia_free);
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_PD: {
@@ -788,8 +787,7 @@ static int dhcp6_lease_parse_message(
                                 continue;
                         }
 
-                        dhcp6_ia_free(lease->ia_pd);
-                        lease->ia_pd = TAKE_PTR(ia);
+                        free_and_replace_full(lease->ia_pd, ia, dhcp6_ia_free);
                         break;
                 }
                 case SD_DHCP6_OPTION_RAPID_COMMIT:
