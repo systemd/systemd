@@ -968,7 +968,9 @@ void log_setup_generator(void) {
 
                 /* This effectively means: journal for per-user generators, kmsg otherwise */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-        }
+        } else
+                log_set_target(LOG_TARGET_AUTO);
 
-        log_setup();
+        log_parse_environment();
+        log_open();
 }
