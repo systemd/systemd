@@ -1057,8 +1057,12 @@ static int fd_set_perms(
                     fchownat(fd, "",
                              new_uid != st->st_uid ? new_uid : UID_INVALID,
                              new_gid != st->st_gid ? new_gid : GID_INVALID,
-                             AT_EMPTY_PATH) < 0)
-                        return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+                             AT_EMPTY_PATH) < 0) {
+                        if (errno != EROFS)
+                                return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+
+                        log_notice_errno(errno, "%s is read-only, not changing owner to "UID_FMT":"GID_FMT, path, new_uid, new_gid);
+                }
         }
 
         /* Now, apply the final mode. We do this in two cases: when the user set a mode explicitly, or after a
