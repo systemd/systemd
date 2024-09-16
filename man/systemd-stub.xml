@@ -115,7 +115,7 @@
     result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is not
     included in this PCR measurement, since it is supposed to contain signatures for the output of the
     measurement operation, and thus cannot also be input to it. If an UKI contains multiple profiles, only
-    the PE sections of the selected profile (and those of the base profile, except if overriden) are
+    the PE sections of the selected profile (and those of the base profile, except if overridden) are
     measured.</para>
 
     <para>If non-zero, the selected numeric profile is measured into PCR 12.</para>
