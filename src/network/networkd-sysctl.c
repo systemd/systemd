@@ -94,9 +94,9 @@ int sysctl_add_monitor(Manager *manager) {
         _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
         _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *sysctl_buffer = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF, rootcg = -EBADF;
+        _cleanup_close_ int cgroup_fd = -EBADF, root_cgroup_fd = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
-        int idx = 0, r;
+        int idx = 0, r, fd;
 
         assert(manager);
 
@@ -110,9 +110,9 @@ int sysctl_add_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
-        rootcg = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
-        if (rootcg < 0)
-                return log_warning_errno(rootcg, "Failed to open cgroup, ignoring: %m.");
+        root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        if (root_cgroup_fd < 0)
+                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m.");
 
         obj = sysctl_monitor_bpf__open_and_load();
         if (!obj) {
@@ -127,21 +127,27 @@ int sysctl_add_monitor(Manager *manager) {
         if (sym_bpf_map_update_elem(sym_bpf_map__fd(obj->maps.cgroup_map), &idx, &cgroup_fd, BPF_ANY))
                 return log_warning_errno(errno, "Failed to update cgroup map: %m");
 
-        sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, rootcg);
+        sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, root_cgroup_fd);
         r = bpf_get_error_translated(sysctl_link);
         if (r < 0) {
                 log_info_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m.");
                 return 0;
         }
 
-        sysctl_buffer = sym_ring_buffer__new(
-                        sym_bpf_map__fd(obj->maps.written_sysctls),
-                        sysctl_event_handler, &manager->sysctl_shadow, NULL);
+        fd = sym_bpf_map__fd(obj->maps.written_sysctls);
+        if (fd < 0)
+                return log_warning_errno(fd, "Failed to get fd of sysctl maps: %m");
+
+        sysctl_buffer = sym_ring_buffer__new(fd, sysctl_event_handler, &manager->sysctl_shadow, NULL);
         if (!sysctl_buffer)
                 return log_warning_errno(errno, "Failed to create ring buffer: %m");
 
+        fd = sym_ring_buffer__epoll_fd(sysctl_buffer);
+        if (fd < 0)
+                return log_warning_errno(fd, "Failed to get poll fd of ring buffer: %m");
+
         r = sd_event_add_io(manager->event, &manager->sysctl_event_source,
-                        sym_ring_buffer__epoll_fd(sysctl_buffer), EPOLLIN, on_ringbuf_io, sysctl_buffer);
+                            fd, EPOLLIN, on_ringbuf_io, sysctl_buffer);
         if (r < 0)
                 return log_warning_errno(r, "Failed to watch sysctl event ringbuffer: %m");
 
