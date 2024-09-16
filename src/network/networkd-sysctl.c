@@ -163,22 +163,9 @@ void sysctl_remove_monitor(Manager *manager) {
         assert(manager);
 
         manager->sysctl_event_source = sd_event_source_disable_unref(manager->sysctl_event_source);
-
-        if (manager->sysctl_buffer) {
-                sym_ring_buffer__free(manager->sysctl_buffer);
-                manager->sysctl_buffer = NULL;
-        }
-
-        if (manager->sysctl_link) {
-                sym_bpf_link__destroy(manager->sysctl_link);
-                manager->sysctl_link = NULL;
-        }
-
-        if (manager->sysctl_skel) {
-                sysctl_monitor_bpf__destroy(manager->sysctl_skel);
-                manager->sysctl_skel = NULL;
-        }
-
+        manager->sysctl_buffer = rb_free(manager->sysctl_buffer);
+        manager->sysctl_link = bpf_link_free(manager->sysctl_link);
+        manager->sysctl_skel = sysctl_monitor_bpf_free(manager->sysctl_skel);
         manager->cgroup_fd = safe_close(manager->cgroup_fd);
 }
 
