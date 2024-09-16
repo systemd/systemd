@@ -93,20 +93,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static bool press_any_key(void) {
-        char k = 0;
-        bool need_nl = true;
-
-        puts("-- Press any key to proceed --");
-
-        (void) read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
-
-        return k != 'q';
-}
-
 static void print_welcome(int rfd) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
         static bool done = false;
@@ -141,7 +127,7 @@ static void print_welcome(int rfd) {
 
         printf("\nPlease configure your system!\n\n");
 
-        press_any_key();
+        any_key_to_proceed();
 
         done = true;
 }
@@ -184,7 +170,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
 
                 /* on the first screen we reserve 2 extra lines for the title */
                 if (i % break_lines == break_modulo) {
-                        if (!press_any_key())
+                        if (!any_key_to_proceed())
                                 return 0;
                 }
         }
