@@ -279,7 +279,8 @@ def _normalize_whitespace(s):
 def TreeRoot(el):
     output = _conv(el)
     # add .. SPDX-License-Identifier: LGPL-2.1-or-later:
-    output = '\n\n'.join(['.. SPDX-License-Identifier: LGPL-2.1-or-later:', output])
+    output = '\n\n'.join(
+        ['.. SPDX-License-Identifier: LGPL-2.1-or-later:', output])
     # remove trailing whitespace
     output = re.sub(r"[ \t]+\n", "\n", output)
     # leave only one blank line
@@ -757,4 +758,4 @@ def convert_xml_to_rst(xml_file_path, output_dir):
         return list(_not_handled_tags), ''
     except Exception as e:
         _warn('Failed to convert file %s' % xml_file_path)
-        return "", [], str(e)
+        return [], str(e)
