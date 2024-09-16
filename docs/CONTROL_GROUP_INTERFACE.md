@@ -247,4 +247,4 @@ Note that scope units created by `machined`'s `CreateMachine()` call have this f
 
 ### Example
 
-Please see the [systemd-run sources](http://cgit.freedesktop.org/systemd/systemd/plain/src/run/run.c) for a relatively simple example how to create scope or service units transiently and pass properties to them.
+Please see the [systemd-run sources](https://github.com/systemd/systemd/blob/main/src/run/run.c) for a relatively simple example how to create scope or service units transiently and pass properties to them.
