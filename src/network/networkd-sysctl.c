@@ -34,13 +34,7 @@ static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_
         return NULL;
 }
 
-static struct ring_buffer* rb_free(struct ring_buffer *rb) {
-        sym_ring_buffer__free(rb);
-        return NULL;
-}
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct sysctl_monitor_bpf *, sysctl_monitor_bpf_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct ring_buffer *, rb_free);
 
 static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
         struct sysctl_write_event *we = ASSERT_PTR(data);
@@ -99,7 +93,7 @@ static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *use
 int sysctl_add_monitor(Manager *manager) {
         _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
-        _cleanup_(rb_freep) struct ring_buffer *sysctl_buffer = NULL;
+        _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *sysctl_buffer = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF, rootcg = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
         int idx = 0, r;
@@ -163,7 +157,7 @@ void sysctl_remove_monitor(Manager *manager) {
         assert(manager);
 
         manager->sysctl_event_source = sd_event_source_disable_unref(manager->sysctl_event_source);
-        manager->sysctl_buffer = rb_free(manager->sysctl_buffer);
+        manager->sysctl_buffer = bpf_ring_buffer_free(manager->sysctl_buffer);
         manager->sysctl_link = bpf_link_free(manager->sysctl_link);
         manager->sysctl_skel = sysctl_monitor_bpf_free(manager->sysctl_skel);
         manager->cgroup_fd = safe_close(manager->cgroup_fd);
