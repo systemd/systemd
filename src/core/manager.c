@@ -1923,7 +1923,9 @@ static void manager_preset_all(Manager *m) {
 
         assert(m);
 
-        if (m->first_boot <= 0)
+        /* Unless explicitly configured, if this is the first boot, and we are in the host system, then
+         * preset everything. */
+        if (m->preset == 0 || (m->preset < 0 && m->first_boot <= 0))
                 return;
 
         if (!MANAGER_IS_SYSTEM(m))
@@ -1932,11 +1934,7 @@ static void manager_preset_all(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return;
 
-        /* If this is the first boot, and we are in the host system, then preset everything */
-        UnitFilePresetMode mode =
-                ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
-
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, m->preset_mode, NULL, 0);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");

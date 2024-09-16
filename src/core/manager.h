@@ -14,6 +14,7 @@
 #include "cgroup.h"
 #include "fdset.h"
 #include "hashmap.h"
+#include "install.h"
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
@@ -412,6 +413,8 @@ struct Manager {
         char *confirm_spawn;
         bool no_console_output;
         bool service_watchdogs;
+        int preset;
+        UnitFilePresetMode preset_mode;
 
         UnitDefaults defaults;
 
