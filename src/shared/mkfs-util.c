@@ -627,6 +627,9 @@ int make_filesystem(
                                 return log_oom();
                 }
 
+                if (strv_extend(&env, strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")) < 0)
+                        return log_oom();
+
                 if (strv_extend_many(&argv, node, root) < 0)
                         return log_oom();
 
