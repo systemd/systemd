@@ -2427,6 +2427,7 @@ static int has_regular_user(void) {
 static int create_interactively(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *username = NULL;
+        _cleanup_strv_free_ char **groups = NULL;
         int r;
 
         if (!arg_prompt_new_user) {
@@ -2473,6 +2474,42 @@ static int create_interactively(void) {
         r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", username);
         if (r < 0)
                 return log_error_errno(r, "Failed to set userName field: %m");
+
+        for (;;) {
+                _cleanup_free_ char *group = NULL;
+
+                r = ask_string(&group,
+                               "%s Please enter an auxiliary group for user %s (empty to continue): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for auxiliary group: %m");
+
+                if (isempty(group))
+                        break;
+
+                if (!valid_user_group_name(group, /* flags= */ 0)) {
+                        log_notice("Specified group name is not a valid UNIX group name, try again: %s", group);
+                        continue;
+                }
+
+                r = groupdb_by_name(group, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+                if (r == -ESRCH) {
+                        log_notice("Specified auxiliary group does not exist, try again: %s", group);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if specified group '%s' already exists: %m", group);
+
+                r = strv_extend(&groups, group);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (groups) {
+                r = sd_json_variant_set_field_strv(&arg_identity_extra, "memberOf", groups);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set memberOf field: %m");
+        }
 
         return create_home_common(/* input= */ NULL);
 }
