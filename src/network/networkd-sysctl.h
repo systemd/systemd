@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "conf-parser.h"
+#include "hashmap.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;
@@ -36,6 +37,8 @@ static inline int sysctl_add_monitor(Manager *manager) { return 0; }
 static inline void sysctl_remove_monitor(Manager *manager) { }
 static inline int sysctl_clear_link_shadows(Link *link) { return 0; }
 #endif
+
+Hashmap** manager_get_sysctl_shadow(Manager *manager);
 
 void manager_set_sysctl(Manager *manager);
 
