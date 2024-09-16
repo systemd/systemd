@@ -150,4 +150,12 @@ int manager_set_timezone(Manager *m, const char *timezone);
 
 int manager_reload(Manager *m, sd_bus_message *message);
 
+static inline Hashmap** manager_get_sysctl_shadow(Manager *manager) {
+#if HAVE_VMLINUX_H
+        return &ASSERT_PTR(manager)->sysctl_shadow;
+#else
+        return NULL;
+#endif
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
