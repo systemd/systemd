@@ -94,7 +94,7 @@ CHANGES WITH 257 in spe:
           /usr/lib/clock-epoch, and /var/lib/systemd/timesync/clock. See
           systemd(1) for an detailed updated description.
 
-        * Ctrl-Alt-Delete is reenabled during late shutdown, so that the user
+        * Ctrl-Alt-Delete is re-enabled during late shutdown, so that the user
           can still initiate a reboot if the system freezes.
 
         * Unit option PrivateUsers=identity can be used to request a user
@@ -211,7 +211,7 @@ CHANGES WITH 257 in spe:
           versions.
 
         * systemd-sysupdate gained a new --transfer-source= option to set the
-          directory to which transfer sources cofigured with
+          directory to which transfer sources configured with
           PathRelativeTo=explicit will be interpreted.
 
         Miscellaneous:
