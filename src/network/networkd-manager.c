@@ -624,8 +624,6 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
 
-        m->sysctl_shadow = hashmap_free(m->sysctl_shadow);
-
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
 
