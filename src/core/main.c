@@ -159,6 +159,8 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
+static int arg_preset = -1;
+static UnitFilePresetMode arg_preset_mode = ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -554,6 +556,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.preset")) {
+
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse systemd.preset= argument %s, ignoring: %m", value);
+                else
+                        arg_preset = r;
+
+        } else if (proc_cmdline_key_streq(key, "systemd.preset_mode")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = unit_file_preset_mode_from_string(value);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse preset mode %s, ignoring: %m", value);
+                else
+                        arg_preset_mode = r;
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -903,6 +924,8 @@ static void set_manager_settings(Manager *m) {
          * counter on every daemon-reload. */
         m->reload_reexec_ratelimit.interval = arg_reload_limit_interval_sec;
         m->reload_reexec_ratelimit.burst = arg_reload_limit_burst;
+        m->preset = arg_preset;
+        m->preset_mode = arg_preset_mode;
 
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
@@ -2756,6 +2779,9 @@ static void reset_arguments(void) {
 
         arg_reload_limit_interval_sec = 0;
         arg_reload_limit_burst = 0;
+
+        arg_preset = -1;
+        arg_preset_mode = ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 }
 
 static void determine_default_oom_score_adjust(void) {
