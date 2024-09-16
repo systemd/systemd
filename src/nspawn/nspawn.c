@@ -5602,7 +5602,7 @@ static int run_container(
         }
 
         /* Note: we do not use SD_EVENT_SIGNAL_PROCMASK or sd_event_set_signal_exit(), since we want the
-         * signals to be block continously, even if we destroy the event loop and allocate a new one on
+         * signals to be block continuously, even if we destroy the event loop and allocate a new one on
          * container reboot. */
 
         if (arg_kill_signal > 0) {
