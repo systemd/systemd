@@ -255,6 +255,25 @@ int ask_string(char **ret, const char *text, ...) {
         return 0;
 }
 
+bool any_key_to_proceed(void) {
+        char key = 0;
+        bool need_nl = true;
+
+        /*
+         * Insert a new line here as well as to when the user inputs, as this is also used during the
+         * boot up sequence when status messages may be interleaved with the current program output.
+         * This ensures that the status messages aren't appended on the same line as this message.
+         */
+        puts("-- Press any key to proceed --");
+
+        (void) read_one_char(stdin, &key, USEC_INFINITY, &need_nl);
+
+        if (need_nl)
+                putchar('\n');
+
+        return key != 'q';
+}
+
 int open_terminal(const char *name, int mode) {
         _cleanup_close_ int fd = -EBADF;
         unsigned c = 0;
