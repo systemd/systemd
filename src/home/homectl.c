@@ -2603,6 +2603,45 @@ static int create_interactively(void) {
                         return log_error_errno(r, "Failed to set memberOf field: %m");
         }
 
+        _cleanup_free_ char *shell = NULL;
+
+        for (;;) {
+                shell = mfree(shell);
+
+                r = ask_string(&shell,
+                               "%s Please enter the shell to use for user %s (empty to skip): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for username: %m");
+
+                if (isempty(shell)) {
+                        log_info("No data entered, skipping.");
+                        break;
+                }
+
+                if (!valid_shell(shell)) {
+                        log_notice("Specified shell is not a valid UNIX shell path, try again: %s", shell);
+                        continue;
+                }
+
+                r = RET_NERRNO(access(shell, F_OK));
+                if (r >= 0)
+                        break;
+
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to check if shell %s exists: %m", shell);
+
+                log_notice("Specified shell '%s' is not installed, try another one.", shell);
+        }
+
+        if (shell) {
+                log_info("Selected %s as the shell for user %s", shell, username);
+
+                r = sd_json_variant_set_field_string(&arg_identity_extra, "shell", shell);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set shell field: %m");
+        }
+
         return create_home_common(/* input= */ NULL);
 }
 
