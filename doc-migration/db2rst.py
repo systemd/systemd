@@ -42,6 +42,11 @@ REMOVE_COMMENTS = False
 WRITE_UNUSED_LABELS = False
 
 
+# The Files have sections that are used as includes in other files
+FILES_USED_FOR_INCLUDES = ['sd_journal_get_data.xml', 'standard-options.xml',
+                           'user-system-options.xml', 'common-variables.xml','standard-conf.xml',
+                           'libsystemd-pkgconfig.xml', 'threads-aware.xml']
+
 # to avoid dupliate error reports
 _not_handled_tags = set()
 
@@ -112,8 +117,7 @@ def _has_no_text(el):
 def _includes(el):
     file_path_pathlib = Path(el.get('href'))
     file_extension = file_path_pathlib.suffix
-    include_files = ['standard-options.xml', 'user-system-options.xml',
-                     'sd_journal_get_data.xml', 'threads-aware.xml', 'libsystemd-pkgconfig.xml', 'common-variables.xml', 'standard-conf.xml']
+    include_files = FILES_USED_FOR_INCLUDES
     if file_extension == '.xml':
         if el.get('href') == 'version-info.xml':
             versionString = conf.global_substitutions.get(
