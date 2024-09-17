@@ -50,7 +50,7 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
     errored (bool, optional): Flag to process only files listed in errors.json. Defaults to False.
     unhandled_only (bool, optional): Flag to process only files listed in successes_with_unhandled_tags.json. Defaults to False.
     """
-    files_output_dir = os.path.join(output_dir, "files")
+    files_output_dir = os.path.join(output_dir, "")
     os.makedirs(files_output_dir, exist_ok=True)
 
     if errored:
@@ -68,6 +68,7 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
             return
     else:
         if specific_file:
+            print('hi specific file')
             specific_file_path = os.path.join(dir, specific_file)
             if os.path.isfile(specific_file_path):
                 files_to_process = [specific_file]
@@ -143,7 +144,7 @@ def main():
     parser.add_argument(
         "--dir", type=str, help="Path to the directory containing XML files.", default="../man")
     parser.add_argument(
-        "--output", type=str, help="Path to the output directory for results and log files.", default="in-progress")
+        "--output", type=str, help="Path to the output directory for results and log files.")
     parser.add_argument(
         "--file", type=str, help="If provided, the script will only process the specified file.", default=None)
     parser.add_argument("--errored", action='store_true',
