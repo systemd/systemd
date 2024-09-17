@@ -196,7 +196,7 @@ switch of the same name.
 
    .. versionadded:: 247
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove image-policy-open
                     :end-before: .. inclusion-end-marker-do-not-remove image-policy-open
 
@@ -738,7 +738,7 @@ Pager Control Options
 
 The following options control page support:
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-pager
                     :end-before: .. inclusion-end-marker-do-not-remove no-pager
 
@@ -1026,11 +1026,11 @@ cryptographic theory it is based on.
 
    .. versionadded:: 189
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 
@@ -1039,7 +1039,7 @@ Exit status
 
 On success, 0 is returned; otherwise, a non-zero failure code is returned.
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
 
 Examples
 ========
