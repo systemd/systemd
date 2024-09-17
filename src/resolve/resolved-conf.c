@@ -413,3 +413,60 @@ int manager_parse_config_file(Manager *m) {
 #endif
         return 0;
 }
+
+int config_parse_refuse_record_types(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        /* Get value string */
+        char **s = ASSERT_PTR(data);
+        Manager *m = ASSERT_PTR(userdata);
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 1;
+        }
+
+        r = free_and_strdup_warn(s, empty_to_null(rvalue));
+        if (r < 0)
+                return r;
+
+        const char *record_type_raw_string = *s; /* copy *s char to const char * */
+        char* record_type_string;
+        int refused_record_type;
+
+        /* Get int values of DNS type for example "AAAA" string to get int value and store in Set */
+        Set *refused_records = NULL;
+
+        for (;;) {
+               r = extract_first_word(&record_type_raw_string, &record_type_string, ",", 0);
+               if (r < 0)
+                      return r;
+
+               if (r == 0)
+                       break;
+
+               refused_record_type = dns_type_from_string(record_type_string);
+               r = set_ensure_put(&refused_records, NULL, INT_TO_PTR(refused_record_type));
+               if (r == -ENOMEM)
+                      return log_oom();
+        }
+
+        m->refuse_record_types = refused_records;
+
+        return 1;
+}
