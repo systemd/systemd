@@ -609,7 +609,7 @@ Some of the variables understood by ``systemd``:
 ``$SYSTEMD_LOG_LEVEL``
 ----------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-level-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-level-body
 
@@ -618,7 +618,7 @@ This can be overridden with :directive:environment-variables:option:`--log-level
 ``$SYSTEMD_LOG_COLOR``
 ----------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-color-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-color-body
 
@@ -627,7 +627,7 @@ This can be overridden with :directive:environment-variables:option:`--log-color
 ``$SYSTEMD_LOG_TIME``
 ---------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-time-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-time-body
 
@@ -640,7 +640,7 @@ This can be overridden with :directive:environment-variables:option:`--log-time=
 ``$SYSTEMD_LOG_LOCATION``
 -------------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-location-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-location-body
 
@@ -649,7 +649,7 @@ This can be overridden with :directive:environment-variables:option:`--log-locat
 ``$SYSTEMD_LOG_TID``
 --------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-tid-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-tid-body
 
@@ -660,7 +660,7 @@ This can be overridden with :directive:environment-variables:option:`--log-locat
 ``$SYSTEMD_LOG_TARGET``
 -----------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-target-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-target-body
 
@@ -669,7 +669,7 @@ This can be overridden with :directive:environment-variables:option:`--log-targe
 ``$SYSTEMD_LOG_RATELIMIT_KMSG``
 -------------------------------
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove log-ratelimit-kmsg-body
                     :end-before: .. inclusion-end-marker-do-not-remove log-ratelimit-kmsg-body
 
@@ -697,27 +697,27 @@ component ("...:"), this list is prepended to the
 usual set of paths. Otherwise, the specified list replaces the usual
 set of paths.
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove pager
                     :end-before: .. inclusion-end-marker-do-not-remove pager
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove less
                     :end-before: .. inclusion-end-marker-do-not-remove less
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove lesscharset
                     :end-before: .. inclusion-end-marker-do-not-remove lesscharset
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove lesssecure
                     :end-before: .. inclusion-end-marker-do-not-remove lesssecure
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove colors
                     :end-before: .. inclusion-end-marker-do-not-remove colors
 
-.. include:: ./common-variables.rst
+.. include:: ../includes/common-variables.rst
                     :start-after: .. inclusion-marker-do-not-remove urlify
                     :end-before: .. inclusion-end-marker-do-not-remove urlify
 
@@ -1245,11 +1245,11 @@ be invoked with them at any time:
    or not. Note that it is not supported booting and maintaining a system with the service manager
    running in ``--system`` mode but with a PID other than 1.
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 

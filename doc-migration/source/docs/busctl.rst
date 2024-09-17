@@ -434,23 +434,23 @@ emitted to the specified service.
 
    .. versionadded:: 242
 
-.. include:: ./user-system-options.rst
+.. include:: ../includes/user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove user
                     :end-before: .. inclusion-end-marker-do-not-remove user
 
-.. include:: ./user-system-options.rst
+.. include:: ../includes/user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove system
                     :end-before: .. inclusion-end-marker-do-not-remove system
 
-.. include:: ./user-system-options.rst
+.. include:: ../includes/user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove host
                     :end-before: .. inclusion-end-marker-do-not-remove host
 
-.. include:: ./user-system-options.rst
+.. include:: ../includes/user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove machine
                     :end-before: .. inclusion-end-marker-do-not-remove machine
 
-.. include:: ./user-system-options.rst
+.. include:: ../includes/user-system-options.rst
                     :start-after: .. inclusion-marker-do-not-remove capsule
                     :end-before: .. inclusion-end-marker-do-not-remove capsule
 
@@ -463,19 +463,19 @@ Do not ellipsize the output in ``list`` command.
 
    .. versionadded:: 245
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-pager
                     :end-before: .. inclusion-end-marker-do-not-remove no-pager
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove no-legend
                     :end-before: .. inclusion-end-marker-do-not-remove no-legend
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove help
                     :end-before: .. inclusion-end-marker-do-not-remove help
 
-.. include:: ./standard-options.rst
+.. include:: ../includes/standard-options.rst
                     :start-after: .. inclusion-marker-do-not-remove version
                     :end-before: .. inclusion-end-marker-do-not-remove version
 
