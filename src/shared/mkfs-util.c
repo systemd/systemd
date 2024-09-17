@@ -669,6 +669,9 @@ int make_filesystem(
         if (r == 0) {
                 /* Child */
 
+                if (strv_extend(&env, strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")) < 0)
+                        return log_oom();
+
                 STRV_FOREACH_PAIR(k, v, env)
                         if (setenv(*k, *v, /* replace = */ true) < 0) {
                                 log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
