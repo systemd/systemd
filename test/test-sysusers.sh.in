@@ -53,7 +53,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
     echo "*** Running $f"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
-    $SYSUSERS --root="$TESTDIR"
+    "$SYSUSERS" --root="$TESTDIR"
 
     compare "${f%.*}" ""
 done
@@ -62,7 +62,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
     echo "*** Running $f on stdin"
     prepare_testdir "${f%.input}"
     touch "$TESTDIR/etc/sysusers.d/test.conf"
-    $SYSUSERS --root="$TESTDIR" - <"$f"
+    "$SYSUSERS" --root="$TESTDIR" - <"$f"
 
     compare "${f%.*}" "on stdin"
 done
@@ -72,9 +72,9 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
     prepare_testdir "${f%.input}"
     touch "$TESTDIR/etc/sysusers.d/test.conf"
     # this overrides test.conf which is masked on disk
-    $SYSUSERS --root="$TESTDIR" --replace=/etc/sysusers.d/test.conf - <"$f"
+    "$SYSUSERS" --root="$TESTDIR" --replace=/etc/sysusers.d/test.conf - <"$f"
     # this should be ignored
-    $SYSUSERS --root="$TESTDIR" --replace=/usr/lib/sysusers.d/test.conf - <"$SOURCE/test-1.input"
+    "$SYSUSERS" --root="$TESTDIR" --replace=/usr/lib/sysusers.d/test.conf - <"$SOURCE/test-1.input"
 
     compare "${f%.*}" "on stdin with --replace"
 done
@@ -84,9 +84,9 @@ echo "*** Testing --inline"
 prepare_testdir "$SOURCE/inline"
 # copy a random file to make sure it is ignored
 cp "$f" "$TESTDIR/etc/sysusers.d/confuse.conf"
-$SYSUSERS --root="$TESTDIR" --inline \
-          "u     u1   222 -     - /bin/zsh" \
-          "g     g1   111"
+"$SYSUSERS" --root="$TESTDIR" --inline \
+            "u     u1   222 -     - /bin/zsh" \
+            "g     g1   111"
 
 compare "$SOURCE/inline" "(--inline)"
 
@@ -95,19 +95,19 @@ echo "*** Testing --inline with --replace"
 prepare_testdir "$SOURCE/inline"
 # copy a random file to make sure it is ignored
 cp "$f" "$TESTDIR/etc/sysusers.d/confuse.conf"
-$SYSUSERS --root="$TESTDIR" \
-          --inline \
-          --replace=/etc/sysusers.d/confuse.conf \
-          "u     u1   222 -     - /bin/zsh" \
-          "g     g1   111"
+"$SYSUSERS" --root="$TESTDIR" \
+            --inline \
+            --replace=/etc/sysusers.d/confuse.conf \
+            "u     u1   222 -     - /bin/zsh" \
+            "g     g1   111"
 
 compare "$SOURCE/inline" "(--inline --replace=…)"
 
 echo "*** Testing --inline with no /etc"
 rm -rf "${TESTDIR:?}/etc"
-$SYSUSERS --root="$TESTDIR" --inline \
-          "u     u1   222 -     - /bin/zsh" \
-          "g     g1   111"
+"$SYSUSERS" --root="$TESTDIR" --inline \
+            "u     u1   222 -     - /bin/zsh" \
+            "g     g1   111"
 
 compare "$SOURCE/inline" "(--inline)"
 
@@ -136,7 +136,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
     echo "*** Running $f (with login.defs)"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
-    $SYSUSERS --root="$TESTDIR"
+    "$SYSUSERS" --root="$TESTDIR"
 
     # shellcheck disable=SC2050
     [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
@@ -152,7 +152,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
     echo "*** Running $f (with login.defs symlinked)"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
-    $SYSUSERS --root="$TESTDIR"
+    "$SYSUSERS" --root="$TESTDIR"
 
     # shellcheck disable=SC2050
     [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
@@ -166,7 +166,7 @@ for f in $(find "$SOURCE"/unhappy-*.input | sort -V); do
     echo "*** Running test $f"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
-    SYSTEMD_LOG_LEVEL=info $SYSUSERS --root="$TESTDIR" 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >"$TESTDIR/err"
+    SYSTEMD_LOG_LEVEL=info "$SYSUSERS" --root="$TESTDIR" 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >"$TESTDIR/err"
     if ! diff -u "$TESTDIR/err"  "${f%.*}.expected-err"; then
         echo >&2 "**** Unexpected error output for $f"
         cat >&2 "$TESTDIR/err"

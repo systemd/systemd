@@ -44,9 +44,9 @@ test_one() (
     fi
 
     if [[ "${input##*/}" =~ \.fstab\.input ]]; then
-        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$input" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
+        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$input" SYSTEMD_SYSROOT_FSTAB="/dev/null" "$generator" "$out" "$out" "$out"
     else
-        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$input")" $generator "$out" "$out" "$out"
+        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$input")" "$generator" "$out" "$out" "$out"
     fi
 
     # The option x-systemd.growfs creates symlink to system's systemd-growfs@.service in .mount.wants directory.
