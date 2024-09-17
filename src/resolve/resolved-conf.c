@@ -414,3 +414,61 @@ int manager_parse_config_file(Manager *m) {
         return 0;
 
 }
+
+int config_parse_refuse_record_types(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                data = mfree(data);
+                return 1;
+        }
+
+        r = free_and_strdup_warn(data, empty_to_null(rvalue));
+        if (r < 0)
+               return r;
+
+        char* record_type_string;
+        int refused_record_type;
+
+        /* Get int values of DNS type for example "AAAA" string to get int value and store in Set */
+        Set *refused_records = NULL;
+
+        for (;;) {
+               r = extract_first_word(data, &record_type_string, ",", 0);
+               if (r < 0)
+                      return r;
+
+               if (r == 0)
+                       break;
+
+               refused_record_type = dns_type_from_string(record_type_string);
+               /* log error of invalid dns type */
+               if (refused_record_type == _DNS_TYPE_INVALID)
+               log_error("dns type is invalid");
+
+               r = set_ensure_put(&refused_records, NULL, INT_TO_PTR(refused_record_type));
+               if (r == -ENOMEM)
+                      return log_oom();
+        }
+
+        m->refuse_record_types = refused_records;
+
+        return 1;
+}
