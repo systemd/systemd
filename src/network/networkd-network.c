@@ -590,6 +590,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
         TAKE_PTR(network);
+        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
         return 0;
 }
 
