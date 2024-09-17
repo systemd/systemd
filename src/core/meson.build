@@ -146,6 +146,7 @@ systemd_sources = files(
         'kmod-setup.c',
         'apparmor-setup.c',
         'ima-setup.c',
+        'ipe-setup.c',
         'selinux-setup.c',
         'smack-setup.c',
 )
