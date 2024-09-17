@@ -132,52 +132,6 @@ static void print_welcome(int rfd) {
         done = true;
 }
 
-static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
-
-        assert(n_columns > 0);
-
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
-
-        break_lines = lines();
-        if (break_lines > 2)
-                break_lines--;
-
-        /* The first page gets two extra lines, since we want to show
-         * a title */
-        break_modulo = break_lines;
-        if (break_modulo > 3)
-                break_modulo -= 3;
-
-        for (i = 0; i < per_column; i++) {
-
-                for (j = 0; j < n_columns; j++) {
-                        _cleanup_free_ char *e = NULL;
-
-                        if (j * per_column + i >= n)
-                                break;
-
-                        e = ellipsize(x[j * per_column + i], width, percentage);
-                        if (!e)
-                                return log_oom();
-
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
-                }
-
-                putchar('\n');
-
-                /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
-                        if (!any_key_to_proceed())
-                                return 0;
-                }
-        }
-
-        return 0;
-}
-
 static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
         int r;
 
