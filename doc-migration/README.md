@@ -60,14 +60,6 @@ To run the script against all files you can use :
 $ python3 main.py --dir ../man --output 'in-progress'
 ```
 
-This is same as:
-
-```sh
-# in the `doc-migration` folder:
-# The default values for --dir and --output are '../man' and 'in-progress' respectively
-$ python3 main.py
-```
-
 > When using the script to convert all files at once in our man folder we recommend using "in-progress" folder name as our output dir so we don't end up replacing some the files that were converted and been marked as finished inside the source folder.
 
 After using the above script at least once you will get two files(`errors.json`,`successes_with_unhandled_tags.json`) in the output dir.
