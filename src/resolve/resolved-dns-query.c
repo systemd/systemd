@@ -524,6 +524,14 @@ int dns_query_new(
 
         assert(m);
 
+        /* Check for records that is refused and refuse query for the records if matched in configuration */
+        DNS_QUESTION_FOREACH(key, question_utf8) {
+                if (set_contains(m->refuse_record_types, INT_TO_PTR(key->type))) {
+                        log_info("Got request for %s record that is refused.", dns_type_to_string(key->type));
+                        return -ENOSYS;
+                }
+        }
+
         if (question_bypass) {
                 /* It's either a "bypass" query, or a regular one, but can't be both. */
                 if (question_utf8 || question_idna)
