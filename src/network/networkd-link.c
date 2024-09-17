@@ -1293,9 +1293,9 @@ static int link_get_network(Link *link, Network **ret) {
                 }
 
                 log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,
-                              "found matching network '%s'%s.",
-                              network->filename,
-                              warn ? ", based on potentially unpredictable interface name" : "");
+                              "Found matching .network file%s: %s",
+                              warn ? ", based on potentially unpredictable interface name" : "",
+                              network->filename);
 
                 if (network->unmanaged)
                         return -ENOENT;
@@ -1304,7 +1304,7 @@ static int link_get_network(Link *link, Network **ret) {
                 return 0;
         }
 
-        return -ENOENT;
+        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOENT), "No matching .network found.");
 }
 
 int link_reconfigure_impl(Link *link, bool force) {
