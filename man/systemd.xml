@@ -568,7 +568,11 @@
         <listitem><para>Enables display of status messages on the
         console, as controlled via
         <varname>systemd.show_status=1</varname> on the kernel command
-        line.</para></listitem>
+        line.</para>
+        <para>You may want to use <function>SetShowStatus()</function> instead of
+        <constant>SIGRTMIN+20</constant> in order to prevent race conditions. See
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -579,7 +583,11 @@
         controlled via
         <varname>systemd.show_status=0</varname>
         on the kernel command
-        line.</para></listitem>
+        line.</para>
+        <para>You may want to use <function>SetShowStatus()</function> instead of
+        <constant>SIGRTMIN+21</constant> in order to prevent race conditions. See
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
