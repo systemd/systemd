@@ -197,7 +197,7 @@ _unused_ static void test_compress_stream(const char *compression,
         ASSERT_OK(compress(src, dst, -1, &uncompressed_size));
 
         if (cat) {
-                assert_se(asprintf(&cmd, "%s %s | diff %s -", cat, pattern, srcfile) > 0);
+                assert_se(asprintf(&cmd, "%s %s | diff '%s' -", cat, pattern, srcfile) > 0);
                 assert_se(system(cmd) == 0);
         }
 
@@ -212,7 +212,7 @@ _unused_ static void test_compress_stream(const char *compression,
         r = decompress(dst, dst2, st.st_size);
         assert_se(r == 0);
 
-        assert_se(asprintf(&cmd2, "diff %s %s", srcfile, pattern2) > 0);
+        assert_se(asprintf(&cmd2, "diff '%s' %s", srcfile, pattern2) > 0);
         assert_se(system(cmd2) == 0);
 
         log_debug("/* test faulty decompression */");
