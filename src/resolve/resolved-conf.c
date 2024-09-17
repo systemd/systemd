@@ -458,6 +458,10 @@ int config_parse_refuse_record_types(
                        break;
 
                refused_record_type = dns_type_from_string(record_type_string);
+               /* log error of invalid dns type */
+               if (refused_record_type == _DNS_TYPE_INVALID)
+               log_error("dns type is invalid");
+
                r = set_ensure_put(&refused_records, NULL, INT_TO_PTR(refused_record_type));
                if (r == -ENOMEM)
                       return log_oom();
