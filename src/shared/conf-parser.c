@@ -465,10 +465,6 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
         assert(path);
         assert(st);
 
-        r = hashmap_ensure_allocated(stats_by_path, &path_hash_ops_free_free);
-        if (r < 0)
-                return r;
-
         st_copy = newdup(struct stat, st, 1);
         if (!st_copy)
                 return -ENOMEM;
@@ -477,7 +473,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
         if (!path_copy)
                 return -ENOMEM;
 
-        r = hashmap_put(*stats_by_path, path_copy, st_copy);
+        r = hashmap_ensure_put(stats_by_path, &path_hash_ops_free_free, path_copy, st_copy);
         if (r < 0)
                 return r;
 
