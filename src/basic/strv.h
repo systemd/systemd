@@ -153,7 +153,7 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
         _STRV_FOREACH_BACKWARDS(s, l, UNIQ_T(h, UNIQ), UNIQ_T(i, UNIQ))
 
 #define _STRV_FOREACH_PAIR(x, y, l, i)                          \
-        for (typeof(*l) *x, *y, *i = (l);                       \
+        for (typeof(*(l)) *x, *y, *i = (l);                     \
              i && *(x = i) && *(y = i + 1);                     \
              i += 2)
 
