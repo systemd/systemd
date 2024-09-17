@@ -502,12 +502,12 @@ static int config_parse_many_files(
         _cleanup_ordered_hashmap_free_ OrderedHashmap *dropins = NULL;
         _cleanup_set_free_ Set *inodes = NULL;
         struct stat st;
-        int r;
+        int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
         if (ret_stats_by_path) {
                 stats_by_path = hashmap_new(&path_hash_ops_free_free);
                 if (!stats_by_path)
-                        return -ENOMEM;
+                        return log_oom_full(level);
         }
 
         STRV_FOREACH(fn, files) {
@@ -518,14 +518,14 @@ static int config_parse_many_files(
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
-                        return r;
+                        return log_full_errno(level, r, "Failed to open %s: %m", *fn);
 
                 int fd = fileno(f);
 
                 r = ordered_hashmap_ensure_put(&dropins, &config_file_hash_ops_fclose, *fn, f);
                 if (r < 0) {
-                        assert(r != -EEXIST);
-                        return r;
+                        assert(r == -ENOMEM);
+                        return log_oom_full(level);
                 }
                 assert(r > 0);
                 TAKE_PTR(f);
@@ -535,14 +535,14 @@ static int config_parse_many_files(
 
                 _cleanup_free_ struct stat *st_dropin = new(struct stat, 1);
                 if (!st_dropin)
-                        return -ENOMEM;
+                        return log_oom_full(level);
 
                 if (fstat(fd, st_dropin) < 0)
-                        return -errno;
+                        return log_full_errno(level, errno, "Failed to stat %s: %m", *fn);
 
                 r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st_dropin));
                 if (r < 0)
-                        return r;
+                        return log_oom_full(level);
         }
 
         /* First read the first found main config file. */
@@ -553,11 +553,11 @@ static int config_parse_many_files(
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
-                        return r;
+                        return log_full_errno(level, r, "Failed to open %s: %m", *fn);
 
                 if (inodes) {
                         if (fstat(fileno(f), &st) < 0)
-                                return -errno;
+                                return log_full_errno(level, errno, "Failed to stat %s: %m", *fn);
 
                         if (set_contains(inodes, &st)) {
                                 log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
@@ -567,13 +567,13 @@ static int config_parse_many_files(
 
                 r = config_parse(/* unit= */ NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
-                        return r;
+                        return r; /* config_parse() logs internally. */
                 assert(r > 0);
 
                 if (ret_stats_by_path) {
                         r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
                         if (r < 0)
-                                return r;
+                                return log_full_errno(level, r, "Failed to save stats of %s: %m", *fn);
                 }
 
                 break;
@@ -586,13 +586,13 @@ static int config_parse_many_files(
         ORDERED_HASHMAP_FOREACH_KEY(f_dropin, path_dropin, dropins) {
                 r = config_parse(/* unit= */ NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
-                        return r;
+                        return r; /* config_parse() logs internally. */
                 assert(r > 0);
 
                 if (ret_stats_by_path) {
                         r = hashmap_put_stats_by_path(&stats_by_path, path_dropin, &st);
                         if (r < 0)
-                                return r;
+                                return log_full_errno(level, r, "Failed to save stats of %s: %m", path_dropin);
                 }
         }
 
@@ -625,11 +625,12 @@ int config_parse_many(
 
         r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
         if (r < 0)
-                return r;
+                return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
+                                      "Failed to list up drop-in configs in %s: %m", dropin_dirname);
 
         r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)
-                return r;
+                return r; /* config_parse_many_files() logs internally. */
 
         if (ret_dropin_files)
                 *ret_dropin_files = TAKE_PTR(files);
@@ -650,22 +651,16 @@ int config_parse_standard_file_with_dropins_full(
 
         const char* const *conf_paths = (const char* const*) CONF_PATHS_STRV("");
         _cleanup_strv_free_ char **configs = NULL;
-        int r;
+        int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
         /* Build the list of main config files */
         r = strv_extend_strv_biconcat(&configs, root, conf_paths, main_file);
-        if (r < 0) {
-                if (flags & CONFIG_PARSE_WARN)
-                        log_oom();
-                return r;
-        }
+        if (r < 0)
+                return log_oom_full(level);
 
         _cleanup_free_ char *dropin_dirname = strjoin(main_file, ".d");
-        if (!dropin_dirname) {
-                if (flags & CONFIG_PARSE_WARN)
-                        log_oom();
-                return -ENOMEM;
-        }
+        if (!dropin_dirname)
+                return log_oom_full(level);
 
         return config_parse_many(
                         (const char* const*) configs,
