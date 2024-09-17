@@ -1325,9 +1325,12 @@ testcase_compression() {
 
     # TODO: add btrfs once btrfs-progs v6.11 is available in distributions.
     for format in squashfs erofs; do
-        if ! command -v "mkfs.$format" && ! command -v mksquashfs >/dev/null; then
-            continue
-        fi
+        case "$format" in
+            squashfs)
+                command -v mksquashfs >/dev/null || continue ;;
+            *)
+                command -v "mkfs.$format" || continue ;;
+        esac
 
         [[ "$format" == "squashfs" ]] && compression=zstd
         [[ "$format" == "erofs" ]] && compression=lz4hc
