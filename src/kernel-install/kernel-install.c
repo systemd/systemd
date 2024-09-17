@@ -404,15 +404,16 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
 
 static int context_set_plugins(Context *c, const char *s, const char *source) {
         _cleanup_strv_free_ char **v = NULL;
+        int r;
 
         assert(c);
 
         if (c->plugins || !s)
                 return 0;
 
-        v = strv_split(s, NULL);
-        if (!v)
-                return log_oom();
+        r = strv_split_full(&v, s, NULL, EXTRACT_UNQUOTE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse plugin paths from %s: %m", source);
 
         return context_set_path_strv(c, v, source, "plugins", &c->plugins);
 }
