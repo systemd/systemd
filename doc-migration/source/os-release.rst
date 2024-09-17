@@ -557,13 +557,13 @@ Examples
 Reading ``os-release`` in :man-pages:`sh(1)`
 --------------------------------------------
 
-.. literalinclude:: ./check-os-release.sh
+.. literalinclude:: /code-examples/sh/check-os-release.sh
                     :language: shell
 
 Reading ``os-release`` in :die-net:`python(1)` (versions >= 3.10)
 -----------------------------------------------------------------
 
-.. literalinclude:: ./check-os-release-simple.py
+.. literalinclude:: /code-examples/py/check-os-release-simple.py
                     :language: python
 
 See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
@@ -571,7 +571,7 @@ See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/lib
 Reading ``os-release`` in :die-net:`python(1)` (any version)
 ------------------------------------------------------------
 
-.. literalinclude:: ./check-os-release.py
+.. literalinclude:: /code-examples/py/check-os-release.py
                     :language: python
 
 Note that the above version that uses the built-in implementation is preferred
