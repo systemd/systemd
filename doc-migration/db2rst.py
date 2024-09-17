@@ -247,12 +247,7 @@ def _block_separated_with_blank_line(el):
     id = el.get("id")
     if id is not None:
         s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
-    else:
-        s += "\n\n" + _concat(el)
-    global _buffer
-    if _buffer:
-        s += "\n\n" + _buffer
-        _buffer = ""
+    s += "\n\n" + _concat(el)
     if id is not None:
         s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
