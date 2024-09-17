@@ -604,7 +604,9 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+#if HAVE_VMLINUX_H
                 .cgroup_fd = -EBADF,
+#endif
         };
 
         *ret = TAKE_PTR(m);
@@ -623,8 +625,6 @@ Manager* manager_free(Manager *m) {
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
-
-        hashmap_free(m->sysctl_shadow);
 
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);

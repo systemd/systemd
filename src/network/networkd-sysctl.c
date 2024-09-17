@@ -34,13 +34,7 @@ static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_
         return NULL;
 }
 
-static struct ring_buffer* rb_free(struct ring_buffer *rb) {
-        sym_ring_buffer__free(rb);
-        return NULL;
-}
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct sysctl_monitor_bpf *, sysctl_monitor_bpf_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct ring_buffer *, rb_free);
 
 static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
         struct sysctl_write_event *we = ASSERT_PTR(data);
@@ -99,10 +93,10 @@ static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *use
 int sysctl_add_monitor(Manager *manager) {
         _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
-        _cleanup_(rb_freep) struct ring_buffer *sysctl_buffer = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF, rootcg = -EBADF;
+        _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *sysctl_buffer = NULL;
+        _cleanup_close_ int cgroup_fd = -EBADF, root_cgroup_fd = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
-        int idx = 0, r;
+        int idx = 0, r, fd;
 
         assert(manager);
 
@@ -116,9 +110,9 @@ int sysctl_add_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
-        rootcg = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
-        if (rootcg < 0)
-                return log_warning_errno(rootcg, "Failed to open cgroup, ignoring: %m.");
+        root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        if (root_cgroup_fd < 0)
+                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m.");
 
         obj = sysctl_monitor_bpf__open_and_load();
         if (!obj) {
@@ -133,21 +127,27 @@ int sysctl_add_monitor(Manager *manager) {
         if (sym_bpf_map_update_elem(sym_bpf_map__fd(obj->maps.cgroup_map), &idx, &cgroup_fd, BPF_ANY))
                 return log_warning_errno(errno, "Failed to update cgroup map: %m");
 
-        sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, rootcg);
+        sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, root_cgroup_fd);
         r = bpf_get_error_translated(sysctl_link);
         if (r < 0) {
                 log_info_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m.");
                 return 0;
         }
 
-        sysctl_buffer = sym_ring_buffer__new(
-                        sym_bpf_map__fd(obj->maps.written_sysctls),
-                        sysctl_event_handler, &manager->sysctl_shadow, NULL);
+        fd = sym_bpf_map__fd(obj->maps.written_sysctls);
+        if (fd < 0)
+                return log_warning_errno(fd, "Failed to get fd of sysctl maps: %m");
+
+        sysctl_buffer = sym_ring_buffer__new(fd, sysctl_event_handler, &manager->sysctl_shadow, NULL);
         if (!sysctl_buffer)
                 return log_warning_errno(errno, "Failed to create ring buffer: %m");
 
+        fd = sym_ring_buffer__epoll_fd(sysctl_buffer);
+        if (fd < 0)
+                return log_warning_errno(fd, "Failed to get poll fd of ring buffer: %m");
+
         r = sd_event_add_io(manager->event, &manager->sysctl_event_source,
-                        sym_ring_buffer__epoll_fd(sysctl_buffer), EPOLLIN, on_ringbuf_io, sysctl_buffer);
+                            fd, EPOLLIN, on_ringbuf_io, sysctl_buffer);
         if (r < 0)
                 return log_warning_errno(r, "Failed to watch sysctl event ringbuffer: %m");
 
@@ -163,23 +163,11 @@ void sysctl_remove_monitor(Manager *manager) {
         assert(manager);
 
         manager->sysctl_event_source = sd_event_source_disable_unref(manager->sysctl_event_source);
-
-        if (manager->sysctl_buffer) {
-                sym_ring_buffer__free(manager->sysctl_buffer);
-                manager->sysctl_buffer = NULL;
-        }
-
-        if (manager->sysctl_link) {
-                sym_bpf_link__destroy(manager->sysctl_link);
-                manager->sysctl_link = NULL;
-        }
-
-        if (manager->sysctl_skel) {
-                sysctl_monitor_bpf__destroy(manager->sysctl_skel);
-                manager->sysctl_skel = NULL;
-        }
-
+        manager->sysctl_buffer = bpf_ring_buffer_free(manager->sysctl_buffer);
+        manager->sysctl_link = bpf_link_free(manager->sysctl_link);
+        manager->sysctl_skel = sysctl_monitor_bpf_free(manager->sysctl_skel);
         manager->cgroup_fd = safe_close(manager->cgroup_fd);
+        manager->sysctl_shadow = hashmap_free(manager->sysctl_shadow);
 }
 
 int sysctl_clear_link_shadows(Link *link) {
@@ -222,13 +210,13 @@ static void manager_set_ip_forwarding(Manager *manager, int family) {
                 return; /* keep */
 
         /* First, set the default value. */
-        r = sysctl_write_ip_property_boolean(family, "default", "forwarding", t, &manager->sysctl_shadow);
+        r = sysctl_write_ip_property_boolean(family, "default", "forwarding", t, manager_get_sysctl_shadow(manager));
         if (r < 0)
                 log_warning_errno(r, "Failed to %s the default %s forwarding: %m",
                                   enable_disable(t), af_to_ipv4_ipv6(family));
 
         /* Then, set the value to all interfaces. */
-        r = sysctl_write_ip_property_boolean(family, "all", "forwarding", t, &manager->sysctl_shadow);
+        r = sysctl_write_ip_property_boolean(family, "all", "forwarding", t, manager_get_sysctl_shadow(manager));
         if (r < 0)
                 log_warning_errno(r, "Failed to %s %s forwarding for all interfaces: %m",
                                   enable_disable(t), af_to_ipv4_ipv6(family));
@@ -273,7 +261,7 @@ static int link_update_ipv6_sysctl(Link *link) {
         if (!link_ipv6_enabled(link))
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", false, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", false, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_proxy_arp(Link *link) {
@@ -286,7 +274,7 @@ static int link_set_proxy_arp(Link *link) {
         if (link->network->proxy_arp < 0)
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_proxy_arp_pvlan(Link *link) {
@@ -299,7 +287,7 @@ static int link_set_proxy_arp_pvlan(Link *link) {
         if (link->network->proxy_arp_pvlan < 0)
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan > 0, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan > 0, manager_get_sysctl_shadow(link->manager));
 }
 
 int link_get_ip_forwarding(Link *link, int family) {
@@ -341,7 +329,7 @@ static int link_set_ip_forwarding_impl(Link *link, int family) {
         if (t < 0)
                 return 0; /* keep */
 
-        r = sysctl_write_ip_property_boolean(family, link->ifname, "forwarding", t, &link->manager->sysctl_shadow);
+        r = sysctl_write_ip_property_boolean(family, link->ifname, "forwarding", t, manager_get_sysctl_shadow(link->manager));
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to %s %s forwarding, ignoring: %m",
                                               enable_disable(t), af_to_ipv4_ipv6(family));
@@ -418,7 +406,7 @@ static int link_set_ipv4_rp_filter(Link *link) {
         if (link->network->ipv4_rp_filter < 0)
                 return 0;
 
-        return sysctl_write_ip_property_int(AF_INET, link->ifname, "rp_filter", link->network->ipv4_rp_filter, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_int(AF_INET, link->ifname, "rp_filter", link->network->ipv4_rp_filter, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_privacy_extensions(Link *link) {
@@ -438,7 +426,7 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (val == IPV6_PRIVACY_EXTENSIONS_KERNEL)
                 return 0;
 
-        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) val, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) val, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_accept_ra(Link *link) {
@@ -448,7 +436,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET6))
                 return 0;
 
-        return sysctl_write_ip_property(AF_INET6, link->ifname, "accept_ra", "0", &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property(AF_INET6, link->ifname, "accept_ra", "0", manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_dad_transmits(Link *link) {
@@ -461,7 +449,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         if (link->network->ipv6_dad_transmits < 0)
                 return 0;
 
-        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "dad_transmits", link->network->ipv6_dad_transmits, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "dad_transmits", link->network->ipv6_dad_transmits, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_hop_limit(Link *link) {
@@ -474,7 +462,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         if (link->network->ipv6_hop_limit <= 0)
                 return 0;
 
-        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_retransmission_time(Link *link) {
@@ -493,7 +481,7 @@ static int link_set_ipv6_retransmission_time(Link *link) {
          if (retrans_time_ms <= 0 || retrans_time_ms > UINT32_MAX)
                 return 0;
 
-        return sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", retrans_time_ms, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", retrans_time_ms, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv6_proxy_ndp(Link *link) {
@@ -510,7 +498,7 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
         else
                 v = !set_isempty(link->network->ipv6_proxy_ndp_addresses);
 
-        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v, manager_get_sysctl_shadow(link->manager));
 }
 
 int link_set_ipv6_mtu(Link *link, int log_level) {
@@ -538,7 +526,7 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
                 mtu = link->mtu;
         }
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_accept_local(Link *link) {
@@ -551,7 +539,7 @@ static int link_set_ipv4_accept_local(Link *link) {
         if (link->network->ipv4_accept_local < 0)
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local > 0, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local > 0, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_route_localnet(Link *link) {
@@ -564,7 +552,7 @@ static int link_set_ipv4_route_localnet(Link *link) {
         if (link->network->ipv4_route_localnet < 0)
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_promote_secondaries(Link *link) {
@@ -579,7 +567,7 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
          * otherwise. The way systemd-networkd works is that the new IP of a lease is added as a
          * secondary IP and when the primary one expires it relies on the kernel to promote the
          * secondary IP. See also https://github.com/systemd/systemd/issues/7163 */
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, &link->manager->sysctl_shadow);
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, manager_get_sysctl_shadow(link->manager));
 }
 
 int link_set_sysctl(Link *link) {
