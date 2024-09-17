@@ -46,7 +46,7 @@ echo 'DTBDTBDTBDTB' >"$D/sources/subdir/whatever.dtb"
 
 export KERNEL_INSTALL_CONF_ROOT="$D/sources"
 # We "install" multiple plugins, but control which ones will be active via install.conf.
-export KERNEL_INSTALL_PLUGINS="${ukify_install} ${loaderentry_install} ${uki_copy_install}"
+export KERNEL_INSTALL_PLUGINS="'${ukify_install}' '${loaderentry_install}' '${uki_copy_install}'"
 export BOOT_ROOT="$D/boot"
 export BOOT_MNT="$D/boot"
 export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
