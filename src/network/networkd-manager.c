@@ -604,7 +604,9 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+#if HAVE_VMLINUX_H
                 .cgroup_fd = -EBADF,
+#endif
         };
 
         *ret = TAKE_PTR(m);
