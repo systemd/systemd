@@ -130,15 +130,15 @@ def _includes(el):
                     """
 
     elif file_extension == '.c':
-        return f""".. literalinclude:: ./{el.get('href')}
+        return f""".. literalinclude:: /code-examples/c/{el.get('href')}
                     :language: c
                 """
     elif file_extension == '.py':
-        return f""".. literalinclude:: ./{el.get('href')}
+        return f""".. literalinclude:: /code-examples/py/{el.get('href')}
                     :language: python
                 """
     elif file_extension == '.sh':
-        return f""".. literalinclude:: ./{el.get('href')}
+        return f""".. literalinclude:: /code-examples/sh/{el.get('href')}
                     :language: shell
                 """
 
@@ -379,8 +379,10 @@ def command(el):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
+
 def literal(el):
     return "\"%s\"" % _concat(el).strip()
+
 
 def varname(el):
     isInsideTerm = False
