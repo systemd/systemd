@@ -93,19 +93,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static bool press_any_key(void) {
-        char k = 0;
-        bool need_nl = true;
-
-        puts("-- Press any key to proceed --");
-
-        (void) read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
-
-        return k != 'q';
-}
 
 static void print_welcome(int rfd) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
@@ -141,55 +128,9 @@ static void print_welcome(int rfd) {
 
         printf("\nPlease configure your system!\n\n");
 
-        press_any_key();
+        press_any_key_to_proceed();
 
         done = true;
-}
-
-static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
-
-        assert(n_columns > 0);
-
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
-
-        break_lines = lines();
-        if (break_lines > 2)
-                break_lines--;
-
-        /* The first page gets two extra lines, since we want to show
-         * a title */
-        break_modulo = break_lines;
-        if (break_modulo > 3)
-                break_modulo -= 3;
-
-        for (i = 0; i < per_column; i++) {
-
-                for (j = 0; j < n_columns; j++) {
-                        _cleanup_free_ char *e = NULL;
-
-                        if (j * per_column + i >= n)
-                                break;
-
-                        e = ellipsize(x[j * per_column + i], width, percentage);
-                        if (!e)
-                                return log_oom();
-
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
-                }
-
-                putchar('\n');
-
-                /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
-                        if (!press_any_key())
-                                return 0;
-                }
-        }
-
-        return 0;
 }
 
 static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
