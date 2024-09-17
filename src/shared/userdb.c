@@ -179,6 +179,8 @@ static int userdb_on_query_reply(
                         r = -EHOSTDOWN;
                 else if (streq(error_id, "io.systemd.UserDatabase.EnumerationNotSupported"))
                         r = -EOPNOTSUPP;
+                else if (streq(error_id, SD_VARLINK_ERROR_INVALID_PARAMETER))
+                        r = -EINVAL;
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
                         r = -ETIMEDOUT;
                 else
