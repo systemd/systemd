@@ -126,9 +126,9 @@ def _includes(el):
             # The empty spaces are stripped later
             return f".. only:: html\n\n   \n\n   .. versionadded:: {versionString}\n\n   "
         elif not el.get("xpointer"):
-            return f".. include:: ./{el.get('href').replace('xml', 'rst')}"
+            return f".. include:: ../includes/{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
-            return f""".. include:: ./{el.get('href').replace('xml', 'rst')}
+            return f""".. include:: ../includes/{el.get('href').replace('xml', 'rst')}
                     :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
                     :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
                     """
