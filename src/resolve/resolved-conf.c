@@ -426,8 +426,6 @@ int config_parse_refuse_record_types(
                 void *data,
                 void *userdata) {
 
-        /* Get value string */
-        char **s = ASSERT_PTR(data);
         Manager *m = ASSERT_PTR(userdata);
 
         int r;
@@ -437,15 +435,14 @@ int config_parse_refuse_record_types(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *s = mfree(*s);
+                data = mfree(data);
                 return 1;
         }
 
-        r = free_and_strdup_warn(s, empty_to_null(rvalue));
+        r = free_and_strdup_warn(data, empty_to_null(rvalue));
         if (r < 0)
-                return r;
+               return r;
 
-        const char *record_type_raw_string = *s; /* copy *s char to const char * */
         char* record_type_string;
         int refused_record_type;
 
@@ -453,7 +450,7 @@ int config_parse_refuse_record_types(
         Set *refused_records = NULL;
 
         for (;;) {
-               r = extract_first_word(&record_type_raw_string, &record_type_string, ",", 0);
+               r = extract_first_word(data, &record_type_string, ",", 0);
                if (r < 0)
                       return r;
 
