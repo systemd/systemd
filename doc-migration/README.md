@@ -75,11 +75,11 @@ After using the above script at least once you will get two files(`errors.json`,
 `errors.json` will have all the files that failed to convert to rst with the respective error message for each file.
 running : `python3 main.py --errored` will only process the files that had an error and present in `errors.json`
 
-`successes_with_unhandled_tags.json` will have all the files that were converted but there were still some tags that is not defined in `db2rst.py` yet.
+`successes_with_unhandled_tags.json` will have all the files that were converted but there were still some tags that are not defined in `db2rst.py` yet.
 
-running : `python3 main.py --unhandled-only` will only process the files that present in `successes_with_unhandled_tags.json`
+running : `python3 main.py --unhandled-only` will only process the files that are present in `successes_with_unhandled_tags.json`
 
-This is to avoid running all the files at once when we only need to work on files that are not completely processed.
+This is to avoid running all files at once when we only need to work on files that are not completely processed.
 
 ### 2. `rst` to Sphinx
 
@@ -137,5 +137,7 @@ An incomplete list.
 - [ ] See whether `tools/tools/xml_helper.py` does anything we don’t do, this also contains useful code for:
   - [ ] Build a man index, as in `tools/make-man-index.py`
   - [x] Build a directives index, as in `tools/make-directive-index.py`
+  - [ ] DBUS doc generation `tools/update-dbus-docs.py`
 - [ ] See whether `tools/update-man-rules.py` does anything we don’t do
 - [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
+- [ ] Re-implement check-api-docs
