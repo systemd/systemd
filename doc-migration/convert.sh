@@ -6,7 +6,7 @@ files=("busctl" "systemd" "journalctl" "os-release")
 
 # Directory paths
 input_dir="../man"
-output_dir="source"
+output_dir="source/docs"
 
 echo "---------------------"
 echo "Converting xml to rst"

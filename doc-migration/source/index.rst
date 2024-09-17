@@ -18,19 +18,19 @@ systemd — System and Service Manager
 .. This only works if we restructure our headings to match
    https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections
    and then only have single top-level heading with the command name
+
 .. toctree::
    :maxdepth: 1
 
-   busctl
-   journalctl
-   systemd
-   os-release
-   systemD-directives
-
+   docs/busctl
+   docs/journalctl
+   docs/os-release
+   docs/systemd
+   docs/systemD-directives
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
+* :ref:`search` 

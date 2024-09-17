@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath("./_ext"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ['sphinxcontrib.globalsubs',
-              'directive_roles', 'external_man_links']
+              'directive_roles', 'external_man_links', 'autogen_index']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
