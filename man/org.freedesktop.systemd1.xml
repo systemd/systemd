@@ -593,8 +593,6 @@ node /org/freedesktop/systemd1 {
 
     <!--method GetJobBefore is not documented!-->
 
-    <!--method SetShowStatus is not documented!-->
-
     <!--method ListUnitsFiltered is not documented!-->
 
     <!--method ListUnitsByPatterns is not documented!-->
@@ -672,8 +670,6 @@ node /org/freedesktop/systemd1 {
     <!--property NFailedUnits is not documented!-->
 
     <!--property ConfirmSpawn is not documented!-->
-
-    <!--property ShowStatus is not documented!-->
 
     <!--property DefaultStandardOutput is not documented!-->
 
@@ -1362,6 +1358,24 @@ node /org/freedesktop/systemd1 {
 
       <para><function>ResetFailedUnit()</function> resets the "failed" state of a specific unit.</para>
 
+      <para><function>SetShowStatus()</function> configures the display of status messages during bootup and
+      shutdown. The <varname>mode</varname> parameter can be set to any value that's valid for the
+      <varname>systemd.show_status</varname> kernel parameter. For more information about
+      <varname>systemd.show_status</varname>, see
+      <citerefentry project="man-pages"><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      The <varname>mode</varname> parameter can also be set to an empty string. When <varname>mode</varname>
+      is set to an empty string, <function>SetShowStatus()</function> will reset
+      <varname>ShowStatus</varname> back to its original value. You can use
+      <function>SetShowStatus()</function> create a service that does something like this:
+      <orderedlist>
+        <listitem><para>Send a D-Bus message that will turn off status messages.</para></listitem>
+        <listitem><para>Block until a reply to that message is received.</para></listitem>
+        <listitem><para>Print multiples lines without being interrupted by status messages.</para></listitem>
+        <listitem><para>Send a D-Bus message that will reset <varname>ShowStatus</varname> back to its
+        original value.</para></listitem>
+      </orderedlist>
+      </para>
+
       <para><function>ResetFailed()</function> resets the "failed" state of all units.</para>
 
       <para><function>ListUnits()</function> returns an array of all currently loaded units. Note that
@@ -1787,6 +1801,12 @@ node /org/freedesktop/systemd1 {
 
       <para><varname>Environment</varname> encodes the environment block passed to all executed services. It
       may be altered with bus calls such as <function>SetEnvironment()</function> (see above).</para>
+
+      <para><varname>ShowStatus</varname> encodes systemd's current policy for displaying status messages
+      during bootup and shutdown. Its value can be any valid value for the
+      <varname>systemd.show_status</varname> kernel parameter (see
+      <citerefentry project="man-pages"><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+      It may be altered using <function>SetShowStatus()</function> (see above).</para>
 
       <para><varname>UnitPath</varname> encodes the currently active unit file search path. It is an array of
       file system paths encoded as strings.</para>
