@@ -952,12 +952,6 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (set_contains(m->refuse_record_types, INT_TO_PTR(dns_question_first_key(p->question)->type))) {
-                log_debug("Got request that is refused, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
-                return;
-        }
-
         if (!DNS_PACKET_RD(p))  {
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");
@@ -1002,6 +996,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
+
+        /* Refuse query if there is -ENOSYS */
+        if (r == -ENOSYS) {
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                return;
+        }
+
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);
