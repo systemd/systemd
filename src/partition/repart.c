@@ -1638,8 +1638,9 @@ static int config_parse_exclude_files(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        _cleanup_free_ char *resolved = NULL;
+
         char ***exclude_files = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
         int r;
 
         if (isempty(rvalue)) {
@@ -1647,19 +1648,33 @@ static int config_parse_exclude_files(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in ExcludeFiles= path, ignoring: %s", rvalue);
-                return 0;
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *resolved = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", p);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to expand specifiers in %s path, ignoring: %s", lvalue, word);
+                        return 0;
+                }
+
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE|PATH_KEEP_TRAILING_SLASH, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+
+                if (strv_consume(exclude_files, TAKE_PTR(resolved)) < 0)
+                        return log_oom();
         }
-
-        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE|PATH_KEEP_TRAILING_SLASH, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
-
-        if (strv_consume(exclude_files, TAKE_PTR(resolved)) < 0)
-                return log_oom();
 
         return 0;
 }
