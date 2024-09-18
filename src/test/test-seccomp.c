@@ -1229,4 +1229,36 @@ TEST(restrict_suid_sgid) {
         assert_se(wait_for_terminate_and_check("suidsgidseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+TEST(seccomp_suppress_sync) {
+        pid_t pid;
+
+        if (!is_seccomp_available()) {
+                log_notice("Seccomp not available, skipping %s", __func__);
+                return;
+        }
+        if (!have_seccomp_privs()) {
+                log_notice("Not privileged, skipping %s", __func__);
+                return;
+        }
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                ASSERT_ERROR_ERRNO(fdatasync(-1), EBADF);
+                ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
+                ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
+
+                ASSERT_OK(seccomp_suppress_sync());
+
+                ASSERT_OK_ERRNO(fdatasync(-1));
+                ASSERT_OK_ERRNO(fsync(-1));
+                ASSERT_OK_ERRNO(syncfs(-1));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("seccomp_suppress_sync", pid, WAIT_LOG) == EXIT_SUCCESS);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
