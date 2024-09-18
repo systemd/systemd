@@ -380,12 +380,12 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                const struct sd_json_dispatch_field dispatch_table[] = {
-                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, PTR_TO_SIZE(&auto_interfaces), SD_JSON_MANDATORY },
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_MANDATORY },
                         {}
                 };
 
-                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &auto_interfaces);
                 if (r < 0)
                         return r;
 
