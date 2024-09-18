@@ -435,8 +435,6 @@ def constant(el):
 
 
 filename = command
-function = command
-
 
 def optional(el):
     return "[%s]" % _concat(el).strip()
@@ -694,6 +692,34 @@ def screen(el):
 
 def synopsis(el):
     return _indent(el, 3, "::\n\n", False) + "\n\n"
+
+def funcsynopsis(el):
+    return _concat(el)
+
+def funcsynopsisinfo(el):
+    return "``%s``" % _concat(el)
+
+def funcprototype(el):
+    funcdef = ''.join(el.find('.//funcdef').itertext())
+    params = el.findall('.//paramdef')
+    param_list = [''.join(param.itertext()) for param in params]
+    s = ".. code-block:: \n\n   "
+    s += f"{funcdef}("
+    s += ",\n\t".join(param_list)
+    s += ");"
+    return s
+
+def paramdef(el):
+    return el
+
+def funcdef(el):
+    return el
+
+def function(el):
+    return _concat(el).strip()
+
+def parameter(el):
+    return el
 
 
 def userinput(el):
