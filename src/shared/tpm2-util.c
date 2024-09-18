@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -111,7 +112,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
-int dlopen_tpm2(void) {
+static int dlopen_tpm2_esys(void) {
         int r;
 
         ELF_NOTE_DLOPEN("tpm",
@@ -170,17 +171,21 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        return 0;
+}
+
+static int dlopen_tpm2_rc(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-rc.so.0");
 
-        r = dlopen_many_sym_or_warn(
+        return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
-        if (r < 0)
-                return r;
+}
 
+static int dlopen_tpm2_mu(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
@@ -207,6 +212,24 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
+}
+
+int dlopen_tpm2(void) {
+        int r;
+
+        r = dlopen_tpm2_esys();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_rc();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void Esys_Freep(void *p) {
@@ -7872,11 +7895,11 @@ int tpm2_sym_mode_from_string(const char *mode) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric mode name '%s'", mode);
 }
 
-Tpm2Support tpm2_support(void) {
+Tpm2Support tpm2_support_full(Tpm2Support mask) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
 
-        if (detect_container() <= 0) {
+        if (((mask & (TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER)) != 0) && detect_container() <= 0) {
                 /* Check if there's a /dev/tpmrm* device via sysfs. If we run in a container we likely just
                  * got the host sysfs mounted. Since devices are generally not virtualized for containers,
                  * let's assume containers never have a TPM, at least for now. */
@@ -7885,26 +7908,48 @@ Tpm2Support tpm2_support(void) {
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
-                } else if (r == 0) /* populated! */
-                        support |= TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER;
-                else
-                        /* If the directory exists but is empty, we know the subsystem is enabled but no
-                         * driver has been loaded yet. */
-                        support |= TPM2_SUPPORT_SUBSYSTEM;
+                } else {
+                        /* If the directory exists but is empty (r > 0), we know the subsystem is enabled but
+                         * no driver has been loaded yet. */
+
+                        if (FLAGS_SET(mask, TPM2_SUPPORT_SUBSYSTEM))
+                                support |= TPM2_SUPPORT_SUBSYSTEM;
+
+                        if (FLAGS_SET(mask, TPM2_SUPPORT_DRIVER) && r == 0) /* populated! */
+                                support |= TPM2_SUPPORT_DRIVER;
+                }
         }
 
-        if (efi_has_tpm2())
+        if (FLAGS_SET(mask, TPM2_SUPPORT_FIRMWARE) && efi_has_tpm2())
                 support |= TPM2_SUPPORT_FIRMWARE;
 
 #if HAVE_TPM2
-        support |= TPM2_SUPPORT_SYSTEM;
+        if (FLAGS_SET(mask, TPM2_SUPPORT_SYSTEM))
+                support |= TPM2_SUPPORT_SYSTEM;
 
-        r = dlopen_tpm2();
-        if (r >= 0)
-                support |= TPM2_SUPPORT_LIBRARIES;
+        if (FLAGS_SET(mask, TPM2_SUPPORT_LIBRARIES)) {
+                r = dlopen_tpm2_esys();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_ESYS;
+
+                r = dlopen_tpm2_rc();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_RC;
+
+                r = dlopen_tpm2_mu();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_MU;
+
+                if (FLAGS_SET(support, TPM2_SUPPORT_LIBTSS2_ALL))
+                        support |= TPM2_SUPPORT_LIBRARIES;
+        }
 #endif
 
         return support;
+}
+
+static void print_field(const char *prefix, const char *s, bool supported) {
+        printf("%s%s%s%s%s\n", strempty(prefix), supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
 }
 
 int verb_has_tpm2_generic(bool quiet) {
@@ -7914,29 +7959,27 @@ int verb_has_tpm2_generic(bool quiet) {
 
         if (!quiet) {
                 if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
+                        printf("%syes%s\n", ansi_green(), ansi_normal());
                 else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
+                        printf("%sno%s\n", ansi_red(), ansi_normal());
                 else
-                        puts("partial");
+                        printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
+                print_field(NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field(NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field(NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field(NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field(NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field("  ", "libtss2-esys.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_ESYS));
+                print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
+                print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
          * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
          * what is there, acknowledging the fact that for process exit statuses it is customary to return
          * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
-        return ~s & TPM2_SUPPORT_FULL;
+        return ~s & TPM2_SUPPORT_API;
 }
 
 #if HAVE_TPM2
