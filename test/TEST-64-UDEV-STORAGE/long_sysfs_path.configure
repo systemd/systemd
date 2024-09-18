@@ -26,6 +26,6 @@ for bridge in range(1, 26):
         f"pci-bridge,id=pci_bridge{bridge},bus=pci_bridge{bridge - 1},chassis_nr={64 + bridge},addr=1",
     ]
 
-config["QemuArgs"] += ["-device", f"virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge25,addr=1"]
+config["QemuArgs"] += ["-device", f"virtio-blk-pci,drive=drive0,bus=pci_bridge25,addr=1"]
 
 json.dump(config, sys.stdout)
