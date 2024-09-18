@@ -369,7 +369,7 @@ static int run(int argc, char *argv[]) {
                 event = TPM2_EVENT_PHASE;
         }
 
-        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
+        if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }

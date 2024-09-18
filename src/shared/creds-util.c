@@ -886,7 +886,7 @@ int encrypt_credential_and_warn(
                  * container tpm2_support will detect this, and will return a different flag combination of
                  * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
 
-                try_tpm2 = tpm2_support() == TPM2_SUPPORT_FULL;
+                try_tpm2 = tpm2_is_fully_supported();
                 if (!try_tpm2)
                         log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else
