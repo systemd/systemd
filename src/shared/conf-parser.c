@@ -1764,7 +1764,7 @@ int config_parse_hw_addr(
                 void *data,
                 void *userdata) {
 
-        struct hw_addr_data a, *hwaddr = ASSERT_PTR(data);
+        struct hw_addr_data *hwaddr = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -1776,11 +1776,10 @@ int config_parse_hw_addr(
                 return 1;
         }
 
-        r = parse_hw_addr_full(rvalue, ltype, &a);
+        r = parse_hw_addr_full(rvalue, ltype, hwaddr);
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        *hwaddr = a;
         return 1;
 }
 
