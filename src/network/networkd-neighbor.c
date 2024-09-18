@@ -660,28 +660,28 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         return 1;
 }
 
+#define log_neighbor_section(neighbor, fmt, ...)                        \
+        ({                                                              \
+                const Neighbor *_neighbor = (neighbor);                 \
+                log_section_warning_errno(                              \
+                                _neighbor ? _neighbor->section : NULL,  \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [Neighbor] section.",    \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int neighbor_section_verify(Neighbor *neighbor) {
         if (section_is_invalid(neighbor->section))
                 return -EINVAL;
 
         if (neighbor->dst_addr.family == AF_UNSPEC)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section without Address= configured. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+                return log_neighbor_section(neighbor, "Neighbor section without Address= configured.");
 
         if (neighbor->dst_addr.family == AF_INET6 && !socket_ipv6_is_supported())
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section with an IPv6 destination address configured, "
-                                         "but the kernel does not support IPv6. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+                return log_neighbor_section(neighbor, "Neighbor section with an IPv6 destination address configured, but the kernel does not support IPv6.");
 
         if (neighbor->ll_addr.length == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section without LinkLayerAddress= configured. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+                return log_neighbor_section(neighbor, "Neighbor section without LinkLayerAddress= configured.");
 
         return 0;
 }
