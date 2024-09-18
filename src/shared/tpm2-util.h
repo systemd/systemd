@@ -450,15 +450,22 @@ typedef struct {
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
-        /* NOTE! The systemd-creds tool returns these flags 1:1 as exit status. Hence these flags are pretty
-         * much ABI! Hence, be extra careful when changing/extending these definitions. */
-        TPM2_SUPPORT_NONE      = 0,       /* no support */
-        TPM2_SUPPORT_FIRMWARE  = 1 << 0,  /* firmware reports TPM2 was used */
-        TPM2_SUPPORT_DRIVER    = 1 << 1,  /* the kernel has a driver loaded for it */
-        TPM2_SUPPORT_SYSTEM    = 1 << 2,  /* we support it ourselves */
-        TPM2_SUPPORT_SUBSYSTEM = 1 << 3,  /* the kernel has the tpm subsystem enabled */
-        TPM2_SUPPORT_LIBRARIES = 1 << 4,  /* we can dlopen the tpm2 libraries */
-        TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
+        /* NOTE! The systemd-analyze has-tpm2 command returns these flags 1:1 as exit status. Hence these
+         * flags are pretty much ABI! Hence, be extra careful when changing/extending these definitions. */
+        TPM2_SUPPORT_NONE         = 0,       /* no support */
+        TPM2_SUPPORT_FIRMWARE     = 1 << 0,  /* firmware reports TPM2 was used */
+        TPM2_SUPPORT_DRIVER       = 1 << 1,  /* the kernel has a driver loaded for it */
+        TPM2_SUPPORT_SYSTEM       = 1 << 2,  /* we support it ourselves */
+        TPM2_SUPPORT_SUBSYSTEM    = 1 << 3,  /* the kernel has the tpm subsystem enabled */
+        TPM2_SUPPORT_LIBRARIES    = 1 << 4,  /* we can dlopen the tpm2 libraries */
+        TPM2_SUPPORT_API          = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
+
+        /* Flags below are not returned by systemd-analyze has-tpm2 as exit status. */
+        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 5,  /* we can dlopen libtss2-esys.so.0 */
+        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 6,  /* we can dlopen libtss2-rc.so.0 */
+        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 7,  /* we can dlopen libtss2-mu.so.0 */
+        TPM2_SUPPORT_LIBTSS2_ALL  = TPM2_SUPPORT_LIBTSS2_ESYS|TPM2_SUPPORT_LIBTSS2_RC|TPM2_SUPPORT_LIBTSS2_MU,
+        TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
 } Tpm2Support;
 
 Tpm2Support tpm2_support_full(Tpm2Support mask);
