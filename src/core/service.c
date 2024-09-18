@@ -4169,7 +4169,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * detect when the cgroup becomes empty. Note that the control process is always
          * our child so it's pointless to watch all other processes. */
         if (!control_pid_good(s))
-                if (!s->main_pid_known || s->main_pid_alien)
+                if (!s->main_pid_known || s->main_pid_alien || unit_cgroup_delegate(u))
                         (void) unit_enqueue_rewatch_pids(u);
 }
 
