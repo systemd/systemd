@@ -17,9 +17,9 @@ if test -f /run/systemd/stub/profile; then
 fi
 echo "CURRENT MEASUREMENT:"
 /usr/lib/systemd/systemd-measure --current
-if test -f /run/systemd/tpm2-pcr-signature.json ; then
+if test -f /run/systemd/tpm2-pcr-signature.json; then
     echo "CURRENT SIGNATURE:"
-    jq < /run/systemd/tpm2-pcr-signature.json
+    jq </run/systemd/tpm2-pcr-signature.json
 fi
 
 echo "CURRENT EVENT LOG + PCRS:"
@@ -45,7 +45,7 @@ TITLE="Profile Two"' --measure-base=/tmp/extended1.efi --cmdline="testprofile2=1
 
     # Prepare a disk image, locked to the PCR measurements of the UKI we just generated
     truncate -s 32M /root/encrypted.raw
-    echo -n "geheim" > /root/encrypted.secret
+    echo -n "geheim" >/root/encrypted.secret
     cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom /root/encrypted.raw --key-file=/root/encrypted.secret
     systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs= --tpm2-public-key=/root/pcrsign.public.pem --unlock-key-file=/root/encrypted.secret /root/encrypted.raw
     rm -f /root/encrypted.secret
@@ -62,12 +62,12 @@ else
 
     if [ "$ID" = "profile0" ]; then
         grep -v testprofile /proc/cmdline
-        echo "default $(basename "$CURRENT_UKI")@profile1" > "$(bootctl -p)/loader/loader.conf"
+        echo "default $(basename "$CURRENT_UKI")@profile1" >"$(bootctl -p)/loader/loader.conf"
         reboot
         exit 0
     elif [ "$ID" = "profile1" ]; then
         grep testprofile1=1 /proc/cmdline
-        echo "default $(basename "$CURRENT_UKI")@profile2" > "$(bootctl -p)/loader/loader.conf"
+        echo "default $(basename "$CURRENT_UKI")@profile2" >"$(bootctl -p)/loader/loader.conf"
         reboot
         exit 0
     elif [ "$ID" = "profile2" ]; then
