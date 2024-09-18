@@ -798,8 +798,8 @@ static int attach_mount_tree(int mount_tree_fd) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to detach mount namespace: %m");
 
-        r = mkdir_label(MOUNT_TREE_ROOT, 0555);
-        if (r < 0 && r != -EEXIST)
+        r = mkdir_p_label(MOUNT_TREE_ROOT, 0555);
+        if (r < 0)
                 return log_warning_errno(r, "Failed to create directory: %m");
 
         r = mount_setattr(mount_tree_fd, "", AT_EMPTY_PATH,
@@ -812,7 +812,7 @@ static int attach_mount_tree(int mount_tree_fd) {
 
         r = move_mount(mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to move mount tree: %m");
+                return log_warning_errno(errno, "Failed to attach mount tree: %m");
 
         return 0;
 }
@@ -826,7 +826,7 @@ static int submit_coredump(
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL, *stacktrace = NULL;
-        const char *module_name, *root = MOUNT_TREE_ROOT;
+        const char *module_name, *root = NULL;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false, written = false;
         sd_json_variant *module_json;
@@ -864,8 +864,8 @@ static int submit_coredump(
 
         if (mount_tree_fd >= 0) {
                 r = attach_mount_tree(mount_tree_fd);
-                if (r < 0)
-                        root = "/";
+                if (r >= 0)
+                        root = MOUNT_TREE_ROOT;
         }
 
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
@@ -1063,6 +1063,8 @@ static int process_socket(int fd) {
         log_debug("Processing coredump received on stdin...");
 
         for (;;) {
+                struct cmsghdr *cmsg;
+
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
                 struct msghdr mh = {
                         .msg_control = &control,
@@ -1094,33 +1096,15 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-                /* The final zero-length datagram carries the file descriptor and tells us
+                /* The final zero-length datagram carries the file descriptors and tells us
                  * that we're done. */
                 if (n == 0) {
                         struct cmsghdr *found;
+                        unsigned n_fds = 0;
 
-                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
-                        if (found) {
-                                int fds[2] = EBADF_PAIR;
-
-                                memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
-
-                                assert(mount_tree_fd < 0);
-
-                                /* Maybe we already got coredump FD in previous iteration? */
-                                safe_close(input_fd);
-
-                                input_fd = fds[0];
-                                mount_tree_fd = fds[1];
-
-                                /* We have all FDs we need let's take a shortcut here. */
-                                break;
-                        } else {
-                                struct cmsghdr *cmsg;
-                                unsigned n_fds = 0;
-
-                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-                                if (first && found) {
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
+                        if (first) {
+                                if (found) {
                                         /* This is the first message that carries file descriptors, maybe there will be
                                          * one more that actually contains array of two descriptors. */
                                         assert(input_fd < 0);
@@ -1129,18 +1113,38 @@ static int process_socket(int fd) {
                                         first = false;
 
                                         continue;
-                                } else if (first && !found) {
-                                        /* This is the first message of zero length and it has no file descriptor,
-                                         * this is the protocol violation so let's bail out. */
+                                } else {
+                                        /* This is zero length message but it has no file descriptor this is the protocol
+                                         * violation so let's bail out. */
                                         cmsg_close_all(&mh);
                                         r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Received zero length message with no file descriptor.");
+                                                            "Received zero length message with no file descriptor.");
                                         goto finish;
                                 }
+                        }
 
-                                /* This is second iteration and we didn't find array of two FDs, hence we either
-                                 * have no FDs which is OK and we can break or we have some other number of FDs
-                                 * and somebody is playing games with us. So let's check for that. */
+                        /* Second zero length message might carry two file descriptors, coredump fd and mount tree fd. */
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
+                        if (found) {
+                                int fds[2] = EBADF_PAIR;
+
+                                memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
+
+                                assert(mount_tree_fd < 0);
+                                assert(input_fd >= 0);
+
+                                /* Let's close input fd we got in the previous iteration. */
+                                safe_close(input_fd);
+
+                                input_fd = fds[0];
+                                mount_tree_fd = fds[1];
+
+                                /* We have all FDs we need so let's take a shortcut here. */
+                                break;
+                        } else {
+                               /* This is second iteration and we didn't find array of two FDs, hence we either
+                                * have no FDs which is OK and we can break or we have some other number of FDs
+                                * and somebody is playing games with us. So let's check for that. */
                                 CMSG_FOREACH(cmsg, &mh)
                                         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
                                                 n_fds++;
@@ -1661,34 +1665,30 @@ static int forward_coredump_to_container(Context *context) {
 }
 
 static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        int fd = -EBADF, r;
+        int r;
 
         assert(context);
         assert(ret_fd);
 
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
 #if !HAVE_DWFL_SET_SYSROOT
-        r = 0;
-        goto finish;
+        *ret_fd = -EOPNOTSUPP;
+        return 0;
 #endif
 
         if (!arg_enter_namespace) {
-                r = 0;
-                goto finish;
+                *ret_fd = -EHOSTDOWN;
+                return 0;
         }
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0) {
-                r = log_error_errno(errno, "Failed to create socket pair: %m");
-                goto finish;
-        }
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_error_errno(errno, "Failed to create socket pair: %m");
 
         r = namespace_open(context->pid, NULL, &mntns_fd, NULL, NULL, &root_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open mount namespace of crashing process: %m");
 
         r = namespace_fork("(sd-mount-tree-ns)",
                            "(sd-mount-tree)",
@@ -1702,7 +1702,8 @@ static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
                            root_fd,
                            NULL);
         if (r < 0)
-                goto finish;
+                return log_error_errno(r, "Failed to fork(): %m");
+
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
@@ -1723,17 +1724,12 @@ static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = receive_one_fd(pair[0], MSG_DONTWAIT);
-        if (r < 0) {
-                log_error_errno(r, "Failed to receive mount tree: %m");
-                goto finish;
-        }
+        fd = receive_one_fd(pair[0], MSG_DONTWAIT);
+        if (fd < 0)
+                return log_error_errno(r, "Failed to receive mount tree: %m");
 
-        fd = r;
-        r = 0;
-finish:
         *ret_fd = TAKE_FD(fd);
-        return r;
+        return 0;
 }
 
 static int process_kernel(int argc, char* argv[]) {
