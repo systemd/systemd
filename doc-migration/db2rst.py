@@ -44,7 +44,7 @@ WRITE_UNUSED_LABELS = False
 
 # The Files have sections that are used as includes in other files
 FILES_USED_FOR_INCLUDES = ['sd_journal_get_data.xml', 'standard-options.xml',
-                           'user-system-options.xml', 'common-variables.xml','standard-conf.xml',
+                           'user-system-options.xml', 'common-variables.xml', 'standard-conf.xml',
                            'libsystemd-pkgconfig.xml', 'threads-aware.xml']
 
 # to avoid dupliate error reports
@@ -320,6 +320,7 @@ def refsynopsisdiv(el):
     s += _join_children(el, ', ')
     return s
 
+
 def refname(el):
     _has_only_text(el)
     return "%s" % el.text
@@ -432,6 +433,7 @@ def constant(el):
 
 
 filename = command
+
 
 def optional(el):
     return "[%s]" % _concat(el).strip()
@@ -690,11 +692,14 @@ def screen(el):
 def synopsis(el):
     return _indent(el, 3, "::\n\n", False) + "\n\n"
 
+
 def funcsynopsis(el):
     return _concat(el)
 
+
 def funcsynopsisinfo(el):
     return "``%s``" % _concat(el)
+
 
 def funcprototype(el):
     funcdef = ''.join(el.find('.//funcdef').itertext())
@@ -706,17 +711,53 @@ def funcprototype(el):
     s += ");"
     return s
 
+
 def paramdef(el):
     return el
+
 
 def funcdef(el):
     return el
 
+
 def function(el):
     return _concat(el).strip()
 
+
 def parameter(el):
     return el
+
+
+def table(el):
+    title = _concat(el.find('title'))
+    headers = el.findall('.//thead/row/entry')
+    rows = el.findall('.//tbody/row')
+
+    # Collect header names
+    header_texts = [_concat(header) for header in headers]
+
+    # Collect row data
+    row_data = []
+    for row in rows:
+        entries = row.findall('entry')
+        row_data.append([_concat(entry) for entry in entries])
+
+    # Create the table in reST list-table format
+    rst_table = []
+    rst_table.append(f".. list-table:: {title}")
+    rst_table.append("   :header-rows: 1")
+    rst_table.append("")
+
+    # Add header row
+    header_line = "   * - " + "\n     - ".join(header_texts)
+    rst_table.append(header_line)
+
+    # Add rows
+    for row in row_data:
+        row_line = "   * - " + "\n     - ".join(row)
+        rst_table.append(row_line)
+
+    return '\n'.join(rst_table)
 
 
 def userinput(el):
