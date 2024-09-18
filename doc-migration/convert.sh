@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Array of XML filenames
-files=("busctl" "systemd" "journalctl" "os-release")
+files=("sd_journal_get_data" "busctl" "systemd" "journalctl" "os-release")
 
 # Directory paths
 input_dir="../man"

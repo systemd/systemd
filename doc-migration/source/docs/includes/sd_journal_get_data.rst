@@ -15,15 +15,8 @@ sd_journal_get_data(3)
    sd_journal_get_data — sd_journal_enumerate_data — sd_journal_enumerate_available_data — sd_journal_restart_data — SD_JOURNAL_FOREACH_DATA — sd_journal_set_data_threshold — sd_journal_get_data_threshold — Read data fields from the current journal entry
    ###########################################################################################################################################################################################################################################################
 
-.. only:: html
-
-   ``#include <systemd/sd-journal.h>``  .. code-block::      int sd_journal_get_data(sd_journal *j, 	const char *field, 	const void **data, 	size_t *length);  .. code-block::      int sd_journal_enumerate_data(sd_journal *j, 	const void **data, 	size_t *length);  .. code-block::      int sd_journal_enumerate_available_data(sd_journal *j, 	const void **data, 	size_t *length);  .. code-block::      void sd_journal_restart_data(sd_journal *j);  .. code-block::      SD_JOURNAL_FOREACH_DATA(sd_journal *j, 	const void *data, 	size_t length);  .. code-block::      int sd_journal_set_data_threshold(sd_journal *j, 	size_t sz);  .. code-block::      int sd_journal_get_data_threshold(sd_journal *j, 	size_t *sz);
-   ===================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================
-
-.. only:: man
-
    Synopsis
-   ========
+   ########
 
 ``#include <systemd/sd-journal.h>``
 
