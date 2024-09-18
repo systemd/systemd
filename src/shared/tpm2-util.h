@@ -462,6 +462,9 @@ typedef enum Tpm2Support {
 } Tpm2Support;
 
 Tpm2Support tpm2_support(void);
+static inline bool tpm2_is_fully_supported(void) {
+        return tpm2_support() == TPM2_SUPPORT_FULL;
+}
 
 int verb_has_tpm2_generic(bool quiet);
 

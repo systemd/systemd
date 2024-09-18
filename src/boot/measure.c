@@ -1005,7 +1005,7 @@ static int validate_stub(void) {
         bool found = false;
         int r;
 
-        if (tpm2_support() != TPM2_SUPPORT_FULL)
+        if (!tpm2_is_fully_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
 
         r = efi_stub_get_features(&features);

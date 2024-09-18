@@ -96,7 +96,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
         const char *alg = NULL;
         int r;
 
-        if (tpm2_support() != TPM2_SUPPORT_FULL)
+        if (!tpm2_is_fully_supported())
                 log_notice("System lacks full TPM2 support, not showing PCR state.");
         else {
                 r = get_pcr_alg(&alg);
