@@ -1129,66 +1129,53 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
+#define log_nexthop_section(nexthop, fmt, ...)                          \
+        ({                                                              \
+                const NextHop *_nexthop = (nexthop);                    \
+                log_section_warning_errno(                              \
+                                _nexthop ? _nexthop->section : NULL,    \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [NextHop] section.",     \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
         if (!nh->network->manager->manage_foreign_nexthops && nh->id == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [NextHop] section without specifying Id= is not supported "
-                                         "if ManageForeignNextHops=no is set in networkd.conf. "
-                                         "Ignoring [NextHop] section from line %u.",
-                                         nh->section->filename, nh->section->line);
+                return log_nexthop_section(nh, "Nexthop without specifying Id= is not supported if ManageForeignNextHops=no is set in networkd.conf.");
 
         if (!hashmap_isempty(nh->group)) {
                 if (in_addr_is_set(nh->family, &nh->gw))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have gateway address. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot have gateway address.");
 
                 if (nh->family != AF_UNSPEC)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have Family= setting. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot have Family= setting.");
 
                 if (nh->blackhole)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot be a blackhole. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot be a blackhole.");
 
                 if (nh->onlink > 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have on-link flag. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot have on-link flag.");
+
         } else if (nh->family == AF_UNSPEC)
                 /* When neither Family=, Gateway=, nor Group= is specified, assume IPv4. */
                 nh->family = AF_INET;
 
         if (nh->blackhole) {
                 if (in_addr_is_set(nh->family, &nh->gw))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: blackhole nexthop cannot have gateway address. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Blackhole nexthop cannot have gateway address.");
 
                 if (nh->onlink > 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: blackhole nexthop cannot have on-link flag. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Blackhole nexthop cannot have on-link flag.");
         }
 
         if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
             ordered_hashmap_isempty(nh->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
-                log_warning("%s: Gateway= without static address configured. "
-                            "Enabling OnLink= option.",
-                            nh->section->filename);
+                log_section_warning(nh->section, "Nexthop with Gateway= specified, but no static address configured. Enabling OnLink= option.");
                 nh->onlink = true;
         }
 
