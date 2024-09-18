@@ -227,7 +227,6 @@ testcase_nvme_basic() {
 testcase_nvme_subsystem() {
     local expected_symlinks=(
         # Controller(s)
-        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_16
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_17
         # Shared namespaces
