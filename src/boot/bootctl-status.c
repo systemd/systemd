@@ -411,7 +411,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
-                Tpm2Support s;
                 int have;
 
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
@@ -440,7 +439,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 else
                         printf("\n");
 
-                s = tpm2_support();
+                Tpm2Support s = tpm2_support_full(TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER);
                 printf("  TPM2 Support: %s%s%s\n",
                        FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
                        (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),

@@ -461,7 +461,10 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 } Tpm2Support;
 
-Tpm2Support tpm2_support(void);
+Tpm2Support tpm2_support_full(Tpm2Support mask);
+static inline Tpm2Support tpm2_support(void) {
+        return tpm2_support_full(TPM2_SUPPORT_FULL);
+}
 static inline bool tpm2_is_fully_supported(void) {
         return tpm2_support() == TPM2_SUPPORT_FULL;
 }

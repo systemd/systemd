@@ -7872,11 +7872,11 @@ int tpm2_sym_mode_from_string(const char *mode) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric mode name '%s'", mode);
 }
 
-Tpm2Support tpm2_support(void) {
+Tpm2Support tpm2_support_full(Tpm2Support mask) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
 
-        if (detect_container() <= 0) {
+        if (((mask & (TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER)) != 0) && detect_container() <= 0) {
                 /* Check if there's a /dev/tpmrm* device via sysfs. If we run in a container we likely just
                  * got the host sysfs mounted. Since devices are generally not virtualized for containers,
                  * let's assume containers never have a TPM, at least for now. */
@@ -7885,23 +7885,30 @@ Tpm2Support tpm2_support(void) {
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
-                } else if (r == 0) /* populated! */
-                        support |= TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER;
-                else
-                        /* If the directory exists but is empty, we know the subsystem is enabled but no
-                         * driver has been loaded yet. */
-                        support |= TPM2_SUPPORT_SUBSYSTEM;
+                } else {
+                        /* If the directory exists but is empty (r > 0), we know the subsystem is enabled but
+                         * no driver has been loaded yet. */
+
+                        if (FLAGS_SET(mask, TPM2_SUPPORT_SUBSYSTEM))
+                                support |= TPM2_SUPPORT_SUBSYSTEM;
+
+                        if (FLAGS_SET(mask, TPM2_SUPPORT_DRIVER) && r == 0) /* populated! */
+                                support |= TPM2_SUPPORT_DRIVER;
+                }
         }
 
-        if (efi_has_tpm2())
+        if (FLAGS_SET(mask, TPM2_SUPPORT_FIRMWARE) && efi_has_tpm2())
                 support |= TPM2_SUPPORT_FIRMWARE;
 
 #if HAVE_TPM2
-        support |= TPM2_SUPPORT_SYSTEM;
+        if (FLAGS_SET(mask, TPM2_SUPPORT_SYSTEM))
+                support |= TPM2_SUPPORT_SYSTEM;
 
-        r = dlopen_tpm2();
-        if (r >= 0)
-                support |= TPM2_SUPPORT_LIBRARIES;
+        if (FLAGS_SET(mask, TPM2_SUPPORT_LIBRARIES)) {
+                r = dlopen_tpm2();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBRARIES;
+        }
 #endif
 
         return support;
