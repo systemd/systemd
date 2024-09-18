@@ -6,7 +6,9 @@
 #include "sd-daemon.h"
 
 #include "bpf-dlopen.h"
+#if HAVE_VMLINUX_H
 #include "bpf-link.h"
+#endif
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
