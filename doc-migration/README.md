@@ -10,6 +10,7 @@
       - [Custom Sphinx Extensions](#custom-sphinx-extensions)
         - [directive_roles.py (90% done)](#directive_rolespy-90-done)
         - [external_man_links.py](#external_man_linkspy)
+      - [Includes](#includes)
   - [Todo:](#todo)
 
 ## Prerequisites
@@ -119,7 +120,43 @@ This is used to create custom sphinx roles to handle external links for man page
 `:die-net:`refentrytitle(manvolnum)` will lead to 'http://linux.die.net/man/{manvolnum}/{refentrytitle}'
 a full list of these roles can be found in [external_man_links](source/_ext/external_man_links.py).
 
-## Todo:
+#### Includes
+
+1. Versions
+   In the Docbook files you may find lines like these: `<xi:include href="version-info.xml" xpointer="v205"/>` which would render into `Added in version 205` in the docs. This is now archived with the existing [sphinx directive ".. versionadded::"](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-versionadded) and represented as `.. versionadded:: 205` in the rst file
+
+2. Code Snippets
+   These can be included with the [literalinclude directive](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-literalinclude) when living in their own file.
+
+   Example:
+
+  ```rst
+  .. literalinclude:: ./check-os-release-simple.py
+  :language: python
+  ```
+
+  There is also the option to include a [code block](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block) directly in the rst file.
+
+  Example:
+
+  ```rst
+  .. code-block:: sh
+
+  a{sv} 3 One s Eins Two u 2 Yes b true
+
+  ```
+
+3. Text Snippets
+
+  There are a few xml files were sections of these files are reused in multiple other files. While it is no problem to include a whole other rst file the concept of only including a part of that file is a bit more tricky. You can choose to include text partial that starts after a specific text and also to stop before reaching another text. So we decided it would be best to add start and stop markers to define the section in these source files. These markers are: `.. inclusion-marker-do-not-remove` / ``So that a`<xi:include href="standard-options.xml" xpointer="no-pager" />` turns into:
+
+  ```rst
+  .. include:: ./standard-options.rst
+    :start-after: .. inclusion-marker-do-not-remove no-pager
+    :end-before: .. inclusion-end-marker-do-not-remove no-pager
+  ```
+
+## Todo
 
 An incomplete list.
 
