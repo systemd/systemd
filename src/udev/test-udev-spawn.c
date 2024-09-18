@@ -52,7 +52,8 @@ static void test_event_spawn_self(const char *self, const char *arg, bool with_p
 
         log_debug("/* %s(%s, %s) */", __func__, arg, yes_no(with_pidfd));
 
-        assert_se(cmd = strjoin(self, " ", arg));
+        /* 'self' may contain spaces, hence needs to be quoted. */
+        assert_se(cmd = strjoin("'", self, "' ", arg));
 
         test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE);
 
