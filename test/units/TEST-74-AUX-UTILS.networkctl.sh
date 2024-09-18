@@ -75,6 +75,11 @@ cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test.conf"
 networkctl cat "$NETWORK_NAME" | grep '^# ' |
     cmp - <(printf '%s\n' "# /etc/systemd/network/$NETWORK_NAME" "# /etc/systemd/network/${NETWORK_NAME}.d/test.conf")
 
+# mask and stop systemd-networkd.service to make the test2 dummy interface not
+# created after networkctl edit below.
+systemctl mask systemd-networkd.service
+systemctl stop systemd-networkd.service
+
 networkctl edit --stdin --runtime "$NETDEV_NAME" <<EOF
 [NetDev]
 Name=test2
@@ -95,13 +100,15 @@ EOF
 SYSTEMD_LOG_LEVEL=debug EDITOR='true' script -ec 'networkctl edit "$LINK_NAME"' /dev/null
 cmp "/usr/lib/systemd/network/$LINK_NAME" "/etc/systemd/network/$LINK_NAME"
 
-# Test links
-systemctl unmask systemd-networkd
-systemctl stop systemd-networkd
+# networkd is stopped, hence @test2 does not work.
 (! networkctl cat @test2)
 (! networkctl cat @test2:netdev)
+(! networkctl cat @test2:link)
+(! networkctl cat @test2:network)
 
-systemctl start systemd-networkd
+# unmask and start networkd, then test2 will be created.
+systemctl unmask systemd-networkd.service
+systemctl start systemd-networkd.service
 SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-networkd-wait-online -i test2:carrier --timeout 20
 
 networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
