@@ -173,9 +173,9 @@ Address.NetLabel,                            config_parse_address_section,      
 Address.NFTSet,                              config_parse_address_section,                             ADDRESS_NFT_SET,               0
 IPv6AddressLabel.Prefix,                     config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL_PREFIX,     0
 IPv6AddressLabel.Label,                      config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL,            0
-Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
-Neighbor.LinkLayerAddress,                   config_parse_neighbor_lladdr,                             0,                             0
-Neighbor.MACAddress,                         config_parse_neighbor_lladdr,                             0,                             0 /* deprecated */
+Neighbor.Address,                            config_parse_neighbor_section,                            NEIGHBOR_DESTINATION_ADDRESS,  0
+Neighbor.LinkLayerAddress,                   config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0
+Neighbor.MACAddress,                         config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0 /* deprecated */
 RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TOS,       0
 RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PRIORITY, 0
 RoutingPolicyRule.GoTo,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_GOTO,      0

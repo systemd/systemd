@@ -728,7 +728,7 @@ int network_drop_invalid_neighbors(Network *network) {
 }
 
 
-int config_parse_neighbor_address(
+int config_parse_neighbor_section(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -739,6 +739,11 @@ int config_parse_neighbor_address(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
+        static const ConfigSectionParser table[_NEIGHBOR_CONF_PARSER_MAX] = {
+                [NEIGHBOR_DESTINATION_ADDRESS] = { .parser = config_parse_in_addr_data, .ltype = 0, .offset = offsetof(Neighbor, dst_addr), },
+                [NEIGHBOR_LINK_LAYER_ADDRESS]  = { .parser = config_parse_hw_addr,      .ltype = 0, .offset = offsetof(Neighbor, ll_addr),  },
+        };
 
         _cleanup_(neighbor_unref_or_set_invalidp) Neighbor *neighbor = NULL;
         Network *network = ASSERT_PTR(userdata);
@@ -750,53 +755,11 @@ int config_parse_neighbor_address(
         if (r < 0)
                 return log_oom();
 
-        r = config_parse_in_addr_data(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &neighbor->dst_addr, NULL);
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, neighbor);
         if (r <= 0) /* 0 means non-critical error, but the section will be ignored. */
                 return r;
 
         TAKE_PTR(neighbor);
-        return 0;
-}
-
-int config_parse_neighbor_lladdr(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(neighbor_unref_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = ASSERT_PTR(userdata);
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = neighbor_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        if (isempty(rvalue)) {
-                n->ll_addr = HW_ADDR_NULL;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = parse_hw_addr(rvalue, &n->ll_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Neighbor %s= is invalid, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(n);
         return 0;
 }
