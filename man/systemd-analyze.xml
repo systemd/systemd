@@ -976,7 +976,10 @@ default         ignore      -         -</programlisting>
 +driver
 +system
 +subsystem
-+libraries</programlisting>
++libraries
+  +libtss2-esys.so.0
+  +libtss2-rc.so.0
+  +libtss2-mu.so.0</programlisting>
       </example>
 
       <xi:include href="version-info.xml" xpointer="v257"/>
