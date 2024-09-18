@@ -250,6 +250,18 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
         return 1;
 }
 
+typedef struct InterfaceParams {
+        char *host_interface_name;
+        char *namespace_interface_name;
+} InterfaceParams;
+
+static void interface_params_done(InterfaceParams *p) {
+        assert(p);
+
+        free(p->host_interface_name);
+        free(p->namespace_interface_name);
+}
+
 int nsresource_add_netif(
                 int userns_fd,
                 int netns_fd,
@@ -313,20 +325,20 @@ int nsresource_add_netif(
         if (error_id)
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
 
-        _cleanup_free_ char *host_interface_name = NULL, *namespace_interface_name = NULL;
-        r = sd_json_dispatch(
-                        reply,
-                        (const sd_json_dispatch_field[]) {
-                                { "hostInterfaceName",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, PTR_TO_SIZE(&host_interface_name)      },
-                                { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, PTR_TO_SIZE(&namespace_interface_name) },
-                        },
-                        SD_JSON_ALLOW_EXTENSIONS,
-                        /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "hostInterfaceName",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      0 },
+                { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, namespace_interface_name), 0 },
+        };
+
+        _cleanup_(interface_params_done) InterfaceParams p = {};
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
 
         if (ret_host_ifname)
-                *ret_host_ifname = TAKE_PTR(host_interface_name);
+                *ret_host_ifname = TAKE_PTR(p.host_interface_name);
         if (ret_namespace_ifname)
-                *ret_namespace_ifname = TAKE_PTR(namespace_interface_name);
+                *ret_namespace_ifname = TAKE_PTR(p.namespace_interface_name);
 
         return 1;
 }

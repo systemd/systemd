@@ -1582,14 +1582,12 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to encrypt: %s", error_id);
         }
 
-        r = sd_json_dispatch(
-                        reply,
-                        (const sd_json_dispatch_field[]) {
-                                { "blob", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), SD_JSON_MANDATORY },
-                                {},
-                        },
-                        SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS,
-                        /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "blob", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, ret);
         if (r < 0)
                 return r;
 
@@ -1649,14 +1647,12 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
 
-        r = sd_json_dispatch(
-                        reply,
-                        (const sd_json_dispatch_field[]) {
-                                { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), SD_JSON_MANDATORY },
-                                {},
-                        },
-                        SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS,
-                        /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, ret);
         if (r < 0)
                 return r;
 
