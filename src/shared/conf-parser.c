@@ -1973,6 +1973,36 @@ int config_parse_in_addr_non_null(
         return 1;
 }
 
+int config_parse_in_addr_data(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct in_addr_data *p = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(rvalue)) {
+                *p = (struct in_addr_data) {};
+                return 1;
+        }
+
+        r = in_addr_from_string_auto(rvalue, &p->family, &p->address);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        return 1;
+}
+
 int config_parse_unsigned_bounded(
                 const char *unit,
                 const char *filename,
