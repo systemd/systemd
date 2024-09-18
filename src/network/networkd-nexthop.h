@@ -71,9 +71,15 @@ int manager_build_nexthop_ids(Manager *manager);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(NextHop, nexthop);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_onlink);
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_blackhole);
-CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_group);
+typedef enum NextHopConfParserType {
+        NEXTHOP_ID,
+        NEXTHOP_GATEWAY,
+        NEXTHOP_FAMILY,
+        NEXTHOP_ONLINK,
+        NEXTHOP_BLACKHOLE,
+        NEXTHOP_GROUP,
+        _NEXTHOP_CONF_PARSER_MAX,
+        _NEXTHOP_CONF_PARSER_INVALID = -EINVAL,
+} NextHopConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_section);
