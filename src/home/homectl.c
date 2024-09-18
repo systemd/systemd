@@ -1411,12 +1411,6 @@ static int create_home_common(sd_json_variant *input) {
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         int r;
 
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
         r = acquire_new_home_record(input, &hr);
         if (r < 0)
                 return r;
@@ -1461,6 +1455,12 @@ static int create_home_common(sd_json_variant *input) {
                 if (r < 0)
                         log_warning_errno(r, "Specified password does not pass quality checks (%s), proceeding anyway.", bus_error_message(&error, r));
         }
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2484,12 +2484,6 @@ static int create_interactively(void) {
         }
 
         any_key_to_proceed();
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
 
