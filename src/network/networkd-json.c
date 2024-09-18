@@ -168,7 +168,7 @@ static int nexthop_append_json(NextHop *n, sd_json_variant **array) {
         return sd_json_variant_append_arraybo(
                         array,
                         SD_JSON_BUILD_PAIR_UNSIGNED("ID", n->id),
-                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw, n->family),
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw.address, n->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Flags", n->flags),
                         SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", n->protocol),

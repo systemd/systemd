@@ -236,7 +236,7 @@ static int nexthop_compare_full(const NextHop *a, const NextHop *b) {
                 return r;
 
         if (IN_SET(a->family, AF_INET, AF_INET6)) {
-                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                r = memcmp(&a->gw.address, &b->gw.address, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
         }
@@ -481,7 +481,7 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
         log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
                        str, strna(network_config_source_to_string(nexthop->source)), strna(state),
                        nexthop->id,
-                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw),
+                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
@@ -627,8 +627,8 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
                 if (r < 0)
                         return r;
 
-                if (in_addr_is_set(nexthop->family, &nexthop->gw)) {
-                        r = netlink_message_append_in_addr_union(m, NHA_GATEWAY, nexthop->family, &nexthop->gw);
+                if (in_addr_is_set(nexthop->family, &nexthop->gw.address)) {
+                        r = netlink_message_append_in_addr_union(m, NHA_GATEWAY, nexthop->family, &nexthop->gw.address);
                         if (r < 0)
                                 return r;
 
@@ -722,7 +722,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                         return r;
         }
 
-        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
+        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw.address);
 }
 
 static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
@@ -1093,9 +1093,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         (void) nexthop_update_group(nexthop, message);
 
         if (nexthop->family != AF_UNSPEC) {
-                r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw);
+                r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw.address);
                 if (r == -ENODATA)
-                        nexthop->gw = IN_ADDR_NULL;
+                        nexthop->gw.address = IN_ADDR_NULL;
                 else if (r < 0)
                         log_debug_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
         }
@@ -1146,8 +1146,15 @@ static int nexthop_section_verify(NextHop *nh) {
         if (!nh->network->manager->manage_foreign_nexthops && nh->id == 0)
                 return log_nexthop_section(nh, "nexthop without specifying Id= is not supported if ManageForeignNextHops=no is set in networkd.conf.");
 
+        if (nh->family == AF_UNSPEC)
+                nh->family = nh->gw.family;
+        else if (nh->gw.family != AF_UNSPEC && nh->gw.family != nh->family)
+                return log_nexthop_section(nh, "Family= and Gateway= settings for nexthop contradicts with each other.");
+
+        assert(nh->gw.family == nh->family || nh->gw.family == AF_UNSPEC);
+
         if (!hashmap_isempty(nh->group)) {
-                if (in_addr_is_set(nh->family, &nh->gw))
+                if (in_addr_is_set(nh->family, &nh->gw.address))
                         return log_nexthop_section(nh, "nexthop group cannot have gateway address.");
 
                 if (nh->family != AF_UNSPEC)
@@ -1164,14 +1171,14 @@ static int nexthop_section_verify(NextHop *nh) {
                 nh->family = AF_INET;
 
         if (nh->blackhole) {
-                if (in_addr_is_set(nh->family, &nh->gw))
+                if (in_addr_is_set(nh->family, &nh->gw.address))
                         return log_nexthop_section(nh, "blackhole nexthop cannot have gateway address.");
 
                 if (nh->onlink > 0)
                         return log_nexthop_section(nh, "blackhole nexthop cannot have on-link flag.");
         }
 
-        if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
+        if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw.address) &&
             ordered_hashmap_isempty(nh->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
@@ -1325,20 +1332,9 @@ int config_parse_nexthop_gateway(
         if (r < 0)
                 return log_oom();
 
-        if (isempty(rvalue)) {
-                n->family = AF_UNSPEC;
-                n->gw = IN_ADDR_NULL;
-
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        r = config_parse_in_addr_data(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->gw, NULL);
+        if (r <= 0)
+                return r;
 
         TAKE_PTR(n);
         return 0;
@@ -1358,7 +1354,6 @@ int config_parse_nexthop_family(
 
         _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
-        AddressFamily a;
         int r;
 
         assert(filename);
@@ -1371,40 +1366,14 @@ int config_parse_nexthop_family(
         if (r < 0)
                 return log_oom();
 
-        if (isempty(rvalue) &&
-            !in_addr_is_set(n->family, &n->gw)) {
-                /* Accept an empty string only when Gateway= is null or not specified. */
+        if (isempty(rvalue))
                 n->family = AF_UNSPEC;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        a = nexthop_address_family_from_string(rvalue);
-        if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_set(n->family, &n->gw) &&
-            ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
-             (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified family '%s' conflicts with the family of the previously specified Gateway=, "
-                           "ignoring assignment.", rvalue);
-                return 0;
-        }
-
-        switch (a) {
-        case ADDRESS_FAMILY_IPV4:
+        else if (streq(rvalue, "ipv4"))
                 n->family = AF_INET;
-                break;
-        case ADDRESS_FAMILY_IPV6:
+        else if (streq(rvalue, "ipv6"))
                 n->family = AF_INET6;
-                break;
-        default:
-                assert_not_reached();
-        }
+        else
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
         TAKE_PTR(n);
         return 0;

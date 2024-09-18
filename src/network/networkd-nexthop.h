@@ -36,7 +36,7 @@ typedef struct NextHop {
         Hashmap *group; /* NHA_GROUP */
         bool blackhole; /* NHA_BLACKHOLE */
         int ifindex; /* NHA_OIF */
-        union in_addr_union gw; /* NHA_GATEWAY */
+        struct in_addr_data gw; /* NHA_GATEWAY, gw.family is only used by conf parser. */
 
         /* Only used in conf parser and nexthop_section_verify(). */
         int onlink;
