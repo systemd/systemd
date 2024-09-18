@@ -922,9 +922,9 @@
         target for some other supplement definition. A target cannot have more than one supplement partition
         associated with it.</para>
 
-        <para>For example, distributions can use this to implement <variable>$BOOT</variable> as defined in
+        <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in
         the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
-        Specification</ulink>. Distributions may prefer to use the ESP as <variable>$BOOT</variable> whenever
+        Specification</ulink>. Distributions may prefer to use the ESP as <varname>$BOOT</varname> whenever
         possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
         two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for
         the XBOOTLDR that's sufficiently large to hold kernels and configured as a supplement for the ESP.
