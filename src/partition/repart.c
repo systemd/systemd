@@ -5778,38 +5778,6 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         return 0;
 }
 
-static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const char *default_subvolume) {
-        Subvolume *subvolume;
-        int r;
-
-        assert(l);
-
-        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
-                _cleanup_free_ char *s = NULL, *f = NULL;
-
-                s = strdup(subvolume->path);
-                if (!s)
-                        return log_oom();
-
-                f = subvolume_flags_to_string(subvolume->flags);
-                if (!f)
-                        return log_oom();
-
-                if (streq_ptr(subvolume->path, default_subvolume) &&
-                    !strextend_with_separator(&f, ",", "default"))
-                        return log_oom();
-
-                if (!isempty(f) && !strextend_with_separator(&s, ":", f))
-                        return log_oom();
-
-                r = strv_extend_many(l, "--subvol", s);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        return 0;
-}
-
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
         _cleanup_strv_free_ char **sv = NULL;
         int r;
@@ -5822,18 +5790,6 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
                                        p->format);
-
-        if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
-                r = append_btrfs_subvols(&sv, p->subvolumes, p->default_subvolume);
-                if (r < 0)
-                        return r;
-
-                if (p->suppressing) {
-                        r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
-                        if (r < 0)
-                                return r;
-                }
-        }
 
         *ret = TAKE_PTR(sv);
         return 0;
