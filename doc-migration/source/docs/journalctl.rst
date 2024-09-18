@@ -15,15 +15,8 @@ journalctl(1)
    journalctl — Print log entries from the systemd journal
    #######################################################
 
-.. only:: html
-
-   ``journalctl`` [OPTIONS...] [MATCHES...]
-   ========================================
-
-.. only:: man
-
    Synopsis
-   ========
+   ########
 
 ``journalctl`` [OPTIONS...] [MATCHES...]
 

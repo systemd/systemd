@@ -315,13 +315,10 @@ def refnamediv(el):
 def refsynopsisdiv(el):
     # return '**Synopsis** \n\n' + _make_title(_join_children(el, ' '), 3)
     s = ""
-    s += '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 3, 3)
+    s += _make_title('Synopsis', 2, 3)
     s += '\n\n'
-    s += '.. only:: man\n\n' + _make_title('Synopsis', 3, 3)
-    s += '\n\n'
-    s += _join_children(el, ' — ')
+    s += _join_children(el, ', ')
     return s
-
 
 def refname(el):
     _has_only_text(el)

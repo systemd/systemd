@@ -15,15 +15,8 @@ os-release(5)
    os-release — initrd-release — extension-release — Operating system identification
    #################################################################################
 
-.. only:: html
-
-   ``/etc/os-release`` ``/usr/lib/os-release`` ``/etc/initrd-release`` ``/usr/lib/extension-release.d/extension-release.<IMAGE>``
-   ==============================================================================================================================
-
-.. only:: man
-
    Synopsis
-   ========
+   ########
 
 ``/etc/os-release``
 ``/usr/lib/os-release``
@@ -566,7 +559,7 @@ Reading ``os-release`` in :die-net:`python(1)` (versions >= 3.10)
 .. literalinclude:: /code-examples/py/check-os-release-simple.py
                     :language: python
 
-See docs for ```platform.freedesktop_os_release`` <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
+See docs for `platform.freedesktop_os_release <https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release>`_ for more details.
 
 Reading ``os-release`` in :die-net:`python(1)` (any version)
 ------------------------------------------------------------

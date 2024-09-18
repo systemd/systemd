@@ -15,17 +15,10 @@ systemd(1)
    systemd — init — systemd system and service manager
    ###################################################
 
-.. only:: html
-
-   ``/usr/lib/systemd/systemd`` [OPTIONS...] — ``init`` [OPTIONS...] {COMMAND}
-   ===========================================================================
-
-.. only:: man
-
    Synopsis
-   ========
+   ########
 
-``/usr/lib/systemd/systemd`` [OPTIONS...] — ``init`` [OPTIONS...] {COMMAND}
+``/usr/lib/systemd/systemd`` [OPTIONS...], ``init`` [OPTIONS...] {COMMAND}
 
 Description
 ===========
@@ -330,7 +323,7 @@ The service listens to various UNIX process signals that can be used to request 
 asynchronously. The signal handling is enabled very early during boot, before any further processes are
 invoked. However, a supervising container manager or similar that intends to request these operations via
 this mechanism must take into consideration that this functionality is not available during the earliest
-initialization phase. An ``sd_notify()`` notification message carrying the
+initialization phase. An sd_notify() notification message carrying the
 ``X_SYSTEMD_SIGNALS_LEVEL=2`` field is emitted once the signal handlers are enabled, see
 below. This may be used to schedule submission of these signals correctly.
 
