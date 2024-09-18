@@ -24,6 +24,7 @@ systemd — System and Service Manager
 
    docs/busctl
    docs/journalctl
+   docs/sd_journal_get_data
    docs/os-release
    docs/systemd
    docs/systemD-directives
