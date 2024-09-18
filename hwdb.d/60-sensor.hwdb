@@ -760,8 +760,9 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 sensor:modalias:acpi:ACCL0001*:dmi:*:svnLENOVO:pn60072:pvr851*:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
-# IdeaPad Duet 3 10IGL5 (82AT)
+# IdeaPad Duet 3 10IGL5 (82AT) and 10IGL5-LTE (82HK)
 sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO*:pn82AT:*
+sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO*:pn82HK:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
