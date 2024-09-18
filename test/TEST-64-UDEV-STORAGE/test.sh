@@ -464,7 +464,7 @@ testcase_long_sysfs_path() {
         qemu_opts+=("-device pci-bridge,id=pci_bridge$brid,bus=pci_bridge$((brid-1)),chassis_nr=$((64+brid))")
     done
 
-    qemu_opts+=("-device virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge$brid")
+    qemu_opts+=("-device virtio-blk-pci,drive=drive0,bus=pci_bridge$brid")
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
