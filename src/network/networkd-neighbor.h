@@ -23,8 +23,7 @@ typedef struct Neighbor {
 
         unsigned n_ref;
 
-        int family;
-        union in_addr_union in_addr;
+        struct in_addr_data dst_addr;
         struct hw_addr_data ll_addr;
 } Neighbor;
 

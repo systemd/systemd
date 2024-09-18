@@ -97,8 +97,8 @@ static int neighbor_append_json(Neighbor *n, sd_json_variant **array) {
 
         return sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_PAIR_INTEGER("Family", n->family),
-                        JSON_BUILD_PAIR_IN_ADDR("Destination", &n->in_addr, n->family),
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", n->dst_addr.family),
+                        JSON_BUILD_PAIR_IN_ADDR("Destination", &n->dst_addr.address, n->dst_addr.family),
                         JSON_BUILD_PAIR_HW_ADDR("LinkLayerAddress", &n->ll_addr),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
                         SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
