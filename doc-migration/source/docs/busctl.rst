@@ -15,15 +15,8 @@ busctl(1)
    busctl — Introspect the bus
    ###########################
 
-.. only:: html
-
-   ``busctl`` [OPTIONS...] [COMMAND] [<NAME>...]
-   =============================================
-
-.. only:: man
-
    Synopsis
-   ========
+   ########
 
 ``busctl`` [OPTIONS...] [COMMAND] [<NAME>...]
 
