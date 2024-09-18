@@ -45,9 +45,9 @@ ENV{ID_WWN}=="?*", SYMLINK+="disk/by-id/nvme-$env{ID_WWN}$env{.PART_SUFFIX}"
 
 # obsolete symlink with non-escaped characters, kept for backward compatibility
 ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", ENV{ID_MODEL}!="*/*", ENV{ID_SERIAL_SHORT}!="*/*", \
-  ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}$env{.PART_SUFFIX}"
+  ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", ENV{ID_NSID}=="1", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}$env{.PART_SUFFIX}"
 # obsolete symlink that might get overridden on adding a new nvme controller, kept for backward compatibility
-ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", OPTIONS="string_escape=replace", \
+ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", ENV{ID_NSID}=="1", OPTIONS="string_escape=replace", \
   ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}$env{.PART_SUFFIX}"
 ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", ENV{ID_NSID}=="?*", OPTIONS="string_escape=replace", \
   ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}_$env{ID_NSID}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}$env{.PART_SUFFIX}"
