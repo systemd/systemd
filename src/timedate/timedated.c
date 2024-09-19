@@ -380,7 +380,7 @@ static int context_write_data_local_rtc(Context *c) {
                 if (!w)
                         return -ENOMEM;
 
-                *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *mempcpy_typesafe(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         if (unlink("/etc/adjtime") < 0)
