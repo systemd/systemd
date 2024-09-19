@@ -739,14 +739,14 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         assert(ret);
 
         STRV_FOREACH(name, names) {
-                _cleanup_strv_free_ char **deps = NULL;
+                char **deps;
 
                 if (strv_extend(&with_deps, *name) < 0)
                         return log_oom();
 
                 (void) unit_get_dependencies(bus, *name, &deps);
 
-                if (strv_extend_strv(&with_deps, deps, true) < 0)
+                if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates = */ true) < 0)
                         return log_oom();
         }
 
