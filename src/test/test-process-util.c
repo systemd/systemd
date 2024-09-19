@@ -729,11 +729,13 @@ TEST(setpriority_closest) {
                         /* However, if the hard limit was above 30, setrlimit would succeed unprivileged, so
                          * check if the UID/GID can be changed before enabling the full test. */
                         if (setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(errno))
+                                /* If the nobody user does not exist (user namespace) we get EINVAL. */
+                                if (!ERRNO_IS_PRIVILEGE(errno) && errno != EINVAL)
                                         ASSERT_OK_ERRNO(-1);
                                 full_test = false;
                         } else if (setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(errno))
+                                /* If the nobody user does not exist (user namespace) we get EINVAL. */
+                                if (!ERRNO_IS_PRIVILEGE(errno) && errno != EINVAL)
                                         ASSERT_OK_ERRNO(-1);
                                 full_test = false;
                         } else
