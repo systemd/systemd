@@ -28,8 +28,24 @@ enum UnitFileState {
         _UNIT_FILE_STATE_INVALID = -EINVAL,
 };
 
-bool unit_type_may_alias(UnitType type) _const_;
-bool unit_type_may_template(UnitType type) _const_;
+static inline bool unit_type_may_alias(UnitType type) {
+        return IN_SET(type,
+                      UNIT_SERVICE,
+                      UNIT_SOCKET,
+                      UNIT_TARGET,
+                      UNIT_DEVICE,
+                      UNIT_TIMER,
+                      UNIT_PATH);
+}
+
+static inline bool unit_type_may_template(UnitType type) {
+        return IN_SET(type,
+                      UNIT_SERVICE,
+                      UNIT_SOCKET,
+                      UNIT_TARGET,
+                      UNIT_TIMER,
+                      UNIT_PATH);
+}
 
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target);
