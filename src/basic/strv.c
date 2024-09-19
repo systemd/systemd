@@ -229,20 +229,18 @@ char** strv_new_internal(const char *x, ...) {
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         size_t p, q, i = 0;
-        char **t;
 
         assert(a);
 
-        if (strv_isempty(b))
+        q = strv_length(b);
+        if (q == 0)
                 return 0;
 
         p = strv_length(*a);
-        q = strv_length(b);
-
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -271,8 +269,57 @@ rollback:
         return -ENOMEM;
 }
 
+int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates) {
+        _cleanup_strv_free_ char **b_consume = b;
+        size_t p, q, i;
+
+        assert(a);
+
+        q = strv_length(b);
+        if (q == 0)
+                return 0;
+
+        p = strv_length(*a);
+        if (p >= SIZE_MAX - q)
+                return -ENOMEM;
+
+        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        if (!t)
+                return -ENOMEM;
+
+        t[p] = NULL;
+        *a = t;
+
+        if (!filter_duplicates) {
+                *mempcpy_typesafe(t + p, b, q) = NULL;
+                i = q;
+        } else {
+                i = 0;
+
+                STRV_FOREACH(s, b) {
+                        if (strv_contains(t, *s)) {
+                                free(*s);
+                                continue;
+                        }
+
+                        t[p+i] = *s;
+
+                        i++;
+                        t[p+i] = NULL;
+                }
+        }
+
+        assert(i <= q);
+
+        b_consume = mfree(b_consume);
+
+        return (int) i;
+}
+
 int strv_extend_strv_biconcat(char ***a, const char *prefix, const char* const *b, const char *suffix) {
         int r;
+
+        assert(a);
 
         STRV_FOREACH(s, b) {
                 char *v;
