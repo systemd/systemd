@@ -112,7 +112,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
-int dlopen_tpm2(void) {
+static int dlopen_tpm2_esys(void) {
         int r;
 
         ELF_NOTE_DLOPEN("tpm",
@@ -171,17 +171,21 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        return 0;
+}
+
+static int dlopen_tpm2_rc(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-rc.so.0");
 
-        r = dlopen_many_sym_or_warn(
+        return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
-        if (r < 0)
-                return r;
+}
 
+static int dlopen_tpm2_mu(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
@@ -208,6 +212,24 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
+}
+
+int dlopen_tpm2(void) {
+        int r;
+
+        r = dlopen_tpm2_esys();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_rc();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void Esys_Freep(void *p) {
@@ -7900,9 +7922,20 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
 #if HAVE_TPM2
         support |= TPM2_SUPPORT_SYSTEM;
 
-        if (FLAGS_SET(mask, TPM2_SUPPORT_LIBRARIES)) {
-                r = dlopen_tpm2();
+        if ((mask & (TPM2_SUPPORT_LIBRARIES|TPM2_SUPPORT_LIBTSS2_ALL)) != 0) {
+                r = dlopen_tpm2_esys();
                 if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_ESYS;
+
+                r = dlopen_tpm2_rc();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_RC;
+
+                r = dlopen_tpm2_mu();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_MU;
+
+                if (FLAGS_SET(support, TPM2_SUPPORT_LIBTSS2_ALL))
                         support |= TPM2_SUPPORT_LIBRARIES;
         }
 #endif
@@ -7910,8 +7943,8 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
         return support & mask;
 }
 
-static void print_field(const char *s, bool supported) {
-        printf("%s%s%s%s\n", supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
+static void print_field(const char *prefix, const char *s, bool supported) {
+        printf("%s%s%s%s%s\n", strempty(prefix), supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
 }
 
 int verb_has_tpm2_generic(bool quiet) {
@@ -7927,18 +7960,21 @@ int verb_has_tpm2_generic(bool quiet) {
                 else
                         printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                print_field("firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
-                print_field("driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
-                print_field("system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
-                print_field("subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
-                print_field("libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field(NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field(NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field(NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field(NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field(NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field("  ", "libtss2-esys.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_ESYS));
+                print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
+                print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
          * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
          * what is there, acknowledging the fact that for process exit statuses it is customary to return
          * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
-        return ~s & TPM2_SUPPORT_FULL;
+        return ~s & TPM2_SUPPORT_API;
 }
 
 #if HAVE_TPM2
