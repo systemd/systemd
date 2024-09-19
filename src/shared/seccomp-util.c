@@ -2498,15 +2498,6 @@ int seccomp_suppress_sync(void) {
                         if (strv_contains((char* const*) syscalls_with_fd, c)) {
                                 r = seccomp_rule_add_exact(
                                                 seccomp,
-                                                SCMP_ACT_ERRNO(EBADF),
-                                                id,
-                                                1,
-                                                SCMP_A0(SCMP_CMP_LT, 0));
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to add filter for refusing invalid fds for syscall %s, ignoring: %m", c);
-
-                                r = seccomp_rule_add_exact(
-                                                seccomp,
                                                 SCMP_ACT_ERRNO(0),
                                                 id,
                                                 1,
