@@ -2756,7 +2756,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 e = s + strcspn(s, "/");
 
                 /* Copy the path component to t so it can be a null terminated string. */
-                *((char*) mempcpy(t, s, e - s)) = 0;
+                *mempcpy_typesafe(t, s, e - s) = 0;
 
                 /* Is this the last component? If so, then check the type */
                 if (*e == 0)

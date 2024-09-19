@@ -1066,13 +1066,13 @@ static void server_write_to_journal(
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
-#define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
-        if (value_size > 0) {                                           \
-                char *k;                                                \
-                k = newa(char, STRLEN(field "=") + value_size + 1);     \
-                *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
-                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
-        }                                                               \
+#define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)               \
+        if (value_size > 0) {                                                   \
+                char *k;                                                        \
+                k = newa(char, STRLEN(field "=") + value_size + 1);             \
+                *mempcpy_typesafe(stpcpy(k, field "="), value, value_size) = 0; \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                              \
+        }
 
 static void server_dispatch_message_real(
                 Server *s,
