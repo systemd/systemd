@@ -236,7 +236,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredatorPHN16-72:*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
 
 # Nitro AN515-47
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitroAN515-47:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-47:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
  KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
