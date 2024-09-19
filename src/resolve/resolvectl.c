@@ -2876,55 +2876,76 @@ static int print_answer(sd_json_variant *answer) {
         return 0;
 }
 
+typedef struct MonitorQueryParams {
+        sd_json_variant *question;
+        sd_json_variant *answer;
+        sd_json_variant *collected_questions;
+        int rcode;
+        int error;
+        int ede_code;
+        const char *state;
+        const char *result;
+        const char *ede_msg;
+} MonitorQueryParams;
+
+static void monitor_query_params_done(MonitorQueryParams *p) {
+        assert(p);
+
+        sd_json_variant_unref(p->question);
+        sd_json_variant_unref(p->answer);
+        sd_json_variant_unref(p->collected_questions);
+}
+
 static void monitor_query_dump(sd_json_variant *v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *question = NULL, *answer = NULL, *collected_questions = NULL;
-        int rcode = -1, error = 0, ede_code = -1;
-        const char *state = NULL, *result = NULL, *ede_msg = NULL;
-
-        assert(v);
-
-        sd_json_dispatch_field dispatch_table[] = {
-                { "question",                SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&question),            SD_JSON_MANDATORY },
-                { "answer",                  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&answer),              0                 },
-                { "collectedQuestions",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0                 },
-                { "state",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&state),               SD_JSON_MANDATORY },
-                { "result",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&result),              0                 },
-                { "rcode",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&rcode),               0                 },
-                { "errno",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&error),               0                 },
-                { "extendedDNSErrorCode",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0                 },
-                { "extendedDNSErrorMessage", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0                 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "question",                SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, question),            SD_JSON_MANDATORY },
+                { "answer",                  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, answer),              0                 },
+                { "collectedQuestions",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, collected_questions), 0                 },
+                { "state",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorQueryParams, state),               SD_JSON_MANDATORY },
+                { "result",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorQueryParams, result),              0                 },
+                { "rcode",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(MonitorQueryParams, rcode),               0                 },
+                { "errno",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(MonitorQueryParams, error),               0                 },
+                { "extendedDNSErrorCode",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(MonitorQueryParams, ede_code),            0                 },
+                { "extendedDNSErrorMessage", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorQueryParams, ede_msg),             0                 },
                 {}
         };
 
-        if (sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL) < 0)
+        _cleanup_(monitor_query_params_done) MonitorQueryParams p = {
+                .rcode = -1,
+                .ede_code = -1,
+        };
+
+        assert(v);
+
+        if (sd_json_dispatch(v, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &p) < 0)
                 return;
 
         /* First show the current question */
-        print_question('Q', ansi_highlight_cyan(), question);
+        print_question('Q', ansi_highlight_cyan(), p.question);
 
         /* And then show the questions that led to this one in case this was a CNAME chain */
-        print_question('C', ansi_highlight_grey(), collected_questions);
+        print_question('C', ansi_highlight_grey(), p.collected_questions);
 
         printf("%s%s S%s: %s",
-               streq_ptr(state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
+               streq_ptr(p.state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
                special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
                ansi_normal(),
-               strna(streq_ptr(state, "errno") ? errno_to_name(error) :
-                     streq_ptr(state, "rcode-failure") ? dns_rcode_to_string(rcode) :
-                     state));
+               strna(streq_ptr(p.state, "errno") ? errno_to_name(p.error) :
+                     streq_ptr(p.state, "rcode-failure") ? dns_rcode_to_string(p.rcode) :
+                     p.state));
 
-        if (!isempty(result))
-                printf(": %s", result);
+        if (!isempty(p.result))
+                printf(": %s", p.result);
 
-        if (ede_code >= 0)
+        if (p.ede_code >= 0)
                 printf(" (%s%s%s)",
-                       FORMAT_DNS_EDE_RCODE(ede_code),
-                       !isempty(ede_msg) ? ": " : "",
-                       strempty(ede_msg));
+                       FORMAT_DNS_EDE_RCODE(p.ede_code),
+                       !isempty(p.ede_msg) ? ": " : "",
+                       strempty(p.ede_msg));
 
         puts("");
 
-        print_answer(answer);
+        print_answer(p.answer);
 }
 
 static int monitor_reply(

@@ -288,7 +288,7 @@ static int verb_info(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                static const struct sd_json_dispatch_field dispatch_table[] = {
+                static const sd_json_dispatch_field dispatch_table[] = {
                         { "vendor",     SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, vendor),     SD_JSON_MANDATORY },
                         { "product",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, product),    SD_JSON_MANDATORY },
                         { "version",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, version),    SD_JSON_MANDATORY },
@@ -380,12 +380,12 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                const struct sd_json_dispatch_field dispatch_table[] = {
-                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, PTR_TO_SIZE(&auto_interfaces), SD_JSON_MANDATORY },
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_MANDATORY },
                         {}
                 };
 
-                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &auto_interfaces);
                 if (r < 0)
                         return r;
 
@@ -412,7 +412,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                         return r;
 
                 if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || list_methods) {
-                        static const struct sd_json_dispatch_field dispatch_table[] = {
+                        static const sd_json_dispatch_field dispatch_table[] = {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };

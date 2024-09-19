@@ -416,19 +416,18 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
 }
 
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
-
-        const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, PTR_TO_SIZE(&mn), 0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
         };
 
+        Manager *m = ASSERT_PTR(userdata);
+        const char *mn = NULL;
         int r;
 
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, 0);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &mn);
         if (r != 0)
                 return r;
 

@@ -321,12 +321,27 @@ static int list_targets(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
+typedef struct DescribeParams {
+        Version v;
+        sd_json_variant *contents_json;
+        bool newest;
+        bool available;
+        bool installed;
+        bool obsolete;
+        bool protected;
+        bool incomplete;
+} DescribeParams;
+
+static void describe_params_done(DescribeParams *p) {
+        assert(p);
+
+        version_done(&p->v);
+        sd_json_variant_unref(p->contents_json);
+}
+
 static int parse_describe(sd_bus_message *reply, Version *ret) {
-        Version v = {};
         char *version_json = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *contents_json = NULL;
-        bool newest = false, available = false, installed = false, obsolete = false, protected = false,
-                incomplete = false;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         int r;
 
         assert(reply);
@@ -342,36 +357,37 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
 
         assert(sd_json_variant_is_object(json));
 
-        r = sd_json_dispatch(json,
-                             (const sd_json_dispatch_field[]) {
-                                     { "version",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  PTR_TO_SIZE(&v.version),     0 },
-                                     { "newest",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&newest),        0 },
-                                     { "available",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&available),     0 },
-                                     { "installed",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&installed),     0 },
-                                     { "obsolete",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&obsolete),      0 },
-                                     { "protected",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&protected),     0 },
-                                     { "incomplete",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, PTR_TO_SIZE(&incomplete),    0 },
-                                     { "changelog_urls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    PTR_TO_SIZE(&v.changelog),   0 },
-                                     { "contents",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, PTR_TO_SIZE(&contents_json), 0 },
-                                     {},
-                             },
-                             SD_JSON_ALLOW_EXTENSIONS,
-                             /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "version",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
+                { "newest",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
+                { "available",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
+                { "installed",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
+                { "obsolete",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "protected",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
+                { "incomplete",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
+                { "changelog_urls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
+                { "contents",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(DescribeParams, contents_json), 0 },
+                {},
+        };
+
+        _cleanup_(describe_params_done) DescribeParams p = {};
+
+        r = sd_json_dispatch(json, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON: %m");
 
-        SET_FLAG(v.flags, UPDATE_NEWEST, newest);
-        SET_FLAG(v.flags, UPDATE_AVAILABLE, available);
-        SET_FLAG(v.flags, UPDATE_INSTALLED, installed);
-        SET_FLAG(v.flags, UPDATE_OBSOLETE, obsolete);
-        SET_FLAG(v.flags, UPDATE_PROTECTED, protected);
-        SET_FLAG(v.flags, UPDATE_INCOMPLETE, incomplete);
+        SET_FLAG(p.v.flags, UPDATE_NEWEST, p.newest);
+        SET_FLAG(p.v.flags, UPDATE_AVAILABLE, p.available);
+        SET_FLAG(p.v.flags, UPDATE_INSTALLED, p.installed);
+        SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
+        SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
+        SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
 
-        r = sd_json_variant_format(contents_json, 0, &v.contents_json);
+        r = sd_json_variant_format(p.contents_json, 0, &p.v.contents_json);
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON for contents: %m");
 
-        *ret = TAKE_STRUCT(v);
+        *ret = TAKE_STRUCT(p.v);
         return 0;
 }
 
