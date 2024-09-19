@@ -4551,7 +4551,7 @@ static int run(int argc, char *argv[]) {
                 PHASE_CREATE,
                 _PHASE_MAX
         } phase;
-        int r, k;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -4694,18 +4694,12 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 /* The non-globbing ones usually create things, hence we apply them first */
-                ORDERED_HASHMAP_FOREACH(a, c.items) {
-                        k = process_item_array(&c, a, op);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                ORDERED_HASHMAP_FOREACH(a, c.items)
+                        RET_GATHER(r, process_item_array(&c, a, op));
 
                 /* The globbing ones usually alter things, hence we apply them second. */
-                ORDERED_HASHMAP_FOREACH(a, c.globs) {
-                        k = process_item_array(&c, a, op);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                ORDERED_HASHMAP_FOREACH(a, c.globs)
+                        RET_GATHER(r, process_item_array(&c, a, op));
         }
 
         if (ERRNO_IS_RESOURCE(r))
