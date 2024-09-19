@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -7909,6 +7910,10 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
         return support & mask;
 }
 
+static void print_field(const char *s, bool supported) {
+        printf("%s%s%s%s\n", supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
+}
+
 int verb_has_tpm2_generic(bool quiet) {
         Tpm2Support s;
 
@@ -7916,22 +7921,17 @@ int verb_has_tpm2_generic(bool quiet) {
 
         if (!quiet) {
                 if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
+                        printf("%syes%s\n", ansi_green(), ansi_normal());
                 else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
+                        printf("%sno%s\n", ansi_red(), ansi_normal());
                 else
-                        puts("partial");
+                        printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
+                print_field("firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field("driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field("system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field("subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field("libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
