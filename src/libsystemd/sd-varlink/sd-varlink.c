@@ -410,7 +410,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
         if (!full_cmdline)
                 return log_oom_debug();
-        r = strv_extend_strv(&full_cmdline, cmdline, /* filter_duplicates= */ false);
+        r = strv_extend_strv_consume(&full_cmdline, TAKE_PTR(cmdline), /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom_debug();
 
