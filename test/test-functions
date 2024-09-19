@@ -84,14 +84,12 @@ add_at_exit_handler() {
 }
 
 # Decide if we can (and want to) run qemu with KVM acceleration.
-# Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
-# check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
-# running under KVM. If these conditions are met, enable KVM (and possibly
-# nested KVM), otherwise disable it.
-if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && ! systemd-detect-virt -qv); then
-    QEMU_KVM=yes
-else
+# Check if KVM is not explicitly disabled (TEST_NO_KVM), otherwise
+# enable KVM (and possibly nested KVM).
+if get_bool "${TEST_NO_KVM:=}"; then
     QEMU_KVM=no
+else
+    QEMU_KVM=yes
 fi
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
