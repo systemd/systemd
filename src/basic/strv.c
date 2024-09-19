@@ -396,7 +396,7 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
 }
 
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
-        _cleanup_strv_free_ char **l = NULL;
+        char **l;
         int r;
 
         assert(t);
@@ -406,7 +406,7 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv(t, l, filter_duplicates);
+        r = strv_extend_strv_consume(t, l, filter_duplicates);
         if (r < 0)
                 return r;
 
