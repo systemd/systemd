@@ -709,7 +709,7 @@ TEST(setpriority_closest) {
         int r;
 
         r = safe_fork("(test-setprio)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG, NULL);
         ASSERT_OK(r);
 
         if (r == 0) {
@@ -879,7 +879,7 @@ TEST(get_process_threads) {
         int r;
 
         /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
-        r = safe_fork("(nthreads)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_WAIT|FORK_LOG, NULL);
+        r = safe_fork("(nthreads)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
         ASSERT_OK(r);
 
         if (r == 0) {
@@ -923,7 +923,7 @@ TEST(get_process_threads) {
 TEST(is_reaper_process) {
         int r;
 
-        r = safe_fork("(regular)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        r = safe_fork("(regular)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_WAIT, NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 /* child */
@@ -932,7 +932,7 @@ TEST(is_reaper_process) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = safe_fork("(newpid)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        r = safe_fork("(newpid)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_WAIT, NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 /* child */
@@ -944,7 +944,7 @@ TEST(is_reaper_process) {
                         }
                 }
 
-                r = safe_fork("(newpid1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+                r = safe_fork("(newpid1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_WAIT, NULL);
                 ASSERT_OK(r);
                 if (r == 0) {
                         /* grandchild, which is PID1 in a pidns */
@@ -956,7 +956,7 @@ TEST(is_reaper_process) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_WAIT, NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 /* child */
@@ -978,7 +978,7 @@ TEST(pid_get_start_time) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
 
-        ASSERT_OK(pidref_safe_fork("(stub)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &child));
+        ASSERT_OK(pidref_safe_fork("(stub)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG, &child));
 
         usec_t start_time2;
         ASSERT_OK(pidref_get_start_time(&child, &start_time2));
