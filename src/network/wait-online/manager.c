@@ -4,7 +4,11 @@
 #include <linux/if.h>
 #include <fnmatch.h>
 
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
+#include "json-util.h"
 #include "link.h"
 #include "manager.h"
 #include "netlink-util.h"
@@ -69,6 +73,7 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
         AddressFamily required_family;
         bool needs_ipv4;
         bool needs_ipv6;
+        int r;
 
         assert(m);
         assert(l);
@@ -131,6 +136,26 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
                 if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
                         return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                                     "No routable IPv6 address is configured.");
+        }
+
+        if (m->requires_dns) {
+                AddressFamily accessible = ADDRESS_FAMILY_NO;
+
+                r = link_check_dns_accessible(l, &accessible);
+                if (r < 0)
+                        log_link_debug_errno(l, r, "Failed to check accessible DNS servers, ignoring: %m");
+
+                if (accessible == ADDRESS_FAMILY_NO)
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No DNS server is accessible.");
+
+                if (needs_ipv4 && !FLAGS_SET(accessible, ADDRESS_FAMILY_IPV4))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv4 DNS server is accessible.");
+
+                if (needs_ipv6 && !FLAGS_SET(accessible, ADDRESS_FAMILY_IPV6))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv6 DNS server is accessible.");
         }
 
         log_link_debug(l, "link is configured by networkd and online.");
@@ -381,13 +406,122 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+static int on_dns_configuration_event(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        sd_json_variant *configuration = NULL, *v = NULL;
+        int r;
+
+        assert(link);
+
+        if (error_id) {
+                log_warning("DNS configuration event error, ignoring: %s", error_id);
+                return 0;
+        }
+
+        configuration = sd_json_variant_by_key(parameters, "configuration");
+        if (!configuration || !sd_json_variant_is_array(configuration)) {
+                log_warning("DNS configuration JSON data does not have configuration key, ignoring.");
+                return 0;
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(v, configuration) {
+                _cleanup_strv_free_ char **dns = NULL;
+                sd_json_variant *w = NULL;
+                uint64_t ifindex;
+
+                if (!sd_json_variant_is_object(v)) {
+                        log_warning("DNS event JSON is not an array of objects, ignoring.");
+                        continue;
+                }
+
+                w = sd_json_variant_by_key(v, "interfaceIndex");
+                if (!w || !sd_json_variant_is_unsigned(w)) {
+                        log_warning("DNS configuration object does not have interfaceIndex key, ignoring.");
+                        continue;
+                }
+                ifindex = sd_json_variant_unsigned(w);
+
+                w = sd_json_variant_by_key(v, "dnsServers");
+                if (!w || !sd_json_variant_is_array(w)) {
+                        log_warning("DNS configuration object does not have dnsServers key, ignoring.");
+                        continue;
+                }
+
+                r = sd_json_variant_strv(w, &dns);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse dnsServers section, ignoring: %m");
+                        continue;
+                }
+
+                if (ifindex > 0) {
+                        Link *l = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
+                        if (l)
+                                strv_free_and_replace(l->dns_servers, dns);
+                } else
+                        /* Global DNS configuration */
+                        strv_free_and_replace(m->dns_servers, dns);
+        }
+
+        if (manager_configured(m))
+                sd_event_exit(m->event, 0);
+
+        return 0;
+}
+
+static int manager_dns_configuration_listen(Manager *m) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        assert(m);
+        assert(m->event);
+
+        if (!m->requires_dns)
+                return 0;
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to io.systemd.Resolve.Monitor: %m");
+
+        r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set varlink timeout: %m");
+
+        r = sd_varlink_attach_event(vl, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        (void) sd_varlink_set_userdata(vl, m);
+
+        r = sd_varlink_bind_reply(vl, on_dns_configuration_event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind varlink reply callback: %m");
+
+        r = sd_varlink_observebo(
+                        vl,
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", false));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue SubscribeDNSConfiguration: %m");
+
+        m->varlink_client = TAKE_PTR(vl);
+
+        return 0;
+}
+
 int manager_new(Manager **ret,
                 Hashmap *command_line_interfaces_by_name,
                 char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
                 AddressFamily required_family,
                 bool any,
-                usec_t timeout) {
+                usec_t timeout,
+                bool requires_dns) {
 
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -404,6 +538,7 @@ int manager_new(Manager **ret,
                 .required_operstate = required_operstate,
                 .required_family = required_family,
                 .any = any,
+                .requires_dns = requires_dns,
         };
 
         r = sd_event_default(&m->event);
@@ -428,6 +563,10 @@ int manager_new(Manager **ret,
         if (r < 0)
                 return r;
 
+        r = manager_dns_configuration_listen(m);
+        if (r < 0)
+                return r;
+
         *ret = TAKE_PTR(m);
 
         return 0;
@@ -440,11 +579,14 @@ Manager* manager_free(Manager *m) {
         hashmap_free_with_destructor(m->links_by_index, link_free);
         hashmap_free(m->links_by_name);
 
+        strv_free(m->dns_servers);
+
         sd_event_source_unref(m->network_monitor_event_source);
         sd_network_monitor_unref(m->network_monitor);
         sd_event_source_unref(m->rtnl_event_source);
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
+        sd_varlink_unref(m->varlink_client);
 
         return mfree(m);
 }
