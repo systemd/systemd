@@ -3,6 +3,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
 #include "link.h"
@@ -61,6 +62,8 @@ Link *link_free(Link *l) {
                 STRV_FOREACH(n, l->altnames)
                         hashmap_remove(l->manager->links_by_name, *n);
         }
+
+        dns_configuration_free(l->dns_configuration);
 
         free(l->state);
         free(l->ifname);
