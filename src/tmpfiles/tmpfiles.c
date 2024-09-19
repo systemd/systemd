@@ -250,12 +250,12 @@ static void context_done(Context *c) {
 }
 
 /* Different kinds of errors that mean that information is not available in the environment. */
-static bool ERRNO_IS_NOINFO(int r) {
-        return IN_SET(abs(r),
-                      EUNATCH,    /* os-release or machine-id missing */
-                      ENOMEDIUM,  /* machine-id or another file empty */
-                      ENOPKG,     /* machine-id is uninitialized */
-                      ENXIO);     /* env var is unset */
+static bool ERRNO_IS_NEG_NOINFO(intmax_t r) {
+        return IN_SET(r,
+                      -EUNATCH,    /* os-release or machine-id missing */
+                      -ENOMEDIUM,  /* machine-id or another file empty */
+                      -ENOPKG,     /* machine-id is uninitialized */
+                      -ENXIO);     /* env var is unset */
 }
 
 static int specifier_directory(
@@ -360,15 +360,15 @@ static int user_config_paths(char*** ret) {
                 return r;
 
         r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
         r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
         r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
         r = strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/user-tmpfiles.d");
@@ -3694,7 +3694,7 @@ static int parse_line(
         i.purge = purge;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
-        if (ERRNO_IS_NOINFO(r))
+        if (ERRNO_IS_NEG_NOINFO(r))
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -3858,7 +3858,7 @@ static int parse_line(
         if (!unbase64) {
                 /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
-                if (ERRNO_IS_NOINFO(r))
+                if (ERRNO_IS_NEG_NOINFO(r))
                         return log_unresolvable_specifier(fname, line);
                 if (r < 0) {
                         if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -4551,7 +4551,7 @@ static int run(int argc, char *argv[]) {
                 PHASE_CREATE,
                 _PHASE_MAX
         } phase;
-        int r, k;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -4694,21 +4694,15 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 /* The non-globbing ones usually create things, hence we apply them first */
-                ORDERED_HASHMAP_FOREACH(a, c.items) {
-                        k = process_item_array(&c, a, op);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                ORDERED_HASHMAP_FOREACH(a, c.items)
+                        RET_GATHER(r, process_item_array(&c, a, op));
 
                 /* The globbing ones usually alter things, hence we apply them second. */
-                ORDERED_HASHMAP_FOREACH(a, c.globs) {
-                        k = process_item_array(&c, a, op);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                ORDERED_HASHMAP_FOREACH(a, c.globs)
+                        RET_GATHER(r, process_item_array(&c, a, op));
         }
 
-        if (ERRNO_IS_RESOURCE(r))
+        if (ERRNO_IS_NEG_RESOURCE(r))
                 return r;
         if (invalid_config)
                 return EX_DATAERR;
