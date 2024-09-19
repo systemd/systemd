@@ -2464,7 +2464,7 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                if (!ADD_SAFE(&size, size, ALIGN4(info->FileSize)))
+                if (!INC_SAFE(&size, ALIGN4(info->FileSize)))
                         return EFI_OUT_OF_RESOURCES;
         }
 
