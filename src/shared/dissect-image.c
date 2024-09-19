@@ -999,6 +999,9 @@ static int dissect_image(
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
+                        log_debug("Dissecting %s partition with label %s and UUID %s",
+                                  strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
+
                         if (IN_SET(type.designator,
                                    PARTITION_HOME,
                                    PARTITION_SRV,
