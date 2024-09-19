@@ -128,7 +128,7 @@ static int emit_deprecation_warning(void) {
                                 NULL,
                                 &b);
 
-                r = strv_extend_strv(&a, b, true);
+                r = strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates = */ true);
                 if (r < 0)
                         return r;
         }
