@@ -660,6 +660,46 @@ TEST(strv_extend_strv) {
         assert_se(strv_length(n) == 4);
 }
 
+TEST(strv_extend_strv_consume) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **n = NULL;
+        const char *s1, *s2, *s3;
+
+        ASSERT_NOT_NULL(a = strv_new("abc", "def", "ghi"));
+        ASSERT_NOT_NULL(b = strv_new("jkl", "mno", "abc", "pqr"));
+
+        s1 = b[0];
+        s2 = b[1];
+        s3 = b[3];
+
+        ASSERT_EQ(strv_extend_strv_consume(&a, TAKE_PTR(b), true), 3);
+
+        assert_se(s1 == a[3]);
+        assert_se(s2 == a[4]);
+        assert_se(s3 == a[5]);
+
+        ASSERT_STREQ(a[0], "abc");
+        ASSERT_STREQ(a[1], "def");
+        ASSERT_STREQ(a[2], "ghi");
+        ASSERT_STREQ(a[3], "jkl");
+        ASSERT_STREQ(a[4], "mno");
+        ASSERT_STREQ(a[5], "pqr");
+        ASSERT_EQ(strv_length(a), (size_t) 6);
+
+        ASSERT_NOT_NULL(c = strv_new("jkl", "mno"));
+
+        s1 = c[0];
+        s2 = c[1];
+
+        ASSERT_EQ(strv_extend_strv_consume(&n, TAKE_PTR(c), false), 2);
+
+        assert_se(s1 == n[0]);
+        assert_se(s2 == n[1]);
+
+        ASSERT_STREQ(n[0], "jkl");
+        ASSERT_STREQ(n[1], "mno");
+        ASSERT_EQ(strv_length(n), (size_t) 2);
+}
+
 TEST(strv_extend_with_size) {
         _cleanup_strv_free_ char **a = NULL;
         size_t n = SIZE_MAX;
