@@ -29,7 +29,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-nsresourced</command> is a system service that permits transient delegation of a a
+    <para><command>systemd-nsresourced</command> is a system service that permits transient delegation of a
     UID/GID range to a user namespace (see <citerefentry
     project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
     allocated by a client, via a Varlink IPC API.</para>
