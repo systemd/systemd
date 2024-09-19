@@ -487,7 +487,7 @@ static Partition *partition_new(void) {
                 return NULL;
 
         *p = (Partition) {
-                .weight = 1000,
+                .weight = UINT32_MAX,
                 .padding_weight = 0,
                 .current_size = UINT64_MAX,
                 .new_size = UINT64_MAX,
@@ -608,7 +608,7 @@ static void partition_foreignize(Partition *p) {
         p->compression_level = mfree(p->compression_level);
 
         p->priority = 0;
-        p->weight = 1000;
+        p->weight = UINT32_MAX;
         p->padding_weight = 0;
         p->size_min = UINT64_MAX;
         p->size_max = UINT64_MAX;
@@ -1126,7 +1126,7 @@ static uint64_t scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight
         assert(weight_sum >= weight);
 
         for (;;) {
-                if (weight == 0)
+                if (IN_SET(weight, 0, UINT32_MAX))
                         return 0;
                 if (weight == weight_sum)
                         return value;
@@ -2454,6 +2454,20 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                     PARTITION_ROOT_VERITY,
                     PARTITION_USR_VERITY) || p->verity == VERITY_DATA) && p->read_only < 0)
                 p->read_only = true;
+
+        /* Don't automatically grow ESP, XBOOTLDR and verity partitions. ESP and XBOOTLDR are*/
+        if (p->weight == UINT32_MAX) {
+                if (IN_SET(p->type.designator,
+                           PARTITION_ROOT_VERITY,
+                           PARTITION_USR_VERITY,
+                           PARTITION_ROOT_VERITY_SIG,
+                           PARTITION_USR_VERITY_SIG,
+                           PARTITION_ESP,
+                           PARTITION_XBOOTLDR) || p->verity == VERITY_DATA)
+                        p->weight = 0;
+                else
+                        p->weight = 1000;
+        }
 
         /* Default to "growfs" on, unless read-only */
         if (gpt_partition_type_knows_growfs(p->type) &&
