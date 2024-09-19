@@ -16,25 +16,6 @@
 #include "strv.h"
 #include "unit-file.h"
 
-bool unit_type_may_alias(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_DEVICE,
-                      UNIT_TIMER,
-                      UNIT_PATH);
-}
-
-bool unit_type_may_template(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_TIMER,
-                      UNIT_PATH);
-}
-
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation) {
         _cleanup_free_ char *template = NULL;
         int r, un_type1, un_type2;
