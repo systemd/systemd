@@ -23,19 +23,6 @@ static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
-static int add_modules(const char *p) {
-        _cleanup_strv_free_ char **k = NULL;
-
-        k = strv_split(p, ",");
-        if (!k)
-                return log_oom();
-
-        if (strv_extend_strv(&arg_proc_cmdline_modules, k, true) < 0)
-                return log_oom();
-
-        return 0;
-}
-
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -44,9 +31,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = add_modules(value);
+                r = strv_split_and_extend(&arg_proc_cmdline_modules, value, ",", /* filter_duplicates = */ true);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to parse modules_load= kernel command line option: %m");
         }
 
         return 0;
