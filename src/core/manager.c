@@ -1936,12 +1936,16 @@ static void manager_preset_all(Manager *m) {
         UnitFilePresetMode mode =
                 ENABLE_FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
-        if (r < 0)
-                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
-                               "Failed to populate /etc with preset unit settings, ignoring: %m");
-        else
-                log_info("Populated /etc with preset unit settings.");
+        RuntimeScope scope;
+
+        FOREACH_ARGUMENT(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER) {
+                r = unit_file_preset_all(scope, 0, NULL, mode, NULL, 0);
+                if (r < 0)
+                        log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
+                                       "Failed to populate /etc with %s preset unit settings, ignoring: %m", runtime_scope_to_string(scope));
+                else
+                        log_info("Populated /etc with %s preset unit settings.", runtime_scope_to_string(scope));
+        }
 }
 
 static void manager_ready(Manager *m) {
