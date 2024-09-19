@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-ifname.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 #include "link.h"
 #include "manager.h"
+#include "resolve-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -65,6 +71,7 @@ Link *link_free(Link *l) {
         free(l->state);
         free(l->ifname);
         strv_free(l->altnames);
+        strv_free(l->dns);
         return mfree(l);
 }
 
@@ -140,6 +147,90 @@ static int link_update_altnames(Link *l, sd_netlink_message *m) {
                 r = hashmap_ensure_put(&l->manager->links_by_name, &string_hash_ops, *n, l);
                 if (r < 0)
                         return r;
+        }
+
+        return 0;
+}
+
+static int link_update_dns_from_resolv_conf(Link *l) {
+        _cleanup_strv_free_ char **dns = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        log_link_debug(l, "Attempting to read DNS servers from /etc/resolv.conf");
+
+        f = fopen("/etc/resolv.conf", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *a;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (IN_SET(*line, '#', ';', 0))
+                        continue;
+
+                a = first_word(line, "nameserver");
+                if (!a)
+                        continue;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+                        union in_addr_union addr;
+                        int family;
+
+                        r = extract_first_word(&a, &word, NULL, 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = in_addr_from_string_auto(word, &family, &addr);
+                        if (r < 0)
+                                return r;
+
+                        if (dns_server_address_valid(family, &addr)) {
+                                r = strv_push(&dns, TAKE_PTR(word));
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        strv_free_and_replace(l->dns, dns);
+
+        return 0;
+}
+
+static int link_update_dns(Link *l) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        /* If we determine that systemd-resolved is running, then we can keep
+         * things simple and check sd_network_link_get_dns() to determine DNS
+         * servers configured for an interface.
+         *
+         * In the case that systemd-resolved is not in use, let's check
+         * /etc/resolv.conf directly. */
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0) {
+                r = link_update_dns_from_resolv_conf(l);
+                if (r < 0)
+                        return r;
+        } else {
+                _cleanup_strv_free_ char **dns = NULL;
+
+                r = sd_network_link_get_dns(l->ifindex, &dns);
+                if (r < 0)
+                        return r;
+
+                strv_free_and_replace(l->dns, dns);
         }
 
         return 0;
@@ -245,6 +336,10 @@ int link_update_monitor(Link *l) {
                 ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
         else
                 free_and_replace(l->state, state);
+
+        r = link_update_dns(l);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to update DNS servers, ignoring: %m");
 
         return ret;
 }

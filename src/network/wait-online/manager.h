@@ -23,6 +23,7 @@ struct Manager {
         LinkOperationalStateRange required_operstate;
         AddressFamily required_family;
         bool any;
+        bool requires_dns;
 
         sd_netlink *rtnl;
         sd_event_source *rtnl_event_source;
@@ -37,7 +38,7 @@ Manager* manager_free(Manager *m);
 int manager_new(Manager **ret, Hashmap *command_line_interfaces_by_name, char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
                 AddressFamily required_family,
-                bool any, usec_t timeout);
+                bool any, usec_t timeout, bool requires_dns);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

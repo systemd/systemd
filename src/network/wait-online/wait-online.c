@@ -22,6 +22,7 @@ static char **arg_ignore = NULL;
 static LinkOperationalStateRange arg_required_operstate = LINK_OPERSTATE_RANGE_INVALID;
 static AddressFamily arg_required_family = ADDRESS_FAMILY_NO;
 static bool arg_any = false;
+static bool arg_requires_dns = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ignore, strv_freep);
@@ -48,6 +49,7 @@ static int help(void) {
                "  -6 --ipv6                 Requires at least one IPv6 address\n"
                "     --any                  Wait until at least one of the interfaces is online\n"
                "     --timeout=SECS         Maximum time to wait for network connectivity\n"
+               "     --dns                  Requires at least one DNS server to be configured\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -106,6 +108,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IGNORE,
                 ARG_ANY,
                 ARG_TIMEOUT,
+                ARG_DNS,
         };
 
         static const struct option options[] = {
@@ -119,6 +122,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ipv6",              no_argument,       NULL, '6'         },
                 { "any",               no_argument,       NULL, ARG_ANY     },
                 { "timeout",           required_argument, NULL, ARG_TIMEOUT },
+                { "dns",               no_argument,       NULL, ARG_DNS     },
                 {}
         };
 
@@ -178,6 +182,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_DNS:
+                        arg_requires_dns = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -204,7 +212,14 @@ static int run(int argc, char *argv[]) {
         if (arg_quiet)
                 log_set_max_level(LOG_ERR);
 
-        r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_required_family, arg_any, arg_timeout);
+        r = manager_new(&m,
+                        arg_interfaces,
+                        arg_ignore,
+                        arg_required_operstate,
+                        arg_required_family,
+                        arg_any,
+                        arg_timeout,
+                        arg_requires_dns);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 
