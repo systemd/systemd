@@ -962,7 +962,9 @@ default         ignore      -         -</programlisting>
       discovered/supported/used, prints <literal>no</literal>. Otherwise prints
       <literal>partial</literal>. In either of these two cases exits with non-zero exit status. It also shows
       five lines indicating separately whether firmware, drivers, the system, the kernel and libraries
-      discovered/support/use TPM2.</para>
+      discovered/support/use TPM2. Currently, required libraries are <filename>libtss2-esys.so.0</filename>,
+      <filename>libtss2-rc.so.0</filename>, and <filename>libtss2-mu.so.0</filename>. The requirement may be
+      changed in the future release.</para>
 
       <para>Note, this checks for TPM 2.0 devices only, and does not consider TPM 1.2 at all.</para>
 

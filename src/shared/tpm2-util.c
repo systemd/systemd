@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -7872,11 +7873,11 @@ int tpm2_sym_mode_from_string(const char *mode) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric mode name '%s'", mode);
 }
 
-Tpm2Support tpm2_support(void) {
+Tpm2Support tpm2_support_full(Tpm2Support mask) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
 
-        if (detect_container() <= 0) {
+        if (((mask & (TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER)) != 0) && detect_container() <= 0) {
                 /* Check if there's a /dev/tpmrm* device via sysfs. If we run in a container we likely just
                  * got the host sysfs mounted. Since devices are generally not virtualized for containers,
                  * let's assume containers never have a TPM, at least for now. */
@@ -7893,18 +7894,24 @@ Tpm2Support tpm2_support(void) {
                         support |= TPM2_SUPPORT_SUBSYSTEM;
         }
 
-        if (efi_has_tpm2())
+        if (FLAGS_SET(mask, TPM2_SUPPORT_FIRMWARE) && efi_has_tpm2())
                 support |= TPM2_SUPPORT_FIRMWARE;
 
 #if HAVE_TPM2
         support |= TPM2_SUPPORT_SYSTEM;
 
-        r = dlopen_tpm2();
-        if (r >= 0)
-                support |= TPM2_SUPPORT_LIBRARIES;
+        if (FLAGS_SET(mask, TPM2_SUPPORT_LIBRARIES)) {
+                r = dlopen_tpm2();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBRARIES;
+        }
 #endif
 
-        return support;
+        return support & mask;
+}
+
+static void print_field(const char *s, bool supported) {
+        printf("%s%s%s%s\n", supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
 }
 
 int verb_has_tpm2_generic(bool quiet) {
@@ -7914,22 +7921,17 @@ int verb_has_tpm2_generic(bool quiet) {
 
         if (!quiet) {
                 if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
+                        printf("%syes%s\n", ansi_green(), ansi_normal());
                 else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
+                        printf("%sno%s\n", ansi_red(), ansi_normal());
                 else
-                        puts("partial");
+                        printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
+                print_field("firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field("driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field("system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field("subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field("libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
