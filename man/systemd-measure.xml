@@ -385,8 +385,8 @@ Wrote unsigned vmlinux-1.2.3.efi
       by the first <option>--pcr-private-key=</option> option, covering all boot phases. The
       <literal>.pcrpkey</literal> section is used in the default policies of
       <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter policy
-      bound to <filename>tpm-pcr-public-key-initrd.pem</filename>, specify <option>--tpm2-public-key=</option> on
-      the command line of those tools.</para>
+      bound to <filename>tpm2-pcr-public-key-initrd.pem</filename>, specify
+      <option>--tpm2-public-key=</option> on the command line of those tools.</para>
     </example>
   </refsect1>
 

@@ -29,6 +29,9 @@ if ! systemd-detect-virt --quiet --container; then
     udevadm control --log-level debug
 fi
 
+esp_guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+xbootldr_guid=BC13C2FF-59E6-4262-A352-B275FD6F7172
+
 machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
     root_guid=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709
@@ -1325,9 +1328,12 @@ testcase_compression() {
 
     # TODO: add btrfs once btrfs-progs v6.11 is available in distributions.
     for format in squashfs erofs; do
-        if ! command -v "mkfs.$format" && ! command -v mksquashfs >/dev/null; then
-            continue
-        fi
+        case "$format" in
+            squashfs)
+                command -v mksquashfs >/dev/null || continue ;;
+            *)
+                command -v "mkfs.$format" || continue ;;
+        esac
 
         [[ "$format" == "squashfs" ]] && compression=zstd
         [[ "$format" == "erofs" ]] && compression=lz4hc
@@ -1388,6 +1394,121 @@ EOF
 
     sfdisk -d "$imgs/zzz"
     [[ "$(sfdisk -d "$imgs/zzz" | grep -F 'uuid=' | awk '{ print $8 }' | sort -u | wc -l)" == "3" ]]
+}
+
+testcase_make_symlinks() {
+    local defs imgs output
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping MakeSymlinks= test in container."
+        return
+    fi
+
+    # For issue #34257
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+MakeDirectories=/dir
+MakeSymlinks=/foo:/bar
+MakeSymlinks=/dir/foo:/bar
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --json=pretty \
+                   "$imgs/zzz"
+
+    systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
+    assert_eq "$(readlink "$imgs/mnt/foo")" "/bar"
+    assert_eq "$(readlink "$imgs/mnt/dir/foo")" "/bar"
+    systemd-dissect -U "$imgs/mnt"
+}
+
+testcase_fallback_partitions() {
+    local workdir image defs
+
+    workdir="$(mktemp --directory "/tmp/test-repart.fallback.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    image="$workdir/image.img"
+    defs="$workdir/defs"
+    mkdir "$defs"
+
+    tee "$defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+SizeMinBytes=10M
+EOF
+
+    tee "$defs/20-xbootldr.conf" <<EOF
+[Partition]
+Type=xbootldr
+Format=vfat
+SizeMinBytes=100M
+SupplementFor=10-esp
+EOF
+
+    # Blank disk => big ESP should be created
+
+    systemd-repart --empty=create --size=auto --dry-run=no --definitions="$defs" "$image"
+
+    output=$(sfdisk -d "$image")
+    assert_in "${image}1 : start=        2048, size=      204800, type=${esp_guid}" "$output"
+    assert_not_in "${image}2" "$output"
+
+    # Disk with small ESP => ESP grows
+
+    sfdisk "$image" <<EOF
+label: gpt
+size=10M, type=${esp_guid}
+EOF
+
+    systemd-repart --dry-run=no --definitions="$defs" "$image"
+
+    output=$(sfdisk -d "$image")
+    assert_in "${image}1 : start=        2048, size=      204800, type=${esp_guid}" "$output"
+    assert_not_in "${image}2" "$output"
+
+    # Disk with small ESP that can't grow => XBOOTLDR created
+
+    truncate -s 150M "$image"
+    sfdisk "$image" <<EOF
+label: gpt
+size=10M, type=${esp_guid},
+size=10M, type=${root_guid},
+EOF
+
+    systemd-repart --dry-run=no --definitions="$defs" "$image"
+
+    output=$(sfdisk -d "$image")
+    assert_in "${image}1 : start=        2048, size=       20480, type=${esp_guid}" "$output"
+    assert_in "${image}3 : start=       43008, size=      264152, type=${xbootldr_guid}" "$output"
+
+    # Disk with existing XBOOTLDR partition => XBOOTLDR grows, small ESP created
+
+    sfdisk "$image" <<EOF
+label: gpt
+size=10M, type=${xbootldr_guid},
+EOF
+
+    systemd-repart --dry-run=no --definitions="$defs" "$image"
+
+    output=$(sfdisk -d "$image")
+    assert_in "${image}1 : start=        2048, size=      204800, type=${xbootldr_guid}" "$output"
+    assert_in "${image}2 : start=      206848, size=      100312, type=${esp_guid}" "$output"
 }
 
 OFFLINE="yes"

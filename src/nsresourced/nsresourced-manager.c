@@ -6,6 +6,9 @@
 #include "sd-daemon.h"
 
 #include "bpf-dlopen.h"
+#if HAVE_VMLINUX_H
+#include "bpf-link.h"
+#endif
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
@@ -141,8 +144,7 @@ Manager* manager_free(Manager *m) {
 
 #if HAVE_VMLINUX_H
         sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
-        if (m->userns_restrict_bpf_ring_buffer)
-                sym_ring_buffer__free(m->userns_restrict_bpf_ring_buffer);
+        bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
         userns_restrict_bpf_free(m->userns_restrict_bpf);
 #endif
 

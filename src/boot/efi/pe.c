@@ -450,7 +450,7 @@ static size_t pe_section_table_find_profile_length(
         assert(start >= section_table);
         assert(start < section_table + n_section_table);
 
-        /* Look for the next .profile (or the end of the table), this is where the the sections for this
+        /* Look for the next .profile (or the end of the table), this is where the sections for this
          * profile end. The base profile does not start with a .profile, the others do, hence conditionally
          * skip over the first entry. */
         const PeSectionHeader *e;
@@ -485,7 +485,7 @@ EFI_STATUS pe_locate_profile_sections(
         if (!p)
                 return EFI_NOT_FOUND;
 
-        /* Look for the next .profile (or the end of the table), this is where the the sections for this
+        /* Look for the next .profile (or the end of the table), this is where the sections for this
          * profile end. */
         size_t n = pe_section_table_find_profile_length(section_table, n_section_table, p, profile);
 

@@ -2434,6 +2434,8 @@ static int create_interactively(void) {
                 return 0;
         }
 
+        any_key_to_proceed();
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;

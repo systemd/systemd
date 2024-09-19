@@ -1742,7 +1742,7 @@ static int oci_seccomp_args(const char *name, sd_json_variant *v, sd_json_dispat
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                static const struct sd_json_dispatch_field table[] = {
+                static const sd_json_dispatch_field table[] = {
                         { "index",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, offsetof(struct scmp_arg_cmp, arg),     SD_JSON_MANDATORY },
                         { "value",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, offsetof(struct scmp_arg_cmp, datum_a), SD_JSON_MANDATORY },
                         { "valueTwo", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, offsetof(struct scmp_arg_cmp, datum_b), 0                 },

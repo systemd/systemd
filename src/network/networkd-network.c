@@ -590,6 +590,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
         TAKE_PTR(network);
+        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
         return 0;
 }
 
@@ -853,7 +854,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                         return true;
 
         ORDERED_HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
-                if (neighbor->family == AF_INET6)
+                if (neighbor->dst_addr.family == AF_INET6)
                         return true;
 
         if (!hashmap_isempty(network->address_labels_by_section))

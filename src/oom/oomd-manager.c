@@ -657,11 +657,7 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_set_watchdog(m->event, true);
 
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
                 return r;
 

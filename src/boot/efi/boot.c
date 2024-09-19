@@ -13,6 +13,7 @@
 #include "initrd.h"
 #include "linux.h"
 #include "measure.h"
+#include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/block-io.h"
@@ -2420,18 +2421,18 @@ static EFI_STATUS initrd_prepare(
                 EFI_FILE *root,
                 const BootEntry *entry,
                 char16_t **ret_options,
-                void **ret_initrd,
+                Pages *ret_initrd_pages,
                 size_t *ret_initrd_size) {
 
         assert(root);
         assert(entry);
         assert(ret_options);
-        assert(ret_initrd);
+        assert(ret_initrd_pages);
         assert(ret_initrd_size);
 
         if (entry->type != LOADER_LINUX || !entry->initrd) {
                 *ret_options = NULL;
-                *ret_initrd = NULL;
+                *ret_initrd_pages = (Pages) {};
                 *ret_initrd_size = 0;
                 return EFI_SUCCESS;
         }
@@ -2445,7 +2446,6 @@ static EFI_STATUS initrd_prepare(
 
         EFI_STATUS err;
         size_t size = 0;
-        _cleanup_free_ uint8_t *initrd = NULL;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_free_ char16_t *o = options;
@@ -2464,22 +2464,50 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
+                if (!ADD_SAFE(&size, size, ALIGN4(info->FileSize)))
+                        return EFI_OUT_OF_RESOURCES;
+        }
+
+        _cleanup_pages_ Pages pages = xmalloc_pages(
+                AllocateMaxAddress,
+                EfiLoaderData,
+                EFI_SIZE_TO_PAGES(size),
+                UINT32_MAX /* Below 4G boundary. */);
+        uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
+
+        STRV_FOREACH(i, entry->initrd) {
+                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                _cleanup_free_ EFI_FILE_INFO *info = NULL;
+                err = get_file_info(handle, &info, NULL);
+                if (err != EFI_SUCCESS)
+                        return err;
+
                 if (info->FileSize == 0) /* Automatically skip over empty files */
                         continue;
 
-                size_t new_size, read_size = info->FileSize;
-                if (!ADD_SAFE(&new_size, size, read_size))
-                        return EFI_OUT_OF_RESOURCES;
-                initrd = xrealloc(initrd, size, new_size);
-
-                err = chunked_read(handle, &read_size, initrd + size);
+                size_t read_size = info->FileSize;
+                err = chunked_read(handle, &read_size, p);
                 if (err != EFI_SUCCESS)
                         return err;
 
                 /* Make sure the actual read size is what we expected. */
-                assert(size + read_size == new_size);
-                size = new_size;
+                assert(read_size == info->FileSize);
+                p += read_size;
+
+                size_t pad;
+                pad = ALIGN4(read_size) - read_size;
+                if (pad == 0)
+                        continue;
+
+                memzero(p, pad);
+                p += pad;
         }
+
+        assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + size) == p);
 
         if (entry->options) {
                 _cleanup_free_ char16_t *o = options;
@@ -2487,7 +2515,7 @@ static EFI_STATUS initrd_prepare(
         }
 
         *ret_options = TAKE_PTR(options);
-        *ret_initrd = TAKE_PTR(initrd);
+        *ret_initrd_pages = TAKE_STRUCT(pages);
         *ret_initrd_size = size;
         return EFI_SUCCESS;
 }
@@ -2517,9 +2545,9 @@ static EFI_STATUS image_start(
                 return log_error_status(err, "Error making file device path: %m");
 
         size_t initrd_size = 0;
-        _cleanup_free_ void *initrd = NULL;
+        _cleanup_pages_ Pages initrd_pages = {};
         _cleanup_free_ char16_t *options_initrd = NULL;
-        err = initrd_prepare(image_root, entry, &options_initrd, &initrd, &initrd_size);
+        err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error preparing initrd: %m");
 
@@ -2537,7 +2565,7 @@ static EFI_STATUS image_start(
         }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(initrd, initrd_size, &initrd_handle);
+        err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 

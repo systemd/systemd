@@ -1229,7 +1229,7 @@ static int generic_method_get_interface_description(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        static const struct sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 { "interface",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                 {}
         };

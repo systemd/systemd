@@ -1132,15 +1132,21 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to install SIGRTMIN+18 signal handler, ignoring: %m");
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
-        (void) sd_event_set_watchdog(m->event, true);
+        r = sd_event_set_watchdog(m->event, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
         /* Load previous synchronization state */
         r = access("/run/systemd/timesync/synchronized", F_OK);

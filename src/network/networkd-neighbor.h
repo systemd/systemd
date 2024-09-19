@@ -23,8 +23,7 @@ typedef struct Neighbor {
 
         unsigned n_ref;
 
-        int family;
-        union in_addr_union in_addr;
+        struct in_addr_data dst_addr;
         struct hw_addr_data ll_addr;
 } Neighbor;
 
@@ -46,5 +45,11 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Neighbor, neighbor);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
-CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_lladdr);
+typedef enum NeighborConfParserType {
+        NEIGHBOR_DESTINATION_ADDRESS,
+        NEIGHBOR_LINK_LAYER_ADDRESS,
+        _NEIGHBOR_CONF_PARSER_MAX,
+        _NEIGHBOR_CONF_PARSER_INVALID = -EINVAL,
+} NeighborConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_section);

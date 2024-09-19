@@ -526,9 +526,6 @@ def call_systemd_measure(uki, linux, opts):
 
     # First, pick up the sections we shall measure now */
     for s in uki.sections:
-
-        print(s)
-
         if not s.measure:
             continue
 

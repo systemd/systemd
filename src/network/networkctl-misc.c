@@ -5,7 +5,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "fd-util.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "netlink-util.h"
 #include "networkctl.h"
 #include "networkctl-misc.h"

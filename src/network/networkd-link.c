@@ -24,7 +24,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
@@ -251,6 +251,8 @@ static void link_free_engines(Link *link) {
 
 static Link *link_free(Link *link) {
         assert(link);
+
+        (void) sysctl_clear_link_shadows(link);
 
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
@@ -1291,9 +1293,9 @@ static int link_get_network(Link *link, Network **ret) {
                 }
 
                 log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,
-                              "found matching network '%s'%s.",
-                              network->filename,
-                              warn ? ", based on potentially unpredictable interface name" : "");
+                              "Found matching .network file%s: %s",
+                              warn ? ", based on potentially unpredictable interface name" : "",
+                              network->filename);
 
                 if (network->unmanaged)
                         return -ENOENT;
@@ -1302,7 +1304,7 @@ static int link_get_network(Link *link, Network **ret) {
                 return 0;
         }
 
-        return -ENOENT;
+        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOENT), "No matching .network found.");
 }
 
 int link_reconfigure_impl(Link *link, bool force) {

@@ -237,6 +237,8 @@ test_syntax_error 'ENV=="b"' 'Invalid attribute for ENV.'
 test_syntax_error 'ENV{a}-="b"' 'Invalid operator for ENV.'
 test_syntax_error 'ENV{a}:="b"' "ENV key takes '==', '!=', '=', or '+=' operator, assuming '='."
 test_syntax_error 'ENV{ACTION}="b"' "Invalid ENV attribute. 'ACTION' cannot be set."
+test_syntax_error 'ENV{a}=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
+test_syntax_error 'ENV{a}+=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
 test_syntax_error 'CONST=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{a}=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{arch}="b"' 'Invalid operator for CONST.'
@@ -275,10 +277,12 @@ test_syntax_error 'TEST{0644}="b"' 'Invalid operator for TEST.'
 test_syntax_error 'PROGRAM{a}=="b"' 'Invalid attribute for PROGRAM.'
 test_syntax_error 'PROGRAM-="b"' 'Invalid operator for PROGRAM.'
 test_syntax_error 'PROGRAM=="%", NAME="b"' 'Invalid value "%" for PROGRAM (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'PROGRAM==i"b"' "Invalid prefix 'i' for PROGRAM."
 test_syntax_error 'IMPORT="b"' 'Invalid attribute for IMPORT.'
 test_syntax_error 'IMPORT{a}="b"' 'Invalid attribute for IMPORT.'
 test_syntax_error 'IMPORT{a}-="b"' 'Invalid operator for IMPORT.'
 test_syntax_error 'IMPORT{file}=="%", NAME="b"' 'Invalid value "%" for IMPORT (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'IMPORT{file}==i"a", NAME="b"' "Invalid prefix 'i' for IMPORT."
 test_syntax_error 'IMPORT{builtin}!="foo"' 'Unknown builtin command: foo'
 test_syntax_error 'RESULT{a}=="b"' 'Invalid attribute for RESULT.'
 test_syntax_error 'RESULT:="b"' 'Invalid operator for RESULT.'

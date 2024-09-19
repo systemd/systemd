@@ -15,7 +15,8 @@ ConditionNeedsUpdate=|/etc
 ConditionFileNotEmpty=|!/etc/ld.so.cache
 
 DefaultDependencies=no
-After=local-fs.target
+# systemd-confext.service might put the ld.so.conf configuration files in place so order this after that.
+After=local-fs.target systemd-confext.service
 Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target

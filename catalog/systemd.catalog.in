@@ -788,9 +788,22 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:systemd-tpm2-setup.service(8)
 
-An authorization failure occurred while attempting to enroll a Storage Root Key (SRK) on the Trusted Platform
-Module (TPM). Most likely this means that a PIN/Password (authValue) has been set on the Owner hierarchy of
-the TPM.
+An authorization failure occurred while attempting to enroll a Storage Root Key
+(SRK) on the Trusted Platform Module (TPM). Most likely this means that a
+PIN/Password (authValue) has been set on the Owner hierarchy of the TPM.
 
-Automatic SRK enrollment on TPMs in such scenarios is not supported. In order to unset the PIN/password
-protection on the owner hierarchy issue a command like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
+Automatic SRK enrollment on TPMs in such scenarios is not supported. In order
+to unset the PIN/password protection on the owner hierarchy issue a command
+like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
+
+-- 9cf56b8baf9546cf9478783a8de42113
+Subject: A foreign process changed a sysctl systemd-networkd manages
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The sysctl configuration setting @SYSCTL@, which is managed by
+systemd-networkd, has been changed by another, unrelated process
+("@OBJECT_COMM@", PID @OBJECT_PID@). This represents a conflict of ownership
+and will likely result in problems later on.
+
+Value changed to "@NEWVALUE@", which should be "@OURVALUE@".

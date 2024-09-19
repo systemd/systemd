@@ -973,7 +973,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        log_netdev_debug(netdev, "loaded \"%s\"", netdev_kind_to_string(netdev->kind));
+        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
 
         r = netdev_request_to_create(netdev);
         if (r < 0)

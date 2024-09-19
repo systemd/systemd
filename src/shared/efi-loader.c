@@ -61,30 +61,19 @@ int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
         return 0;
 }
 
-int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-        unsigned parsed[16];
-
+static int get_device_part_uuid(const char *variable, sd_id128_t *ret) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), &p);
-        if (r < 0)
-                return r;
+        return efi_get_variable_id128(variable, ret);
+}
 
-        if (sscanf(p, SD_ID128_UUID_FORMAT_STR,
-                   &parsed[0], &parsed[1], &parsed[2], &parsed[3],
-                   &parsed[4], &parsed[5], &parsed[6], &parsed[7],
-                   &parsed[8], &parsed[9], &parsed[10], &parsed[11],
-                   &parsed[12], &parsed[13], &parsed[14], &parsed[15]) != 16)
-                return -EIO;
+int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
+        return get_device_part_uuid(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), ret);
+}
 
-        if (ret)
-                for (unsigned i = 0; i < ELEMENTSOF(parsed); i++)
-                        ret->bytes[i] = parsed[i];
-
-        return 0;
+int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
+        return get_device_part_uuid(EFI_LOADER_VARIABLE(StubDevicePartUUID), ret);
 }
 
 int efi_loader_get_entries(char ***ret) {
@@ -351,6 +340,22 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         free_and_replace(*cache, v);
 
         return 0;
+}
+
+int efi_get_variable_id128(const char *variable, sd_id128_t *ret) {
+        int r;
+
+        assert(variable);
+
+        /* This is placed here (rather than in basic/efivars.c) because code in basic/ is not allowed to link
+         * against libsystemd.so */
+
+        _cleanup_free_ char *p = NULL;
+        r = efi_get_variable_string(variable, &p);
+        if (r < 0)
+                return r;
+
+        return sd_id128_from_string(p, ret);
 }
 
 #endif

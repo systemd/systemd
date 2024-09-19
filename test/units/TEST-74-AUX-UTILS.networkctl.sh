@@ -21,6 +21,9 @@ at_exit() {
 
 trap at_exit EXIT
 
+systemctl unmask systemd-networkd.service
+systemctl start systemd-networkd.service
+
 export NETWORK_NAME="10-networkctl-test-$RANDOM.network"
 export NETDEV_NAME="10-networkctl-test-$RANDOM.netdev"
 export LINK_NAME="10-networkctl-test-$RANDOM.link"
@@ -75,15 +78,6 @@ cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test.conf"
 networkctl cat "$NETWORK_NAME" | grep '^# ' |
     cmp - <(printf '%s\n' "# /etc/systemd/network/$NETWORK_NAME" "# /etc/systemd/network/${NETWORK_NAME}.d/test.conf")
 
-networkctl edit --stdin --runtime "$NETDEV_NAME" <<EOF
-[NetDev]
-Name=test2
-Kind=dummy
-EOF
-
-networkctl cat "$NETDEV_NAME" | grep -v '^# ' |
-    cmp - <(printf '%s\n' "[NetDev]" "Name=test2" "Kind=dummy")
-
 cat >"/usr/lib/systemd/network/$LINK_NAME" <<EOF
 [Match]
 OriginalName=test2
@@ -95,13 +89,23 @@ EOF
 SYSTEMD_LOG_LEVEL=debug EDITOR='true' script -ec 'networkctl edit "$LINK_NAME"' /dev/null
 cmp "/usr/lib/systemd/network/$LINK_NAME" "/etc/systemd/network/$LINK_NAME"
 
-# Test links
-systemctl unmask systemd-networkd
-systemctl stop systemd-networkd
+# The interface test2 does not exist, hence the below do not work.
 (! networkctl cat @test2)
 (! networkctl cat @test2:netdev)
+(! networkctl cat @test2:link)
+(! networkctl cat @test2:network)
 
-systemctl start systemd-networkd
+# create .netdev file at last, otherwise, the .link file will not be applied to the interface.
+networkctl edit --stdin --runtime "$NETDEV_NAME" <<EOF
+[NetDev]
+Name=test2
+Kind=dummy
+EOF
+
+networkctl cat "$NETDEV_NAME" | grep -v '^# ' |
+    cmp - <(printf '%s\n' "[NetDev]" "Name=test2" "Kind=dummy")
+
+# wait for the interface being created and configured.
 SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-networkd-wait-online -i test2:carrier --timeout 20
 
 networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
