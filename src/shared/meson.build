@@ -170,6 +170,7 @@ shared_sources = files(
         'tpm2-util.c',
         'tpm2-event-log.c',
         'udev-util.c',
+        'unit-file.c',
         'user-record-nss.c',
         'user-record-show.c',
         'user-record.c',
