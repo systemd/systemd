@@ -879,6 +879,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@sync",
                 .help = "Synchronize files and memory to storage",
                 .value =
+                /* Please also update the list in seccomp_suppress_sync(). */
                 "fdatasync\0"
                 "fsync\0"
                 "msync\0"
@@ -2483,11 +2484,21 @@ int seccomp_suppress_sync(void) {
                                 continue;
                         }
 
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
-                                        id,
-                                        0);
+                        if (STR_IN_SET(c, "fdatasync", "fsync", "sync_file_range", "sync_file_range2", "syncfs"))
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
+                                                id,
+                                                1,
+                                                SCMP_A0(SCMP_CMP_LE, INT_MAX)); /* The rule handles arguments in unsigned. Hence, this
+                                                                                 * means non-negative fd matches the rule, and the
+                                                                                 * negative fd passed to the syscall (then it fails EBADF). */
+                        else
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
+                                                id,
+                                                0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to add filter for system call %s, ignoring: %m", c);
                 }
