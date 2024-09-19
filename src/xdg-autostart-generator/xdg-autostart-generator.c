@@ -20,6 +20,39 @@
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(xdgautostartservice_hash_ops, char, string_hash_func, string_compare_func, XdgAutostartService, xdg_autostart_service_free);
 
+static int xdg_base_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        const char *e;
+
+        /* Implement the mechanisms defined in
+         * https://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html */
+
+        assert(ret_config_dirs);
+        assert(ret_data_dirs);
+
+        e = getenv("XDG_CONFIG_DIRS");
+        if (e)
+                config_dirs = strv_split(e, ":");
+        else
+                config_dirs = strv_new("/etc/xdg");
+        if (!config_dirs)
+                return -ENOMEM;
+
+        e = getenv("XDG_DATA_DIRS");
+        if (e)
+                data_dirs = strv_split(e, ":");
+        else
+                data_dirs = strv_new("/usr/local/share",
+                                     "/usr/share");
+        if (!data_dirs)
+                return -ENOMEM;
+
+        *ret_config_dirs = TAKE_PTR(config_dirs);
+        *ret_data_dirs = TAKE_PTR(data_dirs);
+
+        return 0;
+}
+
 static int enumerate_xdg_autostart(Hashmap *all_services) {
         _cleanup_strv_free_ char **autostart_dirs = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL;
@@ -27,14 +60,14 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         _cleanup_free_ char *user_config_autostart_dir = NULL;
         int r;
 
-        r = xdg_user_config_dir(&user_config_autostart_dir, "/autostart");
+        r = xdg_user_config_dir("/autostart", &user_config_autostart_dir);
         if (r < 0)
                 return r;
         r = strv_extend(&autostart_dirs, user_config_autostart_dir);
         if (r < 0)
                 return r;
 
-        r = xdg_user_dirs(&config_dirs, &data_dirs);
+        r = xdg_base_dirs(&config_dirs, &data_dirs);
         if (r < 0)
                 return r;
         r = strv_extend_strv_concat(&autostart_dirs, (const char* const*) config_dirs, "/autostart");
