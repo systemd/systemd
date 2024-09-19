@@ -18,15 +18,14 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
 }
 
 int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
-        char ***p = userdata;
+        char ***p = ASSERT_PTR(userdata), **l;
         int r;
 
         r = sd_bus_message_read_strv_extend(m, &l);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
-        r = strv_extend_strv(p, l, false);
+        r = strv_extend_strv_consume(p, l, /* filter_duplicates = */ false);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
@@ -65,14 +64,13 @@ static int map_basic(sd_bus_message *m, unsigned flags, void *userdata) {
         }
 
         case SD_BUS_TYPE_ARRAY: {
-                _cleanup_strv_free_ char **l = NULL;
-                char ***p = userdata;
+                char ***p = userdata, **l;
 
                 r = sd_bus_message_read_strv_extend(m, &l);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                return strv_extend_strv(p, l, false);
+                return strv_extend_strv_consume(p, l, /* filter_duplicates = */ false);
         }
 
         case SD_BUS_TYPE_BOOLEAN: {

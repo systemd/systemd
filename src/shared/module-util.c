@@ -49,25 +49,8 @@ int dlopen_libkmod(void) {
                         DLSYM_ARG(kmod_validate_resources));
 }
 
-static int denylist_modules(const char *p, char ***denylist) {
-        _cleanup_strv_free_ char **k = NULL;
-        int r;
-
-        assert(p);
-        assert(denylist);
-
-        k = strv_split(p, ",");
-        if (!k)
-                return -ENOMEM;
-
-        r = strv_extend_strv(denylist, k, /* filter_duplicates= */ true);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        char ***denylist = ASSERT_PTR(data);
         int r;
 
         if (proc_cmdline_key_streq(key, "module_blacklist")) {
@@ -75,7 +58,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = denylist_modules(value, data);
+                r = strv_split_and_extend(denylist, value, ",", /* filter_duplicates = */ true);
                 if (r < 0)
                         return r;
         }

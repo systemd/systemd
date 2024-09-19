@@ -1343,7 +1343,7 @@ int config_parse_strv(
                         return log_oom();
         }
 
-        r = strv_extend_strv(sv, strv, /* filter_duplicates = */ ltype);
+        r = strv_extend_strv_consume(sv, TAKE_PTR(strv), /* filter_duplicates = */ ltype);
         if (r < 0)
                 return log_oom();
 

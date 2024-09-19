@@ -2088,14 +2088,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
-                _cleanup_strv_free_ char **extra = NULL;
-
-                r = strv_split_full(&extra, e, /* separator= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = strv_split_and_extend_full(&cmdline, e,
+                                               /* separator = */ NULL, /* filter_duplicates = */ false,
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to split $SYSTEMD_VMSPAWN_QEMU_EXTRA environment variable: %m");
-
-                if (strv_extend_strv(&cmdline, extra, /* filter_duplicates= */ false) < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
         }
 
         if (DEBUG_LOGGING) {
