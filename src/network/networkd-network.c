@@ -854,7 +854,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                         return true;
 
         ORDERED_HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
-                if (neighbor->family == AF_INET6)
+                if (neighbor->dst_addr.family == AF_INET6)
                         return true;
 
         if (!hashmap_isempty(network->address_labels_by_section))
