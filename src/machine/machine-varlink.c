@@ -14,6 +14,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "varlink-util.h"
@@ -185,6 +186,131 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         /* the manager will free this machine */
         TAKE_PTR(machine);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char *machine_name, Machine **ret_machine) {
+        assert(ret_machine);
+
+        if (!machine_name)
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        if (!hostname_is_valid(machine_name, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        Machine *machine = hashmap_get(manager->machines, machine_name);
+        if (!machine)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+
+        *ret_machine = machine;
+        return 0;
+}
+
+int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "unregister"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_finalize(machine);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "terminate"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_stop(machine);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+typedef struct KillQueryParams {
+        const char *machine_name;
+        const char *swho;
+        int32_t signo;
+} KillQueryParams;
+
+int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(KillQueryParams, machine_name), SD_JSON_MANDATORY },
+                { "who",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(KillQueryParams, swho),         0 },
+                { "signal", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int32,        offsetof(KillQueryParams, signo),        SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        KillQueryParams p = {
+            .machine_name = NULL,
+            .swho = NULL
+        };
+        KillWhom whom;
+        int r;
+
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Machine *machine = NULL;
+        r = lookup_machine_by_name(link, manager, p.machine_name, &machine);
+        if (r != 0)
+                return r;
+
+        assert(machine);
+
+        if (isempty(p.swho))
+                whom = KILL_ALL;
+        else {
+                whom = kill_whom_from_string(p.swho);
+                if (whom < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "who");
+        }
+
+        if (!SIGNAL_VALID(p.signo))
+                return sd_varlink_error_invalid_parameter_name(link, "signal");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "kill"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_kill(machine, whom, p.signo);
+        if (r < 0)
+                return r;
 
         return sd_varlink_reply(link, NULL);
 }
