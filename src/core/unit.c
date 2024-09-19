@@ -5576,12 +5576,13 @@ static int unit_get_invocation_path(Unit *u, char **ret) {
                 p = strjoin("/run/systemd/units/invocation:", u->id);
         else {
                 _cleanup_free_ char *user_path = NULL;
-                r = xdg_user_runtime_dir(&user_path, "/systemd/units/invocation:");
+
+                r = xdg_user_runtime_dir("/systemd/units/invocation:", &user_path);
                 if (r < 0)
                         return r;
+
                 p = strjoin(user_path, u->id);
         }
-
         if (!p)
                 return -ENOMEM;
 
