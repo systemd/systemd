@@ -878,7 +878,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
         [SYSCALL_FILTER_SET_SYNC] = {
                 .name = "@sync",
                 .help = "Synchronize files and memory to storage",
-                .value =
+                .value = /* Please update seccomp_suppress_sync() accordingly if this gets updated. */
                 "fdatasync\0"
                 "fsync\0"
                 "msync\0"
@@ -2461,12 +2461,24 @@ static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
 }
 
 int seccomp_suppress_sync(void) {
-        uint32_t arch;
+
+        static const char* const syscalls_with_fd[] = {
+                "fdatasync",
+                "fsync",
+                "sync_file_range",
+                "sync_file_range2",
+                "syncfs",
+                NULL,
+        };
+
         int r;
 
-        /* This is mostly identical to SystemCallFilter=~@sync:0, but simpler to use, and separately
-         * manageable, and also masks O_SYNC/O_DSYNC */
+        /* This behaves slightly differently from SystemCallFilter=~@sync:0, in that negative fds (which
+         * we can determine to be invalid) are still refused with EBADF. See #34478.
+         *
+         * Additionally, O_SYNC/O_DSYNC are masked. */
 
+        uint32_t arch;
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
@@ -2483,13 +2495,21 @@ int seccomp_suppress_sync(void) {
                                 continue;
                         }
 
-                        r = seccomp_rule_add_exact(
-                                        seccomp,
-                                        SCMP_ACT_ERRNO(0), /* success → we want this to be a NOP after all */
-                                        id,
-                                        0);
+                        if (strv_contains((char* const*) syscalls_with_fd, c)) {
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(0),
+                                                id,
+                                                1,
+                                                SCMP_A0(SCMP_CMP_GE, 0));
+                        } else
+                                r = seccomp_rule_add_exact(
+                                                seccomp,
+                                                SCMP_ACT_ERRNO(0),
+                                                id,
+                                                0);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to add filter for system call %s, ignoring: %m", c);
+                                log_debug_errno(r, "Failed to add filter for suppressing system call %s, ignoring: %m", c);
                 }
 
                 (void) block_open_flag(seccomp, O_SYNC);
