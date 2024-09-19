@@ -5361,13 +5361,13 @@ static int make_subvolumes_strv(const Partition *p, char ***ret) {
                         return log_oom();
 
         if (p->suppressing) {
-                _cleanup_strv_free_ char **suppressing = NULL;
+                char **suppressing;
 
                 r = make_subvolumes_strv(p->suppressing, &suppressing);
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv(&subvolumes, suppressing, /* filter_duplicates= */ true);
+                r = strv_extend_strv_consume(&subvolumes, suppressing, /* filter_duplicates= */ true);
                 if (r < 0)
                         return log_oom();
         }
