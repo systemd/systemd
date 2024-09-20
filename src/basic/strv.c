@@ -66,7 +66,7 @@ char* strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
-char* strv_find_closest_by_levenshtein(char * const *l, const char *name) {
+static char* strv_find_closest_by_levenshtein(char * const *l, const char *name) {
         ssize_t best_distance = SSIZE_MAX;
         char *best = NULL;
 
@@ -89,6 +89,34 @@ char* strv_find_closest_by_levenshtein(char * const *l, const char *name) {
                         best = *i;
                 }
         }
+
+        return best;
+}
+
+char* strv_find_closest(char * const *l, const char *name) {
+        size_t best_distance = SIZE_MAX;
+        char *best = NULL;
+
+        assert(name);
+
+        /* Be helperful to the user, and give a hint what the user might have wanted to type. We search with
+         * two mechanisms: a simple prefix match and – if that didn't yield results –, a Levenshtein word
+         * distance based match. */
+
+        STRV_FOREACH(s, l) {
+                char *e = startswith(*s, name);
+                if (!e)
+                        continue;
+
+                size_t n = strlen(e);
+                if (n < best_distance) {
+                        best_distance = n;
+                        best = *s;
+                }
+        }
+
+        if (!best)
+                best = strv_find_closest_by_levenshtein(l, name);
 
         return best;
 }
