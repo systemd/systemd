@@ -42,7 +42,7 @@ struct Manager {
         sd_varlink_server *varlink_machine_server;
 };
 
-int manager_add_machine(Manager *m, const char *name, Machine **_machine);
+int manager_add_machine(Manager *m, const char *name, Machine **ret);
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const BusObjectImplementation manager_object;

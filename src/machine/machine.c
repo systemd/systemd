@@ -53,6 +53,7 @@ int machine_new(MachineClass class, const char *name, Machine **ret) {
                 return -ENOMEM;
 
         *m = (Machine) {
+                .class = class,
                 .leader = PIDREF_NULL,
                 .vsock_cid = VMADDR_CID_ANY,
         };
@@ -62,8 +63,6 @@ int machine_new(MachineClass class, const char *name, Machine **ret) {
                 if (!m->name)
                         return -ENOMEM;
         }
-
-        m->class = class;
 
         *ret = TAKE_PTR(m);
         return 0;
