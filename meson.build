@@ -701,7 +701,6 @@ env = find_program('env')
 rsync = find_program('rsync', required : false)
 diff = find_program('diff')
 find = find_program('find')
-cp = find_program('cp')
 
 ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
