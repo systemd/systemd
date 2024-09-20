@@ -1051,7 +1051,7 @@ const sd_bus_vtable manager_vtable[] = {
                                 method_terminate_machine,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("KillMachine",
-                                SD_BUS_ARGS("s", name, "s", who, "i", signal),
+                                SD_BUS_ARGS("s", name, "s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 method_kill_machine,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
