@@ -355,18 +355,13 @@ static int prompt_locale(int rfd) {
         if (strv_isempty(locales))
                 log_debug("No locales found, skipping locale selection.");
         else if (strv_length(locales) == 1) {
+                log_debug("Only a single locale available (%s), selecting it as default.", locales[0]);
 
-                if (streq(locales[0], SYSTEMD_DEFAULT_LOCALE))
-                        log_debug("Only installed locale is default locale anyway, not setting locale explicitly.");
-                else {
-                        log_debug("Only a single locale available (%s), selecting it as default.", locales[0]);
+                arg_locale = strdup(locales[0]);
+                if (!arg_locale)
+                        return log_oom();
 
-                        arg_locale = strdup(locales[0]);
-                        if (!arg_locale)
-                                return log_oom();
-
-                        /* Not setting arg_locale_message here, since it defaults to LANG anyway */
-                }
+                /* Not setting arg_locale_message here, since it defaults to LANG anyway */
         } else {
                 bool (*is_valid)(const char *name) = dir_fd_is_root(rfd) ? locale_is_installed_bool
                                                                          : locale_is_valid;
