@@ -2390,7 +2390,7 @@ static int unit_log_resources(Unit *u) {
 
                 assert(io_fields[k].journal_field);
 
-                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                (void) unit_get_io_accounting(u, k, &value);
                 if (value == UINT64_MAX)
                         continue;
 

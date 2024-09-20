@@ -1438,7 +1438,7 @@ static int property_get_io_counter(
         assert(property);
 
         assert_se((metric = cgroup_io_accounting_metric_from_string(property)) >= 0);
-        (void) unit_get_io_accounting(u, metric, /* allow_cache= */ false, &value);
+        (void) unit_get_io_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
 
