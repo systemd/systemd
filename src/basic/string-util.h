@@ -201,18 +201,17 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
 
 char* strrep(const char *s, unsigned n);
 
-#define strrepa(s, n)                                           \
-        ({                                                      \
-                const char *_sss_ = (s);                        \
-                size_t _nnn_ = (n), _len_ = strlen(_sss_);      \
-                assert(!size_multiply_overflow(_len_, _nnn_));  \
-                _len_ *= _nnn_;                                 \
-                char *_d_, *_p_;                                \
-                _p_ = _d_ = newa(char, _len_ + 1);              \
-                for (size_t _i_ = 0; _i_ < _nnn_; _i_++)        \
-                        _p_ = stpcpy(_p_, _sss_);               \
-                *_p_ = 0;                                       \
-                _d_;                                            \
+#define strrepa(s, n)                                                   \
+        ({                                                              \
+                const char *_sss_ = (s);                                \
+                size_t _nnn_ = (n), _len_ = strlen(_sss_);              \
+                assert_se(MUL_ASSIGN_SAFE(&_len_, _nnn_);               \
+                char *_d_, *_p_;                                        \
+                _p_ = _d_ = newa(char, _len_ + 1);                      \
+                for (size_t _i_ = 0; _i_ < _nnn_; _i_++)                \
+                        _p_ = stpcpy(_p_, _sss_);                       \
+                *_p_ = 0;                                               \
+                _d_;                                                    \
         })
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
