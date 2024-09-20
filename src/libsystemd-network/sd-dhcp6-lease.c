@@ -424,7 +424,7 @@ int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t
         if (r < 0)
                 return r;
 
-        return strv_extend_strv(&lease->domains, domains, true);
+        return strv_extend_strv_consume(&lease->domains, TAKE_PTR(domains), /* filter_duplicates = */ true);
 }
 
 int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
