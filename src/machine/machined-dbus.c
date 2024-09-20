@@ -169,7 +169,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         r = manager_get_machine_by_pid(m, pid, &machine);
         if (r < 0)
                 return r;
-        if (!machine)
+        if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID "PID_FMT" does not belong to any known machine", pid);
 
         p = machine_bus_path(machine);
@@ -1229,7 +1229,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1276,7 +1276,7 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1298,7 +1298,7 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1464,26 +1464,28 @@ int manager_job_is_active(Manager *manager, const char *path) {
         return true;
 }
 
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **ret) {
         Machine *mm;
         int r;
 
         assert(m);
-        assert(pid >= 1);
-        assert(machine);
+        assert(pid_is_valid(pid));
+        assert(ret);
 
-        mm = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
+        mm = hashmap_get(m->machines_by_leader, &PIDREF_MAKE_FROM_PID(pid));
         if (!mm) {
                 _cleanup_free_ char *unit = NULL;
 
                 r = cg_pid_get_unit(pid, &unit);
                 if (r >= 0)
-                        mm = hashmap_get(m->machine_units, unit);
+                        mm = hashmap_get(m->machines_by_unit, unit);
         }
-        if (!mm)
+        if (!mm) {
+                *ret = NULL;
                 return 0;
+        }
 
-        *machine = mm;
+        *ret = mm;
         return 1;
 }
 

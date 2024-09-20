@@ -21,8 +21,8 @@ struct Manager {
         sd_bus *bus;
 
         Hashmap *machines;
-        Hashmap *machine_units;
-        Hashmap *machine_leaders;
+        Hashmap *machines_by_unit;
+        Hashmap *machines_by_leader;
 
         sd_event_source *deferred_gc_event_source;
 
@@ -43,7 +43,7 @@ struct Manager {
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret);
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **ret);
 
 extern const BusObjectImplementation manager_object;
 
