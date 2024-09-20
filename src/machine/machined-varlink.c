@@ -415,32 +415,64 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                const char *machine_name;
+                pid_t pid;
+        };
+
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                { "name", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, machine_name), 0 },
+                { "pid",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(struct params, pid),          0 },
                 {}
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
+        Machine *machine = NULL, *pid_machine = NULL;
+        struct params p = {
+                .machine_name = NULL,
+                .pid = -1
+        };
         int r;
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &mn);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+        if (p.machine_name) {
+                r = lookup_machine_by_name(link, m, p.machine_name, &machine);
+                if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "name");
+                else if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                else if (r < 0)
+                        return r;
+        }
 
-                Machine *machine = hashmap_get(m->machines, mn);
-                if (!machine)
+        if (p.pid >= 0) {
+                r = lookup_machine_by_pid(link, m, p.pid, &pid_machine);
+                if (r == -EINVAL)
+                    return sd_varlink_error_invalid_parameter_name(link, "pid");
+                else if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                else if (r < 0)
+                        return r;
+        }
+
+        if (machine && pid_machine) {
+                if (machine != pid_machine)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
+        if (machine)
+                return list_machine_one(link, machine, /* more= */ false);
+        if (pid_machine)
+                return list_machine_one(link, pid_machine, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
