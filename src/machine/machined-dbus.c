@@ -169,7 +169,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         r = manager_get_machine_by_pid(m, pid, &machine);
         if (r < 0)
                 return r;
-        if (!machine)
+        if (r == 0)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID "PID_FMT" does not belong to any known machine", pid);
 
         p = machine_bus_path(machine);
@@ -1229,7 +1229,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1276,7 +1276,7 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1298,7 +1298,7 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
                 return 0;
         }
 
-        machine = hashmap_get(m->machine_units, unit);
+        machine = hashmap_get(m->machines_by_unit, unit);
         if (!machine)
                 return 0;
 
@@ -1462,51 +1462,4 @@ int manager_job_is_active(Manager *manager, const char *path) {
          * that we could read the job state is enough for us */
 
         return true;
-}
-
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        Machine *mm;
-        int r;
-
-        assert(m);
-        assert(pid >= 1);
-        assert(machine);
-
-        mm = hashmap_get(m->machine_leaders, PID_TO_PTR(pid));
-        if (!mm) {
-                _cleanup_free_ char *unit = NULL;
-
-                r = cg_pid_get_unit(pid, &unit);
-                if (r >= 0)
-                        mm = hashmap_get(m->machine_units, unit);
-        }
-        if (!mm)
-                return 0;
-
-        *machine = mm;
-        return 1;
-}
-
-int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
-        Machine *machine;
-        int r;
-
-        assert(m);
-        assert(name);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine) {
-                r = machine_new(_MACHINE_CLASS_INVALID, name, &machine);
-                if (r < 0)
-                        return r;
-
-                r = machine_link(m, machine);
-                if (r < 0)
-                        return 0;
-        }
-
-        if (_machine)
-                *_machine = machine;
-
-        return 0;
 }
