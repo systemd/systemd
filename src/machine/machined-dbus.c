@@ -1497,7 +1497,7 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
         return 1;
 }
 
-int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
+int manager_add_machine(Manager *m, const char *name, Machine **ret) {
         Machine *machine;
         int r;
 
@@ -1511,12 +1511,14 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
                         return r;
 
                 r = machine_link(m, machine);
-                if (r < 0)
-                        return 0;
+                if (r < 0) {
+                        machine_free(machine);
+                        return r;
+                }
         }
 
-        if (_machine)
-                *_machine = machine;
+        if (ret)
+                *ret = machine;
 
         return 0;
 }
