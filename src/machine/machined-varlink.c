@@ -2,12 +2,14 @@
 
 #include "sd-varlink.h"
 
+#include "cgroup-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
@@ -415,32 +417,78 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+typedef struct MachineListQueryParams {
+    const char *machine_name;
+    pid_t pid;
+} MachineListQueryParams;
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                { "name", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(MachineListQueryParams, machine_name), 0 },
+                { "pid",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,       offsetof(MachineListQueryParams, pid),          0 },
                 {}
         };
 
-        Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
         int r;
+        Manager *m = ASSERT_PTR(userdata);
+        Machine *machine = NULL, *pid_machine = NULL;
+        MachineListQueryParams p = {
+                .machine_name = NULL,
+                .pid = -1,
+        };
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &mn);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
+        if (p.machine_name) {
+                r = lookup_machine_by_name(link, m, p.machine_name, &machine);
+                if (r != 0)
+                        return r;
 
-                Machine *machine = hashmap_get(m->machines, mn);
                 if (!machine)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        }
+
+        if (p.pid >= 0) {
+                if (p.pid == 0) {
+                        int pidfd = sd_varlink_get_peer_pidfd(link);
+                        if (pidfd < 0)
+                                return pidfd;
+
+                        r = pidfd_get_pid(pidfd, &p.pid);
+                        if (r < 0)
+                                return varlink_log_errno(link, r, "Failed to acquire pid of peer: %m");
+                }
+
+                if (p.pid <= 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "pid");
+
+                pid_machine = hashmap_get(m->machine_leaders, PID_TO_PTR(p.pid));
+                if (!pid_machine) {
+                        _cleanup_free_ char *unit = NULL;
+                        r = cg_pid_get_unit(p.pid, &unit);
+                        if (r >= 0)
+                                pid_machine = hashmap_get(m->machine_units, unit);
+                }
+
+                if (!pid_machine)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        }
+
+        if (machine && pid_machine) {
+                if (machine != pid_machine)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
+        if (machine)
+                return list_machine_one(link, machine, /* more= */ false);
+        if (pid_machine)
+                return list_machine_one(link, pid_machine, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
