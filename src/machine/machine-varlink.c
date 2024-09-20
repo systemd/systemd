@@ -188,3 +188,53 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         return sd_varlink_reply(link, NULL);
 }
+
+int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char *machine_name, Machine **ret_machine) {
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+
+        if (!machine_name)
+                return -EINVAL;
+
+        if (!hostname_is_valid(machine_name, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                return -EINVAL;
+
+        Machine *machine = hashmap_get(manager->machines, machine_name);
+        if (!machine)
+                return -ESRCH;
+
+        *ret_machine = machine;
+        return 0;
+}
+
+int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, Machine **ret_machine) {
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+
+        Machine *machine;
+        int r;
+
+        if (pid == 0) {
+                int pidfd = sd_varlink_get_peer_pidfd(link);
+                if (pidfd < 0)
+                        return pidfd;
+
+                r = pidfd_get_pid(pidfd, &pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pid <= 0)
+                return -EINVAL;
+
+        r = manager_get_machine_by_pid(manager, pid, &machine);
+        if (r < 0)
+                return r;
+        if (!machine)
+                return -ESRCH;
+
+        *ret_machine = machine;
+        return 0;
+}
