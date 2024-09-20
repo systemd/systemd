@@ -120,7 +120,7 @@ Machine* machine_free(Machine *m) {
         m->leader_pidfd_event_source = sd_event_source_disable_unref(m->leader_pidfd_event_source);
         if (pidref_is_set(&m->leader)) {
                 if (m->manager)
-                        (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
+                        (void) hashmap_remove_value(m->manager->machines_by_leader, &m->leader, m);
                 pidref_done(&m->leader);
         }
 
@@ -470,7 +470,10 @@ static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_e
         }
 
         assert(m->unit);
-        hashmap_put(m->manager->machine_units, m->unit, m);
+
+        r = hashmap_ensure_put(m->manager->machines_by_unit, &string_hash_ops, m->unit, m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -518,7 +521,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (m->started)
                 return 0;
 
-        r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
+        r = hashmap_ensure_put(m->manager->machines_by_leader, &pidref_hash_ops, &m->leader, m);
         if (r < 0)
                 return r;
 
@@ -705,6 +708,8 @@ void machine_release_unit(Machine *m) {
         if (!m->unit)
                 return;
 
+        assert(m->manager);
+
         if (m->referenced) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 int r;
@@ -718,7 +723,7 @@ void machine_release_unit(Machine *m) {
                 m->referenced = false;
         }
 
-        (void) hashmap_remove(m->manager->machine_units, m->unit);
+        (void) hashmap_remove_value(m->manager->machines_by_unit, m->unit, m);
         m->unit = mfree(m->unit);
 }
 
