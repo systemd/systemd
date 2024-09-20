@@ -45,10 +45,7 @@ static int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         m->machines = hashmap_new(&machine_hash_ops);
-        m->machine_units = hashmap_new(&string_hash_ops);
-        m->machine_leaders = hashmap_new(NULL);
-
-        if (!m->machines || !m->machine_units || !m->machine_leaders)
+        if (!m->machines)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
@@ -83,9 +80,13 @@ static Manager* manager_unref(Manager *m) {
 
         assert(m->n_operations == 0);
 
-        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
-        hashmap_free(m->machine_units);
-        hashmap_free(m->machine_leaders);
+        hashmap_free(m->machines); /* This will free all machines, thus the by_unit/by_leader hashmaps shall be empty */
+
+        assert(hashmap_isempty(m->machines_by_unit));
+        hashmap_free(m->machines_by_unit);
+        assert(hashmap_isempty(m->machines_by_leader));
+        hashmap_free(m->machines_by_leader);
+
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
