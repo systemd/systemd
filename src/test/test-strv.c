@@ -1188,4 +1188,31 @@ TEST(strv_rebreak_lines) {
         }
 }
 
+TEST(strv_find_closest) {
+        char **l = STRV_MAKE("aaa", "aaaa", "bbb", "ccc");
+
+        /* prefix match */
+        ASSERT_STREQ(strv_find_closest(l, "a"),    "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aa"),   "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aaa"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aaaa"), "aaaa");
+        ASSERT_STREQ(strv_find_closest(l, "b"),    "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bb"),   "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bbb"),  "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "c"),    "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "cc"),   "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "ccc"),  "ccc");
+
+        /* levenshtein match */
+        ASSERT_STREQ(strv_find_closest(l, "aab"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "abb"),  "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "cbc"),  "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "aax"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "bbbb"), "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "cbbb"), "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bbbx"), "bbb");
+
+        ASSERT_NULL(strv_find_closest(l, "sfajosajfosdjaofjdsaf"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
