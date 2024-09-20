@@ -18,15 +18,14 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
 }
 
 int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
-        char ***p = userdata;
+        char ***p = ASSERT_PTR(userdata), **l;
         int r;
 
         r = sd_bus_message_read_strv_extend(m, &l);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
-        r = strv_extend_strv(p, l, false);
+        r = strv_extend_strv_consume(p, l, /* filter_duplicates = */ false);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
@@ -34,9 +33,12 @@ int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
         return 0;
 }
 
-static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigned flags, sd_bus_error *error, void *userdata) {
+static int map_basic(sd_bus_message *m, unsigned flags, void *userdata) {
         char type;
         int r;
+
+        assert(m);
+        assert(userdata);
 
         r = sd_bus_message_peek_type(m, &type, NULL);
         if (r < 0)
@@ -46,32 +48,29 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_STRING:
         case SD_BUS_TYPE_OBJECT_PATH: {
-                const char **p = userdata;
-                const char *s;
+                const char **p = userdata, *s;
 
                 r = sd_bus_message_read_basic(m, type, &s);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                if (isempty(s))
-                        s = NULL;
+                s = empty_to_null(s);
 
-                if (flags & BUS_MAP_STRDUP)
-                        return free_and_strdup((char **) userdata, s);
+                if (FLAGS_SET(flags, BUS_MAP_STRDUP))
+                        return free_and_strdup(p, s);
 
                 *p = s;
                 return 0;
         }
 
         case SD_BUS_TYPE_ARRAY: {
-                _cleanup_strv_free_ char **l = NULL;
-                char ***p = userdata;
+                char ***p = userdata, **l;
 
                 r = sd_bus_message_read_strv_extend(m, &l);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                return strv_extend_strv(p, l, false);
+                return strv_extend_strv_consume(p, l, /* filter_duplicates = */ false);
         }
 
         case SD_BUS_TYPE_BOOLEAN: {
@@ -91,40 +90,39 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_INT32:
         case SD_BUS_TYPE_UINT32: {
-                uint32_t u, *p = userdata;
+                uint32_t *p = userdata;
 
-                r = sd_bus_message_read_basic(m, type, &u);
+                r = sd_bus_message_read_basic(m, type, p);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                *p = u;
                 return 0;
         }
 
         case SD_BUS_TYPE_INT64:
         case SD_BUS_TYPE_UINT64: {
-                uint64_t t, *p = userdata;
+                uint64_t *p = userdata;
 
-                r = sd_bus_message_read_basic(m, type, &t);
+                r = sd_bus_message_read_basic(m, type, p);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                *p = t;
                 return 0;
         }
 
         case SD_BUS_TYPE_DOUBLE: {
-                double d, *p = userdata;
+                double *p = userdata;
 
-                r = sd_bus_message_read_basic(m, type, &d);
+                r = sd_bus_message_read_basic(m, type, p);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                *p = d;
                 return 0;
-        }}
+        }
 
-        return -EOPNOTSUPP;
+        default:
+                return -EOPNOTSUPP;
+        }
 }
 
 int bus_message_map_all_properties(
@@ -173,7 +171,7 @@ int bus_message_map_all_properties(
                         if (map[i].set)
                                 r = prop->set(sd_bus_message_get_bus(m), member, m, error, v);
                         else
-                                r = map_basic(sd_bus_message_get_bus(m), member, m, flags, error, v);
+                                r = map_basic(m, flags, v);
                         if (r < 0)
                                 return bus_log_parse_error_debug(r);
 

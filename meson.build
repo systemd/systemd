@@ -2084,6 +2084,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-json',
         'src/libsystemd/sd-netlink',
         'src/libsystemd/sd-network',
+        'src/libsystemd/sd-path',
         'src/libsystemd/sd-resolve',
         'src/libsystemd/sd-varlink')]
 
