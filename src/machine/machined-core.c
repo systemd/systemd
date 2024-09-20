@@ -1,8 +1,61 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "cgroup-util.h"
 #include "machined.h"
+#include "process-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **ret) {
+        Machine *mm;
+        int r;
+
+        assert(m);
+        assert(pid_is_valid(pid));
+        assert(ret);
+
+        mm = hashmap_get(m->machines_by_leader, &PIDREF_MAKE_FROM_PID(pid));
+        if (!mm) {
+                _cleanup_free_ char *unit = NULL;
+
+                r = cg_pid_get_unit(pid, &unit);
+                if (r >= 0)
+                        mm = hashmap_get(m->machines_by_unit, unit);
+        }
+        if (!mm) {
+                *ret = NULL;
+                return 0;
+        }
+
+        *ret = mm;
+        return 1;
+}
+
+int manager_add_machine(Manager *m, const char *name, Machine **ret) {
+        Machine *machine;
+        int r;
+
+        assert(m);
+        assert(name);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine) {
+                r = machine_new(_MACHINE_CLASS_INVALID, name, &machine);
+                if (r < 0)
+                        return r;
+
+                r = machine_link(m, machine);
+                if (r < 0) {
+                        machine_free(machine);
+                        return r;
+                }
+        }
+
+        if (ret)
+                *ret = machine;
+
+        return 0;
+}
 
 int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, uid_t *ret_internal_uid) {
         Machine *machine;
