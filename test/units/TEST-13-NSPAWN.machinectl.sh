@@ -47,12 +47,21 @@ trap 'kill $PID' EXIT
 # We need to wait for the sleep process asynchronously in order to allow
 # bash to process signals
 sleep infinity &
+
+# notify that the process is ready
+touch /ready
+
 PID=$!
 while :; do
     wait || :
 done
 EOF
+
+rm -f /var/lib/machines/long-running/ready
 machinectl start long-running
+# !!!! DO NOT REMOVE THIS TEST
+# The test makes sure that the long-running's init script has enough time to start and registered signal traps
+timeout 10 bash -c "until test -e /var/lib/machines/long-running/ready; do sleep .5; done"
 
 machinectl
 machinectl --no-pager --help
