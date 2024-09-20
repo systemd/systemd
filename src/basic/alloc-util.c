@@ -43,7 +43,7 @@ void* greedy_realloc(
                 size_t need,
                 size_t size) {
 
-        size_t a, newalloc;
+        size_t newalloc;
         void *q;
 
         assert(p);
@@ -60,14 +60,13 @@ void* greedy_realloc(
                 return NULL;
         newalloc = need * 2;
 
-        if (size_multiply_overflow(newalloc, size))
+        if (!MUL_ASSIGN_SAFE(&newalloc, size))
                 return NULL;
-        a = newalloc * size;
 
-        if (a < 64) /* Allocate at least 64 bytes */
-                a = 64;
+        if (newalloc < 64) /* Allocate at least 64 bytes */
+                newalloc = 64;
 
-        q = realloc(*p, a);
+        q = realloc(*p, newalloc);
         if (!q)
                 return NULL;
 

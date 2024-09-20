@@ -208,6 +208,19 @@ static inline int run_test_table(void) {
 #define DEFINE_TEST_MAIN(log_level)                     \
         DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)
 
+#define DECIMAL_STR_FMT(x) _Generic((x),        \
+        char: "%c",                             \
+        bool: "%d",                             \
+        unsigned char: "%d",                    \
+        short: "%hd",                           \
+        unsigned short: "%hu",                  \
+        int: "%d",                              \
+        unsigned: "%u",                         \
+        long: "%ld",                            \
+        unsigned long: "%lu",                   \
+        long long: "%lld",                      \
+        unsigned long long: "%llu")
+
 #define ASSERT_OK(expr)                                                                                         \
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
