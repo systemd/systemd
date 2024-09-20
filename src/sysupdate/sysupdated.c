@@ -1771,12 +1771,13 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
                 return r;
 
         HASHMAP_FOREACH(t, m->targets) {
-                _cleanup_strv_free_ char **target_appstream = NULL;
+                char **target_appstream;
+
                 r = target_get_appstream(t, &target_appstream);
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv(&urls, target_appstream, true);
+                r = strv_extend_strv_consume(&urls, target_appstream, /* filter_duplicates = */ true);
                 if (r < 0)
                         return r;
         }

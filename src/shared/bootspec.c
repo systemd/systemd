@@ -176,7 +176,7 @@ static int parse_path_many(
                         return r;
         }
 
-        return strv_extend_strv(s, f, /* filter_duplicates= */ false);
+        return strv_extend_strv_consume(s, TAKE_PTR(f), /* filter_duplicates= */ false);
 }
 
 static int parse_tries(const char *fname, const char **p, unsigned *ret) {
