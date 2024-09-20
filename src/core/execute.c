@@ -2046,7 +2046,7 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
 }
 
 int exec_command_append(ExecCommand *c, const char *path, ...) {
-        _cleanup_strv_free_ char **l = NULL;
+        char **l;
         va_list ap;
         int r;
 
@@ -2060,7 +2060,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend_strv(&c->argv, l, false);
+        r = strv_extend_strv_consume(&c->argv, l, /* filter_duplicates = */ false);
         if (r < 0)
                 return r;
 
