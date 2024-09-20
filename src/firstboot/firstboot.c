@@ -187,7 +187,6 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
-                char *best_match = NULL;
                 unsigned u;
 
                 r = ask_string(&p, "%s %s (empty to skip, \"list\" to list options): ",
@@ -223,13 +222,8 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                 if (is_valid(p))
                         return free_and_replace(*ret, p);
 
-                /* Be helperful to the user, and give a hint what the user might have wanted to
-                 * type. We search with two mechanisms: a simple prefix match and – if that didn't
-                 * yield results –, a Levenshtein word distance based match. */
-                best_match = strv_find_prefix(l, p);
-                if (!best_match)
-                        best_match = strv_find_closest_by_levenshtein(l, p);
-
+                /* Be more helpful to the user, and give a hint what the user might have wanted to type. */
+                const char *best_match = strv_find_closest(l, p);
                 if (best_match)
                         log_error("Invalid data '%s', did you mean '%s'?", p, best_match);
                 else
