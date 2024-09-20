@@ -29,6 +29,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(monotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                Unregister,
+                SD_VARLINK_FIELD_COMMENT("The name of a machine to unregister."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 List,
                 SD_VARLINK_FIELD_COMMENT("If non-null the name of a running machine to report details on. If both \"name\" and \"pid\" null/unspecified enumerates all running machines."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -64,6 +69,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 &vl_method_Register,
+                &vl_method_Unregister,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
