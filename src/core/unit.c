@@ -2385,7 +2385,8 @@ static int unit_log_resources(Unit *u) {
 
                 assert(io_fields[k].journal_field);
 
-                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                /* we are only called after unit_prune_cgroup() which ensures that IO metrics are uptodate */
+                (void) unit_get_io_accounting(u, k, /* allow_cache = */ true, &value);
                 if (value == UINT64_MAX)
                         continue;
 
