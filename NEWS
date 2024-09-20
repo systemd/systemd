@@ -58,7 +58,7 @@ CHANGES WITH 257 in spe:
 
         * systemd-nspawn will now mount the unified cgroup hierarchy into a
           container if no systemd installation is found in a container's root
-          filesystem. `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0` can be used to override
+          filesystem. $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0 can be used to override
           this behavior.
 
         libsystemd:
@@ -183,9 +183,9 @@ CHANGES WITH 257 in spe:
         * A new .profile PE section type is now documented and supported in
           systemd-measure, ukify, systemd-stub and systemd-boot. Those new
           sections allow multiple "profiles" to be stored together in the UKI,
-          with .profile sections creating groupings the UKI, allowing some
-          sections to be shared and other sections like .cmdline or .initrd
-          unique to the profile.
+          with .profile sections creating groupings of sections in the UKI,
+          allowing some sections to be shared and other sections like .cmdline
+          or .initrd unique to the profile.
 
         * ukify gained an --extend switch to import an existing UKI to
           be extended, and a --measure-base= switch to support measurement
@@ -252,7 +252,7 @@ CHANGES WITH 257 in spe:
           of the random seed file in ESP. (This is useful when producing an
           image that will be used multiple times.)
 
-        * systemd-cryptenroll gained new options -fido2-salt-file= and
+        * systemd-cryptenroll gained new options --fido2-salt-file= and
           --fido2-parameters-in-header= to simplify manual enrollment of FIDO2
           tokens.
 
