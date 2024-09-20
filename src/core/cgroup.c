@@ -4863,7 +4863,6 @@ static int unit_get_io_accounting_raw(
 int unit_get_io_accounting(
                 Unit *u,
                 CGroupIOAccountingMetric metric,
-                bool allow_cache,
                 uint64_t *ret) {
 
         uint64_t raw[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
@@ -4877,9 +4876,6 @@ int unit_get_io_accounting(
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
                 return -ENODATA;
-
-        if (allow_cache && crt->io_accounting_last[metric] != UINT64_MAX)
-                goto done;
 
         r = unit_get_io_accounting_raw(u, crt, raw);
         if (r == -ENODATA && crt->io_accounting_last[metric] != UINT64_MAX)
