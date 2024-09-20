@@ -396,6 +396,7 @@ static int ipv4acd_on_packet(
                 }
                 break;
 
+        case IPV4ACD_STATE_STARTED:
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
