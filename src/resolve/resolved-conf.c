@@ -427,9 +427,10 @@ int config_parse_refuse_record_types(
                 void *userdata) {
 
         Manager *m = ASSERT_PTR(userdata);
-
         int r;
         Set *refused_records = NULL;
+
+        refused_records = set_free(refused_records);
 
         for (const char *p = rvalue;;) {
                _cleanup_free_ char *word = NULL;
