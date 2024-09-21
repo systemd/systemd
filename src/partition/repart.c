@@ -2357,11 +2357,11 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (!p->format) {
                 const char *format = NULL;
 
-                if (partition_needs_populate(p) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
+                if (p->type.designator == PARTITION_SWAP)
+                        format = "swap";
+                else if (partition_needs_populate(p) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
                         /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
                         format = IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4";
-                else if (p->type.designator == PARTITION_SWAP)
-                        format = "swap";
 
                 if (format) {
                         p->format = strdup(format);
