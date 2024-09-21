@@ -49,6 +49,8 @@ struct MMapFileDescriptor {
         int prot;
         bool sigbus;
 
+        unsigned n_windows;
+
         LIST_HEAD(Window, windows);
 };
 
@@ -68,7 +70,8 @@ struct MMapCache {
         Window *windows_by_category[_MMAP_CACHE_CATEGORY_MAX];
 };
 
-#define WINDOWS_MIN 64
+#define CACHE_WINDOWS_MIN 64
+#define FD_WINDOWS_MIN 8
 
 #if ENABLE_DEBUG_MMAP_CACHE
 /* Tiny windows increase mmap activity and the chance of exposing unsafe use. */
@@ -131,6 +134,7 @@ static Window* window_free(Window *w) {
                 return NULL;
 
         window_unlink(w);
+        w->fd->n_windows--;
         w->fd->cache->n_windows--;
 
         return mfree(w);
@@ -160,11 +164,12 @@ static Window* window_add(MMapFileDescriptor *f, uint64_t offset, size_t size, v
         MMapCache *m = mmap_cache_fd_cache(f);
         Window *w;
 
-        if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
+        if (!m->last_unused || m->n_windows <= CACHE_WINDOWS_MIN || f->n_windows <= FD_WINDOWS_MIN) {
                 /* Allocate a new window */
                 w = new(Window, 1);
                 if (!w)
                         return NULL;
+                f->n_windows++;
                 m->n_windows++;
         } else
                 /* Reuse an existing one */
