@@ -3571,11 +3571,16 @@ void unit_prune_cgroup(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return;
 
-        /* Cache the last CPU and memory usage values before we destroy the cgroup */
+        /* Cache the last resource usage values before we destroy the cgroup */
         (void) unit_get_cpu_usage(u, /* ret = */ NULL);
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
                 (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
+
+        /* All IO metrics are read at once from the underlying cgroup, so issue just a single call */
+        (void) unit_get_io_accounting(u, /* metric = */ 0, /* ret = */ NULL);
+
+        /* We do not cache IP metrics here because the firewall objects are not freed with cgroups */
 
 #if BPF_FRAMEWORK
         (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
@@ -4858,7 +4863,6 @@ static int unit_get_io_accounting_raw(
 int unit_get_io_accounting(
                 Unit *u,
                 CGroupIOAccountingMetric metric,
-                bool allow_cache,
                 uint64_t *ret) {
 
         uint64_t raw[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
@@ -4872,9 +4876,6 @@ int unit_get_io_accounting(
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt)
                 return -ENODATA;
-
-        if (allow_cache && crt->io_accounting_last[metric] != UINT64_MAX)
-                goto done;
 
         r = unit_get_io_accounting_raw(u, crt, raw);
         if (r == -ENODATA && crt->io_accounting_last[metric] != UINT64_MAX)
