@@ -626,16 +626,15 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 }
 
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***list = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
-        char ***list = userdata;
-        sd_json_variant *e;
         int r;
 
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
+        sd_json_variant *e;
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-
                 if (!sd_json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
@@ -647,7 +646,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
 
-        r = strv_extend_strv(list, l, true);
+        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates = */ true);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to merge user/group arrays: %m");
 
