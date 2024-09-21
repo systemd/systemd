@@ -2476,6 +2476,10 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         sd_journal_flush_matches(j);
 
+        /* log stats before closing files so we can see the windows state */
+        if (j->mmap)
+                mmap_cache_stats_log_debug(j->mmap);
+
         ordered_hashmap_free_with_destructor(j->files, journal_file_close);
         iterated_cache_free(j->files_cache);
 
@@ -2487,10 +2491,8 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         safe_close(j->inotify_fd);
 
-        if (j->mmap) {
-                mmap_cache_stats_log_debug(j->mmap);
+        if (j->mmap)
                 mmap_cache_unref(j->mmap);
-        }
 
         hashmap_free_free(j->errors);
 
