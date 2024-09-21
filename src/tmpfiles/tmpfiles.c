@@ -349,49 +349,35 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                  arg_dry_run ? (would) : (doing),       \
                  __VA_ARGS__)
 
-static int user_config_paths(char*** ret) {
+static int user_config_paths(char ***ret) {
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
-        _cleanup_free_ char *persistent_config = NULL, *runtime_config = NULL, *data_home = NULL;
-        _cleanup_strv_free_ char **res = NULL;
+        _cleanup_free_ char *runtime_config = NULL;
         int r;
 
-        r = xdg_user_dirs(&config_dirs, &data_dirs);
+        assert(ret);
+
+        /* Combined user-specific and global dirs */
+        r = user_search_dirs("/user-tmpfiles.d", &config_dirs, &data_dirs);
         if (r < 0)
                 return r;
 
-        r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
+        r = xdg_user_runtime_dir("/user-tmpfiles.d", &runtime_config);
         if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
                 return r;
 
-        r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
-                return r;
-
-        r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NEG_NOINFO(r))
-                return r;
-
-        r = strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/user-tmpfiles.d");
+        r = strv_consume(&config_dirs, TAKE_PTR(runtime_config));
         if (r < 0)
                 return r;
 
-        r = strv_extend_many(
-                        &res,
-                        persistent_config,
-                        runtime_config,
-                        data_home);
+        r = strv_extend_strv_consume(&config_dirs, TAKE_PTR(data_dirs), /* filter_duplicates = */ true);
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/user-tmpfiles.d");
+        r = path_strv_make_absolute_cwd(config_dirs);
         if (r < 0)
                 return r;
 
-        r = path_strv_make_absolute_cwd(res);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(res);
+        *ret = TAKE_PTR(config_dirs);
         return 0;
 }
 

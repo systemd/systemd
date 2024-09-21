@@ -11,6 +11,7 @@
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "conf-files.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
