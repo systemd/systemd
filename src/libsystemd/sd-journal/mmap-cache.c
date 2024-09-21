@@ -435,8 +435,8 @@ found:
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u category cache hit, %u window list hit, %u miss",
-                  m->n_category_cache_hit, m->n_window_list_hit, m->n_missed);
+        log_debug("mmap cache statistics: %u category cache hit, %u window list hit, %u miss, %u files, %u windows, %u unused",
+                  m->n_category_cache_hit, m->n_window_list_hit, m->n_missed, hashmap_size(m->fds), m->n_windows, m->n_unused);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
