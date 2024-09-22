@@ -1006,11 +1006,8 @@ int config_parse_gateway(
         }
 
         r = in_addr_from_string_auto(rvalue, &route->nexthop.family, &route->nexthop.gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->gateway_from_dhcp_or_ra = false;
         TAKE_PTR(route);
@@ -1096,10 +1093,8 @@ int config_parse_route_nexthop(
         }
 
         r = safe_atou32(rvalue, &id);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse nexthop ID, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (id == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid nexthop ID, ignoring assignment: %s", rvalue);
                 return 0;
@@ -1157,13 +1152,8 @@ int config_parse_multipath_route(
 
         p = rvalue;
         r = extract_first_word(&p, &word, NULL, 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid multipath route option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r <= 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         dev = strchr(word, '@');
         if (dev) {
