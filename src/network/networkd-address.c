@@ -2048,12 +2048,6 @@ static int config_parse_broadcast(
                 return 1;
         }
 
-        if (address->family == AF_INET6) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
         r = in_addr_from_string(AF_INET, rvalue, &u);
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
