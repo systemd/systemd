@@ -1663,11 +1663,8 @@ int config_parse_preferred_src(
                 r = in_addr_from_string_auto(rvalue, &route->family, &route->prefsrc);
         else
                 r = in_addr_from_string(route->family, rvalue, &route->prefsrc);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(route);
         return 0;
@@ -1719,11 +1716,8 @@ int config_parse_destination(
                 r = in_addr_prefix_from_string_auto(rvalue, &route->family, buffer, prefixlen);
         else
                 r = in_addr_prefix_from_string(rvalue, route->family, buffer, prefixlen);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         (void) in_addr_mask(route->family, buffer, *prefixlen);
 
@@ -1763,11 +1757,8 @@ int config_parse_route_priority(
         }
 
         r = safe_atou32(rvalue, &route->priority);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->priority_set = true;
         TAKE_PTR(route);
@@ -1806,10 +1797,8 @@ int config_parse_route_scope(
         }
 
         r = route_scope_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown route scope: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->scope = r;
         route->scope_set = true;
@@ -1849,11 +1838,8 @@ int config_parse_route_table(
         }
 
         r = manager_get_route_table_from_string(network->manager, rvalue, &route->table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route table \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->table_set = true;
         TAKE_PTR(route);
@@ -1891,10 +1877,8 @@ int config_parse_ipv6_route_preference(
                 route->pref = SD_NDISC_PREFERENCE_MEDIUM;
         else if (streq(rvalue, "high"))
                 route->pref = SD_NDISC_PREFERENCE_HIGH;
-        else {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route preference: %s", rvalue);
-                return 0;
-        }
+        else
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
         route->pref_set = true;
         TAKE_PTR(route);
@@ -1927,11 +1911,8 @@ int config_parse_route_protocol(
         }
 
         r = route_protocol_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse route protocol \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->protocol = r;
 
@@ -1953,7 +1934,7 @@ int config_parse_route_type(
 
         Network *network = userdata;
         _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        int t, r;
+        int r;
 
         r = route_new_static(network, filename, section_line, &route);
         if (r == -ENOMEM)
@@ -1964,14 +1945,11 @@ int config_parse_route_type(
                 return 0;
         }
 
-        t = route_type_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        r = route_type_from_string(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        route->type = (unsigned char) t;
+        route->type = (unsigned char) r;
 
         TAKE_PTR(route);
         return 0;
