@@ -127,6 +127,11 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
 typedef enum RouteConfParserType {
+        ROUTE_GATEWAY_NETWORK,
+        ROUTE_GATEWAY,
+        ROUTE_GATEWAY_ONLINK,
+        ROUTE_MULTIPATH,
+        ROUTE_NEXTHOP,
         ROUTE_METRIC_MTU,
         ROUTE_METRIC_ADVMSS,
         ROUTE_METRIC_HOPLIMIT,

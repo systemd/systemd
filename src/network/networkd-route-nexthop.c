@@ -937,121 +937,52 @@ int config_parse_gateway(
                 const char *section,
                 unsigned section_line,
                 const char *lvalue,
-                int ltype,
+                int ltype, /* 0 : only address is accepted, 1 : also supports an empty string, _dhcp, and friends. */
                 const char *rvalue,
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(section, "Network")) {
-                /* we are not in an Route section, so use line number instead */
-                r = route_new_static(network, filename, line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-        } else {
-                r = route_new_static(network, filename, section_line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-
+        if (ltype) {
                 if (isempty(rvalue)) {
                         route->gateway_from_dhcp_or_ra = false;
                         route->nexthop.family = AF_UNSPEC;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_dhcp")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_UNSPEC;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_INET;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_ipv6ra")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_INET6;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
         }
+
+        assert(rvalue);
 
         r = in_addr_from_string_auto(rvalue, &route->nexthop.family, &route->nexthop.gw);
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->gateway_from_dhcp_or_ra = false;
-        TAKE_PTR(route);
-        return 0;
-}
-
-int config_parse_route_gateway_onlink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        r = config_parse_tristate(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                  &route->gateway_onlink, network);
-        if (r <= 0)
-                return r;
-
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
 int config_parse_route_nexthop(
@@ -1066,30 +997,12 @@ int config_parse_route_nexthop(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        uint32_t id;
+        uint32_t id, *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
         if (isempty(rvalue)) {
-                route->nexthop_id = 0;
-                TAKE_PTR(route);
-                return 0;
+                *p = 0;
+                return 1;
         }
 
         r = safe_atou32(rvalue, &id);
@@ -1100,9 +1013,8 @@ int config_parse_route_nexthop(
                 return 0;
         }
 
-        route->nexthop_id = id;
-        TAKE_PTR(route);
-        return 0;
+        *p = id;
+        return 1;
 }
 
 int config_parse_multipath_route(
@@ -1118,9 +1030,8 @@ int config_parse_multipath_route(
                 void *userdata) {
 
         _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
-        Network *network = userdata;
+        OrderedSet **nexthops = ASSERT_PTR(data);
         const char *p;
         char *dev;
         int r;
@@ -1131,19 +1042,9 @@ int config_parse_multipath_route(
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
         if (isempty(rvalue)) {
-                route->nexthops = ordered_set_free(route->nexthops);
-                TAKE_PTR(route);
-                return 0;
+                *nexthops = ordered_set_free(*nexthops);
+                return 1;
         }
 
         nh = new0(RouteNextHop, 1);
@@ -1201,7 +1102,7 @@ int config_parse_multipath_route(
                 nh->weight--;
         }
 
-        r = ordered_set_ensure_put(&route->nexthops, &route_nexthop_hash_ops, nh);
+        r = ordered_set_ensure_put(nexthops, &route_nexthop_hash_ops, nh);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1211,6 +1112,5 @@ int config_parse_multipath_route(
         }
 
         TAKE_PTR(nh);
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
