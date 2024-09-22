@@ -236,11 +236,8 @@ static int config_parse_route_metric_advmss_impl(
         assert(rvalue);
 
         r = parse_size(rvalue, 1024, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (u == 0 || u > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -270,11 +267,9 @@ static int config_parse_route_metric_hop_limit_impl(
         assert(rvalue);
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
         if (k == 0 || k > 255) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
@@ -303,11 +298,9 @@ int config_parse_tcp_window(
         assert(rvalue);
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
         if (k == 0 || k >= 1024) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
@@ -337,11 +330,8 @@ static int config_parse_route_metric_tcp_rto_impl(
         assert(rvalue);
 
         r = parse_sec(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (!timestamp_is_set(usec) ||
             DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
@@ -372,11 +362,8 @@ static int config_parse_route_metric_boolean_impl(
         assert(rvalue);
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *val = r;
         return 1;
