@@ -2322,6 +2322,15 @@ int config_parse_address_section(
         return 0;
 }
 
+#define log_broadcast(address, fmt, ...)                                \
+        ({                                                              \
+                const Address *_address = (address);                    \
+                log_section_warning(                                    \
+                                _address ? _address->section : NULL,    \
+                                fmt " Ignoring Broadcast= setting in the [Address] section.", \
+                                ##__VA_ARGS__);                         \
+        })
+
 static void address_section_adjust_broadcast(Address *address) {
         assert(address);
         assert(address->section);
@@ -2330,21 +2339,13 @@ static void address_section_adjust_broadcast(Address *address) {
                 return;
 
         if (address->family == AF_INET6)
-                log_warning("%s: broadcast address is set for an IPv6 address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv6 address.");
         else if (address->prefixlen > 30)
-                log_warning("%s: broadcast address is set for an IPv4 address with prefix length larger than 30. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with prefix length larger than 30.");
         else if (in4_addr_is_set(&address->in_addr_peer.in))
-                log_warning("%s: broadcast address is set for an IPv4 address with peer address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with peer address.");
         else if (!in4_addr_is_set(&address->in_addr.in))
-                log_warning("%s: broadcast address is set for an IPv4 address with null address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with null address.");
         else
                 /* Otherwise, keep the specified broadcast address. */
                 return;
