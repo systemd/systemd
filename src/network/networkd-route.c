@@ -1990,6 +1990,11 @@ int config_parse_route_section(
                 void *userdata) {
 
         static const ConfigSectionParser table[_ROUTE_CONF_PARSER_MAX] = {
+                [ROUTE_GATEWAY_NETWORK]           = { .parser = config_parse_gateway,                .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_GATEWAY]                   = { .parser = config_parse_gateway,                .ltype = 1,                       .offset = 0,                                                   },
+                [ROUTE_GATEWAY_ONLINK]            = { .parser = config_parse_tristate,               .ltype = 0,                       .offset = offsetof(Route, gateway_onlink),                     },
+                [ROUTE_MULTIPATH]                 = { .parser = config_parse_multipath_route,        .ltype = 0,                       .offset = offsetof(Route, nexthops),                           },
+                [ROUTE_NEXTHOP]                   = { .parser = config_parse_route_nexthop,          .ltype = 0,                       .offset = offsetof(Route, nexthop_id),                         },
                 [ROUTE_METRIC_MTU]                = { .parser = config_parse_route_metric,           .ltype = RTAX_MTU,                .offset = 0,                                                   },
                 [ROUTE_METRIC_ADVMSS]             = { .parser = config_parse_route_metric,           .ltype = RTAX_ADVMSS,             .offset = 0,                                                   },
                 [ROUTE_METRIC_HOPLIMIT]           = { .parser = config_parse_route_metric,           .ltype = RTAX_HOPLIMIT,           .offset = 0,                                                   },
@@ -2007,7 +2012,13 @@ int config_parse_route_section(
 
         assert(filename);
 
-        r = route_new_static(network, filename, section_line, &route);
+        if (streq(section, "Network")) {
+                assert(streq_ptr(lvalue, "Gateway"));
+
+                /* we are not in an Route section, so use line number instead */
+                r = route_new_static(network, filename, line, &route);
+        } else
+                r = route_new_static(network, filename, section_line, &route);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
