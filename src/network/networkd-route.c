@@ -1960,7 +1960,7 @@ int route_section_verify(Route *route) {
         /* IPv6 route */
         if (route->family == AF_INET6) {
                 if (route->scope != RT_SCOPE_UNIVERSE) {
-                        log_warning("%s: Scope= is specified for IPv6 route. It will be ignored.", route->section->filename);
+                        log_section_warning(route->section, "Scope= is specified for IPv6 route. It will be ignored.");
                         route->scope = RT_SCOPE_UNIVERSE;
                 }
 
