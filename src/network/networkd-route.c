@@ -1977,6 +1977,54 @@ int config_parse_route_type(
         return 0;
 }
 
+int config_parse_route_section(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const ConfigSectionParser table[_ROUTE_CONF_PARSER_MAX] = {
+                [ROUTE_METRIC_MTU]                = { .parser = config_parse_route_metric,           .ltype = RTAX_MTU,                .offset = 0,                                                   },
+                [ROUTE_METRIC_ADVMSS]             = { .parser = config_parse_route_metric,           .ltype = RTAX_ADVMSS,             .offset = 0,                                                   },
+                [ROUTE_METRIC_HOPLIMIT]           = { .parser = config_parse_route_metric,           .ltype = RTAX_HOPLIMIT,           .offset = 0,                                                   },
+                [ROUTE_METRIC_INITCWND]           = { .parser = config_parse_route_metric,           .ltype = RTAX_INITCWND,           .offset = 0,                                                   },
+                [ROUTE_METRIC_RTO_MIN]            = { .parser = config_parse_route_metric,           .ltype = RTAX_RTO_MIN,            .offset = 0,                                                   },
+                [ROUTE_METRIC_INITRWND]           = { .parser = config_parse_route_metric,           .ltype = RTAX_INITRWND,           .offset = 0,                                                   },
+                [ROUTE_METRIC_QUICKACK]           = { .parser = config_parse_route_metric,           .ltype = RTAX_QUICKACK,           .offset = 0,                                                   },
+                [ROUTE_METRIC_CC_ALGO]            = { .parser = config_parse_string,                 .ltype = 0,                       .offset = offsetof(Route, metric.tcp_congestion_control_algo), },
+                [ROUTE_METRIC_FASTOPEN_NO_COOKIE] = { .parser = config_parse_route_metric,           .ltype = RTAX_FASTOPEN_NO_COOKIE, .offset = 0,                                                   },
+        };
+
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        r = route_new_static(network, filename, section_line, &route);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, route);
+        if (r <= 0)
+                return r;
+
+        TAKE_PTR(route);
+        return 0;
+}
+
 int route_section_verify(Route *route) {
         int r;
 

@@ -126,6 +126,21 @@ int route_section_verify(Route *route);
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
+typedef enum RouteConfParserType {
+        ROUTE_METRIC_MTU,
+        ROUTE_METRIC_ADVMSS,
+        ROUTE_METRIC_HOPLIMIT,
+        ROUTE_METRIC_INITCWND,
+        ROUTE_METRIC_RTO_MIN,
+        ROUTE_METRIC_INITRWND,
+        ROUTE_METRIC_QUICKACK,
+        ROUTE_METRIC_CC_ALGO,
+        ROUTE_METRIC_FASTOPEN_NO_COOKIE,
+        _ROUTE_CONF_PARSER_MAX,
+        _ROUTE_CONF_PARSER_INVALID = -EINVAL,
+} RouteConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_route_section);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
