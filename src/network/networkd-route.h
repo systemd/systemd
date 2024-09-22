@@ -127,6 +127,14 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
 typedef enum RouteConfParserType {
+        ROUTE_DESTINATION,
+        ROUTE_PREFERRED_SOURCE,
+        ROUTE_PRIORITY,
+        ROUTE_SCOPE,
+        ROUTE_TABLE,
+        ROUTE_PREFERENCE,
+        ROUTE_PROTOCOL,
+        ROUTE_TYPE,
         ROUTE_GATEWAY_NETWORK,
         ROUTE_GATEWAY,
         ROUTE_GATEWAY_ONLINK,
@@ -146,11 +154,3 @@ typedef enum RouteConfParserType {
 } RouteConfParserType;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_route_section);
-CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
-CONFIG_PARSER_PROTOTYPE(config_parse_destination);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_scope);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
