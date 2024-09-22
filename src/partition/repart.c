@@ -3912,6 +3912,8 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
+        log_info("Syncing future partition %"PRIu64" contents to disk.", p->partno);
+
         if (t->decrypted && fsync(t->decrypted->fd) < 0)
                 return log_error_errno(errno, "Failed to sync changes to '%s': %m", t->decrypted->volume);
 
