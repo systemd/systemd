@@ -8816,6 +8816,9 @@ done:
 }
 
 static int determine_auto_size(Context *c) {
+        // TODO: Add an argument to ignore any existing partitions, and ptables.
+        // To calculate how much bigger the disk would need to be to fit the image, or to determine how big
+        // the disk needs to be in the first place to fit the image
         uint64_t sum;
 
         assert(c);
