@@ -177,12 +177,12 @@ Neighbor.Address,                            config_parse_neighbor_section,     
 Neighbor.LinkLayerAddress,                   config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0
 Neighbor.MACAddress,                         config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0 /* deprecated */
 RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TOS,       0
-RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PRIORITY, 0
+RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PRIORITY,  0
 RoutingPolicyRule.GoTo,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_GOTO,      0
 RoutingPolicyRule.Table,                     config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TABLE,     0
 RoutingPolicyRule.FirewallMark,              config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FWMARK,    0
-RoutingPolicyRule.From,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PREFIX,    0
-RoutingPolicyRule.To,                        config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PREFIX,    0
+RoutingPolicyRule.From,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FROM,      0
+RoutingPolicyRule.To,                        config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TO,        0
 RoutingPolicyRule.IncomingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IIF,       0
 RoutingPolicyRule.OutgoingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_OIF,       0
 RoutingPolicyRule.IPProtocol,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IP_PROTOCOL, 0
