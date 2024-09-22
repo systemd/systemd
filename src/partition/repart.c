@@ -78,6 +78,7 @@
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "varlink.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
 #define DEFAULT_MIN_SIZE (10ULL*1024ULL*1024ULL)
@@ -8781,6 +8782,9 @@ done:
 }
 
 static int determine_auto_size(Context *c) {
+        // TODO: Add an argument to ignore any existing partitions, and ptables.
+        // To calculate how much bigger the disk would need to be to fit the image, or to determine how big
+        // the disk needs to be in the first place to fit the image
         uint64_t sum;
 
         assert(c);
