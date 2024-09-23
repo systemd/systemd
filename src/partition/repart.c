@@ -1015,8 +1015,11 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
 
                 /* For existing partitions, we should verify that they'll actually fit */
                 if (PARTITION_EXISTS(p)) {
-                        if (p->current_size + p->current_padding < required)
+                        if (p->current_size + p->current_padding < required) {
+                                log_debug("Can't grow partition %"PRIu64" with label %s, size %s and padding %s to its configured minimum size of %s",
+                                          p->partno, p->new_label, FORMAT_BYTES(p->current_size), FORMAT_BYTES(p->current_padding), FORMAT_BYTES(required));
                                 return false; /* 😢 We won't be able to grow to the required min size! */
+                        }
 
                         continue;
                 }
@@ -1031,8 +1034,11 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                         }
                 }
 
-                if (!fits)
+                if (!fits) {
+                        log_debug("Can't fit partition %"PRIu64" with label %s and minimum size %s into any free area",
+                                  p->partno, p->new_label, FORMAT_BYTES(required));
                         return false; /* 😢 Oh no! We can't fit this partition into any free area! */
+                }
 
                 /* Assign the partition to this free area */
                 p->allocated_to_area = a;
