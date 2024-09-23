@@ -78,9 +78,6 @@ CHANGES WITH 257 in spe:
 
         Service and system management:
 
-        * Global user units are now enabled or disabled based on preset files
-          on first boot as well just like system units are already.
-
         * Environment variable $REMOTE_ADDR is now set when using socket
           activation for AF_UNIX sockets.
 
