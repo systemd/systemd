@@ -47,9 +47,9 @@
     necessary file systems and spawning all configured services.</para>
 
     <para>On shutdown, the system manager stops all services, unmounts all non-busy file systems (detaching
-    the storage technologies backing them), and then (optionally) jumps into the exitrd, which is backed by
-    tmpfs, and unmounts/detaches the remaining file systems, including the real root. As a last step,
-    the system is powered down.</para>
+    the storage technologies backing them), and then (optionally) jumps into the exitrd. The exitrd is backed
+    by tmpfs and unmounts/detaches the remaining file systems, including the real root. As a last step, the
+    system is powered down.</para>
 
     <para>Additional information about the system boot process may be
     found in

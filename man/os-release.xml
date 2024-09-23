@@ -53,9 +53,9 @@
     precedence over <filename>/usr/lib/os-release</filename>.
     Applications should check for the former, and exclusively use its
     data if it exists, and only fall back to
-    <filename>/usr/lib/os-release</filename> if it is missing.
-    Applications should not read data from both files at the same
-    time. <filename>/usr/lib/os-release</filename> is the recommended
+    <filename>/usr/lib/os-release</filename> if that is missing.
+    Applications should not combine the data from both files.
+    <filename>/usr/lib/os-release</filename> is the recommended
     place to store OS release information as part of vendor trees.
     <filename>/etc/os-release</filename> should be a relative symlink
     to <filename>/usr/lib/os-release</filename>, to provide
