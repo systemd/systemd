@@ -1139,9 +1139,12 @@ static int target_method_vacuum_finish(
         v = sd_json_variant_by_key(json, "removed");
         if (!v)
                 return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Missing key 'removed'");
+        if (!sd_json_variant_is_unsigned(v))
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Key 'removed' should be an unsigned int");
         instances = sd_json_variant_unsigned(v);
+        assert(instances <= UINT32_MAX);
 
-        return sd_bus_reply_method_return(msg, "u", instances);
+        return sd_bus_reply_method_return(msg, "u", (uint32_t) instances);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
