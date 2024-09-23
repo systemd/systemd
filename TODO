@@ -1302,12 +1302,6 @@ Features:
   CapabilityQuintet we already have. (This likely allows us to drop libcap
   dep in the base OS image)
 
-* add concept for "exitrd" as inverse of "initrd", that we can transition to at
-  shutdown, and has similar security semantics. This should then take the place
-  of dracut's shutdown logic. Should probably support sysexts too. Care needs
-  to be taken that the resulting logic ends up in RAM, i.e. is copied out of
-  on-disk storage.
-
 * userdbd: implement an additional varlink service socket that provides the
   host user db in restricted form, then allow this to be bind mounted into
   sandboxed environments that want the host database in minimal form. All
