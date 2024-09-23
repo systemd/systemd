@@ -88,10 +88,10 @@
     <refsect2>
       <title><filename>/etc/initrd-release</filename></title>
 
-      <para>In the <ulink
-      url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>,
+      <para>In the <ulink url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>
+      and exitrd,
       <filename>/etc/initrd-release</filename> plays the same role as <filename>os-release</filename> in the
-      main system. Additionally, the presence of that file means that the system is in the initrd phase.
+      main system. Additionally, the presence of that file means that the system is in the initrd/exitrd phase.
       <filename>/etc/os-release</filename> should be symlinked to <filename>/etc/initrd-release</filename>
       (or vice versa), so programs that only look for <filename>/etc/os-release</filename> (as described
       above) work correctly.</para>
