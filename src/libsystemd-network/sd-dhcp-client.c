@@ -269,10 +269,35 @@ int sd_dhcp_client_set_mac(
                 const uint8_t *hw_addr,
                 const uint8_t *bcast_addr,
                 size_t addr_len,
-                uint16_t arp_type) {
+                unsigned short iftype) {
+
+        unsigned char default_eth_bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+        unsigned char default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        uint16_t arp_type;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+        assert_return(IN_SET(iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE), -EINVAL);
+
+        switch (iftype) {
+        case ARPHRD_ETHER:
+        case ARPHRD_INFINIBAND:
+                arp_type = iftype;
+                break;
+        case ARPHRD_RAWIP:
+        case ARPHRD_NONE:
+                arp_type = ARPHRD_ETHER;
+                assert_return(addr_len == 0 || addr_len == ETH_ALEN, -EINVAL);
+                if (addr_len == 0) {
+                        hw_addr = default_eth_hwaddr;
+                        bcast_addr = default_eth_bcast;
+                        addr_len = ETH_ALEN;
+                }
+                break;
+        default:
+                assert_not_reached();
+        }
+
         assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND), -EINVAL);
         assert_return(hw_addr, -EINVAL);
         assert_return(addr_len == (arp_type == ARPHRD_ETHER ? ETH_ALEN : INFINIBAND_ALEN), -EINVAL);
