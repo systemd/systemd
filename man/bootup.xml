@@ -345,6 +345,17 @@ systemd-reboot.service     |               |               |               |
   </refsect1>
 
   <refsect1>
+    <title>The exitrd</title>
+
+    <para>The "exitrd" is a concept symmetrical to the initrd. When the system manager is shutting down and
+    <filename>/run/initramfs/shutdown</filename> exists, it will switch root to
+    <filename>/run/initramfs/</filename> and execute <filename>/shutdown</filename>. This program runs from
+    the tmpfs mounted on <filename>/run/</filename>, so it can unmount the old root file system and perform
+    additional steps, for example dismantle complex storage or perform additional logging about the shutdown.
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
