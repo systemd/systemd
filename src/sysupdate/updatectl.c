@@ -788,6 +788,11 @@ static int verb_check(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start event loop: %m");
 
+        if (table_isempty(table)) {
+                log_info("No updates available.");
+                return 0;
+        }
+
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
