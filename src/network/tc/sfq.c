@@ -44,7 +44,7 @@ int config_parse_stochastic_fairness_queueing_perturb_period(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         StochasticFairnessQueueing *sfq;
         Network *network = ASSERT_PTR(data);
         int r;

@@ -343,6 +343,9 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                 return 0;
         }
 
+        if (neighbor_get_request(link, neighbor, NULL) >= 0)
+                return 0; /* already requested, skipping. */
+
         r = neighbor_dup(neighbor, &tmp);
         if (r < 0)
                 return r;

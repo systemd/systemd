@@ -115,7 +115,7 @@ int config_parse_fair_queueing_u32(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
         Network *network = ASSERT_PTR(data);
         uint32_t *p;
@@ -179,7 +179,7 @@ int config_parse_fair_queueing_size(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
         Network *network = ASSERT_PTR(data);
         uint64_t sz;
@@ -247,7 +247,7 @@ int config_parse_fair_queueing_bool(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
         Network *network = ASSERT_PTR(data);
         int r;
@@ -293,7 +293,7 @@ int config_parse_fair_queueing_usec(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
         Network *network = ASSERT_PTR(data);
         usec_t sec;
@@ -353,7 +353,7 @@ int config_parse_fair_queueing_max_rate(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
         Network *network = ASSERT_PTR(data);
         uint64_t sz;

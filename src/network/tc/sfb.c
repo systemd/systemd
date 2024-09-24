@@ -60,7 +60,7 @@ int config_parse_stochastic_fair_blue_u32(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         StochasticFairBlue *sfb;
         Network *network = ASSERT_PTR(data);
         int r;
