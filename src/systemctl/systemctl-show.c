@@ -1990,6 +1990,27 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         return 1;
+                } else if (streq(name, "ExtraFileDescriptorNames")) {
+                        _cleanup_free_ char *extra_fd_names = NULL;
+                        const char *fdname;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read_basic(m, 's', &fdname)) > 0)
+                                if (!strextend_with_separator(&extra_fd_names, " ", fdname))
+                                        return log_oom();
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        bus_print_property_value(name, expected_value, flags, extra_fd_names);
+
+                        return 1;
                 }
 
                 break;

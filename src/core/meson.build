@@ -37,6 +37,7 @@ libcore_sources = files(
         'exec-credential.c',
         'execute.c',
         'execute-serialize.c',
+        'extra-file-descriptor.c',
         'generator-setup.c',
         'import-creds.c',
         'job.c',
