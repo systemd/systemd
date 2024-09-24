@@ -1411,12 +1411,6 @@ static int create_home_common(sd_json_variant *input) {
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         int r;
 
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
         r = acquire_new_home_record(input, &hr);
         if (r < 0)
                 return r;
@@ -1461,6 +1455,12 @@ static int create_home_common(sd_json_variant *input) {
                 if (r < 0)
                         log_warning_errno(r, "Specified password does not pass quality checks (%s), proceeding anyway.", bus_error_message(&error, r));
         }
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2424,6 +2424,55 @@ static int has_regular_user(void) {
         return false;
 }
 
+static int acquire_group_list(char ***ret) {
+        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_strv_free_ char **groups = NULL;
+        int r;
+
+        assert(ret);
+
+        r = groupdb_all(USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &iterator);
+        if (r == -ENOLINK)
+                log_debug_errno(r, "No groups found. (Didn't check via Varlink.)");
+        else if (r == -ESRCH)
+                log_debug_errno(r, "No groups found.");
+        else if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate groups, ignoring: %m");
+        else {
+                for (;;) {
+                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+
+                        r = groupdb_iterator_get(iterator, &gr);
+                        if (r == -ESRCH)
+                                break;
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed acquire next group: %m");
+
+                        if (!IN_SET(group_record_disposition(gr), USER_REGULAR, USER_SYSTEM))
+                                continue;
+
+                        if (group_record_disposition(gr) == USER_REGULAR) {
+                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
+                                r = userdb_by_name(gr->group_name, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, &ur);
+                                if (r < 0 && r != -ESRCH)
+                                        return log_debug_errno(r, "Failed to check if matching user exists for group '%s': %m", gr->group_name);
+
+                                if (r >= 0 && user_record_disposition(ur) == USER_REGULAR)
+                                        continue;
+
+                        }
+
+                        r = strv_extend(&groups, gr->group_name);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        *ret = TAKE_PTR(groups);
+        return !!*ret;
+}
+
 static int create_interactively(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *username = NULL;
@@ -2435,12 +2484,6 @@ static int create_interactively(void) {
         }
 
         any_key_to_proceed();
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* switch_to_text= */ false);
 
@@ -2475,6 +2518,123 @@ static int create_interactively(void) {
         r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", username);
         if (r < 0)
                 return log_error_errno(r, "Failed to set userName field: %m");
+
+        _cleanup_strv_free_ char **available = NULL, **groups = NULL;
+
+        for (;;) {
+                _cleanup_free_ char *s = NULL;
+                unsigned u;
+
+                r = ask_string(&s,
+                               "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for auxiliary group: %m");
+
+                if (isempty(s))
+                        break;
+
+                if (streq(s, "list")) {
+                        if (!available) {
+                                r = acquire_group_list(&available);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to enumerate available groups, ignoring: %m");
+                                if (r == 0)
+                                        log_notice("Did not find any available groups");
+                                if (r <= 0)
+                                        continue;
+                        }
+
+                        r = show_menu(available, /*n_columns=*/ 3, /*width=*/ 20, /*percentage=*/ 60);
+                        if (r < 0)
+                                return r;
+
+                        putchar('\n');
+                        continue;
+                };
+
+                if (available) {
+                        r = safe_atou(s, &u);
+                        if (r >= 0) {
+                                if (u <= 0 || u > strv_length(available)) {
+                                        log_error("Specified entry number out of range.");
+                                        continue;
+                                }
+
+                                log_info("Selected '%s'.", available[u-1]);
+
+                                r = strv_extend(&groups, available[u-1]);
+                                if (r < 0)
+                                        return log_oom();
+
+                                continue;
+                        }
+                }
+
+                if (!valid_user_group_name(s, /* flags= */ 0)) {
+                        log_notice("Specified group name is not a valid UNIX group name, try again: %s", s);
+                        continue;
+                }
+
+                r = groupdb_by_name(s, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /*ret=*/ NULL);
+                if (r == -ESRCH) {
+                        log_notice("Specified auxiliary group does not exist, try again: %s", s);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if specified group '%s' already exists: %m", s);
+
+                log_info("Selected '%s'.", s);
+
+                r = strv_extend(&groups, s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (groups) {
+                r = sd_json_variant_set_field_strv(&arg_identity_extra, "memberOf", groups);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set memberOf field: %m");
+        }
+
+        _cleanup_free_ char *shell = NULL;
+
+        for (;;) {
+                shell = mfree(shell);
+
+                r = ask_string(&shell,
+                               "%s Please enter the shell to use for user %s (empty to skip): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), username);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for username: %m");
+
+                if (isempty(shell)) {
+                        log_info("No data entered, skipping.");
+                        break;
+                }
+
+                if (!valid_shell(shell)) {
+                        log_notice("Specified shell is not a valid UNIX shell path, try again: %s", shell);
+                        continue;
+                }
+
+                r = RET_NERRNO(access(shell, F_OK));
+                if (r >= 0)
+                        break;
+
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to check if shell %s exists: %m", shell);
+
+                log_notice("Specified shell '%s' is not installed, try another one.", shell);
+        }
+
+        if (shell) {
+                log_info("Selected %s as the shell for user %s", shell, username);
+
+                r = sd_json_variant_set_field_string(&arg_identity_extra, "shell", shell);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set shell field: %m");
+        }
 
         return create_home_common(/* input= */ NULL);
 }
