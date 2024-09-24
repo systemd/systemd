@@ -23,4 +23,10 @@ typedef enum UGIDRangeFlags {
 bool uid_in_range(uid_t uid, UGIDRangeFlags flags);
 bool gid_in_range(uid_t uid, UGIDRangeFlags flags);
 
+bool uid_is_dynamic(uid_t uid);
+
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
 bool uid_for_system_journal(uid_t uid);

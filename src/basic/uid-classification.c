@@ -3,6 +3,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "missing_threads.h"
 #include "string-util.h"
 #include "uid-classification.h"
@@ -144,9 +145,17 @@ bool gid_in_range(gid_t gid, UGIDRangeFlags flags) {
         return uid_in_range((uid_t) gid, UPDATE_FLAG(flags, UGID_RANGE_SYSTEM, 0));
 }
 
+bool uid_is_dynamic(uid_t uid) {
+        char path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
+
+        xsprintf(path, "/run/systemd/dynamic-uid/" UID_FMT, uid);
+
+        return access(path, F_OK) >= 0;
+}
+
 bool uid_for_system_journal(uid_t uid) {
 
         /* Returns true if the specified UID shall get its data stored in the system journal. */
 
-        return uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_DYNAMIC|UGID_RANGE_CONTAINER) || uid == UID_NOBODY;
+        return uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_CONTAINER) || uid == UID_NOBODY || uid_is_dynamic(uid);
 }
