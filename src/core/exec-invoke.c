@@ -3912,7 +3912,7 @@ static int exec_context_named_iofds(
         for (size_t i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
-        n_fds = p->n_storage_fds + p->n_socket_fds;
+        n_fds = p->n_storage_fds + p->n_socket_fds + p->n_extra_fds;
 
         for (size_t i = 0; i < n_fds  && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
@@ -4096,7 +4096,7 @@ int exec_invoke(
         int ngids_after_pam = 0;
 
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
-        size_t n_storage_fds, n_socket_fds;
+        size_t n_storage_fds, n_socket_fds, n_extra_fds;
 
         assert(command);
         assert(context);
@@ -4133,12 +4133,13 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
-                n_storage_fds = n_socket_fds = 0;
+                n_storage_fds = n_socket_fds = n_extra_fds = 0;
         } else {
                 n_socket_fds = params->n_socket_fds;
                 n_storage_fds = params->n_storage_fds;
+                n_extra_fds = params->n_extra_fds;
         }
-        n_fds = n_socket_fds + n_storage_fds;
+        n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0)
