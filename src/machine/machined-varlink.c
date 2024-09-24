@@ -406,7 +406,8 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path));
         if (r < 0)
                 return r;
 
