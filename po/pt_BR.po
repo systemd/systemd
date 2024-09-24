@@ -7,12 +7,13 @@
 # Gustavo Costa <xfgusta@gmail.com>, 2021.
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
+# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-09-24 21:25+0000\n"
-"Last-Translator: Gabriel Elyas <gabrielelyas@protonmail.com>\n"
+"Last-Translator: Fábio Rodrigues Ribeiro <farribeiro@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -394,7 +395,7 @@ msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr "É necessária autenticação para baixar uma imagem de disco"
+msgstr "É necessária autenticação para baixar uma imagem de disco."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
