@@ -109,23 +109,44 @@ const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
         return &default_ugid_allocation_range;
 }
 
-bool uid_is_system(uid_t uid) {
-        const UGIDAllocationRange *defs;
-        assert_se(defs = acquire_ugid_allocation_range());
+bool uid_in_range(uid_t uid, UGIDRangeFlags flags) {
+        assert(flags);
 
-        return uid <= defs->system_uid_max;
+        if (FLAGS_SET(flags, UGID_RANGE_DYNAMIC))
+                if (DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX)
+                        return true;
+
+        if (FLAGS_SET(flags, UGID_RANGE_CONTAINER))
+                if (CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX)
+                        return true;
+
+        if (FLAGS_SET(flags, UGID_RANGE_SYSTEM)) {
+                const UGIDAllocationRange *defs;
+                assert_se(defs = acquire_ugid_allocation_range());
+
+                if (uid <= defs->system_uid_max)
+                        return true;
+        }
+
+        return false;
 }
 
-bool gid_is_system(gid_t gid) {
-        const UGIDAllocationRange *defs;
-        assert_se(defs = acquire_ugid_allocation_range());
+bool gid_in_range(gid_t gid, UGIDRangeFlags flags) {
 
-        return gid <= defs->system_gid_max;
+        if (FLAGS_SET(flags, UGID_RANGE_SYSTEM)) {
+                const UGIDAllocationRange *defs;
+                assert_se(defs = acquire_ugid_allocation_range());
+
+                if (gid <= defs->system_gid_max)
+                        return true;
+        }
+
+        return uid_in_range((uid_t) gid, UPDATE_FLAG(flags, UGID_RANGE_SYSTEM, 0));
 }
 
 bool uid_for_system_journal(uid_t uid) {
 
         /* Returns true if the specified UID shall get its data stored in the system journal. */
 
-        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY || uid_is_container(uid);
+        return uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_DYNAMIC|UGID_RANGE_CONTAINER) || uid == UID_NOBODY;
 }

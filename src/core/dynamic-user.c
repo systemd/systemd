@@ -260,7 +260,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 /* Make sure whatever we picked here actually is in the right range */
-                if (!uid_is_dynamic(candidate))
+                if (!uid_in_range(candidate, UGID_RANGE_DYNAMIC))
                         continue;
 
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
@@ -473,7 +473,7 @@ static int dynamic_user_realize(
                         num = new_uid;
                         uid_lock_fd = new_uid_lock_fd;
                 }
-        } else if (is_user && !uid_is_dynamic(num)) {
+        } else if (is_user && !uid_in_range(num, UGID_RANGE_DYNAMIC)) {
                 _cleanup_free_ struct passwd *p = NULL;
 
                 /* Statically allocated user may have different uid and gid. So, let's obtain the gid. */
@@ -697,7 +697,7 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
         assert(ret);
 
         /* A friendly way to translate a dynamic user's UID into a name. */
-        if (!uid_is_dynamic(uid))
+        if (!uid_in_range(uid, UGID_RANGE_DYNAMIC))
                 return -ESRCH;
 
         xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, uid);

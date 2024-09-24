@@ -3208,9 +3208,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse UID '%s'.", optarg);
 
-                        if (uid_is_system(uid))
+                        if (uid_in_range(uid, UGID_RANGE_SYSTEM))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
-                        if (uid_is_dynamic(uid))
+                        if (uid_in_range(uid, UGID_RANGE_DYNAMIC))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
                         if (uid == UID_NOBODY)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is nobody UID, refusing.", uid);

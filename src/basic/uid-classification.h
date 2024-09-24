@@ -4,25 +4,6 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-bool uid_is_system(uid_t uid);
-bool gid_is_system(gid_t gid);
-
-static inline bool uid_is_dynamic(uid_t uid) {
-        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
-}
-
-static inline bool gid_is_dynamic(gid_t gid) {
-        return uid_is_dynamic((uid_t) gid);
-}
-
-static inline bool uid_is_container(uid_t uid) {
-        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
-}
-
-static inline bool gid_is_container(gid_t gid) {
-        return uid_is_container((uid_t) gid);
-}
-
 typedef struct UGIDAllocationRange {
         uid_t system_alloc_uid_min;
         uid_t system_uid_max;
@@ -32,5 +13,14 @@ typedef struct UGIDAllocationRange {
 
 int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root);
 const UGIDAllocationRange *acquire_ugid_allocation_range(void);
+
+typedef enum UGIDRangeFlags {
+        UGID_RANGE_SYSTEM     = 1 << 0,
+        UGID_RANGE_DYNAMIC    = 1 << 1,
+        UGID_RANGE_CONTAINER  = 1 << 2,
+} UGIDRangeFlags;
+
+bool uid_in_range(uid_t uid, UGIDRangeFlags flags);
+bool gid_in_range(uid_t uid, UGIDRangeFlags flags);
 
 bool uid_for_system_journal(uid_t uid);

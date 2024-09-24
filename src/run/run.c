@@ -1687,7 +1687,7 @@ static int chown_to_capsule(const char *path, const char *capsule) {
         if (r < 0)
                 return r;
 
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
+        if (uid_in_range(st.st_uid, UGID_RANGE_SYSTEM) || gid_in_range(st.st_gid, UGID_RANGE_SYSTEM)) /* paranoid safety check */
                 return -EPERM;
 
         return chmod_and_chown(path, 0600, st.st_uid, st.st_gid);
