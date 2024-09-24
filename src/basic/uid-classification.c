@@ -109,23 +109,9 @@ const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
         return &default_ugid_allocation_range;
 }
 
-bool uid_is_system(uid_t uid) {
-        const UGIDAllocationRange *defs;
-        assert_se(defs = acquire_ugid_allocation_range());
-
-        return uid <= defs->system_uid_max;
-}
-
-bool gid_is_system(gid_t gid) {
-        const UGIDAllocationRange *defs;
-        assert_se(defs = acquire_ugid_allocation_range());
-
-        return gid <= defs->system_gid_max;
-}
-
 bool uid_for_system_journal(uid_t uid) {
 
         /* Returns true if the specified UID shall get its data stored in the system journal. */
 
-        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY || uid_is_container(uid);
+        return uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_DYNAMIC|UGID_RANGE_CONTAINER) || uid == UID_NOBODY;
 }

@@ -159,9 +159,9 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         } else if (uid_is_valid(p.uid)) {
                 uid_t start, uidmask;
 
-                if (uid_is_container(p.uid))
+                if (uid_in_range(p.uid, UGID_RANGE_CONTAINER))
                         uidmask = (uid_t) UINT32_C(0xFFFF0000);
-                else if (uid_is_dynamic(p.uid))
+                else if (uid_in_range(p.uid, UGID_RANGE_DYNAMIC))
                         uidmask = (uid_t) UINT32_C(0xFFFFFFFF);
                 else
                         goto not_found;
@@ -286,9 +286,9 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         } else if (gid_is_valid(p.gid)) {
                 gid_t start, gidmask;
 
-                if (gid_is_container(p.gid))
+                if (gid_in_range(p.gid, UGID_RANGE_CONTAINER))
                         gidmask = (gid_t) UINT32_C(0xFFFF0000);
-                else if (gid_is_dynamic(p.gid))
+                else if (gid_in_range(p.gid, UGID_RANGE_DYNAMIC))
                         gidmask = (gid_t) UINT32_C(0xFFFFFFFF);
                 else
                         goto not_found;

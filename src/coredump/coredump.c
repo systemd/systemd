@@ -229,7 +229,7 @@ static int fix_acl(int fd, uid_t uid, bool allow_user) {
         if (!allow_user)
                 return 0;
 
-        if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
+        if (uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_DYNAMIC) || uid == UID_NOBODY)
                 return 0;
 
         /* Make sure normal users can read (but not write or delete) their own coredumps */
@@ -769,7 +769,7 @@ static int change_uid_gid(const Context *context) {
         gid_t gid = context->gid;
         int r;
 
-        if (uid_is_system(uid)) {
+        if (uid_in_range(uid, UGID_RANGE_SYSTEM)) {
                 const char *user = "systemd-coredump";
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);

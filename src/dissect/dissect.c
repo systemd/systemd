@@ -1168,11 +1168,11 @@ static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE])
 static const char *pick_color_for_uid_gid(uid_t uid) {
         if (uid == UID_NOBODY)
                 return ansi_highlight_yellow4(); /* files should never be owned by 'nobody' (but might happen due to userns mapping) */
-        if (uid_is_system(uid))
+        if (uid_in_range(uid, UGID_RANGE_SYSTEM))
                 return ansi_normal();            /* files in disk images are typically owned by root and other system users, no issue there */
-        if (uid_is_dynamic(uid))
+        if (uid_in_range(uid, UGID_RANGE_DYNAMIC))
                 return ansi_highlight_red();     /* files should never be owned persistently by dynamic users, and there are just no excuses */
-        if (uid_is_container(uid))
+        if (uid_in_range(uid, UGID_RANGE_CONTAINER))
                 return ansi_highlight_cyan();
 
         return ansi_highlight();
