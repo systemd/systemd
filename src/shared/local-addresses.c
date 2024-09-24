@@ -104,7 +104,7 @@ static int add_local_address_full(
         return 1;
 }
 
-static int add_local_address(
+int add_local_address(
                 struct local_address **list,
                 size_t *n_list,
                 int ifindex,
