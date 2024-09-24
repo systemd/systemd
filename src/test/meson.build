@@ -88,6 +88,7 @@ simple_tests += files(
         'test-extract-word.c',
         'test-fdset.c',
         'test-fiemap.c',
+        'test-file-descriptor.c',
         'test-fileio.c',
         'test-firewall-util.c',
         'test-format-table.c',

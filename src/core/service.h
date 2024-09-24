@@ -5,6 +5,7 @@ typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
 #include "exit-status.h"
+#include "file-descriptor.h"
 #include "kill.h"
 #include "open-file.h"
 #include "path.h"
@@ -230,6 +231,9 @@ struct Service {
         OOMPolicy oom_policy;
 
         LIST_HEAD(OpenFile, open_files);
+
+        /* If service spawned from transient unit, extra file descriptors are passed via dbus API */
+        LIST_HEAD(FileDescriptor, extra_fds);
 
         int reload_signal;
         usec_t reload_begin_usec;

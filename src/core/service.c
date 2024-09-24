@@ -510,6 +510,7 @@ static void service_done(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_fd_store(s);
+        file_descriptor_free_and_close_many(&s->extra_fds);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -647,6 +648,14 @@ static int service_arm_timer(Service *s, bool relative, usec_t usec) {
         return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, service_dispatch_timer);
 }
 
+static size_t get_n_extra_fds(Service *s) {
+        size_t n_extra_fds = 0;
+        LIST_FOREACH(fds, extra_fd, s->extra_fds) {
+                n_extra_fds++;
+        }
+        return n_extra_fds;
+}
+
 static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
@@ -689,6 +698,9 @@ static int service_verify(Service *s) {
 
         if (s->type == SERVICE_DBUS && !s->bus_name)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
+
+        if (!UNIT(s)->transient && get_n_extra_fds(s) > 0)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has ExtraFileDescriptor= set, which isn't allowed for non-transient services. Refusing.");
 
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
@@ -1093,6 +1105,21 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%sOpen File: %s\n", prefix, ofs);
                 }
 
+        if (s->extra_fds)
+                LIST_FOREACH(fds, extra_fd, s->extra_fds) {
+                        _cleanup_free_ char *fd_str = NULL;
+                        int r;
+
+                        r = file_descriptor_to_string(extra_fd, &fd_str);
+                        if (r < 0) {
+                                log_debug_errno(r,
+                                                "Failed to convert ExtraFileDescriptor= setting to string, ignoring: %m");
+                                continue;
+                        }
+
+                        fprintf(f, "%sExtra File Descriptor: %s\n", prefix, fd_str);
+                }
+
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
@@ -1423,11 +1450,12 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds) {
+                size_t *n_storage_fds,
+                size_t *n_extra_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0, rn_storage_fds = 0, rn_extra_fds = 0;
         int r;
 
         assert(s);
@@ -1435,6 +1463,7 @@ static int service_collect_fds(
         assert(fd_names);
         assert(n_socket_fds);
         assert(n_storage_fds);
+        assert(n_extra_fds);
 
         if (s->socket_fd >= 0) {
                 Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
@@ -1512,10 +1541,42 @@ static int service_collect_fds(
                 rfd_names[n_fds] = NULL;
         }
 
+        rn_extra_fds = get_n_extra_fds(s);
+        if (rn_extra_fds > 0) {
+                size_t n_fds;
+                char **nl;
+                int *t;
+
+                t = reallocarray(rfds, rn_socket_fds + rn_storage_fds + rn_extra_fds, sizeof(int));
+                if (!t)
+                        return -ENOMEM;
+
+                rfds = t;
+
+                nl = reallocarray(rfd_names, rn_socket_fds + rn_storage_fds + rn_extra_fds + 1, sizeof(char *));
+                if (!nl)
+                        return -ENOMEM;
+
+                rfd_names = nl;
+                n_fds = rn_socket_fds + rn_storage_fds;
+
+                LIST_FOREACH(fds, extra_fd, s->extra_fds) {
+                        rfds[n_fds] = extra_fd->fd;
+                        rfd_names[n_fds] = strdup(extra_fd->fdname);
+                        if (!rfd_names[n_fds])
+                                return -ENOMEM;
+
+                        n_fds++;
+                }
+
+                rfd_names[n_fds] = NULL;
+        }
+
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
         *n_storage_fds = rn_storage_fds;
+        *n_extra_fds = rn_extra_fds;
 
         return 0;
 }
@@ -1714,7 +1775,8 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds);
+                                        &exec_params.n_storage_fds,
+                                        &exec_params.n_extra_fds);
                 if (r < 0)
                         return r;
 
@@ -1722,7 +1784,7 @@ static int service_spawn_internal(
 
                 exec_params.flags |= EXEC_PASS_FDS;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {

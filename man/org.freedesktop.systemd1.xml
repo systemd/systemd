@@ -2799,6 +2799,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) OpenFile = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExtraFileDescriptorName = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i ReloadSignal = ...;
       readonly t ExecMainStartTimestamp = ...;
       readonly t ExecMainStartTimestampMonotonic = ...;
@@ -3471,6 +3473,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property OpenFile is not documented!-->
 
+    <!--property ExtraFileDescriptorName is not documented!-->
+
     <!--property ReloadSignal is not documented!-->
 
     <!--property ExecCondition is not documented!-->
@@ -4106,6 +4110,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="OOMPolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OpenFile"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtraFileDescriptorName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignal"/>
 
@@ -12218,6 +12224,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LiveMountResult</varname>,
       <varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
+      <varname>ExtraFileDescriptorName</varname>,
       <varname>BindLogSockets</varname>, and
       <varname>PrivateUsersEx</varname> were added in version 257.</para>
     </refsect2>

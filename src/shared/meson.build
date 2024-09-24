@@ -72,6 +72,7 @@ shared_sources = files(
         'extension-util.c',
         'fdset.c',
         'fido2-util.c',
+        'file-descriptor.c',
         'fileio-label.c',
         'find-esp.c',
         'firewall-util-nft.c',

@@ -16,6 +16,7 @@
 #include "exec-credential.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "file-descriptor.h"
 #include "fileio.h"
 #include "locale-util.h"
 #include "missing_fcntl.h"
@@ -62,6 +63,34 @@ static int property_get_open_files(
 
         LIST_FOREACH(open_files, of, *open_files) {
                 r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, (uint64_t) of->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_extra_file_descriptors(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        FileDescriptor **extra_fds = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(fds, fd, *extra_fds) {
+                r = sd_bus_message_append_basic(reply, 's', fd->fdname);
                 if (r < 0)
                         return r;
         }
@@ -339,6 +368,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtraFileDescriptorName", "as", property_get_extra_file_descriptors, offsetof(Service, extra_fds), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -717,6 +747,56 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "ReloadSignal"))
                 return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
+
+        if (streq(name, "ExtraFileDescriptor")) {
+                int fd;
+                const char *fdname;
+
+                r = sd_bus_message_enter_container(message, 'a', "(hs)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(hs)", &fd, &fdname)) > 0) {
+                        _cleanup_(file_descriptor_freep) FileDescriptor *extra_fd = NULL;
+                        _cleanup_close_ int dup_fd = -EBADF;
+
+                        extra_fd = new(FileDescriptor, 1);
+                        if (!extra_fd)
+                                return -ENOMEM;
+
+                        dup_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (dup_fd < 0)
+                                return -errno;
+
+                        *extra_fd = (FileDescriptor) {
+                                .fd = dup_fd,
+                                .fdname = strdup(fdname),
+                        };
+
+                        if (!extra_fd->fdname)
+                                return -ENOMEM;
+
+                        r = file_descriptor_validate(extra_fd);
+                        if (r < 0)
+                                return r;
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        // Reset dup_fd to EBADF to ensure we don't close FD
+                        TAKE_FD(dup_fd);
+
+                        LIST_APPEND(fds, s->extra_fds, TAKE_PTR(extra_fd));
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }

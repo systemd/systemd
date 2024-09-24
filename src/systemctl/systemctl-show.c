@@ -14,6 +14,7 @@
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "file-descriptor.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -1981,6 +1982,24 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                         r, "Failed to convert OpenFile= value to string: %m");
 
                                 bus_print_property_value(name, expected_value, flags, ofs);
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+                } else if (streq(name, "ExtraFileDescriptorName")) {
+                        char *fdname;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read_basic(m, 's', &fdname)) > 0) {
+                                bus_print_property_value(name, expected_value, flags, fdname);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
