@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup-util.h"
+#include "fd-util.h"
+#include "iovec-util.h"
 #include "machined.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -174,4 +177,135 @@ void manager_enqueue_gc(Manager *m) {
                 log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
 
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
+}
+
+int machine_get_addresses(Machine* machine, struct local_address **ret_addresses) {
+        assert(machine);
+        assert(ret_addresses);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST: {
+                _cleanup_free_ struct local_address *addresses = NULL;
+                int n;
+
+                n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                if (n < 0)
+                        return log_debug_errno(n, "Failed to get local addresses: %m");
+
+                *ret_addresses = TAKE_PTR(addresses);
+                return n;
+        }
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_close_ int netns_fd = -EBADF;
+                pid_t child;
+                int r;
+
+                r = in_same_namespace(/* pid1 = */ 0, machine->leader.pid, NAMESPACE_NET);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if container has private network: %m");
+                if (r > 0)
+                        return -ENONET;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          /* ret_mntns_fd = */ NULL,
+                                          &netns_fd,
+                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_root_fd = */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open namespace: %m");
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return log_debug_errno(errno, "Failed to call socketpair(): %m");
+
+                r = namespace_fork("(sd-addrns)",
+                                   "(sd-addr)",
+                                   /* except_fds = */ NULL,
+                                   /* n_except_fds = */ 0,
+                                   FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   /* pidns_fd = */ -1,
+                                   /* mntns_fd = */ -1,
+                                   netns_fd,
+                                   /* userns_fd = */ -1,
+                                   /* root_fd = */ -1,
+                                   &child);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fork(): %m");
+                if (r == 0) {
+                        _cleanup_free_ struct local_address *addresses = NULL;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        int n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                        if (n < 0) {
+                                log_debug_errno(n, "Failed to get local addresses: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        FOREACH_ARRAY(a, addresses, n) {
+                                struct iovec iov = {
+                                        .iov_base = a,
+                                        .iov_len = sizeof(*a)
+                                };
+
+                                r = writev(pair[1], &iov, 1);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to write to socket: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
+                        pair[1] = safe_close(pair[1]);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                _cleanup_free_ struct local_address *list = NULL;
+                size_t n_list = 0;
+
+                for (;;) {
+                        ssize_t n;
+                        struct local_address la;
+                        struct iovec iov = IOVEC_MAKE(&la,  sizeof(la));
+                        struct msghdr mh = {
+                                .msg_iov = &iov,
+                                .msg_iovlen = 1,
+                        };
+
+                        n = recvmsg_safe(pair[0], &mh, /* flags = */ 0);
+                        if (n < 0)
+                                return log_debug_errno(n, "Failed to recvmsg(): %m");
+                        if (n == 0)
+                                break;
+                        if ((size_t) n < sizeof(la))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpectedly short message");
+
+                        r = add_local_address(&list,
+                                              &n_list,
+                                              la.ifindex,
+                                              la.scope,
+                                              la.family,
+                                              &la.address);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add local address: %m");
+                }
+
+                r = wait_for_terminate_and_check("(sd-addrns)", child, /* flags = */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for child: %m");
+                if (r != EXIT_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
+
+                *ret_addresses = TAKE_PTR(list);
+                return (int) n_list;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
 }
