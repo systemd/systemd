@@ -427,17 +427,20 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 /* Look both in regular and in encrypted credentials */
                 for (encrypted = 0; encrypted < 2; encrypted++) {
                         _cleanup_closedir_ DIR *d = NULL;
+                        ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE;
 
                         r = open_credential_directory(encrypted, &d, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open credentials directory: %m");
                         if (!d) /* Not set */
                                 continue;
+                        if (encrypted)
+                                flags |= READ_FULL_FILE_UNBASE64;
 
                         r = read_full_file_full(
                                         dirfd(d), *cn,
                                         UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
+                                        flags,
                                         NULL,
                                         (char**) &data, &size);
                         if (r == -ENOENT) /* Not found */
