@@ -12,6 +12,7 @@ typedef struct Manager Manager;
 #include "hashmap.h"
 #include "image-dbus.h"
 #include "list.h"
+#include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
 #include "operation.h"
@@ -63,3 +64,5 @@ int manager_find_machine_for_gid(Manager *m, gid_t host_gid, Machine **ret_machi
 
 void manager_gc(Manager *m, bool drop_not_started);
 void manager_enqueue_gc(Manager *m);
+
+int machine_get_addresses(Machine* machine, struct local_address **ret_addresses, int *reterr_errno);
