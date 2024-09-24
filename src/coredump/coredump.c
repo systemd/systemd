@@ -229,7 +229,7 @@ static int fix_acl(int fd, uid_t uid, bool allow_user) {
         if (!allow_user)
                 return 0;
 
-        if (uid_in_range(uid, UGID_RANGE_SYSTEM|UGID_RANGE_DYNAMIC) || uid == UID_NOBODY)
+        if (uid_in_range(uid, UGID_RANGE_SYSTEM) || uid_is_dynamic(uid) || uid == UID_NOBODY)
                 return 0;
 
         /* Make sure normal users can read (but not write or delete) their own coredumps */

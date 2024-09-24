@@ -54,4 +54,10 @@ static inline bool gid_in_range(gid_t gid, UGIDRangeFlags flags) {
         return uid_in_range((uid_t) gid, flags);
 }
 
+bool uid_is_dynamic(uid_t uid);
+
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
 bool uid_for_system_journal(uid_t uid);
