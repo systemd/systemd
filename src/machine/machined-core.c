@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup-util.h"
+#include "fd-util.h"
+#include "iovec-util.h"
 #include "machined.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -174,4 +177,136 @@ void manager_enqueue_gc(Manager *m) {
                 log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
 
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
+}
+
+int machine_get_addresses(Machine* machine, struct local_address **ret_addresses, int *reterr_errno) {
+        assert(machine);
+        assert(ret_addresses);
+        assert(reterr_errno);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST: {
+                _cleanup_free_ struct local_address *addresses = NULL;
+                int n;
+
+                n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
+                if (n < 0)
+                        return n;
+
+                if (addresses)
+                        *ret_addresses = TAKE_PTR(addresses);
+
+                return n;
+        }
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_close_ int netns_fd = -EBADF;
+                pid_t child;
+                int r;
+
+                r = in_same_namespace(0, machine->leader.pid, NAMESPACE_NET);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return -ENONET;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          /* ret_mntns_fd = */ NULL,
+                                          &netns_fd,
+                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_root_fd = */ NULL);
+                if (r < 0)
+                        return r;
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return -errno;
+
+                r = namespace_fork("(sd-addrns)", "(sd-addr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   -1, -1, netns_fd, -1, -1, &child);
+                if (r < 0) {
+                        *reterr_errno = r;
+                        return -ENOEXEC;
+                }
+                if (r == 0) {
+                        _cleanup_free_ struct local_address *addresses = NULL;
+                        struct local_address *a;
+                        int i, n;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
+                        if (n < 0)
+                                _exit(EXIT_FAILURE);
+
+                        for (a = addresses, i = 0; i < n; a++, i++) {
+                                struct iovec iov[2] = {
+                                        { .iov_base = &a->family, .iov_len = sizeof(a->family) },
+                                        { .iov_base = &a->address, .iov_len = FAMILY_ADDRESS_SIZE(a->family) },
+                                };
+
+                                r = writev(pair[1], iov, 2);
+                                if (r < 0)
+                                        _exit(EXIT_FAILURE);
+                        }
+
+                        pair[1] = safe_close(pair[1]);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                _cleanup_free_ struct local_address *list = NULL;
+                size_t n_list = 0;
+
+                for (;;) {
+                        int family;
+                        ssize_t n;
+                        union in_addr_union in_addr;
+                        struct iovec iov[2];
+                        struct msghdr mh = {
+                                .msg_iov = iov,
+                                .msg_iovlen = 2,
+                        };
+
+                        iov[0] = IOVEC_MAKE(&family, sizeof(family));
+                        iov[1] = IOVEC_MAKE(&in_addr, sizeof(in_addr));
+
+                        n = recvmsg_safe(pair[0], &mh, 0);
+                        if (n < 0)
+                                return n;
+                        if ((size_t) n < sizeof(family))
+                                break;
+                        if ((size_t) n != sizeof(family) + FAMILY_ADDRESS_SIZE(family))
+                                return -EIO;
+
+                        r = add_local_address(&list,
+                                              &n_list,
+                                              /* ifindex = */ 0,
+                                              /* scope = */ '\0',
+                                              family,
+                                              &in_addr);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = wait_for_terminate_and_check("(sd-addrns)", child, 0);
+                if (r < 0) {
+                        *reterr_errno = r;
+                        return -ECHILD;
+                } else if (r != EXIT_SUCCESS)
+                        return -ESHUTDOWN;
+
+                if (list)
+                        *ret_addresses = TAKE_PTR(list);
+
+                return (int) n_list;
+        }
+
+        default:
+            return -ENOTSUP;
+        }
 }
