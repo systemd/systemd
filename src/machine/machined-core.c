@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup-util.h"
+#include "copy.h"
+#include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "iovec-util.h"
 #include "machined.h"
 #include "process-util.h"
@@ -311,4 +314,99 @@ int machine_get_addresses(Machine* machine, struct local_address **ret_addresses
         default:
                 return -ENOTSUP;
         }
+}
+
+#define EXIT_NOT_FOUND 2
+
+int machine_get_os_release(Machine *machine, char ***ret_os_release) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(machine);
+        assert(ret_os_release);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST:
+                r = load_os_release_pairs(NULL, &l);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_fclose_ FILE *f = NULL;
+                pid_t child;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
+                if (r < 0)
+                        return r;
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return -errno;
+
+                r = namespace_fork("(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   pidns_fd, mntns_fd, -1, -1, root_fd,
+                                   &child);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to fork(): %m");
+                        return r;
+                }
+                if (r == 0) {
+                        int fd = -EBADF;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        r = open_os_release(NULL, NULL, &fd);
+                        if (r == -ENOENT)
+                                _exit(EXIT_NOT_FOUND);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        r = copy_bytes(fd, pair[1], UINT64_MAX, 0);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                f = take_fdopen(&pair[0], "r");
+                if (!f)
+                        return -errno;
+
+                r = load_env_file_pairs(f, "/etc/os-release", &l);
+                if (r < 0)
+                        return r;
+
+                r = wait_for_terminate_and_check("(sd-osrelns)", child, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to wait for child: %m");
+                        return r;
+                }
+                if (r == EXIT_NOT_FOUND)
+                        return -ENOENT;
+                if (r != EXIT_SUCCESS) {
+                        log_debug("Child died abnormally, exit code=%d", r);
+                        return -ESHUTDOWN;
+                }
+
+                break;
+        }
+
+        default:
+                return -ENOTSUP;
+        }
+
+
+        *ret_os_release = TAKE_PTR(l);
+        return 0;
 }
