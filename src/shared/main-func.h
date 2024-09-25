@@ -20,6 +20,7 @@
 
 #define _DEFINE_MAIN_FUNCTION(intro, impl, result_to_exit_status, result_to_return_value) \
         int main(int argc, char *argv[]) {                              \
+                errno = 0;                                              \
                 int r;                                                  \
                 assert_se(argc > 0 && !isempty(argv[0]));               \
                 save_argc_argv(argc, argv);                             \

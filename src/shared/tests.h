@@ -184,6 +184,7 @@ static inline int run_test_table(void) {
 
 #define DEFINE_TEST_MAIN_FULL(log_level, intro, outro)    \
         int main(int argc, char *argv[]) {                \
+                errno = 0;                                \
                 int (*_intro)(void) = intro;              \
                 int (*_outro)(void) = outro;              \
                 int _r, _q;                               \
