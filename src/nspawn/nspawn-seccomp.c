@@ -84,7 +84,6 @@ static int add_syscall_filters(
                 { 0,                  "sched_rr_get_interval"        },
                 { 0,                  "sched_rr_get_interval_time64" },
                 { 0,                  "sched_yield"                  },
-                { 0,                  "seccomp"                      },
                 { 0,                  "sendfile"                     },
                 { 0,                  "sendfile64"                   },
                 { 0,                  "setdomainname"                },
