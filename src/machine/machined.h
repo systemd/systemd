@@ -66,3 +66,4 @@ void manager_gc(Manager *m, bool drop_not_started);
 void manager_enqueue_gc(Manager *m);
 
 int machine_get_addresses(Machine* machine, struct local_address **ret_addresses);
+int machine_get_os_release(Machine *machine, char ***ret_os_release);
