@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup-util.h"
+#include "copy.h"
+#include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "iovec-util.h"
 #include "machined.h"
 #include "process-util.h"
@@ -298,4 +301,105 @@ int machine_get_addresses(Machine* machine, struct local_address **ret_addresses
         default:
                 return -EOPNOTSUPP;
         }
+}
+
+#define EXIT_NOT_FOUND 2
+
+int machine_get_os_release(Machine *machine, char ***ret_os_release) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(machine);
+        assert(ret_os_release);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST:
+                r = load_os_release_pairs(/* root = */ NULL, &l);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load OS release information: %m");
+
+                break;
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_fclose_ FILE *f = NULL;
+                pid_t child;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open namespace: %m");
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return log_debug_errno(errno, "Failed to call socketpair(): %m");
+
+                r = namespace_fork("(sd-osrelns)",
+                                   "(sd-osrel)",
+                                   /* except_fds = */ NULL,
+                                   /* n_except_fds = */ 0,
+                                   FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   pidns_fd,
+                                   mntns_fd,
+                                   /* netns_fd = */ -1,
+                                   /* userns_fd = */ -1,
+                                   root_fd,
+                                   &child);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fork(): %m");
+                if (r == 0) {
+                        _cleanup_close_ int fd = -EBADF;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        r = open_os_release(/* root = */ NULL, /* ret_path = */ NULL, &fd);
+                        if (r == -ENOENT)
+                                _exit(EXIT_NOT_FOUND);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read OS release: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = copy_bytes(fd, pair[1], UINT64_MAX, /* copy_flags = */ 0);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to write to fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                f = take_fdopen(&pair[0], "r");
+                if (!f)
+                        return log_debug_errno(errno, "Failed to fdopen(): %m");
+
+                r = load_env_file_pairs(f, "/etc/os-release", &l);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load OS release information: %m");
+
+                r = wait_for_terminate_and_check("(sd-osrelns)", child, /* flags = */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for child: %m");
+                if (r == EXIT_NOT_FOUND)
+                        return -ENOENT;
+                if (r != EXIT_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
+
+                break;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+
+
+        *ret_os_release = TAKE_PTR(l);
+        return 0;
 }
