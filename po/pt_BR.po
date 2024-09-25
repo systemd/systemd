@@ -7,12 +7,13 @@
 # Gustavo Costa <xfgusta@gmail.com>, 2021.
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
+# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-09-24 21:25+0000\n"
-"Last-Translator: Gabriel Elyas <gabrielelyas@protonmail.com>\n"
+"PO-Revision-Date: 2024-09-25 01:07+0000\n"
+"Last-Translator: Fábio Rodrigues Ribeiro <farribeiro@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -394,7 +395,7 @@ msgstr "Baixar uma imagem de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr "É necessária autenticação para baixar uma imagem de disco"
+msgstr "É necessária autenticação para baixar uma imagem de disco."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -1107,7 +1108,7 @@ msgstr "Remover um serviço DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "É necessária autenticação para remover um serviço DNS-SD"
+msgstr "É necessária autenticação para remover um serviço DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1161,7 +1162,7 @@ msgstr "A autenticação é necessária para redefinir as estatísticas."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Verifique se há atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 #, fuzzy
@@ -1170,7 +1171,7 @@ msgstr "É necessária autenticação para definir o horário do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Instalar atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 #, fuzzy
@@ -1178,8 +1179,9 @@ msgid "Authentication is required to install system updates."
 msgstr "É necessária autenticação para definir o horário do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+#, fuzzy
 msgid "Install specific system version"
-msgstr ""
+msgstr "Instalar sistema especifico de versão"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
 #, fuzzy
@@ -1190,7 +1192,7 @@ msgstr "É necessária autenticação para definir o fuso horário do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Limpar velhas atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 #, fuzzy
