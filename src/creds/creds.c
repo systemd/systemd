@@ -396,10 +396,14 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                         if (!d) /* Not set */
                                 continue;
 
+                        ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE;
+                        if (encrypted)
+                                flags |= READ_FULL_FILE_UNBASE64;
+
                         r = read_full_file_full(
                                         dirfd(d), *cn,
                                         UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
+                                        flags,
                                         NULL,
                                         (char**) &data, &size);
                         if (r == -ENOENT) /* Not found */
