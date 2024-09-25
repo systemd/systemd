@@ -236,8 +236,6 @@ int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-#define EXIT_NOT_FOUND 2
-
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Machine *m = ASSERT_PTR(userdata);
@@ -245,80 +243,13 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
         assert(message);
 
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                r = load_os_release_pairs(NULL, &l);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_fclose_ FILE *f = NULL;
-                pid_t child;
-
-                r = pidref_namespace_open(&m->leader,
-                                          &pidns_fd,
-                                          &mntns_fd,
-                                          /* ret_netns_fd = */ NULL,
-                                          /* ret_userns_fd = */ NULL,
-                                          &root_fd);
-                if (r < 0)
-                        return r;
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                        return -errno;
-
-                r = namespace_fork("(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   pidns_fd, mntns_fd, -1, -1, root_fd,
-                                   &child);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-                if (r == 0) {
-                        int fd = -EBADF;
-
-                        pair[0] = safe_close(pair[0]);
-
-                        r = open_os_release(NULL, NULL, &fd);
-                        if (r == -ENOENT)
-                                _exit(EXIT_NOT_FOUND);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        r = copy_bytes(fd, pair[1], UINT64_MAX, 0);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                pair[1] = safe_close(pair[1]);
-
-                f = take_fdopen(&pair[0], "r");
-                if (!f)
-                        return -errno;
-
-                r = load_env_file_pairs(f, "/etc/os-release", &l);
-                if (r < 0)
-                        return r;
-
-                r = wait_for_terminate_and_check("(sd-osrelns)", child, 0);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (r == EXIT_NOT_FOUND)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
-                if (r != EXIT_SUCCESS)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-
-                break;
-        }
-
-        default:
+        r = machine_get_os_release(m, &l);
+        if (r == -ENONET)
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
+        if (r == -ENOTSUP)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
-        }
+        if (r < 0)
+                return r;
 
         return bus_reply_pair_array(message, l);
 }
