@@ -293,13 +293,13 @@ UserDisposition group_record_disposition(GroupRecord *h) {
         if (h->gid == 0 || h->gid == GID_NOBODY)
                 return USER_INTRINSIC;
 
-        if (gid_is_system(h->gid))
+        if (gid_in_range(h->gid, UGID_RANGE_SYSTEM))
                 return USER_SYSTEM;
 
-        if (gid_is_dynamic(h->gid))
+        if (gid_in_range(h->gid, UGID_RANGE_DYNAMIC))
                 return USER_DYNAMIC;
 
-        if (gid_is_container(h->gid))
+        if (gid_in_range(h->gid, UGID_RANGE_CONTAINER))
                 return USER_CONTAINER;
 
         if (h->gid > INT32_MAX)
