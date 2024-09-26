@@ -203,9 +203,10 @@
         url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers (Tuples)</ulink>
         list. Legacy locations of <varname>$libdir</varname> are <filename>/usr/lib/</filename>,
         <filename>/usr/lib64/</filename>. This directory should not be used for package-specific data, unless
-        this data is architecture-dependent, too. To query <varname>$libdir</varname> for the primary
-        architecture of the system, invoke: <programlisting># systemd-path
-        system-library-arch</programlisting></para></listitem>
+        this data is architecture-dependent, too.</para>
+
+        <para>To query <varname>$libdir</varname> for the primary architecture of the system, invoke:
+        <programlisting>systemd-path system-library-arch</programlisting></para></listitem>
       </varlistentry>
 
       <varlistentry>
