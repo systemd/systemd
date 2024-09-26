@@ -2281,6 +2281,114 @@ static int get_property(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static void sd_event_exit_success(sd_event **e) {
+        if (*e)
+                sd_event_exit(*e, 0);
+}
+
+static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(sd_event_exit_success) sd_event *e = NULL;
+        int r;
+
+        assert(msg);
+
+        e = sd_bus_get_event(sd_bus_message_get_bus(msg));
+
+        r = sd_bus_message_is_empty(msg);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (arg_quiet)
+                return 0;
+
+        if (r == 0) {
+                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                                pager_open(arg_pager_flags);
+
+                        r = json_transform_message(msg, &v);
+                        if (r < 0)
+                                return r;
+
+                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+
+                } else if (arg_verbose) {
+                        pager_open(arg_pager_flags);
+
+                        r = sd_bus_message_dump(msg, stdout, 0);
+                        if (r < 0)
+                                return r;
+                } else {
+
+                        fputs(sd_bus_message_get_signature(msg, true), stdout);
+                        fputc(' ', stdout);
+
+                        r = format_cmdline(msg, stdout, false);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        fputc('\n', stdout);
+                }
+        }
+
+        return 1;
+}
+
+static int wait_signal(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer;
+        int argn = 1;
+        int r;
+
+        const char *sender = argc == 5 ? argv[argn++] : NULL;
+        const char *path = argv[argn++];
+        const char *interface = argv[argn++];
+        const char *member = argv[argn++];
+
+        if (sender && !service_name_is_valid(sender))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", sender);
+        if (!object_path_is_valid(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", path);
+        if (!interface_name_is_valid(interface))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", interface);
+        if (!member_name_is_valid(member))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", member);
+
+        r = acquire_bus(/* set_monitor= */ false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_match_signal(bus, NULL, sender, path, interface, member, on_bus_signal, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match signal %s on interface %s: %m", member, interface);
+
+        /* The match is installed and we're ready to observe the signal */
+        sd_notify(/* unset_environment= */ false, "READY=1");
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                log_error_errno(r, "Failed to allocate event loop: %m\n");
+
+        r = sd_bus_attach_event(bus, e, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                log_error_errno(r, "Failed to attach bus event: %m\n");
+
+        if (arg_timeout) {
+                r = sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, arg_timeout, 0, NULL, NULL);
+                if (r < 0)
+                        log_error_errno(r, "Failed to schedule timeout: %m\n");
+        }
+
+        sd_event_loop(e);
+
+        return 0;
+}
+
 static int set_property(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -2352,6 +2460,8 @@ static int help(void) {
                "                           Call a method\n"
                "  emit OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]\n"
                "                           Emit a signal\n"
+               "  wait OBJECT INTERFACE SIGNAL\n"
+               "                           Wait for a signal\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
                "                           Get property value\n"
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
@@ -2664,6 +2774,7 @@ static int busctl_main(int argc, char *argv[]) {
                 { "introspect",   3,        4,        0,            introspect     },
                 { "call",         5,        VERB_ANY, 0,            call           },
                 { "emit",         4,        VERB_ANY, 0,            emit_signal    },
+                { "wait",         4,        5,        0,            wait_signal    },
                 { "get-property", 5,        VERB_ANY, 0,            get_property   },
                 { "set-property", 6,        VERB_ANY, 0,            set_property   },
                 { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },
