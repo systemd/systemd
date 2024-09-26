@@ -10,6 +10,8 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
         sd_id128_t *p = userdata;
         int r;
 
+        assert(m);
+
         r = bus_message_read_id128(m, p);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
@@ -21,12 +23,22 @@ int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
         char ***p = ASSERT_PTR(userdata);
         int r;
 
+        assert(m);
+
         r = sd_bus_message_read_strv_extend(m, p);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
         strv_sort(*p);
         return 0;
+}
+
+int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        uint32_t *p = ASSERT_PTR(userdata);
+
+        assert(m);
+
+        return sd_bus_message_read(m, "(uo)", p, /* path = */ NULL);
 }
 
 static int map_basic(sd_bus_message *m, unsigned flags, void *userdata) {
