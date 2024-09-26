@@ -2319,9 +2319,9 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
 static void reset_scheduled_shutdown(Manager *m) {
         assert(m);
 
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
 
         m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
         m->scheduled_shutdown_timeout = USEC_INFINITY;
