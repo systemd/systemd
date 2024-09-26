@@ -1547,6 +1547,7 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         break;
                 }
 
+                case SD_BUS_TYPE_UNIX_FD:
                 case SD_BUS_TYPE_INT32: {
                         int32_t z;
 
@@ -1690,10 +1691,6 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         r = sd_bus_message_close_container(m);
                         break;
                 }
-
-                case SD_BUS_TYPE_UNIX_FD:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "UNIX file descriptor not supported as type.");
 
                 default:
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
