@@ -196,6 +196,8 @@ typedef struct UnitStatusInfo {
 
         uint64_t runtime_max_sec;
 
+        uint32_t job_id;
+
         sd_id128_t invocation_id;
 
         bool need_daemon_reload;
@@ -471,6 +473,9 @@ static void print_status_info(
                 }
         } else
                 printf("\n");
+
+        if (i->job_id != 0)
+                printf("        Job: %" PRIu32 "\n", i->job_id);
 
         if (!sd_id128_is_null(i->invocation_id))
                 printf(" Invocation: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(i->invocation_id));
@@ -2035,6 +2040,7 @@ static int show_one(
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
+                { "Job",                            "(uo)",            bus_map_job_id, offsetof(UnitStatusInfo, job_id)                            },
                 { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
                 { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
                 { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
