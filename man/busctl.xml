@@ -145,6 +145,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>wait</command> <arg choice="opt"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>SIGNAL</replaceable></arg></term>
+
+        <listitem><para>Wait for a signal. Takes an object path, interface name, and signal name. To suppress
+        output of the returned data, use the <option>--quiet</option> option. The service name may be
+        omitted, in which case busctl will match signals from any sender.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>PROPERTY</replaceable></arg></term>
 
         <listitem><para>Retrieve the current value of one or more
