@@ -516,6 +516,9 @@ executables += [
                 'timeout' : 360,
         },
         core_test_template + {
+                'sources' : files('test-extra-file-descriptor.c'),
+        },
+        core_test_template + {
                 'sources' : files('test-install.c'),
                 'type' : 'manual',
         },
