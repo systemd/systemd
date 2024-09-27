@@ -11,7 +11,12 @@ CHANGES WITH 257 in spe:
           be updated accordingly. This change has been made to make it harder
           to accidentally delete too many files when using --purge incorrectly.
 
-        Announcements of Future Feature Removals and Incompatible Changes:
+        * The systemd-creds 'cat' verb now expects base64-encoded encrypted
+          credentials for consistency with the 'decrypt' verb and the
+          LoadCredentialEncrypted= service setting. Previously it could only
+          read raw binary data.
+
+       Announcements of Future Feature Removals and Incompatible Changes:
 
         * Support for automatic flushing of the nscd user/group database caches
           has been dropped.
