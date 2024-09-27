@@ -387,7 +387,7 @@
       <varlistentry>
         <term><varname>ExecStart=</varname></term>
         <listitem><para>Commands that are executed when this service is started. The value is split into zero
-        or more command lines according to the rules described in the section "Command Lines" below.</para>
+        or more command lines according to the rules described in the section "Command lines" below.</para>
 
         <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be given. When
         <varname>Type=oneshot</varname> is used, zero or more commands may be specified. Commands may be specified by
@@ -414,11 +414,9 @@
         <term><varname>ExecStartPre=</varname></term>
         <term><varname>ExecStartPost=</varname></term>
         <listitem><para>Additional commands that are executed before
-        or after the command in <varname>ExecStart=</varname>,
-        respectively. Syntax is the same as for
-        <varname>ExecStart=</varname>, except that multiple command
-        lines are allowed and the commands are executed one after the
-        other, serially.</para>
+        or after the command in <varname>ExecStart=</varname>, respectively.
+        The value is split into zero or more command lines according to the rules
+        described in the section "Command lines" below.</para>
 
         <para>If any of those commands (not prefixed with
         <literal>-</literal>) fail, the rest are not executed and the
@@ -455,8 +453,8 @@
       <varlistentry>
         <term><varname>ExecCondition=</varname></term>
         <listitem><para>Optional commands that are executed before the commands in <varname>ExecStartPre=</varname>.
-        Syntax is the same as for <varname>ExecStart=</varname>, except that multiple command lines are allowed and the
-        commands are executed one after the other, serially.</para>
+        The value is split into zero or more command lines according to the rules
+        described in the section "Command lines" below.</para>
 
         <para>The behavior is like an <varname>ExecStartPre=</varname> and condition check hybrid: when an
         <varname>ExecCondition=</varname> command exits with exit code 1 through 254 (inclusive), the remaining
@@ -477,9 +475,9 @@
       <varlistentry>
         <term><varname>ExecReload=</varname></term>
 
-        <listitem><para>Commands to execute to trigger a configuration reload in the service. This argument
-        takes multiple command lines, following the same scheme as described for
-        <varname>ExecStart=</varname> above. Use of this setting is optional. Specifier and environment
+        <listitem><para>Commands to execute to trigger a configuration reload in the service. The value is split
+        into zero or more command lines according to the rules described in the section "Command lines" below.
+        Use of this setting is optional. Specifier and environment
         variable substitution is supported here following the same scheme as for
         <varname>ExecStart=</varname>.</para>
 
@@ -508,8 +506,8 @@
       <varlistentry>
         <term><varname>ExecStop=</varname></term>
         <listitem><para>Commands to execute to stop the service started via
-        <varname>ExecStart=</varname>. This argument takes multiple command lines, following the same scheme
-        as described for <varname>ExecStart=</varname> above. Use of this setting is optional. After the
+        <varname>ExecStart=</varname>. The value is split into zero or more command lines according to the rules
+        described in the section "Command lines" below. Use of this setting is optional. After the
         commands configured in this option are run, it is implied that the service is stopped, and any
         processes remaining for it are terminated according to the <varname>KillMode=</varname> setting (see
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
@@ -549,9 +547,9 @@
         <term><varname>ExecStopPost=</varname></term>
         <listitem><para>Additional commands that are executed after the service is stopped. This includes cases where
         the commands configured in <varname>ExecStop=</varname> were used, where the service does not have any
-        <varname>ExecStop=</varname> defined, or where the service exited unexpectedly. This argument takes multiple
-        command lines, following the same scheme as described for <varname>ExecStart=</varname>. Use of these settings
-        is optional. Specifier and environment variable substitution is supported. Note that – unlike
+        <varname>ExecStop=</varname> defined, or where the service exited unexpectedly. The value is split into zero
+        or more command lines according to the rules described in the section "Command lines" below.
+        Use of this setting is optional. Specifier and environment variable substitution is supported. Note that – unlike
         <varname>ExecStop=</varname> – commands specified with this setting are invoked when a service failed to start
         up correctly and is shut down again.</para>
 
