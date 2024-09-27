@@ -2031,8 +2031,8 @@ typedef enum SystemctlShowMode{
 
 static const char* const systemctl_show_mode_table[_SYSTEMCTL_SHOW_MODE_MAX] = {
         [SYSTEMCTL_SHOW_PROPERTIES] = "show",
-        [SYSTEMCTL_SHOW_STATUS] = "status",
-        [SYSTEMCTL_SHOW_HELP] = "help",
+        [SYSTEMCTL_SHOW_STATUS]     = "status",
+        [SYSTEMCTL_SHOW_HELP]       = "help",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(systemctl_show_mode, SystemctlShowMode);
