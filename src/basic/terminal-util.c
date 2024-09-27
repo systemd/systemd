@@ -606,7 +606,7 @@ static int terminal_reset_ansi_seq(int fd) {
 
         assert(fd >= 0);
 
-        if (getenv_terminal_is_dumb())
+        if (getenv_terminal_is_dumb() || !isatty_safe(fd))
                 return 0;
 
         r = fd_nonblock(fd, true);
@@ -1399,7 +1399,7 @@ bool getenv_terminal_is_dumb(void) {
 
         e = getenv("TERM");
         if (!e)
-                return true;
+                return false;
 
         return streq(e, "dumb");
 }
