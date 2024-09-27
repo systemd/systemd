@@ -1750,6 +1750,29 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         return 1;
+
+                } else if (streq(name, "RootImageOptions")) {
+                        const char *a, *p;
+
+                        /* In config files, the syntax allows the partition name to be omitted. Here, we
+                         * always print the partition name, also because we have no way of knowing if it was
+                         * originally omitted or not. We also print the partitions on separate lines. */
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &a, &p)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+
                 } else if (streq(name, "MountImages")) {
                         _cleanup_free_ char *paths = NULL;
 
