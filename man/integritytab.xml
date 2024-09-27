@@ -125,7 +125,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>integrity-algorithm=[crc32c|crc32|sha1|sha256|hmac-sha256]</option></term>
+        <term><option>integrity-algorithm=[crc32c|crc32|xxhash64|sha1|sha256|hmac-sha256]</option></term>
 
         <listitem><para>
         The algorithm used for integrity checking.  The default is crc32c. Must match option used during format.
