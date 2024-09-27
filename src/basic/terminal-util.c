@@ -1399,7 +1399,7 @@ bool getenv_terminal_is_dumb(void) {
 
         e = getenv("TERM");
         if (!e)
-                return true;
+                return false;
 
         return streq(e, "dumb");
 }
