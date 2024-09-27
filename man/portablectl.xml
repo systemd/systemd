@@ -196,6 +196,13 @@
 
         <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
+
+        <para>
+          Apart from its conventional format, the <filename>os-release</filename> can have an extra variable
+          <varname>PORTABLE_PRETTY_NAME</varname> to indicate a name for the service that is more specific
+          than just the name of the operating system.  For example, <literal>PORTABLE_PRETTY_NAME="My awesome
+          service"</literal>.
+        </para>
       </varlistentry>
 
       <varlistentry>
