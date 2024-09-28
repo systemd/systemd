@@ -4081,6 +4081,12 @@ static int build_generator_environment(Manager *m, char ***ret) {
                 if (r < 0)
                         return r;
 
+                if (m->soft_reboots_count > 0) {
+                        r = strv_env_assignf(&nl, "SYSTEMD_SOFT_REBOOTS_COUNT", "%u", m->soft_reboots_count);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (m->first_boot >= 0) {
                         r = strv_env_assign(&nl, "SYSTEMD_FIRST_BOOT", one_zero(m->first_boot));
                         if (r < 0)
