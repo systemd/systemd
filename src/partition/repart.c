@@ -2265,7 +2265,7 @@ static bool partition_needs_populate(const Partition *p) {
         assert(p);
         assert(!p->supplement_for || !p->suppressing); /* Avoid infinite recursion */
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || !strv_isempty(p->make_symlinks) ||
-                (p->suppressing && partition_needs_populate(p->suppressing));
+                p->fstab || (p->suppressing && partition_needs_populate(p->suppressing));
 }
 
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
