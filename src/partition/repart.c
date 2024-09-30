@@ -4841,6 +4841,45 @@ static usec_t epoch_or_infinity(void) {
         return (cache = USEC_INFINITY);
 }
 
+static int file_is_denylisted(const char *source, Hashmap *denylist) {
+        _cleanup_close_ int pfd = -EBADF;
+        struct stat st, rst;
+        int r;
+
+        r = chase_and_stat(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_path=*/ NULL, &st);
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), source);
+
+        if (PTR_TO_INT(hashmap_get(denylist, &st)) == DENY_INODE)
+                return 1;
+
+        if (stat(arg_copy_source, &rst) < 0)
+                return log_error_errno(errno, "Failed to stat '%s': %m", arg_copy_source);
+
+        pfd = chase_and_open_parent(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_filename=*/ NULL);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to chase '%s/%s': %m", strempty(arg_copy_source), source);
+
+        for (;;) {
+                if (fstat(pfd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat parent: %m");
+
+                if (PTR_TO_INT(hashmap_get(denylist, &st)) != DENY_DONT)
+                        return 1;
+
+                if (stat_inode_same(&st, &rst))
+                        break;
+
+                _cleanup_close_ int new_pfd = openat(pfd, "..", O_DIRECTORY|O_RDONLY);
+                if (new_pfd < 0)
+                        return log_error_errno(errno, "Failed to open parent directory: %m");
+
+                close_and_replace(pfd, new_pfd);
+        }
+
+        return 0;
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         int r;
 
@@ -4943,6 +4982,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
                         /* We are looking at a regular file */
+
+                        r = file_is_denylisted(*source, denylist);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                log_debug("%s is in the denylist, ignoring", *source);
+                                continue;
+                        }
 
                         r = path_extract_filename(*target, &fn);
                         if (r == -EADDRNOTAVAIL || r == O_DIRECTORY)
