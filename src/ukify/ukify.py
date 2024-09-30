@@ -323,6 +323,7 @@ class Section:
     tmpfile: Optional[IO] = None
     measure: bool = False
     output_mode: Optional[str] = None
+    virtual_size: Optional[int] = None
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -362,9 +363,6 @@ class Section:
         out = pathlib.Path(out) if out else None
 
         return cls.create(name, out, output_mode=ttype)
-
-    def size(self):
-        return self.content.stat().st_size
 
     def check_name(self):
         # PE section names with more than 8 characters are legal, but our stub does
@@ -504,7 +502,7 @@ def pe_strip_section_name(name):
     return name.rstrip(b"\x00").decode()
 
 
-def call_systemd_measure(uki, linux, opts):
+def call_systemd_measure(uki, opts):
 
     if not opts.measure and not opts.pcr_private_keys:
         return
@@ -530,13 +528,9 @@ def call_systemd_measure(uki, linux, opts):
             continue
 
         if s.content is not None:
-            assert(s.name != ".linux" or linux is None)
             to_measure.append(f"--{s.name.removeprefix('.')}={s.content}")
         else:
             raise ValueError(f"Don't know how to measure section {s.name}");
-
-    if linux is not None:
-        to_measure.append(f'--linux={linux}')
 
     # And now iterate through the base profile and measure what we haven't measured above
     if opts.measure_base is not None:
@@ -712,7 +706,10 @@ def pe_add_sections(uki: UKI, output: str):
 
         new_section.set_file_offset(offset)
         new_section.Name = section.name.encode()
-        new_section.Misc_VirtualSize = len(data)
+        if section.virtual_size is not None:
+            new_section.Misc_VirtualSize = section.virtual_size
+        else:
+            new_section.Misc_VirtualSize = len(data)
         # Non-stripped stubs might still have an unaligned symbol table at the end, making their size
         # unaligned, so we make sure to explicitly pad the pointer to new sections to an aligned offset.
         new_section.PointerToRawData = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
@@ -951,9 +948,6 @@ def make_uki(opts):
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
         ('.ucode',   opts.microcode,  True ),
-
-        # linux shall be last to leave breathing room for decompression.
-        # We'll add it later.
     ]
 
     for name, content, measure in sections:
@@ -963,6 +957,15 @@ def make_uki(opts):
     # systemd-measure doesn't know about those extra sections
     for section in opts.sections:
         uki.add_section(section)
+
+    if linux is not None:
+        try:
+            virtual_size = pefile.PE(linux, fast_load=True).OPTIONAL_HEADER.SizeOfImage
+        except pefile.PEFormatError:
+            print(f"{linux} is not a valid PE file, not using SizeOfImage.")
+            virtual_size = None
+
+        uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
     if opts.extend is None:
         if linux is not None:
@@ -983,15 +986,9 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 
     # PCR measurement and signing
 
-    # We pass in the contents for .linux separately because we need them to do the measurement but can't add
-    # the section yet because we want .linux to be the last section. Make sure any other sections are added
-    # before this function is called.
-    call_systemd_measure(uki, linux, opts=opts)
+    call_systemd_measure(uki, opts=opts)
 
     # UKI creation
-
-    if linux is not None:
-        uki.add_section(Section.create('.linux', linux, measure=True))
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
