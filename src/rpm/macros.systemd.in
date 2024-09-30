@@ -114,6 +114,38 @@ if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
 fi \
 %{nil}
 
+%systemd_posttrans_with_restart() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_posttrans_with_restart}} \
+if [ $1 -ge 2 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not install \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-restart-system-units %{?*} || : \
+fi \
+%{nil}
+
+%systemd_user_posttrans_with_restart() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_posttrans_with_restart}} \
+if [ $1 -ge 2 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not uninstall \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-restart-user-units %{?*} || : \
+fi \
+%{nil}
+
+%systemd_posttrans_with_reload() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_posttrans_with_reload}} \
+if [ $1 -ge 2 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not uninstall \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-reload-system-units %{?*} || : \
+fi \
+%{nil}
+
+%systemd_user_posttrans_with_reload() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_posttrans_with_reload}} \
+if [ $1 -ge 2 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not uninstall \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} mark-reload-user-units %{?*} || : \
+fi \
+%{nil}
+
 %systemd_user_daemon_reexec() \
 if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
     # Package upgrade, not uninstall \
