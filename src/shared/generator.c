@@ -974,3 +974,25 @@ void log_setup_generator(void) {
         log_parse_environment();
         log_open();
 }
+
+bool generator_soft_rebooted(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        const char *e = secure_getenv("SYSTEMD_SOFT_REBOOTS_COUNT");
+        if (!e)
+                return (cached = false);
+
+        unsigned u;
+
+        r = safe_atou(e, &u);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SOFT_REBOOTS_COUNT, assuming the system hasn't soft-rebooted: %m");
+                return (cached = false);
+        }
+
+        return (cached = u > 0);
+}
