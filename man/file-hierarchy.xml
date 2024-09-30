@@ -573,6 +573,9 @@
     Similarly, <filename>/run/</filename> shall be the only location to
     place sockets and FIFOs. Regular files, directories and symlinks
     may be used in all directories.</para>
+
+    <para>Applications should expect that a security policy might be enforced on a system that enforces these
+    rules.</para>
   </refsect1>
 
   <refsect1>
