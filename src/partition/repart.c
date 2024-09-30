@@ -5254,6 +5254,9 @@ static int make_copy_files_denylist(
         }
 
         STRV_FOREACH(e, override_exclude_src ?: p->exclude_files_source) {
+                if (path_startswith(source, *e))
+                        return 1;
+
                 r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
                 if (r < 0)
                         return r;
@@ -5261,6 +5264,9 @@ static int make_copy_files_denylist(
 
         STRV_FOREACH(e, override_exclude_tgt ?: p->exclude_files_target) {
                 _cleanup_free_ char *path = NULL;
+
+                if (path_startswith(target, *e))
+                        return 1;
 
                 const char *s = path_startswith(*e, target);
                 if (!s)
@@ -5492,6 +5498,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 r = make_copy_files_denylist(context, p, *source, *target, &denylist);
                 if (r < 0)
                         return r;
+                if (r > 0)
+                        continue;
 
                 r = make_subvolumes_set(p, *source, *target, &subvolumes_by_source_inode);
                 if (r < 0)
