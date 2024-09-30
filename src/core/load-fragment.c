@@ -4122,6 +4122,39 @@ int config_parse_managed_oom_mem_pressure_limit(
         return 0;
 }
 
+int config_parse_managed_oom_mem_pressure_duration_sec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t *duration = data;
+        usec_t usec;
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse memory pressure duration seconds value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *duration = usec;
+        return 0;
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,

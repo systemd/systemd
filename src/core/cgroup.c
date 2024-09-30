@@ -890,6 +890,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
+                "%sManagedOOMMemoryPressureDurationSec: %s\n"
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
@@ -935,6 +936,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
+                prefix, FORMAT_TIMESPAN(c->moom_mem_pressure_duration_usec, 1),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
                 prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch),
                 prefix, yes_no(c->coredump_receive));

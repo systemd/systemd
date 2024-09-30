@@ -20,6 +20,8 @@ if [[ -s /skipped ]]; then
 fi
 
 rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
+rm -rf /run/systemd/system/TEST-55-OOMD-testmunch.service.d
+rm -rf /run/systemd/system/TEST-55-OOMD-testchill.service.d
 
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
@@ -176,6 +178,46 @@ EOF
     if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
 fi
+
+# Verify memory pressure duration can be overriden to non-zero values
+mkdir -p /run/systemd/system/TEST-55-OOMD-testmunch.service.d/
+cat >/run/systemd/system/TEST-55-OOMD-testmunch.service.d/55-duration-test.conf <<EOF
+[Service]
+ManagedOOMMemoryPressureDurationSec=3s
+ManagedOOMMemoryPressure=kill
+EOF
+
+# Verify memory pressure duration will use default if set to empty or 0
+mkdir -p /run/systemd/system/TEST-55-OOMD-testchill.service.d/
+cat >/run/systemd/system/TEST-55-OOMD-testchill.service.d/55-duration-test.conf <<EOF
+[Service]
+ManagedOOMMemoryPressureDurationSec=
+ManagedOOMMemoryPressure=kill
+EOF
+
+systemctl daemon-reload
+systemctl start TEST-55-OOMD-testmunch.service
+systemctl start TEST-55-OOMD-testchill.service
+
+timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testmunch.service"; do sleep 1; done'
+oomctl | grep -A 2 "/TEST-55-OOMD-testmunch.service" | grep "Memory Pressure Duration: 3s"
+
+timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testchill.service"; do sleep 1; done'
+oomctl | grep -A 2 "/TEST-55-OOMD-testchill.service" | grep "Memory Pressure Duration: 2s"
+
+[[ "$(systemctl show -P ManagedOOMMemoryPressureDurationUSec TEST-55-OOMD-testmunch.service)" == "3s" ]]
+[[ "$(systemctl show -P ManagedOOMMemoryPressureDurationUSec TEST-55-OOMD-testchill.service)" == "0" ]]
+
+for _ in {0..59}; do
+    if ! systemctl status TEST-55-OOMD-testmunch.service; then
+        break
+    fi
+    oomctl
+    sleep 2
+done
+
+if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
+if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
 
 systemd-analyze log-level info
 

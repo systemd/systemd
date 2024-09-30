@@ -236,6 +236,7 @@ struct CGroupContext {
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
         uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
+        usec_t moom_mem_pressure_duration_usec;
         ManagedOOMPreference moom_preference;
 
         /* Memory pressure logic */
