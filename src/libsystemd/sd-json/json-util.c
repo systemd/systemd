@@ -92,6 +92,25 @@ int json_dispatch_user_group_name(const char *name, sd_json_variant *variant, sd
         return 0;
 }
 
+int json_dispatch_const_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **s = userdata, *n;
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = sd_json_variant_string(variant);
+        if (!valid_user_group_name(n, FLAGS_SET(flags, SD_JSON_RELAX) ? VALID_USER_RELAX : 0))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid user/group name.", strna(name));
+
+        *s = n;
+        return 0;
+}
+
 int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         struct in_addr *address = ASSERT_PTR(userdata);
         _cleanup_(iovec_done) struct iovec iov = {};
