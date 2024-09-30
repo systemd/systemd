@@ -323,6 +323,7 @@ class Section:
     tmpfile: Optional[IO] = None
     measure: bool = False
     output_mode: Optional[str] = None
+    virtual_size: Optional[int] = None
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -362,9 +363,6 @@ class Section:
         out = pathlib.Path(out) if out else None
 
         return cls.create(name, out, output_mode=ttype)
-
-    def size(self):
-        return self.content.stat().st_size
 
     def check_name(self):
         # PE section names with more than 8 characters are legal, but our stub does
@@ -712,7 +710,10 @@ def pe_add_sections(uki: UKI, output: str):
 
         new_section.set_file_offset(offset)
         new_section.Name = section.name.encode()
-        new_section.Misc_VirtualSize = len(data)
+        if section.virtual_size is not None:
+            new_section.Misc_VirtualSize = section.virtual_size
+        else:
+            new_section.Misc_VirtualSize = len(data)
         # Non-stripped stubs might still have an unaligned symbol table at the end, making their size
         # unaligned, so we make sure to explicitly pad the pointer to new sections to an aligned offset.
         new_section.PointerToRawData = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
@@ -991,7 +992,8 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
     # UKI creation
 
     if linux is not None:
-        uki.add_section(Section.create('.linux', linux, measure=True))
+        pe = pefile.PE(linux, fast_load=True)
+        uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=pe.OPTIONAL_HEADER.SizeOfImage))
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
