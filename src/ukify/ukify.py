@@ -363,9 +363,6 @@ class Section:
 
         return cls.create(name, out, output_mode=ttype)
 
-    def size(self):
-        return self.content.stat().st_size
-
     def check_name(self):
         # PE section names with more than 8 characters are legal, but our stub does
         # not support them.
