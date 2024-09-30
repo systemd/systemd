@@ -69,6 +69,34 @@ static int property_get_open_files(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_extra_file_descriptors(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ServiceExtraFD **extra_fds = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(extra_fd, efd, *extra_fds) {
+                r = sd_bus_message_append_basic(reply, 's', efd->fdname);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_exit_status_set(
                 sd_bus *bus,
                 const char *path,
@@ -339,6 +367,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtraFileDescriptorNames", "as", property_get_extra_file_descriptors, offsetof(Service, extra_fds), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -717,6 +746,55 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "ReloadSignal"))
                 return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
+
+        if (streq(name, "ExtraFileDescriptors")) {
+                int fd;
+                const char *fdname;
+
+                r = sd_bus_message_enter_container(message, 'a', "(hs)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(hs)", &fd, &fdname)) > 0) {
+                        _cleanup_(service_extra_fd_freep) ServiceExtraFD *efd = NULL;
+
+                        efd = new(ServiceExtraFD, 1);
+                        if (!efd)
+                                return -ENOMEM;
+
+                        *efd = (ServiceExtraFD) {
+                                .fd = -EBADF,
+                                .fdname = strdup(fdname),
+                        };
+
+                        if (!efd->fdname)
+                                return -ENOMEM;
+
+                        efd->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (efd->fd < 0)
+                                return -errno;
+
+                        /* Disallow empty string for ExtraFileDescriptor
+                        * Unlike OpenFile, StandardInput and friends, there isn't a good sane
+                        * default for an arbitrary FD
+                        */
+                        if (efd->fd < 0 || !fdname_is_valid(efd->fdname) || isempty(efd->fdname))
+                                return -EINVAL;
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        LIST_APPEND(extra_fd, s->extra_fds, TAKE_PTR(efd));
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }
