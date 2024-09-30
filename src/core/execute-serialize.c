@@ -328,6 +328,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_usec(f, "exec-cgroup-context-managed-oom-memory-pressure-duration-usec", c->moom_mem_pressure_duration_usec);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-cgroup-context-managed-oom-preference", managed_oom_preference_to_string(c->moom_preference));
         if (r < 0)
                 return r;
@@ -781,6 +785,10 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         c->moom_preference = managed_oom_preference_from_string(val);
                         if (c->moom_preference < 0)
                                 return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-memory-pressure-duration-usec="))) {
+                        r = deserialize_usec(val, &c->moom_mem_pressure_duration_usec);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-watch="))) {
                         c->memory_pressure_watch = cgroup_pressure_watch_from_string(val);
                         if (c->memory_pressure_watch < 0)
