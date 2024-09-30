@@ -1008,6 +1008,18 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         if (streq(field, "NFTSet"))
                 return bus_append_nft_set(m, field, eq);
 
+        if (streq(field, "ManagedOOMMemoryPressureDurationSec")) {
+                if (isempty(eq)) {
+                        r = sd_bus_message_append(m, "(sv)", field, "t", USEC_INFINITY);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        return 1;
+                }
+
+                return bus_append_parse_sec_rename(m, field, eq);
+        }
+
         return 0;
 }
 
