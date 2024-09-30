@@ -3004,6 +3004,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -3650,6 +3652,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
+
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
 
@@ -4320,6 +4324,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -5151,6 +5157,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -5810,6 +5818,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
+
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
@@ -6453,6 +6463,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -7148,6 +7160,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -7733,6 +7747,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
+
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
@@ -8288,6 +8304,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -9106,6 +9124,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -9677,6 +9697,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
 
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
+
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
@@ -10218,6 +10240,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -10895,6 +10919,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -11083,6 +11109,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
+
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
 
@@ -11281,6 +11309,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -11504,6 +11534,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -11712,6 +11744,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimit is not documented!-->
+
+    <!--property ManagedOOMMemoryPressureDurationUSec is not documented!-->
 
     <!--property ManagedOOMPreference is not documented!-->
 
@@ -11940,6 +11974,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
@@ -12218,6 +12254,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LiveMountResult</varname>,
       <varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>BindLogSockets</varname>, and
       <varname>PrivateUsersEx</varname> were added in version 257.</para>
     </refsect2>
@@ -12358,6 +12395,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12383,6 +12421,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
