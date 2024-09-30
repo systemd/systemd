@@ -183,11 +183,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/usr/include/</filename></term>
-        <listitem><para>C and C++ API header files of system libraries.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><filename>/usr/lib/</filename></term>
         <listitem><para>Static, private vendor data that is compatible with all architectures (though not
         necessarily architecture-independent). Note that this includes internal executables or other binaries
@@ -615,10 +610,6 @@
           <row>
       <entry><filename>/usr/lib/<replaceable>arch-id</replaceable>/<replaceable>package</replaceable>/</filename></entry>
       <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between architectures. Note that this generally does not include private executables since binaries of a specific architecture may be freely invoked from any other supported system architecture.</entry>
-          </row>
-          <row>
-      <entry><filename>/usr/include/<replaceable>package</replaceable>/</filename></entry>
-      <entry>Public C/C++ APIs of public shared libraries of the package.</entry>
           </row>
         </tbody>
       </tgroup>
