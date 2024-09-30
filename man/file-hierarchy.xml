@@ -24,17 +24,21 @@
     <title>Description</title>
 
     <para>Operating systems using the
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> system and service
-    manager are organized based on a file system hierarchy inspired by UNIX, more specifically the hierarchy described
-    in the <ulink url="http://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html">File System Hierarchy</ulink>
-    specification and <citerefentry
-    project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with various
-    extensions, partially documented in the <ulink
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> system and
+    service manager are organized based on a file system hierarchy inspired by UNIX, more specifically the
+    hierarchy described in the <ulink url="http://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html">File
+    System Hierarchy</ulink> specification and <citerefentry
+    project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with
+    various extensions, partially documented in the <ulink
     url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory
     Specification</ulink> and <ulink url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs">XDG User
-    Directories</ulink>. This manual page describes a more generalized, though minimal and modernized subset of these
-    specifications that defines more strictly the suggestions and restrictions systemd makes on the file system
-    hierarchy.</para>
+    Directories</ulink>. This manual page describes a more generalized, though minimal and modernized subset
+    of these specifications that defines more strictly the suggestions and restrictions systemd makes on the
+    file system hierarchy. Note that this document makes no attempt to define the directory structure
+    comprehensively, it only documents a skeleton of a directory tree, that downstreams can extend. Because
+    of that traditional directories such as <filename>/usr/include/</filename> or
+    <filename>/var/spool/</filename> are not covered, even though it might (or might not) make a lot of sense
+    to include them in the structure of an actually deployed OS.</para>
 
     <para>Many of the paths described here can be queried
     with the
