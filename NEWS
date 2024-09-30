@@ -66,6 +66,9 @@ CHANGES WITH 257 in spe:
           filesystem. $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0 can be used to override
           this behavior.
 
+        * D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() becomes
+          deprecated (reach out if you have use cases).
+
         libsystemd:
 
         * New sd-json component is now available as part of libsystemd. The
