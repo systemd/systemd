@@ -1823,15 +1823,13 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_o_unstripped_cmd += ['-I.']
 
-        if not meson.is_cross_build()
-                target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
-                if target_triplet_cmd.returncode() == 0
-                        target_triplet = target_triplet_cmd.stdout().strip()
-                        bpf_o_unstripped_cmd += [
-                                '-isystem',
-                                '/usr/include/@0@'.format(target_triplet)
-                        ]
-                endif
+        target_triplet_cmd = run_command(cc.cmd_array(), '-dumpmachine', check: false)
+        if target_triplet_cmd.returncode() == 0
+                target_triplet = target_triplet_cmd.stdout().strip()
+                bpf_o_unstripped_cmd += [
+                        '-isystem',
+                        '/usr/include/@0@'.format(target_triplet)
+                ]
         endif
 
         bpf_o_unstripped_cmd += [
