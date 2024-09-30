@@ -3,6 +3,7 @@
 
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
+typedef struct ServiceExtraFD ServiceExtraFD;
 
 #include "exit-status.h"
 #include "kill.h"
@@ -109,6 +110,13 @@ struct ServiceFDStore {
         bool do_poll;
 
         LIST_FIELDS(ServiceFDStore, fd_store);
+};
+
+struct ServiceExtraFD {
+        int fd;
+        char *fdname;
+
+        LIST_FIELDS(ServiceExtraFD, extra_fd);
 };
 
 struct Service {
@@ -231,6 +239,9 @@ struct Service {
 
         LIST_HEAD(OpenFile, open_files);
 
+        /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
+        LIST_HEAD(ServiceExtraFD, extra_fds);
+
         int reload_signal;
         usec_t reload_begin_usec;
 
@@ -295,3 +306,6 @@ DEFINE_CAST(SERVICE, Service);
 
 /* Only exported for unit tests */
 int service_deserialize_exec_command(Unit *u, const char *key, const char *value);
+
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *efd);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ServiceExtraFD*, service_extra_fd_free);
