@@ -1336,7 +1336,7 @@ testcase_compression() {
         esac
 
         [[ "$format" == "squashfs" ]] && compression=zstd
-        [[ "$format" == "erofs" ]] && compression=lz4hc
+        [[ "$format" == "erofs" ]] && compression=lzma
 
         tee "$defs/10-root.conf" <<EOF
 [Partition]
