@@ -2018,6 +2018,21 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         return 1;
+                } else if (streq(name, "ExtraFileDescriptorNames")) {
+                        _cleanup_strv_free_ char **extra_fd_names = NULL;
+                        _cleanup_free_ char *joined = NULL;
+
+                        r = sd_bus_message_read_strv(m, &extra_fd_names);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        joined = strv_join(extra_fd_names, " ");
+                        if (!joined)
+                                return log_oom();
+
+                        bus_print_property_value(name, expected_value, flags, joined);
+
+                        return 1;
                 }
 
                 break;
