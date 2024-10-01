@@ -126,7 +126,7 @@ int validate_firmware_header(
         if (id->numberOfAlgorithms > UINT32_MAX / sizeof(TCG_EfiSpecIdEventAlgorithmSize))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of advertised hash algorithms too large.");
 
-        log_debug("TPM PC Client Platform Firmware Profile: family %u.%u, revision %u.%u",
+        log_debug("TPM PC Client Platform Firmware Profile: family %u.%u, revision %d.%d",
                   id->specVersionMajor, id->specVersionMinor,
                   id->specErrata / 100, id->specErrata % 100);
 
