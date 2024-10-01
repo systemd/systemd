@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* get rid of compat with libidn.so.11 (retain only for libidn.so.12)
+
+* get rid of compat with libbpf.so.0 (retainly only for libbpf.so.1)
+
 * define a generic "report" varlink interface, which services can implement to
   provide health/statistics data about themselves. then define a dir somewhere
   in /run/ where components can bind such sockets. Then make journald, logind,
