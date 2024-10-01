@@ -54,7 +54,7 @@ bool link_dhcp_enabled(Link *link, int family) {
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         /* Currently, sd-dhcp-client supports only ethernet and infiniband. */
-        if (family == AF_INET && !IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+        if (family == AF_INET && !IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE))
                 return false;
 
         if (family == AF_INET6 && !socket_ipv6_is_supported())
