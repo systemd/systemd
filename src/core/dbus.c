@@ -1181,6 +1181,38 @@ int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error
                         error);
 }
 
+int bus_verify_manage_units_async_full(
+                Manager *m,
+                const char *unit_name,
+                const char *verb,
+                const char *polkit_message,
+                sd_bus_message *call,
+                sd_bus_error *error) {
+
+        assert(m);
+        assert(unit_name);
+        assert(verb);
+
+        const char *details[9] = {
+                "unit", unit_name,
+                "verb", verb,
+        };
+
+        if (polkit_message) {
+                details[4] = "polkit.message";
+                details[5] = polkit_message;
+                details[6] = "polkit.gettext_domain";
+                details[7] = GETTEXT_PACKAGE;
+        }
+
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-units",
+                        details,
+                        &m->polkit_registry,
+                        error);
+}
+
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
         return bus_verify_polkit_async(
                         call,

@@ -424,7 +424,8 @@ int bus_unit_method_start_generic(
         }
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         verb,
                         polkit_message_for_job[job_type],
                         message,
@@ -505,7 +506,8 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         jtype,
                         polkit_message_for_job[type],
                         message,
@@ -561,7 +563,8 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                                          "Value parameter only accepted for realtime signals (SIGRTMIN…SIGRTMAX), refusing for signal SIG%s.", signal_to_string(signo));
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         "kill",
                         N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
                         message,
@@ -589,7 +592,8 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         "reset-failed",
                         N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
                         message,
@@ -619,7 +623,8 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         "set-property",
                         N_("Authentication is required to set properties on '$(unit)'."),
                         message,
@@ -647,7 +652,8 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         "ref",
                         /* polkit_message= */ NULL,
                         message,
@@ -716,7 +722,8 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         "clean",
                         N_("Authentication is required to delete files and directories associated with '$(unit)'."),
                         message,
@@ -753,7 +760,8 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
                 return r;
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         perm,
                         N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
                         message,
