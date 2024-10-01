@@ -384,27 +384,23 @@
 
       <varlistentry>
         <term><varname>ExecStart=</varname></term>
-        <listitem><para>Commands that are executed when this service is started. The value is split into zero
-        or more command lines according to the rules described in the section "Command Lines" below.</para>
+        <listitem><para>Commands that are executed when this service is started.</para>
 
-        <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be given. When
-        <varname>Type=oneshot</varname> is used, zero or more commands may be specified. Commands may be specified by
-        providing multiple command lines in the same directive, or alternatively, this directive may be specified more
-        than once with the same effect. If the empty string is assigned to this option, the list of commands to start
-        is reset, prior assignments of this option will have no effect. If no <varname>ExecStart=</varname> is
-        specified, then the service must have <varname>RemainAfterExit=yes</varname> and at least one
-        <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
-        <varname>ExecStop=</varname> are not valid.)</para>
+        <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be
+        given. When <varname>Type=oneshot</varname> is used, this setting may be used multiple times to
+        define multiple commands to execute. If the empty string is assigned to this option, the list of
+        commands to start is reset, prior assignments of this option will have no effect. If no
+        <varname>ExecStart=</varname> is specified, then the service must have
+        <varname>RemainAfterExit=yes</varname> and at least one <varname>ExecStop=</varname> line
+        set. (Services lacking both <varname>ExecStart=</varname> and <varname>ExecStop=</varname> are not
+        valid.)</para>
 
-        <para>If more than one command is specified, the commands are
-        invoked sequentially in the order they appear in the unit
-        file. If one of the commands fails (and is not prefixed with
-        <literal>-</literal>), other lines are not executed, and the
-        unit is considered failed.</para>
+        <para>If more than one command is configured, the commands are invoked sequentially in the order they
+        appear in the unit file. If one of the commands fails (and is not prefixed with
+        <literal>-</literal>), other lines are not executed, and the unit is considered failed.</para>
 
-        <para>Unless <varname>Type=forking</varname> is set, the
-        process started via this command line will be considered the
-        main process of the daemon.</para>
+        <para>Unless <varname>Type=forking</varname> is set, the process started via this command line will
+        be considered the main process of the daemon.</para>
         </listitem>
       </varlistentry>
 
@@ -1332,9 +1328,7 @@
     <varname>ExecStopPost=</varname>, and
     <varname>ExecCondition=</varname> options.</para>
 
-    <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
-    (these semicolons must be passed as separate words). Lone semicolons may be escaped as
-    <literal>\;</literal>.</para>
+    <para>Multiple command lines may be specified by using the relevant setting multiple times.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
@@ -1423,6 +1417,8 @@
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal></para>
+
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
     own, on the command line, in which case it will be erased and replaced
@@ -1477,7 +1473,8 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=echo one ; echo "two two"</programlisting>
+    <programlisting>ExecStart=echo one
+ExecStart=echo "two two"</programlisting>
 
     <para>This will execute <command>echo</command> two times,
     each time with one argument: <literal>one</literal> and
@@ -1487,7 +1484,9 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>Example:</para>
 
     <programlisting>Type=oneshot
-ExecStart=:echo $USER ; -false ; +:@true $TEST</programlisting>
+ExecStart=:echo $USER
+ExecStart=-false
+ExecStart=+:@true $TEST</programlisting>
 
     <para>This will execute <command>/usr/bin/echo</command> with the literal argument
     <literal>$USER</literal> (<literal>:</literal> suppresses variable expansion), and then
