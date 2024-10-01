@@ -674,7 +674,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
 
 # Pavilion 13 x360 (Tablet mode and SYSRQ key)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:*
- KEYBOARD_KEY_d7=!f22                                   # touchpad off
+ KEYBOARD_KEY_d7=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=unknown
  KEYBOARD_KEY_d2=sysrq                                  # Fn+Print = SYSRQ
 
