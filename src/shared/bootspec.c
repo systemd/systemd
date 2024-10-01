@@ -44,6 +44,20 @@ static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_json, BootEntryType);
 
+static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
+        [BOOT_ENTRY_ESP]      = "EFI System Partition",
+        [BOOT_ENTRY_XBOOTLDR] = "Extended Boot Loader Partition",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
+
+static const char* const boot_entry_source_json_table[_BOOT_ENTRY_SOURCE_MAX] = {
+        [BOOT_ENTRY_ESP]      = "esp",
+        [BOOT_ENTRY_XBOOTLDR] = "xbootldr",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_json, BootEntrySource);
+
 static void boot_entry_addons_done(BootEntryAddons *addons);
 
 static void boot_entry_free(BootEntry *entry) {
@@ -285,11 +299,12 @@ nothing:
 static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
+                const BootEntrySource source,
                 const char *dir,
                 const char *fname,
                 BootEntry *entry) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF, source);
         char *c;
         int r;
 
@@ -395,6 +410,7 @@ int boot_config_load_type1(
                 BootConfig *config,
                 FILE *f,
                 const char *root,
+                const BootEntrySource source,
                 const char *dir,
                 const char *fname) {
         int r;
@@ -408,9 +424,13 @@ int boot_config_load_type1(
         if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                 return log_oom();
 
-        r = boot_entry_load_type1(f, root, dir, fname, config->entries + config->n_entries);
+        BootEntry *entry = config->entries + config->n_entries;
+
+        r = boot_entry_load_type1(f, root, source, dir, fname, entry);
         if (r < 0)
                 return r;
+
+        entry->global_addons = &config->global_addons[source];
 
         config->n_entries++;
         return 0;
@@ -429,7 +449,8 @@ void boot_config_free(BootConfig *config) {
                 boot_entry_free(i);
         free(config->entries);
 
-        boot_entry_addons_done(&config->global_addons);
+        FOREACH_ARRAY(i, config->global_addons, _BOOT_ENTRY_SOURCE_MAX)
+                boot_entry_addons_done(i);
 
         set_free(config->inodes_seen);
 }
@@ -595,6 +616,7 @@ static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, co
 static int boot_entries_find_type1(
                 BootConfig *config,
                 const char *root,
+                const BootEntrySource source,
                 const char *dir) {
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
@@ -638,7 +660,7 @@ static int boot_entries_find_type1(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
-                r = boot_config_load_type1(config, f, root, full, de->d_name);
+                r = boot_config_load_type1(config, f, root, source, full, de->d_name);
                 if (r == -ENOMEM) /* ignore all other errors */
                         return log_oom();
         }
@@ -648,6 +670,7 @@ static int boot_entries_find_type1(
 
 static int boot_entry_load_unified(
                 const char *root,
+                const BootEntrySource source,
                 const char *path,
                 unsigned profile,
                 const char *osrelease_text,
@@ -720,7 +743,7 @@ static int boot_entry_load_unified(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED, source);
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
@@ -1133,10 +1156,13 @@ static int boot_entries_find_unified_addons(
 static int boot_entries_find_unified_global_addons(
                 BootConfig *config,
                 const char *root,
-                const char *d_name) {
+                const char *d_name,
+                BootEntryAddons *ret_addons) {
 
         int r;
         _cleanup_closedir_ DIR *d = NULL;
+
+        assert(ret_addons);
 
         r = chase_and_opendir(root, NULL, CHASE_PROHIBIT_SYMLINKS, NULL, &d);
         if (r == -ENOENT)
@@ -1144,7 +1170,7 @@ static int boot_entries_find_unified_global_addons(
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
 
-        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, &config->global_addons);
+        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, ret_addons);
 }
 
 static int boot_entries_find_unified_local_addons(
@@ -1168,6 +1194,7 @@ static int boot_entries_find_unified_local_addons(
 static int boot_entries_find_unified(
                 BootConfig *config,
                 const char *root,
+                BootEntrySource source,
                 const char *dir) {
 
         _cleanup_closedir_ DIR *d = NULL;
@@ -1220,11 +1247,14 @@ static int boot_entries_find_unified(
 
                         BootEntry *entry = config->entries + config->n_entries;
 
-                        if (boot_entry_load_unified(root, j, p, osrelease, profile, cmdline, entry) < 0)
+                        if (boot_entry_load_unified(root, source, j, p, osrelease, profile, cmdline, config->entries + config->n_entries) < 0)
                                 continue;
 
                         /* look for .efi.extra.d */
                         (void) boot_entries_find_unified_local_addons(config, dirfd(d), de->d_name, full, entry);
+
+                        /* Set up the backpointer, so that we can find the global addons */
+                        entry->global_addons = &config->global_addons[source];
 
                         config->n_entries++;
                 }
@@ -1443,32 +1473,37 @@ int boot_config_load(
         int r;
 
         assert(config);
-        config->global_addons = (BootEntryAddons) {};
 
         if (esp_path) {
                 r = boot_loader_read_conf_path(config, esp_path, "/loader/loader.conf");
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_type1(config, esp_path, "/loader/entries");
+                r = boot_entries_find_type1(config, esp_path, BOOT_ENTRY_ESP, "/loader/entries");
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_unified(config, esp_path, "/EFI/Linux/");
+                r = boot_entries_find_unified(config, esp_path, BOOT_ENTRY_ESP, "/EFI/Linux/");
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/");
+                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/",
+                                                            &config->global_addons[BOOT_ENTRY_ESP]);
                 if (r < 0)
                         return r;
         }
 
         if (xbootldr_path) {
-                r = boot_entries_find_type1(config, xbootldr_path, "/loader/entries");
+                r = boot_entries_find_type1(config, xbootldr_path, BOOT_ENTRY_XBOOTLDR, "/loader/entries");
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_unified(config, xbootldr_path, "/EFI/Linux/");
+                r = boot_entries_find_unified(config, xbootldr_path, BOOT_ENTRY_XBOOTLDR, "/EFI/Linux/");
+                if (r < 0)
+                        return r;
+
+                r = boot_entries_find_unified_global_addons(config, xbootldr_path, "/loader/addons/",
+                                                            &config->global_addons[BOOT_ENTRY_XBOOTLDR]);
                 if (r < 0)
                         return r;
         }
@@ -1523,6 +1558,7 @@ int boot_config_augment_from_loader(
                 char **found_by_loader,
                 bool only_auto) {
 
+        static const BootEntryAddons no_addons = (BootEntryAddons) {};
         static const char *const title_table[] = {
                 /* Pretty names for a few well-known automatically discovered entries. */
                 "auto-osx",                      "macOS",
@@ -1580,6 +1616,7 @@ int boot_config_augment_from_loader(
                         .reported_by_loader = true,
                         .tries_left = UINT_MAX,
                         .tries_done = UINT_MAX,
+                        .global_addons = &no_addons,
                 };
         }
 
@@ -1651,9 +1688,7 @@ static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
         return 0;
 }
 
-static int print_cmdline(
-                const BootEntry *e,
-                const BootEntryAddons *global_arr) {
+static int print_cmdline(const BootEntry *e) {
 
         _cleanup_free_ char *options = NULL, *combined_cmdline = NULL, *t2 = NULL;
 
@@ -1675,7 +1710,7 @@ static int print_cmdline(
                         return log_oom();
         }
 
-        FOREACH_ARRAY(addon, global_arr->items, global_arr->n_items) {
+        FOREACH_ARRAY(addon, e->global_addons->items, e->global_addons->n_items) {
                 print_addon(addon, "global-addon");
                 if (!strextend(&t2, " ", addon->cmdline))
                         return log_oom();
@@ -1723,7 +1758,6 @@ static int json_addon(
 
 static int json_cmdline(
                 const BootEntry *e,
-                const BootEntryAddons *global_arr,
                 const char *def_cmdline,
                 sd_json_variant **v) {
 
@@ -1739,7 +1773,7 @@ static int json_cmdline(
                         return log_oom();
         }
 
-        FOREACH_ARRAY(addon, global_arr->items, global_arr->n_items) {
+        FOREACH_ARRAY(addon, e->global_addons->items, e->global_addons->n_items) {
                 r = json_addon(addon, "globalAddon", &addons_array);
                 if (r < 0)
                         return r;
@@ -1766,7 +1800,6 @@ static int json_cmdline(
 
 int show_boot_entry(
                 const BootEntry *e,
-                const BootEntryAddons *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported) {
@@ -1826,7 +1859,9 @@ int show_boot_entry(
                 if (e->type == BOOT_ENTRY_CONF)
                         (void) terminal_urlify_path(e->path, text, &link);
 
-                printf("       source: %s\n", link ?: text ?: e->path);
+                printf("       source: %s (on the %s)\n",
+                       link ?: text ?: e->path,
+                       boot_entry_source_to_string(e->source));
         }
         if (e->tries_left != UINT_MAX) {
                 printf("        tries: %u left", e->tries_left);
@@ -1856,7 +1891,7 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
-        r = print_cmdline(e, global_addons);
+        r = print_cmdline(e);
         if (r < 0)
                 return r;
 
@@ -1897,6 +1932,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
+                        SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_json_to_string(e->source))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->id, "id", SD_JSON_BUILD_STRING(e->id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->path, "path", SD_JSON_BUILD_STRING(e->path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->root, "root", SD_JSON_BUILD_STRING(e->root)),
@@ -1928,7 +1964,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
         if (r < 0)
                 return log_oom();
 
-        r = json_cmdline(e, &c->global_addons, opts, &v);
+        r = json_cmdline(e, opts, &v);
         if (r < 0)
                 return log_oom();
 
@@ -1961,7 +1997,6 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
-                                        &config->global_addons,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
                                         /* show_discovered= */  true);
