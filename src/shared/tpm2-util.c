@@ -688,7 +688,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (!filename_is_valid(fn))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
-                context->tcti_dl = dlopen(fn, RTLD_NOW);
+                context->tcti_dl = dlopen(fn, RTLD_NOW|RTLD_NODELETE);
                 if (!context->tcti_dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
 
