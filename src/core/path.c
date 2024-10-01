@@ -47,10 +47,13 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         bool exists = false;
         char *slash, *oldslash = NULL;
         int r;
+        Path *p;
 
         assert(s);
         assert(s->unit);
         assert(handler);
+
+        p = PATH(s->unit);
 
         path_spec_unwatch(s);
 
@@ -82,9 +85,11 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                         *cut = '\0';
 
                         flags = IN_MOVE_SELF | IN_DELETE_SELF | IN_CREATE | IN_MOVED_TO;
+                        SET_FLAG(flags, IN_DELETE | IN_MOVED_FROM, p && p->deactivation_toggle);
                 } else {
                         cut = NULL;
                         flags = flags_table[s->type];
+                        SET_FLAG(flags, IN_DELETE | IN_MOVED_FROM, p && p->deactivation_toggle && s->type == PATH_DIRECTORY_NOT_EMPTY);
                 }
 
                 /* If this is a symlink watch both the symlink inode and where it points to. If the inode is
@@ -134,7 +139,10 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                         char tmp2 = *cut2;
                         *cut2 = '\0';
 
-                        (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
+                        flags = IN_MOVE_SELF;
+                        SET_FLAG(flags, IN_CREATE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM, p && p->deactivation_toggle);
+
+                        (void) inotify_add_watch(s->inotify_fd, s->path, flags);
                         /* Error is ignored, the worst can happen is we get spurious events. */
 
                         *cut2 = tmp2;
@@ -427,14 +435,16 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sMakeDirectory: %s\n"
                 "%sDirectoryMode: %04o\n"
                 "%sTriggerLimitIntervalSec: %s\n"
-                "%sTriggerLimitBurst: %u\n",
+                "%sTriggerLimitBurst: %u\n"
+                "%sDeactivationToggle: %s\n",
                 prefix, path_state_to_string(p->state),
                 prefix, path_result_to_string(p->result),
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(p->make_directory),
                 prefix, p->directory_mode,
                 prefix, FORMAT_TIMESPAN(p->trigger_limit.interval, USEC_PER_SEC),
-                prefix, p->trigger_limit.burst);
+                prefix, p->trigger_limit.burst,
+                prefix, yes_no(p->deactivation_toggle));
 
         LIST_FOREACH(spec, s, p->specs)
                 path_spec_dump(s, f, prefix);
@@ -555,7 +565,37 @@ static void path_enter_running(Path *p, char *trigger_path) {
         job_set_activation_details(job, details);
 
         path_set_state(p, PATH_RUNNING);
-        path_unwatch(p);
+
+        if (!p->deactivation_toggle)
+                path_unwatch(p);
+
+        return;
+
+fail:
+        path_enter_dead(p, PATH_FAILURE_RESOURCES);
+}
+
+static void path_deactivate_unit(Path *p) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Unit *trigger;
+        Job *job;
+        int r;
+
+        assert(p);
+
+        trigger = UNIT_TRIGGER(UNIT(p));
+        if (!trigger) {
+                log_unit_error(UNIT(p), "Unit to trigger vanished.");
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(p)->manager, JOB_STOP, trigger, JOB_REPLACE, NULL, &error, &job);
+        if (r < 0) {
+                log_unit_warning(UNIT(p), "Failed to queue unit stop job: %s", bus_error_message(&error, r));
+                goto fail;
+        }
+
+        path_set_state(p, PATH_WAITING);
 
         return;
 
@@ -578,19 +618,30 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
         _cleanup_free_ char *trigger_path = NULL;
         Unit *trigger;
         int r;
+        bool watch_not_needed = !p->deactivation_toggle || p->state == PATH_RUNNING;
+        bool trigger_unit_is_running;
 
         if (p->trigger_notify_event_source)
                 (void) event_source_disable(p->trigger_notify_event_source);
 
         /* If the triggered unit is already running, so are we */
         trigger = UNIT_TRIGGER(UNIT(p));
-        if (trigger && !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(trigger))) {
+        trigger_unit_is_running = trigger && !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(trigger));
+        if (watch_not_needed && trigger_unit_is_running) {
+                if (p->deactivation_toggle && p->state == PATH_RUNNING) {
+                        if (!path_check_good(p, true, from_trigger_notify, &trigger_path))
+                                /* If the path is removed, stop the unit */
+                                path_deactivate_unit(p);
+
+                        return;
+                }
+
                 path_set_state(p, PATH_RUNNING);
                 path_unwatch(p);
                 return;
         }
 
-        if (path_check_good(p, initial, from_trigger_notify, &trigger_path)) {
+        if (watch_not_needed && path_check_good(p, initial, from_trigger_notify, &trigger_path)) {
                 log_unit_debug(UNIT(p), "Got triggered.");
                 path_enter_running(p, trigger_path);
                 return;
@@ -608,8 +659,17 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
          * recheck */
 
         if (path_check_good(p, false, from_trigger_notify, &trigger_path)) {
+                if (p->deactivation_toggle && trigger_unit_is_running) {
+                        path_set_state(p, PATH_RUNNING);
+                        return;
+                }
+
                 log_unit_debug(UNIT(p), "Got triggered.");
                 path_enter_running(p, trigger_path);
+                return;
+        } else if (p->deactivation_toggle && trigger_unit_is_running) {
+                /* If the path is removed, stop the unit */
+                path_deactivate_unit(p);
                 return;
         }
 
