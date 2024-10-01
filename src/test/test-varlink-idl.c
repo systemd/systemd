@@ -305,7 +305,7 @@ TEST(validate_json) {
 
         const sd_varlink_symbol* symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Mymethod"));
 
-        assert_se(varlink_idl_validate_method_call(symbol, v, NULL) >= 0);
+        assert_se(varlink_idl_validate_method_call(symbol, v, /* flags= */ 0, /* reterr_bad_field= */ NULL) >= 0);
 }
 
 static int test_recursive_one(unsigned depth) {
