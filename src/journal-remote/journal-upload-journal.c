@@ -163,7 +163,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 tocopy = size - pos;
 
                         memcpy(buf + pos,
-                               (char*) u->field_data + u->field_pos,
+                               (char *) u->field_data + u->field_pos,
                                tocopy);
 
                         if (done) {
@@ -249,25 +249,23 @@ static void check_update_watchdog(Uploader *u) {
         }
 }
 
-static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+static int journal_input_data(void *buf, size_t size, size_t offset, void *userp) {
         Uploader *u = ASSERT_PTR(userp);
         int r;
         sd_journal *j;
         size_t filled = 0;
         ssize_t w;
 
-        assert(nmemb <= SSIZE_MAX / size);
-
         check_update_watchdog(u);
 
         j = u->journal;
 
-        while (j && filled < size * nmemb) {
+        while (j && filled < size) {
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to move to next entry in journal: %m");
-                                return CURL_READFUNC_ABORT;
+                                return r;
                         } else if (r == 0) {
                                 if (u->input_event)
                                         log_debug("No more entries, waiting for journal.");
@@ -284,14 +282,14 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         u->entry_state = ENTRY_CURSOR;
                 }
 
-                w = write_entry((char*)buf + filled, size * nmemb - filled, u);
+                w = write_entry((char*)buf + offset + filled, size - filled, u);
                 if (w < 0)
-                        return CURL_READFUNC_ABORT;
+                        return w;
                 filled += w;
 
                 if (filled == 0) {
                         log_error("Buffer space is too small to write entry.");
-                        return CURL_READFUNC_ABORT;
+                        return -1;
                 } else if (u->entry_state != ENTRY_DONE)
                         /* This means that all available space was used up */
                         break;
@@ -301,6 +299,16 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
         }
 
         return filled;
+}
+
+static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+        assert(nmemb < SSIZE_MAX / size);
+        assert(!size_multiply_overflow(size, nmemb));
+        int r = journal_input_data(buf, size * nmemb, 0, userp);
+        if (r < 0) {
+                return CURL_READFUNC_ABORT;
+        }
+        return r;
 }
 
 void close_journal_input(Uploader *u) {
@@ -329,7 +337,7 @@ static int process_journal_input(Uploader *u, int skip) {
 
         /* have data */
         u->entry_state = ENTRY_CURSOR;
-        return start_upload(u, journal_input_callback, u);
+        return start_upload(u, journal_input_data, journal_input_callback, u);
 }
 
 int check_journal_input(Uploader *u) {

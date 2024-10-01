@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -20,8 +21,10 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "headers-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -47,6 +50,7 @@ static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
 static const char *arg_directory = NULL;
+static char **arg_headers = NULL;
 static char **arg_file = NULL;
 static const char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
@@ -58,6 +62,7 @@ static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
+static bool arg_compress = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
@@ -175,6 +180,10 @@ static int load_cursor_state(Uploader *u) {
 }
 
 int start_upload(Uploader *u,
+                 int (*input_fn)(void *ptr,
+                                 size_t size,
+                                 size_t offset,
+                                 void *userdata),
                  size_t (*input_callback)(void *ptr,
                                           size_t size,
                                           size_t nmemb,
@@ -183,6 +192,7 @@ int start_upload(Uploader *u,
         CURLcode code;
 
         assert(u);
+        assert(input_fn);
         assert(input_callback);
 
         if (!u->header) {
@@ -203,8 +213,27 @@ int start_upload(Uploader *u,
                         return log_oom();
                 h = l;
 
+                if (arg_compress) {
+                        l = curl_slist_append(h, "Content-Encoding: zstd");
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                if (arg_headers != NULL) {
+                        for (size_t i = 0; arg_headers[i] != NULL; i++) {
+                                char *header = convert_header(arg_headers[i]);
+                                l = curl_slist_append(h, header);
+                                if (!l)
+                                        return log_oom();
+                                h = l;
+                        }
+                }
+
                 u->header = TAKE_PTR(h);
         }
+
+        u->uploading = true;
 
         if (!u->easy) {
                 _cleanup_(curl_easy_cleanupp) CURL *curl = NULL;
@@ -234,12 +263,44 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_WRITEDATA, data,
                             LOG_ERR, return -EXFULL);
 
-                /* set where to read from */
-                easy_setopt(curl, CURLOPT_READFUNCTION, input_callback,
-                            LOG_ERR, return -EXFULL);
+                if (arg_compress) {
+                        size_t step = 65535;
+                        void *buf = NULL;
+                        size_t size = step;
+                        size_t readSize = 0;
+                        while (u->uploading) {
+                                if (size - readSize < step) {
+                                        size = step + readSize;
+                                }
+                                if (buf == NULL) {
+                                        buf = malloc(size * sizeof(char));
+                                } else {
+                                        void *newBuf = realloc(buf, size * sizeof(char));
+                                        if (newBuf == NULL) {
+                                                log_error_errno(SYNTHETIC_ERRNO(EXFULL),
+                                                                "Failed to realloc buffer");
+                                                return -1;
+                                        }
+                                        buf = newBuf;
+                                }
+                                readSize += input_fn(buf, step, size - step, data);
+                        }
+                        size_t csize;
+                        void *compressed = malloc(readSize);
+                        int r = compress_blob(COMPRESSION_ZSTD, buf, readSize, compressed, readSize, &csize);
+                        if (r < 0) {
+                                log_error_errno(r, "Compression failed: %m");
+                                return r;
+                        }
+                        free(buf);
+                        easy_setopt(curl, CURLOPT_POSTFIELDS, compressed, LOG_ERR, return -EXFULL);
+                        easy_setopt(curl, CURLOPT_POSTFIELDSIZE, csize, LOG_ERR, return -EXFULL);
+                } else {
+                        /* set where to read from */
+                        easy_setopt(curl, CURLOPT_READFUNCTION, input_callback, LOG_ERR, return -EXFULL);
 
-                easy_setopt(curl, CURLOPT_READDATA, data,
-                            LOG_ERR, return -EXFULL);
+                        easy_setopt(curl, CURLOPT_READDATA, data, LOG_ERR, return -EXFULL);
+                }
 
                 /* use our special own mime type and chunked transfer */
                 easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
@@ -286,36 +347,41 @@ int start_upload(Uploader *u,
                                        "curl_easy_setopt CURLOPT_URL failed: %s",
                                        curl_easy_strerror(code));
 
-        u->uploading = true;
-
         return 0;
 }
 
-static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+static int fd_input_data(void *buf, size_t size, size_t offset, void *userp) {
         Uploader *u = ASSERT_PTR(userp);
         ssize_t n;
-
-        assert(nmemb < SSIZE_MAX / size);
 
         if (u->input < 0)
                 return 0;
 
-        assert(!size_multiply_overflow(size, nmemb));
+        n = read(u->input, buf, size);
 
-        n = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, n);
+        log_debug("%s: allowed %zu, read %zd", __func__, size, n);
         if (n > 0)
                 return n;
 
         u->uploading = false;
         if (n < 0) {
                 log_error_errno(errno, "Aborting transfer after read error on input: %m.");
-                return CURL_READFUNC_ABORT;
+                return n;
         }
 
         log_debug("Reached EOF");
         close_fd_input(u);
         return 0;
+}
+
+static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+        assert(nmemb < SSIZE_MAX / size);
+        assert(!size_multiply_overflow(size, nmemb));
+        int r = fd_input_data(buf, size * nmemb, 0, userp);
+        if (r < 0) {
+                return CURL_READFUNC_ABORT;
+        }
+        return r;
 }
 
 static void close_fd_input(Uploader *u) {
@@ -349,7 +415,8 @@ static int dispatch_fd_input(sd_event_source *event,
                 return 0;
         }
 
-        return start_upload(u, fd_input_callback, u);
+
+        return start_upload(u, fd_input_data, fd_input_callback, u);
 }
 
 static int open_file_for_upload(Uploader *u, const char *filename) {
@@ -373,7 +440,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
                                 return log_error_errno(r, "Failed to register input event: %m");
 
                         /* Normal files should just be consumed without polling. */
-                        r = start_upload(u, fd_input_callback, u);
+                        r = start_upload(u, fd_input_data, fd_input_callback, u);
                 }
         }
 
@@ -496,6 +563,8 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Headers",                config_parse_headers,        0,                        &arg_headers              },
+                { "Upload",  "Compress",               config_parse_bool,           0,                        &arg_compress             },
                 {}
         };
 
@@ -517,28 +586,30 @@ static int help(void) {
 
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Show package version\n"
+               "  -u --url=URL                 Upload to this address (default port "
+                                               STRINGIFY(DEFAULT_PORT) ")\n"
+               "     --key=FILENAME            Specify key in PEM format (default:\n"
+               "                               \"" PRIV_KEY_FILE "\")\n"
+               "     --cert=FILENAME           Specify certificate in PEM format (default:\n"
+               "                               \"" CERT_FILE "\")\n"
+               "     --trust=FILENAME|all      Specify CA certificate or disable checking (default:\n"
+               "                               \"" TRUST_FILE "\")\n"
+               "     --headers=\"NAME=VALUE\"  Specify additional HTTP headers\n"
+               "     --compress                Use zstd compression\n"
+               "     --system                  Use the system journal\n"
+               "     --user                    Use the user journal for the current user\n"
+               "  -m --merge                   Use  all available journals\n"
+               "  -M --machine=CONTAINER       Operate on local container\n"
+               "     --namespace=NAMESPACE     Use journal files from namespace\n"
+               "  -D --directory=PATH          Use journal files from directory\n"
+               "     --file=PATH               Use this journal file\n"
+               "     --cursor=CURSOR           Start at the specified cursor\n"
+               "     --after-cursor=CURSOR     Start after the specified cursor\n"
+               "     --follow[=BOOL]           Do [not] wait for input\n"
+               "     --save-state[=FILE]       Save uploaded cursors (default \n"
+               "                               " STATE_FILE ")\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -560,6 +631,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FOLLOW,
                 ARG_SAVE_STATE,
                 ARG_NAMESPACE,
+                ARG_HEADERS,
+                ARG_COMPRESS,
         };
 
         static const struct option options[] = {
@@ -580,6 +653,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "follow",       optional_argument, NULL, ARG_FOLLOW         },
                 { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
+                { "compress",     optional_argument, NULL, ARG_COMPRESS       },
+                { "headers",      optional_argument, NULL, ARG_HEADERS        },
                 {}
         };
 
@@ -679,6 +754,21 @@ static int parse_argv(int argc, char *argv[]) {
                         r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
+                        break;
+
+                case ARG_HEADERS:
+                        r = strv_headers_replace_consume(&arg_headers, optarg);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "--headers value should contain '='-delimited pairs, separated by comma");
+                        break;
+
+                case ARG_COMPRESS:
+                        if (!compression_supported(COMPRESSION_ZSTD))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "ZSTD compression is not supported");
+                        arg_compress = true;
                         break;
 
                 case ARG_CURSOR:

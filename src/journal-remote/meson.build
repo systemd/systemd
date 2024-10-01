@@ -54,6 +54,11 @@ executables += [
                 ],
                 'sources' : systemd_journal_upload_sources,
                 'dependencies' : common_deps + [libcurl],
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'include_directories' : core_includes,
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
