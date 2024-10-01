@@ -26,6 +26,7 @@ basic_sources = files(
         'efivars.c',
         'env-file.c',
         'env-util.c',
+        'headers-util.c',
         'errno-list.c',
         'escape.c',
         'ether-addr-util.c',

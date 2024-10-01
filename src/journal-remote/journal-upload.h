@@ -58,6 +58,10 @@ typedef struct Uploader {
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
 
 int start_upload(Uploader *u,
+                 int (*input_fn)(void *ptr,
+                                 size_t size,
+                                 size_t offset,
+                                 void *userdata),
                  size_t (*input_callback)(void *ptr,
                                           size_t size,
                                           size_t nmemb,
