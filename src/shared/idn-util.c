@@ -52,18 +52,17 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libidn.so.12", RTLD_LAZY);
+        dl = dlopen("libidn.so.12", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
                 /* libidn broke ABI in 1.34, but not in a way we care about (a new field got added to an
                  * open-coded struct we do not use), hence support both versions. */
-                dl = dlopen("libidn.so.11", RTLD_LAZY);
+                dl = dlopen("libidn.so.11", RTLD_NOW|RTLD_NODELETE);
                 if (!dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "libidn support is not installed: %s", dlerror());
                 log_debug("Loaded 'libidn.so.11' via dlopen()");
         } else
                 log_debug("Loaded 'libidn.so.12' via dlopen()");
-
 
         r = dlsym_many_or_warn(
                         dl,

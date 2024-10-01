@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
         int i;
 
         for (i = 0; i < argc - 1; i++)
-                assert_se(handles[i] = dlopen(argv[i + 1], RTLD_NOW));
+                assert_se(handles[i] = dlopen(argv[i + 1], RTLD_NOW|RTLD_NODELETE));
 
         for (i--; i >= 0; i--)
                 assert_se(dlclose(handles[i]) == 0);
