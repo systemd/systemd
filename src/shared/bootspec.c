@@ -44,6 +44,8 @@ static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_json, BootEntryType);
 
+static void boot_entry_addons_done(BootEntryAddons *addons);
+
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
@@ -59,7 +61,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->machine_id);
         free(entry->architecture);
         strv_free(entry->options);
-        free(entry->local_addons.items);
+        boot_entry_addons_done(&entry->local_addons);
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
@@ -426,7 +428,8 @@ void boot_config_free(BootConfig *config) {
         FOREACH_ARRAY(i, config->entries, config->n_entries)
                 boot_entry_free(i);
         free(config->entries);
-        free(config->global_addons.items);
+
+        boot_entry_addons_done(&config->global_addons);
 
         set_free(config->inodes_seen);
 }
