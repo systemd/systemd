@@ -59,6 +59,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 OomdCGroupContext *ctx;
                 Hashmap *monitor_hm;
                 loadavg_t limit;
+                usec_t duration;
 
                 if (!sd_json_variant_is_object(c))
                         continue;
@@ -104,17 +105,27 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                 continue;
                 }
 
+                duration = m->default_mem_pressure_duration_usec;
+
+                if (streq(message.property, "ManagedOOMMemoryPressureDurationUSec") && message.limit > 0)
+                        duration = message.limit;
+
                 r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0 && r != -EEXIST)
                         log_debug_errno(r, "Failed to insert message, ignoring: %m");
 
-                /* Always update the limit in case it was changed. For non-memory pressure detection the value is
-                 * ignored so always updating it here is not a problem. */
+                /* ManagedOOMMemoryPressure and ManagedOOMMemoryPressureDurationUSec will always send their messages
+                * last (see managed_oom_mode_properties in core-varlink.c). To avoid over-writing properties, we only
+                * set memory pressure and duration when receiving specific messages. */
                 ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
-                if (ctx)
-                        ctx->mem_pressure_limit = limit;
+                if (ctx) {
+                        if (streq(message.property, "ManagedOOMMemoryPressure"))
+                                ctx->mem_pressure_limit = limit;
+                        else if (streq(message.property, "ManagedOOMMemoryPressureDurationUSec"))
+                                ctx->mem_pressure_duration_usec = duration;
+                }
         }
 
         /* Toggle wake-ups for "ManagedOOMSwap" if entries are present. */
@@ -477,7 +488,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         m->mem_pressure_post_action_delay_start = 0;
         }
 
-        r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, m->default_mem_pressure_duration_usec, &targets);
+        r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, &targets);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
@@ -499,7 +510,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                   t->path,
                                   LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
                                   LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
-                                  FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
+                                  FORMAT_TIMESPAN(t->mem_pressure_duration_usec, USEC_PER_SEC));
 
                         r = update_monitored_cgroup_contexts_candidates(
                                         m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
@@ -531,7 +542,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                                    selected, t->path,
                                                    LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
                                                    LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
-                                                   FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
+                                                   FORMAT_TIMESPAN(t->mem_pressure_duration_usec, USEC_PER_SEC));
 
                                         /* send dbus signal */
                                         (void) sd_bus_emit_signal(m->bus,

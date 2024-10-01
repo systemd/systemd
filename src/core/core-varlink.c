@@ -25,6 +25,7 @@ typedef struct LookupParameters {
 static const char* const managed_oom_mode_properties[] = {
         "ManagedOOMSwap",
         "ManagedOOMMemoryPressure",
+        "ManagedOOMMemoryPressureDurationUSec",
 };
 
 static int build_user_json(const char *user_name, uid_t uid, sd_json_variant **ret) {
@@ -58,6 +59,7 @@ static bool user_match_lookup_parameters(LookupParameters *p, const char *name, 
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, sd_json_variant **ret_v) {
         bool use_limit = false;
+        uint64_t limit = 0;
         CGroupContext *c;
         const char *mode;
 
@@ -85,6 +87,11 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
         else if (streq(property, "ManagedOOMMemoryPressure")) {
                 mode = managed_oom_mode_to_string(c->moom_mem_pressure);
                 use_limit = true;
+                limit = c->moom_mem_pressure_limit;
+        } else if (streq(property, "ManagedOOMMemoryPressureDurationUSec")) {
+                mode = managed_oom_mode_to_string(c->moom_mem_pressure);
+                use_limit = true;
+                limit = c->moom_mem_pressure_duration_usec;
         } else
                 return -EINVAL;
 
@@ -92,7 +99,7 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                               SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING(mode)),
                               SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
                               SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)));
+                              SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(limit)));
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
@@ -127,7 +134,8 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
                                 if (!(streq(*i, "ManagedOOMSwap") && c->moom_swap == MANAGED_OOM_KILL) &&
-                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL))
+                                    !(streq(*i, "ManagedOOMMemoryPressure") && c->moom_mem_pressure == MANAGED_OOM_KILL) &&
+                                    !(streq(*i, "ManagedOOMMemoryPressureDurationUSec") && c->moom_mem_pressure == MANAGED_OOM_KILL))
                                         continue;
 
                                 r = build_managed_oom_json_array_element(u, *i, &e);
