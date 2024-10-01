@@ -1090,14 +1090,13 @@ static int boot_entries_find_unified_addons(
                 int d_fd,
                 const char *addon_dir,
                 const char *root,
-                BootEntryAddons *ret_addons) {
+                BootEntryAddons *addons) {
 
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *full = NULL;
-        _cleanup_(boot_entry_addons_done) BootEntryAddons addons = {};
         int r;
 
-        assert(ret_addons);
+        assert(addons);
         assert(config);
 
         r = chase_and_opendirat(d_fd, addon_dir, CHASE_AT_RESOLVE_IN_ROOT, &full, &d);
@@ -1139,15 +1138,13 @@ static int boot_entries_find_unified_addons(
                 if (!location)
                         return log_oom();
 
-                r = insert_boot_entry_addon(&addons, location, cmdline);
+                r = insert_boot_entry_addon(addons, location, cmdline);
                 if (r < 0)
                         return r;
-
                 TAKE_PTR(location);
                 TAKE_PTR(cmdline);
         }
 
-        *ret_addons = TAKE_STRUCT(addons);
         return 0;
 }
 
@@ -1158,17 +1155,28 @@ static int boot_entries_find_unified_global_addons(
                 BootEntryAddons *ret_addons) {
 
         int r;
+        _cleanup_free_ char *p = NULL;
         _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(boot_entry_addons_done) BootEntryAddons addons = {};
 
         assert(ret_addons);
 
-        r = chase_and_opendir(root, NULL, CHASE_PROHIBIT_SYMLINKS, NULL, &d);
+        r = chase_and_opendir(d_name, root, CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
 
-        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, ret_addons);
+        r = boot_entries_find_unified_addons(config, dirfd(d), "addons", p, &addons);
+        if (r < 0)
+                return r;
+
+        r = boot_entries_find_unified_addons(config, dirfd(d), "vendor-addons", p, &addons);
+        if (r < 0)
+                return r;
+
+        *ret_addons = TAKE_STRUCT(addons);
+        return 0;
 }
 
 static int boot_entries_find_unified_local_addons(
@@ -1178,7 +1186,8 @@ static int boot_entries_find_unified_local_addons(
                 const char *root,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *addon_dir = NULL;
+        _cleanup_free_ char *addon_dir = NULL, *vendor_addon_dir = NULL;
+        int r;
 
         assert(ret);
 
@@ -1186,7 +1195,15 @@ static int boot_entries_find_unified_local_addons(
         if (!addon_dir)
                 return log_oom();
 
-        return boot_entries_find_unified_addons(config, d_fd, addon_dir, root, &ret->local_addons);
+        vendor_addon_dir = strjoin(d_name, ".extra.vendor.d");
+        if (!vendor_addon_dir)
+                return log_oom();
+
+        r = boot_entries_find_unified_addons(config, d_fd, addon_dir, root, &ret->local_addons);
+        if (r < 0)
+                return r;
+
+        return boot_entries_find_unified_addons(config, d_fd, vendor_addon_dir, root, &ret->local_addons);
 }
 
 static int boot_entries_find_unified(
@@ -1485,7 +1502,7 @@ int boot_config_load(
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/",
+                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader",
                                                             &config->global_addons[BOOT_ENTRY_ESP]);
                 if (r < 0)
                         return r;
@@ -1500,7 +1517,7 @@ int boot_config_load(
                 if (r < 0)
                         return r;
 
-                r = boot_entries_find_unified_global_addons(config, xbootldr_path, "/loader/addons/",
+                r = boot_entries_find_unified_global_addons(config, xbootldr_path, "/loader",
                                                             &config->global_addons[BOOT_ENTRY_XBOOTLDR]);
                 if (r < 0)
                         return r;
