@@ -1181,6 +1181,24 @@ int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error
                         error);
 }
 
+int bus_verify_manage_units_with_name_async(
+                Manager *m,
+                const char *unit_name,
+                sd_bus_message *call,
+                sd_bus_error *error) {
+
+        const char *details[3] = {
+                "unit", unit_name,
+        };
+
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-units",
+                        details,
+                        &m->polkit_registry,
+                        error);
+}
+
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
         return bus_verify_polkit_async(
                         call,
