@@ -491,6 +491,10 @@ def key_path_groups(opts):
                    pp_groups)
 
 
+def pe_strip_section_name(name):
+    return name.rstrip(b"\x00").decode()
+
+
 def call_systemd_measure(uki, opts):
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
@@ -665,7 +669,7 @@ def pe_add_sections(uki: UKI, output: str):
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections):
-            if s.Name.rstrip(b"\x00").decode() == section.name:
+            if pe_strip_section_name(s.Name) == section.name:
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -701,7 +705,7 @@ def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
             continue
 
         for section in pe.sections:
-            if section.Name.rstrip(b"\x00").decode() == ".sbat":
+            if pe_strip_section_name(section.Name) == ".sbat":
                 split = section.get_data().rstrip(b"\x00").decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f"{f} does not contain a valid SBAT section, skipping.")
@@ -1042,7 +1046,7 @@ def generate_keys(opts):
 
 
 def inspect_section(opts, section):
-    name = section.Name.rstrip(b"\x00").decode()
+    name = pe_strip_section_name(section.Name)
 
     # find the config for this section in opts and whether to show it
     config = opts.sections_by_name.get(name, None)
