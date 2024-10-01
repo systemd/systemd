@@ -1082,7 +1082,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
 
-        r = bus_verify_manage_units_async(m, message, error);
+        r = bus_verify_manage_units_with_name_async(m, name, message, error);
         if (r < 0)
                 return r;
         if (r == 0)
