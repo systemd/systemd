@@ -21,6 +21,13 @@ typedef enum BootEntryType {
         _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
 
+typedef enum BootEntrySource {
+        BOOT_ENTRY_ESP,
+        BOOT_ENTRY_XBOOTLDR,
+        _BOOT_ENTRY_SOURCE_MAX,
+        _BOOT_ENTRY_SOURCE_INVALID = -EINVAL,
+} BootEntrySource;
+
 typedef struct BootEntryAddon {
         char *location;
         char *cmdline;
@@ -33,6 +40,7 @@ typedef struct BootEntryAddons {
 
 typedef struct BootEntry {
         BootEntryType type;
+        BootEntrySource source;
         bool reported_by_loader;
         char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
@@ -47,6 +55,7 @@ typedef struct BootEntry {
         char *architecture;
         char **options;
         BootEntryAddons local_addons;
+        const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char **initrd;
@@ -74,7 +83,7 @@ typedef struct BootConfig {
         BootEntry *entries;
         size_t n_entries;
 
-        BootEntryAddons global_addons;
+        BootEntryAddons global_addons[_BOOT_ENTRY_SOURCE_MAX];
 
         ssize_t default_entry;
         ssize_t selected_entry;
@@ -90,6 +99,9 @@ typedef struct BootConfig {
 
 const char* boot_entry_type_to_string(BootEntryType);
 const char* boot_entry_type_json_to_string(BootEntryType);
+
+const char* boot_entry_source_to_string(BootEntrySource);
+const char* boot_entry_source_json_to_string(BootEntrySource);
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
@@ -129,7 +141,6 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int show_boot_entry(
                 const BootEntry *e,
-                const BootEntryAddons *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported);
