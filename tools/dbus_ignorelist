@@ -877,6 +877,7 @@ org.freedesktop.systemd1.Mount.LogsDirectoryMode
 org.freedesktop.systemd1.Mount.LogsDirectorySymlink
 org.freedesktop.systemd1.Mount.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Mount.ManagedOOMMemoryPressureLimit
+org.freedesktop.systemd1.Mount.ManagedOOMMemoryPressureDurationUSec
 org.freedesktop.systemd1.Mount.ManagedOOMPreference
 org.freedesktop.systemd1.Mount.ManagedOOMSwap
 org.freedesktop.systemd1.Mount.MemoryAccounting
@@ -1625,6 +1626,7 @@ org.freedesktop.systemd1.Socket.LogsDirectoryMode
 org.freedesktop.systemd1.Socket.LogsDirectorySymlink
 org.freedesktop.systemd1.Socket.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Socket.ManagedOOMMemoryPressureLimit
+org.freedesktop.systemd1.Socket.ManagedOOMMemoryPressureDurationUSec
 org.freedesktop.systemd1.Socket.ManagedOOMPreference
 org.freedesktop.systemd1.Socket.ManagedOOMSwap
 org.freedesktop.systemd1.Socket.Mark
@@ -1908,6 +1910,7 @@ org.freedesktop.systemd1.Swap.LogsDirectoryMode
 org.freedesktop.systemd1.Swap.LogsDirectorySymlink
 org.freedesktop.systemd1.Swap.ManagedOOMMemoryPressure
 org.freedesktop.systemd1.Swap.ManagedOOMMemoryPressureLimit
+org.freedesktop.systemd1.Swap.ManagedOOMMemoryPressureDurationUSec
 org.freedesktop.systemd1.Swap.ManagedOOMPreference
 org.freedesktop.systemd1.Swap.ManagedOOMSwap
 org.freedesktop.systemd1.Swap.MemoryAccounting
