@@ -44,7 +44,7 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
         if (*dlp)
                 return 0; /* Already loaded */
 
-        dl = dlopen(filename, RTLD_LAZY);
+        dl = dlopen(filename, RTLD_NOW|RTLD_NODELETE);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "%s is not installed: %s", filename, dlerror());
