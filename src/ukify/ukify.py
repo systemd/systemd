@@ -379,7 +379,14 @@ class UKI:
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
-        if section.name in [s.name for s in self.sections]:
+        start = 0
+
+        # Start search at last .profile section, if there is one
+        for i, s in enumerate(self.sections):
+            if s.name == ".profile":
+                start = i + 1
+
+        if any(section.name == s.name for s in self.sections[start:]):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -495,7 +502,7 @@ def pe_strip_section_name(name):
     return name.rstrip(b"\x00").decode()
 
 
-def call_systemd_measure(uki, opts):
+def call_systemd_measure(uki, opts, profile_start=0):
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
                              opts=opts)
@@ -504,6 +511,26 @@ def call_systemd_measure(uki, opts):
 
     # PCR measurement
 
+    # First, pick up either the base sections or the profile specific sections we shall measure now
+    to_measure = {s.name: s for s in uki.sections[profile_start:] if s.measure}
+
+    # Then, if we're measuring a profile, lookup the missing sections from the base image.
+    if profile_start != 0:
+        for section in uki.sections:
+            # If we reach the first .profile section the base is over
+            if section.name == ".profile":
+                break
+
+            # Only some sections are measured
+            if not section.measure:
+                continue
+
+            # Check if this is a section we already covered above
+            if section.name in to_measure:
+                continue
+
+            to_measure[section.name] = section
+
     if opts.measure:
         pp_groups = opts.phase_path_groups or []
 
@@ -511,8 +538,7 @@ def call_systemd_measure(uki, opts):
             measure_tool,
             'calculate',
             *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+              for s in to_measure.values()),
             *(f'--bank={bank}'
               for bank in banks),
             # For measurement, the keys are not relevant, so we can lump all the phase paths
@@ -533,8 +559,7 @@ def call_systemd_measure(uki, opts):
             measure_tool,
             'sign',
             *(f"--{s.name.removeprefix('.')}={s.content}"
-              for s in uki.sections
-              if s.measure),
+              for s in to_measure.values()),
             *(f'--bank={bank}'
               for bank in banks),
         ]
@@ -632,6 +657,9 @@ def pe_add_sections(uki: UKI, output: str):
         # We could strip the signatures, but why would anyone sign the stub?
         raise PEError('Stub image is signed, refusing.')
 
+    # Remember how many sections originate from systemd-stub
+    n_original_sections = len(pe.sections)
+
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
         new_section.__unpack__(b'\0' * new_section.sizeof())
@@ -668,7 +696,7 @@ def pe_add_sections(uki: UKI, output: str):
         # Special case, mostly for .sbat: the stub will already have a .sbat section, but we want to append
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
-        for i, s in enumerate(pe.sections):
+        for i, s in enumerate(pe.sections[:n_original_sections]):
             if pe_strip_section_name(s.Name) == section.name:
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
@@ -853,7 +881,6 @@ def make_uki(opts):
 
     sections = [
         # name,      content,         measure?
-        ('.profile', opts.profile,    True ),
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         ('.dtb',     opts.devicetree, True ),
@@ -863,6 +890,10 @@ def make_uki(opts):
         ('.initrd',  initrd,          True ),
         ('.ucode',   opts.microcode,  True ),
     ]
+
+    # If we're building a PE profile binary, the ".profile" section has to be the first one.
+    if opts.profile and not opts.join_profiles:
+        uki.add_section(Section.create(".profile", opts.profile, measure=True))
 
     for name, content, measure in sections:
         if content:
@@ -881,25 +912,64 @@ def make_uki(opts):
 
         uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
-    if linux is not None:
-        # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        input_pes = [opts.stub, linux]
-        if not opts.sbat:
-            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+    # Don't add a sbat section to profile PE binaries.
+    if opts.join_profiles or not opts.profile:
+        if linux is not None:
+            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
+            input_pes = [opts.stub, linux]
+            if not opts.sbat:
+                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-    else:
-        # Addons don't use the stub so we add SBAT manually
-        input_pes = []
-        if not opts.sbat:
-            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+        else:
+            # Addons don't use the stub so we add SBAT manually
+            input_pes = []
+            if not opts.sbat:
+                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
 """]
-    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+
+    # If we're building a UKI with additional profiles, the .profile section for the base profile has to be
+    # the last one so that everything before it is shared between profiles. The only thing we don't share
+    # between profiles is the .pcrsig section which is appended later and doesn't make sense to share.
+    if opts.profile and opts.join_profiles:
+        uki.add_section(Section.create(".profile", opts.profile, measure=True))
 
     # PCR measurement and signing
 
     call_systemd_measure(uki, opts=opts)
+
+    # UKI profiles
+
+    to_import = {'.linux', '.osrel', '.cmdline', '.initrd', '.ucode', '.splash', '.dtb', '.uname', '.sbat', '.profile'}
+
+    for profile in opts.join_profiles:
+        pe = pefile.PE(profile, fast_load=True)
+        prev_len = len(uki.sections)
+
+        names = [pe_strip_section_name(s.Name) for s in pe.sections]
+        names = [n for n in names if n in to_import]
+
+        if len(names) == 0:
+            raise ValueError(f"Found no valid sections in PE profile binary {profile}")
+
+        if names[0] != ".profile":
+            raise ValueError(f'Expected .profile section as first valid section in PE profile binary {profile} but got {names[0]}')
+
+        if names.count(".profile") > 1:
+            raise ValueError(f'Profile PE binary {profile} contains multiple .profile sections')
+
+        for section in pe.sections:
+            n = pe_strip_section_name(section.Name)
+
+            if n not in to_import:
+                continue
+
+            print(f"Copying section '{n}' from '{profile}': {section.Misc_VirtualSize} bytes")
+            uki.add_section(Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=True))
+
+        call_systemd_measure(uki, opts=opts, profile_start=prev_len + 1)
 
     # UKI creation
 
@@ -1372,6 +1442,15 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
+        '--join-profile',
+        dest = 'join_profiles',
+        metavar = 'PATH',
+        action = 'append',
+        default = [],
+        help = 'A PE binary containing an additional profile to add to the UKI',
+    ),
+
+    ConfigItem(
         '--efi-arch',
         metavar = 'ARCH',
         choices = ('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
@@ -1717,6 +1796,11 @@ def finalize_options(opts):
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
+
+    if opts.join_profiles and not opts.profile:
+        # If any additional profiles are added, we need a base profile as well so add one if
+        # one wasn't explicitly provided
+        opts.profile = 'ID=main'
 
     if opts.verb == 'build' and opts.output is None:
         if opts.linux is None:
