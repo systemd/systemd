@@ -5463,7 +5463,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 
         pfd = chase_and_open_parent(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_filename=*/ NULL);
         if (pfd < 0)
-                return log_error_errno(pfd, "Failed to chase '%s/%s': %m", strempty(arg_copy_source), source);
+                return log_error_errno(errno, "Failed to chase '%s/%s': %m", strempty(arg_copy_source), source);
 
         for (;;) {
                 if (fstat(pfd, &st) < 0)
