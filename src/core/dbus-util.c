@@ -150,33 +150,6 @@ int bus_set_transient_usec_internal(
         return 1;
 }
 
-int bus_verify_manage_units_async_full(
-                Unit *u,
-                const char *verb,
-                const char *polkit_message,
-                sd_bus_message *call,
-                sd_bus_error *error) {
-
-        const char *details[9] = {
-                "unit", u->id,
-                "verb", verb,
-        };
-
-        if (polkit_message) {
-                details[4] = "polkit.message";
-                details[5] = polkit_message;
-                details[6] = "polkit.gettext_domain";
-                details[7] = GETTEXT_PACKAGE;
-        }
-
-        return bus_verify_polkit_async(
-                        call,
-                        "org.freedesktop.systemd1.manage-units",
-                        details,
-                        &u->manager->polkit_registry,
-                        error);
-}
-
 /* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
 int bus_read_mount_options(
                 sd_bus_message *message,

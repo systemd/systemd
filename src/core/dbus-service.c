@@ -12,6 +12,7 @@
 #include "dbus-manager.h"
 #include "dbus-service.h"
 #include "dbus-util.h"
+#include "dbus.h"
 #include "execute.h"
 #include "exec-credential.h"
 #include "exit-status.h"
@@ -169,7 +170,8 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         }
 
         r = bus_verify_manage_units_async_full(
-                        u,
+                        u->manager,
+                        u->id,
                         is_image ? "mount-image" : "bind-mount",
                         N_("Authentication is required to mount on '$(unit)'."),
                         message,
