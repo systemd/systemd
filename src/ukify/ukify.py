@@ -379,14 +379,7 @@ class UKI:
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
-        start = 0
-
-        # Start search at last .profile section, if there is one
-        for i in range(len(self.sections)):
-            if self.sections[i].name == ".profile":
-                start = i+1
-
-        if section.name in [s.name for s in self.sections[start:]]:
+        if section.name in [s.name for s in self.sections]:
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -496,10 +489,6 @@ def key_path_groups(opts):
     yield from zip(opts.pcr_private_keys,
                    pub_keys,
                    pp_groups)
-
-
-def pe_strip_section_name(name):
-    return name.rstrip(b"\x00").decode()
 
 
 def call_systemd_measure(uki, opts):
@@ -639,9 +628,6 @@ def pe_add_sections(uki: UKI, output: str):
         # We could strip the signatures, but why would anyone sign the stub?
         raise PEError('Stub image is signed, refusing.')
 
-    # Remember how many sections originate from systemd-stub
-    n_original_sections = len(pe.sections)
-
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
         new_section.__unpack__(b'\0' * new_section.sizeof())
@@ -678,8 +664,8 @@ def pe_add_sections(uki: UKI, output: str):
         # Special case, mostly for .sbat: the stub will already have a .sbat section, but we want to append
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
-        for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name:
+        for i, s in enumerate(pe.sections):
+            if s.Name.rstrip(b"\x00").decode() == section.name:
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -715,7 +701,7 @@ def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
             continue
 
         for section in pe.sections:
-            if pe_strip_section_name(section.Name) == ".sbat":
+            if section.Name.rstrip(b"\x00").decode() == ".sbat":
                 split = section.get_data().rstrip(b"\x00").decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f"{f} does not contain a valid SBAT section, skipping.")
@@ -797,28 +783,6 @@ def verify(tool, opts):
 
     return tool['output'] in info
 
-
-def import_to_extend(uki, opts):
-
-    if opts.extend is None:
-        return
-
-    import_sections = ('.linux', '.osrel', '.cmdline', '.initrd',
-                       '.ucode', '.splash', '.dtb', '.uname',
-                       '.sbat', '.pcrsig', '.pcrpkey', '.profile')
-
-    pe = pefile.PE(opts.extend, fast_load=True)
-
-    for section in pe.sections:
-        n = pe_strip_section_name(section.Name)
-
-        if n not in import_sections:
-            continue
-
-        print(f"Copying section '{n}' from '{opts.extend}': {section.Misc_VirtualSize} bytes")
-        uki.add_section(Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=False))
-
-
 def make_uki(opts):
     # kernel payload signing
 
@@ -883,9 +847,6 @@ def make_uki(opts):
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
             )
 
-    # Import an existing UKI for extension
-    import_to_extend(uki, opts)
-
     sections = [
         # name,      content,         measure?
         ('.profile', opts.profile,    True ),
@@ -916,22 +877,21 @@ def make_uki(opts):
 
         uki.add_section(Section.create('.linux', linux, measure=True, virtual_size=virtual_size))
 
-    if opts.extend is None:
-        if linux is not None:
-            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-            input_pes = [opts.stub, linux]
-            if not opts.sbat:
-                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+    if linux is not None:
+        # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
+        input_pes = [opts.stub, linux]
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-        else:
-            # Addons don't use the stub so we add SBAT manually
-            input_pes = []
-            if not opts.sbat:
-                opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+    else:
+        # Addons don't use the stub so we add SBAT manually
+        input_pes = []
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
 """]
-        uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
+    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # PCR measurement and signing
 
@@ -1082,7 +1042,7 @@ def generate_keys(opts):
 
 
 def inspect_section(opts, section):
-    name = pe_strip_section_name(section.Name)
+    name = section.Name.rstrip(b"\x00").decode()
 
     # find the config for this section in opts and whether to show it
     config = opts.sections_by_name.get(name, None)
@@ -1423,14 +1383,6 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        '--extend',
-        metavar = 'UKI',
-        type = pathlib.Path,
-        help = 'path to existing UKI file whose relevant sections to insert into the UKI first',
-        config_key = 'UKI/Extend',
-    ),
-
-    ConfigItem(
         '--pcr-banks',
         metavar = 'BANK…',
         type = parse_banks,
@@ -1734,7 +1686,7 @@ def finalize_options(opts):
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        if opts.linux is not None or opts.extend is not None:
+        if opts.linux is not None:
             opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
         else:
             opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
