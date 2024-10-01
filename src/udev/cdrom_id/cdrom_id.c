@@ -477,7 +477,7 @@ static int cd_profiles(Context *c) {
 
                 switch (feature) {
                 case 0x00:
-                        log_debug("GET CONFIGURATION: feature 'profiles', with %u entries", features[i + 3] / 4);
+                        log_debug("GET CONFIGURATION: feature 'profiles', with %u entries", features[i + 3] / 4U);
                         feature_profiles(c, features + i + 4, MIN(features[i + 3], len - i - 4));
                         break;
                 default:
