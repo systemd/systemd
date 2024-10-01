@@ -1012,6 +1012,7 @@ org.freedesktop.systemd1.Path.Paths
 org.freedesktop.systemd1.Path.Result
 org.freedesktop.systemd1.Path.TriggerLimitBurst
 org.freedesktop.systemd1.Path.TriggerLimitIntervalUSec
+org.freedesktop.systemd1.Path.DeactivationToggle
 org.freedesktop.systemd1.Path.Unit
 org.freedesktop.systemd1.Scope.Abandon()
 org.freedesktop.systemd1.Scope.AllowedCPUs
