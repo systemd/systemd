@@ -1354,8 +1354,17 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 else {
                         const char *bad_field;
 
-                        r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
-                        if (r < 0) {
+                        r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
+                        if (r == -EBADE) {
+                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set: %m",
+                                                  method);
+
+                                if (v->state == VARLINK_PROCESSING_METHOD) {
+                                        r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
                                                   method, strna(bad_field));
@@ -1365,8 +1374,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         if (r < 0)
                                                 return r;
                                 }
-                                invalid = true;
                         }
+
+                        invalid = r < 0;
                 }
 
                 if (!invalid) {
@@ -2439,7 +2449,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
                 if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
@@ -2652,8 +2662,11 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, SD_VARLINK_REPLY_CONTINUES, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));

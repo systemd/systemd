@@ -53,8 +53,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The priority of the log message, using the BSD syslog priority levels"),
                 SD_VARLINK_DEFINE_FIELD(priority, SD_VARLINK_INT, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListTransfers,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("Image class to filter by"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A unique numeric identifier for the ongoing transfer"),
@@ -70,8 +71,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Progress in percent"),
                 SD_VARLINK_DEFINE_OUTPUT(percent, SD_VARLINK_FLOAT, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 Pull,
+                SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("The remote URL to download from"),
                 SD_VARLINK_DEFINE_INPUT(remote, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The local image name to download to"),

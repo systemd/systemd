@@ -138,12 +138,6 @@ Features:
   quote. tpm quote should proctect the json doc via the nonce field
   studd. Allow shipping this off elsewhere for analyze.
 
-* sd-varlink: maybe add flag(s) to mark methods accepti/require "more" calls in
-  introspection structures already now, even if IDL doesn't know a construct to
-  advertise this. But do enforce it when validating incoming method calls, so
-  that we definitely have the data around and valid. For now, generate an IDL
-  comment based on this info.
-
 * The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
 
