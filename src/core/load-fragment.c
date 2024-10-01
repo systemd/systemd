@@ -918,7 +918,11 @@ int config_parse_exec(
                 if (r <= 0)
                         return 0;
 
-                /* A lone ";" is a separator. Let's make sure we don't treat it as an executable name. */
+                /* A lone ";" is a separator. Let's make sure we don't treat it as an executable name.
+                 *
+                 * SOFT DEPRECATION: We support multiple command lines in one ExecStart= line for
+                 * compatibility with older versions, but we no longer document this exists, it's deprecated
+                 * in a soft way. New unit files, should not use this feature. */
                 if (streq(firstword, ";")) {
                         semicolon = true;
                         continue;
