@@ -1366,9 +1366,9 @@ CONFIG_ITEMS = [
 
     ConfigItem(
         '--profile',
-        metavar='TEST|@PATH',
-        help='Profile information [.profile section]',
-        config_key = 'UKI/Uname',
+        metavar = 'TEST|@PATH',
+        help = 'Profile information [.profile section]',
+        config_key = 'UKI/Profile',
     ),
 
     ConfigItem(
