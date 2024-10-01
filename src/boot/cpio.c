@@ -317,7 +317,6 @@ EFI_STATUS pack_cpio(
 
         _cleanup_file_close_ EFI_FILE *root = NULL, *extra_dir = NULL;
         size_t dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_free_ char16_t *rel_dropin_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_strv_free_ char16_t **items = NULL;
         _cleanup_free_ void *buffer = NULL;
@@ -331,6 +330,9 @@ EFI_STATUS pack_cpio(
         if (!loaded_image->DeviceHandle)
                 goto nothing;
 
+        if (!dropin_dir)
+                goto nothing;
+
         err = open_volume(loaded_image->DeviceHandle, &root);
         if (err == EFI_UNSUPPORTED)
                 /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
@@ -338,12 +340,6 @@ EFI_STATUS pack_cpio(
                 goto nothing;
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to open root directory: %m");
-
-        if (!dropin_dir) {
-                dropin_dir = rel_dropin_dir = get_extra_dir(loaded_image->FilePath);
-                if (!dropin_dir)
-                        goto nothing;
-        }
 
         err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND)
