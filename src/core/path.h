@@ -67,6 +67,8 @@ struct Path {
         RateLimit trigger_limit;
 
         sd_event_source *trigger_notify_event_source;
+
+        bool deactivation_toggle;
 };
 
 struct ActivationDetailsPath {
