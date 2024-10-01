@@ -39,6 +39,7 @@
 #include "firewall-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "headers-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
@@ -2903,6 +2904,79 @@ int config_parse_unset_environ(
                 return log_oom();
 
         return 0;
+}
+
+int config_parse_headers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const Unit *u = userdata;
+        char ***headers = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *headers = strv_free(*headers);
+                return 0;
+        }
+
+        /* If 'u' is set, we operate on the regular unit specifier table. Otherwise we use a manager-specific
+         * specifier table (in which case ltype must contain the runtime scope). */
+        const Specifier *table = u ? NULL : (const Specifier[]) {
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                COMMON_CREDS_SPECIFIERS(ltype),
+                { 'h', specifier_user_home,  NULL },
+                { 's', specifier_user_shell, NULL },
+                {}
+        };
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *resolved = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                if (table)
+                        r = specifier_printf(word, sc_arg_max(), table, NULL, NULL, &resolved);
+                else
+                        r = unit_env_printf(u, word, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
+
+                if (!headers_assignment_is_valid(resolved)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid headers assignment, ignoring: %s", resolved);
+                        continue;
+                }
+
+                r = strv_headers_replace_consume(headers, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update headers: %m");
+        }
 }
 
 int config_parse_log_extra_fields(
@@ -6297,6 +6371,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
                 { config_parse_environ,               "ENVIRON" },
+                { config_parse_headers,               "HEADERS" },
 #if HAVE_SECCOMP
                 { config_parse_syscall_filter,        "SYSCALLS" },
                 { config_parse_syscall_archs,         "ARCHS" },
