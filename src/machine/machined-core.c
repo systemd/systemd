@@ -402,3 +402,57 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
         *ret_os_release = TAKE_PTR(l);
         return 0;
 }
+
+static int image_flush_cache(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(s);
+
+        hashmap_clear(m->image_cache);
+        return 0;
+}
+
+int manager_acquire_image(Manager *m, const char *name, Image **ret) {
+        int r;
+
+        assert(m);
+        assert(name);
+
+        Image *existing = hashmap_get(m->image_cache, name);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
+
+        if (!m->image_cache_defer_event) {
+                r = sd_event_add_defer(m->event, &m->image_cache_defer_event, image_flush_cache, m);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(m->image_cache_defer_event, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_source_set_enabled(m->image_cache_defer_event, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return r;
+
+        _cleanup_(image_unrefp) Image *image = NULL;
+        r = image_find(IMAGE_MACHINE, name, NULL, &image);
+        if (r < 0)
+                return r;
+
+        image->userdata = m;
+
+        r = hashmap_ensure_put(&m->image_cache, &image_hash_ops, image->name, image);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = image;
+
+        TAKE_PTR(image);
+        return 0;
+}
