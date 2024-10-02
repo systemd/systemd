@@ -529,7 +529,7 @@ systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
 
 # Similar, but go via varlink
-varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
+varlinkctl call --more /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
 (! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
 varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Merge '{}'
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
