@@ -53,6 +53,10 @@ busctl emit --auto-start=no --destination=systemd-logind.service \
             /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForShutdown b false
 
+systemd-run --service-type=notify --unit=test-busctl-wait busctl --timeout=3 wait /test org.freedesktop.fake1 TestSignal
+busctl emit /test org.freedesktop.fake1 TestSignal s success
+journalctl -u test-busctl-wait | grep -q 's "success"'
+
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version
 busctl get-property --verbose \
