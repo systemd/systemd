@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup-util.h"
+#include "copy.h"
+#include "env-file.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "iovec-util.h"
 #include "machined.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -174,4 +180,226 @@ void manager_enqueue_gc(Manager *m) {
                 log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
 
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
+}
+
+int machine_get_addresses(Machine* machine, struct local_address **ret_addresses) {
+        assert(machine);
+        assert(ret_addresses);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST: {
+                _cleanup_free_ struct local_address *addresses = NULL;
+                int n;
+
+                n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                if (n < 0)
+                        return log_debug_errno(n, "Failed to get local addresses: %m");
+
+                *ret_addresses = TAKE_PTR(addresses);
+                return n;
+        }
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_close_ int netns_fd = -EBADF;
+                pid_t child;
+                int r;
+
+                r = in_same_namespace(/* pid1 = */ 0, machine->leader.pid, NAMESPACE_NET);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if container has private network: %m");
+                if (r > 0)
+                        return -ENONET;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          /* ret_pidns_fd = */ NULL,
+                                          /* ret_mntns_fd = */ NULL,
+                                          &netns_fd,
+                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_root_fd = */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open namespace: %m");
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return log_debug_errno(errno, "Failed to call socketpair(): %m");
+
+                r = namespace_fork("(sd-addrns)",
+                                   "(sd-addr)",
+                                   /* except_fds = */ NULL,
+                                   /* n_except_fds = */ 0,
+                                   FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   /* pidns_fd = */ -1,
+                                   /* mntns_fd = */ -1,
+                                   netns_fd,
+                                   /* userns_fd = */ -1,
+                                   /* root_fd = */ -1,
+                                   &child);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fork(): %m");
+                if (r == 0) {
+                        _cleanup_free_ struct local_address *addresses = NULL;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        int n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                        if (n < 0) {
+                                log_debug_errno(n, "Failed to get local addresses: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        FOREACH_ARRAY(a, addresses, n) {
+                                r = write(pair[1], a, sizeof(*a));
+                                if (r < 0) {
+                                        log_debug_errno(errno, "Failed to write to socket: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+                        }
+
+                        pair[1] = safe_close(pair[1]);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                _cleanup_free_ struct local_address *list = NULL;
+                size_t n_list = 0;
+
+                for (;;) {
+                        ssize_t n;
+                        struct local_address la;
+
+                        n = read(pair[0], &la, sizeof(la));
+                        if (n < 0)
+                                return log_debug_errno(errno, "Failed to read from socket(): %m");
+                        if (n == 0)
+                                break;
+                        if ((size_t) n < sizeof(la))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpectedly short message");
+
+                        r = add_local_address(&list,
+                                              &n_list,
+                                              la.ifindex,
+                                              la.scope,
+                                              la.family,
+                                              &la.address);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add local address: %m");
+                }
+
+                r = wait_for_terminate_and_check("(sd-addrns)", child, /* flags = */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for child: %m");
+                if (r != EXIT_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
+
+                *ret_addresses = TAKE_PTR(list);
+                return (int) n_list;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+#define EXIT_NOT_FOUND 2
+
+int machine_get_os_release(Machine *machine, char ***ret_os_release) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(machine);
+        assert(ret_os_release);
+
+        switch (machine->class) {
+
+        case MACHINE_HOST:
+                r = load_os_release_pairs(/* root = */ NULL, &l);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load OS release information: %m");
+
+                break;
+
+        case MACHINE_CONTAINER: {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_fclose_ FILE *f = NULL;
+                pid_t child;
+
+                r = pidref_namespace_open(&machine->leader,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          /* ret_userns_fd = */ NULL,
+                                          &root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open namespace: %m");
+
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                        return log_debug_errno(errno, "Failed to call socketpair(): %m");
+
+                r = namespace_fork("(sd-osrelns)",
+                                   "(sd-osrel)",
+                                   /* except_fds = */ NULL,
+                                   /* n_except_fds = */ 0,
+                                   FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                                   pidns_fd,
+                                   mntns_fd,
+                                   /* netns_fd = */ -1,
+                                   /* userns_fd = */ -1,
+                                   root_fd,
+                                   &child);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fork(): %m");
+                if (r == 0) {
+                        _cleanup_close_ int fd = -EBADF;
+
+                        pair[0] = safe_close(pair[0]);
+
+                        r = open_os_release(/* root = */ NULL, /* ret_path = */ NULL, &fd);
+                        if (r == -ENOENT)
+                                _exit(EXIT_NOT_FOUND);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read OS release: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = copy_bytes(fd, pair[1], UINT64_MAX, /* copy_flags = */ 0);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to write to fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                pair[1] = safe_close(pair[1]);
+
+                f = take_fdopen(&pair[0], "r");
+                if (!f)
+                        return log_debug_errno(errno, "Failed to fdopen(): %m");
+
+                r = load_env_file_pairs(f, "/etc/os-release", &l);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load OS release information: %m");
+
+                r = wait_for_terminate_and_check("(sd-osrelns)", child, /* flags = */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for child: %m");
+                if (r == EXIT_NOT_FOUND)
+                        return -ENOENT;
+                if (r != EXIT_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
+
+                break;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+
+
+        *ret_os_release = TAKE_PTR(l);
+        return 0;
 }
