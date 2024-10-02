@@ -1857,6 +1857,7 @@ static int mount_setup_unit(
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_hashmap_free_ Hashmap *devices = NULL;
         int r;
 
         assert(m);
@@ -1866,6 +1867,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         for (;;) {
+                _cleanup_free_ char *d = NULL;
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
 
@@ -1883,7 +1885,18 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
-                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+                d = strdup(device);
+                if (!d)
+                        continue;
+
+                /* Just to achieve device name uniqueness using a hashmap, without any practical
+                 * significance of the value. */
+                r = hashmap_ensure_put(&devices, &path_hash_ops_free, d, d);
+                if (r != -EEXIST)
+                        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+
+                if (r > 0)
+                        TAKE_PTR(d);
 
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
