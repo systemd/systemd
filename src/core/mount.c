@@ -1884,6 +1884,7 @@ static int mount_setup_unit(
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_set_free_ Set *devices = NULL;
         int r;
 
         assert(m);
@@ -1910,7 +1911,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
-                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+                /* Just to achieve device name uniqueness. Note that the suppresion of the duplicate
+                 * processing is merely an optimization, hence in case of OOM (unlikely) we'll just process
+                 * it twice. */
+                if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
+                        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
