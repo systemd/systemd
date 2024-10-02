@@ -2324,6 +2324,15 @@ static int wait_signal(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
+        if (sender && !service_name_is_valid(sender))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", sender);
+        if (!object_path_is_valid(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", path);
+        if (!interface_name_is_valid(interface))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", interface);
+        if (!member_name_is_valid(member))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", member);
+
         r = sd_bus_match_signal(bus, NULL, sender, path, interface, member, on_bus_signal, &fini);
         if (r < 0)
                 return log_error_errno(r, "Failed to match signal %s on interface %s: %m", member, interface);
