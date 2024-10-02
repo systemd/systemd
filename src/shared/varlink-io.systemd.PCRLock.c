@@ -2,8 +2,9 @@
 
 #include "varlink-io.systemd.PCRLock.h"
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 ReadEventLog,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_DEFINE_OUTPUT(record, SD_VARLINK_OBJECT, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
