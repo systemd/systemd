@@ -155,6 +155,39 @@ static int mount_is_bound_to_device(Mount *m) {
         return parse_boolean(value);
 }
 
+static void mount_add_device_node(const char *device, MountDeviceNode *head) {
+        MountDeviceNode *current = head;
+        while (current != NULL) {
+                if (strcmp(current->device, device) == 0) {
+                        return;
+                }
+                current = current->next;
+        }
+
+        MountDeviceNode *new_device_node = (MountDeviceNode *)malloc(sizeof(MountDeviceNode));
+        new_device_node->device = strdup(device);
+        new_device_node->next = head;
+        head = new_device_node;
+}
+
+static void mount_free_device_node(MountDeviceNode *head) {
+        MountDeviceNode *current = head;
+        while (current != NULL) {
+                MountDeviceNode *to_delete = current;
+                current = current->next;
+                free(to_delete->device);
+                free(to_delete);
+        }
+}
+
+static void mount_device_found_node_all(Manager *m, MountDeviceNode *head) {
+        MountDeviceNode *current = head;
+        while (current != NULL) {
+                device_found_node(m, current->device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+                current = current->next;
+        }
+}
+
 static bool mount_propagate_stop(Mount *m) {
         int r;
 
@@ -1854,6 +1887,42 @@ static int mount_setup_unit(
         return 0;
 }
 
+static int mount_load_proc_self_device(Manager *m) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        MountDeviceNode *head = NULL;
+        int r;
+
+        assert(m);
+
+        r = libmount_parse(NULL, NULL, &table, &iter);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        for (;;) {
+                struct libmnt_fs *fs;
+                const char *device;
+
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                device = mnt_fs_get_source(fs);
+
+                if (!device)
+                        continue;
+
+                mount_add_device_node(device, head);
+        }
+
+        mount_device_found_node_all(m, head);
+        mount_free_device_node(head);
+
+        return 0;
+}
+
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -1882,8 +1951,6 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
                 if (!device || !path)
                         continue;
-
-                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
@@ -2054,6 +2121,10 @@ static void mount_enumerate(Manager *m) {
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
+
+        r = mount_load_proc_self_device(m);
+        if (r < 0)
+                goto fail;
 
         r = mount_load_proc_self_mountinfo(m, false);
         if (r < 0)

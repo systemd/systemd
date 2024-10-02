@@ -42,6 +42,11 @@ typedef enum MountProcFlags {
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
 
+typedef struct MountDeviceNode {
+        char *device;
+        struct MountDeviceNode *next;
+} MountDeviceNode;
+
 struct Mount {
         Unit meta;
 
