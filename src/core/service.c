@@ -510,6 +510,7 @@ static void service_done(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_fd_store(s);
+        extra_file_descriptor_free_many(&s->extra_fds);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -1093,6 +1094,20 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%sOpen File: %s\n", prefix, ofs);
                 }
 
+        LIST_FOREACH(fds, extra_fd, s->extra_fds) {
+                _cleanup_free_ char *extra_fd_str = NULL;
+                int r;
+
+                r = extra_file_descriptor_to_string(extra_fd, &extra_fd_str);
+                if (r < 0) {
+                        log_debug_errno(r,
+                                        "Failed to convert ExtraFileDescriptors= setting to string, ignoring: %m");
+                        continue;
+                }
+
+                fprintf(f, "%sExtra File Descriptor: %s\n", prefix, extra_fd_str);
+        }
+
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
@@ -1423,11 +1438,12 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds) {
+                size_t *n_storage_fds,
+                size_t *n_extra_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0, rn_storage_fds = 0, rn_extra_fds = 0;
         int r;
 
         assert(s);
@@ -1435,6 +1451,7 @@ static int service_collect_fds(
         assert(fd_names);
         assert(n_socket_fds);
         assert(n_storage_fds);
+        assert(n_extra_fds);
 
         if (s->socket_fd >= 0) {
                 Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
@@ -1512,10 +1529,44 @@ static int service_collect_fds(
                 rfd_names[n_fds] = NULL;
         }
 
+        LIST_FOREACH(fds, extra_fd, s->extra_fds)
+                rn_extra_fds++;
+
+        if (rn_extra_fds > 0) {
+                size_t n_fds;
+                char **nl;
+                int *t;
+
+                t = reallocarray(rfds, rn_socket_fds + rn_storage_fds + rn_extra_fds, sizeof(int));
+                if (!t)
+                        return -ENOMEM;
+
+                rfds = t;
+
+                nl = reallocarray(rfd_names, rn_socket_fds + rn_storage_fds + rn_extra_fds + 1, sizeof(char *));
+                if (!nl)
+                        return -ENOMEM;
+
+                rfd_names = nl;
+                n_fds = rn_socket_fds + rn_storage_fds;
+
+                LIST_FOREACH(fds, extra_fd, s->extra_fds) {
+                        rfds[n_fds] = extra_fd->fd;
+                        rfd_names[n_fds] = strdup(extra_fd->fdname);
+                        if (!rfd_names[n_fds])
+                                return -ENOMEM;
+
+                        n_fds++;
+                }
+
+                rfd_names[n_fds] = NULL;
+        }
+
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
         *n_storage_fds = rn_storage_fds;
+        *n_extra_fds = rn_extra_fds;
 
         return 0;
 }
@@ -1714,7 +1765,8 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds);
+                                        &exec_params.n_storage_fds,
+                                        &exec_params.n_extra_fds);
                 if (r < 0)
                         return r;
 
@@ -1722,7 +1774,7 @@ static int service_spawn_internal(
 
                 exec_params.flags |= EXEC_PASS_FDS;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
