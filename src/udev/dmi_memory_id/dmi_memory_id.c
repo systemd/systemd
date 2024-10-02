@@ -399,7 +399,7 @@ static void dmi_memory_device_manufacturer_id(
         /* LSB is 7-bit Odd Parity number of continuation codes */
         if (code != 0)
                 printf("MEMORY_DEVICE_%u_%s=Bank %d, Hex 0x%02X\n", slot_num, attr_suffix,
-                       (code & 0x7F) + 1, code >> 8);
+                       (code & 0x7F) + 1, (uint16_t) (code >> 8));
 }
 
 static void dmi_memory_device_product_id(
