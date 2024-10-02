@@ -47,6 +47,12 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
 
+        _cleanup_(mnt_unref_cachep) struct libmnt_cache *tag_cache = NULL;
+
+        tag_cache = mnt_new_cache();
+        if (!tag_cache)
+                log_warning_errno(errno, "Failed to allocate libmnt_cache object: %m");
+
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
          * keep unmounting them until they are gone. */
 
@@ -59,7 +65,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
-                r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
+                r = libmount_parse_cached("/proc/self/mountinfo", f, &table, &iter, tag_cache);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -154,8 +160,13 @@ int bind_remount_recursive_with_mountinfo(
 
         _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
+        _cleanup_(mnt_unref_cachep) struct libmnt_cache *tag_cache = NULL;
         unsigned n_tries = 0;
         int r;
+
+        tag_cache = mnt_new_cache();
+        if (!tag_cache)
+                log_warning_errno(errno, "Failed to allocate libmnt_cache object: %m");
 
         assert(prefix);
 
@@ -216,7 +227,7 @@ int bind_remount_recursive_with_mountinfo(
 
                 rewind(proc_self_mountinfo);
 
-                r = libmount_parse("/proc/self/mountinfo", proc_self_mountinfo, &table, &iter);
+                r = libmount_parse_cached("/proc/self/mountinfo", proc_self_mountinfo, &table, &iter, tag_cache);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
