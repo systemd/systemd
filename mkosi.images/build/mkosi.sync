@@ -12,6 +12,10 @@ if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
         exit 0
     fi
 
+    if [[ -n "$(git -C "pkg/$PKG_SUBDIR" status --porcelain)" ]]; then
+        exit 0
+    fi
+
     if ! git -C "pkg/$PKG_SUBDIR" show-ref --quiet "origin/$GIT_BRANCH"; then
         git -C "pkg/$PKG_SUBDIR" remote set-url origin "$GIT_URL"
         git -C "pkg/$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
