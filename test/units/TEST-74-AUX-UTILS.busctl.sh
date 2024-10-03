@@ -47,11 +47,16 @@ busctl call --verbose --timeout=60 --expect-reply=yes \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByPatterns asas 1 "active" 2 "systemd-*.socket" "*.mount"
 
+
 busctl emit /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForSleep b false
 busctl emit --auto-start=no --destination=systemd-logind.service \
             /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForShutdown b false
+
+systemd-run --service-type=notify --unit=test-busctl-wait busctl --timeout=3 wait /test org.freedesktop.fake1 s success
+busctl emit /test org.freedesktop.fake1 s success
+journalctl -u test-busctl-wait | grep -q 's "success"'
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version
