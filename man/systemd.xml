@@ -93,21 +93,12 @@
     configuration files, whose syntax and basic set of options is
     described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    however some are created automatically from other configuration
-    files, dynamically from system state or programmatically at runtime.
-    Units may be "active" (meaning started, bound, plugged in, …,
-    depending on the unit type, see below), or "inactive" (meaning
-    stopped, unbound, unplugged, …), as well as in the process of
-    being activated or deactivated, i.e. between the two states (these
-    states are called "activating", "deactivating"). A special
-    "failed" state is available as well, which is very similar to
-    "inactive" and is entered when the service failed in some way
-    (process returned error code on exit, or crashed, an operation
-    timed out, or after too many restarts). If this state is entered,
-    the cause will be logged, for later reference. Note that the
-    various unit types may have a number of additional substates,
-    which are mapped to the five generalized unit states described
-    here.</para>
+    however some are created automatically from other configuration files, dynamically from system state or
+    programmatically at runtime. Units may be in a number of states, described in the following table. Note
+    that the various unit types may have a number of additional substates, which are mapped to the
+    generalized unit states described here.</para>
+
+    <xi:include href="unit-states.xml" xpointer="table"/>
 
     <para>The following unit types are available:</para>
 
