@@ -214,7 +214,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_legend && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (arg_legend && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 if (table_isempty(table))
                         printf("No home areas.\n");
                 else
