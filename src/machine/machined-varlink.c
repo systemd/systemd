@@ -2,8 +2,11 @@
 
 #include "sd-varlink.h"
 
+#include "bus-polkit.h"
+#include "discover-image.h"
 #include "format-util.h"
 #include "hostname-util.h"
+#include "image-varlink.h"
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
@@ -405,7 +408,8 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_private_key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(m->ssh_private_key_path)));
         if (r < 0)
                 return r;
 
@@ -415,32 +419,64 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                const char *machine_name;
+                pid_t pid;
+        };
+
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                { "name", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, machine_name), 0 },
+                { "pid",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(struct params, pid),          0 },
                 {}
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
+        Machine *machine = NULL, *pid_machine = NULL;
+        struct params p = {
+                .machine_name = NULL,
+                .pid = -1
+        };
         int r;
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &mn);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+        if (p.machine_name) {
+                r = lookup_machine_by_name(link, m, p.machine_name, &machine);
+                if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "name");
+                else if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                else if (r < 0)
+                        return r;
+        }
 
-                Machine *machine = hashmap_get(m->machines, mn);
-                if (!machine)
+        if (p.pid >= 0) {
+                r = lookup_machine_by_pid(link, m, p.pid, &pid_machine);
+                if (r == -EINVAL)
+                    return sd_varlink_error_invalid_parameter_name(link, "pid");
+                else if (r == -ESRCH)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                else if (r < 0)
+                        return r;
+        }
+
+        if (machine && pid_machine) {
+                if (machine != pid_machine)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
+        if (machine)
+                return list_machine_one(link, machine, /* more= */ false);
+        if (pid_machine)
+                return list_machine_one(link, pid_machine, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
@@ -460,6 +496,149 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return list_machine_one(link, previous, /* more= */ false);
 
         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+}
+
+static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, sd_varlink_method_t method) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        const char *machine_name;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &machine_name);
+        if (r != 0)
+                return r;
+
+        Machine *machine;
+        r = lookup_machine_by_name(link, manager, machine_name, &machine);
+        if (r == -EINVAL)
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+        else if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        else if (r < 0)
+                return r;
+
+        return method(link, parameters, flags, machine);
+}
+
+static int vl_method_unregister(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_unregister_internal);
+}
+
+static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_terminate_internal);
+}
+
+static int list_image_one(sd_varlink *link, Image *image, bool more) {
+        int r;
+
+        assert(link);
+        assert(image);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(image->name)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!image->path, "path", SD_JSON_BUILD_STRING(image->path)),
+                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(image_type_to_string(image->type))),
+                        SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(image_class_to_string(image->class))),
+                        SD_JSON_BUILD_PAIR("readOnly", SD_JSON_BUILD_BOOLEAN(image->read_only)),
+                        SD_JSON_BUILD_PAIR("creationTimestamp", SD_JSON_BUILD_UNSIGNED(image->crtime)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("modificationTimestamp", image->mtime),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usage", image->usage, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usageExclusive", image->usage_exclusive, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("limit", image->limit, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("limitExclusive", image->limit_exclusive, UINT64_MAX),
+                        SD_JSON_BUILD_PAIR_CONDITION(image->metadata_valid && !!image->hostname, "hostname", SD_JSON_BUILD_STRING(image->hostname)),
+                        SD_JSON_BUILD_PAIR_CONDITION(image->metadata_valid && !sd_id128_is_null(image->machine_id),
+                                                     "machineId",
+                                                     SD_JSON_BUILD_ID128(image->machine_id)),
+                        SD_JSON_BUILD_PAIR_CONDITION(image->metadata_valid && image->machine_info,
+                                                     "machineInfo",
+                                                     JSON_BUILD_STRV_ENV_PAIR(image->machine_info)),
+                        SD_JSON_BUILD_PAIR_CONDITION(image->metadata_valid && image->os_release,
+                                                     "OSRelease",
+                                                     JSON_BUILD_STRV_ENV_PAIR(image->os_release)));
+        if (r < 0)
+                return r;
+
+        if (more)
+                return sd_varlink_notify(link, v);
+
+        return sd_varlink_reply(link, v);
+}
+
+static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                {}
+        };
+
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        const char *image_name = NULL;
+        Image *image;
+        int r;
+
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &image_name);
+        if (r != 0)
+                return r;
+
+        if (image_name) {
+                if (!image_name_is_valid(image_name))
+                        return sd_varlink_error_invalid_parameter_name(link, "name");
+
+                r = image_find(IMAGE_MACHINE, image_name, /* root = */ NULL, &image);
+                if (r == -ENOENT)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoSuchImage", NULL);
+                if (r < 0)
+                        return r;
+
+                // TODO(ikruglov): decide if we want to load metadata in the general case of listing
+                if (!image->metadata_valid) {
+                        r = image_read_metadata(image, &image_policy_container);
+                        if (r < 0)
+                                return r; // TODO error message
+                }
+
+                return list_image_one(link, image, /* more = */ false);
+        }
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(IMAGE_MACHINE, NULL, images);
+        if (r < 0)
+                return r;
+
+        Image *previous = NULL;
+        HASHMAP_FOREACH(image, images) {
+                if (previous) {
+                        r = list_image_one(link, previous, /* more = */ true);
+                        if (r < 0)
+                                return r;
+                }
+
+                previous = image;
+        }
+
+        if (previous)
+                return list_image_one(link, previous, /* more = */ false);
+
+        return sd_varlink_error(link, "io.systemd.Machine.NoSuchImage", NULL);
 }
 
 static int manager_varlink_init_userdb(Manager *m) {
@@ -524,8 +703,13 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Machine.Register", vl_method_register,
-                        "io.systemd.Machine.List",     vl_method_list);
+                        "io.systemd.Machine.Register",   vl_method_register,
+                        "io.systemd.Machine.List",       vl_method_list,
+                        "io.systemd.Machine.Unregister", vl_method_unregister,
+                        "io.systemd.Machine.Terminate",  vl_method_terminate,
+                        "io.systemd.Machine.Kill",       vl_method_kill,
+                        "io.systemd.Machine.ListImages", vl_method_list_images,
+                        "io.systemd.Machine.UpdateImage", vl_method_update_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
