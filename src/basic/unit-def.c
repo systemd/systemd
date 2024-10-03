@@ -104,6 +104,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
+/* Keep in sync with man/unit-states.xml */
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE]       = "active",
         [UNIT_RELOADING]    = "reloading",
