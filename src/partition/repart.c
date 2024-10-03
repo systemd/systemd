@@ -6211,8 +6211,10 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                          * verity hash partition. However, we still want to use the generated partition UUID
                          * to derive other UUIDs to keep things unique and reproducible, so we always
                          * generate a UUID if none is set, but we only use it as the actual partition UUID if
-                         * verity is not configured. */
-                        if (!IN_SET(p->verity, VERITY_DATA, VERITY_HASH)) {
+                         * verity is not configured.
+                         * Similarly the partitions that copy their data from a different target device also
+                         * copy the UUID of the target device, so don't set their new UUID here. */
+                        if (!IN_SET(p->verity, VERITY_DATA, VERITY_HASH) && !p->copy_blocks_path && !p->copy_blocks_auto) {
                                 p->new_uuid = uuid;
                                 p->new_uuid_is_set = true;
                         }
