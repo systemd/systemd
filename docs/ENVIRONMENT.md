@@ -762,6 +762,12 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_LLDP_SEND_MACHINE_ID` - takes a boolean, If true, systemd-networkd
   sends machine ID as chassis ID through LLDP protocol.
 
+* `$SYSTEMD_ADDRESSES_PER_LINK_MAX` – takes an unsigned integer. Defaults to 2048.
+  Limits the number of addresses per link that may be added by `systemd-networkd`.
+
+* `$SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX` – takes an unsigned integer. Defaults to 1024.
+  Limits the number of static addresses per network that may be added by `systemd-networkd`.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,

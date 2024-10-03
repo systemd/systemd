@@ -38,8 +38,8 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define ADDRESSES_PER_LINK_MAX 16384U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
+#define ADDRESSES_PER_LINK_MAX_DEFAULT 16384U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT 8192U
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -194,6 +194,25 @@ int address_new(Address **ret) {
         return 0;
 }
 
+static uint64_t get_static_addresses_per_network_max(void) {
+        uint64_t static_addresses_per_network_max;
+
+        int r = secure_getenv_uint64("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX", &static_addresses_per_network_max);
+
+        if (r >= 0) {
+                return static_addresses_per_network_max;
+        }
+
+        if (r != -ENXIO){
+                e = secure_getenv("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX");
+                if (e){
+                        log_debug("Can not parse $SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX, ignoring: %s", e);
+                }
+        }
+
+        return STATIC_ADDRESSES_PER_NETWORK_MAX_DEFAULT;
+}
+
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_unrefp) Address *address = NULL;
@@ -214,7 +233,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return 0;
         }
 
-        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= get_static_addresses_per_network_max())
                 return -E2BIG;
 
         r = address_new(&address);
@@ -1690,6 +1709,25 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
         return 1; /* A new request is queued. it is not necessary to process this request anymore. */
 }
 
+static uint64_t get_addresses_per_link_max(void) {
+        uint64_t addresses_per_link_max;
+
+        int r = secure_getenv_uint64("SYSTEMD_ADDRESSES_PER_LINK_MAX", &addresses_per_link_max);
+
+        if (r >= 0) {
+                return addresses_per_link_max;
+        }
+
+        if (r != -ENXIO){
+                e = secure_getenv("SYSTEMD_ADDRESSES_PER_LINK_MAX");
+                if (e){
+                        log_debug("Can not parse $SYSTEMD_ADDRESSES_PER_LINK_MAX, ignoring: %s", e);
+                }
+        }
+
+        return ADDRESSES_PER_LINK_MAX_DEFAULT;
+}
+
 static int address_process_request(Request *req, Link *link, Address *address) {
         Address *existing;
         struct ifa_cacheinfo c;
@@ -1703,7 +1741,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 return 0;
 
         /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+        if (set_size(link->addresses) >= get_addresses_per_link_max())
                 return 0;
 
         r = address_requeue_request(req, link, address);
