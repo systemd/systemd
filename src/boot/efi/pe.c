@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "chid.h"
+#include "devicetree.h"
 #include "pe.h"
 #include "util.h"
 
@@ -162,6 +164,26 @@ static bool pe_section_name_equal(const char *a, const char *b) {
         return true;
 }
 
+static bool pe_is_multi_dtb_uki(
+                const PeSectionHeader section_table[],
+                size_t n_section_table) {
+        size_t n = 0;
+        FOREACH_ARRAY(i, section_table, n_section_table)
+                if (pe_section_name_equal((const char*) i->Name, ".dtb"))
+                        if (++n > 1)
+                                return true;
+
+        return n > 1;
+}
+
+static bool pe_use_this_dtb(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                void *base,
+                size_t dtb_offset,
+                size_t dtb_size,
+                size_t section_nb);
+
 static void pe_locate_sections(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
@@ -176,6 +198,8 @@ static void pe_locate_sections(
         /* Searches for the sections listed in 'sections[]' within the section table. Validates the resulted
          * data. If 'validate_base' is non-zero also takes base offset when loaded into memory into account for
          * checking for overflows. */
+
+        bool is_multi_dtb = pe_is_multi_dtb_uki(section_table, n_section_table);
 
         for (size_t i = 0; section_names[i]; i++)
                 FOREACH_ARRAY(j, section_table, n_section_table) {
@@ -206,6 +230,12 @@ static void pe_locate_sections(
                                         continue;
                         }
 
+                        /* Special handling if multiple .dtb sections present */
+                        if (validate_base && pe_section_name_equal(section_names[i], ".dtb") && is_multi_dtb) {
+                                if (!pe_use_this_dtb(section_table, n_section_table, SIZE_TO_PTR(validate_base), j->VirtualAddress, j->VirtualSize, i))
+                                        continue;
+                        }
+
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
                                 .size = j->VirtualSize,
@@ -216,6 +246,57 @@ static void pe_locate_sections(
                         /* First matching section wins, ignore the rest */
                         break;
                 }
+}
+
+static bool pe_use_this_dtb(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                void *base,
+                size_t dtb_offset,
+                size_t dtb_size,
+                size_t section_nb) {
+        EFI_STATUS err;
+
+        static const void *cached_base = NULL;
+        static const Device *cached_device = NULL;
+
+        const uint8_t *dtb = (const uint8_t *) base + dtb_offset;
+
+        err = devicetree_match(dtb, dtb_size);
+
+        /* Firmware does not provide the devicetree, so try matching against a list from .hwids section */
+        if (err == EFI_UNSUPPORTED) {
+                static const char *const hwids_section_name[] = { ".hwids", NULL };
+                PeSectionVector hwids_section = {};
+                pe_locate_sections(
+                                section_table,
+                                n_section_table,
+                                hwids_section_name,
+                                PTR_TO_SIZE(base),
+                                &hwids_section);
+                if (hwids_section.size == 0)
+                        log_error_status(err, "HWIDs section is missing, no DT blob will be selected");
+                else {
+                        if (cached_base != base) {
+                                cached_base = base;
+                                cached_device = NULL;
+                                const uint8_t *hwids = (const uint8_t *) base + hwids_section.memory_offset;
+                                err = hwid_match(hwids, hwids_section.size, &cached_device);
+                        } else
+                                err = cached_device ? EFI_SUCCESS : EFI_NOT_FOUND;
+
+                        if (err == EFI_SUCCESS)
+                                err = devicetree_match_by_compatible(dtb, dtb_size, cached_device->compatible);
+                }
+        }
+
+        if (err == EFI_SUCCESS) {
+                log_info("Loading DT blob for %s (%s)...", cached_device->name, cached_device->compatible);
+                return true;
+        } else if (err == EFI_INVALID_PARAMETER)
+                log_error_status(err, "Found bad DT blob in PE section %zu", section_nb);
+
+        return false;
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
