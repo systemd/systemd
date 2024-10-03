@@ -374,6 +374,20 @@ static int varlink_idl_format_symbol(
                 break;
 
         case SD_VARLINK_METHOD:
+
+                /* Sooner or later we want to export this in a proper IDL language construct, see
+                 * https://github.com/varlink/varlink.github.io/issues/26 – but for now export this as a
+                 * comment. */
+                if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_MORE|SD_VARLINK_SUPPORTS_MORE)) != 0) {
+                        fputs(colors[COLOR_COMMENT], f);
+                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE))
+                                fputs("# [Requires 'more' flag]", f);
+                        else
+                                fputs("# [Supports 'more' flag]", f);
+                        fputs(colors[COLOR_RESET], f);
+                        fputs("\n", f);
+                }
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("method ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -1761,15 +1775,15 @@ static int varlink_idl_validate_field(const sd_varlink_field *field, sd_json_var
         return 0;
 }
 
-static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_variant *v, sd_varlink_field_direction_t direction, const char **bad_field) {
+static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_variant *v, sd_varlink_field_direction_t direction, const char **reterr_bad_field) {
         int r;
 
         assert(symbol);
         assert(!IN_SET(symbol->symbol_type, _SD_VARLINK_SYMBOL_COMMENT, _SD_VARLINK_INTERFACE_COMMENT));
 
         if (!v) {
-                if (bad_field)
-                        *bad_field = NULL;
+                if (reterr_bad_field)
+                        *reterr_bad_field = NULL;
                 return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
         }
 
@@ -1780,8 +1794,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
                 const char *s;
 
                 if (!sd_json_variant_is_string(v)) {
-                        if (bad_field)
-                                *bad_field = symbol->name;
+                        if (reterr_bad_field)
+                                *reterr_bad_field = symbol->name;
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-string to enum field '%s', refusing.", strna(symbol->name));
                 }
 
@@ -1801,8 +1815,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
                 }
 
                 if (!found) {
-                        if (bad_field)
-                                *bad_field = s;
+                        if (reterr_bad_field)
+                                *reterr_bad_field = s;
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed unrecognized string '%s' to enum field '%s', refusing.", s, strna(symbol->name));
                 }
 
@@ -1813,8 +1827,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
         case SD_VARLINK_METHOD:
         case SD_VARLINK_ERROR: {
                 if (!sd_json_variant_is_object(v)) {
-                        if (bad_field)
-                                *bad_field = symbol->name;
+                        if (reterr_bad_field)
+                                *reterr_bad_field = symbol->name;
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-object to field '%s', refusing.", strna(symbol->name));
                 }
 
@@ -1828,8 +1842,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 
                         r = varlink_idl_validate_field(field, sd_json_variant_by_key(v, field->name));
                         if (r < 0) {
-                                if (bad_field)
-                                        *bad_field = field->name;
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = field->name;
                                 return r;
                         }
                 }
@@ -1838,8 +1852,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
                 const char *name;
                 JSON_VARIANT_OBJECT_FOREACH(name, e, v) {
                         if (!varlink_idl_find_field(symbol, name)) {
-                                if (bad_field)
-                                        *bad_field = name;
+                                if (reterr_bad_field)
+                                        *reterr_bad_field = name;
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBUSY), "Field '%s' not defined for object, refusing.", name);
                         }
                 }
@@ -1858,32 +1872,40 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
         return 1; /* validated */
 }
 
-static int varlink_idl_validate_method(const sd_varlink_symbol *method, sd_json_variant *v, sd_varlink_field_direction_t direction, const char **bad_field) {
-        assert(IN_SET(direction, SD_VARLINK_INPUT, SD_VARLINK_OUTPUT));
+int varlink_idl_validate_method_call(const sd_varlink_symbol *method, sd_json_variant *v, sd_varlink_method_flags_t flags, const char **reterr_bad_field) {
 
         if (!method)
                 return 0; /* Can't validate */
         if (method->symbol_type != SD_VARLINK_METHOD)
                 return -EBADMSG;
 
-        return varlink_idl_validate_symbol(method, v, direction, bad_field);
+        /* If method calls require the "more" flag, but none is given, return a recognizable error */
+        if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_MORE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return -EBADE;
+
+        return varlink_idl_validate_symbol(method, v, SD_VARLINK_INPUT, reterr_bad_field);
 }
 
-int varlink_idl_validate_method_call(const sd_varlink_symbol *method, sd_json_variant *v, const char **bad_field) {
-        return varlink_idl_validate_method(method, v, SD_VARLINK_INPUT, bad_field);
+int varlink_idl_validate_method_reply(const sd_varlink_symbol *method, sd_json_variant *v, sd_varlink_reply_flags_t flags, const char **reterr_bad_field) {
+        if (!method)
+                return 0; /* Can't validate */
+        if (method->symbol_type != SD_VARLINK_METHOD)
+                return -EBADMSG;
+
+        /* If method replies have the "continues" flag set, but the method is not allowed to generate that, return a recognizable error */
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && (method->symbol_type & (SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE)) == 0)
+                return -EBADE;
+
+        return varlink_idl_validate_symbol(method, v, SD_VARLINK_OUTPUT, reterr_bad_field);
 }
 
-int varlink_idl_validate_method_reply(const sd_varlink_symbol *method, sd_json_variant *v, const char **bad_field) {
-        return varlink_idl_validate_method(method, v, SD_VARLINK_OUTPUT, bad_field);
-}
-
-int varlink_idl_validate_error(const sd_varlink_symbol *error, sd_json_variant *v, const char **bad_field) {
+int varlink_idl_validate_error(const sd_varlink_symbol *error, sd_json_variant *v, const char **reterr_bad_field) {
         if (!error)
                 return 0; /* Can't validate */
         if (error->symbol_type != SD_VARLINK_ERROR)
                 return -EBADMSG;
 
-        return varlink_idl_validate_symbol(error, v, SD_VARLINK_REGULAR, bad_field);
+        return varlink_idl_validate_symbol(error, v, SD_VARLINK_REGULAR, reterr_bad_field);
 }
 
 const sd_varlink_symbol* varlink_idl_find_symbol(
