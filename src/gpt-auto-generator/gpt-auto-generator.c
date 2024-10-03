@@ -503,18 +503,18 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static bool slash_boot_exists(void) {
+static bool slash_efi_exists(void) {
         static int cache = -1;
 
         if (cache >= 0)
                 return cache;
 
-        if (access("/boot", F_OK) >= 0)
+        if (access("/efi", F_OK) >= 0)
                 return (cache = true);
         if (errno != ENOENT)
-                log_error_errno(errno, "Failed to determine whether /boot/ exists, assuming no: %m");
+                log_error_errno(errno, "Failed to determine whether /efi/ exists, assuming no: %m");
         else
-                log_debug_errno(errno, "/boot/: %m");
+                log_debug_errno(errno, "/efi/: %m");
         return (cache = false);
 }
 
@@ -538,28 +538,28 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (r > 0)
                 return 0;
 
-        /* If /boot/ is present, unused, and empty, we'll take that.
-         * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
+        /* Only mount to /efi/ if we have a XBOOTLDR partition or /efi/ already exists.
+         * Otherwise, mount to /boot/ if unused and empty (or missing) or if /efi/ is busy.
          * Otherwise, we do nothing. */
-        if (!has_xbootldr && slash_boot_exists()) {
-                r = path_is_busy("/boot");
+        if (has_xbootldr || slash_efi_exists()) {
+                r = path_is_busy("/efi");
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        esp_path = "/boot";
-                        id = "boot";
+                        esp_path = "/efi";
+                        id = "efi";
                 }
         }
 
         if (!esp_path) {
-                r = path_is_busy("/efi");
+                r = path_is_busy("/boot");
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 0;
 
-                esp_path = "/efi";
-                id = "efi";
+                esp_path = "/boot";
+                id = "boot";
         }
 
         r = partition_pick_mount_options(
