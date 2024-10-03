@@ -387,6 +387,7 @@ Most timer unit settings are available to transient units.
 ✓ AccuracySec=
 ✓ RandomizedDelaySec=
 ✓ FixedRandomDelay=
+✓ DeferReactivation=
   Unit=
 ```
 

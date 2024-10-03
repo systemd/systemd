@@ -61,6 +61,7 @@ struct Timer {
         bool on_clock_change;
         bool on_timezone_change;
         bool fixed_random_delay;
+        bool defer_reactivation;
 
         char *stamp_path;
 };
