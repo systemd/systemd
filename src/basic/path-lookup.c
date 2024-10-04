@@ -904,6 +904,7 @@ char **env_generator_binary_paths(RuntimeScope runtime_scope) {
 
 int find_portable_profile(const char *name, const char *unit, char **ret_path) {
         const char *dot;
+        int r;
 
         assert(name);
         assert(ret_path);
@@ -917,13 +918,13 @@ int find_portable_profile(const char *name, const char *unit, char **ret_path) {
                 if (!joined)
                         return -ENOMEM;
 
-                if (laccess(joined, F_OK) >= 0) {
+                r = laccess(joined, F_OK);
+                if (r >= 0) {
                         *ret_path = TAKE_PTR(joined);
                         return 0;
                 }
-
-                if (errno != ENOENT)
-                        return -errno;
+                if (r != -ENOENT)
+                        return r;
         }
 
         return -ENOENT;
