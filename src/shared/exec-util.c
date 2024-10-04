@@ -156,6 +156,13 @@ static int do_execute(
                         log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
                 }
 
+                if (FLAGS_SET(flags, EXEC_DIR_WARN_WORLD_WRITABLE)) {
+                        struct stat st;
+                        r = stat(t, &st);
+                        if (r == 0 && S_ISREG(st.st_mode) && (st.st_mode & 0002))
+                                log_warning("%s is world writable. This is not a good idea.", t);
+                }
+
                 r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pid);
                 if (r <= 0)
                         continue;
