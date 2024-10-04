@@ -69,7 +69,8 @@ EFI_ARCH_MAP = {
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
 # Default configuration directories and file name.
-# When the user does not specify one, the directories are searched in this order and the first file found is used.
+# When the user does not specify one, the directories are searched in this order and the first file found is
+# used.
 DEFAULT_CONFIG_DIRS = ['/etc/systemd', '/run/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
 DEFAULT_CONFIG_FILE = 'ukify.conf'
 
@@ -898,7 +899,8 @@ def make_uki(opts):
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
-            # If we are getting a certificate when using an engine, we need to convert it to public key format
+            # If we are getting a certificate when using an engine, we need to convert it to public key
+            # format
             if opts.signing_engine is not None and Path(pcrpkey).exists():
                 from cryptography.hazmat.primitives import serialization
                 from cryptography.x509 import load_pem_x509_certificate
@@ -960,7 +962,8 @@ def make_uki(opts):
     # Don't add a sbat section to profile PE binaries.
     if opts.join_profiles or not opts.profile:
         if linux is not None:
-            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
+            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on
+            # either.
             input_pes = [opts.stub, linux]
             if not opts.sbat:
                 opts.sbat = [
@@ -1016,7 +1019,7 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 
         if names[0] != '.profile':
             raise ValueError(
-                f'Expected .profile section as first valid section in PE profile binary {profile} but got {names[0]}'
+                f'Expected .profile section as first valid section in PE profile binary {profile} but got {names[0]}'  # noqa: E501
             )
 
         if names.count('.profile') > 1:
@@ -1185,7 +1188,7 @@ def generate_keys(opts):
 
     if not work:
         raise ValueError(
-            'genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified'
+            'genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified'  # noqa: E501
         )
 
 
@@ -1367,7 +1370,7 @@ class ConfigItem:
         elif self.type:
             conv = self.type
         else:
-            conv = lambda s: s
+            conv = lambda s: s  # noqa: E731
 
         # This is a bit ugly, but --initrd is the only option which is specified
         # with multiple args on the command line and a space-separated list in the
@@ -1553,21 +1556,27 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate',
         dest='sb_cert',
-        help='required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing',
+        help=(
+            'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'  # noqa: E501
+        ),
         config_key='UKI/SecureBootCertificate',
     ),
     ConfigItem(
         '--secureboot-certificate-dir',
         dest='sb_certdir',
         default='/etc/pki/pesign',
-        help='required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign',
+        help=(
+            'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign'  # noqa: E501
+        ),
         config_key='UKI/SecureBootCertificateDir',
         config_push=ConfigItem.config_set,
     ),
     ConfigItem(
         '--secureboot-certificate-name',
         dest='sb_cert_name',
-        help='required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing',
+        help=(
+            'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing'  # noqa: E501
+        ),
         config_key='UKI/SecureBootCertificateName',
     ),
     ConfigItem(
@@ -1839,7 +1848,7 @@ def finalize_options(opts):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
         if opts.signtool and opts.signtool != 'sbsign':
             raise ValueError(
-                f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='
+                f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
         opts.signtool = 'sbsign'
     elif bool(opts.sb_cert_name):
@@ -1852,7 +1861,7 @@ def finalize_options(opts):
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
-            '--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified'
+            '--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified'  # noqa: E501
         )
 
     if opts.join_profiles and not opts.profile:
