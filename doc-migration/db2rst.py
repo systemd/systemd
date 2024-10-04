@@ -43,9 +43,15 @@ WRITE_UNUSED_LABELS = False
 
 
 # The Files have sections that are used as includes in other files
-FILES_USED_FOR_INCLUDES = ['sd_journal_get_data.xml', 'standard-options.xml',
-                           'user-system-options.xml', 'common-variables.xml', 'standard-conf.xml',
-                           'libsystemd-pkgconfig.xml', 'threads-aware.xml']
+FILES_USED_FOR_INCLUDES = [
+    'common-variables.xml',
+    'libsystemd-pkgconfig.xml',
+    'sd_journal_get_data.xml',
+    'standard-conf.xml',
+    'standard-options.xml',
+    'threads-aware.xml',
+    'user-system-options.xml',
+]
 
 # to avoid dupliate error reports
 _not_handled_tags = set()
