@@ -82,7 +82,6 @@ def _run(input_file, output_dir):
     with open(output_file, 'w') as file:
         file.write(TreeRoot(tree.getroot()).encode('utf-8').decode('utf-8'))
 
-
 def _warn(s):
     sys.stderr.write("WARNING: %s\n" % s)
 
@@ -286,14 +285,13 @@ def _normalize_whitespace(s):
 
 def TreeRoot(el):
     output = _conv(el)
-    # add .. SPDX-License-Identifier: LGPL-2.1-or-later:
-    output = '\n\n'.join(
-        ['.. SPDX-License-Identifier: LGPL-2.1-or-later:', output])
+    # add .. SPDX-License-Identifier: LGPL-2.1-or-later
+    output = f'.. SPDX-License-Identifier: LGPL-2.1-or-later\n\n{output}'
     # remove trailing whitespace
     output = re.sub(r"[ \t]+\n", "\n", output)
     # leave only one blank line
     output = re.sub(r"\n{3,}", "\n\n", output)
-    return output
+    return output + '\n'
 
 
 def Comment(el):
