@@ -229,26 +229,14 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extend=<replaceable>PATH</replaceable></option></term>
+          <term><option>--join-profile=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>Takes a path to an existing PE file to import into the newly generated PE file. If
-          this option is used all UKI PE sections of the specified PE file are copied into the target PE file
-          before any new PE sections are appended. This is useful for generating multi-profile UKIs. Note
-          that this only copies PE sections that are defined by the UKI specification, and ignores any other,
-          for example <literal>.text</literal> or similar.</para>
-
-          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--measure-base=<replaceable>PATH</replaceable></option></term>
-
-          <listitem><para>Takes a path to an existing PE file to use as base profile, for measuring
-          multi-profile UKIs. When calculating the PCR values, this has the effect that the sections
-          specified on the command line are combined with any sections from the PE file specified here (up to
-          the first <literal>.profile</literal> section, and only if not already specified on the command
-          line). Typically, this is used together with <option>--extend=</option> to both import and use as
-          measurement base an existing UKI.</para>
+          <listitem><para>Takes a path to an existing PE file containing an additional profile to add to the
+          unified kernel image. The profile can be generated beforehand with <command>ukify</command>. The
+          profile does not need to be signed or contain PCR measurements. All UKI PE sections of the
+          specified PE file are copied into the generated UKI. This is useful for generating multi-profile
+          UKIs. Note that this only copies PE sections that are defined by the UKI specification, and ignores
+          any other, for example <literal>.text</literal> or similar.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -730,46 +718,48 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
     </example>
 
     <example>
-      <title>Multi-Profile PE</title>
+      <title>Multi-Profile UKI</title>
 
-      <para>First, create the base UKI:</para>
-      <programlisting>$ ukify build \
-      --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
-      --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
-      --cmdline='quiet rw' \
-      --output=base.efi
-      </programlisting>
-
-      <para>Then, extend the base UKI with information about profile @0:</para>
+      <para>First, create a few profiles:</para>
 
       <programlisting>$ ukify build \
-      --extend=base.efi \
       --profile='TITLE=Base' \
-      --output=base-with-profile-0.efi
+      --output=profile0.efi
       </programlisting>
 
       <para>Add a second profile (@1):</para>
 
       <programlisting>$ ukify build \
-      --extend=base-with-profile-0.efi \
       --profile='TITLE=Boot into Storage Target Mode
 ID=storagetm' \
       --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
-      --output=base-with-profile-0-1.efi
+      --output=profile1.efi
       </programlisting>
 
       <para>Add a third profile (@2):</para>
 
       <programlisting>$ ukify build \
-      --extend=base-with-profile-0-1.efi \
       --profile='TITLE=Factory Reset
 ID=factory-reset' \
       --cmdline='quiet rw systemd.unit=factory-reset.target' \
-      --output=base-with-profile-0-1-2.efi
+      --output=profile2.efi
+      </programlisting>
+
+      <para>Then, create a UKI and include all the generated profiles:</para>
+
+      <programlisting>$ ukify build \
+      --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
+      --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
+      --cmdline='quiet rw' \
+      --join-profile=profile0.efi \
+      --join-profile=profile1.efi \
+      --join-profile=profile2.efi \
+      --output=base.efi
       </programlisting>
 
       <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
     </example>
+
   </refsect1>
 
   <refsect1>
