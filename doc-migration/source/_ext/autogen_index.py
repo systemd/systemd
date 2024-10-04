@@ -4,6 +4,16 @@ from sphinx.util.console import bold
 from sphinx.util.typing import ExtensionMetadata
 
 
+def find_files(root_dir):
+    for subdir, _, files in os.walk(root_dir + '/docs'):
+        if subdir == root_dir:
+            continue
+        for file in files:
+            if file.endswith('.rst'):
+                file_path = os.path.relpath(os.path.join(subdir, file), root_dir)
+                # remove the .rst extension
+                yield file_path[:-4]
+
 def generate_toctree(app: Sphinx):
     root_dir = app.srcdir
 
@@ -35,15 +45,10 @@ systemd — System and Service Manager
    :maxdepth: 1\n
 """)
 
-        for subdir, _, files in os.walk(root_dir + '/docs'):
-            if subdir == root_dir:
-                continue
-            for file in files:
-                if file.endswith('.rst'):
-                    file_path = os.path.relpath(
-                        os.path.join(subdir, file), root_dir)
-                    # remove the .rst extension
-                    index_file.write(f"   {file_path[:-4]}\n")
+        # Implement a christmas-tree-style order
+        for file in sorted(find_files(root_dir),
+                           key=lambda x: (len(x.split('/')), x)):
+            index_file.write(f"   {file}\n")
 
         index_file.write("""
 Indices and tables
