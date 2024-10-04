@@ -23,8 +23,8 @@ systemd — System and Service Manager
    docs/os-release
    docs/repart.d
    docs/runlevel
-   docs/systemD-directives
    docs/systemd
+   docs/systemd-directives
    docs/includes/sd_journal_get_data
 
 Indices and tables
