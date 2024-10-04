@@ -27,6 +27,10 @@ Python dependencies for generating `html` and `man` pages from `rst`:
 
 To install these (see [Sphinx Docs](https://www.sphinx-doc.org/en/master/tutorial/getting-started.html#setting-up-your-project-and-development-environment)):
 
+`sudo dnf install python3-{lxml,furo,sphinx,sphinxcontrib-globalsubs}'
+
+### Manual installation
+
 ```sh
 # Generate a Python env:
 $ python3 -m venv .venv
