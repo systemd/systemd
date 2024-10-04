@@ -901,31 +901,3 @@ char **env_generator_binary_paths(RuntimeScope runtime_scope) {
 
         return TAKE_PTR(paths);
 }
-
-int find_portable_profile(const char *name, const char *unit, char **ret_path) {
-        const char *dot;
-        int r;
-
-        assert(name);
-        assert(ret_path);
-
-        assert_se(dot = strrchr(unit, '.'));
-
-        NULSTR_FOREACH(p, PORTABLE_PROFILE_DIRS) {
-                _cleanup_free_ char *joined = NULL;
-
-                joined = strjoin(p, "/", name, "/", dot + 1, ".conf");
-                if (!joined)
-                        return -ENOMEM;
-
-                r = laccess(joined, F_OK);
-                if (r >= 0) {
-                        *ret_path = TAKE_PTR(joined);
-                        return 0;
-                }
-                if (r != -ENOENT)
-                        return r;
-        }
-
-        return -ENOENT;
-}
