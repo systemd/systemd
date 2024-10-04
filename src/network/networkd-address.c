@@ -11,6 +11,7 @@
 #include "bitfield.h"
 #include "conf-parser.h"
 #include "errno-util.h"
+#include "env-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
@@ -204,7 +205,7 @@ static uint64_t get_static_addresses_per_network_max(void) {
         }
 
         if (r != -ENXIO){
-                e = secure_getenv("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX");
+                char *e = secure_getenv("SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX");
                 if (e){
                         log_debug("Can not parse $SYSTEMD_STATIC_ADDRESSES_PER_NETWORK_MAX, ignoring: %s", e);
                 }
@@ -1719,7 +1720,7 @@ static uint64_t get_addresses_per_link_max(void) {
         }
 
         if (r != -ENXIO){
-                e = secure_getenv("SYSTEMD_ADDRESSES_PER_LINK_MAX");
+                char *e = secure_getenv("SYSTEMD_ADDRESSES_PER_LINK_MAX");
                 if (e){
                         log_debug("Can not parse $SYSTEMD_ADDRESSES_PER_LINK_MAX, ignoring: %s", e);
                 }
