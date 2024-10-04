@@ -738,17 +738,18 @@ _public_ int sd_pid_notifyf_with_fds(
 }
 
 _public_ int sd_booted(void) {
-        /* We test whether the runtime unit file directory has been
-         * created. This takes place in mount-setup.c, so is
-         * guaranteed to happen very early during boot. */
+        int r;
 
-        if (laccess("/run/systemd/system/", F_OK) >= 0)
+        /* We test whether the runtime unit file directory has been created. This takes place in mount-setup.c,
+         * so is guaranteed to happen very early during boot. */
+
+        r = laccess("/run/systemd/system/", F_OK);
+        if (r >= 0)
                 return true;
-
-        if (errno == ENOENT)
+        if (r == -ENOENT)
                 return false;
 
-        return -errno;
+        return r;
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {

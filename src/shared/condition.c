@@ -169,10 +169,11 @@ static int condition_test_credential(Condition *c, char **env) {
                 if (!j)
                         return -ENOMEM;
 
-                if (laccess(j, F_OK) >= 0)
+                r = laccess(j, F_OK);
+                if (r >= 0)
                         return true; /* yay! */
-                if (errno != ENOENT)
-                        return -errno;
+                if (r != -ENOENT)
+                        return r;
 
                 /* not found in this dir */
         }

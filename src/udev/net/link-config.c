@@ -27,6 +27,7 @@
 #include "netif-sriov.h"
 #include "netif-util.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
