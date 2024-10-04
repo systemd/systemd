@@ -287,7 +287,7 @@ static int verb_info(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "vendor",     SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, vendor),     SD_JSON_MANDATORY },
                         { "product",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, product),    SD_JSON_MANDATORY },
@@ -411,7 +411,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || list_methods) {
+                if (!sd_json_enabled(arg_json_format_flags) || list_methods) {
                         static const sd_json_dispatch_field dispatch_table[] = {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
@@ -463,7 +463,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
 
                 strv_sort_uniq(methods);
 
-                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                if (!sd_json_enabled(arg_json_format_flags))
                         strv_print(methods);
                 else {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
@@ -524,7 +524,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
 
         /* No JSON mode explicitly configured? Then default to the same as -j */
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (!sd_json_enabled(arg_json_format_flags))
                 arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
