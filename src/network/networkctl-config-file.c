@@ -15,6 +15,7 @@
 #include "edit-util.h"
 #include "mkdir-label.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "networkctl.h"
 #include "networkctl-config-file.h"
 #include "networkctl-util.h"
