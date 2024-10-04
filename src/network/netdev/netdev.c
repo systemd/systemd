@@ -29,6 +29,7 @@
 #include "netdevsim.h"
 #include "netif-util.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
