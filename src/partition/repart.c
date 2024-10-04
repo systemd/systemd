@@ -373,6 +373,7 @@ typedef struct Partition {
         MinimizeMode minimize;
         uint64_t verity_data_block_size;
         uint64_t verity_hash_block_size;
+        uint64_t verity_max_data_size;
         char *compression;
         char *compression_level;
 
@@ -479,6 +480,43 @@ static uint64_t round_up_size(uint64_t v, uint64_t p) {
         return v * p;
 }
 
+/* calculates the size of a dm-verity hash partition's contents */
+static int calculate_verity_hash_size(
+                uint64_t *ret_bytes,
+                uint64_t data_bytes,
+                uint64_t hash_block_size,
+                uint64_t data_block_size) {
+        uint8_t digest_size = SHA256_DIGEST_SIZE;
+
+        uint64_t data_blocks = DIV_ROUND_UP(data_bytes, data_block_size);
+        if (data_blocks > UINT64_MAX / data_block_size)
+                return -1; /* overflow */
+
+        /* hashes that fit in one hash block (node in the merkle tree) */
+        uint64_t hashes_per_hash_block = hash_block_size / digest_size;
+
+        /* initialize with 1 for the root of the merkle tree */
+        uint64_t hash_blocks = 1;
+
+        /* iterate through the levels of the merkle tree bottom up */
+        uint64_t remaining_blocks = data_blocks;
+        uint64_t hash_blocks_for_level;
+
+        while(remaining_blocks > hashes_per_hash_block) {
+                /* number of hash blocks required to reference the underlying blocks */
+                hash_blocks_for_level = DIV_ROUND_UP(remaining_blocks, hashes_per_hash_block);
+                /* add current layer to the total number of hash blocks */
+                hash_blocks += hash_blocks_for_level;
+                /* hashes on this level serve as the blocks on which the next level is built */
+                remaining_blocks = hash_blocks_for_level;
+        }
+
+        /* add one for the superblock */
+        *ret_bytes = (hash_blocks + 1) * hash_block_size;
+
+        return 0;
+}
+
 static Partition *partition_new(void) {
         Partition *p;
 
@@ -507,6 +545,7 @@ static Partition *partition_new(void) {
                 .growfs = -1,
                 .verity_data_block_size = UINT64_MAX,
                 .verity_hash_block_size = UINT64_MAX,
+                .verity_max_data_size = UINT64_MAX,
         };
 
         return p;
@@ -2300,6 +2339,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "DefaultSubvolume",         config_parse_default_subvolume, 0,                                  &p->default_subvolume       },
                 { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_data_block_size  },
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
+                { "Partition", "VerityMaxDataSizeBytes",   config_parse_size4096,          0,                                  &p->verity_max_data_size    },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
@@ -2424,6 +2464,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
+
+        if (p->verity == VERITY_HASH && p->verity_max_data_size != UINT64_MAX && (p->size_min != UINT64_MAX || p->size_max != UINT64_MAX))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "SizeMinBytes=/SizeMaxBytes= cannot be used with VerityMaxDataSize=");
 
         if (!ordered_hashmap_isempty(p->subvolumes) && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -2898,6 +2942,17 @@ static int context_read_definitions(Context *context) {
                 if (dp->minimize == MINIMIZE_OFF && !(dp->copy_blocks_path || dp->copy_blocks_auto))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "Minimize= set for verity hash partition but data partition does not set CopyBlocks= or Minimize=.");
+
+                if (dp->size_min < p->verity_max_data_size)
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "VerityMaxDataSizeBytes= for verity hash partition is smaller than "
+                                          "SizeMinBytes= of the data partition.");
+
+                if (dp->size_max > p->verity_max_data_size)
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "VerityMaxDataSizeBytes= for verity hash partition is smaller than "
+                                          "SizeMaxBytes= of the data partition.");
+
         }
 
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -4858,11 +4913,6 @@ static int partition_format_verity_hash(
 
                 node = partition_target_path(t);
         }
-
-        if (p->verity_data_block_size == UINT64_MAX)
-                p->verity_data_block_size = context->fs_sector_size;
-        if (p->verity_hash_block_size == UINT64_MAX)
-                p->verity_hash_block_size = context->fs_sector_size;
 
         r = sym_crypt_init(&cd, node);
         if (r < 0)
@@ -7391,6 +7441,50 @@ static int context_crypttab(Context *context) {
         return 0;
 }
 
+/* update block sizes for verity siblings, calculate hash partition size if requested */
+static int context_update_verity_size(Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+
+                if (p->verity_data_block_size == UINT64_MAX)
+                        p->verity_data_block_size = context->fs_sector_size;
+
+                if (p->verity_hash_block_size == UINT64_MAX)
+                        p->verity_hash_block_size = context->fs_sector_size;
+
+                uint64_t sz;
+                if (p->verity_max_data_size != UINT64_MAX) {
+                        r = calculate_verity_hash_size(
+                                        &sz,
+                                        p->verity_max_data_size,
+                                        p->verity_hash_block_size,
+                                        p->verity_data_block_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to caculate size of dm-verity hash partition");
+
+                        p->size_min = sz;
+                        p->size_max = sz;
+                }
+        }
+
+        return 0;
+}
+
 static int context_minimize(Context *context) {
         const char *vt = NULL;
         unsigned attrs = 0;
@@ -9042,6 +9136,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_crypttab(context);
+        if (r < 0)
+                return r;
+        r = context_update_verity_size(context);
         if (r < 0)
                 return r;
 
