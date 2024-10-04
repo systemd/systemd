@@ -29,7 +29,6 @@ import fnmatch
 import itertools
 import json
 import os
-import pathlib
 import pprint
 import pydoc
 import re
@@ -42,6 +41,7 @@ import tempfile
 import textwrap
 import struct
 from hashlib import sha256
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -95,7 +95,7 @@ def guess_efi_arch():
     # This makes sense only on some architectures, but it also probably doesn't
     # hurt on others, so let's just apply the check everywhere.
     if fallback:
-        fw_platform_size = pathlib.Path('/sys/firmware/efi/fw_platform_size')
+        fw_platform_size = Path('/sys/firmware/efi/fw_platform_size')
         try:
             size = fw_platform_size.read_text().strip()
         except FileNotFoundError:
@@ -118,7 +118,7 @@ def page(text: str, enabled: Optional[bool]) -> None:
 
 
 def shell_join(cmd):
-    # TODO: drop in favour of shlex.join once shlex.join supports pathlib.Path.
+    # TODO: drop in favour of shlex.join once shlex.join supports Path.
     return ' '.join(shlex.quote(str(x)) for x in cmd)
 
 
@@ -326,7 +326,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
 @dataclasses.dataclass
 class Section:
     name: str
-    content: Optional[pathlib.Path]
+    content: Optional[Path]
     tmpfile: Optional[IO] = None
     measure: bool = False
     output_mode: Optional[str] = None
@@ -339,7 +339,7 @@ class Section:
             tmp = tempfile.NamedTemporaryFile(mode=mode, prefix=f'tmp{name}')
             tmp.write(contents)
             tmp.flush()
-            contents = pathlib.Path(tmp.name)
+            contents = Path(tmp.name)
         else:
             tmp = None
 
@@ -355,7 +355,7 @@ class Section:
             raise ValueError(f'Cannot parse section spec (extraneous parameters): {s!r}')
 
         if contents.startswith('@'):
-            contents = pathlib.Path(contents[1:])
+            contents = Path(contents[1:])
 
         sec = cls.create(name, contents)
         sec.check_name()
@@ -367,7 +367,7 @@ class Section:
             raise ValueError(f'Cannot parse section spec: {s!r}')
 
         name, ttype, out = m.groups()
-        out = pathlib.Path(out) if out else None
+        out = Path(out) if out else None
 
         return cls.create(name, out, output_mode=ttype)
 
@@ -382,7 +382,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[Union[pathlib.Path, str]]
+    executable: list[Union[Path, str]]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
@@ -446,12 +446,12 @@ def check_inputs(opts):
         if name in {'output', 'tools'}:
             continue
 
-        if isinstance(value, pathlib.Path):
+        if isinstance(value, Path):
             # Open file to check that we can read it, or generate an exception
             value.open().close()
         elif isinstance(value, list):
             for item in value:
-                if isinstance(item, pathlib.Path):
+                if isinstance(item, Path):
                     item.open().close()
 
     check_splash(opts.splash)
@@ -464,7 +464,7 @@ def check_cert_and_keys_nonexistent(opts):
         *((priv_key, pub_key) for priv_key, pub_key, _ in key_path_groups(opts)),
     )
     for path in paths:
-        if path and pathlib.Path(path).exists():
+        if path and Path(path).exists():
             raise ValueError(f'{path} is present')
 
 
@@ -749,7 +749,7 @@ def pe_add_sections(uki: UKI, output: str):
     pe.write(output)
 
 
-def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
+def merge_sbat(input_pe: [Path], input_text: [str]) -> str:
     sbat = []
 
     for f in input_pe:
@@ -771,7 +771,7 @@ def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
 
     for t in input_text:
         if t.startswith('@'):
-            t = pathlib.Path(t[1:]).read_text()
+            t = Path(t[1:]).read_text()
         split = t.splitlines()
         if not split[0].startswith('sbat,'):
             print(f'{t} does not contain a valid SBAT section, skipping.')
@@ -884,7 +884,7 @@ def make_uki(opts):
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-            linux = pathlib.Path(linux_signed.name)
+            linux = Path(linux_signed.name)
             sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
@@ -899,12 +899,12 @@ def make_uki(opts):
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
             # If we are getting a certificate when using an engine, we need to convert it to public key format
-            if opts.signing_engine is not None and pathlib.Path(pcrpkey).exists():
+            if opts.signing_engine is not None and Path(pcrpkey).exists():
                 from cryptography.hazmat.primitives import serialization
                 from cryptography.x509 import load_pem_x509_certificate
 
                 try:
-                    cert = load_pem_x509_certificate(pathlib.Path(pcrpkey).read_bytes())
+                    cert = load_pem_x509_certificate(Path(pcrpkey).read_bytes())
                 except ValueError:
                     raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
                 else:
@@ -916,7 +916,7 @@ def make_uki(opts):
             from cryptography.hazmat.primitives import serialization
 
             privkey = serialization.load_pem_private_key(
-                pathlib.Path(opts.pcr_private_keys[0]).read_bytes(),
+                Path(opts.pcr_private_keys[0]).read_bytes(),
                 password=None,
             )
             pcrpkey = privkey.public_key().public_bytes(
@@ -1176,7 +1176,7 @@ def generate_keys(opts):
 
         print(f'Writing private key for PCR signing to {priv_key}')
         with temporary_umask(0o077):
-            pathlib.Path(priv_key).write_bytes(priv_key_pem)
+            Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
@@ -1218,7 +1218,7 @@ def inspect_section(opts, section):
             struct['text'] = '(not valid UTF-8)'
 
     if config and config.content:
-        assert isinstance(config.content, pathlib.Path)
+        assert isinstance(config.content, Path)
         config.content.write_bytes(data)
 
     if opts.json == 'off':
@@ -1414,12 +1414,12 @@ CONFIG_ITEMS = [
     ConfigItem(
         ('--config', '-c'),
         metavar='PATH',
-        type=pathlib.Path,
+        type=Path,
         help='configuration file',
     ),
     ConfigItem(
         '--linux',
-        type=pathlib.Path,
+        type=Path,
         help='vmlinuz file [.linux section]',
         config_key='UKI/Linux',
     ),
@@ -1438,7 +1438,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--initrd',
         metavar='INITRD',
-        type=pathlib.Path,
+        type=Path,
         action='append',
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
@@ -1447,21 +1447,21 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--microcode',
         metavar='UCODE',
-        type=pathlib.Path,
+        type=Path,
         help='microcode file [.ucode section]',
         config_key='UKI/Microcode',
     ),
     ConfigItem(
         '--splash',
         metavar='BMP',
-        type=pathlib.Path,
+        type=Path,
         help='splash image bitmap file [.splash section]',
         config_key='UKI/Splash',
     ),
     ConfigItem(
         '--devicetree',
         metavar='PATH',
-        type=pathlib.Path,
+        type=Path,
         help='Device Tree file [.dtb section]',
         config_key='UKI/DeviceTree',
     ),
@@ -1482,7 +1482,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcrpkey',
         metavar='KEY',
-        type=pathlib.Path,
+        type=Path,
         help='embedded public key to seal secrets to [.pcrpkey section]',
         config_key='UKI/PCRPKey',
     ),
@@ -1517,7 +1517,7 @@ CONFIG_ITEMS = [
     ),
     ConfigItem(
         '--stub',
-        type=pathlib.Path,
+        type=Path,
         help='path to the sd-stub file [.text,.data,… sections]',
         config_key='UKI/Stub',
     ),
@@ -1596,7 +1596,7 @@ CONFIG_ITEMS = [
         '--pcr-public-key',
         dest='pcr_public_keys',
         metavar='PATH',
-        type=pathlib.Path,
+        type=Path,
         action='append',
         help='public part of the keypair or engine-specific designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
@@ -1614,13 +1614,13 @@ CONFIG_ITEMS = [
     ),
     ConfigItem(
         '--tools',
-        type=pathlib.Path,
+        type=Path,
         action='append',
         help='Directories to search for tools (systemd-measure, …)',
     ),
     ConfigItem(
         ('--output', '-o'),
-        type=pathlib.Path,
+        type=Path,
         help='output file path',
     ),
     ConfigItem(
@@ -1660,7 +1660,7 @@ def apply_config(namespace, filename=None):
         else:
             # Try to look for a config file then use the first one found.
             for config_dir in DEFAULT_CONFIG_DIRS:
-                filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
+                filename = Path(config_dir) / DEFAULT_CONFIG_FILE
                 if filename.is_file():
                     # Found a config file, use it.
                     print(f'Using found config file: {filename}')
@@ -1783,9 +1783,9 @@ def finalize_options(opts):
     else:
         print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
         if opts.positional:
-            opts.linux = pathlib.Path(opts.positional[0])
+            opts.linux = Path(opts.positional[0])
         # If we have initrds from parsing config files, append our positional args at the end
-        opts.initrd = (opts.initrd or []) + [pathlib.Path(arg) for arg in opts.positional[1:]]
+        opts.initrd = (opts.initrd or []) + [Path(arg) for arg in opts.positional[1:]]
         opts.verb = 'build'
 
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
@@ -1799,7 +1799,7 @@ def finalize_options(opts):
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 
     if opts.cmdline and opts.cmdline.startswith('@'):
-        opts.cmdline = pathlib.Path(opts.cmdline[1:])
+        opts.cmdline = Path(opts.cmdline[1:])
     elif opts.cmdline:
         # Drop whitespace from the command line. If we're reading from a file,
         # we copy the contents verbatim. But configuration specified on the command line
@@ -1807,11 +1807,11 @@ def finalize_options(opts):
         opts.cmdline = ' '.join(opts.cmdline.split())
 
     if opts.os_release and opts.os_release.startswith('@'):
-        opts.os_release = pathlib.Path(opts.os_release[1:])
+        opts.os_release = Path(opts.os_release[1:])
     elif not opts.os_release and opts.linux:
-        p = pathlib.Path('/etc/os-release')
+        p = Path('/etc/os-release')
         if not p.exists():
-            p = pathlib.Path('/usr/lib/os-release')
+            p = Path('/usr/lib/os-release')
         opts.os_release = p
 
     if opts.efi_arch is None:
@@ -1819,15 +1819,15 @@ def finalize_options(opts):
 
     if opts.stub is None:
         if opts.linux is not None:
-            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+            opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
         else:
-            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
+            opts.stub = Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
         if opts.sb_key:
-            opts.sb_key = pathlib.Path(opts.sb_key)
+            opts.sb_key = Path(opts.sb_key)
         if opts.sb_cert:
-            opts.sb_cert = pathlib.Path(opts.sb_cert)
+            opts.sb_cert = Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         # one param only given, sbsign needs both
