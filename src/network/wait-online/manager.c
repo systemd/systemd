@@ -133,6 +133,33 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
                                                     "No routable IPv6 address is configured.");
         }
 
+        if (m->requires_dns) {
+                AddressFamily found = ADDRESS_FAMILY_NO;
+
+                STRV_FOREACH(d, l->dns) {
+                        int family, r;
+
+                        r = in_addr_from_string_auto(*d, &family, NULL);
+                        if (r < 0)
+                                log_link_debug_errno(l, r, "Invalid DNS server %s, ignoring: %m", *d);
+                        else
+                                found |= family == AF_INET ? ADDRESS_FAMILY_IPV4 :
+                                         (family == AF_INET6 ? ADDRESS_FAMILY_IPV6 : ADDRESS_FAMILY_NO);
+                }
+
+                if (found == ADDRESS_FAMILY_NO)
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No DNS server is configured.");
+
+                if (needs_ipv4 && !(found & ADDRESS_FAMILY_IPV4))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv4 DNS server is configured.");
+
+                if (needs_ipv6 && !(found & ADDRESS_FAMILY_IPV6))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv6 DNS server is configured.");
+        }
+
         log_link_debug(l, "link is configured by networkd and online.");
         return true;
 }
@@ -387,7 +414,8 @@ int manager_new(Manager **ret,
                 LinkOperationalStateRange required_operstate,
                 AddressFamily required_family,
                 bool any,
-                usec_t timeout) {
+                usec_t timeout,
+                bool requires_dns) {
 
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -404,6 +432,7 @@ int manager_new(Manager **ret,
                 .required_operstate = required_operstate,
                 .required_family = required_family,
                 .any = any,
+                .requires_dns = requires_dns,
         };
 
         r = sd_event_default(&m->event);

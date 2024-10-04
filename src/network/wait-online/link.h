@@ -18,11 +18,13 @@ struct Link {
         unsigned flags;
 
         bool required_for_online;
+        bool requires_dns_for_online;
         LinkOperationalStateRange required_operstate;
         LinkOperationalState operational_state;
         AddressFamily required_family;
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
+        char **dns;
         char *state;
 };
 
