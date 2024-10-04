@@ -20,9 +20,9 @@
 # pylint: disable=unnecessary-lambda-assignment
 
 import argparse
+import collections
 import configparser
 import contextlib
-import collections
 import dataclasses
 import datetime
 import fnmatch
@@ -35,17 +35,17 @@ import re
 import shlex
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
 import textwrap
-import struct
 from hashlib import sha256
 from pathlib import Path
 from typing import (
+    IO,
     Any,
     Callable,
-    IO,
     Optional,
     Sequence,
     Union,
@@ -1075,7 +1075,7 @@ def generate_key_cert_pair(
     keylength: int = 2048,
 ) -> tuple[bytes]:
     from cryptography import x509
-    from cryptography.hazmat.primitives import serialization, hashes
+    from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 
     # We use a keylength of 2048 bits. That is what Microsoft documents as
