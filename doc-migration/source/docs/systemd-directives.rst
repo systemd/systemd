@@ -5,7 +5,7 @@
 :manvolnum: 7
 
 
-.. _systemD-directives(7):
+.. _systemd-directives(7):
 
 =========
 systemd.directives(7)
