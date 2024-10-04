@@ -4853,8 +4853,8 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
         if (PTR_TO_INT(hashmap_get(denylist, &st)) == DENY_INODE)
                 return 1;
 
-        if (stat(arg_copy_source, &rst) < 0)
-                return log_error_errno(errno, "Failed to stat '%s': %m", arg_copy_source);
+        if (stat(empty_to_root(arg_copy_source), &rst) < 0)
+                return log_error_errno(errno, "Failed to stat '%s': %m", empty_to_root(arg_copy_source));
 
         pfd = chase_and_open_parent(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_filename=*/ NULL);
         if (pfd < 0)
