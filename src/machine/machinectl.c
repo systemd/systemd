@@ -1453,7 +1453,7 @@ static int get_settings_path(const char *name, char **ret_path) {
         assert(name);
         assert(ret_path);
 
-        FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn", "/var/lib/machines") {
+        FOREACH_STRING(i, SYSCONF_DIR "/systemd/nspawn", "/run/systemd/nspawn", "/var/lib/machines") {
                 _cleanup_free_ char *path = NULL;
 
                 path = path_join(i, name);
@@ -1510,7 +1510,7 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
                 if (r == -ENOENT) {
                         log_debug("No existing settings file for machine '%s' found, creating a new file.", *name);
 
-                        path = path_join("/etc/systemd/nspawn", file);
+                        path = path_join(SYSCONF_DIR "/systemd/nspawn", file);
                         if (!path)
                                 return log_oom();
 
@@ -1525,7 +1525,7 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
                 if (path_startswith(path, "/var/lib/machines")) {
                         _cleanup_free_ char *new_path = NULL;
 
-                        new_path = path_join("/etc/systemd/nspawn", file);
+                        new_path = path_join(SYSCONF_DIR "/systemd/nspawn", file);
                         if (!new_path)
                                 return log_oom();
 

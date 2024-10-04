@@ -47,7 +47,7 @@ static const struct option options[] = {
 
 static bool all_good = false;
 static bool dev_specified = false;
-static char config_file[MAX_PATH_LEN] = "/etc/scsi_id.config";
+static char config_file[MAX_PATH_LEN] = SYSCONF_DIR "/scsi_id.config";
 static enum page_code default_page_code = PAGE_UNSPECIFIED;
 static int sg_version = 4;
 static bool reformat_serial = false;

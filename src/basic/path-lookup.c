@@ -134,6 +134,7 @@ static const char* const user_data_unit_paths[] = {
 static const char* const user_config_unit_paths[] = {
         USER_CONFIG_UNIT_DIR,
         "/etc/systemd/user",
+        SYSCONF_DIR "/systemd/user",
         NULL
 };
 
@@ -397,7 +398,7 @@ static int acquire_control_dirs(RuntimeScope scope, char **persistent, char **ru
         case RUNTIME_SCOPE_SYSTEM:  {
                 _cleanup_free_ char *b = NULL;
 
-                a = strdup("/etc/systemd/system.control");
+                a = strdup(SYSCONF_DIR "/systemd/system.control");
                 if (!a)
                         return -ENOMEM;
 
@@ -453,7 +454,7 @@ static int acquire_attached_dirs(
         if (scope != RUNTIME_SCOPE_SYSTEM)
                 return -EOPNOTSUPP;
 
-        a = strdup("/etc/systemd/system.attached");
+        a = strdup(SYSCONF_DIR "/systemd/system.attached");
         if (!a)
                 return -ENOMEM;
 
@@ -634,6 +635,7 @@ int lookup_paths_init(
                                         persistent_config,
                                         SYSTEM_CONFIG_UNIT_DIR,
                                         "/etc/systemd/system",
+                                        SYSCONF_DIR "/systemd/system",
                                         STRV_IFNOTNULL(persistent_attached),
                                         runtime_config,
                                         "/run/systemd/system",
@@ -659,6 +661,7 @@ int lookup_paths_init(
                                         persistent_config,
                                         USER_CONFIG_UNIT_DIR,
                                         "/etc/systemd/user",
+                                        SYSCONF_DIR "/systemd/user",
                                         runtime_config,
                                         "/run/systemd/user",
                                         STRV_IFNOTNULL(generator),
@@ -825,6 +828,7 @@ char **generator_binary_paths(RuntimeScope scope) {
                 case RUNTIME_SCOPE_SYSTEM:
                         add = strv_new("/run/systemd/system-generators",
                                        "/etc/systemd/system-generators",
+                                       SYSCONF_DIR "/systemd/system-generators",
                                        "/usr/local/lib/systemd/system-generators",
                                        SYSTEM_GENERATOR_DIR);
                         break;
@@ -833,6 +837,7 @@ char **generator_binary_paths(RuntimeScope scope) {
                 case RUNTIME_SCOPE_USER:
                         add = strv_new("/run/systemd/user-generators",
                                        "/etc/systemd/user-generators",
+                                       SYSCONF_DIR "/systemd/user-generators",
                                        "/usr/local/lib/systemd/user-generators",
                                        USER_GENERATOR_DIR);
                         break;
@@ -872,6 +877,7 @@ char **env_generator_binary_paths(RuntimeScope runtime_scope) {
                 case RUNTIME_SCOPE_SYSTEM:
                         add = strv_new("/run/systemd/system-environment-generators",
                                         "/etc/systemd/system-environment-generators",
+                                        SYSCONF_DIR "/systemd/system-environment-generators",
                                         "/usr/local/lib/systemd/system-environment-generators",
                                         SYSTEM_ENV_GENERATOR_DIR);
                         break;
@@ -879,6 +885,7 @@ char **env_generator_binary_paths(RuntimeScope runtime_scope) {
                 case RUNTIME_SCOPE_USER:
                         add = strv_new("/run/systemd/user-environment-generators",
                                        "/etc/systemd/user-environment-generators",
+                                       SYSCONF_DIR "/systemd/user-environment-generators",
                                        "/usr/local/lib/systemd/user-environment-generators",
                                        USER_ENV_GENERATOR_DIR);
                         break;
