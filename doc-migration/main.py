@@ -57,7 +57,7 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
     errored (bool, optional): Flag to process only files listed in errors.json. Defaults to False.
     unhandled_only (bool, optional): Flag to process only files listed in successes_with_unhandled_tags.json. Defaults to False.
     """
-    files_output_dir = os.path.join(output_dir, "files")
+    files_output_dir = os.path.join(output_dir)
     includes_output_dir = os.path.join(output_dir, INCLUDES_DIR)
     os.makedirs(files_output_dir, exist_ok=True)
     os.makedirs(includes_output_dir, exist_ok=True)
