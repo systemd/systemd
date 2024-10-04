@@ -427,8 +427,9 @@ int bind_remount_one_with_mountinfo(
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
-                if (laccess(path, F_OK) < 0) /* Hmm, it's not in the mount table, but does it exist at all? */
-                        return -errno;
+                r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
+                if (r < 0)
+                        return r;
 
                 return -EINVAL; /* Not a mount point we recognize */
         }
@@ -878,7 +879,7 @@ static int mount_in_namespace_legacy(
         assert(!options || (flags & MOUNT_IN_NAMESPACE_IS_IMAGE));
 
         p = strjoina(propagate_path, "/");
-        r = laccess(p, F_OK);
+        r = access_nofollow(p, F_OK);
         if (r < 0)
                 return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
 

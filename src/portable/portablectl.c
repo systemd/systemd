@@ -69,7 +69,7 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
         if (image_name_is_valid(image)) {
                 char *c;
 
-                if (!arg_quiet && laccess(image, F_OK) >= 0)
+                if (!arg_quiet && access_nofollow(image, F_OK) >= 0)
                         log_warning("Ambiguous invocation: current working directory contains file matching non-path argument '%s', ignoring. "
                                     "Prefix argument with './' to force reference to file in current working directory.", image);
 

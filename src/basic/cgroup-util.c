@@ -623,7 +623,7 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
          * - we can modify the hierarchy. */
 
         cpath = strjoina("/sys/fs/cgroup/", dn, root, root ? "/cgroup.procs" : NULL);
-        return laccess(cpath, root ? W_OK : F_OK);
+        return access_nofollow(cpath, root ? W_OK : F_OK);
 }
 
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret) {

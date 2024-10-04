@@ -52,7 +52,7 @@ static int check_device(const char *path) {
         assert(path);
 
         if (arg_wait_until == WAIT_UNTIL_REMOVED) {
-                r = laccess(path, F_OK);
+                r = access_nofollow(path, F_OK);
                 if (r == -ENOENT)
                         return true;
                 if (r < 0)
