@@ -1690,7 +1690,7 @@ def apply_config(namespace, filename=None):
     # The API is not great.
     read = cp.read(filename)
     if not read:
-        raise IOError(f'Failed to read {filename}')
+        raise OSError(f'Failed to read {filename}')
 
     for section_name, section in cp.items():
         idx = section_name.find(':')
