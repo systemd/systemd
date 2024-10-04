@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -136,18 +137,18 @@ int sd_json_variant_is_sensitive_recursive(sd_json_variant *v);
 int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *reterr_column);
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_format_flags_t) {
-        SD_JSON_FORMAT_NEWLINE          = 1 << 0, /* suffix with newline */
-        SD_JSON_FORMAT_PRETTY           = 1 << 1, /* add internal whitespace to appeal to human readers */
-        SD_JSON_FORMAT_PRETTY_AUTO      = 1 << 2, /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
-        SD_JSON_FORMAT_COLOR            = 1 << 3, /* insert ANSI color sequences */
-        SD_JSON_FORMAT_COLOR_AUTO       = 1 << 4, /* insert ANSI color sequences if colors_enabled() says so */
-        SD_JSON_FORMAT_SOURCE           = 1 << 5, /* prefix with source filename/line/column */
-        SD_JSON_FORMAT_SSE              = 1 << 6, /* prefix/suffix with W3C server-sent events */
-        SD_JSON_FORMAT_SEQ              = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
-        SD_JSON_FORMAT_FLUSH            = 1 << 8, /* call fflush() after dumping JSON */
-        SD_JSON_FORMAT_EMPTY_ARRAY      = 1 << 9, /* output "[]" for empty input */
-        SD_JSON_FORMAT_OFF              = 1 << 10, /* make json_variant_format() fail with -ENOEXEC */
-        SD_JSON_FORMAT_CENSOR_SENSITIVE = 1 << 11, /* Replace all sensitive elements with the string "<sensitive data>" */
+        SD_JSON_FORMAT_OFF              = 1 << 0,  /* disable json output, make json_variant_format() fail with -ENOEXEC */
+        SD_JSON_FORMAT_NEWLINE          = 1 << 1,  /* suffix with newline */
+        SD_JSON_FORMAT_PRETTY           = 1 << 2,  /* add internal whitespace to appeal to human readers */
+        SD_JSON_FORMAT_PRETTY_AUTO      = 1 << 3,  /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
+        SD_JSON_FORMAT_COLOR            = 1 << 4,  /* insert ANSI color sequences */
+        SD_JSON_FORMAT_COLOR_AUTO       = 1 << 5,  /* insert ANSI color sequences if colors_enabled() says so */
+        SD_JSON_FORMAT_SOURCE           = 1 << 6,  /* prefix with source filename/line/column */
+        SD_JSON_FORMAT_SSE              = 1 << 7,  /* prefix/suffix with W3C server-sent events */
+        SD_JSON_FORMAT_SEQ              = 1 << 8,  /* prefix/suffix with RFC 7464 application/json-seq */
+        SD_JSON_FORMAT_FLUSH            = 1 << 9,  /* call fflush() after dumping JSON */
+        SD_JSON_FORMAT_EMPTY_ARRAY      = 1 << 10, /* output "[]" for empty input */
+        SD_JSON_FORMAT_CENSOR_SENSITIVE = 1 << 11, /* replace all sensitive elements with the string "<sensitive data>" */
         _SD_ENUM_FORCE_S64(JSON_FORMAT_FLAGS)
 } sd_json_format_flags_t;
 
@@ -340,6 +341,10 @@ int sd_json_variant_unhex(sd_json_variant *v, void **ret, size_t *ret_size);
 
 const char* sd_json_variant_type_to_string(sd_json_variant_type_t t);
 sd_json_variant_type_t sd_json_variant_type_from_string(const char *s);
+
+static inline bool sd_json_enabled(sd_json_format_flags_t flags) {
+        return !(flags & SD_JSON_FORMAT_OFF);
+}
 
 _SD_END_DECLARATIONS;
 

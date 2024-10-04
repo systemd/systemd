@@ -204,7 +204,7 @@ static void print_source(uint64_t flags, usec_t rtt) {
         if (!arg_legend)
                 return;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return;
 
         if (flags == 0)
@@ -273,7 +273,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         assert(name);
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type=A or --type=AAAA to acquire address record information in JSON format.");
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
@@ -374,7 +374,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (ifindex <= 0)
@@ -468,7 +468,7 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
                 r = dns_resource_record_to_json(rr, &j);
                 if (r < 0)
@@ -994,7 +994,7 @@ static int verb_service(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (argc == 2)
@@ -1060,7 +1060,7 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         STRV_FOREACH(p, strv_skip(argv, 1))
@@ -1117,7 +1117,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
@@ -1152,7 +1152,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         struct statistics {
@@ -1316,7 +1316,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_enabled(arg_json_format_flags))
                 return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         return 0;
@@ -2978,7 +2978,7 @@ static int monitor_reply(
                 return 0;
         }
 
-        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 monitor_query_dump(parameters);
                 printf("\n");
         } else
@@ -3180,7 +3180,7 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response 'dump' field not an array");
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, d) {
@@ -3360,7 +3360,7 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "DumpCache() response 'dump' field not an array");
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 sd_json_variant *i;
 
                 JSON_VARIANT_ARRAY_FOREACH(i, d) {

@@ -2096,7 +2096,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
-        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+        if (hashmap_isempty(images) && !sd_json_enabled(arg_json_format_flags)) {
                 log_info("No OS extensions found.");
                 return 0;
         }

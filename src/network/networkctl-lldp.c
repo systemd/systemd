@@ -231,7 +231,7 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_json_format_flags != SD_JSON_FORMAT_OFF)
+        if (sd_json_enabled(arg_json_format_flags))
                 return dump_lldp_neighbors_json(reply, strv_skip(argv, 1));
 
         pager_open(arg_pager_flags);
