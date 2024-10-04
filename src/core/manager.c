@@ -4126,7 +4126,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
                         /* callbacks= */ NULL, /* callback_args= */ NULL,
                         (char**) argv,
                         ge,
-                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID | EXEC_DIR_WARN_WORLD_WRITABLE);
 }
 
 static int manager_run_generators(Manager *m) {
