@@ -16,6 +16,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pe-binary.h"
 #include "pretty-print.h"
 #include "sha256.h"
 #include "strv.h"
@@ -515,6 +516,27 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
                         m += sz;
+                }
+
+                if (c == UNIFIED_SECTION_LINUX) {
+                        _cleanup_free_ PeHeader *pe_header = NULL;
+
+                        r = pe_load_headers(fd, /*ret_dos_header=*/ NULL, &pe_header);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse kernel image file '%s', ignoring: %m", arg_sections[c]);
+                        else {
+                                memzero(buffer, BUFFER_SIZE);
+
+                                while (m < pe_header->optional.SizeOfImage) {
+                                        uint64_t sz = MIN(BUFFER_SIZE, pe_header->optional.SizeOfImage - m);
+
+                                        for (size_t i = 0; i < n; i++)
+                                                if (EVP_DigestUpdate(mdctx[i], buffer, sz) != 1)
+                                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
+
+                                        m += sz;
+                                }
+                        }
                 }
 
                 fd = safe_close(fd);
