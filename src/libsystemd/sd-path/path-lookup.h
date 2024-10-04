@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include "constants.h"
-#include "macro.h"
+#include "sd-path.h"
+
 #include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {
@@ -55,11 +55,21 @@ typedef struct LookupPaths {
 int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 
-int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
-int xdg_user_runtime_dir(char **ret, const char *suffix);
-int xdg_user_config_dir(char **ret, const char *suffix);
-int xdg_user_data_dir(char **ret, const char *suffix);
-int runtime_directory(char **ret, RuntimeScope scope, const char *suffix);
+int runtime_directory(RuntimeScope scope, const char *suffix, char **ret);
+
+/* We don't treat /etc/xdg/systemd in these functions as the xdg base dir spec suggests because we assume
+ * that is a link to /etc/systemd/ anyway. */
+
+int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_data_dirs);
+static inline int xdg_user_runtime_dir(const char *suffix, char **ret) {
+        return sd_path_lookup(SD_PATH_USER_RUNTIME, suffix, ret);
+}
+static inline int xdg_user_config_dir(const char *suffix, char **ret) {
+        return sd_path_lookup(SD_PATH_USER_CONFIGURATION, suffix, ret);
+}
+static inline int xdg_user_data_dir(const char *suffix, char **ret) {
+        return sd_path_lookup(SD_PATH_USER_SHARED, suffix, ret);
+}
 
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
@@ -67,11 +77,10 @@ bool path_is_user_config_dir(const char *path);
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_done(LookupPaths *p);
 
-char **generator_binary_paths(RuntimeScope scope);
-char **env_generator_binary_paths(RuntimeScope scope);
-
-#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
-#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
-
-#define PORTABLE_PROFILE_DIRS CONF_PATHS_NULSTR("systemd/portable/profile")
-int find_portable_profile(const char *name, const char *unit, char **ret_path);
+char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator);
+static inline char** generator_binary_paths(RuntimeScope runtime_scope) {
+        return generator_binary_paths_internal(runtime_scope, false);
+}
+static inline char** env_generator_binary_paths(RuntimeScope runtime_scope) {
+        return generator_binary_paths_internal(runtime_scope, true);
+}
