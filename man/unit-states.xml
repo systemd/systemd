@@ -30,7 +30,7 @@
         </row>
         <row>
             <entry><varname>failed</varname></entry>
-            <entry>Similar as <constant>inactive</constant>, but the unit failed in some way (process returned error code on exit, or crashed, an operation timed out, or after too many restarts).
+            <entry>Similar to <constant>inactive</constant>, but the unit failed in some way (process returned error code on exit, crashed, an operation timed out, or after too many restarts).
             </entry>
         </row>
         <row>
