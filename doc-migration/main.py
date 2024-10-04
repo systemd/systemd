@@ -7,8 +7,13 @@ from typing import List
 from db2rst import convert_xml_to_rst
 
 FILES_USED_FOR_INCLUDES = [
-    'sd_journal_get_data.xml', 'standard-options.xml', 'user-system-options.xml',
-    'common-variables.xml', 'standard-conf.xml', 'libsystemd-pkgconfig.xml', 'threads-aware.xml'
+    'common-variables.xml',
+    'libsystemd-pkgconfig.xml',
+    'sd_journal_get_data.xml',
+    'standard-conf.xml',
+    'standard-options.xml',
+    'threads-aware.xml',
+    'user-system-options.xml',
 ]
 
 INCLUDES_DIR = "includes"
