@@ -971,6 +971,75 @@ EOF
     veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
 }
 
+testcase_verity_max_data_size() {
+    local defs imgs loop
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** dm-verity-max-data-size ***"
+
+    # create small data partition with fixed size
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Minimize=guess
+EOF
+
+    # create hash partition sized for 10GiB of data
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+VerityHashBlockSizeBytes=4096
+VerityDataBlockSizeBytes=4096
+VerityMaxDataSizeBytes=10G
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --json=pretty \
+                   "$imgs/verity"
+
+    loop="$(losetup --partscan --show --find "$imgs/verity")"
+
+    # Make sure the loopback device gets cleaned up
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
+
+    udevadm wait --timeout 60 --settle "${loop:?}p1" "${loop:?}p2"
+
+    output=$(sfdisk -J "$loop")
+
+    # size of the hash partition, as determined by calculate_verity_hash_size()
+    # for 10GiB data partition and hash / data block size of 4096B
+    hash_bytes="84557824"
+    hash_sectors_expected="$((hash_bytes / 512))"
+
+    hash_sectors_actual=$(jq -r ".partitiontable.partitions | map(select(.name == \"root-${architecture}-verity\")) | .[].size" <<<"$output")
+
+    assert_eq "$hash_sectors_expected" "$hash_sectors_actual"
+
+    data_sectors=$(jq -r ".partitiontable.partitions | map(select(.name == \"root-${architecture}\")) | .[].size" <<<"$output")
+    data_bytes="$((data_sectors * 512))"
+    data_verity_blocks="$((data_bytes / 4096))"
+
+    # Check that the verity hash tree is created from the actual on-disk data, not the custom size
+    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep -q "$data_verity_blocks"
+}
+
 testcase_exclude_files() {
     local defs imgs root output
 
