@@ -1,0 +1,5 @@
+target-version = "py39"
+line-length = 109
+
+[format]
+quote-style = "single"
