@@ -183,6 +183,8 @@ typedef struct UnitDefaults {
 
         char *smack_process_label;
 
+        CPUSet allowed_cpus;
+
         struct rlimit *rlimit[_RLIMIT_MAX];
 } UnitDefaults;
 
