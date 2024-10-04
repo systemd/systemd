@@ -186,13 +186,13 @@ static void pe_locate_sections(
                         /* Overflow check: ignore sections that are impossibly large, relative to the file
                          * address for the section. */
                         size_t size_max = SIZE_MAX - j->PointerToRawData;
-                        if ((size_t) j->VirtualSize > size_max)
+                        if ((size_t) j->SizeOfRawData > size_max)
                                 continue;
 
                         /* Overflow check: ignore sections that are impossibly large, given the virtual
                          * address for the section */
                         size_max = SIZE_MAX - j->VirtualAddress;
-                        if (j->VirtualSize > size_max)
+                        if ((size_t) j->VirtualSize > size_max)
                                 continue;
 
                         /* 2nd overflow check: ignore sections that are impossibly large also taking the
@@ -209,8 +209,14 @@ static void pe_locate_sections(
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
                                 .memory_size = j->VirtualSize,
-                                .file_offset = j->PointerToRawData,
                                 .memory_offset = j->VirtualAddress,
+                                /* VirtualSize can be bigger than SizeOfRawData when the section requires
+                                 * uninitialized data. It can also be smaller than SizeOfRawData when there's
+                                 * no need for uninitialized data as SizeOfRawData is aligned to
+                                 * FileAlignment and VirtualSize isn't. The actual data that's read from disk
+                                 * is the minimum of these two fields. */
+                                .file_size = MIN(j->SizeOfRawData, j->VirtualSize),
+                                .file_offset = j->PointerToRawData,
                         };
 
                         /* First matching section wins, ignore the rest */

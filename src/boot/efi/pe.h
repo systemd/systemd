@@ -22,6 +22,7 @@ typedef struct PeSectionHeader {
 typedef struct PeSectionVector {
         size_t memory_size;     /* Size of the section in memory (corresponds to VirtualSize field) */
         size_t memory_offset;   /* Offset in memory, relative to base address */
+        uint64_t file_size;     /* Amount of bytes of the section read from disk (possibly aligned to FileAlignment in case VirtualSize > SizeOfRawData). */
         uint64_t file_offset;   /* Offset on disk, relative to beginning of file */
 } PeSectionVector;
 
