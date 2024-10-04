@@ -3511,7 +3511,7 @@ static int context_dump_partitions(Context *context) {
         const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16;
         bool has_roothash = false, has_dropin_files = false, has_split_path = false;
 
-        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && context->n_partitions == 0) {
+        if (context->n_partitions == 0 && !sd_json_format_enabled(arg_json_format_flags)) {
                 log_info("Empty partition table.");
                 return 0;
         }
@@ -3541,7 +3541,7 @@ static int context_dump_partitions(Context *context) {
         table_set_json_field_name(t, 15, "drop-in_files");
 
         if (!DEBUG_LOGGING) {
-                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
+                if (!sd_json_format_enabled(arg_json_format_flags))
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 8, (size_t) 9, (size_t) 12, roothash_col, dropin_files_col,
                                                     split_path_col);
@@ -3624,7 +3624,7 @@ static int context_dump_partitions(Context *context) {
                 has_split_path = has_split_path || !isempty(p->split_path);
         }
 
-        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
+        if (!sd_json_format_enabled(arg_json_format_flags) && (sum_padding > 0 || sum_size > 0)) {
                 const char *a, *b;
 
                 a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_size));
@@ -3891,17 +3891,17 @@ static int context_dump(Context *context, bool late) {
 
         assert(context);
 
-        if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (arg_pretty == 0 && !sd_json_format_enabled(arg_json_format_flags))
                 return 0;
 
         /* If we're outputting JSON, only dump after doing all operations so we can include the roothashes
          * in the output.  */
-        if (!late && !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (!late && sd_json_format_enabled(arg_json_format_flags))
                 return 0;
 
         /* If we're not outputting JSON, only dump again after doing all operations if there are any
          * roothashes that we need to communicate to the user. */
-        if (late && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && !context_has_roothash(context))
+        if (late && !sd_json_format_enabled(arg_json_format_flags) && !context_has_roothash(context))
                 return 0;
 
         r = context_dump_partitions(context);
@@ -3910,7 +3910,7 @@ static int context_dump(Context *context, bool late) {
 
         /* Only write the partition bar once, even if we're writing the partition table twice to communicate
          * roothashes. */
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && !late) {
+        if (!sd_json_format_enabled(arg_json_format_flags) && !late) {
                 putc('\n', stdout);
 
                 r = context_dump_partition_bar(context);

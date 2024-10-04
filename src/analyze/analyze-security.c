@@ -1872,7 +1872,7 @@ static int assess(const SecurityInfo *info,
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                if (json_format_flags & SD_JSON_FORMAT_OFF) {
+                if (!sd_json_format_enabled(json_format_flags)) {
                         r = table_hide_column_from_display(details_table, (size_t) 2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set columns to display: %m");
@@ -1891,7 +1891,7 @@ static int assess(const SecurityInfo *info,
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table && (json_format_flags & SD_JSON_FORMAT_OFF)) {
+        if (details_table && !sd_json_format_enabled(json_format_flags)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 

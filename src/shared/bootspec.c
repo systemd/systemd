@@ -1936,7 +1936,7 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
 
         assert(config);
 
-        if (!FLAGS_SET(json_format, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(json_format)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {

@@ -1877,7 +1877,7 @@ _public_ int sd_json_variant_format(sd_json_variant *v, sd_json_format_flags_t f
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (flags & SD_JSON_FORMAT_OFF)
+        if (!sd_json_format_enabled(flags))
                 return -ENOEXEC;
 
         f = memstream_init(&m);

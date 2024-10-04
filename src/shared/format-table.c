@@ -3124,7 +3124,7 @@ int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
 
         assert(t);
 
-        if (flags & SD_JSON_FORMAT_OFF) /* If JSON output is turned off, use regular output */
+        if (!sd_json_format_enabled(flags)) /* If JSON output is turned off, use regular output */
                 return table_print(t, f);
 
         if (!f)

@@ -203,7 +203,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (!table_isempty(table) || !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -213,7 +213,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_legend && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No home areas.\n");
                 else
@@ -671,7 +671,7 @@ static void dump_home_record(UserRecord *hr) {
                 log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", hr->user_name);
         }
 
-        if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
+        if (!sd_json_format_enabled(arg_json_format_flags))
                 user_record_show(hr, true);
         else {
                 _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
