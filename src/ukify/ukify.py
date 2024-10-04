@@ -40,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from collections.abc import Sequence
 from hashlib import sha256
 from pathlib import Path
 from typing import (
@@ -47,7 +48,6 @@ from typing import (
     Any,
     Callable,
     Optional,
-    Sequence,
     Union,
 )
 
