@@ -32,6 +32,7 @@
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"
+#include "portable-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
