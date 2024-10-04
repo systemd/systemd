@@ -6,6 +6,5 @@ integration_tests += [
                 'storage' : 'persistent',
                 'vm' : true,
                 'firmware' : 'auto',
-                'enabled' : false,
         },
 ]
