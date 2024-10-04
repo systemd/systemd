@@ -88,6 +88,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate_subgroup);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mem_pressure_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mem_pressure_duration_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
