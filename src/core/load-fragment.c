@@ -4257,7 +4257,7 @@ int config_parse_io_device_weight(
         w->path = TAKE_PTR(resolved);
         w->weight = u;
 
-        LIST_PREPEND(device_weights, c->io_device_weights, w);
+        LIST_APPEND(device_weights, c->io_device_weights, w);
         return 0;
 }
 
@@ -4328,7 +4328,7 @@ int config_parse_io_device_latency(
         l->path = TAKE_PTR(resolved);
         l->target_usec = usec;
 
-        LIST_PREPEND(device_latencies, c->io_device_latencies, l);
+        LIST_APPEND(device_latencies, c->io_device_latencies, l);
         return 0;
 }
 
@@ -4414,7 +4414,7 @@ int config_parse_io_limit(
                 for (CGroupIOLimitType i = 0; i < _CGROUP_IO_LIMIT_TYPE_MAX; i++)
                         l->limits[i] = cgroup_io_limit_defaults[i];
 
-                LIST_PREPEND(device_limits, c->io_device_limits, l);
+                LIST_APPEND(device_limits, c->io_device_limits, l);
         }
 
         l->limits[type] = num;
@@ -4495,7 +4495,7 @@ int config_parse_blockio_device_weight(
         w->path = TAKE_PTR(resolved);
         w->weight = u;
 
-        LIST_PREPEND(device_weights, c->blockio_device_weights, w);
+        LIST_APPEND(device_weights, c->blockio_device_weights, w);
         return 0;
 }
 
@@ -4582,7 +4582,7 @@ int config_parse_blockio_bandwidth(
                 b->rbps = CGROUP_LIMIT_MAX;
                 b->wbps = CGROUP_LIMIT_MAX;
 
-                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
+                LIST_APPEND(device_bandwidths, c->blockio_device_bandwidths, b);
         }
 
         if (read)
