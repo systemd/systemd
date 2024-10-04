@@ -97,8 +97,9 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
          * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
          * the case where just the os-release file is missing. */
-        if (laccess(path, F_OK) < 0)
-                return -errno;
+        r = laccess(path, F_OK);
+        if (r < 0)
+                return r;
 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
          * /etc/extension-release.d/extension-release[.NAME] as flag for something being a system configuration, and finally,

@@ -1748,13 +1748,11 @@ static int merge_subprocess(
                 if (!p)
                         return log_oom();
 
-                if (laccess(p, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to check if '%s' exists: %m", p);
-
-                        /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
+                r = laccess(p, F_OK);
+                if (r == -ENOENT) /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
                         continue;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s' exists: %m", p);
 
                 r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
