@@ -98,7 +98,7 @@ Allows referencing variables in the `global_substitutions` object in `/doc-migra
 
 ##### directive_roles.py (90% done)
 
-This is used to add custom Sphinx directives and roles to generate systemD directive lists page.
+This is used to add custom Sphinx directives and roles to generate systemd directive lists page.
 
 To achieve the functionality exiting in `tools/make-directive-index.py` by building the Directive Index page from custom Sphinx role, here is an example:
 
