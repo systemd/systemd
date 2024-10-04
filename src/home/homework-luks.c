@@ -1997,7 +1997,7 @@ static int wait_for_devlink(const char *path) {
                 _cleanup_free_ char *dn = NULL;
                 usec_t w;
 
-                r = laccess(path, F_OK);
+                r = access_nofollow(path, F_OK);
                 if (r >= 0)
                         return 0; /* Found it */
                 if (r != -ENOENT)

@@ -918,7 +918,7 @@ int find_portable_profile(const char *name, const char *unit, char **ret_path) {
                 if (!joined)
                         return -ENOMEM;
 
-                r = laccess(joined, F_OK);
+                r = access_nofollow(joined, F_OK);
                 if (r >= 0) {
                         *ret_path = TAKE_PTR(joined);
                         return 0;

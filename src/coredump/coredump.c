@@ -1525,7 +1525,7 @@ static int forward_coredump_to_container(Context *context) {
 
                 pair[0] = safe_close(pair[0]);
 
-                r = laccess("/run/systemd/coredump", W_OK);
+                r = access_nofollow("/run/systemd/coredump", W_OK);
                 if (r < 0) {
                         log_debug_errno(r, "Cannot find coredump socket, exiting: %m");
                         _exit(EXIT_FAILURE);

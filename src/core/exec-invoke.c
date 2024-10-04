@@ -2345,7 +2345,7 @@ static int setup_exec_directory(
                         assert_cc(EXEC_DIRECTORY_STATE < EXEC_DIRECTORY_LOGS);
                         assert_cc(EXEC_DIRECTORY_LOGS < EXEC_DIRECTORY_CONFIGURATION);
 
-                        r = laccess(p, F_OK);
+                        r = access_nofollow(p, F_OK);
                         if (r == -ENOENT) {
                                 _cleanup_free_ char *q = NULL;
 
@@ -2363,7 +2363,7 @@ static int setup_exec_directory(
                                         goto fail;
                                 }
 
-                                r = laccess(q, F_OK);
+                                r = access_nofollow(q, F_OK);
                                 if (r >= 0) {
                                         /* It does exist! This hence looks like an update. Symlink the
                                          * configuration directory into the state directory. */
@@ -2429,7 +2429,7 @@ static int setup_exec_directory(
                                 goto fail;
 
                         if (is_dir(p, false) > 0 &&
-                            (laccess(pp, F_OK) == -ENOENT)) {
+                            (access_nofollow(pp, F_OK) == -ENOENT)) {
 
                                 /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
                                  * it over. Most likely the service has been upgraded from one that didn't use

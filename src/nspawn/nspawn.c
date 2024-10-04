@@ -6154,7 +6154,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (laccess(p, F_OK) < 0) {
+                        if (access_nofollow(p, F_OK) < 0) {
                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                     "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
                                 goto finish;

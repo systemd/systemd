@@ -23,7 +23,7 @@ static int generate_symlink(void) {
         int r;
 
         FOREACH_STRING(p, "/system-update", "/etc/system-update") {
-                r = laccess(p, F_OK);
+                r = access_nofollow(p, F_OK);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Failed to check if %s symlink exists, ignoring: %m", p);

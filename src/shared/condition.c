@@ -169,7 +169,7 @@ static int condition_test_credential(Condition *c, char **env) {
                 if (!j)
                         return -ENOMEM;
 
-                r = laccess(j, F_OK);
+                r = access_nofollow(j, F_OK);
                 if (r >= 0)
                         return true; /* yay! */
                 if (r != -ENOENT)

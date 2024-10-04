@@ -1760,7 +1760,7 @@ static int merge_subprocess(
                 if (!p)
                         return log_oom();
 
-                r = laccess(p, F_OK);
+                r = access_nofollow(p, F_OK);
                 if (r == -ENOENT) /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
                         continue;
                 if (r < 0)
