@@ -1925,11 +1925,11 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
                         &vector);
-        if (vector.size != sizeof(SD_MAGIC))
+        if (vector.memory_size != sizeof(SD_MAGIC))
                 return false;
 
-        err = file_handle_read(handle, vector.file_offset, vector.size, &content, &read);
-        if (err != EFI_SUCCESS || vector.size != read)
+        err = file_handle_read(handle, vector.file_offset, vector.memory_size, &content, &read);
+        if (err != EFI_SUCCESS || vector.memory_size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2210,7 +2210,7 @@ static void boot_entry_add_type2(
                 err = file_handle_read(
                                 handle,
                                 sections[SECTION_OSREL].file_offset,
-                                sections[SECTION_OSREL].size,
+                                sections[SECTION_OSREL].memory_size,
                                 &content,
                                 /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
@@ -2281,7 +2281,7 @@ static void boot_entry_add_type2(
                         err = file_handle_read(
                                         handle,
                                         sections[SECTION_PROFILE].file_offset,
-                                        sections[SECTION_PROFILE].size,
+                                        sections[SECTION_PROFILE].memory_size,
                                         &content,
                                         /* ret_size= */ NULL);
                         if (err != EFI_SUCCESS)
@@ -2348,7 +2348,7 @@ static void boot_entry_add_type2(
                 err = file_handle_read(
                                 handle,
                                 sections[SECTION_CMDLINE].file_offset,
-                                sections[SECTION_CMDLINE].size,
+                                sections[SECTION_CMDLINE].memory_size,
                                 &content,
                                 &cmdline_len);
                 if (err == EFI_SUCCESS) {

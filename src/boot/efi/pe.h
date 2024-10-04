@@ -20,13 +20,13 @@ typedef struct PeSectionHeader {
 /* This is a subset of the full PE section header structure, with validated values, and without
  * the noise. */
 typedef struct PeSectionVector {
-        size_t size;
+        size_t memory_size;     /* Size of the section in memory (corresponds to VirtualSize field) */
         size_t memory_offset;   /* Offset in memory, relative to base address */
         uint64_t file_offset;   /* Offset on disk, relative to beginning of file */
 } PeSectionVector;
 
 static inline bool PE_SECTION_VECTOR_IS_SET(const PeSectionVector *v) {
-        return v && v->size != 0;
+        return v && v->memory_size != 0;
 }
 
 EFI_STATUS pe_section_table_from_base(

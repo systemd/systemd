@@ -208,7 +208,7 @@ static void pe_locate_sections(
 
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
-                                .size = j->VirtualSize,
+                                .memory_size = j->VirtualSize,
                                 .file_offset = j->PointerToRawData,
                                 .memory_offset = j->VirtualAddress,
                         };
@@ -235,7 +235,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                         PTR_TO_SIZE(dos),
                         &vector);
 
-        if (vector.size == 0) /* not found */
+        if (vector.memory_size == 0) /* not found */
                 return 0;
 
         typedef struct {
@@ -245,7 +245,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                 uint32_t entry_point;
         } _packed_ LinuxPeCompat1;
 
-        size_t addr = vector.memory_offset, size = vector.size;
+        size_t addr = vector.memory_offset, size = vector.memory_size;
 
         while (size >= sizeof(LinuxPeCompat1) && addr % alignof(LinuxPeCompat1) == 0) {
                 const LinuxPeCompat1 *compat = (const LinuxPeCompat1 *) ((const uint8_t *) dos + addr);
