@@ -19,12 +19,12 @@ systemd — System and Service Manager
    :maxdepth: 1
 
    docs/busctl
-   docs/runlevel
    docs/journalctl
    docs/os-release
-   docs/systemd
-   docs/systemD-directives
    docs/repart.d
+   docs/runlevel
+   docs/systemD-directives
+   docs/systemd
    docs/includes/sd_journal_get_data
 
 Indices and tables
