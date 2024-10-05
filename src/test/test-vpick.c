@@ -168,4 +168,27 @@ TEST(path_pick) {
         assert_se(result.architecture == ARCHITECTURE_S390);
 }
 
+TEST(path_uses_vpick) {
+        ASSERT_OK_POSITIVE(path_uses_vpick("foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("./path/to/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to/foo.raw.v"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("/var/lib/machines/mymachine.raw.v/"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo___.hi/a.v"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo.mp4.vtt"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo.mp4.v.1"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to.v/a"));
+
+        ASSERT_OK_POSITIVE(path_uses_vpick("to.v/foo___.raw"));
+        ASSERT_OK_POSITIVE(path_uses_vpick("path/to.v/foo___.raw"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to/foo___.raw"));
+        ASSERT_OK_ZERO(path_uses_vpick("path/to.v/foo__"));
+        ASSERT_OK_ZERO(path_uses_vpick("foo___.raw"));
+
+        ASSERT_LE(path_uses_vpick("/"), 0);
+        ASSERT_LE(path_uses_vpick("."), 0);
+        ASSERT_LE(path_uses_vpick(""), 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
