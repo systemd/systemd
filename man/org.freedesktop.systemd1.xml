@@ -8793,6 +8793,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b FixedRandomDelay = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DeferReactivation = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Persistent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b WakeSystem = ...;
@@ -8819,6 +8821,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
     <!--property RandomizedDelayUSec is not documented!-->
 
     <!--property FixedRandomDelay is not documented!-->
+
+    <!--property DeferReactivation is not documented!-->
 
     <!--property Persistent is not documented!-->
 
@@ -8861,6 +8865,8 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
     <variablelist class="dbus-property" generated="True" extra-ref="RandomizedDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FixedRandomDelay"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DeferReactivation"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Persistent"/>
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Testing systemd timers
+
+[Timer]
+OnCalendar=*:*:0/5
+AccuracySec=1us
+DeferReactivation=true
+
+[Install]
+WantedBy=timers.target
