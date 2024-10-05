@@ -265,8 +265,6 @@ class Uname:
     @classmethod
     def scrape_elf(cls, filename: Path, opts: Optional[argparse.Namespace] = None) -> str:
         readelf = find_tool('readelf', opts=opts)
-        if not readelf:
-            raise ValueError('FIXME')
 
         cmd = [
             readelf,
@@ -479,7 +477,8 @@ def find_tool(
     name: str,
     fallback: Optional[str] = None,
     opts: Optional[argparse.Namespace] = None,
-) -> Union[str, Path, None]:
+    msg: str = 'Tool {name} not installed!',
+) -> Union[str, Path]:
     if opts and opts.tools:
         for d in opts.tools:
             tool = d / name
@@ -490,7 +489,7 @@ def find_tool(
         return name
 
     if fallback is None:
-        print(f'Tool {name} not installed!')
+        raise ValueError(msg.format(name=name))
 
     return fallback
 
@@ -530,8 +529,6 @@ def call_systemd_measure(uki: UKI, opts: argparse.Namespace, profile_start: int 
         '/usr/lib/systemd/systemd-measure',
         opts=opts,
     )
-    if not measure_tool:
-        raise ValueError('FIXME')
 
     banks = opts.pcr_banks or ()
 
@@ -806,10 +803,6 @@ def signer_sign(cmd: list[Union[str, Path]]) -> None:
     subprocess.check_call(cmd)
 
 
-def find_sbsign(opts: Optional[argparse.Namespace] = None) -> Union[str, Path, None]:
-    return find_tool('sbsign', opts=opts)
-
-
 def sbsign_sign(
     sbsign_tool: Union[str, Path],
     input_f: str,
@@ -828,10 +821,6 @@ def sbsign_sign(
         '--output', output_f,
     ]  # fmt: skip
     signer_sign(sign_invocation)
-
-
-def find_pesign(opts: Optional[argparse.Namespace] = None) -> Union[str, Path, None]:
-    return find_tool('pesign', opts=opts)
 
 
 def pesign_sign(
@@ -893,16 +882,13 @@ def make_uki(opts: argparse.Namespace) -> None:
 
     if sign_args_present:
         if opts.signtool == 'sbsign':
-            sign_tool = find_sbsign(opts=opts)
+            sign_tool = find_tool('sbsign', opts=opts, msg='sbsign, required for signing, is not installed')
             sign = sbsign_sign
             verify_tool = SBVERIFY
         else:
-            sign_tool = find_pesign(opts=opts)
+            sign_tool = find_tool('pesign', opts=opts, msg='pesign, required for signing, is not installed')
             sign = pesign_sign
             verify_tool = PESIGCHECK
-
-        if sign_tool is None:
-            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
 
         if sign_kernel is None and opts.linux is not None:
             # figure out if we should sign the kernel
