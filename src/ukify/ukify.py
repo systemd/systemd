@@ -1927,11 +1927,6 @@ def finalize_options(opts: argparse.Namespace) -> None:
     # A convenience dictionary to make it easy to look up sections
     opts.sections_by_name = {s.name: s for s in opts.sections}
 
-    if opts.summary:
-        # TODO: replace pprint() with some fancy formatting.
-        pprint.pprint(vars(opts))
-        sys.exit()
-
 
 def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
     opts = create_parser().parse_args(args)
@@ -1942,7 +1937,10 @@ def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
 
 def main() -> None:
     opts = parse_args()
-    if opts.verb == 'build':
+    if opts.summary:
+        # TODO: replace pprint() with some fancy formatting.
+        pprint.pprint(vars(opts))
+    elif opts.verb == 'build':
         check_inputs(opts)
         make_uki(opts)
     elif opts.verb == 'genkey':
