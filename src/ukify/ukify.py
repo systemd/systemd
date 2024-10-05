@@ -1052,7 +1052,7 @@ def make_uki(opts: argparse.Namespace) -> None:
                 Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=True)
             )
 
-        call_systemd_measure(uki, opts=opts, profile_start=prev_len + 1)
+        call_systemd_measure(uki, opts=opts, profile_start=prev_len)
 
     # UKI creation
 
