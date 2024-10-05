@@ -1898,6 +1898,8 @@ def finalize_options(opts: argparse.Namespace) -> None:
             '--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified'  # noqa: E501
         )
 
+    opts.profile = resolve_at_path(opts.profile)
+
     if opts.join_profiles and not opts.profile:
         # If any additional profiles are added, we need a base profile as well so add one if
         # one wasn't explicitly provided
