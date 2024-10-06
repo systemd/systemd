@@ -5029,7 +5029,7 @@ static int load_settings(void) {
 
         /* We first look in the admin's directories in /etc and /run */
         if (arg_privileged) {
-                FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                FOREACH_STRING(i, "/etc/systemd/nspawn", SYSCONF_DIR "/systemd/nspawn", "/run/systemd/nspawn") {
                         _cleanup_free_ char *j = NULL;
 
                         j = path_join(i, arg_settings_filename);

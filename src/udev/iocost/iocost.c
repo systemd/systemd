@@ -30,7 +30,7 @@ static int parse_config(void) {
 
         r = config_parse(
                         NULL,
-                        "/etc/udev/iocost.conf",
+                        SYSCONF_DIR "/udev/iocost.conf",
                         NULL,
                         "IOCost\0",
                         config_item_table_lookup,

@@ -1598,13 +1598,13 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus
         if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
                 return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'ID_FOR_SEAT' udev property.", sysfs);
 
-        if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
+        if (asprintf(&file, SYSCONF_DIR "/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
 
         if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0)
                 return -ENOMEM;
 
-        (void) mkdir_p_label("/etc/udev/rules.d", 0755);
+        (void) mkdir_p_label(SYSCONF_DIR "/udev/rules.d", 0755);
         r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 return r;
@@ -1617,7 +1617,7 @@ static int flush_devices(Manager *m) {
 
         assert(m);
 
-        d = opendir("/etc/udev/rules.d");
+        d = opendir(SYSCONF_DIR "/udev/rules.d");
         if (!d) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open /etc/udev/rules.d: %m");
