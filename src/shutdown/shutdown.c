@@ -268,11 +268,10 @@ int sync_with_progress(int fd) {
         }
 
         /* Only reached in the event of a timeout. We should issue a kill to the stray process. */
+        r = log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                            "Syncing %s - timed out, issuing SIGKILL to PID "PID_FMT".", what, pid);
         (void) kill(pid, SIGKILL);
-        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                               "Syncing %s - timed out, issuing SIGKILL to PID "PID_FMT".",
-                               what,
-                               pid);
+        return r;
 }
 
 static int read_current_sysctl_printk_log_level(void) {
