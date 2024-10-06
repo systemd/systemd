@@ -417,6 +417,7 @@ int lookup_paths_init(
         assert(lp);
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(!FLAGS_SET(flags, LOOKUP_PATHS_EXCLUDE_GENERATED|LOOKUP_PATHS_TEMPORARY_GENERATED));
 
         if (!empty_or_root(root_dir)) {
                 if (scope == RUNTIME_SCOPE_USER)
