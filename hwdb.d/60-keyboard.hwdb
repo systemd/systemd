@@ -1844,11 +1844,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*550P*:*
  KEYBOARD_KEY_a8=!                                      # Fn Lock - Function lock on
  KEYBOARD_KEY_a9=!                                      # Fn Lock - Function lock off
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*550X*:*
- KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
- KEYBOARD_KEY_ae=!volumedown                            # Fn+F7 volume up
- KEYBOARD_KEY_b0=!volumeup                              # Fn+F8 volume down
-
 # Series 7 / 9
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*350V*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*670Z*:*
@@ -1912,12 +1907,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*SX20S*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
  KEYBOARD_KEY_ad=leftmeta
 
-# Galaxy Book (2021) NP750XDA-KD4SE
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn750XDA:pvr*
+# Notebook and Galaxy Book series (SKU Number: SCAI-*)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:sku*SCAI*:*
  KEYBOARD_KEY_81=!esc
- KEYBOARD_KEY_ce=!prog1         # Fn+F1 launch settings
- KEYBOARD_KEY_ae=!volumedown    # Fn+F7 volume down
- KEYBOARD_KEY_b0=!volumeup      # Fn+F8 volume up
+ KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
+ KEYBOARD_KEY_76=f21                                    # Fn+F5 Touchpad toggle
+ KEYBOARD_KEY_ae=!volumedown                            # Fn+F7 volume down
+ KEYBOARD_KEY_b0=!volumeup                              # Fn+F8 volume up
+ KEYBOARD_KEY_ac=unknown                                # Fn+F9 multi-level keyboard backlight toggle - handled by samsung-galaxybook
+ KEYBOARD_KEY_9f=unknown                                # Fn+F10 Camera and microphone toggle - handled by samsung-galaxybook
+ KEYBOARD_KEY_a8=!unknown                               # Fn+F12 Fn lock On - handled by hardware
+ KEYBOARD_KEY_a9=!unknown                               # Fn+F12 Fn lock Off - handled by hardware
+ KEYBOARD_KEY_8f=!battery                               # Notification that battery has met charge control end threshold
 
 
 ###########################################################
