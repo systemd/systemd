@@ -454,6 +454,23 @@ static void service_release_fd_store(Service *s) {
         assert(s->n_fd_store == 0);
 }
 
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *efd) {
+        if (!efd)
+                return NULL;
+
+        efd->fd = asynchronous_close(efd->fd);
+        free(efd->fdname);
+        return mfree(efd);
+}
+
+static void service_release_extra_fds(Service *s) {
+        assert(s);
+
+        log_unit_debug(UNIT(s), "Releasing all extra fds");
+
+        LIST_CLEAR(extra_fd, *ASSERT_PTR(&s->extra_fds), service_extra_fd_free);
+}
+
 static void service_release_stdio_fd(Service *s) {
         assert(s);
 
@@ -510,6 +527,7 @@ static void service_done(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_fd_store(s);
+        service_release_extra_fds(s);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -903,39 +921,64 @@ static int service_load(Unit *u) {
         return service_verify(s);
 }
 
+static void service_dump_fd(int fd, const char *fdname, const char *header, FILE *f, const char *prefix) {
+        _cleanup_free_ char *path = NULL;
+        struct stat st;
+        int flags;
+
+        if (fstat(fd, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat fdstore entry: %m");
+                return;
+        }
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0) {
+                log_debug_errno(errno, "Failed to get fdstore entry flags: %m");
+                return;
+        }
+
+        (void) fd_get_path(fd, &path);
+
+        fprintf(f,
+                "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
+                prefix,
+                header,
+                fdname,
+                strna(inode_type_to_string(st.st_mode)),
+                DEVNUM_FORMAT_VAL(st.st_dev),
+                (uint64_t) st.st_ino,
+                DEVNUM_FORMAT_VAL(st.st_rdev),
+                strna(path),
+                strna(accmode_to_string(flags)));
+}
+
 static void service_dump_fdstore(Service *s, FILE *f, const char *prefix) {
         assert(s);
         assert(f);
         assert(prefix);
 
         LIST_FOREACH(fd_store, i, s->fd_store) {
-                _cleanup_free_ char *path = NULL;
-                struct stat st;
-                int flags;
+                service_dump_fd(
+                                i->fd,
+                                i->fdname,
+                                i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
+                                f,
+                                prefix);
+        }
+}
 
-                if (fstat(i->fd, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat fdstore entry: %m");
-                        continue;
-                }
+static void service_dump_extra_fds(Service *s, FILE *f, const char *prefix) {
+        assert(s);
+        assert(f);
+        assert(prefix);
 
-                flags = fcntl(i->fd, F_GETFL);
-                if (flags < 0) {
-                        log_debug_errno(errno, "Failed to get fdstore entry flags: %m");
-                        continue;
-                }
-
-                (void) fd_get_path(i->fd, &path);
-
-                fprintf(f,
-                        "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
-                        prefix, i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
-                        i->fdname,
-                        strna(inode_type_to_string(st.st_mode)),
-                        DEVNUM_FORMAT_VAL(st.st_dev),
-                        (uint64_t) st.st_ino,
-                        DEVNUM_FORMAT_VAL(st.st_rdev),
-                        strna(path),
-                        strna(accmode_to_string(flags)));
+        LIST_FOREACH(extra_fd, i, s->extra_fds) {
+                service_dump_fd(
+                                i->fd,
+                                i->fdname,
+                                i == s->extra_fds ? "Extra File Descriptor Entry:" : "                            ",
+                                f,
+                                prefix);
         }
 }
 
@@ -1092,6 +1135,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
                         fprintf(f, "%sOpen File: %s\n", prefix, ofs);
                 }
+
+        service_dump_extra_fds(s, f, prefix);
 
         cgroup_context_dump(UNIT(s), f, prefix);
 }
@@ -1423,11 +1468,12 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds) {
+                size_t *n_storage_fds,
+                size_t *n_extra_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0, rn_storage_fds = 0, rn_extra_fds = 0;
         int r;
 
         assert(s);
@@ -1435,6 +1481,7 @@ static int service_collect_fds(
         assert(fd_names);
         assert(n_socket_fds);
         assert(n_storage_fds);
+        assert(n_extra_fds);
 
         if (s->socket_fd >= 0) {
                 Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
@@ -1512,10 +1559,44 @@ static int service_collect_fds(
                 rfd_names[n_fds] = NULL;
         }
 
+        LIST_FOREACH(extra_fd, extra_fd, s->extra_fds)
+                rn_extra_fds++;
+
+        if (rn_extra_fds > 0) {
+                size_t n_fds;
+                char **nl;
+                int *t;
+
+                t = reallocarray(rfds, rn_socket_fds + rn_storage_fds + rn_extra_fds, sizeof(int));
+                if (!t)
+                        return -ENOMEM;
+
+                rfds = t;
+
+                nl = reallocarray(rfd_names, rn_socket_fds + rn_storage_fds + rn_extra_fds + 1, sizeof(char *));
+                if (!nl)
+                        return -ENOMEM;
+
+                rfd_names = nl;
+                n_fds = rn_socket_fds + rn_storage_fds;
+
+                LIST_FOREACH(extra_fd, extra_fd, s->extra_fds) {
+                        rfds[n_fds] = extra_fd->fd;
+                        rfd_names[n_fds] = strdup(extra_fd->fdname);
+                        if (!rfd_names[n_fds])
+                                return -ENOMEM;
+
+                        n_fds++;
+                }
+
+                rfd_names[n_fds] = NULL;
+        }
+
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
         *n_storage_fds = rn_storage_fds;
+        *n_extra_fds = rn_extra_fds;
 
         return 0;
 }
@@ -1714,7 +1795,8 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds);
+                                        &exec_params.n_storage_fds,
+                                        &exec_params.n_extra_fds);
                 if (r < 0)
                         return r;
 
@@ -1722,7 +1804,7 @@ static int service_spawn_internal(
 
                 exec_params.flags |= EXEC_PASS_FDS;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
@@ -5288,6 +5370,7 @@ static void service_release_resources(Unit *u) {
 
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
+        service_release_extra_fds(s);
 
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
                 service_release_fd_store(s);
