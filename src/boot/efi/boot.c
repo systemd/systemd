@@ -1491,7 +1491,7 @@ static void boot_entry_add_type1(
 
                 } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
-                        if (!streq8(value, EFI_MACHINE_TYPE_NAME)) {
+                        if (!strcaseeq8(value, EFI_MACHINE_TYPE_NAME)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
