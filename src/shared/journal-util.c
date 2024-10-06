@@ -34,7 +34,7 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
         _cleanup_strv_free_ char **g = NULL;
         const char* dir;
 
-        if (laccess("/run/log/journal", F_OK) >= 0)
+        if (access_nofollow("/run/log/journal", F_OK) >= 0)
                 dir = "/run/log/journal";
         else
                 dir = "/var/log/journal";
