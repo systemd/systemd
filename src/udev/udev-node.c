@@ -70,7 +70,7 @@ int udev_node_cleanup(void) {
         return 0;
 }
 
-static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
+static int node_create_symlink(sd_device *dev, const char *devnode, const char *slink) {
         struct stat st;
         int r;
 
@@ -495,7 +495,7 @@ static int link_update_diskseq(sd_device *dev, const char *slink, bool add) {
                 return 0;
         }
 
-        r = node_symlink(dev, /* devnode = */ NULL, slink);
+        r = node_create_symlink(dev, /* devnode = */ NULL, slink);
         if (r < 0)
                 return r;
 
@@ -557,7 +557,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
                                 /* This device has the equal or a higher priority than the current. Let's
                                  * create the devlink to our device node. */
-                                return node_symlink(dev, NULL, slink);
+                                return node_create_symlink(dev, /* devnode = */ NULL, slink);
                         }
 
                 } else {
@@ -580,7 +580,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
         if (r > 0)
-                return node_symlink(dev, devnode, slink);
+                return node_create_symlink(dev, devnode, slink);
 
         log_device_debug(dev, "No reference left for '%s', removing", slink);
 
@@ -644,7 +644,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* always add /dev/{block,char}/$major:$minor */
-        r = node_symlink(dev, NULL, filename);
+        r = node_create_symlink(dev, /* devnode = */ NULL, filename);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
