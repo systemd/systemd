@@ -70,6 +70,17 @@ int udev_node_cleanup(void) {
         return 0;
 }
 
+static int node_remove_symlink(sd_device *dev, const char *slink) {
+        assert(dev);
+        assert(slink);
+
+        if (unlink(slink) < 0 && errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", slink);
+
+        (void) rmdir_parents(slink, "/dev");
+        return 0;
+}
+
 static int node_create_symlink(sd_device *dev, const char *devnode, const char *slink) {
         struct stat st;
         int r;
@@ -476,10 +487,10 @@ static int link_update_diskseq(sd_device *dev, const char *slink, bool add) {
 
         /* On removal, we cannot verify the diskseq. Skipping further check below. */
         if (!add) {
-                if (unlink(slink) < 0 && errno != ENOENT)
-                        return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", slink);
+                r = node_remove_symlink(dev, slink);
+                if (r < 0)
+                        return r;
 
-                (void) rmdir_parents(slink, "/dev");
                 return 1; /* done */
         }
 
@@ -583,13 +594,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return node_create_symlink(dev, devnode, slink);
 
         log_device_debug(dev, "No reference left for '%s', removing", slink);
-
-        if (unlink(slink) < 0 && errno != ENOENT)
-                log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
-
-        (void) rmdir_parents(slink, "/dev");
-
-        return 0;
+        return node_remove_symlink(dev, slink);
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
@@ -671,10 +676,7 @@ int udev_node_remove(sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* remove /dev/{block,char}/$major:$minor */
-        if (unlink(filename) < 0 && errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
-
-        return 0;
+        return node_remove_symlink(dev, filename);
 }
 
 static int udev_node_apply_permissions_impl(
