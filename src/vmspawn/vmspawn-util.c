@@ -212,7 +212,7 @@ static int get_firmware_search_dirs(char ***ret) {
          * Prioritising entries in "more specific" directories */
 
         _cleanup_free_ char *user_firmware_dir = NULL;
-        r = xdg_user_config_dir(&user_firmware_dir, "/qemu/firmware");
+        r = xdg_user_config_dir("/qemu/firmware", &user_firmware_dir);
         if (r < 0)
                 return r;
 
