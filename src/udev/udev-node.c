@@ -70,7 +70,18 @@ int udev_node_cleanup(void) {
         return 0;
 }
 
-static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
+static int node_remove_symlink(sd_device *dev, const char *slink) {
+        assert(dev);
+        assert(slink);
+
+        if (unlink(slink) < 0 && errno != ENOENT)
+                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", slink);
+
+        (void) rmdir_parents(slink, "/dev");
+        return 0;
+}
+
+static int node_create_symlink(sd_device *dev, const char *devnode, const char *slink) {
         struct stat st;
         int r;
 
@@ -423,6 +434,85 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
         return 0;
 }
 
+static int link_update_diskseq(sd_device *dev, const char *slink, bool add) {
+        _cleanup_free_ char *buf = NULL;
+        const char *fname, *diskseq;
+        int r;
+
+        assert(dev);
+        assert(slink);
+
+        if (!device_in_subsystem(dev, "block"))
+                return 0;
+
+        fname = path_startswith(slink, "/dev/disk/by-diskseq");
+        if (isempty(fname))
+                return 0;
+
+        if (device_is_devtype(dev, "partition")) {
+                _cleanup_free_ char *suffix = NULL;
+                const char *partn, *p;
+
+                /* Check if the symlink has an expected suffix "-part%n". See 60-persistent-storage.rules. */
+
+                r = sd_device_get_sysnum(dev, &partn);
+                if (r < 0) {
+                        /* Cannot verify the symlink is owned by this device. Let's create the stack directory for the symlink. */
+                        log_device_debug_errno(dev, r, "Failed to get sysnum, but symlink '%s' is requested, ignoring: %m", slink);
+                        return 0;
+                }
+
+                suffix = strjoin("-part", partn);
+                if (!suffix)
+                        return -ENOMEM;
+
+                p = endswith(fname, suffix);
+                if (!p) {
+                        log_device_debug_errno(dev, r, "Unexpected by-diskseq symlink '%s' is requested, proceeding anyway.", slink);
+                        return 0;
+                }
+
+                buf = strndup(fname, p - fname);
+                if (!buf)
+                        return -ENOMEM;
+
+                fname = buf;
+        }
+
+        /* Check if the diskseq part of the symlink is in digits. */
+        if (!in_charset(fname, DIGITS)) {
+                log_device_debug_errno(dev, r, "Unexpected by-diskseq symlink '%s' is requested, proceeding anyway.", slink);
+                return 0; /* unexpected by-diskseq symlink */
+        }
+
+        /* On removal, we cannot verify the diskseq. Skipping further check below. */
+        if (!add) {
+                r = node_remove_symlink(dev, slink);
+                if (r < 0)
+                        return r;
+
+                return 1; /* done */
+        }
+
+        /* Check if the diskseq matches with the DISKSEQ property. */
+        r = sd_device_get_property_value(dev, "DISKSEQ", &diskseq);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to get DISKSEQ property, but symlink '%s' is requested, ignoring: %m", slink);
+                return 0;
+        }
+
+        if (!streq(fname, diskseq)) {
+                log_device_debug_errno(dev, r, "Unexpected by-diskseq symlink '%s' is requested (DISKSEQ=%s), proceeding anyway.", slink, diskseq);
+                return 0;
+        }
+
+        r = node_create_symlink(dev, /* devnode = */ NULL, slink);
+        if (r < 0)
+                return r;
+
+        return 1; /* done */
+}
+
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *current_id = NULL, *devnode = NULL;
         _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
@@ -430,6 +520,10 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
         assert(dev);
         assert(slink);
+
+        r = link_update_diskseq(dev, slink, add);
+        if (r != 0)
+                return r;
 
         r = stack_directory_open(dev, slink, &dirfd, &lockfd);
         if (r < 0)
@@ -474,7 +568,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
                                 /* This device has the equal or a higher priority than the current. Let's
                                  * create the devlink to our device node. */
-                                return node_symlink(dev, NULL, slink);
+                                return node_create_symlink(dev, /* devnode = */ NULL, slink);
                         }
 
                 } else {
@@ -497,16 +591,10 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
         if (r > 0)
-                return node_symlink(dev, devnode, slink);
+                return node_create_symlink(dev, devnode, slink);
 
         log_device_debug(dev, "No reference left for '%s', removing", slink);
-
-        if (unlink(slink) < 0 && errno != ENOENT)
-                log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
-
-        (void) rmdir_parents(slink, "/dev");
-
-        return 0;
+        return node_remove_symlink(dev, slink);
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
@@ -561,7 +649,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* always add /dev/{block,char}/$major:$minor */
-        r = node_symlink(dev, NULL, filename);
+        r = node_create_symlink(dev, /* devnode = */ NULL, filename);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
@@ -588,10 +676,7 @@ int udev_node_remove(sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* remove /dev/{block,char}/$major:$minor */
-        if (unlink(filename) < 0 && errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
-
-        return 0;
+        return node_remove_symlink(dev, filename);
 }
 
 static int udev_node_apply_permissions_impl(
