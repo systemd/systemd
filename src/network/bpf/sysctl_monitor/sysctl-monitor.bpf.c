@@ -36,12 +36,12 @@ struct str {
 static long cut_last(u32 i, struct str *str) {
         char *s;
 
+        i = str->l - i - 1;
+        s = str->s + i;
+
         /* Sanity check for the preverifier */
         if (i >= str->l)
                 return 1; /* exit from the loop */
-
-        i = str->l - i - 1;
-        s = str->s + i;
 
         if (*s == 0)
                 return 0; /* continue */
