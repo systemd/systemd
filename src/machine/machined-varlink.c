@@ -2,6 +2,7 @@
 
 #include "sd-varlink.h"
 
+#include "bus-polkit.h"
 #include "format-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
@@ -399,13 +400,13 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(m->name)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
                         SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(machine_class_to_string(m->class))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->service, "service", SD_JSON_BUILD_STRING(m->service)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->root_directory, "rootDirectory", SD_JSON_BUILD_STRING(m->root_directory)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->unit, "unit", SD_JSON_BUILD_STRING(m->unit)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address));
         if (r < 0)
                 return r;
 
@@ -415,29 +416,36 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
+typedef struct MachineLookupParameters {
+        const char *machine_name;
+        pid_t pid;
+} MachineLookupParameters;
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
+        MachineLookupParameters p = { .pid = -1 };
+        Machine *machine;
         int r;
 
+        assert(link);
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &mn);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
-
-                Machine *machine = hashmap_get(m->machines, mn);
-                if (!machine)
+        if (p.machine_name || p.pid >= 0) {
+                r = lookup_machine_by_name_or_pid(link, m, p.machine_name, p.pid, &machine);
+                if (r == -ESRCH)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                if (r < 0)
+                        return r;
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
