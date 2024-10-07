@@ -9,11 +9,51 @@
 #include "networkctl-journal.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
+#include "sort-util.h"
 #include "strv.h"
+
+static int ifindex_str_compare_func(char * const *a, char * const *b) {
+        size_t al, bl;
+        int r;
+
+        al = strlen_ptr(*a);
+        bl = strlen_ptr(*b);
+
+        r = CMP(al, bl);
+        if (r != 0)
+                return r;
+
+        return strcmp_ptr(*a, *b);
+}
+
+static int get_netifs(char **ret) {
+        _cleanup_strv_free_ char **netifs = NULL;
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_files_in_directory("/run/systemd/netif/links/", &netifs);
+        if (IN_SET(r, 0, -ENOENT)) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to list network interfaces: %m");
+
+        typesafe_qsort(netifs, strv_length(netifs), ifindex_str_compare_func);
+
+        joined = strv_join(netifs, ", ");
+        if (!joined)
+                return log_oom();
+
+        *ret = TAKE_PTR(joined);
+        return 0;
+}
 
 int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         _cleanup_free_ char *operational_state = NULL, *online_state = NULL, *netifs_joined = NULL;
-        _cleanup_strv_free_ char **netifs = NULL, **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         const char *on_color_operational, *off_color_operational, *on_color_online;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
@@ -33,14 +73,9 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        r = get_files_in_directory("/run/systemd/netif/links/", &netifs);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to list network interfaces: %m");
-        else if (r > 0) {
-                netifs_joined = strv_join(netifs, ", ");
-                if (!netifs_joined)
-                        return log_oom();
-        }
+        r = get_netifs(&netifs_joined);
+        if (r < 0)
+                return r;
 
         r = table_add_many(table,
                            TABLE_FIELD, "State",
