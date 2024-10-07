@@ -686,6 +686,7 @@ static int dns_stub_patch_bypass_reply_packet(
                 DnsPacket **ret,       /* Where to place the patched packet */
                 DnsPacket *original,   /* The packet to patch */
                 DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
+                bool validated,
                 bool authenticated) {
         _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
         int r;
@@ -726,9 +727,14 @@ static int dns_stub_patch_bypass_reply_packet(
                 DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
         }
 
+        /* Patch the cd bit to reflect the state of validation: set when both we and the upstream
+         * resolver have checking disabled. */
+        DNS_PACKET_HEADER(c)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(c)->flags),
+                                DNS_PACKET_FLAG_CD, DNS_PACKET_CD(original) && !validated));
+
         /* Ensure we don't pass along an untrusted ad flag for bypass packets */
-        if (!authenticated)
-                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+        DNS_PACKET_HEADER(c)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(c)->flags),
+                                DNS_PACKET_FLAG_AD, authenticated));
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -751,6 +757,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
 
                         r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
+                                        /* validated = */ !FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                                         FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
                         if (r < 0)
                                 log_debug_errno(r, "Failed to patch bypass reply packet: %m");
@@ -982,7 +989,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   protocol_flags|
                                   SD_RESOLVED_NO_CNAME|
                                   SD_RESOLVED_NO_SEARCH|
-                                  SD_RESOLVED_NO_VALIDATE|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
                                   SD_RESOLVED_CLAMP_TTL|
                                   SD_RESOLVED_RELAX_SINGLE_LABEL);
