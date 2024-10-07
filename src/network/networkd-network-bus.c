@@ -55,30 +55,13 @@ static const sd_bus_vtable network_vtable[] = {
 };
 
 static char *network_bus_path(Network *network) {
-        _cleanup_free_ char *name = NULL, *networkname= NULL;
-        char *d, *path;
+        char *path;
         int r;
 
         assert(network);
-        assert(network->filename);
+        assert(network->name);
 
-        name = strdup(network->filename);
-        if (!name)
-                return NULL;
-
-        r = path_extract_filename(name, &networkname);
-        if (r < 0)
-                return NULL;
-
-        d = strrchr(networkname, '.');
-        if (!d)
-                return NULL;
-
-        assert(streq(d, ".network"));
-
-        *d = '\0';
-
-        r = sd_bus_path_encode("/org/freedesktop/network1/network", networkname, &path);
+        r = sd_bus_path_encode("/org/freedesktop/network1/network", network->name, &path);
         if (r < 0)
                 return NULL;
 
