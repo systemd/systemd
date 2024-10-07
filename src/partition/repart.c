@@ -479,6 +479,54 @@ static uint64_t round_up_size(uint64_t v, uint64_t p) {
         return v * p;
 }
 
+/* calculates the size of a dm-verity hash partition's contents */
+static int calculate_verity_hash_size(
+                uint64_t data_bytes,
+                uint64_t hash_block_size,
+                uint64_t data_block_size,
+                uint64_t *ret_bytes) {
+
+        /* The calculation here is based on the documented on-disk format of the dm-verity
+         * https://docs.kernel.org/admin-guide/device-mapper/verity.html#hash-tree
+         *
+         * Upstream implementation:
+         * https://gitlab.com/cryptsetup/cryptsetup/-/blob/v2.7.5/lib/verity/verity_hash.c */
+
+        uint64_t data_blocks = DIV_ROUND_UP(data_bytes, data_block_size);
+        if (data_blocks > UINT64_MAX / data_block_size)
+                return -EOVERFLOW;
+
+        /* hashes that fit in one hash block (node in the merkle tree) */
+        uint64_t hashes_per_hash_block = hash_block_size / SHA256_DIGEST_SIZE;
+
+        /* initialize with 2 for the root of the merkle tree + the superblock */
+        uint64_t hash_blocks = 2;
+
+        /* iterate through the levels of the merkle tree bottom up */
+        uint64_t remaining_blocks = data_blocks;
+
+        while (remaining_blocks > hashes_per_hash_block) {
+                uint64_t hash_blocks_for_level;
+                /* number of hash blocks required to reference the underlying blocks */
+                hash_blocks_for_level = DIV_ROUND_UP(remaining_blocks, hashes_per_hash_block);
+
+                if (hash_blocks > UINT64_MAX - hash_blocks_for_level)
+                        return -EOVERFLOW;
+
+                /* add current layer to the total number of hash blocks */
+                hash_blocks += hash_blocks_for_level;
+                /* hashes on this level serve as the blocks on which the next level is built */
+                remaining_blocks = hash_blocks_for_level;
+        }
+
+        if (hash_blocks > UINT64_MAX / hash_block_size)
+                return -EOVERFLOW;
+
+        *ret_bytes = hash_blocks * hash_block_size;
+
+        return 0;
+}
+
 static Partition *partition_new(void) {
         Partition *p;
 
@@ -4858,11 +4906,6 @@ static int partition_format_verity_hash(
                 node = partition_target_path(t);
         }
 
-        if (p->verity_data_block_size == UINT64_MAX)
-                p->verity_data_block_size = context->fs_sector_size;
-        if (p->verity_hash_block_size == UINT64_MAX)
-                p->verity_hash_block_size = context->fs_sector_size;
-
         r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
@@ -7392,6 +7435,62 @@ static int context_crypttab(Context *context) {
         return 0;
 }
 
+/* update block sizes for verity siblings, calculate hash partition size if requested */
+static int context_update_verity_size(Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+
+                if (p->verity_data_block_size == UINT64_MAX)
+                        p->verity_data_block_size = context->fs_sector_size;
+
+                if (p->verity_hash_block_size == UINT64_MAX)
+                        p->verity_hash_block_size = context->fs_sector_size;
+
+                uint64_t sz;
+                if (dp->size_max != UINT64_MAX) {
+                        r = calculate_verity_hash_size(
+                                        dp->size_max,
+                                        p->verity_hash_block_size,
+                                        p->verity_data_block_size,
+                                        &sz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to caculate size of dm-verity hash partition");
+
+                        if (sz > p->size_max) {
+                                log_warning("SizeMaxBytes=%" PRIu64 " of dm-verity hash partition too small for "
+                                            "data partition with SizeMaxBytes=%" PRIu64 ". Hash partition would "
+                                            "require %" PRIu64 " bytes for a data partition of specified max size. "
+                                            "Consider increasing SizeMaxBytes= of hash partition, or decreasing "
+                                            "SizeMaxBytes= of data partition.",
+                                            p->size_max, dp->size_max, sz);
+                        } else {
+                                log_debug("Deriving size of verity hash partition %s from verity data partition %s.",
+                                                p->definition_path, dp->definition_path);
+
+                                p->size_min = sz;
+                                p->size_max = sz;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 static int context_minimize(Context *context) {
         const char *vt = NULL;
         unsigned attrs = 0;
@@ -9043,6 +9142,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_crypttab(context);
+        if (r < 0)
+                return r;
+
+        r = context_update_verity_size(context);
         if (r < 0)
                 return r;
 
