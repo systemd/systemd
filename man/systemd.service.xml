@@ -407,12 +407,11 @@
       <varlistentry>
         <term><varname>ExecStartPre=</varname></term>
         <term><varname>ExecStartPost=</varname></term>
-        <listitem><para>Additional commands that are executed before
-        or after the command in <varname>ExecStart=</varname>,
-        respectively. Syntax is the same as for
-        <varname>ExecStart=</varname>, except that multiple command
-        lines are allowed and the commands are executed one after the
-        other, serially.</para>
+
+        <listitem><para>Additional commands that are executed before or after the command in
+        <varname>ExecStart=</varname>, respectively. Syntax is the same as for <varname>ExecStart=</varname>.
+        Multiple command lines are allowed, regardless of the service type (i.e. <varname>Type=</varname>),
+        and the commands are executed one after the other, serially.</para>
 
         <para>If any of those commands (not prefixed with
         <literal>-</literal>) fail, the rest are not executed and the
@@ -448,8 +447,9 @@
 
       <varlistentry>
         <term><varname>ExecCondition=</varname></term>
-        <listitem><para>Optional commands that are executed before the commands in <varname>ExecStartPre=</varname>.
-        Syntax is the same as for <varname>ExecStart=</varname>, except that multiple command lines are allowed and the
+        <listitem><para>Optional commands that are executed before the commands in
+        <varname>ExecStartPre=</varname>. Syntax is the same as for <varname>ExecStart=</varname>. Multiple
+        command lines are allowed, regardless of the service type (i.e. <varname>Type=</varname>), and the
         commands are executed one after the other, serially.</para>
 
         <para>The behavior is like an <varname>ExecStartPre=</varname> and condition check hybrid: when an
