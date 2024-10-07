@@ -117,6 +117,10 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         endif
 endif
 
+if conf.get('ENABLE_DNS_OVER_HTTPS') == 1
+        systemd_resolved_dependencies += libcurl
+endif
+
 link_with = [
         libshared,
         libsystemd_resolve_core,
