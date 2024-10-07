@@ -73,7 +73,7 @@ jobs:
             cflags: "-Og"
             relabel: no
           - distro: fedora
-            release: "40"
+            release: "41"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
