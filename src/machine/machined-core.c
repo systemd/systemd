@@ -399,7 +399,6 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 return -EOPNOTSUPP;
         }
 
-
         *ret_os_release = TAKE_PTR(l);
         return 0;
 }

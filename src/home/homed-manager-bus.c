@@ -485,7 +485,6 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_unregister, error);
 }
 
-
 static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;

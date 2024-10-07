@@ -731,7 +731,6 @@ int unit_exists(LookupPaths *lp, const char *unit) {
         return !streq_ptr(info.load_state, "not-found") || !streq_ptr(info.active_state, "inactive");
 }
 
-
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         _cleanup_strv_free_ char **with_deps = NULL;
 

@@ -16,7 +16,6 @@
 #include "string-table.h"
 #include "utf8.h"
 
-
 #if defined(__x86_64__)
 
 static void cpuid(uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {

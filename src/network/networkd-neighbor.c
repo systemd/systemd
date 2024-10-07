@@ -727,7 +727,6 @@ int network_drop_invalid_neighbors(Network *network) {
         return 0;
 }
 
-
 int config_parse_neighbor_section(
                 const char *unit,
                 const char *filename,

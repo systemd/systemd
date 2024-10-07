@@ -6,7 +6,6 @@
 #include "cryptsetup-util.h"
 #include "time-util.h"
 
-
 int parse_integrity_options(
                 const char *options,
                 uint32_t *ret_activate_flags,

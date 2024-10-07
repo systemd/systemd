@@ -504,7 +504,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
 
-
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_device_key);
                         if (r < 0)
                                 return r;

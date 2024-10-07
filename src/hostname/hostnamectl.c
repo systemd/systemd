@@ -519,7 +519,6 @@ static int show_status(int argc, char **argv, void *userdata) {
         return show_all_names(bus);
 }
 
-
 static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         int r;

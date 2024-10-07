@@ -346,7 +346,6 @@ enum nss_status userdb_getgrgid(
                 size_t buflen,
                 int *errnop) {
 
-
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         _cleanup_strv_free_ char **members = NULL;
         bool from_nss;
