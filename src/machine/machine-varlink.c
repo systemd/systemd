@@ -14,6 +14,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "varlink-util.h"
@@ -316,6 +317,69 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
         r = machine_stop(machine);
         if (r < 0)
                 return log_debug_errno(r, "Failed to stop machine: %m");
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                const char *machine_name;
+                pid_t pid;
+                const char *swhom;
+                int32_t signo;
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(struct params),
+                { "whom",   SD_JSON_VARIANT_STRING,         sd_json_dispatch_const_string, offsetof(struct params, swhom), 0 },
+                { "signal", _SD_JSON_VARIANT_TYPE_INVALID , sd_json_dispatch_int32,        offsetof(struct params, signo), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        struct params p = { .pid = -1 };
+        KillWhom whom;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r < 0)
+                return r;
+
+        if (isempty(p.swhom))
+                whom = KILL_ALL;
+        else {
+                whom = kill_whom_from_string(p.swhom);
+                if (whom < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "whom");
+        }
+
+        if (!SIGNAL_VALID(p.signo))
+                return sd_varlink_error_invalid_parameter_name(link, "signal");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "kill"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_kill(machine, whom, p.signo);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send signal to machine: %m");
 
         return sd_varlink_reply(link, NULL);
 }
