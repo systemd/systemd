@@ -494,7 +494,7 @@ static int context_show_version(Context *c, const char *version) {
         if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 (void) pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (!sd_json_enabled(arg_json_format_flags))
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s\n"
@@ -695,7 +695,7 @@ static int context_show_version(Context *c, const char *version) {
                 (void) table_hide_column_from_display(t, 12);
 
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s%s%s%s\n"
@@ -775,7 +775,7 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 if (count > 0)
                         log_info("Removed %i instances.", count);
                 else
@@ -1053,7 +1053,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return context_show_version(context, version);
-        else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        else if (!sd_json_enabled(arg_json_format_flags))
                 return context_show_table(context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
@@ -1113,7 +1113,7 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 if (!context->candidate) {
                         log_debug("No candidate found.");
                         return EXIT_FAILURE;
@@ -1373,7 +1373,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
 
         strv_sort(z);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 if (!has_default_component && set_isempty(names)) {
                         log_info("No components defined.");
                         return 0;

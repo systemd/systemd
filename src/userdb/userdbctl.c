@@ -1208,7 +1208,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
-                        arg_output = FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
+                        arg_output = sd_json_enabled(arg_json_format_flags) ? OUTPUT_JSON : _OUTPUT_INVALID;
                         break;
 
                 case 'j':

@@ -843,7 +843,7 @@ int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (config.n_entries == 0 && FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (config.n_entries == 0 && !sd_json_enabled(arg_json_format_flags)) {
                 log_info("No boot loader entries found.");
                 return 0;
         }

@@ -118,12 +118,13 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                 return table_log_add_error(r);
                 }
 
-                if (json_flags & SD_JSON_FORMAT_OFF) {
+                if (sd_json_enabled(json_flags))
+                        sd_json_variant_dump(package_metadata, json_flags, stdout, NULL);
+                else {
                         r = table_print(t, NULL);
                         if (r < 0)
                                 return table_log_print_error(r);
-                } else
-                        sd_json_variant_dump(package_metadata, json_flags, stdout, NULL);
+                }
         }
 
         return 0;

@@ -1699,7 +1699,7 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
 
         assert(unit);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_enabled(arg_json_format_flags)) {
                 if (sd_id128_is_null(invocation_id))
                         log_info("Running as unit: %s", unit);
                 else
