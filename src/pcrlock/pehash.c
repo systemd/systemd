@@ -216,9 +216,22 @@ int uki_hash(int fd,
                 if (EVP_DigestInit_ex(mdctx, md, NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
-                r = hash_file(fd, mdctx, section->PointerToRawData, section->VirtualSize);
+                r = hash_file(fd, mdctx, section->PointerToRawData, MIN(section->VirtualSize, section->SizeOfRawData));
                 if (r < 0)
                         return r;
+
+                if (section->SizeOfRawData < section->VirtualSize) {
+                        size_t remaining = section->VirtualSize - section->SizeOfRawData;
+
+                        while (remaining > 0) {
+                                size_t sz = MIN(1024U, remaining);
+
+                                if (EVP_DigestUpdate(mdctx, (char[1024]) {}, sz) != 1)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to hash data.");
+
+                                remaining -= sz;
+                        }
+                }
 
                 hashes[i] = malloc(hsz);
                 if (!hashes[i])
