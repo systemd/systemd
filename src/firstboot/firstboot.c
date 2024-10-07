@@ -1705,15 +1705,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = process_machine_id(rfd);
-        if (r < 0)
-                return r;
-
         r = process_root_account(rfd);
         if (r < 0)
                 return r;
 
         r = process_kernel_cmdline(rfd);
+        if (r < 0)
+                return r;
+
+        r = process_machine_id(rfd);
         if (r < 0)
                 return r;
 
