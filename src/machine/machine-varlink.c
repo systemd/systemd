@@ -14,6 +14,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "varlink-util.h"
@@ -185,6 +186,200 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 
         /* the manager will free this machine */
         TAKE_PTR(machine);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char *machine_name, Machine **ret_machine) {
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+
+        if (!machine_name)
+                return -EINVAL;
+
+        if (!hostname_is_valid(machine_name, /* flags= */ VALID_HOSTNAME_DOT_HOST))
+                return -EINVAL;
+
+        Machine *machine = hashmap_get(manager->machines, machine_name);
+        if (!machine)
+                return -ESRCH;
+
+        *ret_machine = machine;
+        return 0;
+}
+
+static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, Machine **ret_machine) {
+        Machine *machine;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
+        if (pid == 0) {
+                int pidfd = sd_varlink_get_peer_pidfd(link);
+                if (pidfd < 0)
+                        return log_debug_errno(pidfd, "Failed to get peer pidfd: %m");
+
+                r = pidfd_get_pid(pidfd, &pid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get pid from pidfd: %m");
+        }
+
+        if (pid <= 0)
+                return -EINVAL;
+
+        r = manager_get_machine_by_pid(manager, pid, &machine);
+        if (r < 0)
+                return r;
+        if (!machine)
+                return -ESRCH;
+
+        *ret_machine = machine;
+        return 0;
+}
+
+int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char *machine_name, pid_t pid, Machine **ret_machine) {
+        Machine *machine = NULL, *pid_machine = NULL;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(ret_machine);
+
+        if (machine_name) {
+                r = lookup_machine_by_name(link, manager, machine_name, &machine);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "name");
+                if (r < 0)
+                        return r;
+        }
+
+        if (pid >= 0) {
+                r = lookup_machine_by_pid(link, manager, pid, &pid_machine);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "pid");
+                if (r < 0)
+                        return r;
+        }
+
+        if (machine && pid_machine && machine != pid_machine)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Search by machine name '%s' and pid %d resulted in two different machines", machine_name, pid);
+        else if (machine)
+                *ret_machine = machine;
+        else if (pid_machine)
+                *ret_machine = pid_machine;
+        else
+                return -ESRCH;
+
+        return 0;
+}
+
+int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "unregister"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_finalize(machine);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to finalize machine: %m");
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "terminate"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_stop(machine);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to stop machine: %m");
+
+        return sd_varlink_reply(link, NULL);
+}
+
+int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                const char *machine_name;
+                pid_t pid;
+                const char *swhom;
+                int32_t signo;
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(struct params),
+                { "whom",   SD_JSON_VARIANT_STRING,         sd_json_dispatch_const_string, offsetof(struct params, swhom), 0 },
+                { "signal", _SD_JSON_VARIANT_TYPE_INVALID , sd_json_dispatch_int32,        offsetof(struct params, signo), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        struct params p = { .pid = -1 };
+        KillWhom whom;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r < 0)
+                return r;
+
+        if (isempty(p.swhom))
+                whom = KILL_ALL;
+        else {
+                whom = kill_whom_from_string(p.swhom);
+                if (whom < 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "whom");
+        }
+
+        if (!SIGNAL_VALID(p.signo))
+                return sd_varlink_error_invalid_parameter_name(link, "signal");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "kill"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_kill(machine, whom, p.signo);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send signal to machine: %m");
 
         return sd_varlink_reply(link, NULL);
 }
