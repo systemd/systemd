@@ -1801,6 +1801,13 @@ def create_parser() -> argparse.ArgumentParser:
     return p
 
 
+def resolve_at_path(value: Optional[str]) -> str:
+    if value and value.startswith('@'):
+        return Path(value[1:])
+
+    return value
+
+
 def finalize_options(opts: argparse.Namespace) -> None:
     # Figure out which syntax is being used, one of:
     # ukify verb --arg --arg --arg
@@ -1835,17 +1842,17 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 
-    if opts.cmdline and opts.cmdline.startswith('@'):
-        opts.cmdline = Path(opts.cmdline[1:])
-    elif opts.cmdline:
+    opts.cmdline = resolve_at_path(opts.cmdline)
+
+    if isinstance(opts.cmdline, str):
         # Drop whitespace from the command line. If we're reading from a file,
         # we copy the contents verbatim. But configuration specified on the command line
         # or in the config file may contain additional whitespace that has no meaning.
         opts.cmdline = ' '.join(opts.cmdline.split())
 
-    if opts.os_release and opts.os_release.startswith('@'):
-        opts.os_release = Path(opts.os_release[1:])
-    elif not opts.os_release and opts.linux:
+    opts.os_release = resolve_at_path(opts.os_release)
+
+    if not opts.os_release and opts.linux:
         p = Path('/etc/os-release')
         if not p.exists():
             p = Path('/usr/lib/os-release')
