@@ -400,13 +400,13 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(m->name)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
                         SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(machine_class_to_string(m->class))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->service, "service", SD_JSON_BUILD_STRING(m->service)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->root_directory, "rootDirectory", SD_JSON_BUILD_STRING(m->root_directory)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->unit, "unit", SD_JSON_BUILD_STRING(m->unit)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address));
         if (r < 0)
                 return r;
 
