@@ -1816,7 +1816,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r > 0) {
                         dns_transaction_randomize_answer(t);
 
-                        if (t->bypass && t->scope->protocol == DNS_PROTOCOL_DNS && !t->received)
+                        if (t->bypass && t->scope->protocol == DNS_PROTOCOL_DNS && (!t->received ||
+                                                !DNS_PACKET_CD(t->bypass)))
                                 /* When bypass mode is on, do not use cached data unless it came with a full
                                  * packet. */
                                 dns_transaction_reset_answer(t);
