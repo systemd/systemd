@@ -138,8 +138,8 @@ Features:
   in /run/ where components can bind such sockets. Then make journald, logind,
   and pid1 itself implement this and expose various stats on things there. Then
   issue parallel calls to these interfaces from the systemd-report tool,
-  combine into one json document, and include measurment logs and tpm
-  quote. tpm quote should proctect the json doc via the nonce field
+  combine into one json document, and include measurement logs and tpm
+  quote. tpm quote should protect the json doc via the nonce field
   studd. Allow shipping this off elsewhere for analyze.
 
 * The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
@@ -613,7 +613,7 @@ Features:
 * measure some string via pcrphase whenever we end up booting into emergency
   mode.
 
-* similar, measure some string via pcrphase whenver we resume from hibernate
+* similar, measure some string via pcrphase whenever we resume from hibernate
 
 * homed: add a basic form of secrets management to homed, that stores
   secrets in $HOME somewhere, is protected by the accounts own authentication
