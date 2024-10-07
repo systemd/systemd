@@ -2438,7 +2438,7 @@ static int acquire_group_list(char ***ret) {
                 log_debug_errno(r, "No groups found.");
         else if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate groups, ignoring: %m");
-        else {
+        else
                 for (;;) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
@@ -2468,7 +2468,6 @@ static int acquire_group_list(char ***ret) {
                         if (r < 0)
                                 return log_oom();
                 }
-        }
 
         strv_sort(groups);
 
