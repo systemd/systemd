@@ -152,7 +152,7 @@ struct Manager {
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_monitor_server;
 
-        Set *varlink_subscription;
+        Set *varlink_query_results_subscription;
 
         sd_event_source *clock_change_event_source;
 
