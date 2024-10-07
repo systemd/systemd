@@ -503,6 +503,10 @@ static int vl_method_unregister(sd_varlink *link, sd_json_variant *parameters, s
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_unregister_internal);
 }
 
+static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_terminate_internal);
+}
+
 static int manager_varlink_init_userdb(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
@@ -567,7 +571,8 @@ static int manager_varlink_init_machine(Manager *m) {
                         s,
                         "io.systemd.Machine.Register",   vl_method_register,
                         "io.systemd.Machine.List",       vl_method_list,
-                        "io.systemd.Machine.Unregister", vl_method_unregister);
+                        "io.systemd.Machine.Unregister", vl_method_unregister,
+                        "io.systemd.Machine.Terminate",  vl_method_terminate);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

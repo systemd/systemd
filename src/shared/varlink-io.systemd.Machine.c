@@ -33,6 +33,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The name of a machine to unregister."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Terminate,
+                SD_VARLINK_FIELD_COMMENT("The name of a machine to terminate."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -73,6 +78,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Timestamp,
                 &vl_method_Register,
                 &vl_method_Unregister,
+                SD_VARLINK_SYMBOL_COMMENT("Terminate machine, killing its processes"),
+                &vl_method_Terminate,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),

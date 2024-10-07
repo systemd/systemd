@@ -306,3 +306,25 @@ int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters,
 
         return sd_varlink_reply(link, NULL);
 }
+
+int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Machine *machine = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(machine->manager);
+        int r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "terminate"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_stop(machine);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
