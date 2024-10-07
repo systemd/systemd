@@ -26,6 +26,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "portable-util.h"
 #include "pretty-print.h"
 #include "seccomp-util.h"
 #include "service.h"

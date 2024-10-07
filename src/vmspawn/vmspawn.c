@@ -1488,11 +1488,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* if we are going to be starting any units with state then create our runtime dir */
         if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
-                r = runtime_directory(&arg_runtime_directory, arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn");
+                r = runtime_directory(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn",
+                                      &arg_runtime_directory);
                 if (r < 0)
                         return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r) {
-                        /* r > 0 means we need to create our own runtime dir */
+                if (r > 0) { /* We need to create our own runtime dir */
                         r = mkdir_p(arg_runtime_directory, 0755);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create runtime directory: %m");

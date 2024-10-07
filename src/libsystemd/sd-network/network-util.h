@@ -4,7 +4,11 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#include "constants.h"
 #include "macro.h"
+
+#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
+#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
 
 bool network_is_online(void);
 

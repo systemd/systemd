@@ -15,6 +15,7 @@
 #include "in-addr-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
+#include "network-util.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
