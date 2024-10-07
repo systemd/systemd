@@ -816,7 +816,7 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
 
         r = sd_json_parse_file(f, "stdout", 0, &v, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse JSON: %m");
+                return log_debug_errno(r, "Failed to parse JSON: %m");
 
         *ret = TAKE_PTR(v);
         return 0;
@@ -824,8 +824,12 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(target_property_get_class, target_class, TargetClass);
 
-#define log_sysupdate_bad_json(verb, msg) \
-        log_debug("Invalid JSON response from 'systemd-sysupdate %s': %s", verb, msg)
+#define log_sysupdate_bad_json_full(lvl, r, verb, msg) \
+        log_full_errno((lvl), (r), "Invalid JSON response from 'systemd-sysupdate %s': %s", (verb), (msg))
+#define log_sysupdate_bad_json(r, verb, msg) \
+        log_sysupdate_bad_json_full(LOG_ERR, (r), (verb), (msg))
+#define log_sysupdate_bad_json_debug(r, verb, msg) \
+        log_sysupdate_bad_json_full(LOG_DEBUG, (r), (verb), (msg))
 
 static int target_method_list_finish(
                 sd_bus_message *msg,
@@ -841,14 +845,12 @@ static int target_method_list_finish(
         assert(json);
 
         v = sd_json_variant_by_key(json, "all");
-        if (!v) {
-                log_sysupdate_bad_json("list", "Missing key 'all'");
-                return -EINVAL;
-        }
+        if (!v)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'all'");
 
         r = sd_json_variant_strv(v, &versions);
         if (r < 0)
-                return r;
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'all' should be strv");
 
         r = sd_bus_message_new_method_return(msg, &reply);
         if (r < 0)
@@ -991,10 +993,8 @@ static int target_method_check_new_finish(
         assert(json);
 
         sd_json_variant *v = sd_json_variant_by_key(json, "available");
-        if (!v) {
-                log_sysupdate_bad_json("check-new", "Missing key 'available'");
-                return -EINVAL;
-        }
+        if (!v)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "check-new", "Missing key 'available'");
 
         if (sd_json_variant_is_null(v))
                 reply = "";
@@ -1131,13 +1131,20 @@ static int target_method_vacuum_finish(
                 sd_json_variant *json,
                 sd_bus_error *error) {
 
+        sd_json_variant *v;
         uint64_t instances;
 
         assert(json);
 
-        instances = sd_json_variant_unsigned(sd_json_variant_by_key(json, "removed"));
+        v = sd_json_variant_by_key(json, "removed");
+        if (!v)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Missing key 'removed'");
+        if (!sd_json_variant_is_unsigned(v))
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Key 'removed' should be an unsigned int");
+        instances = sd_json_variant_unsigned(v);
+        assert(instances <= UINT32_MAX);
 
-        return sd_bus_reply_method_return(msg, "u", instances);
+        return sd_bus_reply_method_return(msg, "u", (uint32_t) instances);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1184,21 +1191,17 @@ static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus
 
         r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to run 'systemd-sysupdate list': %m");
 
         version_json = sd_json_variant_by_key(v, "current");
-        if (!version_json) {
-                log_sysupdate_bad_json("list", "Missing key 'current'");
-                return -EINVAL;
-        }
+        if (!version_json)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'current'");
 
         if (sd_json_variant_is_null(version_json))
                 return sd_bus_reply_method_return(msg, "s", "");
 
-        if (!sd_json_variant_is_string(version_json)) {
-                log_sysupdate_bad_json("list", "Expected string value for key 'current'");
-                return -EINVAL;
-        }
+        if (!sd_json_variant_is_string(version_json))
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'current' should be a string");
 
         return sd_bus_reply_method_return(msg, "s", sd_json_variant_string(version_json));
 }
@@ -1210,19 +1213,15 @@ static int target_get_appstream(Target *t, char ***ret) {
 
         r = sysupdate_run_simple(&v, t, "--offline", "list", NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to run 'systemd-sysupdate list': %m");
 
         appstream_url_json = sd_json_variant_by_key(v, "appstream_urls");
-        if (!appstream_url_json) {
-                log_sysupdate_bad_json("list", "Missing key 'appstream_urls'");
-                return -EINVAL;
-        }
+        if (!appstream_url_json)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'appstream_urls'");
 
         r = sd_json_variant_strv(appstream_url_json, ret);
-        if (r < 0) {
-                log_sysupdate_bad_json("list", "Expected array of strings for key 'appstream_urls'");
-                return r;
-        }
+        if (r < 0)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'appstream_urls' should be strv");
 
         return 0;
 }
@@ -1257,19 +1256,19 @@ static int target_list_components(Target *t, char ***ret_components, bool *ret_h
 
         r = sysupdate_run_simple(&json, t, "components", NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to run 'systemd-sysupdate components': %m");
 
         v = sd_json_variant_by_key(json, "default");
         if (!v)
-                return -EINVAL;
+                return log_sysupdate_bad_json_debug(SYNTHETIC_ERRNO(EPROTO), "components", "Missing key 'default'");
         have_default = sd_json_variant_boolean(v);
 
         v = sd_json_variant_by_key(json, "components");
         if (!v)
-                return -EINVAL;
+                return log_sysupdate_bad_json_debug(SYNTHETIC_ERRNO(EPROTO), "components", "Missing key 'components'");
         r = sd_json_variant_strv(v, &components);
         if (r < 0)
-                return r;
+                return log_sysupdate_bad_json_debug(SYNTHETIC_ERRNO(EPROTO), "components", "Key 'components' should be a strv");
 
         if (ret_components)
                 *ret_components = TAKE_PTR(components);
@@ -1670,7 +1669,11 @@ static int manager_enumerate_targets(Manager *m) {
                                           target_class_to_string(*class));
         }
 
-        return manager_enumerate_components(m);
+        r = manager_enumerate_components(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enumerate components, ignoring: %m");
+
+        return 0;
 }
 
 static int manager_ensure_targets(Manager *m) {
