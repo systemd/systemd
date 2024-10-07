@@ -2,20 +2,21 @@
 #
 # Kabyle translation of systemd.
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
+# ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2021-10-03 16:04+0000\n"
-"Last-Translator: Slimane Selyan Amiri <selyan.kab@gmail.com>\n"
+"PO-Revision-Date: 2024-10-07 04:52+0000\n"
+"Last-Translator: ButterflyOfFire <butterflyoffire@protonmail.com>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
-"master/kab/>\n"
+"main/kab/>\n"
 "Language: kab\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 5.7.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -142,7 +143,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Awal n uɛeddi: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
@@ -366,7 +367,7 @@ msgstr ""
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "Sbedd tutlayt n unagraw"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
@@ -535,7 +536,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Ales asenker n unagraw"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
@@ -563,7 +564,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "Sexsi anagraw"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
