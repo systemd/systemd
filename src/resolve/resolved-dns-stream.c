@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
 #include <netinet/tcp.h>
 #include <unistd.h>
 
@@ -568,7 +569,7 @@ int dns_stream_new(
 
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
-                s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
+                s->tfo_salen = SOCKADDR_LEN(*tfo_address);
         }
 
         *ret = TAKE_PTR(s);
