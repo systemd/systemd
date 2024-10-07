@@ -1967,7 +1967,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
-        <literal>identity</literal>. Defaults to off. If enabled, sets up a new user namespace for the
+        <literal>identity</literal>. Defaults to false. If enabled, sets up a new user namespace for the
         executed processes and configures a user and group mapping. If set to a true value or
         <literal>self</literal>, a minimal user and group mapping is configured that maps the
         <literal>root</literal> user and group as well as the unit's own user and group to themselves and
