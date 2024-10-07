@@ -2370,7 +2370,6 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->dnskey.algorithm)),
                                 SD_JSON_BUILD_PAIR("dnskey", SD_JSON_BUILD_BASE64(rr->dnskey.key, rr->dnskey.key_size)));
 
-
         case DNS_TYPE_RRSIG:
                 return sd_json_buildo(
                                 ret,

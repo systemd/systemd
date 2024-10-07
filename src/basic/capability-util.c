@@ -637,7 +637,6 @@ int capability_get_ambient(uint64_t *ret) {
                         a |= UINT64_C(1) << i;
         }
 
-
         *ret = a;
         return 1;
 }

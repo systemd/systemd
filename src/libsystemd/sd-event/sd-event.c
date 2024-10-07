@@ -1689,7 +1689,6 @@ _public_ int sd_event_add_child_pidfd(
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
-
         _cleanup_(source_freep) sd_event_source *s = NULL;
         pid_t pid;
         int r;
@@ -4924,7 +4923,6 @@ _public_ int sd_event_loop(sd_event *e) {
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(!event_origin_changed(e), -ECHILD);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
-
 
         PROTECT_EVENT(e);
 

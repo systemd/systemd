@@ -3877,7 +3877,6 @@ static int context_dump(Context *context, bool late) {
         return 0;
 }
 
-
 static bool context_changed(const Context *context) {
         assert(context);
 

@@ -187,7 +187,6 @@ static int fscrypt_slot_try_one(
                 const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
                 void **ret_decrypted, size_t *ret_decrypted_size) {
 
-
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_(erase_and_freep) void *decrypted = NULL;
         uint8_t key_descriptor[FS_KEY_DESCRIPTOR_SIZE];

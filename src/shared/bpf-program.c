@@ -138,7 +138,6 @@ int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret) {
         return 0;
 }
 
-
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructions, size_t count) {
 
         assert(p);

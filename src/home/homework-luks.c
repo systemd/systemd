@@ -728,7 +728,6 @@ static int luks_validate(
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
                         continue;
 
-
                 r = blkid_partition_get_uuid_id128(pp, &id);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");

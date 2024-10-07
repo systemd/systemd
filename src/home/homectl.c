@@ -183,7 +183,6 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-
                 r = table_add_cell(table, &cell, TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);

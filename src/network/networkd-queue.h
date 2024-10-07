@@ -189,7 +189,6 @@ int remove_request_add(
                 _r;                                                     \
         })
 
-
 #define link_remove_request_add(link, data, name, nl, m, handler)       \
         ({                                                              \
                 Link *_link = (link);                                   \

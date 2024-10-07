@@ -1410,7 +1410,6 @@ typedef int (*output_func_t)(
                 dual_timestamp *previous_display_ts,
                 sd_id128_t *previous_boot_id);
 
-
 static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
@@ -1700,7 +1699,6 @@ int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
                         (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
                         (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
                 );
-
 
         if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */

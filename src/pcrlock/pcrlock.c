@@ -850,7 +850,6 @@ catchall:
                 return log_oom();
         return 1;
 
-
 invalid:
         /* Mark the payload as invalid, so that we do not bother parsing/validating it any further */
         rec->event_payload_valid = EVENT_PAYLOAD_VALID_NO;

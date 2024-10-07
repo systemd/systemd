@@ -176,7 +176,6 @@ int config_parse_cpu_shares(
         assert(lvalue);
         assert(rvalue);
 
-
         log_syntax(unit, LOG_WARNING, filename, line, 0,
                    "Unit uses %s=; please use CPUWeight= instead. Support for %s= will be removed soon.",
                    lvalue, lvalue);
