@@ -307,7 +307,6 @@ static int read_loopback_backing_inode(
         *ret_fname = TAKE_PTR(fn);
         return 1;
 
-
 notloop:
         *ret_devno = 0;
         *ret_inode = 0;

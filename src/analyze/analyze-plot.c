@@ -33,7 +33,6 @@
 #define svg_timestamp(b, t, y) \
         svg_text(b, t, y, "%u.%03us", (unsigned)((t) / USEC_PER_SEC), (unsigned)(((t) % USEC_PER_SEC) / USEC_PER_MSEC))
 
-
 typedef struct HostInfo {
         char *hostname;
         char *kernel_name;

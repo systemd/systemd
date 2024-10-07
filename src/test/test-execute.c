@@ -422,7 +422,6 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
 
         (void) unlink("/tmp/test-exec_environmentfile.conf");
 
-
         r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
         ASSERT_OK(r);
 

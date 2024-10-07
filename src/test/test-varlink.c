@@ -260,7 +260,6 @@ static void *thread(void *arg) {
         assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id) >= 0);
         assert_se(strcmp_ptr(error_id, "org.varlink.service.InvalidParameter") == 0);
 
-
         assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
 
         assert_se(!error_id);

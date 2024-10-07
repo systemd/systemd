@@ -415,7 +415,6 @@ TEST_BARRIER(barrier_pending_exit,
         }),
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
-
 static int intro(void) {
         if (!slow_tests_enabled())
                 return log_tests_skipped("slow tests are disabled");

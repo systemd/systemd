@@ -12,7 +12,6 @@ const char* fs_type_to_string(statfs_f_type_t magic) {
         return NULL;
 }
 
-
 int fs_type_from_string(const char *name, const statfs_f_type_t **ret) {
         const struct FilesystemMagic *fs_magic;
 

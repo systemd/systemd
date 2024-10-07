@@ -508,7 +508,6 @@ static int stdout_stream_scan(
         assert(s);
         assert(p);
 
-
         for (;;) {
                 LineBreak line_break;
                 size_t skip, found;

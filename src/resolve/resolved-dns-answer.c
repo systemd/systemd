@@ -663,7 +663,6 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
                 if (dns_resource_record_is_link_local_address(item->rr) != prefer_link_local)
                         *p++ = dns_answer_item_ref(item);
 
-
         assert((size_t) (p - items) == n);
 
         ordered_set_clear(a->items);

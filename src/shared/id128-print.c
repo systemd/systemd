@@ -45,7 +45,6 @@ int id128_pretty_print_sample(const char *name, sd_id128_t id) {
         return 0;
 }
 
-
 int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
         assert(mode >= 0);
         assert(mode < _ID128_PRETTY_PRINT_MODE_MAX);

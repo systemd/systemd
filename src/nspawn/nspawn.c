@@ -6168,7 +6168,6 @@ static int run(int argc, char *argv[]) {
                 assert(arg_image);
                 assert(!arg_template);
 
-
                 r = chase_and_update(&arg_image, 0);
                 if (r < 0)
                         goto finish;

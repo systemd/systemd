@@ -911,7 +911,6 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
                         return r;
         }
 
-
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
