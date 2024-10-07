@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
@@ -124,5 +125,7 @@ bool link_address_relevant(LinkAddress *l, bool local_multicast);
 void link_address_add_rrs(LinkAddress *a, bool force_remove);
 
 bool link_negative_trust_anchor_lookup(Link *l, const char *name);
+
+int link_dump_configuration_json(Link *l, sd_json_variant **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
