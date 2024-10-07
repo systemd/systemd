@@ -24,8 +24,7 @@ struct prioq_item {
 
 struct Prioq {
         compare_func_t compare_func;
-        unsigned n_items, n_allocated;
-
+        unsigned n_items;
         struct prioq_item *items;
 };
 
@@ -142,28 +141,18 @@ static unsigned shuffle_down(Prioq *q, unsigned idx) {
 }
 
 int prioq_put(Prioq *q, void *data, unsigned *idx) {
-        struct prioq_item *i;
         unsigned k;
 
         assert(q);
 
-        if (q->n_items >= q->n_allocated) {
-                unsigned n;
-                struct prioq_item *j;
-
-                n = MAX((q->n_items+1) * 2, 16u);
-                j = reallocarray(q->items, n, sizeof(struct prioq_item));
-                if (!j)
-                        return -ENOMEM;
-
-                q->items = j;
-                q->n_allocated = n;
-        }
+        if (!GREEDY_REALLOC(q->items, MAX(q->n_items + 1, 16u)))
+                return -ENOMEM;
 
         k = q->n_items++;
-        i = q->items + k;
-        i->data = data;
-        i->idx = idx;
+        q->items[k] = (struct prioq_item) {
+                .data = data,
+                .idx = idx,
+        };
 
         if (idx)
                 *idx = k;
