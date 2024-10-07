@@ -1184,7 +1184,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
 
         assert(m);
 
-        if (set_isempty(m->varlink_subscription))
+        if (set_isempty(m->varlink_query_results_subscription))
                 return 0;
 
         /* Merge all questions into one */
@@ -1234,7 +1234,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
         }
 
         r = varlink_many_notifybo(
-                        m->varlink_subscription,
+                        m->varlink_query_results_subscription,
                         SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
                                                      "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
