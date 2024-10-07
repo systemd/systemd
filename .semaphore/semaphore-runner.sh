@@ -11,7 +11,7 @@ SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
 BRANCH="${BRANCH:-debian/master}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
-CACHE_DIR="${SEMAPHORE_CACHE_DIR:-/tmp}"
+CACHE_DIR="${SEMAPHORE_CACHE_DIR:-/var/tmp}"
 AUTOPKGTEST_DIR="${CACHE_DIR}/autopkgtest"
 # semaphore cannot expose these, but useful for interactive/local runs
 ARTIFACTS_DIR=/tmp/artifacts
