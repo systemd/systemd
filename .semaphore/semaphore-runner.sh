@@ -105,9 +105,9 @@ EOF
             # now build the package and run the tests
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
-            sudo TMPDIR=/var/tmp "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS="noudeb nostrip optimize=-lto" \
+            sudo TMPDIR=/var/tmp "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS="noudeb nostrip nodoc optimize=-lto" \
                                                        --env DPKG_DEB_COMPRESSOR_TYPE="none" \
-                                                       --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb" \
+                                                       --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb nodoc" \
                                                        --env TEST_UPSTREAM=1 \
                                                        ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
