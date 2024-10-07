@@ -150,15 +150,22 @@ int bus_set_transient_usec_internal(
         return 1;
 }
 
-int bus_verify_manage_units_async_full(
-                Unit *u,
+int bus_verify_manage_units_async_impl(
+                Manager *manager,
+                const char *id,
                 const char *verb,
                 const char *polkit_message,
                 sd_bus_message *call,
                 sd_bus_error *error) {
 
+        assert(manager);
+        assert(id);
+        assert(verb);
+        assert(polkit_message);
+        assert(call);
+
         const char *details[9] = {
-                "unit", u->id,
+                "unit", id,
                 "verb", verb,
         };
 
@@ -173,7 +180,7 @@ int bus_verify_manage_units_async_full(
                         call,
                         "org.freedesktop.systemd1.manage-units",
                         details,
-                        &u->manager->polkit_registry,
+                        &manager->polkit_registry,
                         error);
 }
 
