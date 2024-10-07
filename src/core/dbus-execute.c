@@ -2411,12 +2411,9 @@ int bus_exec_context_set_transient_property(
                                 c->log_extra_fields = t;
                         }
 
-                        copy = malloc(sz + 1);
+                        copy = memdup_suffix0(p, sz);
                         if (!copy)
                                 return -ENOMEM;
-
-                        memcpy(copy, p, sz);
-                        ((uint8_t*) copy)[sz] = 0;
 
                         if (!utf8_is_valid(copy))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
