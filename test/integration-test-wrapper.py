@@ -174,6 +174,14 @@ def main():
 
     result = subprocess.run(cmd)
 
+    # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
+    if args.vm and result.returncode == 247 and args.exit_code != 247:
+        journal_file.unlink(missing_ok=True)
+        result = subprocess.run(cmd)
+        if args.vm and result.returncode == 247 and args.exit_code != 247:
+            print(f"Test {args.name} failed due to QEMU crash (error 247), ignoring", file=sys.stderr)
+            exit(77)
+
     if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
         journal_file.unlink(missing_ok=True)
 
