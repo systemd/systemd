@@ -205,6 +205,7 @@ static int dns_stream_identify(DnsStream *s) {
 
 ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags) {
         ssize_t m;
+        int r;
 
         assert(s);
         assert(iov);
@@ -224,10 +225,12 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
 
                 m = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
                 if (m < 0) {
-                        if (errno == EOPNOTSUPP) {
-                                s->tfo_salen = 0;
-                                if (connect(s->fd, &s->tfo_address.sa, s->tfo_salen) < 0)
-                                        return -errno;
+                        if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                                /* MSG_FASTOPEN not supported? Then try to connect() traditionally */
+                                r = RET_NERRNO(connect(s->fd, &s->tfo_address.sa, s->tfo_salen));
+                                s->tfo_salen = 0; /* connection is made */
+                                if (r < 0)
+                                        return r;
 
                                 return -EAGAIN;
                         }
