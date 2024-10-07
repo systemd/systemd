@@ -5376,22 +5376,16 @@ _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant,
 
 _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = ASSERT_PTR(userdata);
+        const char *n;
         int r;
 
         assert_return(variant, -EINVAL);
 
-        if (sd_json_variant_is_null(variant)) {
-                *s = mfree(*s);
-                return 0;
-        }
+        r = sd_json_dispatch_const_string(name, variant, flags, &n);
+        if (r < 0)
+                return r;
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant)))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
-
-        r = free_and_strdup(s, sd_json_variant_string(variant));
+        r = free_and_strdup(s, n);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to allocate string: %m");
 
