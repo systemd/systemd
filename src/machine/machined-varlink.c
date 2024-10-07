@@ -471,6 +471,38 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 }
 
+static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, sd_varlink_method_t method) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        MachineLookupParameters p = { .pid = -1 };
+        Machine *machine;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = lookup_machine_by_name_or_pid (link, manager, p.machine_name, p.pid, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r < 0)
+                return r;
+
+        return method(link, parameters, flags, machine);
+}
+
+static int vl_method_unregister(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_unregister_internal);
+}
+
 static int manager_varlink_init_userdb(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         int r;
@@ -533,8 +565,9 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Machine.Register", vl_method_register,
-                        "io.systemd.Machine.List",     vl_method_list);
+                        "io.systemd.Machine.Register",   vl_method_register,
+                        "io.systemd.Machine.List",       vl_method_list,
+                        "io.systemd.Machine.Unregister", vl_method_unregister);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
