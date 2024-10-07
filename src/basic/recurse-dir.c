@@ -471,7 +471,6 @@ int recurse_dir(
                                  statx_mask != 0 ? &sx : NULL, /* only pass sx if user asked for it */
                                  userdata);
 
-
                 if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                         break;
                 if (!IN_SET(r, RECURSE_DIR_SKIP_ENTRY, RECURSE_DIR_CONTINUE))

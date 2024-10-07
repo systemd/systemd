@@ -1998,7 +1998,6 @@ static int manager_rebalance_calculate(Manager *m) {
                                                     1 * USEC_PER_MINUTE,
                                                     15 * USEC_PER_MINUTE);
 
-
         log_debug("Rebalancing interval set to %s.", FORMAT_TIMESPAN(m->rebalance_interval_usec, USEC_PER_MSEC));
 
         /* Let's suppress small resizes, growing/shrinking file systems isn't free after all */

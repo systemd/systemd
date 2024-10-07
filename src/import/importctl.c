@@ -475,7 +475,6 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-
         return transfer_image_common(bus, m);
 }
 

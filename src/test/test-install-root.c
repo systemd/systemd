@@ -1327,5 +1327,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

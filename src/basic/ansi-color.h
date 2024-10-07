@@ -102,7 +102,6 @@ static inline const char* ansi_add_underline_grey(void) {
                         colors_enabled() ? ANSI_##NAME : "";            \
         }
 
-
 #define DEFINE_ANSI_FUNC_UNDERLINE_256(name, NAME, FALLBACK)                                                        \
         static inline const char* ansi_##name(void) {                                                               \
                 switch (get_color_mode()) {                                                                         \

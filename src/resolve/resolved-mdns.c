@@ -236,7 +236,6 @@ static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
         return false;
 }
 
-
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;

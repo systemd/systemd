@@ -367,7 +367,6 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_TestMethod,
                 &vl_method_Done);
 
-
 static void* server_thread(void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;

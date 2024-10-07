@@ -621,7 +621,6 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
-
         if (!isempty(i.seat)) {
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Seat");
                 if (r < 0)
