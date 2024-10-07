@@ -840,10 +840,10 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       dns_transaction_key(t),
                       t->answer_rcode,
                       t->answer,
-                      DNS_PACKET_CD(t->received) ? t->received : NULL, /* only cache full packets with CD on,
+                      DNS_PACKET_DO(t->received) ? t->received : NULL, /* only cache full packets with DO on,
                                                                         * since our use case for caching them
                                                                         * is "bypass" mode which is only
-                                                                        * enabled for CD packets. */
+                                                                        * enabled for DO packets. */
                       t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
