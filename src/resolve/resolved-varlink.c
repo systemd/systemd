@@ -130,10 +130,10 @@ static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link
         assert(s);
         assert(link);
 
-        sd_varlink *removed_link = set_remove(m->varlink_subscription, link);
+        sd_varlink *removed_link = set_remove(m->varlink_query_results_subscription, link);
         if (removed_link) {
                 sd_varlink_unref(removed_link);
-                log_debug("%u monitor clients remain active", set_size(m->varlink_subscription));
+                log_debug("%u query result monitor clients remain active", set_size(m->varlink_query_results_subscription));
         }
 }
 
@@ -1228,12 +1228,12 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return log_error_errno(r, "Failed to report monitor to be established: %m");
 
-        r = set_ensure_put(&m->varlink_subscription, NULL, link);
+        r = set_ensure_put(&m->varlink_query_results_subscription, NULL, link);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subscription to set: %m");
         sd_varlink_ref(link);
 
-        log_debug("%u clients now attached for varlink notifications", set_size(m->varlink_subscription));
+        log_debug("%u clients now attached for query result varlink notifications", set_size(m->varlink_query_results_subscription));
 
         return 1;
 }
