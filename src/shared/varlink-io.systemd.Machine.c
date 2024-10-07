@@ -38,6 +38,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The name of a machine to terminate."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Kill,
+                SD_VARLINK_FIELD_COMMENT("The name of a machine to send signal to."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader' or 'all')."),
+                SD_VARLINK_DEFINE_INPUT(whom, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX signal integer."),
+                SD_VARLINK_DEFINE_INPUT(signal, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -80,6 +89,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Unregister,
                 SD_VARLINK_SYMBOL_COMMENT("Terminate machine, killing its processes"),
                 &vl_method_Terminate,
+                SD_VARLINK_SYMBOL_COMMENT("Send a UNIX signal to the machine's processes"),
+                &vl_method_Kill,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
