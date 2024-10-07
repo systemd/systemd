@@ -620,7 +620,6 @@ static int nft_add_element(
         assert(key);
         assert(data || dlen == 0);
 
-
         /*
          * Ideally there would be an API that provides:
          *

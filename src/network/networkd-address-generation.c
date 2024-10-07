@@ -153,7 +153,6 @@ static int ipv6_token_type_put_by_addr(Hashmap **tokens_by_addr, const struct in
         return ipv6_token_put_by_addr(tokens_by_addr, addr, token);
 }
 
-
 static int generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
         assert(link);
         assert(prefix);

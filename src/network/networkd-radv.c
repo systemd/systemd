@@ -881,7 +881,6 @@ void network_adjust_radv(Network *network) {
                 if (prefix_section_verify(prefix) < 0)
                         prefix_free(prefix);
 
-
         RoutePrefix *route;
         HASHMAP_FOREACH(route, network->route_prefixes_by_section)
                 if (route_prefix_section_verify(route) < 0)

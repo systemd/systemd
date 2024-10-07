@@ -15,7 +15,6 @@
  * compile time is that we can then load either the old or the new symbols at runtime
  * regardless of the version we were compiled with */
 
-
 /* declare the struct for libbpf <= 0.6.0 -- it causes no harm on newer versions */
 struct bpf_map_create_opts;
 

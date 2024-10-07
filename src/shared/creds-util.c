@@ -509,7 +509,6 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                                 return log_debug_errno(errno,
                                                        "Failed to open %s/%s: %m", dirname, filename);
 
-
                         r = make_credential_host_secret(dfd, machine_id, flags, dirname, filename, ret);
                         if (r == -EEXIST) {
                                 log_debug_errno(r, "Credential secret %s/%s appeared while we were creating it, rereading.",

@@ -664,7 +664,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFlushPending: %s\n",
                          prefix, yes_no(s->flush_pending));
 
-
         if (s->priority >= 0)
                 fprintf(f,
                         "%sPriority: %i\n",

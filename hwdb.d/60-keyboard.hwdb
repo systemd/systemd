@@ -1435,7 +1435,6 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
-
 ###########################################################
 # Maxdata
 ###########################################################
@@ -1919,7 +1918,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:sku*SCAI*:*
  KEYBOARD_KEY_a8=!unknown                               # Fn+F12 Fn lock On - handled by hardware
  KEYBOARD_KEY_a9=!unknown                               # Fn+F12 Fn lock Off - handled by hardware
  KEYBOARD_KEY_8f=!battery                               # Notification that battery has met charge control end threshold
-
 
 ###########################################################
 # SONY
