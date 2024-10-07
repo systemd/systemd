@@ -6,6 +6,7 @@
 #include "discover-image.h"
 #include "format-util.h"
 #include "hostname-util.h"
+#include "image-varlink.h"
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
@@ -676,12 +677,13 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Machine.Register",   vl_method_register,
-                        "io.systemd.Machine.List",       vl_method_list,
-                        "io.systemd.Machine.Unregister", vl_method_unregister,
-                        "io.systemd.Machine.Terminate",  vl_method_terminate,
-                        "io.systemd.Machine.Kill",       vl_method_kill,
-                        "io.systemd.Machine.ListImages", vl_method_list_images);
+                        "io.systemd.Machine.Register",    vl_method_register,
+                        "io.systemd.Machine.List",        vl_method_list,
+                        "io.systemd.Machine.Unregister",  vl_method_unregister,
+                        "io.systemd.Machine.Terminate",   vl_method_terminate,
+                        "io.systemd.Machine.Kill",        vl_method_kill,
+                        "io.systemd.Machine.ListImages",  vl_method_list_images,
+                        "io.systemd.Machine.UpdateImage", vl_method_update_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
