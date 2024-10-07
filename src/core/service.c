@@ -5235,7 +5235,11 @@ static int service_can_live_mount(const Unit *u, sd_bus_error *error) {
 
         /* Ensure that the unit runs in a private mount namespace */
         if (!exec_needs_mount_namespace(unit_get_exec_context(u), /* params= */ NULL, unit_get_exec_runtime(u))) {
-                log_unit_debug(u, "Unit not running in private mount namespace, cannot live mount");
+
+                /* This is also called in property_get_can_live_mount(). Suppress the debugging log when called in it. */
+                if (error)
+                        log_unit_debug(u, "Unit not running in private mount namespace, cannot live mount");
+
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
