@@ -727,8 +727,9 @@ static int dns_stub_patch_bypass_reply_packet(
         }
 
         /* Ensure we don't pass along an untrusted ad flag for bypass packets */
-        if (!authenticated)
-                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+        DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+        if (authenticated)
+                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_AD);
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -982,7 +983,6 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   protocol_flags|
                                   SD_RESOLVED_NO_CNAME|
                                   SD_RESOLVED_NO_SEARCH|
-                                  SD_RESOLVED_NO_VALIDATE|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
                                   SD_RESOLVED_CLAMP_TTL|
                                   SD_RESOLVED_RELAX_SINGLE_LABEL);
