@@ -799,9 +799,16 @@ int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_(memstream_done) MemStream ms = {};
         OomdCGroupContext *c;
         FILE *f;
+        int r;
 
         assert(m);
         assert(ret);
+
+        /* Always reread memory/swap info here. Otherwise it may be outdated if swap monitoring is off.
+         * Let's make sure to always report up-to-date data. */
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire system context, ignoring: %m");
 
         f = memstream_init(&ms);
         if (!f)
