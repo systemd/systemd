@@ -120,6 +120,16 @@ Devicetree addons are measured individually as a tagged event.
 
 → **Measured hash** covers the content of the Devicetree.
 
+### PCR 12, `EV_EVENT_TAG`, "Initrd addons"
+
+Initrd addons are measured individually as a tagged event.
+
+→ **Event Tag** `0x49dffe0f`
+
+→ **Description** the addon filename.
+
+→ **Measured hash** covers the contents of the initrd.
+
 ### PCR 12, `EV_EVENT_TAG`, "Ucode addons"
 
 Ucode addons are measured individually as a tagged event.
