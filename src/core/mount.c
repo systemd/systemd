@@ -854,9 +854,14 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         }
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
-        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
-                        EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
+static ExecFlags mount_exec_flags(ExecFlags cred_flag) {
+        assert((cred_flag & ~EXEC_SETUP_CREDENTIALS) == 0);
+
+        return EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|cred_flag;
+}
+
+static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid, ExecFlags flags) {
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -1044,7 +1049,7 @@ static void mount_enter_unmounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, &m->control_pid, mount_exec_flags(/* cred_flag = */ 0));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'umount' task: %m");
                 goto fail;
@@ -1189,7 +1194,7 @@ static void mount_enter_mounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, &m->control_pid, mount_exec_flags(EXEC_SETUP_CREDENTIALS));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'mount' task: %m");
                 goto fail;
@@ -1254,7 +1259,7 @@ static void mount_enter_remounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        r = mount_spawn(m, m->control_command, &m->control_pid);
+        r = mount_spawn(m, m->control_command, &m->control_pid, mount_exec_flags(EXEC_SETUP_CREDENTIALS));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'remount' task: %m");
                 goto fail;
