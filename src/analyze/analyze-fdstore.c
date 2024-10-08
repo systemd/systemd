@@ -98,7 +98,7 @@ int verb_fdstore(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         STRV_FOREACH(arg, strv_skip(argv, 1)) {
                 r = dump_fdstore(bus, *arg);
