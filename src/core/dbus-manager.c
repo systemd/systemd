@@ -1671,6 +1671,8 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Exit");
+
         /* Exit() (in contrast to SetExitCode()) is actually allowed even if
          * we are running on the host. It will fall back on reboot() in
          * systemd-shutdown if it cannot do the exit() because it isn't a
@@ -1694,6 +1696,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Reboot is only supported for system managers.");
+
+        log_caller(message, m, "Reboot");
 
         m->objective = MANAGER_REBOOT;
 
@@ -1737,6 +1741,8 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                         return -ENOMEM;
         }
 
+        log_caller(message, m, "Soft reboot");
+
         free_and_replace(m->switch_root, rt);
         m->objective = MANAGER_SOFT_REBOOT;
 
@@ -1757,6 +1763,8 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Powering off is only supported for system managers.");
 
+        log_caller(message, m, "Poweroff");
+
         m->objective = MANAGER_POWEROFF;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1776,6 +1784,8 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Halt is only supported for system managers.");
 
+        log_caller(message, m, "Halt");
+
         m->objective = MANAGER_HALT;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1794,6 +1804,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "KExec is only supported for system managers.");
+
+        log_caller(message, m, "Kexec");
 
         m->objective = MANAGER_KEXEC;
 
