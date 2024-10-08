@@ -171,7 +171,7 @@ systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
 # timestamp
 systemd-analyze timestamp now
 systemd-analyze timestamp -- -1
-systemd-analyze timestamp yesterday now tomorrow
+systemd-analyze timestamp yesterday now tomorrow 'Fri 2012-11-23 23:02:15 CET' 'Thu 1970-01-01 09:01 Asia/Tokyo'
 (! systemd-analyze timestamp yesterday never tomorrow)
 (! systemd-analyze timestamp 1)
 (! systemd-analyze timestamp '*-2-29 0:0:0')
