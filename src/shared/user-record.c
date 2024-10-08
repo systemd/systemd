@@ -771,8 +771,6 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Pkcs11EncryptedKey *array, *k;
-
                 static const sd_json_dispatch_field pkcs11_key_dispatch_table[] = {
                         { "uri",            SD_JSON_VARIANT_STRING, dispatch_pkcs11_uri,      offsetof(Pkcs11EncryptedKey, uri),             SD_JSON_MANDATORY },
                         { "data",           SD_JSON_VARIANT_STRING, dispatch_pkcs11_key_data, 0,                                             SD_JSON_MANDATORY },
@@ -783,12 +781,10 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key + 1, sizeof(Pkcs11EncryptedKey));
-                if (!array)
+                if (!GREEDY_REALLOC(h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key + 1))
                         return log_oom();
 
-                h->pkcs11_encrypted_key = array;
-                k = h->pkcs11_encrypted_key + h->n_pkcs11_encrypted_key;
+                Pkcs11EncryptedKey *k = h->pkcs11_encrypted_key + h->n_pkcs11_encrypted_key;
                 *k = (Pkcs11EncryptedKey) {};
 
                 r = sd_json_dispatch(e, pkcs11_key_dispatch_table, flags, k);
@@ -834,19 +830,15 @@ static int dispatch_fido2_hmac_credential_array(const char *name, sd_json_varian
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Fido2HmacCredential *array;
                 size_t l;
                 void *b;
 
-                array = reallocarray(h->fido2_hmac_credential, h->n_fido2_hmac_credential + 1, sizeof(Fido2HmacCredential));
-                if (!array)
+                if (!GREEDY_REALLOC(h->fido2_hmac_credential, h->n_fido2_hmac_credential + 1))
                         return log_oom();
 
                 r = sd_json_variant_unbase64(e, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
-
-                h->fido2_hmac_credential = array;
 
                 h->fido2_hmac_credential[h->n_fido2_hmac_credential++] = (Fido2HmacCredential) {
                         .id = b,
@@ -889,8 +881,6 @@ static int dispatch_fido2_hmac_salt(const char *name, sd_json_variant *variant, 
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Fido2HmacSalt *array, *k;
-
                 static const sd_json_dispatch_field fido2_hmac_salt_dispatch_table[] = {
                         { "credential",     SD_JSON_VARIANT_STRING,  dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      SD_JSON_MANDATORY },
                         { "salt",           SD_JSON_VARIANT_STRING,  dispatch_fido2_hmac_salt_value, 0,                                        SD_JSON_MANDATORY },
@@ -904,12 +894,10 @@ static int dispatch_fido2_hmac_salt(const char *name, sd_json_variant *variant, 
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->fido2_hmac_salt, h->n_fido2_hmac_salt + 1, sizeof(Fido2HmacSalt));
-                if (!array)
+                if (!GREEDY_REALLOC(h->fido2_hmac_salt, h->n_fido2_hmac_salt + 1))
                         return log_oom();
 
-                h->fido2_hmac_salt = array;
-                k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
+                Fido2HmacSalt *k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
                 *k = (Fido2HmacSalt) {
                         .uv = -1,
                         .up = -1,
@@ -937,8 +925,6 @@ static int dispatch_recovery_key(const char *name, sd_json_variant *variant, sd_
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                RecoveryKey *array, *k;
-
                 static const sd_json_dispatch_field recovery_key_dispatch_table[] = {
                         { "type",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0,                                      SD_JSON_MANDATORY },
                         { "hashedPassword", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(RecoveryKey, hashed_password), SD_JSON_MANDATORY },
@@ -948,12 +934,10 @@ static int dispatch_recovery_key(const char *name, sd_json_variant *variant, sd_
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->recovery_key, h->n_recovery_key + 1, sizeof(RecoveryKey));
-                if (!array)
+                if (!GREEDY_REALLOC(h->recovery_key, h->n_recovery_key + 1))
                         return log_oom();
 
-                h->recovery_key = array;
-                k = h->recovery_key + h->n_recovery_key;
+                RecoveryKey *k = h->recovery_key + h->n_recovery_key;
                 *k = (RecoveryKey) {};
 
                 r = sd_json_dispatch(e, recovery_key_dispatch_table, flags, k);
