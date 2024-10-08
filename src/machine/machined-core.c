@@ -456,3 +456,22 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
         TAKE_PTR(image);
         return 0;
 }
+
+int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name) {
+        assert(m);
+        assert(image);
+        assert(new_name);
+
+        /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
+        assert_se(hashmap_remove_value(m->image_cache, image->name, image));
+
+        int r = image_rename(image, new_name);
+        if (r < 0) {
+                image_unref(image);
+                return r;
+        }
+
+        /* Then save the object again in the cache. */
+        assert_se(hashmap_put(m->image_cache, image->name, image) > 0);
+        return 0;
+}

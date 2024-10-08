@@ -127,17 +127,9 @@ int bus_image_method_rename(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
-        assert_se(hashmap_remove_value(m->image_cache, image->name, image));
-
-        r = image_rename(image, new_name);
-        if (r < 0) {
-                image_unref(image);
-                return r;
-        }
-
-        /* Then save the object again in the cache. */
-        assert_se(hashmap_put(m->image_cache, image->name, image) > 0);
+        r = rename_image_and_update_cache(m, image, new_name);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to rename image: %m");
 
         return sd_bus_reply_method_return(message, NULL);
 }
