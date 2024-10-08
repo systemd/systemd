@@ -104,8 +104,10 @@ static void print_welcome(int rfd) {
         if (!arg_welcome)
                 return;
 
-        if (done)
+        if (done) {
+                putchar('\n'); /* Add some breathing room between multiple prompts */
                 return;
+        }
 
         r = parse_os_release_at(rfd,
                                 "PRETTY_NAME", &pretty_name,
@@ -614,7 +616,6 @@ static int prompt_hostname(int rfd) {
         }
 
         print_welcome(rfd);
-        putchar('\n');
 
         for (;;) {
                 _cleanup_free_ char *h = NULL;
@@ -728,7 +729,6 @@ static int prompt_root_password(int rfd) {
         }
 
         print_welcome(rfd);
-        putchar('\n');
 
         msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip):");
         msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter new root password again:");
@@ -821,7 +821,6 @@ static int prompt_root_shell(int rfd) {
         }
 
         print_welcome(rfd);
-        putchar('\n');
 
         for (;;) {
                 _cleanup_free_ char *s = NULL;
