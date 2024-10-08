@@ -799,9 +799,18 @@ int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_(memstream_done) MemStream ms = {};
         OomdCGroupContext *c;
         FILE *f;
+        int r;
 
         assert(m);
         assert(ret);
+
+        if (sd_event_source_get_enabled(m->swap_context_event_source, NULL) <= 0) {
+                /* /proc/meminfo is read in monitor_swap_contexts_handler(), but the event source is enabled
+                 * only when necessary. If it is disabled, we need to update the context here. */
+                r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire system context, ignoring: %m");
+        }
 
         f = memstream_init(&ms);
         if (!f)
