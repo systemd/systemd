@@ -520,25 +520,31 @@ int same_fd(int a, int b) {
         assert(b >= 0);
 
         /* Compares two file descriptors. Note that semantics are quite different depending on whether we
-         * have kcmp() or we don't. If we have kcmp() this will only return true for dup()ed file
-         * descriptors, but not otherwise. If we don't have kcmp() this will also return true for two fds of
-         * the same file, created by separate open() calls. Since we use this call mostly for filtering out
-         * duplicates in the fd store this difference hopefully doesn't matter too much. */
+         * have F_DUPFD_QUERY/kcmp() or we don't. If we have F_DUPFD_QUERY/kcmp() this will only return true
+         * for dup()ed file descriptors, but not otherwise. If we don't have F_DUPFD_QUERY/kcmp() this will
+         * also return true for two fds of the same file, created by separate open() calls. Since we use this
+         * call mostly for filtering out duplicates in the fd store this difference hopefully doesn't matter
+         * too much. */
 
         if (a == b)
                 return true;
 
-        /* Try to use kcmp() if we have it. */
-        pid = getpid_cached();
-        r = kcmp(pid, pid, KCMP_FILE, a, b);
-        if (r == 0)
-                return true;
-        if (r > 0)
-                return false;
+        /* Try to use F_DUPFD_QUERY if we have it first, as it is the nicest API */
+        r = fcntl(a, F_DUPFD_QUERY, b);
+        if (r >= 0)
+                return r;
         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                 return -errno;
 
-        /* We don't have kcmp(), use fstat() instead. */
+        /* Try to use kcmp() if we have it. */
+        pid = getpid_cached();
+        r = kcmp(pid, pid, KCMP_FILE, a, b);
+        if (r >= 0)
+                return !r;
+        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                return -errno;
+
+        /* We don't have neither F_DUPFD_QUERY nor kcmp(), use fstat() instead. */
         if (fstat(a, &sta) < 0)
                 return -errno;
 

@@ -7,6 +7,10 @@
 #define F_LINUX_SPECIFIC_BASE 1024
 #endif
 
+#ifndef F_DUPFD_QUERY
+#define F_DUPFD_QUERY (F_LINUX_SPECIFIC_BASE + 3)
+#endif
+
 #ifndef F_SETPIPE_SZ
 #define F_SETPIPE_SZ (F_LINUX_SPECIFIC_BASE + 7)
 #endif
