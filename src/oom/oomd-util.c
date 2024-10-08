@@ -607,7 +607,7 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
         fprintf(f,
                 "%sPath: %s\n"
                 "%s\tMemory Pressure Limit: %lu.%02lu%%\n"
-                "%s\tPressure: Avg10: %lu.%02lu Avg60: %lu.%02lu Avg300: %lu.%02lu Total: %s\n"
+                "%s\tPressure: Avg10: %lu.%02lu, Avg60: %lu.%02lu, Avg300: %lu.%02lu, Total: %s\n"
                 "%s\tCurrent Memory Usage: %s\n",
                 strempty(prefix), ctx->path,
                 strempty(prefix), LOADAVG_INT_SIDE(ctx->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(ctx->mem_pressure_limit),
@@ -635,8 +635,8 @@ void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char 
         assert(f);
 
         fprintf(f,
-                "%sMemory: Used: %s Total: %s\n"
-                "%sSwap: Used: %s Total: %s\n",
+                "%sMemory: Used: %s, Total: %s\n"
+                "%sSwap: Used: %s, Total: %s\n",
                 strempty(prefix),
                 FORMAT_BYTES(ctx->mem_used),
                 FORMAT_BYTES(ctx->mem_total),
