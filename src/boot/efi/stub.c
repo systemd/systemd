@@ -449,6 +449,42 @@ static inline void iovec_array_extend(struct iovec **arr, size_t *n_arr, struct 
         (*arr)[(*n_arr)++] = elem;
 }
 
+static void measure_and_append_initrd_addons(
+                struct iovec **all_initrds,
+                size_t *n_all_initrds,
+                const NamedAddon *initrd_addons,
+                size_t n_initrd_addons,
+                int *sections_measured) {
+
+        EFI_STATUS err;
+
+        assert(all_initrds);
+        assert(n_all_initrds);
+        assert(initrd_addons || n_initrd_addons == 0);
+        assert(sections_measured);
+
+        FOREACH_ARRAY(i, initrd_addons, n_initrd_addons) {
+                bool m = false;
+                err = tpm_log_tagged_event(
+                                TPM2_PCR_KERNEL_CONFIG,
+                                POINTER_TO_PHYSICAL_ADDRESS(i->blob.iov_base),
+                                i->blob.iov_len,
+                                INITRD_ADDON_EVENT_TAG_ID,
+                                i->filename,
+                                &m);
+                if (err != EFI_SUCCESS)
+                        return (void) log_error_status(
+                                        err,
+                                        "Unable to extend PCR %i with INITRD addon '%ls': %m",
+                                        TPM2_PCR_KERNEL_CONFIG,
+                                        i->filename);
+
+                combine_measured_flag(sections_measured, m);
+
+                iovec_array_extend(all_initrds, n_all_initrds, i->blob);
+        }
+}
+
 static void measure_and_append_ucode_addons(
                 struct iovec **all_initrds,
                 size_t *n_all_initrds,
@@ -508,6 +544,8 @@ static EFI_STATUS load_addons(
                 char16_t **cmdline,                         /* Both input+output, extended with new addons we find */
                 NamedAddon **devicetree_addons,             /* Ditto */
                 size_t *n_devicetree_addons,
+                NamedAddon **initrd_addons,                 /* Ditto */
+                size_t *n_initrd_addons,
                 NamedAddon **ucode_addons,                  /* Ditto */
                 size_t *n_ucode_addons) {
 
@@ -575,11 +613,12 @@ static EFI_STATUS load_addons(
                 if (err != EFI_SUCCESS ||
                     (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
                      !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
                      !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))) {
                         if (err == EFI_SUCCESS)
                                 err = EFI_NOT_FOUND;
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb/.ucode sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
@@ -616,6 +655,19 @@ static EFI_STATUS load_addons(
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].size),
                                         .iov_len = sections[UNIFIED_SECTION_DTB].size,
+                                },
+                                .filename = xstrdup16(items[i]),
+                        };
+                }
+
+                if (initrd_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
+                        *initrd_addons = xrealloc(*initrd_addons,
+                                        *n_initrd_addons * sizeof(NamedAddon),
+                                        (*n_initrd_addons + 1)  * sizeof(NamedAddon));
+                        (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
+                                .blob = {
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].size),
+                                        .iov_len = sections[UNIFIED_SECTION_INITRD].size,
                                 },
                                 .filename = xstrdup16(items[i]),
                         };
@@ -933,6 +985,8 @@ static void load_all_addons(
                 char16_t **cmdline_addons,
                 NamedAddon **dt_addons,
                 size_t *n_dt_addons,
+                NamedAddon **initrd_addons,
+                size_t *n_initrd_addons,
                 NamedAddon **ucode_addons,
                 size_t *n_ucode_addons) {
 
@@ -942,6 +996,8 @@ static void load_all_addons(
         assert(cmdline_addons);
         assert(dt_addons);
         assert(n_dt_addons);
+        assert(initrd_addons);
+        assert(n_initrd_addons);
         assert(ucode_addons);
         assert(n_ucode_addons);
 
@@ -953,6 +1009,8 @@ static void load_all_addons(
                         cmdline_addons,
                         dt_addons,
                         n_dt_addons,
+                        initrd_addons,
+                        n_initrd_addons,
                         ucode_addons,
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
@@ -971,6 +1029,8 @@ static void load_all_addons(
                         cmdline_addons,
                         dt_addons,
                         n_dt_addons,
+                        initrd_addons,
+                        n_initrd_addons,
                         ucode_addons,
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
@@ -1097,8 +1157,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         PeSectionVector sections[ELEMENTSOF(unified_sections)] = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_free_ char *uname = NULL;
-        NamedAddon *dt_addons = NULL, *ucode_addons = NULL;
-        size_t n_dt_addons = 0, n_ucode_addons = 0;
+        NamedAddon *dt_addons = NULL, *initrd_addons = NULL, *ucode_addons = NULL;
+        size_t n_dt_addons = 0, n_initrd_addons = 0, n_ucode_addons = 0;
         _cleanup_free_ struct iovec *all_initrds = NULL;
         size_t n_all_initrds = 0;
         unsigned profile = 0;
@@ -1134,8 +1194,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
         CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
+        CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_many);
         CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &ucode_addons, &n_ucode_addons);
+        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
          * additions together, after the embedded options, but before the smbios ones, so that the order is
@@ -1156,10 +1217,17 @@ static EFI_STATUS run(EFI_HANDLE image) {
         generate_embedded_initrds(loaded_image, sections, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
-        /* Measures ucode addons and puts them into all_initrds */
+        /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,
+         * except for ucode, where the kernel uses the first matching embedded filename.
+         * We want addons to take precedence over the base initrds, so the order is:
+         * 1. Ucode addons
+         * 2. UKI ucode
+         * 3. UKI initrd
+         * 4. Generated initrds
+         * 5. initrd addons */
         measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
-        /* Adds all other initrds to all_initrds */
         extend_initrds(initrds, &all_initrds, &n_all_initrds);
+        measure_and_append_initrd_addons(&all_initrds, &n_all_initrds, initrd_addons, n_initrd_addons, &parameters_measured);
 
         /* Export variables indicating what we measured */
         export_pcr_variables(sections_measured, parameters_measured, sysext_measured, confext_measured);
