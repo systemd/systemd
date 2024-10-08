@@ -994,8 +994,12 @@ int parse_timestamp(const char *t, usec_t *ret) {
         assert(t);
 
         t_len = strlen(t);
-        if (t_len > 2 && t[t_len - 1] == 'Z' && t[t_len - 2] != ' ')  /* RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
-                return parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        if (t_len > 2 && t[t_len - 1] == 'Z') {
+                /* Try to parse as RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
+                r = parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                if (r >= 0)
+                        return r;
+        }
 
         if (t_len > 7 && IN_SET(t[t_len - 6], '+', '-') && t[t_len - 7] != ' ') {  /* RFC3339-style welded offset: "1990-12-31T15:59:60-08:00" */
                 k = strptime(&t[t_len - 6], "%z", &tm);
@@ -1038,6 +1042,14 @@ int parse_timestamp(const char *t, usec_t *ret) {
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
                 return negative_errno();
+
+        /* The input string may be in argv. Let's copy it. */
+        _cleanup_free_ char *t_copy = strdup(t);
+        if (!t_copy)
+                return -ENOMEM;
+
+        t = t_copy;
+        assert_se(tz = endswith(t_copy, tz));
 
         r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, NULL);
         if (r < 0) {
