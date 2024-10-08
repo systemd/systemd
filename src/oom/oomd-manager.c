@@ -340,17 +340,12 @@ static int acquire_managed_oom_connect(Manager *m) {
 
 static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        usec_t usec_now;
         int r;
 
         assert(s);
         assert(!hashmap_isempty(m->monitored_swap_cgroup_contexts));
 
         /* Reset timer */
-        r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reset event timer: %m");
-
         r = sd_event_source_set_time_relative(s, SWAP_INTERVAL_USEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to set relative time for timer: %m");
@@ -804,9 +799,14 @@ int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_(memstream_done) MemStream ms = {};
         OomdCGroupContext *c;
         FILE *f;
+        int r;
 
         assert(m);
         assert(ret);
+
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire system context, ignoring: %m");
 
         f = memstream_init(&ms);
         if (!f)
