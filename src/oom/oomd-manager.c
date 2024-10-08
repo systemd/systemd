@@ -799,9 +799,14 @@ int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_(memstream_done) MemStream ms = {};
         OomdCGroupContext *c;
         FILE *f;
+        int r;
 
         assert(m);
         assert(ret);
+
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire system context, ignoring: %m");
 
         f = memstream_init(&ms);
         if (!f)
