@@ -126,11 +126,7 @@ int verb_calendar(int argc, char *argv[], void *userdata) {
                 n = now(CLOCK_REALTIME); /* We want to use the same "base" for all expressions */
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
-                int k;
-
-                k = test_calendar_one(n, *p);
-                if (r == 0 && k < 0)
-                        r = k;
+                RET_GATHER(r, test_calendar_one(n, *p));
 
                 if (p[1])
                         putchar('\n');
