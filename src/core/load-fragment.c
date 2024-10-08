@@ -2935,7 +2935,6 @@ int config_parse_log_extra_fields(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
-                struct iovec *t;
                 const char *eq;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
@@ -2965,14 +2964,11 @@ int config_parse_log_extra_fields(
                         continue;
                 }
 
-                t = reallocarray(c->log_extra_fields, c->n_log_extra_fields+1, sizeof(struct iovec));
-                if (!t)
+                if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                         return log_oom();
 
-                c->log_extra_fields = t;
                 c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(k);
-
-                k = NULL;
+                TAKE_PTR(k);
         }
 }
 
