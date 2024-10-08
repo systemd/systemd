@@ -999,8 +999,12 @@ int parse_timestamp(const char *t, usec_t *ret) {
         assert(t);
 
         t_len = strlen(t);
-        if (t_len > 2 && t[t_len - 1] == 'Z' && t[t_len - 2] != ' ')  /* RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
-                return parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        if (t_len > 2 && t[t_len - 1] == 'Z') {
+                /* Try to parse as RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
+                r = parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                if (r >= 0)
+                        return r;
+        }
 
         if (t_len > 7 && IN_SET(t[t_len - 6], '+', '-') && t[t_len - 7] != ' ') {  /* RFC3339-style welded offset: "1990-12-31T15:59:60-08:00" */
                 k = strptime(&t[t_len - 6], "%z", &tm);

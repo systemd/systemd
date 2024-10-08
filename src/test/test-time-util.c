@@ -857,6 +857,29 @@ static void test_parse_timestamp_impl(const char *tz) {
                 test_parse_timestamp_one("69-12-31 19:00:01.0010 EST", 0, USEC_PER_SEC + 1000);
         }
 
+        if (timezone_is_valid("NZ", LOG_DEBUG)) {
+                /* NZ (+1200) */
+                test_parse_timestamp_one("Thu 1970-01-01 12:01 NZ", 0, USEC_PER_MINUTE);
+                test_parse_timestamp_one("Thu 1970-01-01 12:00:01 NZ", 0, USEC_PER_SEC);
+                test_parse_timestamp_one("Thu 1970-01-01 12:00:01.001 NZ", 0, USEC_PER_SEC + 1000);
+                test_parse_timestamp_one("Thu 1970-01-01 12:00:01.0010 NZ", 0, USEC_PER_SEC + 1000);
+
+                test_parse_timestamp_one("Thu 70-01-01 12:01 NZ", 0, USEC_PER_MINUTE);
+                test_parse_timestamp_one("Thu 70-01-01 12:00:01 NZ", 0, USEC_PER_SEC);
+                test_parse_timestamp_one("Thu 70-01-01 12:00:01.001 NZ", 0, USEC_PER_SEC + 1000);
+                test_parse_timestamp_one("Thu 70-01-01 12:00:01.0010 NZ", 0, USEC_PER_SEC + 1000);
+
+                test_parse_timestamp_one("1970-01-01 12:01 NZ", 0, USEC_PER_MINUTE);
+                test_parse_timestamp_one("1970-01-01 12:00:01 NZ", 0, USEC_PER_SEC);
+                test_parse_timestamp_one("1970-01-01 12:00:01.001 NZ", 0, USEC_PER_SEC + 1000);
+                test_parse_timestamp_one("1970-01-01 12:00:01.0010 NZ", 0, USEC_PER_SEC + 1000);
+
+                test_parse_timestamp_one("70-01-01 12:01 NZ", 0, USEC_PER_MINUTE);
+                test_parse_timestamp_one("70-01-01 12:00:01 NZ", 0, USEC_PER_SEC);
+                test_parse_timestamp_one("70-01-01 12:00:01.001 NZ", 0, USEC_PER_SEC + 1000);
+                test_parse_timestamp_one("70-01-01 12:00:01.0010 NZ", 0, USEC_PER_SEC + 1000);
+        }
+
         /* -06 */
         test_parse_timestamp_one("Wed 1969-12-31 18:01 -06", 0, USEC_PER_MINUTE);
         test_parse_timestamp_one("Wed 1969-12-31 18:00:01 -06", 0, USEC_PER_SEC);
@@ -932,6 +955,14 @@ static void test_parse_timestamp_impl(const char *tz) {
                         test_parse_timestamp_one("tomorrow", 0, today + USEC_PER_DAY);
                 if (timezone_equal(today, today - USEC_PER_DAY) && time_is_zero(today - USEC_PER_DAY))
                         test_parse_timestamp_one("yesterday", 0, today - USEC_PER_DAY);
+        }
+
+        /* with timezone */
+        if (tz) {
+                _cleanup_free_ char *s = NULL;
+
+                ASSERT_NOT_NULL(s = strjoin("Fri 2012-11-23 23:02:15 ", tz));
+                ASSERT_OK(parse_timestamp(s, NULL));
         }
 
         /* relative */
