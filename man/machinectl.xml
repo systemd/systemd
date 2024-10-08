@@ -263,7 +263,7 @@
         <term><command>poweroff</command> <replaceable>NAME</replaceable>…</term>
 
         <listitem><para>Power off one or more containers. This will
-        trigger a reboot by sending SIGRTMIN+4 to the container's init
+        trigger a shutdown by sending SIGRTMIN+4 to the container's init
         process, which causes systemd-compatible init systems to shut
         down cleanly. Use <command>stop</command> as alias for <command>poweroff</command>.
         This operation does not work on containers that do not run a
