@@ -402,7 +402,7 @@ _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
 
         /* Check that the fd is valid */
-        assert_return(fcntl(fd, F_GETFD) >= 0, -errno);
+        assert_return(fd_validate(fd) >= 0, -errno);
 
         if (mq_getattr(fd, &attr) < 0) {
                 if (errno == EBADF)
