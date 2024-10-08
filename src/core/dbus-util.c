@@ -150,39 +150,45 @@ int bus_set_transient_usec_internal(
         return 1;
 }
 
-int bus_verify_manage_units_async_full(
-                Unit *u,
+int bus_verify_manage_units_async_impl(
+                Manager *manager,
+                const char *id,
                 const char *verb,
                 const char *polkit_message,
                 sd_bus_message *call,
                 sd_bus_error *error) {
 
-        const char *details[9] = {
-                "unit", u->id,
-                "verb", verb,
+        const char *details[9];
+        size_t n_details = 0;
+
+        assert(manager);
+        assert(call);
+
+        if (id) {
+                details[n_details++] = "unit";
+                details[n_details++] = id;
+        }
+
+        if (verb) {
+                details[n_details++] = "verb";
+                details[n_details++] = verb;
         };
 
         if (polkit_message) {
-                details[4] = "polkit.message";
-                details[5] = polkit_message;
-                details[6] = "polkit.gettext_domain";
-                details[7] = GETTEXT_PACKAGE;
+                details[n_details++] = "polkit.message";
+                details[n_details++] = polkit_message;
+                details[n_details++] = "polkit.gettext_domain";
+                details[n_details++] = GETTEXT_PACKAGE;
         }
 
-        return bus_verify_polkit_async(
-                        call,
-                        "org.freedesktop.systemd1.manage-units",
-                        details,
-                        &u->manager->polkit_registry,
-                        error);
-}
+        assert(n_details < ELEMENTSOF(details));
+        details[n_details] = NULL;
 
-int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.manage-units",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
+                        n_details > 0 ? details : NULL,
+                        &manager->polkit_registry,
                         error);
 }
 
