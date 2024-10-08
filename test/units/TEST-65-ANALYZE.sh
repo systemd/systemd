@@ -161,6 +161,13 @@ systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
 systemd-analyze timestamp now
 systemd-analyze timestamp -- -1
 systemd-analyze timestamp yesterday now tomorrow
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15'
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 UTC'
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 CET'
+for i in $(timedatectl list-timezones); do
+    [[ -e "/usr/share/zoneinfo/$i" ]] || continue
+    systemd-analyze timestamp "Fri 2012-11-23 23:02:15 $i"
+done
 (! systemd-analyze timestamp yesterday never tomorrow)
 (! systemd-analyze timestamp 1)
 (! systemd-analyze timestamp '*-2-29 0:0:0')
