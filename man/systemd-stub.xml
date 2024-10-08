@@ -193,9 +193,10 @@
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
       PE binaries and specific sections are loaded from them. Addons are used to pass additional kernel
       command line parameters (<literal>.cmdline</literal> section), or Devicetree blobs
-      (<literal>.dtb</literal> section), and microcode updates (<literal>.ucode</literal> section). Addons
-      allow those resources to be passed regardless of the kernel version being booted, for example allowing
-      platform vendors to ship platform-specific configuration.</para>
+      (<literal>.dtb</literal> section), additional initrds (<literal>.initrd</literal> section),
+      and microcode updates (<literal>.ucode</literal> section). Addons allow those resources to be passed
+      regardless of the kernel version being booted, for example allowing platform vendors to ship
+      platform-specific configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
       Shim's MOK, and only loaded if the check passes. Additionally, if both the addon and the UKI contain a
@@ -227,10 +228,10 @@
       archive is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>, and
-      <literal>.ucode</literal> sections are parsed from them. This is supposed to be used to pass additional
-      command line parameters, DeviceTree blobs, and microcode updates to the kernel, regardless of the
-      kernel version being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>,
+      <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
+      This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
+      and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
