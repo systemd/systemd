@@ -329,7 +329,7 @@ static int prompt_locale(int rfd) {
 
                 print_welcome(rfd);
 
-                r = prompt_loop("Please enter system locale name or number",
+                r = prompt_loop("Please enter the new locale name or number",
                                 locales, SYSTEMD_DEFAULT_LOCALE, 60, is_valid, &arg_locale);
                 if (r < 0)
                         return r;
@@ -337,7 +337,7 @@ static int prompt_locale(int rfd) {
                 if (isempty(arg_locale))
                         return 0;
 
-                r = prompt_loop("Please enter system message locale name or number",
+                r = prompt_loop("Please enter the new message locale name or number",
                                 locales, arg_locale, 60, is_valid, &arg_locale_messages);
                 if (r < 0)
                         return r;
@@ -452,7 +452,7 @@ static int prompt_keymap(int rfd) {
 
         print_welcome(rfd);
 
-        return prompt_loop("Please enter system keymap name or number",
+        return prompt_loop("Please enter the new keymap name or number",
                            kmaps, SYSTEMD_DEFAULT_KEYMAP, 60, determine_keymap_validity_func(rfd), &arg_keymap);
 }
 
@@ -542,7 +542,7 @@ static int prompt_timezone(int rfd) {
 
         print_welcome(rfd);
 
-        r = prompt_loop("Please enter timezone name or number",
+        r = prompt_loop("Please enter the new timezone name or number",
                         zones, "UTC", 30, timezone_is_valid_log_debug, &arg_timezone);
         if (r < 0)
                 return r;
@@ -630,7 +630,7 @@ static int prompt_hostname(int rfd) {
                 if (!fallback)
                         return log_oom();
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to default to \"%s\", \"-\" to skip): ",
+                r = ask_string(&h, "%s Please enter the new hostname (empty to default to \"%s\", \"-\" to skip): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), fallback);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
@@ -746,8 +746,8 @@ static int prompt_root_password(int rfd) {
 
         print_welcome(rfd);
 
-        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip):");
-        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter new root password again:");
+        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
+        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
 
         suggest_passwords();
 
@@ -841,7 +841,7 @@ static int prompt_root_shell(int rfd) {
         for (;;) {
                 _cleanup_free_ char *s = NULL;
 
-                r = ask_string(&s, "%s Please enter root shell for new system (empty to default to \"%s\", \"-\" to skip): ",
+                r = ask_string(&s, "%s Please enter the new root shell (empty to default to \"%s\", \"-\" to skip): ",
                                special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), DEFAULT_USER_SHELL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root shell: %m");
