@@ -76,11 +76,7 @@ int verb_timestamp(int argc, char *argv[], void *userdata) {
         int r = 0;
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
-                int k;
-
-                k = test_timestamp_one(*p);
-                if (r == 0 && k < 0)
-                        r = k;
+                RET_GATHER(r, test_timestamp_one(*p));
 
                 if (p[1])
                         putchar('\n');
