@@ -2914,6 +2914,7 @@ static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **re
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Name \"%s\" of auxiliary scope doesn't have .scope suffix.", name);
 
+        log_unit_warning(from, "D-Bus call StartAuxiliaryScope() has been invoked which is deprecated.");
         main_pid = unit_main_pid(from);
 
         r = sd_bus_message_enter_container(message, 'a', "h");
@@ -3035,6 +3036,10 @@ static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        log_once(LOG_WARNING, "StartAuxiliaryScope() is deprecated because state of resources cannot be "
+                              "migrated between cgroups. Please report this to "
+                              "systemd-devel@lists.freedesktop.org or https://github.com/systemd/systemd/issues/ "
+                              "if you see this message and know the software making use of this functionality.");
         r = aux_scope_from_message(m, message, &u, error);
         if (r < 0)
                 return r;
@@ -3606,7 +3611,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "ah", pidfds, "t", flags, "a(sv)", properties),
                                 SD_BUS_RESULT("o", job),
                                 method_start_aux_scope,
-                                SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
                                 SD_BUS_ARGS("s", id, "o", unit),

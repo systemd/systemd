@@ -277,6 +277,7 @@ node /org/freedesktop/systemd1 {
       GetDynamicUsers(out a(us) users);
       DumpUnitFileDescriptorStore(in  s name,
                                   out a(suuutuusu) entries);
+      @org.freedesktop.DBus.Deprecated("true")
       StartAuxiliaryScope(in  s name,
                           in  ah pidfds,
                           in  t flags,
@@ -618,6 +619,8 @@ node /org/freedesktop/systemd1 {
     <!--method LookupDynamicUserByUID is not documented!-->
 
     <!--method GetDynamicUsers is not documented!-->
+
+    <!--method StartAuxiliaryScope is not documented!-->
 
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
@@ -1590,13 +1593,6 @@ node /org/freedesktop/systemd1 {
       file descriptors currently in the file descriptor store of the specified unit. This call is equivalent
       to <function>DumpFileDescriptorStore()</function> on the
       <interfacename>org.freedesktop.systemd1.Service</interfacename>. For further details, see below.</para>
-
-      <para><function>StartAuxiliaryScope()</function> creates a new scope unit from a service where calling
-      process resides. Set of processes that will be migrated to newly created scope is passed in as an array
-      of pidfds. This is useful for creating auxiliary scopes that should contain worker processes and their lifecycle
-      shouldn't be bound to a lifecycle of the service, e.g. they should continue running after the restart
-      of the service. Note that the main PID of the service can not be migrated to an auxiliary scope.
-      Also, <varname>flags</varname> argument must be 0 and is reserved for future extensions.</para>
 
       <para><function>CleanUnit()</function> deletes the configuration, state, logs, cache and runtime data
       directories and clear out the file descriptors store for the unit, as specified in the mask
