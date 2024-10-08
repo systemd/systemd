@@ -177,6 +177,50 @@ int bus_verify_manage_units_async_full(
                         error);
 }
 
+int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+}
+
+int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-unit-files",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+}
+
+int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.reload-daemon",
+                        /* details= */ NULL,
+                        &m->polkit_registry, error);
+}
+
+int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.set-environment",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+}
+
+int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.bypass-dump-ratelimit",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+}
+
 /* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
 int bus_read_mount_options(
                 sd_bus_message *message,

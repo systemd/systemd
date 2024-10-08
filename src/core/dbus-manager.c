@@ -22,6 +22,7 @@
 #include "dbus-scope.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "env-util.h"
 #include "fd-util.h"
