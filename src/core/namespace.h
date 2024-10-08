@@ -62,7 +62,7 @@ typedef enum PrivateTmp {
 } PrivateTmp;
 
 typedef enum PrivateUsers {
-        PRIVATE_USERS_OFF,
+        PRIVATE_USERS_NO,
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
         _PRIVATE_USERS_MAX,

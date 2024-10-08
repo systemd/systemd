@@ -2096,7 +2096,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
          * For unprivileged users (i.e. without capabilities), the root to root mapping is excluded. As such, it
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
-        if (private_users == PRIVATE_USERS_OFF)
+        if (private_users == PRIVATE_USERS_NO)
                 return 0;
 
         if (private_users == PRIVATE_USERS_IDENTITY) {
@@ -3851,8 +3851,8 @@ static bool exec_context_need_unprivileged_private_users(
         if (params->runtime_scope != RUNTIME_SCOPE_USER)
                 return false;
 
-        return context->private_users != PRIVATE_USERS_OFF ||
-               context->private_tmp != PRIVATE_TMP_OFF ||
+        return context->private_users != PRIVATE_USERS_NO ||
+               context->private_tmp != PRIVATE_TMP_NO ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
@@ -4762,13 +4762,13 @@ int exec_invoke(
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
                 PrivateUsers pu = context->private_users;
-                if (pu == PRIVATE_USERS_OFF)
+                if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
                 r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
-                if (r < 0 && context->private_users != PRIVATE_USERS_OFF) {
+                if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing for unprivileged user: %m");
                 }

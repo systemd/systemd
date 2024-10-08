@@ -4305,7 +4305,7 @@ int unit_patch_contexts(Unit *u) {
                         /* With DynamicUser= we want private directories, so if the user hasn't manually
                          * selected PrivateTmp=, enable it, but to a fully private (disconnected) tmpfs
                          * instance. */
-                        if (ec->private_tmp == PRIVATE_TMP_OFF)
+                        if (ec->private_tmp == PRIVATE_TMP_NO)
                                 ec->private_tmp = PRIVATE_TMP_DISCONNECTED;
                         ec->remove_ipc = true;
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
