@@ -54,7 +54,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 else
                         r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &buses[focus]);
                 if (r < 0)
-                        return bus_log_connect_error(r, arg_transport);
+                        return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
                 (void) sd_bus_set_allow_interactive_authorization(buses[focus], arg_ask_password);
         }

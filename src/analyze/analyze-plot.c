@@ -473,7 +473,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, &use_full_bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         n = acquire_boot_times(bus, /* require_finished = */ true, &boot);
         if (n < 0)
