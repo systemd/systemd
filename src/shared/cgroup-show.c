@@ -434,7 +434,7 @@ int show_cgroup_get_path_and_warn(
 
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
                 if (r < 0)
-                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
 
                 r = show_cgroup_get_unit_path_and_warn(bus, unit, &root);
                 if (r < 0)
