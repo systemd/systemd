@@ -231,7 +231,7 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         if (pid <= 0)
                 return -EINVAL;
 
-        r = manager_get_machine_by_pid(manager, pid, &machine);
+        r = manager_get_machine_by_pidref(manager, &PIDREF_MAKE_FROM_PID(pid), &machine);
         if (r < 0)
                 return r;
         if (!machine)
