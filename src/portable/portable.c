@@ -904,7 +904,6 @@ static int portable_changes_add(
                 const char *source) {
 
         _cleanup_free_ char *p = NULL, *s = NULL;
-        PortableChange *c;
         int r;
 
         assert(path);
@@ -918,10 +917,8 @@ static int portable_changes_add(
         if (!changes)
                 return 0;
 
-        c = reallocarray(*changes, *n_changes + 1, sizeof(PortableChange));
-        if (!c)
+        if (!GREEDY_REALLOC(*changes, *n_changes + 1))
                 return -ENOMEM;
-        *changes = c;
 
         r = path_simplify_alloc(path, &p);
         if (r < 0)
@@ -931,7 +928,7 @@ static int portable_changes_add(
         if (r < 0)
                 return r;
 
-        c[(*n_changes)++] = (PortableChange) {
+        (*changes)[(*n_changes)++] = (PortableChange) {
                 .type_or_errno = type_or_errno,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),

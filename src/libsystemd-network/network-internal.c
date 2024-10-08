@@ -51,7 +51,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                struct in_addr *new_addresses;
+                union in_addr_union a;
                 int r;
 
                 r = extract_first_word(&string, &word, NULL, 0);
@@ -60,17 +60,13 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in_addr));
-                if (!new_addresses)
-                        return -ENOMEM;
-                else
-                        addresses = new_addresses;
-
-                r = inet_pton(AF_INET, word, &(addresses[size]));
-                if (r <= 0)
+                if (in_addr_from_string(AF_INET, word, &a) < 0)
                         continue;
 
-                size++;
+                if (!GREEDY_REALLOC(addresses, size + 1))
+                        return -ENOMEM;
+
+                addresses[size++] = a.in;
         }
 
         *ret = size > 0 ? TAKE_PTR(addresses) : NULL;
@@ -104,7 +100,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                struct in6_addr *new_addresses;
+                union in_addr_union a;
                 int r;
 
                 r = extract_first_word(&string, &word, NULL, 0);
@@ -113,17 +109,13 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in6_addr));
-                if (!new_addresses)
-                        return -ENOMEM;
-                else
-                        addresses = new_addresses;
-
-                r = inet_pton(AF_INET6, word, &(addresses[size]));
-                if (r <= 0)
+                if (in_addr_from_string(AF_INET6, word, &a) < 0)
                         continue;
 
-                size++;
+                if (!GREEDY_REALLOC(addresses, size + 1))
+                        return -ENOMEM;
+
+                addresses[size++] = a.in6;
         }
 
         *ret = TAKE_PTR(addresses);

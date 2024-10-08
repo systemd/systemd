@@ -230,7 +230,6 @@ int bind_user_prepare(
                 _cleanup_(user_record_unrefp) UserRecord *u = NULL, *cu = NULL;
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
                 _cleanup_free_ char *sm = NULL, *sd = NULL;
-                CustomMount *cm;
 
                 r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE, &u);
                 if (r < 0)
@@ -290,11 +289,8 @@ int bind_user_prepare(
                 if (!sd)
                         return log_oom();
 
-                cm = reallocarray(*custom_mounts, *n_custom_mounts + 1, sizeof(CustomMount));
-                if (!cm)
+                if (!GREEDY_REALLOC(*custom_mounts, *n_custom_mounts + 1))
                         return log_oom();
-
-                *custom_mounts = cm;
 
                 (*custom_mounts)[(*n_custom_mounts)++] = (CustomMount) {
                         .type = CUSTOM_MOUNT_BIND,

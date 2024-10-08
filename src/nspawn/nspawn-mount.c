@@ -27,18 +27,16 @@
 #include "user-util.h"
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
-        CustomMount *c, *ret;
+        CustomMount *ret;
 
         assert(l);
         assert(n);
         assert(t >= 0);
         assert(t < _CUSTOM_MOUNT_TYPE_MAX);
 
-        c = reallocarray(*l, *n + 1, sizeof(CustomMount));
-        if (!c)
+        if (!GREEDY_REALLOC(*l, *n + 1))
                 return NULL;
 
-        *l = c;
         ret = *l + *n;
         (*n)++;
 
