@@ -400,9 +400,12 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 
 _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
+        int r;
 
         /* Check that the fd is valid */
-        assert_return(fcntl(fd, F_GETFD) >= 0, -errno);
+        r = fd_validate(fd);
+        if (r < 0)
+                return r;
 
         if (mq_getattr(fd, &attr) < 0) {
                 if (errno == EBADF)

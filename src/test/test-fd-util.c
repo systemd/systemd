@@ -40,9 +40,9 @@ TEST(close_many) {
 
         close_many(fds, 2);
 
-        assert_se(fcntl(fds[0], F_GETFD) == -1);
-        assert_se(fcntl(fds[1], F_GETFD) == -1);
-        assert_se(fcntl(fds[2], F_GETFD) >= 0);
+        assert_se(fd_validate(fds[0]) == -EBADF);
+        assert_se(fd_validate(fds[1]) == -EBADF);
+        assert_se(fd_validate(fds[2]) >= 0);
 
         safe_close(fds[2]);
 }
@@ -55,6 +55,19 @@ TEST(close_nointr) {
         assert_se(fd >= 0);
         assert_se(close_nointr(fd) >= 0);
         assert_se(close_nointr(fd) < 0);
+}
+
+TEST(fd_validate) {
+        assert_se(fd_validate(-EINVAL) == -EBADF);
+        assert_se(fd_validate(-EBADF) == -EBADF);
+
+        _cleanup_close_ int b = -EBADF;
+        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+
+        assert_se(fd_validate(b) == 0);
+        safe_close(b);
+        assert_se(fd_validate(b) == -EBADF);
+        TAKE_FD(b);
 }
 
 TEST(same_fd) {
@@ -222,9 +235,9 @@ static size_t validate_fds(
                         continue;
 
                 if (opened)
-                        assert_se(fcntl(fds[i], F_GETFD) >= 0);
+                        assert_se(fd_validate(fds[i]) >= 0);
                 else
-                        assert_se(fcntl(fds[i], F_GETFD) < 0 && errno == EBADF);
+                        assert_se(fd_validate(fds[i]) == -EBADF);
 
                 c++;
         }
