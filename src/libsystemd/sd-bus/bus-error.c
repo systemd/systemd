@@ -602,7 +602,6 @@ static bool map_ok(const sd_bus_error_map *map) {
 }
 
 _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
-        const sd_bus_error_map **maps = NULL;
         unsigned n = 0;
 
         assert_return(map, -EINVAL);
@@ -613,13 +612,11 @@ _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
                         if (additional_error_maps[n] == map)
                                 return 0;
 
-        maps = reallocarray(additional_error_maps, n + 2, sizeof(struct sd_bus_error_map*));
-        if (!maps)
+        if (!GREEDY_REALLOC(additional_error_maps, n + 2))
                 return -ENOMEM;
 
-        maps[n] = map;
-        maps[n+1] = NULL;
+        additional_error_maps[n] = map;
+        additional_error_maps[n+1] = NULL;
 
-        additional_error_maps = maps;
         return 1;
 }
