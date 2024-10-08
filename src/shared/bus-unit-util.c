@@ -2423,15 +2423,13 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                         if (r >= 0) {
                                 assert(r >= 0 && r < 256);
 
-                                status = reallocarray(status, n_status + 1, sizeof(int));
-                                if (!status)
+                                if (!GREEDY_REALLOC(status, n_status + 1))
                                         return log_oom();
 
                                 status[n_status++] = r;
 
                         } else if ((r = signal_from_string(word)) >= 0) {
-                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
-                                if (!signal)
+                                if (!GREEDY_REALLOC(signal, n_signal + 1))
                                         return log_oom();
 
                                 signal[n_signal++] = r;

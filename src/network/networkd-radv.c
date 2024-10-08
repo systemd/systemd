@@ -1331,13 +1331,10 @@ int config_parse_radv_dns(
                         }
                 }
 
-                struct in6_addr *m;
-                m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
-                if (!m)
+                if (!GREEDY_REALLOC(n->router_dns, n->n_router_dns + 1))
                         return log_oom();
 
-                m[n->n_router_dns++] = a.in6;
-                n->router_dns = m;
+                n->router_dns[n->n_router_dns++] = a.in6;
         }
 }
 
