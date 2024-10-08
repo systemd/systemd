@@ -3144,6 +3144,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
         }
 
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                _cleanup_free_ char *c = NULL;
+                int copy;
+
+                copy = fdset_put_dup(fds, fs->fd);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to copy file descriptor for serialization: %m");
+
+                c = cescape(fs->fdname);
+                if (!c)
+                        return log_oom();
+
+                (void) serialize_item_format(f, "extra-fd", "%i \"%s\"", copy, c);
+        }
+
         if (s->main_exec_status.pid > 0) {
                 (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
                 (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
@@ -3394,6 +3409,29 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
 
                 TAKE_FD(fd);
+        } else if (streq(key, "extra-fd")) {
+                _cleanup_free_ char *fdv = NULL, *fdn = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn);
+                if (r != 2) {
+                        log_unit_debug(u, "Failed to deserialize extra-fd, ignoring: %s", value);
+                        return 0;
+                }
+
+                fd = deserialize_fd(fds, fdv);
+                if (fd < 0)
+                        return 0;
+
+                if (!GREEDY_REALLOC(s->extra_fds, s->n_extra_fds + 1)) {
+                        log_oom_debug();
+                        return 0;
+                }
+
+                s->extra_fds[s->n_extra_fds++] = (ServiceExtraFD) {
+                        .fd = TAKE_FD(fd),
+                        .fdname = TAKE_PTR(fdn),
+                };
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
