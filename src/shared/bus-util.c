@@ -29,6 +29,7 @@
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "uid-classification.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -50,14 +51,14 @@ int bus_log_address_error(int r, BusTransport transport) {
                                       "Failed to set bus address: %m");
 }
 
-int bus_log_connect_error(int r, BusTransport transport) {
+int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
         bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
              hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
 
         return log_error_errno(r,
-                               r == hint_vars ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                               r == hint_addr ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                                                "Failed to connect to bus: %m");
+                               r == hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                               r == hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                                "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
@@ -944,3 +945,12 @@ int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
                 return -EINVAL;
         }
 }
+
+static const char* const bus_transport_table[] = {
+        [BUS_TRANSPORT_LOCAL]   = "local",
+        [BUS_TRANSPORT_REMOTE]  = "remote",
+        [BUS_TRANSPORT_MACHINE] = "machine",
+        [BUS_TRANSPORT_CAPSULE] = "capsule",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(bus_transport, BusTransport);

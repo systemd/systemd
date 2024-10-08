@@ -153,7 +153,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         *ret = TAKE_PTR(bus);
 
