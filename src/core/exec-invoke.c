@@ -3852,7 +3852,7 @@ static bool exec_context_need_unprivileged_private_users(
                 return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
-               context->private_tmp != PRIVATE_TMP_OFF ||
+               context->private_tmp != PRIVATE_TMP_NO ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
