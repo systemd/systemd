@@ -72,12 +72,14 @@ TEST(fd_validate) {
 
 TEST(same_fd) {
         _cleanup_close_pair_ int p[2];
-        _cleanup_close_ int a, b, c;
+        _cleanup_close_ int a, b, c, d, e;
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
         assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
+        assert_se((d = open("/dev/null", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
+        assert_se((e = fcntl(d, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
         assert_se(same_fd(p[1], p[1]) > 0);
@@ -102,6 +104,20 @@ TEST(same_fd) {
 
         assert_se(same_fd(a, b) == 0);
         assert_se(same_fd(b, a) == 0);
+
+        assert_se(same_fd(a, d) == 0);
+        assert_se(same_fd(d, a) == 0);
+        assert_se(same_fd(d, d) > 0);
+        assert_se(same_fd(d, e) > 0);
+        assert_se(same_fd(e, d) > 0);
+
+        /* Let's now compare with a valid fd nr, that is definitely closed, and verify it returns the right error code */
+        safe_close(d);
+        assert_se(same_fd(d, d) == -EBADF);
+        assert_se(same_fd(e, d) == -EBADF);
+        assert_se(same_fd(d, e) == -EBADF);
+        assert_se(same_fd(e, e) > 0);
+        TAKE_FD(d);
 }
 
 TEST(open_serialization_fd) {
