@@ -231,7 +231,7 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         if (pid <= 0)
                 return -EINVAL;
 
-        r = manager_get_machine_by_pid(manager, pid, &machine);
+        r = manager_get_machine_by_pidref(manager, &PIDREF_MAKE_FROM_PID(pid), &machine);
         if (r < 0)
                 return r;
         if (!machine)
@@ -267,7 +267,7 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
 
         if (machine && pid_machine && machine != pid_machine)
                 return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Search by machine name '%s' and pid %d resulted in two different machines", machine_name, pid);
-        else if (machine)
+        if (machine)
                 *ret_machine = machine;
         else if (pid_machine)
                 *ret_machine = pid_machine;
@@ -324,7 +324,7 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
 int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct params {
                 const char *machine_name;
-                pid_t pid;
+                pid_t pid; /* pid = 0 is a placeholder for 'use peer pid' */
                 const char *swhom;
                 int32_t signo;
         };
