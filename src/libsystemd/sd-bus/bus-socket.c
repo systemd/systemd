@@ -1406,35 +1406,41 @@ int bus_socket_read_message(sd_bus *bus) {
 
         if (handle_cmsg) {
                 struct cmsghdr *cmsg;
+                bool failed = false;
 
                 CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
-                                int n, *f, i;
-
-                                n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
                                 if (!bus->can_fds) {
                                         /* Whut? We received fds but this
                                          * isn't actually enabled? Close them,
                                          * and fail */
 
-                                        close_many(CMSG_TYPED_DATA(cmsg, int), n);
+                                        cmsg_close_all(&mh);
                                         return -EIO;
                                 }
 
-                                f = reallocarray(bus->fds, bus->n_fds + n, sizeof(int));
-                                if (!f) {
+                                size_t n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                                if (failed) {
                                         close_many(CMSG_TYPED_DATA(cmsg, int), n);
-                                        return -ENOMEM;
+                                        continue;
                                 }
 
-                                for (i = 0; i < n; i++)
-                                        f[bus->n_fds++] = fd_move_above_stdio(CMSG_TYPED_DATA(cmsg, int)[i]);
-                                bus->fds = f;
+                                if (!GREEDY_REALLOC(bus->fds, bus->n_fds + n)) {
+                                        failed = true;
+                                        close_many(CMSG_TYPED_DATA(cmsg, int), n);
+                                        continue;
+                                }
+
+                                for (size_t i = 0; i < n; i++)
+                                        bus->fds[bus->n_fds++] = fd_move_above_stdio(CMSG_TYPED_DATA(cmsg, int)[i]);
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
                                           cmsg->cmsg_level, cmsg->cmsg_type);
+
+                if (failed)
+                        return -ENOMEM;
         }
 
         r = bus_socket_read_message_need(bus, &need);

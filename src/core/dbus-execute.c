@@ -2377,7 +2377,6 @@ int bus_exec_context_set_transient_property(
 
                 for (;;) {
                         _cleanup_free_ void *copy = NULL;
-                        struct iovec *t;
                         const char *eq;
                         const void *p;
                         size_t sz;
@@ -2404,28 +2403,20 @@ int bus_exec_context_set_transient_property(
                         if (!journal_field_valid(p, eq - (const char*) p, false))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
 
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                t = reallocarray(c->log_extra_fields, c->n_log_extra_fields+1, sizeof(struct iovec));
-                                if (!t)
-                                        return -ENOMEM;
-                                c->log_extra_fields = t;
-                        }
-
-                        copy = malloc(sz + 1);
+                        copy = memdup_suffix0(p, sz);
                         if (!copy)
                                 return -ENOMEM;
-
-                        memcpy(copy, p, sz);
-                        ((uint8_t*) copy)[sz] = 0;
 
                         if (!utf8_is_valid(copy))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
+                                        return -ENOMEM;
+
                                 c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE(copy, sz);
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C, name, "LogExtraFields=%s", (char*) copy);
-
-                                copy = NULL;
+                                TAKE_PTR(copy);
                         }
 
                         n++;

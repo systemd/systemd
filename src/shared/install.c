@@ -295,7 +295,6 @@ InstallChangeType install_changes_add(
                 const char *source) {
 
         _cleanup_free_ char *p = NULL, *s = NULL;
-        InstallChange *c;
         int r;
 
         assert(!changes == !n_changes);
@@ -310,10 +309,8 @@ InstallChangeType install_changes_add(
         if (!changes)
                 return type;
 
-        c = reallocarray(*changes, *n_changes + 1, sizeof(InstallChange));
-        if (!c)
+        if (!GREEDY_REALLOC(*changes, *n_changes + 1))
                 return -ENOMEM;
-        *changes = c;
 
         r = path_simplify_alloc(path, &p);
         if (r < 0)
@@ -323,7 +320,7 @@ InstallChangeType install_changes_add(
         if (r < 0)
                 return r;
 
-        c[(*n_changes)++] = (InstallChange) {
+        (*changes)[(*n_changes)++] = (InstallChange) {
                 .type = type,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
