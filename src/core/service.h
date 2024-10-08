@@ -223,7 +223,7 @@ struct Service {
 
         sd_event_source *exec_fd_event_source;
 
-        ServiceFDStore *fd_store;
+        LIST_HEAD(ServiceFDStore, fd_store);
         size_t n_fd_store;
         unsigned n_fd_store_max;
         ExecPreserveMode fd_store_preserve_mode;
