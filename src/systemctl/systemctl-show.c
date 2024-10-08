@@ -758,68 +758,68 @@ static void print_status_info(
                         printf(" (");
                         if (i->memory_min > 0) {
                                 printf("%smin: %s", prefix, FORMAT_BYTES_CGROUP_PROTECTION(i->memory_min));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_low > 0) {
                                 printf("%slow: %s", prefix, FORMAT_BYTES_CGROUP_PROTECTION(i->memory_low));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->startup_memory_low > 0) {
                                 printf("%slow (startup): %s", prefix, FORMAT_BYTES_CGROUP_PROTECTION(i->startup_memory_low));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_high != CGROUP_LIMIT_MAX) {
                                 printf("%shigh: %s", prefix, FORMAT_BYTES(i->memory_high));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->startup_memory_high != CGROUP_LIMIT_MAX) {
                                 printf("%shigh (startup): %s", prefix, FORMAT_BYTES(i->startup_memory_high));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_max != CGROUP_LIMIT_MAX) {
                                 printf("%smax: %s", prefix, FORMAT_BYTES(i->memory_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->startup_memory_max != CGROUP_LIMIT_MAX) {
                                 printf("%smax (startup): %s", prefix, FORMAT_BYTES(i->startup_memory_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
                                 printf("%sswap max: %s", prefix, FORMAT_BYTES(i->memory_swap_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->startup_memory_swap_max != CGROUP_LIMIT_MAX) {
                                 printf("%sswap max (startup): %s", prefix, FORMAT_BYTES(i->startup_memory_swap_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_zswap_max != CGROUP_LIMIT_MAX) {
                                 printf("%szswap max: %s", prefix, FORMAT_BYTES(i->memory_zswap_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->startup_memory_zswap_max != CGROUP_LIMIT_MAX) {
                                 printf("%szswap max (startup): %s", prefix, FORMAT_BYTES(i->startup_memory_zswap_max));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
                                 printf("%slimit: %s", prefix, FORMAT_BYTES(i->memory_limit));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (show_memory_available) {
                                 printf("%savailable: %s", prefix, FORMAT_BYTES(i->memory_available));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (show_memory_peak) {
                                 printf("%speak: %s", prefix, FORMAT_BYTES(i->memory_peak));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (show_memory_swap_peak) {
-                                printf("%sswap: %s swap peak: %s", prefix,
+                                printf("%sswap: %s, swap peak: %s", prefix,
                                        FORMAT_BYTES(i->memory_swap_current), FORMAT_BYTES(i->memory_swap_peak));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         if (show_memory_zswap_current) {
                                 printf("%szswap: %s", prefix, FORMAT_BYTES(i->memory_zswap_current));
-                                prefix = " ";
+                                prefix = ", ";
                         }
                         printf(")");
                 }
