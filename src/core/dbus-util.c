@@ -193,6 +193,9 @@ int bus_verify_manage_units_async_impl(
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        assert(m);
+        assert(call);
+
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.manage-unit-files",
@@ -202,6 +205,9 @@ int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        assert(m);
+        assert(call);
+
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.reload-daemon",
@@ -210,6 +216,9 @@ int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_erro
 }
 
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        assert(m);
+        assert(call);
+
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.set-environment",
@@ -219,6 +228,9 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
 }
 
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        assert(m);
+        assert(call);
+
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.bypass-dump-ratelimit",
