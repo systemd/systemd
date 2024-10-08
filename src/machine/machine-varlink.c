@@ -267,7 +267,7 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
 
         if (machine && pid_machine && machine != pid_machine)
                 return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Search by machine name '%s' and pid %d resulted in two different machines", machine_name, pid);
-        else if (machine)
+        if (machine)
                 *ret_machine = machine;
         else if (pid_machine)
                 *ret_machine = pid_machine;
