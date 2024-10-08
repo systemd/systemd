@@ -1616,7 +1616,7 @@ static int reload_system_manager(sd_bus **bus) {
         if (!*bus) {
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
-                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
 
         r = bus_service_manager_reload(*bus);
@@ -1639,7 +1639,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (!*bus) {
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
-                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
 
         r = bus_wait_for_jobs_new(*bus, &w);

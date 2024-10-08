@@ -48,7 +48,7 @@ int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope
 int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
 
 int bus_log_address_error(int r, BusTransport transport);
-int bus_log_connect_error(int r, BusTransport transport);
+int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope);
 
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")
@@ -84,3 +84,5 @@ int bus_creds_get_pidref(sd_bus_creds *c, PidRef *ret);
 int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
 
 int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret);
+
+const char* bus_transport_to_string(BusTransport transport) _const_;
