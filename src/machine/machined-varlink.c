@@ -419,7 +419,7 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
 
 typedef struct MachineLookupParameters {
         const char *machine_name;
-        pid_t pid;
+        pid_t pid; /* pid = 0 is a placeholder for 'use peer pid' */
 } MachineLookupParameters;
 
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

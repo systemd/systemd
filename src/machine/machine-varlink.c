@@ -324,7 +324,7 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
 int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct params {
                 const char *machine_name;
-                pid_t pid;
+                pid_t pid; /* pid = 0 is a placeholder for 'use peer pid' */
                 const char *swhom;
                 int32_t signo;
         };
