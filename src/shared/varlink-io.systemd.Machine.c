@@ -31,17 +31,26 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_METHOD(
                 Unregister,
                 SD_VARLINK_FIELD_COMMENT("The name of a machine to unregister."),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null the PID of a running machine to report details on."),
+                SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Terminate,
                 SD_VARLINK_FIELD_COMMENT("The name of a machine to terminate."),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null the PID of a running machine to report details on."),
+                SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Kill,
                 SD_VARLINK_FIELD_COMMENT("The name of a machine to send signal to."),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If non-null the PID of a running machine to report details on."),
+                SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader' or 'all')."),
                 SD_VARLINK_DEFINE_INPUT(whom, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Numeric UNIX signal integer."),
@@ -54,6 +63,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null the PID of a running machine to report details on."),
                 SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Name of the machine"),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("128bit ID identifying this machine, formatted in hexadecimal"),
