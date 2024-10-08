@@ -2837,7 +2837,6 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        MountImage *c;
 
         assert(m);
         assert(n);
@@ -2870,13 +2869,10 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
                 LIST_APPEND(mount_options, options, TAKE_PTR(o));
         }
 
-        c = reallocarray(*m, *n + 1, sizeof(MountImage));
-        if (!c)
+        if (!GREEDY_REALLOC(*m, *n + 1))
                 return -ENOMEM;
 
-        *m = c;
-
-        c[(*n)++] = (MountImage) {
+        (*m)[(*n)++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .mount_options = TAKE_PTR(options),
@@ -2905,7 +2901,6 @@ int temporary_filesystem_add(
                 const char *options) {
 
         _cleanup_free_ char *p = NULL, *o = NULL;
-        TemporaryFileSystem *c;
 
         assert(t);
         assert(n);
@@ -2921,13 +2916,10 @@ int temporary_filesystem_add(
                         return -ENOMEM;
         }
 
-        c = reallocarray(*t, *n + 1, sizeof(TemporaryFileSystem));
-        if (!c)
+        if (!GREEDY_REALLOC(*t, *n + 1))
                 return -ENOMEM;
 
-        *t = c;
-
-        c[(*n)++] = (TemporaryFileSystem) {
+        (*t)[(*n)++] = (TemporaryFileSystem) {
                 .path = TAKE_PTR(p),
                 .options = TAKE_PTR(o),
         };

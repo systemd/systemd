@@ -606,19 +606,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 else if (streq(slot, "tpm2"))
                                         arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
                                 else {
-                                        int *a;
-
                                         r = safe_atou(slot, &n);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse slot index: %s", slot);
                                         if (n > INT_MAX)
                                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
 
-                                        a = reallocarray(arg_wipe_slots, arg_n_wipe_slots + 1, sizeof(int));
-                                        if (!a)
+                                        if (!GREEDY_REALLOC(arg_wipe_slots, arg_n_wipe_slots + 1))
                                                 return log_oom();
 
-                                        arg_wipe_slots = a;
                                         arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
                                 }
                         }
