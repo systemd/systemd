@@ -288,3 +288,18 @@ timeout 30 bash -c "until varlinkctl call /run/systemd/machine/io.systemd.Machin
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshAddress' | grep -q 'localhost'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep -q 'non-existent'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unregister '{"name": "registered-container"}'
+
+# test io.systemd.MachineImage.List
+varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'
+varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep '.host'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running", "acquireMetadata": true}' | grep 'OSRelease'
+
+# test io.systemd.MachineImage.Update
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Update '{"name":"long-running", "newName": "long-running-renamed", "readOnly": true}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-renamed"}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-renamed"}' | jq '.readOnly' | grep 'true'
+
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Update '{"name":"long-running-renamed", "newName": "long-running", "readOnly": false}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}' | jq '.readOnly' | grep 'false'
