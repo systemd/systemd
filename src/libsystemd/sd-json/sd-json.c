@@ -31,6 +31,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -5557,6 +5558,28 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid UID.", strna(name));
 
+        return 0;
+}
+
+_public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *signo = userdata;
+        uint64_t k;
+
+        assert_return(variant, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *signo = SIGNO_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        k = sd_json_variant_unsigned(variant);
+        if (!SIGNAL_VALID(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+
+        *signo = k;
         return 0;
 }
 
