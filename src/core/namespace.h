@@ -54,7 +54,7 @@ typedef enum ProcSubset {
 } ProcSubset;
 
 typedef enum PrivateTmp {
-        PRIVATE_TMP_OFF,
+        PRIVATE_TMP_NO,
         PRIVATE_TMP_CONNECTED, /* Bind mounted from the host's filesystem */
         PRIVATE_TMP_DISCONNECTED, /* A completely private tmpfs, invisible from the host */
         _PRIVATE_TMP_MAX,
@@ -62,7 +62,7 @@ typedef enum PrivateTmp {
 } PrivateTmp;
 
 typedef enum PrivateUsers {
-        PRIVATE_USERS_OFF,
+        PRIVATE_USERS_NO,
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
         _PRIVATE_USERS_MAX,

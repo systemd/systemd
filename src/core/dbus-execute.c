@@ -1023,7 +1023,7 @@ static int property_get_private_tmp(
                 sd_bus_error *error) {
 
         PrivateTmp *p = ASSERT_PTR(userdata);
-        int b = *p != PRIVATE_TMP_OFF;
+        int b = *p != PRIVATE_TMP_NO;
 
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
@@ -1038,7 +1038,7 @@ static int property_get_private_users(
                 sd_bus_error *error) {
 
         PrivateUsers *p = ASSERT_PTR(userdata);
-        int b = *p != PRIVATE_USERS_OFF;
+        int b = *p != PRIVATE_USERS_NO;
 
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
@@ -1847,7 +1847,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->private_tmp = v ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_OFF;
+                        c->private_tmp = v ? PRIVATE_TMP_CONNECTED : PRIVATE_TMP_NO;
                         (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
                 }
 
@@ -1882,7 +1882,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->private_users = v ? PRIVATE_USERS_SELF : PRIVATE_USERS_OFF;
+                        c->private_users = v ? PRIVATE_USERS_SELF : PRIVATE_USERS_NO;
                         (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
                 }
 

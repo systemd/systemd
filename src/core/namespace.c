@@ -3221,7 +3221,7 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
-        [PRIVATE_TMP_OFF]          = "off",
+        [PRIVATE_TMP_NO]           = "no",
         [PRIVATE_TMP_CONNECTED]    = "connected",
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
@@ -3229,7 +3229,7 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);
 
 static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
-        [PRIVATE_USERS_OFF]      = "off",
+        [PRIVATE_USERS_NO]       = "no",
         [PRIVATE_USERS_SELF]     = "self",
         [PRIVATE_USERS_IDENTITY] = "identity",
 };
