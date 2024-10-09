@@ -33,7 +33,7 @@ struct str {
         size_t l;
 };
 
-static long cut_last(u32 i, struct str *str) {
+static long cut_last(u64 i, struct str *str) {
         char *s;
 
         /* Sanity check for the preverifier */
