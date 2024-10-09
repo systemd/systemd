@@ -2,6 +2,7 @@
 
 #include "sd-varlink-idl.h"
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Machine.h"
 
 static SD_VARLINK_DEFINE_METHOD(
@@ -18,8 +19,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(sshPrivateKeyPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
                 SD_VARLINK_DEFINE_INPUT(allocateUnit,      SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to allow interactive authentication on this operation."),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Timestamp,
