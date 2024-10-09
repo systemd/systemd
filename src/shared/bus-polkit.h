@@ -35,4 +35,9 @@ static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, con
                 .type = SD_JSON_VARIANT_BOOLEAN,                 \
         }
 
+/* Generates the right Varlink introspection field for the allowInteractiveAuthentication field above. To be used in Varlink IDL definitions. */
+#define VARLINK_DEFINE_POLKIT_INPUT                                     \
+        SD_VARLINK_FIELD_COMMENT("Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false."), \
+        SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE)
+
 bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry);

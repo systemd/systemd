@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -40,7 +41,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(growFileSystems, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(partitions, PartitionInfo, SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_OUTPUT(imagePolicy, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_OUTPUT(imageSize, SD_VARLINK_INT, 0),

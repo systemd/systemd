@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Credentials.h"
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT(Hostname, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_OUTPUT(StaticHostname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(PrettyHostname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),

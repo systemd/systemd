@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Credentials.h"
 
 static SD_VARLINK_DEFINE_METHOD(
@@ -18,8 +19,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(scope, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The numeric UNIX UID of the user the credential shall be scoped to. Only relevant if 'user' scope is selected (see above). If not specified and 'user' scope is selected defaults to the UID of the calling user, if that can be determined."),
                 SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("Encrypted credential in Base64 encoding. This can be stored in a credential file, for consumption in LoadEncryptedCredential= and similar calls. Note that the Base64 encoding should be retained when copied into a file."),
                 SD_VARLINK_DEFINE_OUTPUT(blob, SD_VARLINK_STRING, 0));
 
@@ -35,8 +35,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(scope, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If the 'user' scope is selected, specifies the numeric UNIX UID of the user the credential is associated with. If not specified this is automatically derived from the UID of the calling user, if that can be determined."),
                 SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("The decrypted plaintext data in Base64 encoding."),
                 SD_VARLINK_DEFINE_OUTPUT(data, SD_VARLINK_STRING, 0));
 
