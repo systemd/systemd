@@ -637,6 +637,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
+ KEYBOARD_KEY_66=pickup_phone                           # Pickup phone button
+ KEYBOARD_KEY_65=hangup_phone                           # Hangup phone button
  KEYBOARD_KEY_81=fn_esc
  KEYBOARD_KEY_89=battery                                # Fn+F8
  KEYBOARD_KEY_8a=screenlock                             # Fn+F6
@@ -804,8 +806,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBookStudioG5*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_66=pickup_phone                           # Pickup phone button
- KEYBOARD_KEY_65=hangup_phone                           # Hangup phone button
 
 # HP ZBook 15 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
@@ -869,8 +869,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_66=pickup_phone                           # Pickup phone button
- KEYBOARD_KEY_65=hangup_phone                           # Hangup phone button
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
