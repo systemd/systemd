@@ -1970,23 +1970,13 @@ static int delay_shutdown_or_sleep(
         assert(m);
         assert(a);
 
-        if (m->inhibit_timeout_source) {
-                r = sd_event_source_set_time_relative(m->inhibit_timeout_source, m->inhibit_delay_max);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time_relative() failed: %m");
-
-                r = sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
-        } else {
-                r = sd_event_add_time_relative(
-                                m->event,
-                                &m->inhibit_timeout_source,
-                                CLOCK_MONOTONIC, m->inhibit_delay_max, 0,
-                                manager_inhibit_timeout_handler, m);
-                if (r < 0)
-                        return r;
-        }
+        r = event_reset_time_relative(
+                        m->event, &m->inhibit_timeout_source,
+                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy = */ 0,
+                        manager_inhibit_timeout_handler, m,
+                        /* priority = */ 0, "inhibit-timeout", /* force = */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset timer event source for inhibit timeout: %m");
 
         m->delayed_action = a;
 
