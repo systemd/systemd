@@ -133,7 +133,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         int r;
 
-        if (use_full_bus && *use_full_bus) {
+        /* If we're not running as root, use the bus, as we won't have permissions to access the private
+         * manager bus instance; */
+        if (geteuid() != 0 || (use_full_bus && *use_full_bus)) {
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, bus);
                 if (IN_SET(r, 0, -EHOSTDOWN))
                         return r;
