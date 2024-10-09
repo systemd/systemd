@@ -662,8 +662,8 @@ static EFI_STATUS load_addons(
 
                 if (initrd_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD)) {
                         *initrd_addons = xrealloc(*initrd_addons,
-                                        *n_initrd_addons * sizeof(NamedAddon),
-                                        (*n_initrd_addons + 1)  * sizeof(NamedAddon));
+                                                  *n_initrd_addons * sizeof(NamedAddon),
+                                                  (*n_initrd_addons + 1)  * sizeof(NamedAddon));
                         (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].size),
@@ -675,8 +675,8 @@ static EFI_STATUS load_addons(
 
                 if (ucode_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
                         *ucode_addons = xrealloc(*ucode_addons,
-                                        *n_ucode_addons * sizeof(NamedAddon),
-                                        (*n_ucode_addons + 1)  * sizeof(NamedAddon));
+                                                 *n_ucode_addons * sizeof(NamedAddon),
+                                                 (*n_ucode_addons + 1)  * sizeof(NamedAddon));
                         (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
                                 .blob = {
                                         .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].size),
