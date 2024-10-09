@@ -3,6 +3,7 @@
 #include <linux/if.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
@@ -1456,4 +1457,56 @@ bool link_negative_trust_anchor_lookup(Link *l, const char *name) {
         }
 
         return false;
+}
+
+int link_dump_configuration_json(Link *l, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns = NULL, *search_domains = NULL;
+        const char *current_dns_server = NULL;
+        int r;
+
+        assert(l);
+        assert(ret);
+
+        r = sd_json_variant_new_array(&dns, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_new_array(&search_domains, NULL, 0);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, l->dns_servers) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = sd_json_variant_new_string(&v, dns_server_string_full(s));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&dns, v);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(domains, d, l->search_domains) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = sd_json_variant_new_string(&v, DNS_SEARCH_DOMAIN_NAME(d));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&search_domains, v);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->current_dns_server)
+                current_dns_server = dns_server_string_full(l->current_dns_server);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("interface", l->ifname),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("interfaceIndex", l->ifindex),
+                        SD_JSON_BUILD_PAIR_STRING("currentDNSServer", current_dns_server),
+                        SD_JSON_BUILD_PAIR_VARIANT("dnsServers", dns),
+                        SD_JSON_BUILD_PAIR_VARIANT("searchDomains", search_domains));
 }
