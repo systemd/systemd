@@ -1264,4 +1264,47 @@ TEST(parse_continue) {
         assert_se(sd_json_parse_with_source_continue(&p, "piff", /* flags= */ 0, &x, &line, &column) == -EINVAL);
 }
 
+TEST(pidref) {
+        _cleanup_(pidref_done) PidRef myself = PIDREF_NULL, pid1 = PIDREF_NULL;
+
+        assert_se(pidref_set_pid(&myself, 0) >= 0);
+        assert_se(pidref_set_pid(&pid1, 1) >= 0);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        assert_se(sd_json_buildo(&v,
+                                 JSON_BUILD_PAIR_PIDREF("myself", &myself),
+                                 JSON_BUILD_PAIR_PIDREF("pid1", &pid1)) >= 0);
+
+        sd_json_variant_dump(v, SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_PRETTY, NULL, NULL);
+
+        struct {
+                PidRef myself, pid1;
+        } data = {
+                .myself = PIDREF_NULL,
+                .pid1 = PIDREF_NULL,
+        };
+
+        assert_se(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "myself", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref, voffsetof(data, myself), 0 },
+                                          { "pid1", _SD_JSON_VARIANT_TYPE_INVALID,   json_dispatch_pidref, voffsetof(data, pid1),   0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &data) >= 0);
+
+        assert_se(pidref_equal(&myself, &data.myself));
+        assert_se(pidref_equal(&pid1, &data.pid1));
+
+        assert_se(!pidref_equal(&myself, &data.pid1));
+        assert_se(!pidref_equal(&pid1, &data.myself));
+
+        assert_se((myself.fd_id > 0) == (data.myself.fd_id > 0));
+        assert_se((pid1.fd_id > 0) == (data.pid1.fd_id > 0));
+
+        pidref_done(&data.myself);
+        pidref_done(&data.pid1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
