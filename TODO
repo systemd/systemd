@@ -129,6 +129,12 @@ Deprecations and removals:
 
 Features:
 
+* add a generic varlink dispatcher for pidfd/pidinode/pid to PidRef handling
+  (and formatter?)
+
+* add a generic macro to generate polkit varlink allowInteractiveAuth parameter
+  for valrink introspection
+
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
 * get rid of compat with libbpf.so.0 (retainly only for libbpf.so.1)
