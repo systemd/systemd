@@ -412,10 +412,23 @@ static int property_get_scheduled_shutdown(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(
-                        reply, "st",
-                        handle_action_to_string(m->scheduled_shutdown_action),
-                        m->scheduled_shutdown_timeout);
+        if (m->delayed_action) {
+                usec_t t = 0;
+
+                if (m->inhibit_timeout_source) {
+                        r = sd_event_source_get_time(m->inhibit_timeout_source, &t);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get time of inhibit timeout event source, ignoring: %m");
+                }
+
+                r = sd_bus_message_append(
+                                reply, "st",
+                                handle_action_to_string(m->delayed_action->handle), t);
+        } else
+                r = sd_bus_message_append(
+                                reply, "st",
+                                handle_action_to_string(m->scheduled_shutdown_action),
+                                m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
 
