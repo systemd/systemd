@@ -35,3 +35,26 @@ jobs:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
+
+      - name: Check that tabs are not used in Python code
+        run: sh -c '! git grep -P "\\t" -- src/ukify/ukify.py'
+
+      - name: Install ruff and mypy
+        run: |
+          python3 -m pip install --break-system-packages --upgrade setuptools wheel pip
+          python3 -m pip install --break-system-packages mypy types-Pillow ruff
+
+      - name: Run mypy
+        run: |
+          python3 -m mypy --version
+          python3 -m mypy src/ukify/ukify.py
+
+      - name: Run ruff check
+        run: |
+          ruff --version
+          ruff check src/ukify/ukify.py
+
+      - name: Run ruff format
+        run: |
+          ruff --version
+          ruff format --check src/ukify/ukify.py
