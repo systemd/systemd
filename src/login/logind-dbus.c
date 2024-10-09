@@ -1980,6 +1980,21 @@ static int delay_shutdown_or_sleep(
         return 0;
 }
 
+static void cancel_delayed_action(Manager *m) {
+        assert(m);
+
+        (void) sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_OFF);
+
+        /* When m->action_job is NULL, the delayed action has not been triggered yet. Let's clear it to
+         * accept later shutdown and friends.
+         *
+         * When m->action_job is non-NULL, the delayed action has been already triggered, and now we are
+         * waiting for the job being finished. In match_job_removed(), the triggered action will be used.
+         * Hence, do not clear it. */
+        if (!m->action_job)
+                m->delayed_action = NULL;
+}
+
 int bus_manager_shutdown_or_sleep_now_or_later(
                 Manager *m,
                 const HandleActionData *a,
@@ -2722,6 +2737,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                             username, tty, logind_wall_tty_filter, m);
         }
 
+        cancel_delayed_action(m);
         reset_scheduled_shutdown(m);
 
         return sd_bus_reply_method_return(message, "b", true);
