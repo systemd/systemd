@@ -45,7 +45,9 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
         if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE))
                 focus = BUS_FULL;
 
-        if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
+        if (geteuid() != 0 || getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
+                /* Only talk to the private manager bus if we're root and not explicitly
+                 * asked to use the system bus. */
                 focus = BUS_FULL;
 
         if (!buses[focus]) {
