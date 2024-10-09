@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 FAKE_ROOTS_DIR="$(mktemp -d --tmpdir="" fake-roots-XXX)"
 FSTYPE=$(stat --file-system --format "%T" /usr)
 
@@ -1008,5 +1011,23 @@ if [[ -w /usr ]]; then
 fi
 run_sysext_tests "$FAKE_ROOTS_DIR"
 
+install_extension_images
+
+# Test that mountpoints are carried over into and back from the sysext overlayfs.
+ln -s /tmp/app0.raw /var/lib/extensions/app0.raw
+mkdir /tmp/foo
+mount --bind /tmp/foo /usr/share
+systemd-sysext merge
+test -f /usr/lib/systemd/system/some_file
+mountpoint /usr/share
+touch /tmp/foo/abc
+test -f /usr/share/abc
+umount /usr/share
+test ! -f /usr/share/abc
+mount --bind /tmp/foo /usr/share
+systemd-sysext unmerge
+test ! -f /usr/lib/systemd/system/some_file
+mountpoint /usr/share
+umount /usr/share
 
 exit 0
