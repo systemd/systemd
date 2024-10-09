@@ -1899,15 +1899,18 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto fail;
 
+        /* Save the action to prevent another request of shutdown or friends before the current action being
+         * finished. See method_do_shutdown_or_sleep(). This is also used in match_job_removed() to log what
+         * kind of action is finished. */
         m->delayed_action = a;
 
-        /* Make sure the lid switch is ignored for a while */
+        /* Make sure the lid switch is ignored for a while. */
         manager_set_lid_switch_ignore(m, usec_add(now(CLOCK_MONOTONIC), m->holdoff_timeout_usec));
 
         return 0;
 
 fail:
-        /* Tell people that they now may take a lock again */
+        /* Tell people that they now may take a lock again. */
         (void) send_prepare_for(m, a, false);
 
         return r;
