@@ -3,6 +3,7 @@
 systemd_journal_upload_sources = files(
         'journal-upload-journal.c',
         'journal-upload.c',
+        'headers-util.c',
 )
 
 libsystemd_journal_remote_sources = files(
@@ -54,6 +55,11 @@ executables += [
                 ],
                 'sources' : systemd_journal_upload_sources,
                 'dependencies' : common_deps + [libcurl],
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'include_directories' : core_includes,
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
