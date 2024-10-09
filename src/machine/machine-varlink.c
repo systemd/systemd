@@ -216,7 +216,6 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         assert(link);
         assert(manager);
         assert(ret_machine);
-        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
         if (pid == 0) {
                 int pidfd = sd_varlink_get_peer_pidfd(link);
@@ -338,7 +337,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        struct params p = { .pid = -1 };
+        struct params p = { .pid = PID_INVALID };
         KillWhom whom;
         int r;
 
