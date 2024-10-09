@@ -245,7 +245,7 @@ int bus_connect_system_systemd(sd_bus **ret_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_system(ret_bus);
+                return r;
 
         r = bus_check_peercred(bus);
         if (r < 0)
@@ -265,7 +265,7 @@ int bus_connect_user_systemd(sd_bus **ret_bus) {
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_default_user(ret_bus);
+                return -ENXIO;
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -281,7 +281,7 @@ int bus_connect_user_systemd(sd_bus **ret_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_user(ret_bus);
+                return r;
 
         r = bus_check_peercred(bus);
         if (r < 0)
