@@ -18,6 +18,18 @@ CHANGES WITH 257 in spe:
 
        Announcements of Future Feature Removals and Incompatible Changes:
 
+        * To work around limitations of X11's keyboard handling systemd's
+          keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
+          mapped the microphone mute and touchpad on/off/toggle keys to the
+          function keys F20, F21, F22, F23 instead of their correct key
+          codes. This key code mangling will be removed in the next systemd
+          release v258. To maintain compatibility with X11 applications that
+          rely on the old function key code mappings, this mangling has now
+          been moved to the relevant X11 keyboard driver modules instead. Thus,
+          in order to ensure these keys continue to work as before make sure to
+          update the xf86-input-evdev and xf86-input-libinput packages to the
+          newest version before updating systemd to v258.
+
         * Support for automatic flushing of the nscd user/group database caches
           has been dropped.
 
