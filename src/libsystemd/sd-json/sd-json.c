@@ -30,6 +30,7 @@
 #include "memstream-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -5524,6 +5525,29 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid UID.", strna(name));
 
+        return 0;
+}
+
+_public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *signo = userdata;
+        uint32_t k;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *signo = SIGNO_INVALID;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (!SIGNAL_VALID(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+
+        *signo = k;
         return 0;
 }
 
