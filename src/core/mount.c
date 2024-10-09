@@ -1884,7 +1884,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
-                /* Just to achieve device name uniqueness. Note that the suppresion of the duplicate
+                /* Just to achieve device name uniqueness. Note that the suppression of the duplicate
                  * processing is merely an optimization, hence in case of OOM (unlikely) we'll just process
                  * it twice. */
                 if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
