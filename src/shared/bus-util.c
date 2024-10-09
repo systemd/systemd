@@ -315,7 +315,7 @@ static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *re
                 return negative_errno();
 
         /* Paranoid safety check */
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid))
+        if (uid_in_range(st.st_uid, UGID_RANGE_SYSTEM) || gid_in_range(st.st_gid, UGID_RANGE_SYSTEM))
                 return -EPERM;
 
         *ret_uid = st.st_uid;

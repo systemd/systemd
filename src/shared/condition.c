@@ -347,7 +347,7 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq(c->parameter, NOBODY_USER_NAME))
                 return getuid() == UID_NOBODY || geteuid() == UID_NOBODY;
         if (streq(c->parameter, "@system"))
-                return uid_is_system(getuid()) || uid_is_system(geteuid());
+                return uid_in_range(getuid(), UGID_RANGE_SYSTEM) || uid_in_range(geteuid(), UGID_RANGE_SYSTEM);
 
         r = parse_uid(c->parameter, &id);
         if (r >= 0)

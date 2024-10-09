@@ -927,7 +927,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=@system → %i", r);
-        if (uid_is_system(getuid()) || uid_is_system(geteuid()))
+        if (uid_in_range(getuid(), UGID_RANGE_SYSTEM) || uid_in_range(geteuid(), UGID_RANGE_SYSTEM))
                 assert_se(r > 0);
         else
                 assert_se(r == 0);

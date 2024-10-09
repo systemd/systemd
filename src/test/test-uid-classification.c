@@ -68,26 +68,26 @@ TEST(acquire_ugid_allocation_range) {
         log_info("system_gid_max="GID_FMT, defs->system_gid_max);
 }
 
-TEST(uid_is_system) {
+TEST(uid_in_range) {
         uid_t uid = 0;
-        log_info("uid_is_system("UID_FMT") = %s", uid, yes_no(uid_is_system(uid)));
+        log_info("uid_in_range("UID_FMT", UGID_RANGE_SYSTEM) = %s", uid, yes_no(uid_in_range(uid, UGID_RANGE_SYSTEM)));
 
         uid = 999;
-        log_info("uid_is_system("UID_FMT") = %s", uid, yes_no(uid_is_system(uid)));
+        log_info("uid_in_range("UID_FMT", UGID_RANGE_SYSTEM) = %s", uid, yes_no(uid_in_range(uid, UGID_RANGE_SYSTEM)));
 
         uid = getuid();
-        log_info("uid_is_system("UID_FMT") = %s", uid, yes_no(uid_is_system(uid)));
+        log_info("uid_in_range("UID_FMT", UGID_RANGE_SYSTEM) = %s", uid, yes_no(uid_in_range(uid, UGID_RANGE_SYSTEM)));
 }
 
-TEST(gid_is_system) {
+TEST(gid_in_range) {
         gid_t gid = 0;
-        log_info("gid_is_system("GID_FMT") = %s", gid, yes_no(gid_is_system(gid)));
+        log_info("gid_in_range("GID_FMT", UGID_RANGE_SYSTEM) = %s", gid, yes_no(gid_in_range(gid, UGID_RANGE_SYSTEM)));
 
         gid = 999;
-        log_info("gid_is_system("GID_FMT") = %s", gid, yes_no(gid_is_system(gid)));
+        log_info("gid_in_range("GID_FMT", UGID_RANGE_SYSTEM) = %s", gid, yes_no(gid_in_range(gid, UGID_RANGE_SYSTEM)));
 
         gid = getgid();
-        log_info("gid_is_system("GID_FMT") = %s", gid, yes_no(gid_is_system(gid)));
+        log_info("gid_in_range("GID_FMT", UGID_RANGE_SYSTEM) = %s", gid, yes_no(gid_in_range(gid, UGID_RANGE_SYSTEM)));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

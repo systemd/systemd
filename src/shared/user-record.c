@@ -2007,13 +2007,13 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (user_record_is_root(h) || user_record_is_nobody(h))
                 return USER_INTRINSIC;
 
-        if (uid_is_system(h->uid))
+        if (uid_in_range(h->uid, UGID_RANGE_SYSTEM))
                 return USER_SYSTEM;
 
-        if (uid_is_dynamic(h->uid))
+        if (uid_in_range(h->uid, UGID_RANGE_DYNAMIC))
                 return USER_DYNAMIC;
 
-        if (uid_is_container(h->uid))
+        if (uid_in_range(h->uid, UGID_RANGE_CONTAINER))
                 return USER_CONTAINER;
 
         if (h->uid > INT32_MAX)
