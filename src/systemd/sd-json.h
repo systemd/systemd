@@ -330,6 +330,7 @@ int sd_json_dispatch_double(const char *name, sd_json_variant *variant, sd_json_
 int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int sd_json_dispatch_pid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int sd_json_dispatch_unsupported(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 #define sd_json_dispatch_uint sd_json_dispatch_uint32
