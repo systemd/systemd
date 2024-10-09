@@ -108,18 +108,18 @@ static int machine_ifindices(const char *name, sd_json_variant *variant, sd_json
 
 static int machine_cid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         unsigned cid, *c = ASSERT_PTR(userdata);
+        int r;
 
         assert(variant);
 
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+        r = sd_json_dispatch_uint(name, variant, flags, &cid);
+        if (r < 0)
+                return r;
 
-        cid = sd_json_variant_unsigned(variant);
         if (!VSOCK_CID_IS_REGULAR(cid))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a regular VSOCK CID.", strna(name));
 
         *c = cid;
-
         return 0;
 }
 
@@ -129,17 +129,17 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",              SD_JSON_VARIANT_STRING,   machine_name,             offsetof(Machine, name),                 SD_JSON_MANDATORY },
-                { "id",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
-                { "service",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
-                { "class",             SD_JSON_VARIANT_STRING,   dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
-                { "leader",            SD_JSON_VARIANT_UNSIGNED, machine_leader,           offsetof(Machine, leader),               0                 },
-                { "rootDirectory",     SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
-                { "ifIndices",         SD_JSON_VARIANT_ARRAY,    machine_ifindices,        0,                                       0                 },
-                { "vSockCid",          SD_JSON_VARIANT_UNSIGNED, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
-                { "sshAddress",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
-                { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,   json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
-                { "allocateUnit",      SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
+                { "name",              SD_JSON_VARIANT_STRING,        machine_name,             offsetof(Machine, name),                 SD_JSON_MANDATORY },
+                { "id",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
+                { "service",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
+                { "class",             SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
+                { "leader",            SD_JSON_VARIANT_UNSIGNED,      machine_leader,           offsetof(Machine, leader),               0                 },
+                { "rootDirectory",     SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
+                { "ifIndices",         SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
+                { "vSockCid",          _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
+                { "sshAddress",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
+                { "sshPrivateKeyPath", SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
+                { "allocateUnit",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
