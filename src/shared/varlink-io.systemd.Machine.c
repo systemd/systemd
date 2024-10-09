@@ -57,7 +57,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The class of this machine"),
                 SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(leader, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(leader, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root directory of this machine, if known, relative to host file system"),
                 SD_VARLINK_DEFINE_OUTPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service manager unit this machine resides in"),
@@ -77,6 +77,8 @@ static SD_VARLINK_DEFINE_ERROR(MachineExists);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
                 "io.systemd.Machine",
+                SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
+                &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 &vl_method_Register,
