@@ -13,8 +13,9 @@
         }, {                                                \
                 .name = "pid",                              \
                 .type = _SD_JSON_VARIANT_TYPE_INVALID,      \
-                .callback = sd_json_dispatch_uint32,        \
-                .offset = offsetof(t, pid)                  \
+                .callback = sd_json_dispatch_pid,           \
+                .offset = offsetof(t, pid),                 \
+                .flags = SD_JSON_RELAX /* allows pid=0 */   \
         }
 
 int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char *machine_name, pid_t pid, Machine **ret_machine);

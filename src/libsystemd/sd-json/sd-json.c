@@ -29,7 +29,9 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -5506,6 +5508,38 @@ _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant
         return 0;
 }
 
+_public_ int sd_json_dispatch_pid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        /* pid_t is a signed type, but we don't consider negative values as valid.
+         * There is a special treatment for 0 though. */
+
+        pid_t *pid = userdata;
+        uint64_t k;
+
+        assert_return(variant, -EINVAL);
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
+        if (sd_json_variant_is_null(variant)) {
+                *pid = PID_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        k = sd_json_variant_unsigned(variant);
+        if (k == 0) {
+            if (!FLAGS_SET(flags, SD_JSON_RELAX))
+                goto invalid_value;
+        } else if (k > UINT32_MAX || !pid_is_valid(k))
+                goto invalid_value;
+
+        *pid = k;
+        return 0;
+
+invalid_value:
+        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid PID.", strna(name));
+}
+
 _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         sd_id128_t *uuid = userdata;
         int r;
@@ -5524,6 +5558,28 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid UID.", strna(name));
 
+        return 0;
+}
+
+_public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *signo = userdata;
+        uint64_t k;
+
+        assert_return(variant, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *signo = SIGNO_INVALID;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        k = sd_json_variant_unsigned(variant);
+        if (!SIGNAL_VALID(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+
+        *signo = k;
         return 0;
 }
 

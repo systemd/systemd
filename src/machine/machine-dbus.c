@@ -1011,7 +1011,7 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
                 if (r < 0)
                         return r;
 
-                r = manager_get_machine_by_pid(m, pid, &machine);
+                r = manager_get_machine_by_pidref(m, &PIDREF_MAKE_FROM_PID(pid), &machine);
                 if (r <= 0)
                         return 0;
         } else {

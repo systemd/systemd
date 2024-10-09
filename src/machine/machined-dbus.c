@@ -166,7 +166,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
                         return r;
         }
 
-        r = manager_get_machine_by_pid(m, pid, &machine);
+        r = manager_get_machine_by_pidref(m, &PIDREF_MAKE_FROM_PID(pid), &machine);
         if (r < 0)
                 return r;
         if (r == 0)

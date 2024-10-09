@@ -9,6 +9,7 @@
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
@@ -419,7 +420,7 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
 
 typedef struct MachineLookupParameters {
         const char *machine_name;
-        pid_t pid;
+        pid_t pid; /* pid = 0 is a placeholder for 'use peer pid' */
 } MachineLookupParameters;
 
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -430,7 +431,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        MachineLookupParameters p = { .pid = -1 };
+        MachineLookupParameters p = { .pid = PID_INVALID };
         Machine *machine;
         int r;
 
@@ -479,7 +480,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        MachineLookupParameters p = { .pid = -1 };
+        MachineLookupParameters p = { .pid = PID_INVALID };
         Machine *machine;
         int r;
 
