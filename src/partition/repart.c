@@ -7469,7 +7469,7 @@ static int context_update_verity_size(Context *context) {
                                         p->verity_data_block_size,
                                         &sz);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to caculate size of dm-verity hash partition: %m");
+                                return log_error_errno(r, "Failed to calculate size of dm-verity hash partition: %m");
 
                         if (sz > p->size_min || sz > p->size_max)
                                 log_warning("The dm-verity hash partition %s may be too small for a data partition "
