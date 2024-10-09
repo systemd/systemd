@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Import.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -90,8 +91,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(keepDownload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to permit interactive authentication. Defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("A progress update, as percent value"),
                 SD_VARLINK_DEFINE_OUTPUT(progress, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A log message about the ongoing transfer"),
