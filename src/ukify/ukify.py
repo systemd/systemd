@@ -871,6 +871,17 @@ def verify(tool: dict[str, str], opts: argparse.Namespace) -> bool:
     return tool['output'] in info
 
 
+STUB_SBAT = """\
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
+"""
+
+ADDON_SBAT = """\
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
+"""
+
+
 def make_uki(opts: argparse.Namespace) -> None:
     # kernel payload signing
 
@@ -979,20 +990,12 @@ def make_uki(opts: argparse.Namespace) -> None:
             # either.
             input_pes = [opts.stub, linux]
             if not opts.sbat:
-                opts.sbat = [
-                    """sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
-"""
-                ]
+                opts.sbat = [STUB_SBAT]
         else:
             # Addons don't use the stub so we add SBAT manually
             input_pes = []
             if not opts.sbat:
-                opts.sbat = [
-                    """sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
-"""
-                ]
+                opts.sbat = [ADDON_SBAT]
         uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # If we're building a UKI with additional profiles, the .profile section for the base profile has to be
