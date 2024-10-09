@@ -864,10 +864,12 @@ global:
         sd_json_dispatch_strv;
         sd_json_dispatch_tristate;
         sd_json_dispatch_uid_gid;
+        sd_json_dispatch_pid;
         sd_json_dispatch_uint16;
         sd_json_dispatch_uint32;
         sd_json_dispatch_uint64;
         sd_json_dispatch_uint8;
+        sd_json_dispatch_signal;
         sd_json_dispatch_unsupported;
         sd_json_dispatch_variant;
         sd_json_dispatch_variant_noref;
