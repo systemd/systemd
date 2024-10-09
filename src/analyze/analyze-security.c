@@ -2905,7 +2905,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
         if (!arg_offline) {
                 r = acquire_bus(&bus, NULL);
                 if (r < 0)
-                        return bus_log_connect_error(r, arg_transport);
+                        return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
         }
 
         pager_open(arg_pager_flags);
