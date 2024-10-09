@@ -273,6 +273,35 @@ int sd_dhcp_client_set_mac(
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE), -EINVAL);
+
+        static const uint8_t default_eth_bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+                        default_eth_hwaddr[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+        switch (arp_type) {
+        case ARPHRD_RAWIP:
+        case ARPHRD_NONE:
+                /* Linux cellular modem drivers (e.g. qmi_wwan) present a
+                 * network interface of type ARPHRD_RAWIP(519) or
+                 * ARPHRD_NONE(65534) when in point-to-point mode, but these
+                 * are not valid DHCP hardware-type values.
+                 *
+                 * Apparently, it's best to just pretend that these are ethernet
+                 * devices.  Other approaches have been tried, but resulted in
+                 * incompatibilities with some server software.  See
+                 * https://lore.kernel.org/netdev/cover.1228948072.git.inaky@linux.intel.com/
+                 */
+                arp_type = ARPHRD_ETHER;
+                if (addr_len == 0) {
+                        assert_cc(sizeof(default_eth_hwaddr) == ETH_ALEN);
+                        assert_cc(sizeof(default_eth_bcast) == ETH_ALEN);
+                        hw_addr = default_eth_hwaddr;
+                        bcast_addr = default_eth_bcast;
+                        addr_len = ETH_ALEN;
+                }
+                break;
+        }
+
         assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND), -EINVAL);
         assert_return(hw_addr, -EINVAL);
         assert_return(addr_len == (arp_type == ARPHRD_ETHER ? ETH_ALEN : INFINIBAND_ALEN), -EINVAL);
