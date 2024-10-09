@@ -134,7 +134,7 @@ static void print_welcome(int rfd) {
         done = true;
 }
 
-static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage, bool (*is_valid)(int rfd, const char *name), char **ret) {
+static int prompt_loop(int rfd, const char *text, char **l, const char *fallback, unsigned percentage, bool (*is_valid)(int rfd, const char *name), char **ret) {
         int r;
 
         assert(text);
@@ -145,14 +145,19 @@ static int prompt_loop(int rfd, const char *text, char **l, unsigned percentage,
                 _cleanup_free_ char *p = NULL;
                 unsigned u;
 
-                r = ask_string(&p, strv_isempty(l) ? "%s %s (empty to skip): "
-                                                   : "%s %s (empty to skip, \"list\" to list options): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                r = ask_string(&p, strv_isempty(l) ? "%s %s (empty to default to \"%s\", \"-\" to skip): "
+                                                   : "%s %s (empty to default to \"%s\", \"-\" to skip, \"list\" to list options): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text, fallback);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
-                        log_info("No data entered, skipping.");
+                        log_info("No data entered, using default.");
+                        return free_and_strdup_warn(ret, fallback);
+                }
+
+                if (streq(p, "-")) {
+                        log_info("Skip requested, continuing.");
                         return 0;
                 }
 
@@ -330,7 +335,7 @@ static int prompt_locale(int rfd) {
                 print_welcome(rfd);
 
                 r = prompt_loop(rfd, "Please enter the new system locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale);
+                                locales, SYSTEMD_DEFAULT_LOCALE, 60, locale_is_ok, &arg_locale);
                 if (r < 0)
                         return r;
 
@@ -338,7 +343,7 @@ static int prompt_locale(int rfd) {
                         return 0;
 
                 r = prompt_loop(rfd, "Please enter the new system message locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale_messages);
+                                locales, arg_locale, 60, locale_is_ok, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -455,7 +460,7 @@ static int prompt_keymap(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop(rfd, "Please enter the new keymap name or number",
-                           kmaps, 60, keymap_is_ok, &arg_keymap);
+                           kmaps, SYSTEMD_DEFAULT_KEYMAP, 60, keymap_is_ok, &arg_keymap);
 }
 
 static int process_keymap(int rfd) {
@@ -547,7 +552,7 @@ static int prompt_timezone(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop(rfd, "Please enter the new timezone name or number",
-                           zones, 30, timezone_is_ok, &arg_timezone);
+                           zones, "UTC", 30, timezone_is_ok, &arg_timezone);
 }
 
 static int process_timezone(int rfd) {
@@ -616,6 +621,7 @@ static bool hostname_is_ok(int rfd, const char *name) {
 
 static int prompt_hostname(int rfd) {
         int r;
+        _cleanup_free_ char *hostname = NULL;
 
         assert(rfd >= 0);
 
@@ -627,10 +633,14 @@ static int prompt_hostname(int rfd) {
                 return 0;
         }
 
+        hostname = get_default_hostname();
+        if (!hostname)
+                return log_oom();
+
         print_welcome(rfd);
 
         r = prompt_loop(rfd, "Please enter the new hostname",
-                        NULL, 0, hostname_is_ok, &arg_hostname);
+                        NULL, hostname, 0, hostname_is_ok, &arg_hostname);
         if (r < 0)
                 return r;
 
@@ -824,7 +834,7 @@ static int prompt_root_shell(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop(rfd, "Please enter the new root shell",
-                           NULL, 0, shell_is_ok, &arg_root_shell);
+                           NULL, DEFAULT_USER_SHELL, 0, shell_is_ok, &arg_root_shell);
 }
 
 static int write_root_passwd(int rfd, int etc_fd, const char *password, const char *shell) {
