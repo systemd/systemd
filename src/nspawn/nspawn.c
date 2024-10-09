@@ -137,6 +137,7 @@ static char *arg_machine = NULL;     /* The name used by the host to refer to th
 static char *arg_hostname = NULL;    /* The name the payload sees by default */
 static const char *arg_selinux_context = NULL;
 static const char *arg_selinux_apifs_context = NULL;
+static bool arg_selinux_namespace = false;
 static char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -419,6 +420,7 @@ static int help(void) {
                "  -L --selinux-apifs-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            API/tmpfs file systems in the container\n"
+               "     --selinux-namespace    Unshare SELinux namespace\n"
                "\n%3$sResources:%4$s\n"
                "     --rlimit=NAME=LIMIT    Set a resource limit for the payload\n"
                "     --oom-score-adjust=VALUE\n"
@@ -711,6 +713,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OVERLAY,
                 ARG_OVERLAY_RO,
                 ARG_INACCESSIBLE,
+                ARG_SELINUX_NAMESPACE,
                 ARG_SHARE_SYSTEM,
                 ARG_REGISTER,
                 ARG_KEEP_UNIT,
@@ -785,6 +788,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setenv",                 required_argument, NULL, 'E'                        },
                 { "selinux-context",        required_argument, NULL, 'Z'                        },
                 { "selinux-apifs-context",  required_argument, NULL, 'L'                        },
+                { "selinux-namespace",      no_argument,       NULL, ARG_SELINUX_NAMESPACE      },
                 { "quiet",                  no_argument,       NULL, 'q'                        },
                 { "share-system",           no_argument,       NULL, ARG_SHARE_SYSTEM           }, /* not documented */
                 { "register",               required_argument, NULL, ARG_REGISTER               },
@@ -1054,6 +1058,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'L':
                         arg_selinux_apifs_context = optarg;
+                        break;
+
+                case ARG_SELINUX_NAMESPACE:
+                        arg_selinux_namespace = true;
                         break;
 
                 case ARG_READ_ONLY:
@@ -3554,6 +3562,9 @@ static int inner_child(
         if (arg_selinux_context)
                 if (setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
+        if (arg_selinux_namespace)
+                if (selinux_unshare() < 0)
+                        return log_error_errno(errno, "selinux_unshare() failed: %m");
 #endif
 
         /* Make sure we keep the caps across the uid/gid dropping, so that we can retain some selected caps
