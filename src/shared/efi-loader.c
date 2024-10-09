@@ -364,5 +364,5 @@ bool efi_loader_entry_name_valid(const char *s) {
         if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
                 return false;
 
-        return in_charset(s, ALPHANUMERICAL "+-_.");
+        return in_charset(s, ALPHANUMERICAL "+-_.@");
 }

@@ -58,7 +58,7 @@ static char16_t* pe_section_to_str16(
         if (!PE_SECTION_VECTOR_IS_SET(section))
                 return NULL;
 
-        return xstrn8_to_16((const char *) loaded_image->ImageBase + section->memory_offset, section->size);
+        return xstrn8_to_16((const char *) loaded_image->ImageBase + section->memory_offset, section->memory_size);
 }
 
 static char *pe_section_to_str8(
@@ -71,7 +71,7 @@ static char *pe_section_to_str8(
         if (!PE_SECTION_VECTOR_IS_SET(section))
                 return NULL;
 
-        return xstrndup8((const char *)loaded_image->ImageBase + section->memory_offset, section->size);
+        return xstrndup8((const char *)loaded_image->ImageBase + section->memory_offset, section->memory_size);
 }
 
 static void combine_measured_flag(int *value, int measured) {
@@ -634,7 +634,7 @@ static EFI_STATUS load_addons(
                 if (uname && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UNAME) &&
                                 !strneq8(uname,
                                          (const char *)loaded_addon->ImageBase + sections[UNIFIED_SECTION_UNAME].memory_offset,
-                                         sections[UNIFIED_SECTION_UNAME].size)) {
+                                         sections[UNIFIED_SECTION_UNAME].memory_size)) {
                         log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
                         continue;
                 }
@@ -653,8 +653,8 @@ static EFI_STATUS load_addons(
 
                         (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
                                 .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].size),
-                                        .iov_len = sections[UNIFIED_SECTION_DTB].size,
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset, sections[UNIFIED_SECTION_DTB].memory_size),
+                                        .iov_len = sections[UNIFIED_SECTION_DTB].memory_size,
                                 },
                                 .filename = xstrdup16(items[i]),
                         };
@@ -666,8 +666,8 @@ static EFI_STATUS load_addons(
                                                   (*n_initrd_addons + 1)  * sizeof(NamedAddon));
                         (*initrd_addons)[(*n_initrd_addons)++] = (NamedAddon) {
                                 .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].size),
-                                        .iov_len = sections[UNIFIED_SECTION_INITRD].size,
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset, sections[UNIFIED_SECTION_INITRD].memory_size),
+                                        .iov_len = sections[UNIFIED_SECTION_INITRD].memory_size,
                                 },
                                 .filename = xstrdup16(items[i]),
                         };
@@ -679,8 +679,8 @@ static EFI_STATUS load_addons(
                                                  (*n_ucode_addons + 1)  * sizeof(NamedAddon));
                         (*ucode_addons)[(*n_ucode_addons)++] = (NamedAddon) {
                                 .blob = {
-                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].size),
-                                        .iov_len = sections[UNIFIED_SECTION_UCODE].size,
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset, sections[UNIFIED_SECTION_UCODE].memory_size),
+                                        .iov_len = sections[UNIFIED_SECTION_UCODE].memory_size,
                                 },
                                 .filename = xstrdup16(items[i]),
                         };
@@ -748,7 +748,7 @@ static void measure_sections(
                 (void) tpm_log_ipl_event_ascii(
                                 TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + sections[section].memory_offset,
-                                sections[section].size,
+                                sections[section].memory_size,
                                 unified_sections[section],
                                 &m);
                 combine_measured_flag(sections_measured, m);
@@ -905,7 +905,7 @@ static void generate_embedded_initrds(
 
                 (void) pack_cpio_literal(
                                 (const uint8_t*) loaded_image->ImageBase + sections[t->section].memory_offset,
-                                sections[t->section].size,
+                                sections[t->section].memory_size,
                                 ".extra",
                                 t->filename,
                                 /* dir_mode= */ 0555,
@@ -929,12 +929,12 @@ static void lookup_embedded_initrds(
         if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD))
                 initrds[INITRD_BASE] = IOVEC_MAKE(
                                 (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_INITRD].memory_offset,
-                                sections[UNIFIED_SECTION_INITRD].size);
+                                sections[UNIFIED_SECTION_INITRD].memory_size);
 
         if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))
                 initrds[INITRD_UCODE] = IOVEC_MAKE(
                                 (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_UCODE].memory_offset,
-                                sections[UNIFIED_SECTION_UCODE].size);
+                                sections[UNIFIED_SECTION_UCODE].memory_size);
 }
 
 static void export_pcr_variables(
@@ -973,7 +973,7 @@ static void install_embedded_devicetree(
         err = devicetree_install_from_memory(
                         dt_state,
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset,
-                        sections[UNIFIED_SECTION_DTB].size);
+                        sections[UNIFIED_SECTION_DTB].memory_size);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading embedded devicetree, ignoring: %m");
 }
@@ -1047,7 +1047,7 @@ static void display_splash(
         if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_SPLASH))
                 return;
 
-        graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].size);
+        graphics_splash((const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_SPLASH].memory_offset, sections[UNIFIED_SECTION_SPLASH].memory_size);
 }
 
 static EFI_STATUS find_sections(
@@ -1250,7 +1250,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         struct iovec kernel = IOVEC_MAKE(
                         (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_LINUX].memory_offset,
-                        sections[UNIFIED_SECTION_LINUX].size);
+                        sections[UNIFIED_SECTION_LINUX].memory_size);
 
         err = linux_exec(image, cmdline, &kernel, &final_initrd);
         graphics_mode(false);
