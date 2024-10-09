@@ -103,16 +103,8 @@ static int get_current_runlevel(Context *c) {
                                                     SD_BUS_ERROR_NO_REPLY,
                                                     SD_BUS_ERROR_DISCONNECTED)) &&
                             ++n_attempts < 64) {
-
-                                /* systemd might have dropped off momentarily, let's not make this an error,
-                                 * and wait some random time. Let's pick a random time in the range 0ms…250ms,
-                                 * linearly scaled by the number of failed attempts. */
-
-                                usec_t usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
-                                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
-                                log_debug_errno(r, "Failed to get state of %s, retrying after %s: %s",
-                                                e->special, FORMAT_TIMESPAN(usec, USEC_PER_MSEC), bus_error_message(&error, r));
-                                (void) usleep_safe(usec);
+                                log_debug_errno(r, "Failed to get state of %s, retrying after a slight delay: %s",
+                                                e->special, bus_error_message(&error, r));
                                 goto reconnect;
                         }
                         if (r < 0)
@@ -125,8 +117,20 @@ static int get_current_runlevel(Context *c) {
                 return 0;
 
 reconnect:
+                /* systemd might have dropped off momentarily, let's not make this an error,
+                 * and wait some random time. Let's pick a random time in the range 0ms…250ms,
+                 * linearly scaled by the number of failed attempts. */
                 c->bus = sd_bus_flush_close_unref(c->bus);
+
+                usec_t usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
+                (void) usleep_safe(usec);
+
                 r = bus_connect_system_systemd(&c->bus);
+                if (r == -ECONNREFUSED) {
+                        log_debug_errno(r, "Failed to reconnect to system bus, retrying after a slight delay: %m");
+                        goto reconnect;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to reconnect to system bus: %m");
         }
