@@ -3344,6 +3344,7 @@ static int inner_child(
                 NULL, /* NOTIFY_SOCKET */
                 NULL, /* CREDENTIALS_DIRECTORY */
                 NULL, /* LANG */
+                NULL, /* SELINUXNS */
                 NULL
         };
         const char *exec_target;
@@ -3633,6 +3634,15 @@ static int inner_child(
                         return log_oom();
                 n_env++;
         }
+
+#if HAVE_SELINUX
+        if (arg_selinux_namespace) {
+                envp[n_env] = strdup("SELINUXNS=1");
+                if (!envp[n_env])
+                        return log_oom();
+                n_env++;
+        }
+#endif
 
         env_use = strv_env_merge(envp, os_release_pairs, arg_setenv);
         if (!env_use)
