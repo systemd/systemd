@@ -1565,10 +1565,10 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         (void) sd_bus_creds_get_comm(creds, &comm);
         caller = manager_get_unit_by_pidref(manager, &pidref);
 
-        log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                 method, pidref.pid,
-                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                 caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                   method, pidref.pid,
+                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1665,6 +1665,8 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Exit");
+
         /* Exit() (in contrast to SetExitCode()) is actually allowed even if
          * we are running on the host. It will fall back on reboot() in
          * systemd-shutdown if it cannot do the exit() because it isn't a
@@ -1688,6 +1690,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
+
+        log_caller(message, m, "Reboot");
 
         m->objective = MANAGER_REBOOT;
 
@@ -1731,6 +1735,8 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                         return r;
         }
 
+        log_caller(message, m, "Soft reboot");
+
         free_and_replace(m->switch_root, rt);
         m->objective = MANAGER_SOFT_REBOOT;
 
@@ -1751,6 +1757,8 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Poweroff");
+
         m->objective = MANAGER_POWEROFF;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1770,6 +1778,8 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Halt");
+
         m->objective = MANAGER_HALT;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1788,6 +1798,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
+
+        log_caller(message, m, "Kexec");
 
         m->objective = MANAGER_KEXEC;
 
