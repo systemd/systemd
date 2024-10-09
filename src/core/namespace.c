@@ -1940,7 +1940,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
  * - that are outside of the relevant root directory
  * - which are duplicates
  */
-static void drop_unused_mounts(MountList *ml, const char *root_directory) {
+static void sort_and_drop_unused_mounts(MountList *ml, const char *root_directory) {
         assert(ml);
         assert(root_directory);
 
@@ -2085,7 +2085,7 @@ static int apply_mounts(
                 if (!again)
                         break;
 
-                drop_unused_mounts(ml, root);
+                sort_and_drop_unused_mounts(ml, root);
         }
 
         /* Now that all filesystems have been set up, but before the
@@ -2661,7 +2661,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        drop_unused_mounts(&ml, root);
+        sort_and_drop_unused_mounts(&ml, root);
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
