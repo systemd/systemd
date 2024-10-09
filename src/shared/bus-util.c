@@ -229,12 +229,6 @@ int bus_connect_system_systemd(sd_bus **ret_bus) {
 
         assert(ret_bus);
 
-        if (geteuid() != 0)
-                return sd_bus_default_system(ret_bus);
-
-        /* If we are root then let's talk directly to the system
-         * instance, instead of going via the bus */
-
         r = sd_bus_new(&bus);
         if (r < 0)
                 return r;
@@ -521,8 +515,13 @@ int bus_connect_transport_systemd(
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        return bus_connect_system_systemd(ret_bus);
 
+                        if (geteuid() == 0)
+                                /* If we are root then let's talk directly to the system
+                                 * instance, instead of going via the bus. */
+                                return bus_connect_system_systemd(ret_bus);
+
+                        return sd_bus_default_system(ret_bus);
                 default:
                         assert_not_reached();
                 }
