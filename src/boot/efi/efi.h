@@ -68,6 +68,8 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 #  error Unsupported pointer size
 #endif
 
+#define EFI_STATUS_IS_ERROR(s) (((s) & EFI_ERROR_MASK) != 0)
+
 #define EFIWARN(s) ((EFI_STATUS) s)
 #define EFIERR(s) ((EFI_STATUS) (s | EFI_ERROR_MASK))
 
