@@ -24,6 +24,5 @@ int static_node_apply_permissions(
 
 int udev_node_remove(sd_device *dev);
 int udev_node_update(sd_device *dev, sd_device *dev_old);
-int udev_node_cleanup(void);
 
 size_t udev_node_escape_path(const char *src, char *dest, size_t size);
