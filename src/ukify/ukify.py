@@ -1801,7 +1801,7 @@ def create_parser() -> argparse.ArgumentParser:
     return p
 
 
-def resolve_at_path(value: Optional[str]) -> str:
+def resolve_at_path(value: Optional[str]) -> Union[Path, str, None]:
     if value and value.startswith('@'):
         return Path(value[1:])
 
