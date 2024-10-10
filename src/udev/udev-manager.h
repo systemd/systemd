@@ -44,7 +44,6 @@ typedef struct Manager {
         int timeout_signal;
         bool blockdev_read_only;
 
-        bool udev_node_needs_cleanup;
         bool stop_exec_queue;
         bool exit;
 } Manager;
