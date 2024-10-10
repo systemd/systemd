@@ -28,7 +28,7 @@ typedef struct RoutingPolicyRule {
         uint8_t to_prefixlen;
         uint8_t from_prefixlen;
         uint8_t tos;
-        uint8_t type; /* a.k.a action */
+        uint8_t action;
         uint32_t flags;
 
         /* attributes */
@@ -94,7 +94,7 @@ typedef enum RoutingPolicyRuleConfParserType {
         ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN,
         ROUTING_POLICY_RULE_TABLE,
         ROUTING_POLICY_RULE_TOS,
-        ROUTING_POLICY_RULE_TYPE,
+        ROUTING_POLICY_RULE_ACTION,
         ROUTING_POLICY_RULE_UID_RANGE,
         _ROUTING_POLICY_RULE_CONF_PARSER_MAX,
         _ROUTING_POLICY_RULE_CONF_PARSER_INVALID = -EINVAL,

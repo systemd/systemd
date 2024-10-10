@@ -148,7 +148,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 int sd_netlink_send(
                 sd_netlink *nl,
                 sd_netlink_message *message,
-                uint32_t *serial) {
+                uint32_t *ret_serial) {
 
         int r;
 
@@ -163,8 +163,8 @@ int sd_netlink_send(
         if (r < 0)
                 return r;
 
-        if (serial)
-                *serial = message_get_serial(message);
+        if (ret_serial)
+                *ret_serial = message_get_serial(message);
 
         return 1;
 }
@@ -626,25 +626,25 @@ int sd_netlink_get_events(sd_netlink *nl) {
         return ordered_set_isempty(nl->rqueue) ? POLLIN : 0;
 }
 
-int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
+int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *ret) {
         struct reply_callback *c;
 
         assert_return(nl, -EINVAL);
-        assert_return(timeout_usec, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         if (!ordered_set_isempty(nl->rqueue)) {
-                *timeout_usec = 0;
+                *ret = 0;
                 return 1;
         }
 
         c = prioq_peek(nl->reply_callbacks_prioq);
         if (!c) {
-                *timeout_usec = UINT64_MAX;
+                *ret = UINT64_MAX;
                 return 0;
         }
 
-        *timeout_usec = c->timeout;
+        *ret = c->timeout;
         return 1;
 }
 
