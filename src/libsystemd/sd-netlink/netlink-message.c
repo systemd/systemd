@@ -754,23 +754,53 @@ static int netlink_message_read_internal(
         return RTA_PAYLOAD(rta);
 }
 
-int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t size, void *ret) {
+static int netlink_message_read_impl(
+                sd_netlink_message *m,
+                uint16_t attr_type,
+                bool strict,
+                NLAType type,
+                size_t size,
+                void *ret,
+                bool *ret_net_byteorder) {
+
+        bool net_byteorder;
         void *attr_data;
         int r;
 
-        assert_return(m, -EINVAL);
+        assert(m);
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
+        if (type >= 0) {
+                r = message_attribute_has_type(m, NULL, attr_type, type);
+                if (r < 0)
+                        return r;
+        }
+
+        r = netlink_message_read_internal(m, attr_type, &attr_data, &net_byteorder);
         if (r < 0)
                 return r;
 
         if ((size_t) r > size)
                 return -ENOBUFS;
 
+        if (strict && (size_t) r != size)
+                return -EIO;
+
         if (ret)
-                memcpy(ret, attr_data, r);
+                memzero(mempcpy(ret, attr_data, r), size - (size_t) r);
+
+        if (ret_net_byteorder)
+                *ret_net_byteorder = net_byteorder;
 
         return r;
+}
+
+int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t size, void *ret) {
+        assert_return(m, -EINVAL);
+
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ false,
+                        _NETLINK_TYPE_INVALID, size,
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data) {
@@ -836,227 +866,145 @@ int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, co
 }
 
 int sd_netlink_message_read_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t *ret) {
-        void *attr_data;
-        int r;
-
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U8);
-        if (r < 0)
-                return r;
-
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(uint8_t))
-                return -EIO;
-
-        if (ret)
-                *ret = *(uint8_t *) attr_data;
-
-        return 0;
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_U8, sizeof(uint8_t),
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int sd_netlink_message_read_u16(sd_netlink_message *m, uint16_t attr_type, uint16_t *ret) {
-        void *attr_data;
         bool net_byteorder;
+        uint16_t u;
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U16);
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_U16, sizeof(uint16_t),
+                        ret ? &u : NULL, &net_byteorder);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, &net_byteorder);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(uint16_t))
-                return -EIO;
-
-        if (ret) {
-                if (net_byteorder)
-                        *ret = be16toh(*(uint16_t *) attr_data);
-                else
-                        *ret = *(uint16_t *) attr_data;
-        }
+        if (ret)
+                *ret = net_byteorder ? be16toh(u) : u;
 
         return 0;
 }
 
 int sd_netlink_message_read_u32(sd_netlink_message *m, uint16_t attr_type, uint32_t *ret) {
-        void *attr_data;
         bool net_byteorder;
+        uint32_t u;
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U32);
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_U32, sizeof(uint32_t),
+                        ret ? &u : NULL, &net_byteorder);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, &net_byteorder);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(uint32_t))
-                return -EIO;
-
-        if (ret) {
-                if (net_byteorder)
-                        *ret = be32toh(*(uint32_t *) attr_data);
-                else
-                        *ret = *(uint32_t *) attr_data;
-        }
+        if (ret)
+                *ret = net_byteorder ? be32toh(u) : u;
 
         return 0;
 }
 
 int sd_netlink_message_read_u64(sd_netlink_message *m, uint16_t attr_type, uint64_t *ret) {
-        void *attr_data;
         bool net_byteorder;
+        uint64_t u;
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_U64);
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_U64, sizeof(uint64_t),
+                        ret ? &u : NULL, &net_byteorder);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, &net_byteorder);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(uint64_t))
-                return -EIO;
-
-        if (ret) {
-                if (net_byteorder)
-                        *ret = be64toh(*(uint64_t *) attr_data);
-                else
-                        *ret = *(uint64_t *) attr_data;
-        }
+        if (ret)
+                *ret = net_byteorder ? be64toh(u) : u;
 
         return 0;
 }
 
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, uint16_t attr_type, struct ether_addr *ret) {
-        void *attr_data;
-        int r;
-
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
-        if (r < 0)
-                return r;
-
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(struct ether_addr))
-                return -EIO;
-
-        if (ret)
-                memcpy(ret, attr_data, sizeof(struct ether_addr));
-
-        return 0;
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_ETHER_ADDR, sizeof(struct ether_addr),
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int netlink_message_read_hw_addr(sd_netlink_message *m, uint16_t attr_type, struct hw_addr_data *ret) {
-        void *attr_data;
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_ETHER_ADDR);
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ false,
+                        NETLINK_TYPE_ETHER_ADDR, HW_ADDR_MAX_SIZE,
+                        ret ? ret->bytes : NULL, /* ret_net_byteorder = */ NULL);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if (r > HW_ADDR_MAX_SIZE)
-                return -EIO;
-
-        if (ret) {
-                memcpy(ret->bytes, attr_data, r);
+        if (ret)
                 ret->length = r;
-        }
 
-        return 0;
+        return r;
 }
 
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, uint16_t attr_type, struct ifa_cacheinfo *ret) {
-        void *attr_data;
-        int r;
-
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_CACHE_INFO);
-        if (r < 0)
-                return r;
-
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < sizeof(struct ifa_cacheinfo))
-                return -EIO;
-
-        if (ret)
-                memcpy(ret, attr_data, sizeof(struct ifa_cacheinfo));
-
-        return 0;
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_CACHE_INFO, sizeof(struct ifa_cacheinfo),
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int netlink_message_read_in_addr_union(sd_netlink_message *m, uint16_t attr_type, int family, union in_addr_union *ret) {
-        void *attr_data;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(IN_SET(family, AF_INET, AF_INET6), -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_IN_ADDR);
+        r = netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_IN_ADDR, FAMILY_ADDRESS_SIZE(family),
+                        ret, /* ret_net_byteorder = */ NULL);
         if (r < 0)
                 return r;
-
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if ((size_t) r < FAMILY_ADDRESS_SIZE(family))
-                return -EIO;
 
         if (ret)
-                memcpy(ret, attr_data, FAMILY_ADDRESS_SIZE(family));
+                memzero((uint8_t) ret + FAMILY_ADDRESS_SIZE(family), sizeof(union in_addr_union) - FAMILY_ADDRESS_SIZE(family));
 
-        return 0;
+        return r;
 }
 
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, uint16_t attr_type, struct in_addr *ret) {
-        union in_addr_union u;
-        int r;
+        assert_return(m, -EINVAL);
 
-        r = netlink_message_read_in_addr_union(m, attr_type, AF_INET, &u);
-        if (r >= 0 && ret)
-                *ret = u.in;
-
-        return r;
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_IN_ADDR, sizeof(struct in_addr),
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, uint16_t attr_type, struct in6_addr *ret) {
-        union in_addr_union u;
-        int r;
+        assert_return(m, -EINVAL);
 
-        r = netlink_message_read_in_addr_union(m, attr_type, AF_INET6, &u);
-        if (r >= 0 && ret)
-                *ret = u.in6;
-
-        return r;
+        return netlink_message_read_impl(
+                        m, attr_type, /* strict = */ true,
+                        NETLINK_TYPE_IN_ADDR, sizeof(struct in6_addr),
+                        ret, /* ret_net_byteorder = */ NULL);
 }
 
 int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type) {
