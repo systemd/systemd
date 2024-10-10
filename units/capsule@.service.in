@@ -23,6 +23,7 @@ StateDirectory=capsules/%i
 RuntimeDirectory=capsules/%i
 LogExtraFields=CAPSULE=%i
 Slice=capsule.slice
+ReloadSignal=RTMIN+25
 KillMode=mixed
 Delegate=pids memory cpu
 DelegateSubgroup=init.scope
