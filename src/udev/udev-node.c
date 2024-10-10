@@ -368,15 +368,22 @@ static int stack_directory_get_name(const char *slink, char **ret) {
         return 0;
 }
 
-static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirfd, int *ret_lockfd) {
-        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
+static int stack_directory_open_and_lock(
+                sd_device *dev,
+                const char *slink,
+                char **ret_path,
+                int *ret_dirfd,
+                LockFile *ret_lockfile) {
+
+        _cleanup_close_ int dirfd = -EBADF;
         _cleanup_free_ char *dirname = NULL;
         int r;
 
         assert(dev);
         assert(slink);
+        assert(ret_path);
         assert(ret_dirfd);
-        assert(ret_lockfd);
+        assert(ret_lockfile);
 
         r = stack_directory_get_name(slink, &dirname);
         if (r < 0)
@@ -390,15 +397,12 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
 
-        lockfd = openat(dirfd, ".lock", O_CLOEXEC | O_NOFOLLOW | O_RDONLY | O_CREAT, 0600);
-        if (lockfd < 0)
+        r = make_lock_file_at(dirfd, ".lock", LOCK_EX, ret_lockfile);
+        if (r < 0)
                 return log_device_debug_errno(dev, errno, "Failed to create lock file for stack directory '%s': %m", dirname);
 
-        if (flock(lockfd, LOCK_EX) < 0)
-                return log_device_debug_errno(dev, errno, "Failed to place a lock on lock file for %s: %m", dirname);
-
+        *ret_path = TAKE_PTR(dirname);
         *ret_dirfd = TAKE_FD(dirfd);
-        *ret_lockfd = TAKE_FD(lockfd);
         return 0;
 }
 
@@ -514,8 +518,10 @@ static int link_update_diskseq(sd_device *dev, const char *slink, bool add) {
 }
 
 static int link_update(sd_device *dev, const char *slink, bool add) {
+        _cleanup_(rmdir_and_freep) char *dirpath = NULL; /* #1 */
+        _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT; /* #2 */
+        _cleanup_close_ int dirfd = -EBADF; /* #3 */
         _cleanup_free_ char *current_id = NULL, *devnode = NULL;
-        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
         int r, current_prio;
 
         assert(dev);
@@ -525,7 +531,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r != 0)
                 return r;
 
-        r = stack_directory_open(dev, slink, &dirfd, &lockfd);
+        r = stack_directory_open_and_lock(dev, slink, &dirpath, &dirfd, &lockfile);
         if (r < 0)
                 return r;
 
