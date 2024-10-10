@@ -140,12 +140,13 @@ jobs:
           [Output]
           # Build a disk image in CI as this logic is much more prone to breakage.
           Format=disk
+
+          [Build]
           UseSubvolumes=yes
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
 
-          [Content]
           Environment=
                   # Build debuginfo packages since we'll be publishing the packages as artifacts.
                   WITH_DEBUG=1
@@ -155,6 +156,7 @@ jobs:
                   LLVM=${{ matrix.llvm }}
                   SYSEXT=1
 
+          [Content]
           SELinuxRelabel=${{ matrix.relabel }}
 
           [Host]
