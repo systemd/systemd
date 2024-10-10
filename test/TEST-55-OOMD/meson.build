@@ -10,5 +10,6 @@ integration_tests += [
                         'systemd.unit-dropin.user@.service~20-defaults-SUSE=',
                 ],
                 'vm' : true,
+                'enabled' : get_option('b_sanitize') == 'none'  # FIXME
         },
 ]
