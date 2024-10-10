@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck disable=SC2010
+# shellcheck disable=SC2012
 # shellcheck disable=SC2317
 set -ex
 set -o pipefail
@@ -43,6 +44,11 @@ systemctl daemon-reload
 
 udevadm settle
 
+# Check if no lock file exists, if the lock directory exists.
+if [[ -d /run/udev/links.lock/ ]]; then
+    [[ "$(ls /run/udev/links.lock/ | wc -l)" == 0 ]]
+fi
+
 # Save the current number of the directories.
 NUM_DISKSEQ=$(ls /run/udev/links/ | grep -c by-diskseq || :)
 
@@ -53,5 +59,13 @@ for _ in {0..100}; do
     n=$(ls /run/udev/links/ | grep -c by-diskseq || :)
     (( n <= NUM_DISKSEQ + 1 ))
 done
+
+systemctl stop test-diskseq.service || :
+
+udevadm settle
+
+# Check if the lock directory exists, but no lock file exists in it.
+[[ -d /run/udev/links.lock/ ]]
+[[ "$(ls /run/udev/links.lock/ | wc -l)" == 0 ]]
 
 exit 0
