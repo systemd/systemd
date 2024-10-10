@@ -28,48 +28,6 @@
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
-int udev_node_cleanup(void) {
-        _cleanup_closedir_ DIR *dir = NULL;
-
-        /* This must not be called when any workers exist. It would cause a race between mkdir() called
-         * by stack_directory_lock() and unlinkat() called by this. */
-
-        dir = opendir("/run/udev/links");
-        if (!dir) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_debug_errno(errno, "Failed to open directory '/run/udev/links', ignoring: %m");
-        }
-
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_free_ char *lockfile = NULL;
-
-                if (de->d_name[0] == '.')
-                        continue;
-
-                if (de->d_type != DT_DIR)
-                        continue;
-
-                /* As commented in the above, this is called when no worker exists, hence the file is not
-                 * locked. On a later uevent, the lock file will be created if necessary. So, we can safely
-                 * remove the file now. */
-                lockfile = path_join(de->d_name, ".lock");
-                if (!lockfile)
-                        return log_oom_debug();
-
-                if (unlinkat(dirfd(dir), lockfile, 0) < 0 && errno != ENOENT) {
-                        log_debug_errno(errno, "Failed to remove '/run/udev/links/%s', ignoring: %m", lockfile);
-                        continue;
-                }
-
-                if (unlinkat(dirfd(dir), de->d_name, AT_REMOVEDIR) < 0 && errno != ENOTEMPTY)
-                        log_debug_errno(errno, "Failed to remove '/run/udev/links/%s', ignoring: %m", de->d_name);
-        }
-
-        return 0;
-}
-
 static int node_remove_symlink(sd_device *dev, const char *slink) {
         assert(dev);
         assert(slink);
@@ -368,15 +326,22 @@ static int stack_directory_get_name(const char *slink, char **ret) {
         return 0;
 }
 
-static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirfd, int *ret_lockfd) {
-        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
+static int stack_directory_open_and_lock(
+                sd_device *dev,
+                const char *slink,
+                char **ret_path,
+                int *ret_dirfd,
+                LockFile *ret_lockfile) {
+
+        _cleanup_close_ int dirfd = -EBADF;
         _cleanup_free_ char *dirname = NULL;
         int r;
 
         assert(dev);
         assert(slink);
+        assert(ret_path);
         assert(ret_dirfd);
-        assert(ret_lockfd);
+        assert(ret_lockfile);
 
         r = stack_directory_get_name(slink, &dirname);
         if (r < 0)
@@ -390,15 +355,12 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
 
-        lockfd = openat(dirfd, ".lock", O_CLOEXEC | O_NOFOLLOW | O_RDONLY | O_CREAT, 0600);
-        if (lockfd < 0)
+        r = make_lock_file_at(dirfd, ".lock", LOCK_EX, ret_lockfile);
+        if (r < 0)
                 return log_device_debug_errno(dev, errno, "Failed to create lock file for stack directory '%s': %m", dirname);
 
-        if (flock(lockfd, LOCK_EX) < 0)
-                return log_device_debug_errno(dev, errno, "Failed to place a lock on lock file for %s: %m", dirname);
-
+        *ret_path = TAKE_PTR(dirname);
         *ret_dirfd = TAKE_FD(dirfd);
-        *ret_lockfd = TAKE_FD(lockfd);
         return 0;
 }
 
@@ -434,98 +396,17 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
         return 0;
 }
 
-static int link_update_diskseq(sd_device *dev, const char *slink, bool add) {
-        _cleanup_free_ char *buf = NULL;
-        const char *fname, *diskseq;
-        int r;
-
-        assert(dev);
-        assert(slink);
-
-        if (!device_in_subsystem(dev, "block"))
-                return 0;
-
-        fname = path_startswith(slink, "/dev/disk/by-diskseq");
-        if (isempty(fname))
-                return 0;
-
-        if (device_is_devtype(dev, "partition")) {
-                _cleanup_free_ char *suffix = NULL;
-                const char *partn, *p;
-
-                /* Check if the symlink has an expected suffix "-part%n". See 60-persistent-storage.rules. */
-
-                r = sd_device_get_sysnum(dev, &partn);
-                if (r < 0) {
-                        /* Cannot verify the symlink is owned by this device. Let's create the stack directory for the symlink. */
-                        log_device_debug_errno(dev, r, "Failed to get sysnum, but symlink '%s' is requested, ignoring: %m", slink);
-                        return 0;
-                }
-
-                suffix = strjoin("-part", partn);
-                if (!suffix)
-                        return -ENOMEM;
-
-                p = endswith(fname, suffix);
-                if (!p) {
-                        log_device_debug(dev, "Unexpected by-diskseq symlink '%s' is requested, proceeding anyway.", slink);
-                        return 0;
-                }
-
-                buf = strndup(fname, p - fname);
-                if (!buf)
-                        return -ENOMEM;
-
-                fname = buf;
-        }
-
-        /* Check if the diskseq part of the symlink is in digits. */
-        if (!in_charset(fname, DIGITS)) {
-                log_device_debug(dev, "Unexpected by-diskseq symlink '%s' is requested, proceeding anyway.", slink);
-                return 0; /* unexpected by-diskseq symlink */
-        }
-
-        /* On removal, we cannot verify the diskseq. Skipping further check below. */
-        if (!add) {
-                r = node_remove_symlink(dev, slink);
-                if (r < 0)
-                        return r;
-
-                return 1; /* done */
-        }
-
-        /* Check if the diskseq matches with the DISKSEQ property. */
-        r = sd_device_get_property_value(dev, "DISKSEQ", &diskseq);
-        if (r < 0) {
-                log_device_debug_errno(dev, r, "Failed to get DISKSEQ property, but symlink '%s' is requested, ignoring: %m", slink);
-                return 0;
-        }
-
-        if (!streq(fname, diskseq)) {
-                log_device_debug(dev, "Unexpected by-diskseq symlink '%s' is requested (DISKSEQ=%s), proceeding anyway.", slink, diskseq);
-                return 0;
-        }
-
-        r = node_create_symlink(dev, /* devnode = */ NULL, slink);
-        if (r < 0)
-                return r;
-
-        return 1; /* done */
-}
-
 static int link_update(sd_device *dev, const char *slink, bool add) {
+        _cleanup_(rmdir_and_freep) char *path = NULL; /* #1 */
+        _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT; /* #2 */
+        _cleanup_close_ int dirfd = -EBADF; /* #3 */
         _cleanup_free_ char *current_id = NULL, *devnode = NULL;
-        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
         int r, current_prio;
 
         assert(dev);
         assert(slink);
 
-        r = link_update_diskseq(dev, slink, add);
-        if (r != 0)
-                return r;
-
-        r = stack_directory_open(dev, slink, &dirfd, &lockfd);
+        r = stack_directory_open_and_lock(dev, slink, &path, &dirfd, &lockfile);
         if (r < 0)
                 return r;
 

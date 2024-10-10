@@ -43,15 +43,15 @@ systemctl daemon-reload
 
 udevadm settle
 
-# If an initrd from the host is used, stack directories for by-diskseq symlinks
-# may already exist. Save the number of the directories here.
-NUM_DISKSEQ_EXPECTED=$(ls /run/udev/links | grep -c by-diskseq || :)
+# Save the current number of the directories.
+NUM_DISKSEQ=$(ls /run/udev/links | grep -c by-diskseq || :)
 
 systemctl start --no-block test-diskseq.service
 
 for _ in {0..100}; do
     sleep .1
-    assert_eq "$(ls /run/udev/links | grep -c by-diskseq || :)" "$NUM_DISKSEQ_EXPECTED"
+    n=$(ls /run/udev/links | grep -c by-diskseq || :)
+    (( n <= NUM_DISKSEQ + 1 ))
 done
 
 exit 0
