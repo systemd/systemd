@@ -3,6 +3,7 @@
 #include "sd-varlink-idl.h"
 
 #include "bus-polkit.h"
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.Machine.h"
 
 static SD_VARLINK_DEFINE_METHOD(
@@ -20,13 +21,6 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
                 SD_VARLINK_DEFINE_INPUT(allocateUnit,      SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
-
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
-                Timestamp,
-                SD_VARLINK_FIELD_COMMENT("Timestamp in µs in the CLOCK_REALTIME clock (wallclock)"),
-                SD_VARLINK_DEFINE_FIELD(realtime, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Timestamp in µs in the CLOCK_MONOTONIC clock"),
-                SD_VARLINK_DEFINE_FIELD(monotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Unregister,
