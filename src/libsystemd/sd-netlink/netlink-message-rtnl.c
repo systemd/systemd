@@ -60,246 +60,173 @@ static bool rtnl_message_type_is_nsid(uint16_t type) {
         return IN_SET(type, RTM_NEWNSID, RTM_DELNSID, RTM_GETNSID);
 }
 
-int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct rtmsg *rtm;
+#define DEFINE_RTNL_MESSAGE_SETTER(class, header_type, element, name, value_type) \
+        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
+                assert_return(m, -EINVAL);                              \
+                assert_return(m->hdr, -EINVAL);                         \
+                assert_return(rtnl_message_type_is_##class(m->hdr->nlmsg_type), -EINVAL); \
+                                                                        \
+                header_type *hdr = NLMSG_DATA(m->hdr);                  \
+                hdr->element = value;                                   \
+                return 0;                                               \
+        }
+
+#define DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(class, header_type, family_element, element, name, value_type) \
+        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
+                assert_return(m, -EINVAL);                              \
+                assert_return(m->hdr, -EINVAL);                         \
+                assert_return(rtnl_message_type_is_##class(m->hdr->nlmsg_type), -EINVAL); \
+                                                                        \
+                header_type *hdr = NLMSG_DATA(m->hdr);                  \
+                                                                        \
+                if (value > FAMILY_ADDRESS_SIZE_SAFE(hdr->family_element) * 8) \
+                        return -ERANGE;                                 \
+                                                                        \
+                hdr->element = value;                                   \
+                return 0;                                               \
+        }
+
+#define DEFINE_RTNL_MESSAGE_ADDR_SETTER(element, name, value_type)      \
+        DEFINE_RTNL_MESSAGE_SETTER(addr, struct ifaddrmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_LINK_SETTER(element, name, value_type)      \
+        DEFINE_RTNL_MESSAGE_SETTER(link, struct ifinfomsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ROUTE_SETTER(element, name, value_type)     \
+        DEFINE_RTNL_MESSAGE_SETTER(route, struct rtmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_NEXTHOP_SETTER(element, name, value_type)   \
+        DEFINE_RTNL_MESSAGE_SETTER(nexthop, struct nhmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_NEIGH_SETTER(element, name, value_type)     \
+        DEFINE_RTNL_MESSAGE_SETTER(neigh, struct ndmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ADDRLABEL_SETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_SETTER(addrlabel, struct ifaddrlblmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_SETTER(routing_policy_rule, struct fib_rule_hdr, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_SETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_SETTER(traffic_control, struct tcmsg, element, name, value_type)
+
+#define DEFINE_RTNL_MESSAGE_GETTER(class, header_type, element, name, value_type) \
+        int sd_rtnl_message_##class##_get_##name(sd_netlink_message *m, value_type *ret) { \
+                assert_return(m, -EINVAL);                              \
+                assert_return(m->hdr, -EINVAL);                         \
+                assert_return(rtnl_message_type_is_##class(m->hdr->nlmsg_type), -EINVAL); \
+                assert_return(ret, -EINVAL);                            \
+                                                                        \
+                header_type *hdr = NLMSG_DATA(m->hdr);                  \
+                *ret = hdr->element;                                    \
+                return 0;                                               \
+        }
+
+#define DEFINE_RTNL_MESSAGE_ADDR_GETTER(element, name, value_type)      \
+        DEFINE_RTNL_MESSAGE_GETTER(addr, struct ifaddrmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_LINK_GETTER(element, name, value_type)      \
+        DEFINE_RTNL_MESSAGE_GETTER(link, struct ifinfomsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ROUTE_GETTER(element, name, value_type)     \
+        DEFINE_RTNL_MESSAGE_GETTER(route, struct rtmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_NEXTHOP_GETTER(element, name, value_type)   \
+        DEFINE_RTNL_MESSAGE_GETTER(nexthop, struct nhmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_NEIGH_GETTER(element, name, value_type)     \
+        DEFINE_RTNL_MESSAGE_GETTER(neigh, struct ndmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ADDRLABEL_GETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_GETTER(addrlabel, struct ifaddrlblmsg, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_GETTER(routing_policy_rule, struct fib_rule_hdr, element, name, value_type)
+#define DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(element, name, value_type) \
+        DEFINE_RTNL_MESSAGE_GETTER(traffic_control, struct tcmsg, element, name, value_type)
+
+DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_index, ifindex, int);
+DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_family, family, int);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(addr, struct ifaddrmsg, ifa_family, ifa_prefixlen, prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_prefixlen, prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_flags, flags, uint8_t);
+DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_flags, flags, uint8_t);
+DEFINE_RTNL_MESSAGE_ADDR_SETTER(ifa_scope, scope, uint8_t);
+DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_scope, scope, uint8_t);
+
+DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_index, ifindex, int);
+DEFINE_RTNL_MESSAGE_LINK_SETTER(ifi_family, family, int);
+DEFINE_RTNL_MESSAGE_LINK_SETTER(ifi_type, type, uint16_t);
+DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_type, type, uint16_t);
+DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_flags, flags, uint32_t);
+
+int sd_rtnl_message_link_set_flags(sd_netlink_message *m, uint32_t flags, uint32_t change) {
+        struct ifinfomsg *ifi;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(change != 0, -EINVAL);
 
-        rtm = NLMSG_DATA(m->hdr);
+        ifi = NLMSG_DATA(m->hdr);
 
-        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
-            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
+        ifi->ifi_flags = flags;
+        ifi->ifi_change = change;
+
+        return 0;
+}
+
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_family, family, int);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(route, struct rtmsg, rtm_family, rtm_dst_len, dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_dst_len, dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(route, struct rtmsg, rtm_family, rtm_src_len, src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_src_len, src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_SETTER(rtm_tos, tos, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_tos, tos, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_SETTER(rtm_table, table, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_table, table, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_protocol, protocol, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_SETTER(rtm_scope, scope, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_scope, scope, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_SETTER(rtm_type, type, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_type, type, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTE_SETTER(rtm_flags, flags, uint32_t);
+DEFINE_RTNL_MESSAGE_ROUTE_GETTER(rtm_flags, flags, uint32_t);
+
+DEFINE_RTNL_MESSAGE_NEXTHOP_GETTER(nh_family, family, int);
+DEFINE_RTNL_MESSAGE_NEXTHOP_SETTER(nh_flags, flags, uint32_t);
+DEFINE_RTNL_MESSAGE_NEXTHOP_GETTER(nh_flags, flags, uint32_t);
+DEFINE_RTNL_MESSAGE_NEXTHOP_GETTER(nh_protocol, protocol, uint8_t);
+
+DEFINE_RTNL_MESSAGE_NEIGH_GETTER(ndm_ifindex, ifindex, int);
+DEFINE_RTNL_MESSAGE_NEIGH_GETTER(ndm_family, family, int);
+DEFINE_RTNL_MESSAGE_NEIGH_SETTER(ndm_state, state, uint16_t);
+DEFINE_RTNL_MESSAGE_NEIGH_GETTER(ndm_state, state, uint16_t);
+DEFINE_RTNL_MESSAGE_NEIGH_SETTER(ndm_flags, flags, uint8_t);
+DEFINE_RTNL_MESSAGE_NEIGH_GETTER(ndm_flags, flags, uint8_t);
+
+DEFINE_RTNL_MESSAGE_ADDRLABEL_GETTER(ifal_prefixlen, prefixlen, uint8_t);
+
+int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
+        struct ifaddrlblmsg *addrlabel;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_addrlabel(m->hdr->nlmsg_type), -EINVAL);
+
+        addrlabel = NLMSG_DATA(m->hdr);
+
+        if (prefixlen > 128)
                 return -ERANGE;
 
-        rtm->rtm_dst_len = prefixlen;
+        addrlabel->ifal_prefixlen = prefixlen;
 
         return 0;
 }
 
-int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
-            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
-                return -ERANGE;
-
-        rtm->rtm_src_len = prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_set_tos(sd_netlink_message *m, uint8_t tos) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_tos = tos;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_set_scope(sd_netlink_message *m, uint8_t scope) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_scope = scope;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_set_flags(sd_netlink_message *m, uint32_t flags) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_flags = flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_flags(sd_netlink_message *m, uint32_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_set_table(sd_netlink_message *m, uint8_t table) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_table = table;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_family(sd_netlink_message *m, int *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_family;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_type(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_type;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_set_type(sd_netlink_message *m, uint8_t type) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_type = type;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_protocol(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_protocol;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_scope(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_scope;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_tos(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_tos;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_table(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_table;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_dst_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_dst_len;
-
-        return 0;
-}
-
-int sd_rtnl_message_route_get_src_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        *ret = rtm->rtm_src_len;
-
-        return 0;
-}
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, dst_len, fib_dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, fib_dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, src_len, fib_src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, fib_src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(tos, tos, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(tos, tos, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(table, table, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(table, table, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(action, fib_type, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(action, fib_type, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(flags, flags, uint32_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(flags, flags, uint32_t);
+
+DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_ifindex, ifindex, int);
+DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_handle, handle, uint32_t);
+DEFINE_RTNL_MESSAGE_TRAFFIC_CONTROL_GETTER(tcm_parent, parent, uint32_t);
 
 int sd_rtnl_message_new_route(
                 sd_netlink *rtnl,
@@ -369,145 +296,6 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
         return 0;
 }
 
-int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint32_t flags) {
-        struct nhmsg *nhm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(m->hdr->nlmsg_type == RTM_NEWNEXTHOP, -EINVAL);
-
-        nhm = NLMSG_DATA(m->hdr);
-        nhm->nh_flags = flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_nexthop_get_flags(sd_netlink_message *m, uint32_t *ret) {
-        struct nhmsg *nhm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        nhm = NLMSG_DATA(m->hdr);
-        *ret = nhm->nh_flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_nexthop_get_family(sd_netlink_message *m, int *ret) {
-        struct nhmsg *nhm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        nhm = NLMSG_DATA(m->hdr);
-        *ret = nhm->nh_family;
-
-        return 0;
-}
-
-int sd_rtnl_message_nexthop_get_protocol(sd_netlink_message *m, uint8_t *ret) {
-        struct nhmsg *nhm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        nhm = NLMSG_DATA(m->hdr);
-        *ret = nhm->nh_protocol;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_set_flags(sd_netlink_message *m, uint8_t flags) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-        ndm->ndm_flags = flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_set_state(sd_netlink_message *m, uint16_t state) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-        ndm->ndm_state = state;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_get_flags(sd_netlink_message *m, uint8_t *ret) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-        *ret = ndm->ndm_flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_get_state(sd_netlink_message *m, uint16_t *ret) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-        *ret = ndm->ndm_state;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_get_family(sd_netlink_message *m, int *ret) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-
-        *ret = ndm->ndm_family;
-
-        return 0;
-}
-
-int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *ret) {
-        struct ndmsg *ndm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_neigh(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ndm = NLMSG_DATA(m->hdr);
-
-        *ret = ndm->ndm_ifindex;
-
-        return 0;
-}
-
 int sd_rtnl_message_new_neigh(
                 sd_netlink *rtnl,
                 sd_netlink_message **ret,
@@ -541,50 +329,6 @@ int sd_rtnl_message_new_neigh(
         return 0;
 }
 
-int sd_rtnl_message_link_set_flags(sd_netlink_message *m, uint32_t flags, uint32_t change) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(change != 0, -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        ifi->ifi_flags = flags;
-        ifi->ifi_change = change;
-
-        return 0;
-}
-
-int sd_rtnl_message_link_set_type(sd_netlink_message *m, uint16_t type) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        ifi->ifi_type = type;
-
-        return 0;
-}
-
-int sd_rtnl_message_link_set_family(sd_netlink_message *m, int family) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        ifi->ifi_family = family;
-
-        return 0;
-}
-
 int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex) {
         struct ifinfomsg *ifi;
         int r;
@@ -605,127 +349,6 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret, uint16_
 
         ifi->ifi_family = AF_UNSPEC;
         ifi->ifi_index = ifindex;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        if ((ifa->ifa_family == AF_INET && prefixlen > 32) ||
-            (ifa->ifa_family == AF_INET6 && prefixlen > 128))
-                return -ERANGE;
-
-        ifa->ifa_prefixlen = prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_set_flags(sd_netlink_message *m, uint8_t flags) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        ifa->ifa_flags = flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_set_scope(sd_netlink_message *m, uint8_t scope) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        ifa->ifa_scope = scope;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_get_family(sd_netlink_message *m, int *ret) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        *ret = ifa->ifa_family;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        *ret = ifa->ifa_prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, uint8_t *ret) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        *ret = ifa->ifa_scope;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, uint8_t *ret) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        *ret = ifa->ifa_flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ret) {
-        struct ifaddrmsg *ifa;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifa = NLMSG_DATA(m->hdr);
-
-        *ret = ifa->ifa_index;
 
         return 0;
 }
@@ -771,51 +394,6 @@ int sd_rtnl_message_new_addr_update(
                 return r;
 
         (*ret)->hdr->nlmsg_flags |= NLM_F_REPLACE;
-
-        return 0;
-}
-
-int sd_rtnl_message_link_get_ifindex(sd_netlink_message *m, int *ret) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        *ret = ifi->ifi_index;
-
-        return 0;
-}
-
-int sd_rtnl_message_link_get_flags(sd_netlink_message *m, uint32_t *ret) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        *ret = ifi->ifi_flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_link_get_type(sd_netlink_message *m, uint16_t *ret) {
-        struct ifinfomsg *ifi;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        ifi = NLMSG_DATA(m->hdr);
-
-        *ret = ifi->ifi_type;
 
         return 0;
 }
@@ -907,38 +485,6 @@ int sd_rtnl_message_new_addrlabel(
         return 0;
 }
 
-int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct ifaddrlblmsg *addrlabel;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addrlabel(m->hdr->nlmsg_type), -EINVAL);
-
-        addrlabel = NLMSG_DATA(m->hdr);
-
-        if (prefixlen > 128)
-                return -ERANGE;
-
-        addrlabel->ifal_prefixlen = prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_addrlabel_get_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct ifaddrlblmsg *addrlabel;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_addrlabel(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        addrlabel = NLMSG_DATA(m->hdr);
-
-        *ret = addrlabel->ifal_prefixlen;
-
-        return 0;
-}
-
 int sd_rtnl_message_new_routing_policy_rule(
                 sd_netlink *rtnl,
                 sd_netlink_message **ret,
@@ -960,178 +506,6 @@ int sd_rtnl_message_new_routing_policy_rule(
 
         frh = NLMSG_DATA((*ret)->hdr);
         frh->family = family;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_tos(sd_netlink_message *m, uint8_t tos) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        frh->tos = tos;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_tos(sd_netlink_message *m, uint8_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        *ret = frh->tos;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_table(sd_netlink_message *m, uint8_t table) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        frh->table = table;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_table(sd_netlink_message *m, uint8_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        *ret = frh->table;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, uint32_t flags) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-        frh->flags = flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, uint32_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-        *ret = frh->flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_fib_type(sd_netlink_message *m, uint8_t type) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        frh->action = type;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_fib_type(sd_netlink_message *m, uint8_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        *ret = frh->action;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_fib_dst_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        frh->dst_len = prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_fib_dst_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        *ret = frh->dst_len;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_set_fib_src_prefixlen(sd_netlink_message *m, uint8_t prefixlen) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        frh->src_len = prefixlen;
-
-        return 0;
-}
-
-int sd_rtnl_message_routing_policy_rule_get_fib_src_prefixlen(sd_netlink_message *m, uint8_t *ret) {
-        struct fib_rule_hdr *frh;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        frh = NLMSG_DATA(m->hdr);
-
-        *ret = frh->src_len;
 
         return 0;
 }
@@ -1161,48 +535,6 @@ int sd_rtnl_message_new_traffic_control(
         tcm->tcm_ifindex = ifindex;
         tcm->tcm_handle = handle;
         tcm->tcm_parent = parent;
-
-        return 0;
-}
-
-int sd_rtnl_message_traffic_control_get_ifindex(sd_netlink_message *m, int *ret) {
-        struct tcmsg *tcm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
-        *ret = tcm->tcm_ifindex;
-
-        return 0;
-}
-
-int sd_rtnl_message_traffic_control_get_handle(sd_netlink_message *m, uint32_t *ret) {
-        struct tcmsg *tcm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
-        *ret = tcm->tcm_handle;
-
-        return 0;
-}
-
-int sd_rtnl_message_traffic_control_get_parent(sd_netlink_message *m, uint32_t *ret) {
-        struct tcmsg *tcm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_traffic_control(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        tcm = NLMSG_DATA(m->hdr);
-        *ret = tcm->tcm_parent;
 
         return 0;
 }
