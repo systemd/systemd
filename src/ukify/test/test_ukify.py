@@ -690,7 +690,9 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
 def test_pcr_signing(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if systemd_measure() is None:
+    try:
+        systemd_measure()
+    except ValueError:
         pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
@@ -757,7 +759,9 @@ def test_pcr_signing(kernel_initrd, tmp_path):
 def test_pcr_signing2(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if systemd_measure() is None:
+    try:
+        systemd_measure()
+    except ValueError:
         pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
