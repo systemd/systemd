@@ -77,6 +77,7 @@ show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
 protected_links = {
+    'br0',
     'erspan0',
     'gre0',
     'gretap0',
