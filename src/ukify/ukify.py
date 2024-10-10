@@ -404,6 +404,75 @@ class UKI:
         self.sections += [section]
 
 
+class SignTool:
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: argparse.Namespace) -> None:
+        raise NotImplementedError()
+
+    @staticmethod
+    def verify(opts: argparse.Namespace) -> bool:
+        raise NotImplementedError()
+
+
+class PeSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: argparse.Namespace) -> None:
+        tool = find_tool('pesign', opts=opts, msg='pesign, required for signing, is not installed')
+        cmd = [
+            tool,
+            '-s',
+            '--force',
+            '-n', opts.sb_certdir,
+            '-c', opts.sb_cert_name,
+            '-i', input_f,
+            '-o', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: argparse.Namespace) -> bool:
+        assert opts.linux is not None
+
+        tool = find_tool('pesign', opts=opts)
+        cmd = [tool, '-i', opts.linux, '-S']
+
+        print('+', shell_join(cmd))
+        info = subprocess.check_output(cmd, text=True)
+
+        return 'No signatures found.' in info
+
+
+class SbSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: argparse.Namespace) -> None:
+        tool = find_tool('sbsign', opts=opts, msg='sbsign, required for signing, is not installed')
+        cmd = [
+            tool,
+            '--key', opts.sb_key,
+            '--cert', opts.sb_cert,
+            *(['--engine', opts.signing_engine] if opts.signing_engine is not None else []),
+            input_f,
+            '--output', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: argparse.Namespace) -> bool:
+        assert opts.linux is not None
+
+        tool = find_tool('sbverify', opts=opts)
+        cmd = [tool, '--list', opts.linux]
+
+        print('+', shell_join(cmd))
+        info = subprocess.check_output(cmd, text=True)
+
+        return 'No signature table present' in info
+
+
 def parse_banks(s: str) -> list[str]:
     banks = re.split(r',|\s+', s)
     # TODO: do some sanity checking here
@@ -798,79 +867,6 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
     )
 
 
-def signer_sign(cmd: list[Union[str, Path]]) -> None:
-    print('+', shell_join(cmd))
-    subprocess.check_call(cmd)
-
-
-def sbsign_sign(
-    sbsign_tool: Union[str, Path],
-    input_f: str,
-    output_f: str,
-    opts: argparse.Namespace,
-) -> None:
-    sign_invocation = [
-        sbsign_tool,
-        '--key', opts.sb_key,
-        '--cert', opts.sb_cert,
-    ]  # fmt: skip
-    if opts.signing_engine is not None:
-        sign_invocation += ['--engine', opts.signing_engine]
-    sign_invocation += [
-        input_f,
-        '--output', output_f,
-    ]  # fmt: skip
-    signer_sign(sign_invocation)
-
-
-def pesign_sign(
-    pesign_tool: Union[str, Path],
-    input_f: str,
-    output_f: str,
-    opts: argparse.Namespace,
-) -> None:
-    sign_invocation = [
-        pesign_tool,
-        '-s',
-        '--force',
-        '-n', opts.sb_certdir,
-        '-c', opts.sb_cert_name,
-        '-i', input_f,
-        '-o', output_f,
-    ]  # fmt: skip
-    signer_sign(sign_invocation)
-
-
-SBVERIFY = {
-    'name': 'sbverify',
-    'option': '--list',
-    'output': 'No signature table present',
-}
-
-PESIGCHECK = {
-    'name': 'pesign',
-    'option': '-i',
-    'output': 'No signatures found.',
-    'flags': '-S',
-}
-
-
-def verify(tool: dict[str, str], opts: argparse.Namespace) -> bool:
-    verify_tool = find_tool(tool['name'], opts=opts)
-    cmd = [
-        verify_tool,
-        tool['option'],
-        opts.linux,
-    ]
-    if 'flags' in tool:
-        cmd.append(tool['flags'])
-
-    print('+', shell_join(cmd))
-    info = subprocess.check_output(cmd, text=True)
-
-    return tool['output'] in info
-
-
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
@@ -885,32 +881,21 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 def make_uki(opts: argparse.Namespace) -> None:
     # kernel payload signing
 
-    sign_tool = None
     sign_args_present = opts.sb_key or opts.sb_cert_name
     sign_kernel = opts.sign_kernel
-    sign: Optional[Callable[[Union[str, Path], str, str, argparse.Namespace], None]] = None
     linux = opts.linux
 
     if sign_args_present:
-        if opts.signtool == 'sbsign':
-            sign_tool = find_tool('sbsign', opts=opts, msg='sbsign, required for signing, is not installed')
-            sign = sbsign_sign
-            verify_tool = SBVERIFY
-        else:
-            sign_tool = find_tool('pesign', opts=opts, msg='pesign, required for signing, is not installed')
-            sign = pesign_sign
-            verify_tool = PESIGCHECK
+        assert opts.signtool is not None
 
-        if sign_kernel is None and opts.linux is not None:
+        if not sign_kernel and opts.linux is not None:
             # figure out if we should sign the kernel
-            sign_kernel = verify(verify_tool, opts)
+            sign_kernel = opts.signtool.verify(opts)
 
         if sign_kernel:
-            assert sign is not None
-            assert sign_tool is not None
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
             linux = Path(linux_signed.name)
-            sign(sign_tool, opts.linux, linux, opts=opts)
+            opts.signtool.sign(opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -1067,9 +1052,8 @@ def make_uki(opts: argparse.Namespace) -> None:
     # UKI signing
 
     if sign_args_present:
-        assert sign is not None
-        assert sign_tool is not None
-        sign(sign_tool, unsigned_output, opts.output, opts)
+        assert opts.signtool is not None
+        opts.signtool.sign(unsigned_output, opts.output, opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
@@ -1422,6 +1406,24 @@ class ConfigItem:
         return (section_name, key, value)
 
 
+class SignToolAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None] = None,
+        option_string: Optional[str] = None,
+    ) -> None:
+        if values is None:
+            setattr(namespace, 'signtool', None)
+        elif values == 'sbsign':
+            setattr(namespace, 'signtool', SbSign)
+        elif values == 'pesign':
+            setattr(namespace, 'signtool', PeSign)
+        else:
+            raise ValueError(f"Unknon signtool '{values}' (this is unreachable)")
+
+
 VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
@@ -1566,6 +1568,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign'),
+        action=SignToolAction,
         dest='signtool',
         help=(
             'whether to use sbsign or pesign. It will also be inferred by the other '
@@ -1880,18 +1883,18 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
-        if opts.signtool and opts.signtool != 'sbsign':
+        if opts.signtool and opts.signtool != SbSign:
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
-        opts.signtool = 'sbsign'
+        opts.signtool = SbSign
     elif bool(opts.sb_cert_name):
         # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
-        if opts.signtool and opts.signtool != 'pesign':
+        if opts.signtool and opts.signtool != PeSign:
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name='
             )
-        opts.signtool = 'pesign'
+        opts.signtool = PeSign
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
