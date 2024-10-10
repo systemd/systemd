@@ -29,7 +29,7 @@
         <funcdef>int <function>sd_event_now</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
         <paramdef>clockid_t <parameter>clock</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -52,7 +52,7 @@
     <constant>CLOCK_BOOTTIME_ALARM</constant>), see
     <citerefentry project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for more information on the various clocks. The retrieved
-    timestamp is stored in the <parameter>usec</parameter> parameter,
+    timestamp is stored in the <parameter>ret</parameter> parameter,
     in μs since the clock's epoch. If this function is invoked before
     the first event loop iteration, the current time is returned, as
     reported by <function>clock_gettime()</function>. To distinguish
@@ -65,8 +65,8 @@
     <title>Return Value</title>
 
     <para>If the first event loop iteration has not run yet <function>sd_event_now()</function> writes
-    current time to <parameter>usec</parameter> and returns a positive return value.  Otherwise, it will
-    write the requested timestamp to <parameter>usec</parameter> and return 0. On failure, the call returns a
+    current time to <parameter>ret</parameter> and returns a positive return value.  Otherwise, it will
+    write the requested timestamp to <parameter>ret</parameter> and return 0. On failure, the call returns a
     negative errno-style error code.</para>
 
     <refsect2>

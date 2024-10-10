@@ -35,7 +35,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_description</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>const char **<parameter>description</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -61,7 +61,7 @@
     <para><function>sd_event_source_get_description()</function> may
     be used to query the current descriptive name assigned to the
     event source object <parameter>source</parameter>. It returns a
-    pointer to the current name in <parameter>description</parameter>,
+    pointer to the current name in <parameter>ret</parameter>,
     stored in memory internal to the event source. The memory is
     invalidated when the event source is destroyed or the descriptive
     name is changed.</para>
