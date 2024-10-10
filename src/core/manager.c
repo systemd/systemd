@@ -3860,7 +3860,7 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
-static void manager_send_ready_user_scope(Manager *m) {
+static void manager_send_ready_on_basic_target(Manager *m) {
         int r;
 
         assert(m);
@@ -3879,18 +3879,18 @@ static void manager_send_ready_user_scope(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready_system_scope(Manager *m) {
+static void manager_send_ready_on_idle(Manager *m) {
         int r;
 
         assert(m);
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return;
 
         /* Skip the notification if nothing changed. */
         if (m->ready_sent && m->status_ready)
                 return;
 
+        /* Note that for user managers, we might have already sent READY=1 in manager_send_ready_user_scope().
+         * But we still need to flush STATUS=. The second READY=1 will be treated as a noop so it doesn't
+         * hurt to send it twice. */
         r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
@@ -3915,7 +3915,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        manager_send_ready_user_scope(m);
+        manager_send_ready_on_basic_target(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3946,7 +3946,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready_system_scope(m);
+        manager_send_ready_on_idle(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
