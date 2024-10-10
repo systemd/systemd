@@ -170,7 +170,7 @@ static int run(int argc, char *argv[]) {
 
         r = sd_bus_start(b);
         if (r < 0)
-                return log_error_errno(r, "Failed to start bus client: %m");
+                return log_error_errno(r, "Failed to start bus forwarding server: %m");
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
