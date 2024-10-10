@@ -143,6 +143,7 @@ DEFINE_RTNL_MESSAGE_ADDR_GETTER(ifa_scope, scope, uint8_t);
 
 DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_index, ifindex, int);
 DEFINE_RTNL_MESSAGE_LINK_SETTER(ifi_family, family, int);
+DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_family, family, int);
 DEFINE_RTNL_MESSAGE_LINK_SETTER(ifi_type, type, uint16_t);
 DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_type, type, uint16_t);
 DEFINE_RTNL_MESSAGE_LINK_GETTER(ifi_flags, flags, uint32_t);
@@ -211,6 +212,7 @@ int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, uint8_t prefi
         return 0;
 }
 
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(family, family, int);
 DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, dst_len, dst_prefixlen, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, dst_prefixlen, uint8_t);
 DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, src_len, src_prefixlen, uint8_t);
@@ -404,55 +406,23 @@ int sd_rtnl_message_get_family(sd_netlink_message *m, int *ret) {
 
         assert(m->hdr);
 
-        if (rtnl_message_type_is_link(m->hdr->nlmsg_type)) {
-                struct ifinfomsg *ifi;
+        if (rtnl_message_type_is_link(m->hdr->nlmsg_type))
+                return sd_rtnl_message_link_get_family(m, ret);
 
-                ifi = NLMSG_DATA(m->hdr);
+        if (rtnl_message_type_is_route(m->hdr->nlmsg_type))
+                return sd_rtnl_message_route_get_family(m, ret);
 
-                *ret = ifi->ifi_family;
+        if (rtnl_message_type_is_neigh(m->hdr->nlmsg_type))
+                return sd_rtnl_message_neigh_get_family(m, ret);
 
-                return 0;
-        } else if (rtnl_message_type_is_route(m->hdr->nlmsg_type)) {
-                struct rtmsg *rtm;
+        if (rtnl_message_type_is_addr(m->hdr->nlmsg_type))
+                return sd_rtnl_message_addr_get_family(m, ret);
 
-                rtm = NLMSG_DATA(m->hdr);
+        if (rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type))
+                return sd_rtnl_message_routing_policy_rule_get_family(m, ret);
 
-                *ret = rtm->rtm_family;
-
-                return 0;
-        } else if (rtnl_message_type_is_neigh(m->hdr->nlmsg_type)) {
-                struct ndmsg *ndm;
-
-                ndm = NLMSG_DATA(m->hdr);
-
-                *ret = ndm->ndm_family;
-
-                return 0;
-        } else if (rtnl_message_type_is_addr(m->hdr->nlmsg_type)) {
-                struct ifaddrmsg *ifa;
-
-                ifa = NLMSG_DATA(m->hdr);
-
-                *ret = ifa->ifa_family;
-
-                return 0;
-        } else if (rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type)) {
-                struct rtmsg *rtm;
-
-                rtm = NLMSG_DATA(m->hdr);
-
-                *ret = rtm->rtm_family;
-
-                return 0;
-        } else if (rtnl_message_type_is_nexthop(m->hdr->nlmsg_type)) {
-                struct nhmsg *nhm;
-
-                nhm = NLMSG_DATA(m->hdr);
-
-                *ret = nhm->nh_family;
-
-                return 0;
-        }
+        if (rtnl_message_type_is_nexthop(m->hdr->nlmsg_type))
+                return sd_rtnl_message_nexthop_get_family(m, ret);
 
         return -EOPNOTSUPP;
 }
