@@ -49,6 +49,16 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.home1.update-home-by-owner">
+                <description gettext-domain="systemd">Update your home area</description>
+                <message gettext-domain="systemd">Authentication is required to update your home area.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.home1.resize-home">
                 <description gettext-domain="systemd">Resize a home area</description>
                 <message gettext-domain="systemd">Authentication is required to resize a user's home area.</message>
