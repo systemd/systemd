@@ -82,6 +82,25 @@ static int get_current_runlevel(Context *c) {
         assert(c);
 
         for (unsigned n_attempts = 0;;) {
+                if (n_attempts++ > 0) {
+                        /* systemd might have dropped off momentarily, let's not make this an error,
+                        * and wait some random time. Let's pick a random time in the range 0ms…250ms,
+                        * linearly scaled by the number of failed attempts. */
+                        c->bus = sd_bus_flush_close_unref(c->bus);
+
+                        usec_t usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                                UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
+                        (void) usleep_safe(usec);
+
+                        r = bus_connect_system_systemd(&c->bus);
+                        if (r == -ECONNREFUSED && n_attempts < 64) {
+                                log_debug_errno(r, "Failed to reconnect to system bus, retrying after a slight delay: %m");
+                                continue;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to reconnect to system bus: %m");
+                }
+
                 FOREACH_ELEMENT(e, table) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_free_ char *state = NULL, *path = NULL;
@@ -102,18 +121,10 @@ static int get_current_runlevel(Context *c) {
                              sd_bus_error_has_names(&error,
                                                     SD_BUS_ERROR_NO_REPLY,
                                                     SD_BUS_ERROR_DISCONNECTED)) &&
-                            ++n_attempts < 64) {
-
-                                /* systemd might have dropped off momentarily, let's not make this an error,
-                                 * and wait some random time. Let's pick a random time in the range 0ms…250ms,
-                                 * linearly scaled by the number of failed attempts. */
-
-                                usec_t usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
-                                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
-                                log_debug_errno(r, "Failed to get state of %s, retrying after %s: %s",
-                                                e->special, FORMAT_TIMESPAN(usec, USEC_PER_MSEC), bus_error_message(&error, r));
-                                (void) usleep_safe(usec);
-                                goto reconnect;
+                            n_attempts < 64) {
+                                log_debug_errno(r, "Failed to get state of %s, retrying after a slight delay: %s",
+                                                e->special, bus_error_message(&error, r));
+                                break;
                         }
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to get state of %s: %s", e->special, bus_error_message(&error, r));
@@ -121,14 +132,8 @@ static int get_current_runlevel(Context *c) {
                         if (STR_IN_SET(state, "active", "reloading"))
                                 return e->runlevel;
                 }
-
-                return 0;
-
-reconnect:
-                c->bus = sd_bus_flush_close_unref(c->bus);
-                r = bus_connect_system_systemd(&c->bus);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to reconnect to system bus: %m");
+                if (r >= 0)
+                        return 0;
         }
 }
 
