@@ -364,7 +364,7 @@ def test_config_priority(tmp_path):
                                     pathlib.Path('some/path8')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
-    assert opts.signtool == 'sbsign' # from args
+    assert opts.signtool == ukify.SbSign # from args
     assert opts.sb_key == 'SBKEY' # from args
     assert opts.sb_cert == 'SBCERT' # from args
     assert opts.sb_certdir == 'some/path5' # from config
