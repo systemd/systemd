@@ -210,6 +210,7 @@ static int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char
 }
 
 static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, Machine **ret_machine) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
         Machine *machine;
         int r;
 
@@ -219,19 +220,15 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
         if (pid == 0) {
-                int pidfd = sd_varlink_get_peer_pidfd(link);
-                if (pidfd < 0)
-                        return log_debug_errno(pidfd, "Failed to get peer pidfd: %m");
-
-                r = pidfd_get_pid(pidfd, &pid);
+                r = varlink_get_peer_pidref(link, &pidref);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to get pid from pidfd: %m");
+                        return log_debug_errno(r, "Failed to get peer pidref: %m");
         }
 
-        if (pid <= 0)
+        if (!pidref_is_set(&pidref))
                 return -EINVAL;
 
-        r = manager_get_machine_by_pid(manager, pid, &machine);
+        r = manager_get_machine_by_pidref(manager, &pidref, &machine);
         if (r < 0)
                 return r;
         if (!machine)
