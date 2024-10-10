@@ -57,7 +57,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_io_events</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>uint32_t *<parameter>events</parameter></paramdef>
+        <paramdef>uint32_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -69,7 +69,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_io_revents</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>uint32_t *<parameter>revents</parameter></paramdef>
+        <paramdef>uint32_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
