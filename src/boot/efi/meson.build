@@ -254,6 +254,7 @@ endif
 ############################################################
 
 libefi_sources = files(
+        'chid.c',
         'console.c',
         'device-path-util.c',
         'devicetree.c',
@@ -270,6 +271,7 @@ libefi_sources = files(
         'random-seed.c',
         'secure-boot.c',
         'shim.c',
+        'smbios.c',
         'ticks.c',
         'util.c',
         'vmm.c',
