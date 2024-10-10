@@ -153,6 +153,7 @@ MaxConnectionsPerSource=
 ManagedOOMSwap=
 ManagedOOMMemoryPressure=
 ManagedOOMMemoryPressureLimitPercent=
+ManagedOOMMemoryPressureDurationSec=
 ManagedOOMPreference=
 MemoryAccounting=
 MemoryHigh=

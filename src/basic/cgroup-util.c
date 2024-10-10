@@ -2339,3 +2339,7 @@ static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MA
 };
 
 DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);
+
+bool managed_oom_mem_pressure_duration_is_valid(usec_t duration) {
+        return duration >= 1 * USEC_PER_SEC && duration != USEC_INFINITY;
+}

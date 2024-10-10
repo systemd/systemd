@@ -344,6 +344,8 @@ typedef enum ManagedOOMPreference {
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
 
+bool managed_oom_mem_pressure_duration_is_valid(usec_t duration);
+
 /* The structure to pass to name_to_handle_at() on cgroupfs2 */
 typedef union {
         struct file_handle file_handle;
