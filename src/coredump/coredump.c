@@ -1113,14 +1113,14 @@ static int process_socket(int fd) {
                                         first = false;
 
                                         continue;
-                                } else {
-                                        /* This is zero length message but it has no file descriptor this is the protocol
-                                         * violation so let's bail out. */
-                                        cmsg_close_all(&mh);
-                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                            "Received zero length message with no file descriptor.");
-                                        goto finish;
                                 }
+
+                                /* This is zero length message but it has no file descriptor this is the protocol
+                                 * violation so let's bail out. */
+                                cmsg_close_all(&mh);
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                        "Received zero length message with no file descriptor.");
+                                goto finish;
                         }
 
                         /* Second zero length message might carry two file descriptors, coredump fd and mount tree fd. */
@@ -1141,22 +1141,24 @@ static int process_socket(int fd) {
 
                                 /* We have all FDs we need so let's take a shortcut here. */
                                 break;
-                        } else {
-                               /* This is second iteration and we didn't find array of two FDs, hence we either
-                                * have no FDs which is OK and we can break or we have some other number of FDs
-                                * and somebody is playing games with us. So let's check for that. */
-                                CMSG_FOREACH(cmsg, &mh)
-                                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
-                                                n_fds++;
-
-                                if (n_fds == 0)
-                                        break;
-
-                                cmsg_close_all(&mh);
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Received '%u' unexpected file descriptors.", n_fds);
-                                goto finish;
                         }
+
+                        /* This is second iteration and we didn't find array of two FDs, hence we either
+                         * have no FDs which is OK and we can break or we have some other number of FDs
+                         * and somebody is playing games with us. So let's check for that. */
+                        CMSG_FOREACH(cmsg, &mh)
+                                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
+                                        n_fds++;
+
+                        cmsg_close_all(&mh);
+
+                        if (n_fds == 0)
+                                break;
+
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                "Received '%u' unexpected file descriptors.", n_fds);
+                        goto finish;
+
                 } else
                         cmsg_close_all(&mh);
 
