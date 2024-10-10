@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "macro.h"
+#include "pidref.h"
 
 #define JSON_VARIANT_REPLACE(v, q)        \
         do {                              \
@@ -112,6 +113,7 @@ int json_dispatch_user_group_name(const char *name, sd_json_variant *variant, sd
 int json_dispatch_const_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 static inline int json_variant_unbase64_iovec(sd_json_variant *v, struct iovec *ret) {
         return sd_json_variant_unbase64(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
@@ -144,6 +146,7 @@ enum {
         _JSON_BUILD_DUAL_TIMESTAMP,
         _JSON_BUILD_RATELIMIT,
         _JSON_BUILD_TRISTATE,
+        _JSON_BUILD_PIDREF,
 
         _JSON_BUILD_PAIR_INTEGER_NON_ZERO,
         _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE,
@@ -168,6 +171,7 @@ enum {
         _JSON_BUILD_PAIR_HEX_NON_EMPTY,
         _JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY,
         _JSON_BUILD_PAIR_TRISTATE_NON_NULL,
+        _JSON_BUILD_PAIR_PIDREF_NON_NULL,
 
         _SD_JSON_BUILD_REALLYMAX,
 };
@@ -187,6 +191,7 @@ enum {
 #define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
 #define JSON_BUILD_RATELIMIT(rl) _JSON_BUILD_RATELIMIT, (const RateLimit*) { rl }
 #define JSON_BUILD_TRISTATE(i) _JSON_BUILD_TRISTATE, (int) { i }
+#define JSON_BUILD_PIDREF(p) _JSON_BUILD_PIDREF, (const PidRef*) { p }
 
 #define JSON_BUILD_PAIR_INTEGER_NON_ZERO(name, i) _JSON_BUILD_PAIR_INTEGER_NON_ZERO, (const char*) { name }, (int64_t) { i }
 #define JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE(name, i) _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE, (const char*) { name }, (int64_t) { i }
@@ -210,6 +215,7 @@ enum {
 #define JSON_BUILD_PAIR_HEX_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
 #define JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
 #define JSON_BUILD_PAIR_TRISTATE_NON_NULL(name, i) _JSON_BUILD_PAIR_TRISTATE_NON_NULL, (const char*) { name }, (int) { i }
+#define JSON_BUILD_PAIR_PIDREF_NON_NULL(name, p) _JSON_BUILD_PAIR_PIDREF_NON_NULL, (const char*) { name }, (const PidRef*) { p }
 
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
@@ -223,3 +229,6 @@ enum {
 #define JSON_BUILD_PAIR_DUAL_TIMESTAMP(name, t) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DUAL_TIMESTAMP(t))
 #define JSON_BUILD_PAIR_RATELIMIT(name, rl) SD_JSON_BUILD_PAIR(name, JSON_BUILD_RATELIMIT(rl))
 #define JSON_BUILD_PAIR_TRISTATE(name, i) SD_JSON_BUILD_PAIR(name, JSON_BUILD_TRISTATE(i))
+#define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
+
+int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
