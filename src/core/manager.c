@@ -3904,18 +3904,17 @@ static void manager_send_ready_user_scope(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready_system_scope(Manager *m) {
+static void manager_send_ready_finished(Manager *m) {
         int r;
 
         assert(m);
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return;
 
         /* Skip the notification if nothing changed. */
         if (m->ready_sent && m->status_ready)
                 return;
 
+        /* Note that for user managers, we might have already sent READY=1 in manager_send_ready_user_scope().
+         * But we still need to flush STATUS=. */
         r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
@@ -3971,7 +3970,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready_system_scope(m);
+        manager_send_ready_finished(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);

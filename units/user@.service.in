@@ -20,6 +20,7 @@ PAMName=systemd-user
 Type=notify-reload
 ExecStart={{LIBEXECDIR}}/systemd --user
 Slice=user-%i.slice
+ReloadSignal=RTMIN+25
 KillMode=mixed
 Delegate=pids memory cpu
 DelegateSubgroup=init.scope
