@@ -186,6 +186,7 @@ typedef enum ForkFlags {
         FORK_DETACH             = 1 << 18, /* Double fork if needed to ensure PID1/subreaper is parent */
         FORK_NEW_NETNS          = 1 << 19, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_PACK_FDS           = 1 << 20, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
+        FORK_ARGV00_AT          = 1 << 21, /* Prefix supplied name with '@', to exclude child process from final killing spree */
 } ForkFlags;
 
 int safe_fork_full(
