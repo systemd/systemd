@@ -9,8 +9,13 @@
 
 #include "sd-daemon.h"
 
+#include "math.h"
+#include "unit-printf.h"
+#include "specifier.h"
+#include "headers-util.h"
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -22,6 +27,7 @@
 #include "glob-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -47,6 +53,7 @@ static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
 static const char *arg_directory = NULL;
+static char **arg_headers = NULL;
 static char **arg_file = NULL;
 static const char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
@@ -58,6 +65,11 @@ static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
+static Compression arg_compression = COMPRESSION_NONE;
+static int arg_compression_level = 0;
+static double arg_batch_max_bytes = INFINITY;
+static double arg_batch_max_events = INFINITY;
+static usec_t arg_batch_timeout_usec = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
@@ -121,6 +133,108 @@ static int check_cursor_updating(Uploader *u) {
         return 0;
 }
 
+int config_parse_compression(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Compression* compression = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *compression = COMPRESSION_NONE;
+        } else {
+                *compression = compression_from_string(ascii_strupper(strdup(rvalue)));
+                if (!compression_supported(*compression))
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Compression=%s is not supported on a system", rvalue);
+        }
+
+        return 0;
+}
+
+int config_parse_headers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const Unit *u = userdata;
+        char ***headers = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *headers = strv_free(*headers);
+                return 0;
+        }
+
+        /* If 'u' is set, we operate on the regular unit specifier table. Otherwise we use a manager-specific
+         * specifier table (in which case ltype must contain the runtime scope). */
+        const Specifier *table = u ? NULL : (const Specifier[]) {
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                COMMON_CREDS_SPECIFIERS(ltype),
+                { 'h', specifier_user_home,  NULL },
+                { 's', specifier_user_shell, NULL },
+                {}
+        };
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *resolved = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                if (table)
+                        r = specifier_printf(word, sc_arg_max(), table, NULL, NULL, &resolved);
+                else
+                        r = unit_env_printf(u, word, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
+
+                if (!headers_assignment_is_valid(resolved)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid headers assignment, ignoring: %s", resolved);
+                        continue;
+                }
+
+                r = strv_headers_replace_consume(headers, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update headers: %m");
+        }
+}
+
 static int update_cursor_state(Uploader *u) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -156,6 +270,26 @@ fail:
         return log_error_errno(r, "Failed to save state %s: %m", u->state_file);
 }
 
+static int refresh_timeout(Uploader *u) {
+        int r;
+        u->bytes_left = arg_batch_max_bytes;
+        u->events_left = arg_batch_max_events;
+        u->uploading = true;
+
+        if (arg_batch_timeout_usec != USEC_INFINITY) {
+                struct itimerspec its;
+                its.it_value.tv_sec = arg_batch_timeout_usec / USEC_PER_SEC;
+                its.it_value.tv_nsec = (arg_batch_timeout_usec % USEC_PER_SEC) * 1000;
+                its.it_interval.tv_sec = 0;
+                its.it_interval.tv_nsec = 0;
+                r = timer_settime(u->batch_timeout_id, 0, &its, NULL);
+                if (r < 0) {
+                        return log_error_errno(errno, "Failed to start batch timer: %m");
+                }
+        }
+        return 0;
+}
+
 static int load_cursor_state(Uploader *u) {
         int r;
 
@@ -185,6 +319,8 @@ int start_upload(Uploader *u,
         assert(u);
         assert(input_callback);
 
+        int r;
+
         if (!u->header) {
                 _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
                 struct curl_slist *l;
@@ -202,6 +338,23 @@ int start_upload(Uploader *u,
                 if (!l)
                         return log_oom();
                 h = l;
+
+                if (arg_compression != COMPRESSION_NONE) {
+                        char *header;
+                        char *encoding = strdup(compression_to_string(arg_compression));
+                        asprintf(&header, "Content-Encoding: %s", ascii_strlower(encoding));
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                STRV_FOREACH(header, arg_headers) {
+                        l = curl_slist_append(h, *header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
 
                 u->header = TAKE_PTR(h);
         }
@@ -279,13 +432,16 @@ int start_upload(Uploader *u,
                 u->answer = mfree(u->answer);
         }
 
+        r = refresh_timeout(u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to refresh uploader timer");
+
         /* upload to this place */
         code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
         if (code)
                 return log_error_errno(SYNTHETIC_ERRNO(EXFULL),
                                        "curl_easy_setopt CURLOPT_URL failed: %s",
                                        curl_easy_strerror(code));
-
         u->uploading = true;
 
         return 0;
@@ -349,6 +505,7 @@ static int dispatch_fd_input(sd_event_source *event,
                 return 0;
         }
 
+
         return start_upload(u, fd_input_callback, u);
 }
 
@@ -380,6 +537,11 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         return r;
 }
 
+static void finish_uploading(union sigval userp) {
+        Uploader *u = ASSERT_PTR(userp.sival_ptr);
+        u->uploading = false;
+}
+
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
         const char *host, *proto = "";
@@ -389,6 +551,8 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         *u = (Uploader) {
                 .input = -1,
+                .compression = arg_compression,
+                .compression_level = arg_compression_level,
         };
 
         host = STARTSWITH_SET(url, "http://", "https://");
@@ -423,9 +587,38 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
+        struct sigevent sev;
+        sev.sigev_notify = SIGEV_THREAD;
+        sev.sigev_value.sival_ptr = u;
+        sev.sigev_notify_function = &finish_uploading;
+        sev.sigev_notify_attributes = 0;
+
+        if (arg_batch_timeout_usec != USEC_INFINITY) {
+                r = timer_create(CLOCK_REALTIME, &sev, &u->batch_timeout_id);
+                if (r < 0) {
+                        return log_error_errno(errno, "Failed to create a batch timer: %m");
+                }
+        }
+
         (void) sd_watchdog_enabled(false, &u->watchdog_usec);
 
         return load_cursor_state(u);
+}
+
+void update_uploader_stat(Uploader *u, int w) {
+        if (!u->uploading)
+                return;
+        if (w > u->bytes_left) {
+                u->bytes_left = 0;
+                u->uploading = false;
+                return;
+        }
+        if (u->events_left <= 1) {
+                u->uploading = false;
+                return;
+        }
+        u->events_left--;
+        u->bytes_left -= w;
 }
 
 static void destroy_uploader(Uploader *u) {
@@ -496,6 +689,12 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Headers",                config_parse_headers,        0,                        &arg_headers              },
+                { "Upload",  "Compression",            config_parse_compression,    0,                        &arg_compression          },
+                { "Upload",  "CompressionLevel",       config_parse_int,            0,                        &arg_compression_level    },
+                { "Upload",  "BatchMaxBytes",          config_parse_double,         0,                        &arg_batch_max_bytes      },
+                { "Upload",  "BatchMaxEvents",         config_parse_double,         0,                        &arg_batch_max_events     },
+                { "Upload",  "BatchTimeoutSec",        config_parse_sec,            0,                        &arg_batch_timeout_usec   },
                 {}
         };
 
@@ -517,28 +716,30 @@ static int help(void) {
 
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Show package version\n"
+               "  -u --url=URL                 Upload to this address (default port "
+                                               STRINGIFY(DEFAULT_PORT) ")\n"
+               "     --key=FILENAME            Specify key in PEM format (default:\n"
+               "                               \"" PRIV_KEY_FILE "\")\n"
+               "     --cert=FILENAME           Specify certificate in PEM format (default:\n"
+               "                               \"" CERT_FILE "\")\n"
+               "     --trust=FILENAME|all      Specify CA certificate or disable checking (default:\n"
+               "                               \"" TRUST_FILE "\")\n"
+               "     --header=\"Name: Value\"  Specify additional HTTP headers\n"
+               "     --compression=ALG         Compression algorithm to use\n"
+               "     --system                  Use the system journal\n"
+               "     --user                    Use the user journal for the current user\n"
+               "  -m --merge                   Use  all available journals\n"
+               "  -M --machine=CONTAINER       Operate on local container\n"
+               "     --namespace=NAMESPACE     Use journal files from namespace\n"
+               "  -D --directory=PATH          Use journal files from directory\n"
+               "     --file=PATH               Use this journal file\n"
+               "     --cursor=CURSOR           Start at the specified cursor\n"
+               "     --after-cursor=CURSOR     Start after the specified cursor\n"
+               "     --follow[=BOOL]           Do [not] wait for input\n"
+               "     --save-state[=FILE]       Save uploaded cursors (default \n"
+               "                               " STATE_FILE ")\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -560,6 +761,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FOLLOW,
                 ARG_SAVE_STATE,
                 ARG_NAMESPACE,
+                ARG_HEADER,
+                ARG_COMPRESSION,
         };
 
         static const struct option options[] = {
@@ -580,6 +783,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "follow",       optional_argument, NULL, ARG_FOLLOW         },
                 { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
+                { "compress",     optional_argument, NULL, ARG_COMPRESSION    },
+                { "header",       optional_argument, NULL, ARG_HEADER         },
                 {}
         };
 
@@ -679,6 +884,21 @@ static int parse_argv(int argc, char *argv[]) {
                         r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
+                        break;
+
+                case ARG_HEADER:
+                        r = strv_headers_replace_consume(&arg_headers, optarg);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "--header= value should contain ': '-delimited pair");
+                        break;
+
+                case ARG_COMPRESSION:
+                        arg_compression = compression_from_string(ascii_strupper(optarg));
+                        if (!compression_supported(arg_compression))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s compression is not supported", optarg);
                         break;
 
                 case ARG_CURSOR:
