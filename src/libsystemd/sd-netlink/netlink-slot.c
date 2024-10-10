@@ -105,19 +105,19 @@ static sd_netlink_slot* netlink_slot_free(sd_netlink_slot *slot) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink_slot, sd_netlink_slot, netlink_slot_free);
 
-sd_netlink *sd_netlink_slot_get_netlink(sd_netlink_slot *slot) {
+sd_netlink* sd_netlink_slot_get_netlink(sd_netlink_slot *slot) {
         assert_return(slot, NULL);
 
         return slot->netlink;
 }
 
-void *sd_netlink_slot_get_userdata(sd_netlink_slot *slot) {
+void* sd_netlink_slot_get_userdata(sd_netlink_slot *slot) {
         assert_return(slot, NULL);
 
         return slot->userdata;
 }
 
-void *sd_netlink_slot_set_userdata(sd_netlink_slot *slot, void *userdata) {
+void* sd_netlink_slot_set_userdata(sd_netlink_slot *slot, void *userdata) {
         void *ret;
 
         assert_return(slot, NULL);
@@ -128,11 +128,11 @@ void *sd_netlink_slot_set_userdata(sd_netlink_slot *slot, void *userdata) {
         return ret;
 }
 
-int sd_netlink_slot_get_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t *callback) {
+int sd_netlink_slot_get_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t *ret) {
         assert_return(slot, -EINVAL);
 
-        if (callback)
-                *callback = slot->destroy_callback;
+        if (ret)
+                *ret = slot->destroy_callback;
 
         return !!slot->destroy_callback;
 }
@@ -172,11 +172,11 @@ int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b) {
         return 1;
 }
 
-int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **description) {
+int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **ret) {
         assert_return(slot, -EINVAL);
 
-        if (description)
-                *description = slot->description;
+        if (ret)
+                *ret = slot->description;
 
         return !!slot->description;
 }
