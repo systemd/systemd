@@ -432,7 +432,12 @@ int show_cgroup_get_path_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Failed to load machine data: %m");
 
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
+                /* Connect to the bus only if necessary. Use the private manager instance
+                 * if running as root, or the system bus otherwise. */
+                if (geteuid() == 0)
+                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
+                else
+                        r = bus_connect_transport(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
 

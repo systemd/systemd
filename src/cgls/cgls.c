@@ -223,8 +223,12 @@ static int run(int argc, char *argv[]) {
                                 if (!bus) {
                                         RuntimeScope scope = arg_show_unit == SHOW_UNIT_USER ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM;
 
-                                        /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, scope, &bus);
+                                        /* Connect to the bus only if necessary. Use the private manager instance
+                                         * if running as root, or the system bus otherwise. */
+                                        if (geteuid() == 0)
+                                                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, scope, &bus);
+                                        else
+                                                r = bus_connect_transport(BUS_TRANSPORT_LOCAL, NULL, scope, &bus);
                                         if (r < 0)
                                                 return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, scope);
                                 }

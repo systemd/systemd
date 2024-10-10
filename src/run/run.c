@@ -2434,6 +2434,9 @@ static int run(int argc, char* argv[]) {
          * limited direct connection */
         if (arg_wait ||
             arg_stdio != ARG_STDIO_NONE ||
+            /* If we're connecting to the system manager and not running as root, use the bus, as we won't
+             * have permissions to access the private manager bus instance; */
+            (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && geteuid() != 0) ||
             (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
