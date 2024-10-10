@@ -194,3 +194,6 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #else
 #  error "Unexpected byte order in EFI mode?"
 #endif
+
+#  define bswap_16(x) __builtin_bswap16(x)
+#  define bswap_32(x) __builtin_bswap32(x)
