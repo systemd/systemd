@@ -9,6 +9,7 @@
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
@@ -430,7 +431,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        MachineLookupParameters p = { .pid = -1 };
+        MachineLookupParameters p = {};
         Machine *machine;
         int r;
 
@@ -441,7 +442,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        if (p.machine_name || p.pid >= 0) {
+        if (p.machine_name || pid_is_valid_or_automatic(p.pid)) {
                 r = lookup_machine_by_name_or_pid(link, m, p.machine_name, p.pid, &machine);
                 if (r == -ESRCH)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
@@ -479,7 +480,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        MachineLookupParameters p = { .pid = -1 };
+        MachineLookupParameters p = {};
         Machine *machine;
         int r;
 
