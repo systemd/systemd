@@ -177,6 +177,7 @@ shared_sources = files(
         'user-record.c',
         'userdb-dropin.c',
         'userdb.c',
+        'varlink-idl-common.c',
         'varlink-io.systemd.BootControl.c',
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.Hostname.c',

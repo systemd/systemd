@@ -403,7 +403,7 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
-                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", JSON_BUILD_PIDREF(&m->leader)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
