@@ -504,7 +504,7 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: argparse.Namespace) -> Iterator:
+def key_path_groups(opts: argparse.Namespace) -> Iterator[tuple[str, Optional[Path], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
