@@ -562,9 +562,9 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 decl_headers = '''
 #include <dirent.h>
 #include <uchar.h>
+#include <sched.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sched.h>
 '''
 
 foreach decl : ['char16_t',
