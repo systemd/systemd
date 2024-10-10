@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "resolved-bus.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
 #include "resolved-manager.h"
@@ -23,7 +24,8 @@ int dns_server_new(
                 Manager *m,
                 DnsServer **ret,
                 DnsServerType type,
-                Link *l,
+                Link *link,
+                DnsDelegate *delegate,
                 int family,
                 const union in_addr_union *in_addr,
                 uint16_t port,
@@ -35,14 +37,18 @@ int dns_server_new(
         DnsServer *s;
 
         assert(m);
-        assert((type == DNS_SERVER_LINK) == !!l);
+        assert((type == DNS_SERVER_LINK) == !!link);
+        assert((type == DNS_SERVER_DELEGATE) == !!delegate);
         assert(in_addr);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        if (l) {
-                if (l->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+        if (link) {
+                if (link->n_dns_servers >= LINK_DNS_SERVERS_MAX)
+                        return -E2BIG;
+        } else if (delegate) {
+                if (delegate->n_dns_servers >= DELEGATE_DNS_SERVERS_MAX)
                         return -E2BIG;
         } else {
                 if (m->n_dns_servers >= MANAGER_DNS_SERVERS_MAX)
@@ -76,9 +82,9 @@ int dns_server_new(
         switch (type) {
 
         case DNS_SERVER_LINK:
-                s->link = l;
-                LIST_APPEND(servers, l->dns_servers, s);
-                l->n_dns_servers++;
+                s->link = link;
+                LIST_APPEND(servers, link->dns_servers, s);
+                link->n_dns_servers++;
                 break;
 
         case DNS_SERVER_SYSTEM:
@@ -91,16 +97,20 @@ int dns_server_new(
                 m->n_dns_servers++;
                 break;
 
+        case DNS_SERVER_DELEGATE:
+                s->delegate = delegate;
+                LIST_APPEND(servers, delegate->dns_servers, s);
+                delegate->n_dns_servers++;
+                break;
         default:
                 assert_not_reached();
         }
 
         s->linked = true;
 
-        /* A new DNS server that isn't fallback is added and the one
-         * we used so far was a fallback one? Then let's try to pick
-         * the new one */
-        if (type != DNS_SERVER_FALLBACK && dns_server_is_fallback(m->current_dns_server))
+        /* A new non-fallback DNS server is added and the one we used so far was a fallback one? Then
+         * let's try to pick the new one */
+        if (type == DNS_SERVER_SYSTEM && dns_server_is_fallback(m->current_dns_server))
                 manager_set_dns_server(m, NULL);
 
         if (ret)
@@ -157,6 +167,14 @@ void dns_server_unlink(DnsServer *s) {
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 s->manager->n_dns_servers--;
                 break;
+
+        case DNS_SERVER_DELEGATE:
+                assert(s->delegate);
+                assert(s->delegate->n_dns_servers > 0);
+                LIST_REMOVE(servers, s->delegate->dns_servers, s);
+                s->delegate->n_dns_servers--;
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -168,6 +186,9 @@ void dns_server_unlink(DnsServer *s) {
 
         if (s->manager->current_dns_server == s)
                 manager_set_dns_server(s->manager, NULL);
+
+        if (s->delegate && s->delegate->current_dns_server == s)
+                dns_delegate_set_dns_server(s->delegate, NULL);
 
         /* No need to keep a default stream around anymore */
         dns_server_unref_stream(s);
@@ -188,8 +209,8 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
         if (!s->linked || !s->servers_next)
                 return;
 
-        /* Move us to the end of the list, so that the order is
-         * strictly kept, if we are not at the end anyway. */
+        /* Move us to the end of the list, so that the order is strictly kept, if we are not at the end
+         * anyway. */
 
         switch (s->type) {
 
@@ -210,6 +231,13 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
                 tail = LIST_FIND_TAIL(servers, s);
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 LIST_INSERT_AFTER(servers, s->manager->fallback_dns_servers, tail, s);
+                break;
+
+        case DNS_SERVER_DELEGATE:
+                assert(s->delegate);
+                tail = LIST_FIND_TAIL(servers, s);
+                LIST_REMOVE(servers, s->delegate->dns_servers, s);
+                LIST_INSERT_AFTER(servers, s->delegate->dns_servers, tail, s);
                 break;
 
         default:
@@ -879,8 +907,23 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         return s;
 }
 
-DnsServer *manager_get_dns_server(Manager *m) {
+static bool manager_search_default_rote_dns_server(Manager *m) {
+        assert(m);
+
         Link *l;
+        HASHMAP_FOREACH(l, m->links)
+                if (l->dns_servers && l->default_route)
+                        return true;
+
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                if (d->dns_servers && d->default_route)
+                        return true;
+
+        return false;
+}
+
+DnsServer *manager_get_dns_server(Manager *m) {
         assert(m);
 
         /* Try to read updates resolv.conf */
@@ -899,22 +942,10 @@ DnsServer *manager_get_dns_server(Manager *m) {
                         manager_set_dns_server(m, NULL);
         }
 
-        if (!m->current_dns_server) {
-                bool found = false;
-
-                /* No DNS servers configured, let's see if there are
-                 * any on any links. If not, we use the fallback
-                 * servers */
-
-                HASHMAP_FOREACH(l, m->links)
-                        if (l->dns_servers && l->default_route) {
-                                found = true;
-                                break;
-                        }
-
-                if (!found)
-                        manager_set_dns_server(m, m->fallback_dns_servers);
-        }
+        /* If no DNS servers are configured, let's see if there are any on any links. If not, we use the
+         * fallback servers */
+        if (!m->current_dns_server && !manager_search_default_rote_dns_server(m))
+                manager_set_dns_server(m, m->fallback_dns_servers);
 
         return m->current_dns_server;
 }
@@ -970,11 +1001,15 @@ void dns_server_flush_cache(DnsServer *s) {
 
         /* Flush the cache of the scope this server belongs to */
 
-        current = s->link ? s->link->current_dns_server : s->manager->current_dns_server;
+        current =   s->link ? s->link->current_dns_server :
+                s->delegate ? s->delegate->current_dns_server :
+                              s->manager->current_dns_server;
         if (current != s)
                 return;
 
-        scope = s->link ? s->link->unicast_scope : s->manager->unicast_scope;
+        scope =     s->link ? s->link->unicast_scope :
+                s->delegate ? s->delegate->scope :
+                              s->manager->unicast_scope;
         if (!scope)
                 return;
 
@@ -1079,10 +1114,14 @@ void dns_server_unref_stream(DnsServer *s) {
 
 DnsScope *dns_server_scope(DnsServer *s) {
         assert(s);
+        assert(s->linked);
         assert((s->type == DNS_SERVER_LINK) == !!s->link);
+        assert((s->type == DNS_SERVER_DELEGATE) == !!s->delegate);
 
         if (s->link)
                 return s->link->unicast_scope;
+        if (s->delegate)
+                return s->delegate->scope;
 
         return s->manager->unicast_scope;
 }
