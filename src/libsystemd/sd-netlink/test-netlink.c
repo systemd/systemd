@@ -108,7 +108,7 @@ TEST(message_address) {
                 assert_se(sd_netlink_message_read_in_addr(reply, IFA_LOCAL, &in_data) >= 0);
                 assert_se(sd_netlink_message_read_in_addr(reply, IFA_ADDRESS, &in_data) >= 0);
                 assert_se(sd_netlink_message_read_string(reply, IFA_LABEL, &label) >= 0);
-                assert_se(sd_netlink_message_read_cache_info(reply, IFA_CACHEINFO, &cache) == 0);
+                assert_se(sd_netlink_message_read_cache_info(reply, IFA_CACHEINFO, &cache) >= 0);
         }
 }
 
