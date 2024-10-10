@@ -1,0 +1,6 @@
+[Unit]
+Description=Testing systemd timers
+
+[Service]
+Type=simple
+ExecStart=sh -c 'date +%%s >>/tmp/realtime-test.log ; sleep 5'
