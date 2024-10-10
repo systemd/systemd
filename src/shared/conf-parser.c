@@ -24,7 +24,7 @@
 #include "hash-funcs.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "log.h"
 #include "macro.h"
@@ -1996,6 +1996,44 @@ int config_parse_in_addr_data(
         }
 
         r = in_addr_from_string_auto(rvalue, &p->family, &p->address);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        return 1;
+}
+
+
+int config_parse_in_addr_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype, /* takes boolean, whether we warn about missing prefixlen */
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct in_addr_prefix *p = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(rvalue)) {
+                *p = (struct in_addr_prefix) {};
+                return 1;
+        }
+
+        r = in_addr_prefix_from_string_auto_internal(rvalue, ltype ? PREFIXLEN_REFUSE : PREFIXLEN_FULL, &p->family, &p->address, &p->prefixlen);
+        if (r == -ENOANO) {
+                r = in_addr_prefix_from_string_auto(rvalue, &p->family, &p->address, &p->prefixlen);
+                if (r >= 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "%s=%s is specified without prefix length. Assuming the prefix length is %u. "
+                                   "Please specify the prefix length explicitly.", lvalue, rvalue, p->prefixlen);
+        }
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 

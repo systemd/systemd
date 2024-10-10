@@ -1628,7 +1628,7 @@ int network_add_default_route_on_device(Network *network) {
         return 0;
 }
 
-int config_parse_preferred_src(
+static int config_parse_preferred_src(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1640,40 +1640,22 @@ int config_parse_preferred_src(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         if (route->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &route->family, &route->prefsrc);
         else
                 r = in_addr_from_string(route->family, rvalue, &route->prefsrc);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_destination(
+static int config_parse_route_destination(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1685,26 +1667,13 @@ int config_parse_destination(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         union in_addr_union *buffer;
         unsigned char *prefixlen;
         int r;
 
-        assert(filename);
-        assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         if (streq(lvalue, "Destination")) {
                 buffer = &route->dst;
@@ -1719,19 +1688,14 @@ int config_parse_destination(
                 r = in_addr_prefix_from_string_auto(rvalue, &route->family, buffer, prefixlen);
         else
                 r = in_addr_prefix_from_string(rvalue, route->family, buffer, prefixlen);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         (void) in_addr_mask(route->family, buffer, *prefixlen);
-
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_route_priority(
+static int config_parse_route_priority(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1743,38 +1707,20 @@ int config_parse_route_priority(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         r = safe_atou32(rvalue, &route->priority);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->priority_set = true;
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_route_scope(
+static int config_parse_route_scope(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1786,38 +1732,21 @@ int config_parse_route_scope(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         r = route_scope_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown route scope: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->scope = r;
         route->scope_set = true;
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_route_table(
+static int config_parse_route_table(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1829,38 +1758,21 @@ int config_parse_route_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        Network *network = userdata;
+        Route *route = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(route->network)->manager);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        r = manager_get_route_table_from_string(network->manager, rvalue, &route->table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route table \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        r = manager_get_route_table_from_string(manager, rvalue, &route->table);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->table_set = true;
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_ipv6_route_preference(
+static int config_parse_route_preference(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1872,18 +1784,9 @@ int config_parse_ipv6_route_preference(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        int r;
+        Route *route = ASSERT_PTR(userdata);
 
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
+        assert(rvalue);
 
         if (streq(rvalue, "low"))
                 route->pref = SD_NDISC_PREFERENCE_LOW;
@@ -1891,17 +1794,14 @@ int config_parse_ipv6_route_preference(
                 route->pref = SD_NDISC_PREFERENCE_MEDIUM;
         else if (streq(rvalue, "high"))
                 route->pref = SD_NDISC_PREFERENCE_HIGH;
-        else {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route preference: %s", rvalue);
-                return 0;
-        }
+        else
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
         route->pref_set = true;
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
-int config_parse_route_protocol(
+static int config_parse_route_protocol(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1913,33 +1813,20 @@ int config_parse_route_protocol(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        unsigned char *p = ASSERT_PTR(data);
         int r;
 
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
+        assert(rvalue);
 
         r = route_protocol_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse route protocol \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        route->protocol = r;
-
-        TAKE_PTR(route);
-        return 0;
+        *p = (unsigned char) r;
+        return 1;
 }
 
-int config_parse_route_type(
+static int config_parse_route_type(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1951,11 +1838,69 @@ int config_parse_route_type(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        int t, r;
+        unsigned char *p = ASSERT_PTR(data);
+        int r;
 
-        r = route_new_static(network, filename, section_line, &route);
+        assert(rvalue);
+
+        r = route_type_from_string(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        *p = (unsigned char) r;
+        return 1;
+}
+
+int config_parse_route_section(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const ConfigSectionParser table[_ROUTE_CONF_PARSER_MAX] = {
+                [ROUTE_DESTINATION]               = { .parser = config_parse_route_destination,      .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_PREFERRED_SOURCE]          = { .parser = config_parse_preferred_src,          .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_PRIORITY]                  = { .parser = config_parse_route_priority,         .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_SCOPE]                     = { .parser = config_parse_route_scope,            .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_TABLE]                     = { .parser = config_parse_route_table,            .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_PREFERENCE]                = { .parser = config_parse_route_preference,       .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_PROTOCOL]                  = { .parser = config_parse_route_protocol,         .ltype = 0,                       .offset = offsetof(Route, protocol),                           },
+                [ROUTE_TYPE]                      = { .parser = config_parse_route_type,             .ltype = 0,                       .offset = offsetof(Route, type),                               },
+                [ROUTE_GATEWAY_NETWORK]           = { .parser = config_parse_gateway,                .ltype = 0,                       .offset = 0,                                                   },
+                [ROUTE_GATEWAY]                   = { .parser = config_parse_gateway,                .ltype = 1,                       .offset = 0,                                                   },
+                [ROUTE_GATEWAY_ONLINK]            = { .parser = config_parse_tristate,               .ltype = 0,                       .offset = offsetof(Route, gateway_onlink),                     },
+                [ROUTE_MULTIPATH]                 = { .parser = config_parse_multipath_route,        .ltype = 0,                       .offset = offsetof(Route, nexthops),                           },
+                [ROUTE_NEXTHOP]                   = { .parser = config_parse_route_nexthop,          .ltype = 0,                       .offset = offsetof(Route, nexthop_id),                         },
+                [ROUTE_METRIC_MTU]                = { .parser = config_parse_route_metric,           .ltype = RTAX_MTU,                .offset = 0,                                                   },
+                [ROUTE_METRIC_ADVMSS]             = { .parser = config_parse_route_metric,           .ltype = RTAX_ADVMSS,             .offset = 0,                                                   },
+                [ROUTE_METRIC_HOPLIMIT]           = { .parser = config_parse_route_metric,           .ltype = RTAX_HOPLIMIT,           .offset = 0,                                                   },
+                [ROUTE_METRIC_INITCWND]           = { .parser = config_parse_route_metric,           .ltype = RTAX_INITCWND,           .offset = 0,                                                   },
+                [ROUTE_METRIC_RTO_MIN]            = { .parser = config_parse_route_metric,           .ltype = RTAX_RTO_MIN,            .offset = 0,                                                   },
+                [ROUTE_METRIC_INITRWND]           = { .parser = config_parse_route_metric,           .ltype = RTAX_INITRWND,           .offset = 0,                                                   },
+                [ROUTE_METRIC_QUICKACK]           = { .parser = config_parse_route_metric,           .ltype = RTAX_QUICKACK,           .offset = 0,                                                   },
+                [ROUTE_METRIC_CC_ALGO]            = { .parser = config_parse_string,                 .ltype = 0,                       .offset = offsetof(Route, metric.tcp_congestion_control_algo), },
+                [ROUTE_METRIC_FASTOPEN_NO_COOKIE] = { .parser = config_parse_route_metric,           .ltype = RTAX_FASTOPEN_NO_COOKIE, .offset = 0,                                                   },
+        };
+
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        if (streq(section, "Network")) {
+                assert(streq_ptr(lvalue, "Gateway"));
+
+                /* we are not in an Route section, so use line number instead */
+                r = route_new_static(network, filename, line, &route);
+        } else
+                r = route_new_static(network, filename, section_line, &route);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1964,14 +1909,10 @@ int config_parse_route_type(
                 return 0;
         }
 
-        t = route_type_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        route->type = (unsigned char) t;
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, route);
+        if (r <= 0)
+                return r;
 
         TAKE_PTR(route);
         return 0;
@@ -2019,7 +1960,7 @@ int route_section_verify(Route *route) {
         /* IPv6 route */
         if (route->family == AF_INET6) {
                 if (route->scope != RT_SCOPE_UNIVERSE) {
-                        log_warning("%s: Scope= is specified for IPv6 route. It will be ignored.", route->section->filename);
+                        log_section_warning(route->section, "Scope= is specified for IPv6 route. It will be ignored.");
                         route->scope = RT_SCOPE_UNIVERSE;
                 }
 

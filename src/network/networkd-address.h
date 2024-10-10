@@ -161,6 +161,7 @@ void link_mark_addresses(Link *link, NetworkConfigSource source);
 
 typedef enum AddressConfParserType {
         ADDRESS_ADDRESS,
+        ADDRESS_PEER,
         ADDRESS_BROADCAST,
         ADDRESS_LABEL,
         ADDRESS_PREFERRED_LIFETIME,
