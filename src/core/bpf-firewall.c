@@ -310,7 +310,7 @@ static int bpf_firewall_compile_bpf(
                         BPF_LD_MAP_FD(BPF_REG_1, accounting_map_fd),
                         BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
                         BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-                        BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6, offsetof(struct __sk_buff, len)), /* r1 = skb->len */
+                        BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6, offsetof(struct __sk_buff, cb[0])), /* r1 = qdisc_skb_cb(skb)->pkt_len */
                         BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
 
                         /* Allow the packet to pass */
