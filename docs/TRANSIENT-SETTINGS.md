@@ -496,6 +496,7 @@ Most path unit settings are available to transient units.
   Unit=
 ✓ MakeDirectory=
 ✓ DirectoryMode=
+✓ DeactivationToggle=
 ```
 
 ## Install Section

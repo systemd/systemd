@@ -243,6 +243,7 @@ systemd.path.xml /refsect1[title="Options"]/variablelist/varlistentry[term="Path
 systemd.path.xml /refsect1[title="Options"]/variablelist/varlistentry[term="Unit="]
 systemd.path.xml /refsect1[title="Options"]/variablelist/varlistentry[term="MakeDirectory="]
 systemd.path.xml /refsect1[title="Options"]/variablelist/varlistentry[term="DirectoryMode="]
+systemd.path.xml /refsect1[title="Options"]/variablelist/varlistentry[term="DeactivationToggle="]
 systemd.service.xml /refsect1[title="Options"]/variablelist/varlistentry[term="Type="]
 systemd.service.xml /refsect1[title="Options"]/variablelist/varlistentry[term="RemainAfterExit="]
 systemd.service.xml /refsect1[title="Options"]/variablelist/varlistentry[term="GuessMainPID="]
