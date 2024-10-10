@@ -211,16 +211,16 @@ int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, uint8_t prefi
         return 0;
 }
 
-DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, dst_len, fib_dst_prefixlen, uint8_t);
-DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, fib_dst_prefixlen, uint8_t);
-DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, src_len, fib_src_prefixlen, uint8_t);
-DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, fib_src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, dst_len, dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, dst_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(routing_policy_rule, struct fib_rule_hdr, family, src_len, src_prefixlen, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(dst_len, src_prefixlen, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(tos, tos, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(tos, tos, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(table, table, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(table, table, uint8_t);
-DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(action, fib_type, uint8_t);
-DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(action, fib_type, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(action, action, uint8_t);
+DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(action, action, uint8_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_SETTER(flags, flags, uint32_t);
 DEFINE_RTNL_MESSAGE_ROUTING_POLICY_RULE_GETTER(flags, flags, uint32_t);
 
