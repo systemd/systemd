@@ -217,9 +217,8 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         assert(link);
         assert(manager);
         assert(ret_machine);
-        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
-        if (pid == 0) {
+        if (pid == PID_AUTOMATIC) {
                 r = varlink_get_peer_pidref(link, &pidref);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get peer pidref: %m");
@@ -254,7 +253,7 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
                         return r;
         }
 
-        if (pid >= 0) {
+        if (pid_is_valid_or_automatic(pid)) {
                 r = lookup_machine_by_pid(link, manager, pid, &pid_machine);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "pid");
@@ -335,7 +334,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        struct params p = { .pid = -1 };
+        struct params p = {};
         KillWhom whom;
         int r;
 
