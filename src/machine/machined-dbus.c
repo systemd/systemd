@@ -137,6 +137,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *p = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Machine *machine = NULL;
@@ -154,19 +155,21 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (pid < 0)
                 return -EINVAL;
 
+        pidref = PIDREF_MAKE_FROM_PID(pid);
+
         if (pid == 0) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
+                r = bus_creds_get_pidref(creds, &pidref);
                 if (r < 0)
                         return r;
         }
 
-        r = manager_get_machine_by_pid(m, pid, &machine);
+        r = manager_get_machine_by_pidref(m, &pidref, &machine);
         if (r < 0)
                 return r;
         if (r == 0)
