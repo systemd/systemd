@@ -76,6 +76,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_uint32_msec_usec);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
+CONFIG_PARSER_PROTOTYPE(config_parse_router_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
