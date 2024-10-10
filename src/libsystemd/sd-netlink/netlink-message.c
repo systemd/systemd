@@ -800,30 +800,16 @@ int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size
 }
 
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, uint16_t attr_type, char **ret) {
-        void *attr_data;
+        const char *s;
         int r;
 
         assert_return(m, -EINVAL);
 
-        r = message_attribute_has_type(m, NULL, attr_type, NETLINK_TYPE_STRING);
+        r = sd_netlink_message_read_string(m, attr_type, &s);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if (ret) {
-                char *str;
-
-                str = strndup(attr_data, r);
-                if (!str)
-                        return -ENOMEM;
-
-                *ret = str;
-        }
-
-        return 0;
+        return strdup_to(ret, s);
 }
 
 int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, const char **ret) {
