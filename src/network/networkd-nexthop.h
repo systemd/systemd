@@ -29,7 +29,7 @@ typedef struct NextHop {
         /* struct nhmsg */
         int family;
         uint8_t protocol;
-        uint8_t flags;
+        uint32_t flags;
 
         /* attributes */
         uint32_t id; /* NHA_ID */
