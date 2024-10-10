@@ -194,7 +194,7 @@ RoutingPolicyRule.Family,                    config_parse_routing_policy_rule,  
 RoutingPolicyRule.User,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_UID_RANGE, 0
 RoutingPolicyRule.SuppressInterfaceGroup,    config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_IFGROUP, 0
 RoutingPolicyRule.SuppressPrefixLength,      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN, 0
-RoutingPolicyRule.Type,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TYPE,      0
+RoutingPolicyRule.Type,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_ACTION,    0
 Route.Gateway,                               config_parse_gateway,                                     0,                             0
 Route.Destination,                           config_parse_destination,                                 0,                             0
 Route.Source,                                config_parse_destination,                                 0,                             0
