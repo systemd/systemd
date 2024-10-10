@@ -583,9 +583,6 @@ static int event_queue_start(Manager *manager) {
         if (!manager->events || manager->exit || manager->stop_exec_queue)
                 return 0;
 
-        /* To make the stack directory /run/udev/links cleaned up later. */
-        manager->udev_node_needs_cleanup = true;
-
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
@@ -1180,11 +1177,6 @@ static int on_post(sd_event_source *s, void *userdata) {
         }
 
         /* There are no idle workers. */
-
-        if (manager->udev_node_needs_cleanup) {
-                (void) udev_node_cleanup();
-                manager->udev_node_needs_cleanup = false;
-        }
 
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
