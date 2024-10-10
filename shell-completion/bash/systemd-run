@@ -38,7 +38,7 @@ _systemd_run() {
         --unit -p --property --slice --description --service-type --uid --gid --nice --working-directory
         -E --setenv --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar
         --path-property --socket-property --timer-property -H --host -M --machine --expand-environment
-        --background --json
+        --background --json --job-mode
     )
     local OPTS="${opts_with_values[*]} --no-ask-password --scope -u --slice-inherit -r --remain-after-exit
                 --send-sighup -d --same-dir -t --pty -P --pipe -S --shell -q --quiet --ignore-failure
@@ -128,6 +128,11 @@ _systemd_run() {
             ;;
         --json)
             local comps='pretty short off'
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+        --job-mode)
+            local comps=$( systemd-run --job-mode=help 2>/dev/null )
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
             ;;
