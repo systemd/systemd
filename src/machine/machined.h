@@ -67,3 +67,5 @@ void manager_enqueue_gc(Manager *m);
 
 int machine_get_addresses(Machine* machine, struct local_address **ret_addresses);
 int machine_get_os_release(Machine *machine, char ***ret_os_release);
+int manager_acquire_image(Manager *m, const char *name, Image **ret);
+int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name);

@@ -2,6 +2,7 @@
 
 libmachine_core_sources = files(
         'image-dbus.c',
+        'image-varlink.c',
         'machine-dbus.c',
         'machine-varlink.c',
         'machine.c',
