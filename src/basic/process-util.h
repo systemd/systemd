@@ -148,8 +148,19 @@ static inline bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
+#define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer */
+#define PID_INVALID   ((pid_t) 0)       /* default value for "invalid pid" */
+
 static inline bool pid_is_valid(pid_t p) {
         return p > 0;
+}
+
+static inline bool pid_is_automatic(pid_t p) {
+        return p == PID_AUTOMATIC;
+}
+
+static inline bool pid_is_valid_or_automatic(pid_t p) {
+        return pid_is_valid(p) || pid_is_automatic(p);
 }
 
 pid_t getpid_cached(void);

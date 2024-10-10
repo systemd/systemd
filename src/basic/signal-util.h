@@ -46,6 +46,7 @@ static inline void block_signals_reset(sigset_t *ss) {
                 assert_se(sigprocmask_many(SIG_BLOCK, &_t, __VA_ARGS__) >= 0);     \
                 _t;                                                                \
         })
+#define SIGNO_INVALID (-EINVAL)
 
 static inline bool SIGNAL_VALID(int signo) {
         return signo > 0 && signo < _NSIG;

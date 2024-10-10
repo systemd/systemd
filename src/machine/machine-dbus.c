@@ -995,23 +995,23 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         assert(found);
 
         if (streq(path, "/org/freedesktop/machine1/machine/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
-                pid_t pid;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
+                r = bus_creds_get_pidref(creds, &pidref);
                 if (r < 0)
                         return r;
 
-                r = manager_get_machine_by_pid(m, pid, &machine);
+                r = manager_get_machine_by_pidref(m, &pidref, &machine);
                 if (r <= 0)
                         return 0;
         } else {
