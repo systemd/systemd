@@ -888,7 +888,7 @@ static int action_dissect(
                        m->sector_size);
 
                 printf("     Arch.: %s\n",
-                       strna(architecture_to_string(dissected_image_architecture(m))));
+                       strna(abi_to_string(dissected_image_abi(m))));
 
                 putc('\n', stdout);
                 fflush(stdout);
@@ -978,14 +978,14 @@ static int action_dissect(
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse confext scopes: %m");
 
-                Architecture a = dissected_image_architecture(m);
+                Abi a = dissected_image_abi(m);
 
                 r = sd_json_buildo(
                                 &v,
                                 SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(bn)),
                                 SD_JSON_BUILD_PAIR_CONDITION(size != UINT64_MAX, "size", SD_JSON_BUILD_INTEGER(size)),
                                 SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(m->sector_size)),
-                                SD_JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(a))),
+                                SD_JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", SD_JSON_BUILD_STRING(abi_to_string(a))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(m->image_uuid)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!m->hostname, "hostname", SD_JSON_BUILD_STRING(m->hostname)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", SD_JSON_BUILD_ID128(m->machine_id)),
@@ -1044,7 +1044,7 @@ static int action_dissect(
                                 t,
                                 TABLE_STRING, p->label,
                                 TABLE_STRING, p->fstype,
-                                TABLE_STRING, architecture_to_string(p->architecture));
+                                TABLE_STRING, abi_to_string(p->abi));
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2030,7 +2030,7 @@ static int run(int argc, char *argv[]) {
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &pick_filter_image_raw,
-                                PICK_ARCHITECTURE|PICK_TRIES,
+                                PICK_ABI|PICK_TRIES,
                                 /* ret_result= */ NULL);
                 if (r < 0)
                         return r;

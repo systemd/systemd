@@ -2980,7 +2980,8 @@ static int pick_versions(
                 const ExecContext *context,
                 const ExecParameters *params,
                 char **ret_root_image,
-                char **ret_root_directory) {
+                char **ret_root_directory,
+                Abi *ret_root_abi) {
 
         int r;
 
@@ -2988,6 +2989,7 @@ static int pick_versions(
         assert(params);
         assert(ret_root_image);
         assert(ret_root_directory);
+        assert(ret_root_abi);
 
         if (context->root_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -2996,7 +2998,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_image,
                               &pick_filter_image_raw,
-                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              PICK_ABI|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
                         return r;
@@ -3006,6 +3008,7 @@ static int pick_versions(
 
                 *ret_root_image = TAKE_PTR(result.path);
                 *ret_root_directory = NULL;
+                *ret_root_abi = result.abi;
                 return r;
         }
 
@@ -3016,7 +3019,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_directory,
                               &pick_filter_image_dir,
-                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              PICK_ABI|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
                         return r;
@@ -3026,10 +3029,12 @@ static int pick_versions(
 
                 *ret_root_image = NULL;
                 *ret_root_directory = TAKE_PTR(result.path);
+                *ret_root_abi = result.abi;
                 return r;
         }
 
         *ret_root_image = *ret_root_directory = NULL;
+        *ret_root_abi = _ABI_INVALID;
         return 0;
 }
 
@@ -3052,6 +3057,7 @@ static int apply_mount_namespace(
         bool setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
+        Abi root_abi = _ABI_INVALID;
         int r;
 
         assert(context);
@@ -3063,7 +3069,8 @@ static int apply_mount_namespace(
                                 context,
                                 params,
                                 &root_image,
-                                &root_dir);
+                                &root_dir,
+                                &root_abi);
                 if (r < 0)
                         return r;
 
@@ -3180,6 +3187,7 @@ static int apply_mount_namespace(
                 .root_image = root_image,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
+                .root_abi = root_abi,
 
                 .read_write_paths = read_write_paths,
                 .read_only_paths = needs_sandboxing ? context->read_only_paths : NULL,

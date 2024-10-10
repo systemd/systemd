@@ -9,19 +9,19 @@
 #include "terminal-util.h"
 #include "tests.h"
 
-TEST(gpt_types_against_architectures) {
+TEST(gpt_types_against_abis) {
         int r;
 
-        /* Dumps a table indicating for which architectures we know we have matching GPT partition
+        /* Dumps a table indicating for which abis we know we have matching GPT partition
          * types. Also validates whether we can properly categorize the entries. */
 
         FOREACH_STRING(prefix, "root-", "usr-")
-                for (Architecture a = 0; a < _ARCHITECTURE_MAX; a++)
+                for (Abi a = 0; a < _ABI_MAX; a++)
                         FOREACH_STRING(suffix, "", "-verity", "-verity-sig") {
                                 _cleanup_free_ char *joined = NULL;
                                 GptPartitionType type;
 
-                                joined = strjoin(prefix, architecture_to_string(a), suffix);
+                                joined = strjoin(prefix, abi_to_string(a), suffix);
                                 if (!joined)
                                         return (void) log_oom();
 
@@ -42,7 +42,7 @@ TEST(gpt_types_against_architectures) {
                                 if (streq(prefix, "usr-") && streq(suffix, "-verity"))
                                         ASSERT_EQ(type.designator, PARTITION_USR_VERITY);
 
-                                ASSERT_EQ(type.arch, a);
+                                ASSERT_EQ(type.abi, a);
                         }
 }
 
@@ -74,35 +74,35 @@ TEST(type_alias_same) {
                 x = gpt_partition_type_from_uuid(t->uuid);                   /* search first by uuid */
                 ASSERT_GE(gpt_partition_type_from_string(t->name, &y), 0); /* search first by name */
 
-                ASSERT_EQ(t->arch, x.arch);
-                ASSERT_EQ(t->arch, y.arch);
+                ASSERT_EQ(t->abi, x.abi);
+                ASSERT_EQ(t->abi, y.abi);
                 ASSERT_EQ(t->designator, x.designator);
                 ASSERT_EQ(t->designator, y.designator);
         }
 }
 
-TEST(override_architecture) {
+TEST(override_abi) {
         GptPartitionType x, y;
 
         ASSERT_GE(gpt_partition_type_from_string("root-x86-64", &x), 0);
-        ASSERT_EQ(x.arch, ARCHITECTURE_X86_64);
+        ASSERT_EQ(x.abi, ABI_X86_64);
 
         ASSERT_GE(gpt_partition_type_from_string("root-arm64", &y), 0);
-        ASSERT_EQ(y.arch, ARCHITECTURE_ARM64);
+        ASSERT_EQ(y.abi, ABI_ARM64);
 
-        x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
-        ASSERT_EQ(x.arch, y.arch);
+        x = gpt_partition_type_override_abi(x, ABI_ARM64);
+        ASSERT_EQ(x.abi, y.abi);
         ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
         ASSERT_STREQ(x.name, y.name);
 
-        /* If the partition type does not have an architecture, nothing should change. */
+        /* If the partition type does not have an abi, nothing should change. */
 
         ASSERT_GE(gpt_partition_type_from_string("esp", &x), 0);
         y = x;
 
-        x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
-        ASSERT_EQ(x.arch, y.arch);
+        x = gpt_partition_type_override_abi(x, ABI_ARM64);
+        ASSERT_EQ(x.abi, y.abi);
         ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
         ASSERT_STREQ(x.name, y.name);

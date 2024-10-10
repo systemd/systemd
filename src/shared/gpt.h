@@ -49,12 +49,12 @@ const char* gpt_partition_type_uuid_to_string_harder(
 #define GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(id) \
         gpt_partition_type_uuid_to_string_harder((id), (char[SD_ID128_UUID_STRING_MAX]) {})
 
-Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id);
+Abi gpt_partition_type_uuid_to_abi(sd_id128_t id);
 
 typedef struct GptPartitionType {
         sd_id128_t uuid;
         const char *name;
-        Architecture arch;
+        Abi abi;
         PartitionDesignator designator;
 } GptPartitionType;
 
@@ -65,7 +65,7 @@ int gpt_partition_label_valid(const char *s);
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id);
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret);
 
-GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type, Architecture arch);
+GptPartitionType gpt_partition_type_override_abi(GptPartitionType type, Abi abi);
 
 const char* gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 
