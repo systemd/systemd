@@ -61,7 +61,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_get_tid</function></funcdef>
         <paramdef>sd_event *<parameter>event</parameter></paramdef>
-        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+        <paramdef>pid_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>

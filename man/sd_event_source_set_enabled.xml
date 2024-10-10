@@ -44,7 +44,7 @@
       <funcprototype>
         <funcdef>int <function>sd_event_source_get_enabled</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
-        <paramdef>int *<parameter>enabled</parameter></paramdef>
+        <paramdef>int *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -69,10 +69,10 @@
 
     <para><function>sd_event_source_get_enabled()</function> may be used to query whether the event source
     object <parameter>source</parameter> is currently enabled or not. If both the
-    <parameter>source</parameter> and the output parameter <parameter>enabled</parameter> are
+    <parameter>source</parameter> and the output parameter <parameter>ret</parameter> are
     <constant>NULL</constant>, this function returns false. Otherwise, <parameter>source</parameter> must be
     a valid pointer to an <structname>sd_event_source</structname> object. If the output parameter
-    <parameter>enabled</parameter> is not <constant>NULL</constant>, it is set to the enablement state (one
+    <parameter>ret</parameter> is not <constant>NULL</constant>, it is set to the enablement state (one
     of <constant>SD_EVENT_ON</constant>, <constant>SD_EVENT_OFF</constant>,
     <constant>SD_EVENT_ONESHOT</constant>). The function also returns true if the event source is not
     disabled.</para>

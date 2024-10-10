@@ -2618,14 +2618,14 @@ _public_ int sd_event_source_set_description(sd_event_source *s, const char *des
         return free_and_strdup(&s->description, description);
 }
 
-_public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
+_public_ int sd_event_source_get_description(sd_event_source *s, const char **ret) {
         assert_return(s, -EINVAL);
-        assert_return(description, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!s->description)
                 return -ENXIO;
 
-        *description = s->description;
+        *ret = s->description;
         return 0;
 }
 
@@ -2705,13 +2705,13 @@ _public_ int sd_event_source_set_io_fd_own(sd_event_source *s, int own) {
         return 0;
 }
 
-_public_ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
+_public_ int sd_event_source_get_io_events(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(events, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *events = s->io.events;
+        *ret = s->io.events;
         return 0;
 }
 
@@ -2743,14 +2743,14 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
         return 0;
 }
 
-_public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
+_public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(revents, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
         assert_return(s->pending, -ENODATA);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *revents = s->io.revents;
+        *ret = s->io.revents;
         return 0;
 }
 
@@ -2762,11 +2762,12 @@ _public_ int sd_event_source_get_signal(sd_event_source *s) {
         return s->signal.sig;
 }
 
-_public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *priority) {
+_public_ int sd_event_source_get_priority(sd_event_source *s, int64_t *ret) {
         assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *priority = s->priority;
+        *ret = s->priority;
         return 0;
 }
 
@@ -3107,13 +3108,13 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         return 0;
 }
 
-_public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(usec, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *usec = s->time.next;
+        *ret = s->time.next;
         return 0;
 }
 
@@ -3157,13 +3158,13 @@ _public_ int sd_event_source_set_time_relative(sd_event_source *s, uint64_t usec
         return sd_event_source_set_time(s, usec);
 }
 
-_public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(usec, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *usec = s->time.accuracy;
+        *ret = s->time.accuracy;
         return 0;
 }
 
@@ -3189,23 +3190,23 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
         return 0;
 }
 
-_public_ int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock) {
+_public_ int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(clock, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *clock = event_source_type_to_clock(s->type);
+        *ret = event_source_type_to_clock(s->type);
         return 0;
 }
 
-_public_ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
+_public_ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(pid, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_CHILD, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *pid = s->child.pid;
+        *ret = s->child.pid;
         return 0;
 }
 
@@ -4951,7 +4952,7 @@ _public_ int sd_event_get_state(sd_event *e) {
         return e->state;
 }
 
-_public_ int sd_event_get_exit_code(sd_event *e, int *code) {
+_public_ int sd_event_get_exit_code(sd_event *e, int *ret) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(!event_origin_changed(e), -ECHILD);
@@ -4959,8 +4960,8 @@ _public_ int sd_event_get_exit_code(sd_event *e, int *code) {
         if (!e->exit_requested)
                 return -ENODATA;
 
-        if (code)
-                *code = e->exit_code;
+        if (ret)
+                *ret = e->exit_code;
         return 0;
 }
 
@@ -4976,10 +4977,10 @@ _public_ int sd_event_exit(sd_event *e, int code) {
         return 0;
 }
 
-_public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
+_public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *ret) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(usec, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!event_origin_changed(e), -ECHILD);
 
         if (!TRIPLE_TIMESTAMP_HAS_CLOCK(clock))
@@ -4991,7 +4992,7 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 return 1;
         }
 
-        *usec = triple_timestamp_by_clock(&e->timestamp, clock);
+        *ret = triple_timestamp_by_clock(&e->timestamp, clock);
         return 0;
 }
 
@@ -5019,18 +5020,17 @@ _public_ int sd_event_default(sd_event **ret) {
         return 1;
 }
 
-_public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
+_public_ int sd_event_get_tid(sd_event *e, pid_t *ret) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(tid, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!event_origin_changed(e), -ECHILD);
 
-        if (e->tid != 0) {
-                *tid = e->tid;
-                return 0;
-        }
+        if (e->tid == 0)
+                return -ENXIO;
 
-        return -ENXIO;
+        *ret = e->tid;
+        return 0;
 }
 
 _public_ int sd_event_set_watchdog(sd_event *e, int b) {
