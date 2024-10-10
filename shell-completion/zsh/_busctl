@@ -29,6 +29,7 @@
         "tree:Show object tree of service"
         "introspect:Introspect object"
         "call:Call a method"
+        "wait:Wait for a signal"
         "get-property:Get property value"
         "set-property:Set property value"
     )
@@ -195,6 +196,31 @@ __dbus_matchspec() {
             ;;
         6)
             compadd "$@" - $(_busctl_get_signature $words[2,5])
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+(( $+functions[_busctl_wait] )) || _busctl_wait()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        5)
+            _wanted method expl 'method' \
+            compadd "$@" - $(_busctl_get_members $words[2,4] "signal")
             ;;
         *)
             _message "no more options"
