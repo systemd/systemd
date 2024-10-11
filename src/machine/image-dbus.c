@@ -79,7 +79,7 @@ int bus_image_method_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, NULL, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new_with_bus_reply(m, NULL, child, message, errno_pipe_fd[0], NULL);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;
@@ -204,7 +204,7 @@ int bus_image_method_clone(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, NULL, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new_with_bus_reply(m, NULL, child, message, errno_pipe_fd[0], NULL);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;
