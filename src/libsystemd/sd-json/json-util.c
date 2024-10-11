@@ -185,7 +185,13 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
          * above. If SD_JSON_STRICT is set this will acquire a pidfd for the process, and validate that the
          * auxiliary fields match it. Otherwise, this will just store the pid and the pidfd inode number (the
          * latter not if the provided boot id differs from the local one), and not attempt to get a pidfd for
-         * it, or authenticate it. */
+         * it, or authenticate it.
+         *
+         * If SD_JSON_RELAX is specified, a specified but zero/empty PID will be mapped to PIDREF_AUTOMATIC,
+         * which is supposed to indicate that the PID shall be automatically derived, typically from the
+         * connection peer.
+         *
+         * Note that SD_JSON_RELAX and SD_JSON_STRICT can be combined. */
 
         if (sd_json_variant_is_null(variant)) {
                 pidref_done(p);
@@ -219,6 +225,13 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
                         return r;
         } else
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is neither a numeric PID nor a PID object.", strna(name));
+
+        /* If SD_JSON_RELAX is set then we'll take a specified but zero field as request for "automic" PID derivation */
+        if ((flags & SD_JSON_RELAX) && data.pid == 0 && data.fd_id == 0 && sd_id128_is_null(data.boot_id)) {
+                pidref_done(p);
+                *p = PIDREF_AUTOMATIC;
+                return 0;
+        }
 
         /* Before casting the 64bit data.pid field to pid_t, let's ensure it fits the pid_t range. */
         if (data.pid > PID_T_MAX || !pid_is_valid(data.pid))
