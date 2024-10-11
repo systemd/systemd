@@ -190,6 +190,7 @@ static inline bool dns_server_is_fallback(DnsServer *s) {
 }
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);
+int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **ret);
 
 int dns_server_is_accessible(DnsServer *s);
 static inline void dns_server_reset_accessible(DnsServer *s) {

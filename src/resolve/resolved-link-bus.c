@@ -270,6 +270,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
                 (void) manager_send_changed(l->manager, "DNS");
+                (void) manager_send_dns_configuration_changed(l->manager);
 
                 if (j)
                         log_link_info(l, "Bus client set DNS server list to: %s", j);
@@ -745,6 +746,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
         (void) manager_send_changed(l->manager, "DNS");
+        (void) manager_send_dns_configuration_changed(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
 }
