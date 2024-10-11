@@ -65,11 +65,11 @@ desktop environments should adhere to the following conventions:
    instead of the caller starting the process and letting systemd know about it,
    is encouraged.
 
- * The RANDOM should be a string of random characters to ensure that multiple instances
-   of the application can be launched.
-
-   It can be omitted in the case of a non-transient application services which can ensure
-   multiple instances are not spawned, such as a DBus activated application.
+ * `<RANDOM>` should be a string of random characters to ensure that multiple instances
+   of the application can be launched. This can be omitted for service files of
+   non-transient applications, which ensure multiple instances cannot be
+   spawned. For scope files `<RANDOM>` is mandatory, as the format would be
+   ambiguous otherwise.
 
  * If no application ID is available, the launcher should generate a reasonable
    name when possible (e.g. using `basename(argv[0])`). This name must not
