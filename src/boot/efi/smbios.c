@@ -85,7 +85,7 @@ typedef struct {
         char contents[];
 } _packed_ SmbiosTableType11;
 
-static const void *find_smbios_configuration_table(uint64_t *ret_size) {
+static const void* find_smbios_configuration_table(uint64_t *ret_size) {
         assert(ret_size);
 
         const Smbios3EntryPoint *entry3 = find_configuration_table(MAKE_GUID_PTR(SMBIOS3_TABLE));
@@ -102,32 +102,33 @@ static const void *find_smbios_configuration_table(uint64_t *ret_size) {
                 return PHYSICAL_ADDRESS_TO_POINTER(entry->table_address);
         }
 
+        *ret_size = 0;
         return NULL;
 }
 
-static const SmbiosHeader *get_smbios_table(uint8_t type, size_t min_size, uint64_t *ret_size_left) {
-        uint64_t size = 0;
+static const SmbiosHeader* get_smbios_table(uint8_t type, size_t min_size, uint64_t *ret_size_left) {
+        uint64_t size;
         const uint8_t *p = find_smbios_configuration_table(&size);
         if (!p)
-                return NULL;
+                goto not_found;
 
         for (;;) {
                 if (size < sizeof(SmbiosHeader))
-                        return NULL;
+                        goto not_found;
 
                 const SmbiosHeader *header = (const SmbiosHeader *) p;
 
                 /* End of table. */
                 if (header->type == 127)
-                        return NULL;
+                        goto not_found;
 
                 if (size < header->length)
-                        return NULL;
+                        goto not_found;
 
                 if (header->type == type) {
                         /* Table is smaller than the minimum expected size? Refuse */
                         if (header->length < min_size)
-                                return NULL;
+                                goto not_found;
 
                         if (ret_size_left)
                                 *ret_size_left = size;
@@ -150,7 +151,7 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, size_t min_size, uint6
                 for (;;) {
                         const uint8_t *e = memchr(p, 0, size);
                         if (!e)
-                                return NULL;
+                                goto not_found;
 
                         if (!first && e == p) {/* Double NUL byte means we've reached the end of the string table. */
                                 p++;
@@ -163,6 +164,10 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, size_t min_size, uint6
                         first = false;
                 }
         }
+
+not_found:
+        if (ret_size_left)
+                *ret_size_left = 0;
 
         return NULL;
 }
@@ -238,11 +243,19 @@ void smbios_raw_info_populate(RawSmbiosInfo *ret_info) {
                 ret_info->product_name = smbios_get_string(&type1->header, type1->product_name, left);
                 ret_info->product_sku = smbios_get_string(&type1->header, type1->sku_number, left);
                 ret_info->family = smbios_get_string(&type1->header, type1->family, left);
+        } else {
+                ret_info->manufacturer = NULL;
+                ret_info->product_name = NULL;
+                ret_info->product_sku = NULL;
+                ret_info->family = NULL;
         }
 
         const SmbiosTableType2 *type2 = (const SmbiosTableType2 *) get_smbios_table(2, sizeof(SmbiosTableType2), &left);
         if (type2) {
                 ret_info->baseboard_manufacturer = smbios_get_string(&type2->header, type2->manufacturer, left);
                 ret_info->baseboard_product = smbios_get_string(&type2->header, type2->product_name, left);
+        } else {
+                ret_info->baseboard_manufacturer = NULL;
+                ret_info->baseboard_product = NULL;
         }
 }
