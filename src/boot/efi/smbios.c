@@ -208,8 +208,7 @@ const char* smbios_find_oem_string(const char *name) {
 }
 
 static const char* smbios_get_string(const SmbiosHeader *header, size_t nr, uint64_t left) {
-        assert(header);
-        const char *s = (const char *) header;
+        const char *s = (const char *) ASSERT_PTR(header);
 
         /* We assume that get_smbios_table() already validated the header size making some superficial sense */
         assert(left >= header->length);
@@ -227,12 +226,14 @@ static const char* smbios_get_string(const SmbiosHeader *header, size_t nr, uint
 
                 p = e + 1;
         }
+
         return NULL;
 }
 
 void smbios_raw_info_populate(RawSmbiosInfo *ret_info) {
-        assert(ret_info);
         uint64_t left;
+
+        assert(ret_info);
 
         const SmbiosTableType1 *type1 = (const SmbiosTableType1 *) get_smbios_table(1, sizeof(SmbiosTableType1), &left);
         if (type1) {
