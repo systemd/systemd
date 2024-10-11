@@ -517,8 +517,17 @@ testcase_08_resolved() {
     grep -qF "fd00:dead:beef:cafe::11" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
 
-    run dig +short signed.test
+    run dig +nostats signed.test
     grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* ad" "$RUN_OUT"
+    run dig +nostats +cd signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* cd"
+    grep -qv "flags:[^;]* ad"
+    run dig +nostats +do signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* ad"
+    grep -qv "flags:[^;]* cd"
     run resolvectl query signed.test
     grep -qF "signed.test: 10.0.0.10" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
