@@ -10,7 +10,7 @@
         SD_VARLINK_FIELD_COMMENT("If non-null the name of a machine."),                                                                        \
         SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),                                                                 \
         SD_VARLINK_FIELD_COMMENT("If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of."), \
-        SD_VARLINK_DEFINE_INPUT(pid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),                                                                     \
+        SD_VARLINK_DEFINE_INPUT_BY_TYPE(pid, ProcessId,  SD_VARLINK_NULLABLE),                                                                 \
         VARLINK_DEFINE_POLKIT_INPUT
 
 static SD_VARLINK_DEFINE_METHOD(
