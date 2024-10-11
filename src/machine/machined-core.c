@@ -12,19 +12,19 @@
 #include "strv.h"
 #include "user-util.h"
 
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **ret) {
+int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret) {
         Machine *mm;
         int r;
 
         assert(m);
-        assert(pid_is_valid(pid));
+        assert(pidref_is_set(pidref));
         assert(ret);
 
-        mm = hashmap_get(m->machines_by_leader, &PIDREF_MAKE_FROM_PID(pid));
+        mm = hashmap_get(m->machines_by_leader, pidref);
         if (!mm) {
                 _cleanup_free_ char *unit = NULL;
 
-                r = cg_pid_get_unit(pid, &unit);
+                r = cg_pidref_get_unit(pidref, &unit);
                 if (r >= 0)
                         mm = hashmap_get(m->machines_by_unit, unit);
         }
