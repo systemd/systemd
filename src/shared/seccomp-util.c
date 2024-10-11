@@ -381,6 +381,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sigreturn\0"
                 "time\0"
                 "ugetrlimit\0"
+                "uretprobe\0"
         },
         [SYSCALL_FILTER_SET_AIO] = {
                 .name = "@aio",
