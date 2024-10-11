@@ -158,6 +158,7 @@ simple_tests += files(
         'test-secure-bits.c',
         'test-serialize.c',
         'test-set.c',
+        'test-sha1.c',
         'test-sha256.c',
         'test-sigbus.c',
         'test-signal-util.c',
