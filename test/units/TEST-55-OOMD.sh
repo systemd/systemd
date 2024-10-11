@@ -153,7 +153,7 @@ if cgroupfs_supports_user_xattrs; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
-    cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/override.conf <<EOF
+    cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/99-managed-oom-preference.conf <<EOF
 [Service]
 ManagedOOMPreference=avoid
 EOF
