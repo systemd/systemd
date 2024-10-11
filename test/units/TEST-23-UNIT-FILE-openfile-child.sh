@@ -10,6 +10,5 @@ assert_eq "$LISTEN_FDS" "$1"
 assert_eq "$LISTEN_FDNAMES" "$2"
 
 for ((i = 3; i < 3 + LISTEN_FDS; i++)); do
-    read -r -u "$i" text
-    assert_eq "$text" "${!i}" # Dereference $i to get i'th arg
+    assert_eq "$(cat /proc/self/fd/"$i")" "${!i}" # Dereference $i to get i'th arg
 done

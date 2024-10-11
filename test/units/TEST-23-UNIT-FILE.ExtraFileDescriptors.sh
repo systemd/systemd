@@ -51,6 +51,17 @@ timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState test-23-extra-fd.s
 assert_eq "$(systemctl show -P Result "$TEST_UNIT")" "success"
 assert_eq "$(systemctl show -P ExecMainStatus "$TEST_UNIT")" "0"
 
+# Verify extra file descriptors stay accessible even after service manager re-executes
+systemctl daemon-reexec
+
+systemctl restart "$TEST_UNIT"
+
+# shellcheck disable=SC2016
+timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState test-23-extra-fd.service)" != "exited" ]]; do sleep .5; done'
+
+assert_eq "$(systemctl show -P Result "$TEST_UNIT")" "success"
+assert_eq "$(systemctl show -P ExecMainStatus "$TEST_UNIT")" "0"
+
 systemctl stop "$TEST_UNIT"
 
 systemctl log-level info
