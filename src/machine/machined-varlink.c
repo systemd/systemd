@@ -419,9 +419,15 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
 }
 
 typedef struct MachineLookupParameters {
-        const char *machine_name;
-        pid_t pid;
+        const char *name;
+        PidRef pidref;
 } MachineLookupParameters;
+
+static void machine_lookup_parameters_done(MachineLookupParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+}
 
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -431,7 +437,9 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        MachineLookupParameters p = {};
+        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+                .pidref = PIDREF_NULL,
+        };
         Machine *machine;
         int r;
 
@@ -442,8 +450,8 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        if (p.machine_name || pid_is_valid_or_automatic(p.pid)) {
-                r = lookup_machine_by_name_or_pid(link, m, p.machine_name, p.pid, &machine);
+        if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
+                r = lookup_machine_by_name_or_pid(link, m, p.name, &p.pidref, &machine);
                 if (r == -ESRCH)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
                 if (r < 0)
@@ -480,7 +488,9 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        MachineLookupParameters p = {};
+        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+                .pidref = PIDREF_NULL,
+        };
         Machine *machine;
         int r;
 
@@ -491,7 +501,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         if (r != 0)
                 return r;
 
-        r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
+        r = lookup_machine_by_name_or_pid(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
         if (r < 0)
