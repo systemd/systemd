@@ -14,23 +14,13 @@ enum {
         _STDOUT_CONSUME_MAX,
 };
 
-typedef enum {
-        EXEC_DIR_NONE                 = 0,      /* No execdir flags */
+typedef enum ExecDirFlags {
         EXEC_DIR_PARALLEL             = 1 << 0, /* Execute scripts in parallel, if possible */
         EXEC_DIR_IGNORE_ERRORS        = 1 << 1, /* Ignore non-zero exit status of scripts */
         EXEC_DIR_SET_SYSTEMD_EXEC_PID = 1 << 2, /* Set $SYSTEMD_EXEC_PID environment variable */
         EXEC_DIR_SKIP_REMAINING       = 1 << 3, /* Ignore remaining executions when one exit with 77. */
         EXEC_DIR_WARN_WORLD_WRITABLE  = 1 << 4, /* Warn if world writable files are found */
 } ExecDirFlags;
-
-typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
-        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
-        EXEC_COMMAND_NO_SETUID        = 1 << 2,
-        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
-        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
-        _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
-} ExecCommandFlags;
 
 int execute_strv(
                 const char *name,
@@ -52,10 +42,19 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags);
 
+extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
+
+typedef enum ExecCommandFlags {
+        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
+        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
+        EXEC_COMMAND_NO_SETUID        = 1 << 2,
+        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
+        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
+        _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
+} ExecCommandFlags;
+
 int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret);
 int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret);
-
-extern const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX];
 
 const char* exec_command_flags_to_string(ExecCommandFlags i);
 ExecCommandFlags exec_command_flags_from_string(const char *s);
