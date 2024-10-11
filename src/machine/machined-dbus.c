@@ -813,7 +813,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         /* The clean-up might take a while, hence install a watch on the child and return */
 
-        r = operation_new(m, NULL, child, message, errno_pipe_fd[0], &operation);
+        r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], &operation);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;
