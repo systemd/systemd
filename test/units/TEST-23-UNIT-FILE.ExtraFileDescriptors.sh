@@ -31,8 +31,8 @@ busctl call \
     org.freedesktop.systemd1.Manager StartTransientUnit \
     "ssa(sv)a(sa(sv))" "$TEST_UNIT" replace 4 \
       ExecStart "a(sasb)" 1 \
-        /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-openfile-child.sh \
-        5 /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-openfile-child.sh 2 "test:other" "Hello" "Extra" \
+        /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh \
+        5 /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh 2 "test:other" "Hello" "Extra" \
         true \
       RemainAfterExit "b" true \
       Type "s" oneshot \
@@ -48,6 +48,15 @@ EOF
 # shellcheck disable=SC2016
 timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState test-23-extra-fd.service)" != "exited" ]]; do sleep .5; done'
 
+assert_eq "$(systemctl show -P Result "$TEST_UNIT")" "success"
+assert_eq "$(systemctl show -P ExecMainStatus "$TEST_UNIT")" "0"
+
+# Verify extra file descriptors stay accessible even after service manager re-executes
+systemctl daemon-reexec
+
+systemctl restart "$TEST_UNIT"
+
+assert_eq "$(systemctl show -P SubState "$TEST_UNIT")" "exited"
 assert_eq "$(systemctl show -P Result "$TEST_UNIT")" "success"
 assert_eq "$(systemctl show -P ExecMainStatus "$TEST_UNIT")" "0"
 
