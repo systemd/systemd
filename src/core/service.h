@@ -115,8 +115,6 @@ struct ServiceFDStore {
 struct ServiceExtraFD {
         int fd;
         char *fdname;
-
-        LIST_FIELDS(ServiceExtraFD, extra_fd);
 };
 
 struct Service {
@@ -223,27 +221,28 @@ struct Service {
 
         sd_event_source *exec_fd_event_source;
 
-        ServiceFDStore *fd_store;
+        LIST_HEAD(ServiceFDStore, fd_store);
         size_t n_fd_store;
         unsigned n_fd_store_max;
         ExecPreserveMode fd_store_preserve_mode;
-
-        char *usb_function_descriptors;
-        char *usb_function_strings;
 
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
 
-        OOMPolicy oom_policy;
+        /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
+        ServiceExtraFD *extra_fds;
+        size_t n_extra_fds;
 
         LIST_HEAD(OpenFile, open_files);
 
-        /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
-        LIST_HEAD(ServiceExtraFD, extra_fds);
-
         int reload_signal;
         usec_t reload_begin_usec;
+
+        OOMPolicy oom_policy;
+
+        char *usb_function_descriptors;
+        char *usb_function_strings;
 
         /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
         sd_bus_message *mount_request;
@@ -306,6 +305,3 @@ DEFINE_CAST(SERVICE, Service);
 
 /* Only exported for unit tests */
 int service_deserialize_exec_command(Unit *u, const char *key, const char *value);
-
-ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *efd);
-DEFINE_TRIVIAL_CLEANUP_FUNC(ServiceExtraFD*, service_extra_fd_free);
