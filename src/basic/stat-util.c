@@ -157,25 +157,9 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         struct dirent *buf;
         size_t m;
 
-        if (path) {
-                assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-                fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-        } else if (dir_fd == AT_FDCWD) {
-                fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-        } else {
-                /* Note that DUPing is not enough, as the internal pointer would still be shared and moved
-                 * getedents64(). */
-                assert(dir_fd >= 0);
-
-                fd = fd_reopen(dir_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return fd;
-        }
+        fd = xopenat(dir_fd, path, O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
 
         /* Allocate space for at least 3 full dirents, since every dir has at least two entries ("."  +
          * ".."), and only once we have seen if there's a third we know whether the dir is empty or not. If
