@@ -698,7 +698,11 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
+
+        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
