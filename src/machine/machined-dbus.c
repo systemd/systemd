@@ -599,7 +599,8 @@ static int method_get_image_os_release(sd_bus_message *message, void *userdata, 
         return redirect_method_to_image(message, userdata, error, bus_image_method_get_os_release);
 }
 
-static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
+static int clean_pool_done(Operation *operation, int ret, void *userdata) {
+        sd_bus_error *error = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         bool success;
@@ -813,7 +814,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         /* The clean-up might take a while, hence install a watch on the child and return */
 
-        r = operation_new(m, NULL, child, message, errno_pipe_fd[0], &operation);
+        r = operation_new_with_bus_reply(m, NULL, child, message, errno_pipe_fd[0], &operation);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;
