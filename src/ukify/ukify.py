@@ -1009,7 +1009,7 @@ def generate_keys(opts):
 
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
-    if opts.sb_key or opts.sb_cert:
+    if opts.sb_key and opts.sb_cert:
         fqdn = socket.getfqdn()
         cn = f'SecureBoot signing key on host {fqdn}'
         key_pem, cert_pem = generate_key_cert_pair(
