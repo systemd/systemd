@@ -516,12 +516,13 @@ int bus_connect_transport_systemd(
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
 
+                        /* If we are root then let's talk directly to the system instance, instead of
+                         * going via the bus. */
                         if (geteuid() == 0)
-                                /* If we are root then let's talk directly to the system
-                                 * instance, instead of going via the bus. */
                                 return bus_connect_system_systemd(ret_bus);
 
                         return sd_bus_default_system(ret_bus);
+
                 default:
                         assert_not_reached();
                 }
