@@ -25,7 +25,7 @@ Environment=NO_BUILD=1
 You might also want to use the `PackageDirectories=` or `Repositories=` option to provide
 mkosi with a directory or repository containing the systemd packages that should be installed
 instead. If the repository containing the systemd packages is not a builtin repository known
-by mkosi, you can use the `PackageManagerTrees=` option to write an extra repository definition
+by mkosi, you can use the `SandboxTrees=` option to write an extra repository definition
 to /etc which is used when building the image instead.
 
 Next, we can build the integration test image with meson:
