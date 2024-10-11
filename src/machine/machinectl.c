@@ -2446,7 +2446,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
