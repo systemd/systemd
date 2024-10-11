@@ -672,21 +672,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                                             path));
 
         u = manager_get_unit(m, e);
-        if (u) {
-                /* The device unit can still be present even if the device was unplugged: a mount unit can reference it
-                 * hence preventing the GC to have garbaged it. That's desired since the device unit may have a
-                 * dependency on the mount unit which was added during the loading of the later. When the device is
-                 * plugged the sysfs might not be initialized yet, as we serialize the device's state but do not
-                 * serialize the sysfs path across reloads/reexecs. Hence, when coming back from a reload/restart we
-                 * might have the state valid, but not the sysfs path. Also, there is another possibility; when multiple
-                 * devices have the same devlink (e.g. /dev/disk/by-uuid/xxxx), adding/updating/removing one of the
-                 * device causes syspath change. Hence, let's always update sysfs path. */
-
-                /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
-                 * now below. */
-                unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
-
-        } else {
+        if (!u) {
                 r = unit_new_for_name(m, sizeof(Device), e, &new_unit);
                 if (r < 0)
                         return log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
