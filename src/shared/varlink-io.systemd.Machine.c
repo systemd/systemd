@@ -3,6 +3,7 @@
 #include "sd-varlink-idl.h"
 
 #include "bus-polkit.h"
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.Machine.h"
 
 #define VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS                                                                                  \
@@ -18,7 +19,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(id,                SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(service,           SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(class,             SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_INPUT(leader,            SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(leader,    ProcessId,         SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(rootDirectory,     SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(ifIndices,         SD_VARLINK_INT,    SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(vSockCid,          SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
@@ -27,13 +28,6 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
                 SD_VARLINK_DEFINE_INPUT(allocateUnit,      SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
-
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
-                Timestamp,
-                SD_VARLINK_FIELD_COMMENT("Timestamp in µs in the CLOCK_REALTIME clock (wallclock)"),
-                SD_VARLINK_DEFINE_FIELD(realtime, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Timestamp in µs in the CLOCK_MONOTONIC clock"),
-                SD_VARLINK_DEFINE_FIELD(monotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Unregister,
@@ -64,7 +58,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The class of this machine"),
                 SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(leader, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(leader, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root directory of this machine, if known, relative to host file system"),
                 SD_VARLINK_DEFINE_OUTPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service manager unit this machine resides in"),
@@ -84,6 +78,8 @@ static SD_VARLINK_DEFINE_ERROR(MachineExists);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
                 "io.systemd.Machine",
+                SD_VARLINK_SYMBOL_COMMENT("An object for referencing UNIX processes"),
+                &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 &vl_method_Register,
