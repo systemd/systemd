@@ -2089,7 +2089,7 @@ static int config_parse_address(
         assert(rvalue);
 
         /* Address=address/prefixlen */
-        r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_REFUSE, &f, &buffer, &prefixlen);
+        r = in_addr_prefix_from_string_auto_full(rvalue, PREFIXLEN_REFUSE, &f, &buffer, &prefixlen);
         if (r == -ENOANO) {
                 r = in_addr_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
                 if (r >= 0)
