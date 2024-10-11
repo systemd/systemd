@@ -438,6 +438,12 @@ static int gather_environment_consume(int fd, void *arg) {
         return r;
 }
 
+const gather_stdout_callback_t gather_environment[] = {
+        gather_environment_generate,
+        gather_environment_collect,
+        gather_environment_consume,
+};
+
 int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
         ExecCommandFlags flags = 0;
 
@@ -477,12 +483,6 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
 
         return 0;
 }
-
-const gather_stdout_callback_t gather_environment[] = {
-        gather_environment_generate,
-        gather_environment_collect,
-        gather_environment_consume,
-};
 
 static const char* const exec_command_strings[] = {
         "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
