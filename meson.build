@@ -367,6 +367,7 @@ endif
 # avoid them.
 basic_disabled_warnings = [
         '-Wno-missing-field-initializers',
+        '-Wno-unknown-warning-option',
         '-Wno-unused-parameter',
         '-Wno-nonnull-compare',
 ]
