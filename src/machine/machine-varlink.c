@@ -200,8 +200,8 @@ static int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char
         return 0;
 }
 
-static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, Machine **ret_machine) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, const PidRef *pidref, Machine **ret_machine) {
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
         Machine *machine;
         int r;
 
@@ -209,16 +209,16 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         assert(manager);
         assert(ret_machine);
 
-        if (pid == PID_AUTOMATIC) {
-                r = varlink_get_peer_pidref(link, &pidref);
+        if (pidref_is_automatic(pidref)) {
+                r = varlink_get_peer_pidref(link, &peer);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get peer pidref: %m");
-        }
 
-        if (!pidref_is_set(&pidref))
+                pidref = &peer;
+        } else if (!pidref_is_set(pidref))
                 return -EINVAL;
 
-        r = manager_get_machine_by_pidref(manager, &pidref, &machine);
+        r = manager_get_machine_by_pidref(manager, pidref, &machine);
         if (r < 0)
                 return r;
         if (!machine)
@@ -228,7 +228,7 @@ static int lookup_machine_by_pid(sd_varlink *link, Manager *manager, pid_t pid, 
         return 0;
 }
 
-int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char *machine_name, pid_t pid, Machine **ret_machine) {
+int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char *machine_name, const PidRef *pidref, Machine **ret_machine) {
         Machine *machine = NULL, *pid_machine = NULL;
         int r;
 
@@ -244,8 +244,8 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
                         return r;
         }
 
-        if (pid_is_valid_or_automatic(pid)) {
-                r = lookup_machine_by_pid(link, manager, pid, &pid_machine);
+        if (pidref_is_set(pidref) || pidref_is_automatic(pidref)) {
+                r = lookup_machine_by_pid(link, manager, pidref, &pid_machine);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "pid");
                 if (r < 0)
@@ -253,7 +253,7 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
         }
 
         if (machine && pid_machine && machine != pid_machine)
-                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Search by machine name '%s' and pid %d resulted in two different machines", machine_name, pid);
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Search by machine name '%s' and pid " PID_FMT " resulted in two different machines", machine_name, pidref->pid);
         if (machine)
                 *ret_machine = machine;
         else if (pid_machine)
@@ -308,24 +308,32 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
         return sd_varlink_reply(link, NULL);
 }
 
-int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        struct params {
-                const char *machine_name;
-                pid_t pid;
-                const char *swhom;
-                int32_t signo;
-        };
+typedef struct MachineKillParameters {
+        const char *name;
+        PidRef pidref;
+        const char *swhom;
+        int32_t signo;
+} MachineKillParameters;
 
+static void machine_kill_paramaters_done(MachineKillParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+}
+
+int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(struct params),
-                { "whom",   SD_JSON_VARIANT_STRING,         sd_json_dispatch_const_string, offsetof(struct params, swhom), 0 },
-                { "signal", _SD_JSON_VARIANT_TYPE_INVALID , sd_json_dispatch_signal,       offsetof(struct params, signo), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineKillParameters),
+                { "whom",   SD_JSON_VARIANT_STRING,         sd_json_dispatch_const_string, offsetof(MachineKillParameters, swhom), 0                 },
+                { "signal", _SD_JSON_VARIANT_TYPE_INVALID , sd_json_dispatch_signal,       offsetof(MachineKillParameters, signo), SD_JSON_MANDATORY },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        struct params p = {};
+        _cleanup_(machine_kill_paramaters_done) MachineKillParameters p = {
+                .pidref = PIDREF_NULL,
+        };
         KillWhom whom;
         int r;
 
@@ -337,7 +345,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         Machine *machine;
-        r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
+        r = lookup_machine_by_name_or_pid(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
         if (r < 0)
