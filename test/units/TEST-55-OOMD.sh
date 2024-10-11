@@ -3,8 +3,10 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
- . "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/util.sh
 
 systemd-analyze log-level debug
 
@@ -18,8 +20,6 @@ test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 if [[ -s /skipped ]]; then
     exit 77
 fi
-
-rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
 
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
@@ -92,65 +92,75 @@ else
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
-systemctl start TEST-55-OOMD-testchill.service
-systemctl start TEST-55-OOMD-testbloat.service
+NEEDS_COOL_DOWN=$(mktemp --dry-run /tmp/TEST-OOM-NEEDS-COOL-DOWN-XXXXXX)
 
-# Verify systemd-oomd is monitoring the expected units
-timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
-oomctl | grep "/TEST-55-OOMD-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
-
-systemctl status TEST-55-OOMD-testchill.service
-
-# systemd-oomd watches for elevated pressure for 2 seconds before acting.
-# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-for _ in {0..59}; do
-    if ! systemctl status TEST-55-OOMD-testbloat.service; then
-        break
+cool_down() {
+    if [[ -e "$NEEDS_COOL_DOWN" ]]; then
+        sleep 120s
     fi
+
+    rm -f "$NEEDS_COOL_DOWN"
+}
+
+test_basic() {
+    local cgroup_path="${1:?}"
+    shift
+
+    systemctl "$@" start TEST-55-OOMD-testchill.service
+    systemctl "$@" start TEST-55-OOMD-testbloat.service
+
+    systemctl "$@" status TEST-55-OOMD-workload.slice
+    systemctl "$@" status TEST-55-OOMD-testchill.service
+
+    # Verify systemd-oomd is monitoring the expected units
+    timeout 1m bash -xec "until oomctl | grep 'Path: $cgroup_path'; do sleep 1; done"
     oomctl
-    sleep 2
-done
+    oomctl | grep -A7 "Path: $cgroup_path" | grep -q -F "20.00%"
+    oomctl | grep -q -F "Default Memory Pressure Duration: 2s"
 
-# testbloat should be killed and testchill should be fine
-if systemctl status TEST-55-OOMD-testbloat.service; then exit 42; fi
-if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+    # systemd-oomd watches for elevated pressure for 2 seconds before acting.
+    # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+    for _ in {0..59}; do
+        if ! systemctl "$@" status TEST-55-OOMD-testbloat.service; then
+            break
+        fi
+        oomctl
+        sleep 2
+    done
 
-# Make sure we also work correctly on user units.
-loginctl enable-linger testuser
+    # testbloat should be killed and testchill should be fine
+    if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
+    if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
-systemctl start --machine "testuser@.host" --user TEST-55-OOMD-testchill.service
-systemctl start --machine "testuser@.host" --user TEST-55-OOMD-testbloat.service
+    systemctl "$@" stop TEST-55-OOMD-testchill.service
+}
 
-# Verify systemd-oomd is monitoring the expected units
-# Try to avoid racing the oomctl output check by checking in a loop with a timeout
-timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
-oomctl | grep -E "/user.slice.*/TEST-55-OOMD-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
+testcase_basic_system() {
+    cool_down
 
-systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testchill.service
+    test_basic /TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice
 
-# systemd-oomd watches for elevated pressure for 2 seconds before acting.
-# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-for _ in {0..59}; do
-    if ! systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testbloat.service; then
-        break
+    touch "$NEEDS_COOL_DOWN"
+}
+
+testcase_basic_user() {
+    # Make sure we also work correctly on user units.
+    loginctl enable-linger testuser
+
+    test_basic "/user.slice/user-$(id -u testuser).slice/user@$(id -u testuser).service/TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice" \
+               --machine "testuser@.host" --user
+
+    loginctl disable-linger testuser
+}
+
+testcase_preference_avoid() {
+    # only run this portion of the test if we can set xattrs
+    if ! cgroupfs_supports_user_xattrs; then
+        echo "cgroup does not support user xattrs, skipping test for ManagedOOMPreference=avoid"
+        return 0
     fi
-    oomctl
-    sleep 2
-done
 
-# testbloat should be killed and testchill should be fine
-if systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testbloat.service; then exit 42; fi
-if ! systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testchill.service; then exit 24; fi
-
-loginctl disable-linger testuser
-
-# only run this portion of the test if we can set xattrs
-if cgroupfs_supports_user_xattrs; then
-    sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
+    cool_down
 
     mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
     cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/override.conf <<EOF
@@ -175,7 +185,15 @@ EOF
     if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
     if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
-fi
+
+    systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service
+    systemctl stop TEST-55-OOMD-testbloat.service
+    systemctl stop TEST-55-OOMD-testchill.service
+
+    touch "$NEEDS_COOL_DOWN"
+}
+
+run_testcases
 
 systemd-analyze log-level info
 
