@@ -95,6 +95,23 @@ else
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
+check_killed() {
+    local unit="${1:?}"
+    shift
+
+    if systemctl "$@" status "$unit"; then
+        # Workaround for regression in kernel 6.12-rcX. See issue #32730.
+        if journalctl --no-hostname -k -t kernel --grep 'psi: inconsistent task state!'; then
+            echo "$unit is unexpectedly still alive, and inconsistency is reported by the kernel, ignoring."
+            return 0;
+        else
+            return 1;
+        fi
+    fi
+
+    return 0;
+}
+
 test_basic() {
     local cgroup_path="${1:?}"
     shift
@@ -121,7 +138,7 @@ test_basic() {
     done
 
     # testbloat should be killed and testchill should be fine
-    if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
+    if check_killed TEST-55-OOMD-testbloat.service "$@"; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
     systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
@@ -172,7 +189,7 @@ EOF
 
     # testmunch should be killed since testbloat had the avoid xattr on it
     if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
-    if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
+    if check_killed TEST-55-OOMD-testmunch.service; then exit 43; fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
@@ -248,7 +265,7 @@ EOF
         sleep 2
     done
 
-    if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
+    if check_killed TEST-55-OOMD-testmunch.service; then exit 44; fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
 
     systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
