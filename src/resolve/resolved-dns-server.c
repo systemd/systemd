@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "json-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
@@ -881,6 +882,7 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 dns_cache_flush(&m->unicast_scope->cache);
 
         (void) manager_send_changed(m, "CurrentDNSServer");
+        (void) manager_send_dns_configuration_changed(m);
 
         return s;
 }
@@ -1160,4 +1162,29 @@ int dns_server_is_accessible(DnsServer *s) {
                 return r;
 
         return (s->accessible = r >= 0);
+}
+
+int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **ret) {
+        bool accessible = false;
+        int ifindex, r;
+
+        assert(server);
+        assert(ret);
+
+        ifindex = dns_server_ifindex(server);
+
+        r = dns_server_is_accessible(server);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if %s is accessible, assume not: %m", dns_server_string_full(server));
+        else
+                accessible = r;
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_IN_ADDR("address", &server->address, server->family),
+                        SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("name", server->server_name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("accessible", accessible));
 }

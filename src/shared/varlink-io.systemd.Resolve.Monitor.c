@@ -112,6 +112,52 @@ static SD_VARLINK_DEFINE_METHOD(
                 ResetStatistics,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSServer,
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server."),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Port number of the server."),
+                SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Interface index for which this server is configured."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates if the DNS server is accessible or not."),
+                SD_VARLINK_DEFINE_FIELD(accessible, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SearchDomain,
+                SD_VARLINK_FIELD_COMMENT("Domain name."),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Indicates whether or not this is a routing-only domain."),
+                SD_VARLINK_DEFINE_FIELD(routeOnly, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Interface index for which this search domain is configured."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSConfiguration,
+                SD_VARLINK_FIELD_COMMENT("Interface name, if any, associated with this configuration. Empty for global configuration."),
+                SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index, if any, associated with this configuration. Empty for global configuration."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains."),
+                SD_VARLINK_DEFINE_FIELD(defaultRoute, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNS server currently selected to use for lookups."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(currentServer, DNSServer, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured DNS servers."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(servers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured search domains."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SubscribeDNSConfiguration,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The current global and per-interface DNS configurations"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(configuration, DNSConfiguration, SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,
                 "io.systemd.Resolve.Monitor",
@@ -129,4 +175,12 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_TransactionStatistics,
                 &vl_type_CacheStatistics,
                 &vl_type_DnssecStatistics,
-                &vl_type_ServerState);
+                &vl_type_ServerState,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS server address specification."),
+                &vl_type_DNSServer,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a search domain specification."),
+                &vl_type_SearchDomain,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more."),
+                &vl_type_DNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked."),
+                &vl_method_SubscribeDNSConfiguration);
