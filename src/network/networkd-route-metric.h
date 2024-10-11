@@ -37,11 +37,5 @@ uint32_t route_metric_get(const RouteMetric *metric, uint16_t attr);
 int route_metric_set_netlink_message(const RouteMetric *metric, sd_netlink_message *m);
 int route_metric_read_netlink_message(RouteMetric *metric, sd_netlink_message *message);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_mtu);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_advmss);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_hop_limit);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_tcp_window);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_tcp_rto);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_boolean);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_metric_tcp_congestion);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);

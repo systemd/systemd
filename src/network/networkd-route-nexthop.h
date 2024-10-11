@@ -52,6 +52,5 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
 int route_section_verify_nexthops(Route *route);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_gateway_onlink);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);

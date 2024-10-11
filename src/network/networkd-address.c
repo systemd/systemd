@@ -3,8 +3,10 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "firewall-util.h"
+#include "in-addr-prefix-util.h"
 #include "logarithm.h"
 #include "memory-util.h"
 #include "netlink-util.h"
@@ -2048,12 +2050,6 @@ static int config_parse_broadcast(
                 return 1;
         }
 
-        if (address->family == AF_INET6) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
         r = in_addr_from_string(AF_INET, rvalue, &u);
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
@@ -2082,53 +2078,33 @@ static int config_parse_address(
                 void *userdata) {
 
         Address *address = ASSERT_PTR(userdata);
-        union in_addr_union buffer;
-        unsigned char prefixlen;
-        int r, f;
+        union in_addr_union *a = ASSERT_PTR(data);
+        struct in_addr_prefix prefix;
+        int r;
 
         assert(rvalue);
 
-        /* Address=address/prefixlen */
-        r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_REFUSE, &f, &buffer, &prefixlen);
-        if (r == -ENOANO) {
-                r = in_addr_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
-                if (r >= 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Address '%s' is specified without prefix length. Assuming the prefix length is %u. "
-                                   "Please specify the prefix length explicitly.", rvalue, prefixlen);
+        if (isempty(rvalue)) {
+                /* When an empty string is assigned, clear both Address= and Peer=. */
+                address->family = AF_UNSPEC;
+                address->prefixlen = 0;
+                address->in_addr = IN_ADDR_NULL;
+                address->in_addr_peer = IN_ADDR_NULL;
+                return 1;
         }
-        if (r < 0)
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        if (address->family != AF_UNSPEC && f != address->family) {
+        r = config_parse_in_addr_prefix(unit, filename, line, section, section_line, lvalue, /* ltype = */ true, rvalue, &prefix, /* userdata = */ NULL);
+        if (r <= 0)
+                return r;
+
+        if (address->family != AF_UNSPEC && prefix.family != address->family) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Address is incompatible, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        if (in_addr_is_null(f, &buffer)) {
-                /* Will use address from address pool. Note that for ipv6 case, prefix of the address
-                 * pool is 8, but 40 bit is used by the global ID and 16 bit by the subnet ID. So,
-                 * let's limit the prefix length to 64 or larger. See RFC4193. */
-                if ((f == AF_INET && prefixlen < 8) ||
-                    (f == AF_INET6 && prefixlen < 64)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Null address with invalid prefixlen='%u', ignoring assignment: %s",
-                                   prefixlen, rvalue);
-                        return 0;
-                }
-        }
-
-        address->family = f;
-        address->prefixlen = prefixlen;
-
-        if (streq_ptr(lvalue, "Address")) {
-                address->in_addr = buffer;
-                address->requested_as_null = !in_addr_is_set(address->family, &address->in_addr);
-        } else if (streq_ptr(lvalue, "Peer"))
-                address->in_addr_peer = buffer;
-        else
-                assert_not_reached();
-
+        address->family = prefix.family;
+        address->prefixlen = prefix.prefixlen;
+        *a = prefix.address;
         return 1;
 }
 
@@ -2269,7 +2245,8 @@ int config_parse_address_section(
                 void *userdata) {
 
         static const ConfigSectionParser table[_ADDRESS_CONF_PARSER_MAX] = {
-                [ADDRESS_ADDRESS]                  = { .parser = config_parse_address,            .ltype = 0,                        .offset = 0,                                              },
+                [ADDRESS_ADDRESS]                  = { .parser = config_parse_address,            .ltype = 0,                        .offset = offsetof(Address, in_addr),                     },
+                [ADDRESS_PEER]                     = { .parser = config_parse_address,            .ltype = 0,                        .offset = offsetof(Address, in_addr_peer),                },
                 [ADDRESS_BROADCAST]                = { .parser = config_parse_broadcast,          .ltype = 0,                        .offset = 0,                                              },
                 [ADDRESS_LABEL]                    = { .parser = config_parse_address_label,      .ltype = 0,                        .offset = offsetof(Address, label),                       },
                 [ADDRESS_PREFERRED_LIFETIME]       = { .parser = config_parse_address_lifetime,   .ltype = 0,                        .offset = offsetof(Address, lifetime_preferred_usec),     },
@@ -2322,6 +2299,15 @@ int config_parse_address_section(
         return 0;
 }
 
+#define log_broadcast(address, fmt, ...)                                \
+        ({                                                              \
+                const Address *_address = (address);                    \
+                log_section_warning(                                    \
+                                _address ? _address->section : NULL,    \
+                                fmt " Ignoring Broadcast= setting in the [Address] section.", \
+                                ##__VA_ARGS__);                         \
+        })
+
 static void address_section_adjust_broadcast(Address *address) {
         assert(address);
         assert(address->section);
@@ -2330,21 +2316,13 @@ static void address_section_adjust_broadcast(Address *address) {
                 return;
 
         if (address->family == AF_INET6)
-                log_warning("%s: broadcast address is set for an IPv6 address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv6 address.");
         else if (address->prefixlen > 30)
-                log_warning("%s: broadcast address is set for an IPv4 address with prefix length larger than 30. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with prefix length larger than 30.");
         else if (in4_addr_is_set(&address->in_addr_peer.in))
-                log_warning("%s: broadcast address is set for an IPv4 address with peer address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with peer address.");
         else if (!in4_addr_is_set(&address->in_addr.in))
-                log_warning("%s: broadcast address is set for an IPv4 address with null address. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
+                log_broadcast(address, "Broadcast address is set for an IPv4 address with null address.");
         else
                 /* Otherwise, keep the specified broadcast address. */
                 return;
@@ -2371,11 +2349,22 @@ int address_section_verify(Address *address) {
 
         if (address->family == AF_UNSPEC)
                 return log_address_section(address, "Address section without Address= field was configured.");
+        assert(IN_SET(address->family, AF_INET, AF_INET6));
 
         if (address->family == AF_INET6 && !socket_ipv6_is_supported())
                 return log_address_section(address, "An IPv6 address was configured, but the kernel does not support IPv6.");
 
-        assert(IN_SET(address->family, AF_INET, AF_INET6));
+        if (in_addr_is_null(address->family, &address->in_addr)) {
+                /* Will use address from address pool. Note that for ipv6 case, prefix of the address
+                 * pool is 8, but 40 bit is used by the global ID and 16 bit by the subnet ID. So,
+                 * let's limit the prefix length to 64 or larger. See RFC4193. */
+                unsigned min_prefixlen = address->family == AF_INET ? 8 : 64;
+                if (address->prefixlen < min_prefixlen)
+                        return log_address_section(address, "Prefix length for %s null address must be equal or larger than %u.",
+                                                   af_to_ipv4_ipv6(address->family), min_prefixlen);
+
+                address->requested_as_null = !in_addr_is_set(address->family, &address->in_addr);
+        }
 
         address_section_adjust_broadcast(address);
 

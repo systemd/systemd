@@ -890,7 +890,7 @@ int in_addr_prefix_from_string(
         return 0;
 }
 
-int in_addr_prefix_from_string_auto_internal(
+int in_addr_prefix_from_string_auto_full(
                 const char *p,
                 InAddrPrefixLenMode mode,
                 int *ret_family,

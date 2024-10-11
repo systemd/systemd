@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include "conf-parser.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "networkd-util.h"
 
 typedef struct Link Link;
@@ -23,17 +23,15 @@ typedef struct RoutingPolicyRule {
         unsigned n_ref;
 
         /* struct fib_rule_hdr */
-        AddressFamily address_family; /* Specified by Family= */
-        int family; /* Automatically determined by From= or To= */
-        uint8_t to_prefixlen;
-        uint8_t from_prefixlen;
+        AddressFamily address_family; /* Used when parsing Family= */
+        int family; /* Automatically determined by From=, To=, and Family= */
         uint8_t tos;
         uint8_t action;
         uint32_t flags;
 
         /* attributes */
-        union in_addr_union to; /* FRA_DST */
-        union in_addr_union from; /* FRA_SRC */
+        struct in_addr_prefix to; /* FRA_DST */
+        struct in_addr_prefix from; /* FRA_SRC */
         char *iif; /* FRA_IIFNAME */
         uint32_t priority_goto; /* FRA_GOTO */
         bool priority_set;
@@ -88,7 +86,8 @@ typedef enum RoutingPolicyRuleConfParserType {
         ROUTING_POLICY_RULE_L3MDEV,
         ROUTING_POLICY_RULE_SPORT,
         ROUTING_POLICY_RULE_DPORT,
-        ROUTING_POLICY_RULE_PREFIX,
+        ROUTING_POLICY_RULE_FROM,
+        ROUTING_POLICY_RULE_TO,
         ROUTING_POLICY_RULE_PRIORITY,
         ROUTING_POLICY_RULE_SUPPRESS_IFGROUP,
         ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN,
