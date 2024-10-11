@@ -66,10 +66,10 @@ desktop environments should adhere to the following conventions:
    is encouraged.
 
  * The RANDOM should be a string of random characters to ensure that multiple instances
- of the application can be launched.
+   of the application can be launched.
 
- It can be omitted in the case of a non-transient application services which can ensure
- multiple instances are not spawned, such as a DBus activated application.
+   It can be omitted in the case of a non-transient application services which can ensure
+   multiple instances are not spawned, such as a DBus activated application.
 
  * If no application ID is available, the launcher should generate a reasonable
    name when possible (e.g. using `basename(argv[0])`). This name must not
