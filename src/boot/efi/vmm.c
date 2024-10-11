@@ -302,9 +302,10 @@ const char* smbios_find_oem_string(const char *name) {
 
         const char *s = type11->contents;
         left -= type11->header.length;
+        const char *limit = s + left;
 
-        for (const char *p = s; p < s + left; ) {
-                const char *e = memchr(p, 0, s + left - p);
+        for (const char *p = s; p < limit; ) {
+                const char *e = memchr(p, 0, limit - p);
                 if (!e || e == p) /* Double NUL byte means we've reached the end of the OEM strings. */
                         break;
 
