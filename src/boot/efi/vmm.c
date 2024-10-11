@@ -296,10 +296,9 @@ const char* smbios_find_oem_string(const char *name) {
         assert(name);
 
         const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, &left);
-        if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
-                return NULL;
 
-        assert(left >= type11->header.length);
+        if (!type11 || sizeof(SmbiosTableType11) > left || type11->header.length > left)
+                return NULL;
 
         const char *s = type11->contents;
         left -= type11->header.length;
