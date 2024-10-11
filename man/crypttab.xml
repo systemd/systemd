@@ -269,17 +269,38 @@
         <listitem><para>Specifies the kernel keyring and key description
         (see <citerefentry project='man-pages'><refentrytitle>keyrings</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
         where LUKS2 volume key gets linked during device activation. The kernel keyring
-        description and key description must be separated by <literal>::</literal>.</para>
+        description and key description are separated by <literal>::</literal>.</para>
 
         <para>The kernel keyring part can be a string description or a predefined
-        kernel keyring prefixed with <literal>@</literal> (e.g.: to use <literal>@s</literal> session or
-        <literal>@u</literal> user keyring directly). The type prefix text in the kernel keyring description
-        is not required. The specified kernel keyring must already exist at the time of device activation.</para>
+        kernel keyring specification prefixed with <literal>@</literal> (e.g.: to use <literal>@u</literal> root user keyring directly).
+        The type prefix text in the kernel keyring description is not required.
+        The specified kernel keyring must already exist at the time of device activation.</para>
 
-        <para>The key part is a string description optionally prefixed by a <literal>%key_type:</literal>.
-        If no type is specified, the <literal>user</literal> type key is linked by default. See
+        <para>The key part is a string description optionally prefixed by a <literal>%user:</literal> or
+        <literal>%logon:</literal>. If no type is specified, the <literal>user</literal> type key is linked
+        by default. See
         <citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for more information on key descriptions (KEY IDENTIFIERS section).</para>
+
+        <para>Alternatively, it takes specification for the volume key to be linked in a kernel key
+        with a description derived automatically from LUKS device UUID (e.g.: <literal>systemd-cryptsetup:vk-b40f1abf-2a53-400a-889a-2eccc27eaa40</literal>).
+        There are several possible specifications:</para>
+
+        <para>If no <literal>::</literal> substring is specified, the whole string is interpreted as a
+        keyring description. The volume key gets linked in a <literal>user</literal> type key
+        with a key description derived from LUKS UUID.</para>
+
+        <para>If only the key part of the option value is missing, the volume key gets linked in
+        a specified keyring with the specified key type. Only the key description is derived from
+        LUKS UUID.</para>
+
+        <para>Following example option values link a volume key in the key description derived from LUKS UUID:
+        The value <literal>@u</literal> specifies a request to link the volume key in the root
+        user keyring in the user type. The value <literal>@u::%logon</literal> specifies the volume key
+        linked in the root user keyring and the logon type. The value <literal>my_custom_keyring</literal>
+        specifies the volume key linked in the root user type key in the keyring described in the passed
+        description. The value <literal>my_custom_keyring::%logon</literal> specifies the volume key linked
+        in the keyring described by <literal>my_custom_keyring</literal> description in the logon type.</para>
 
         <para>Note that the linked volume key is not cleaned up automatically when the device is detached.</para>
 
