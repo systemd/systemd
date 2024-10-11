@@ -23,6 +23,10 @@ StateDirectory=capsules/%i
 RuntimeDirectory=capsules/%i
 LogExtraFields=CAPSULE=%i
 Slice=capsule.slice
+# Reexecute the manager on service reload, instead of reloading.
+# This provides a synchronous method for restarting all user manager
+# instances after upgrade.
+ReloadSignal=RTMIN+25
 KillMode=mixed
 Delegate=pids memory cpu
 DelegateSubgroup=init.scope
