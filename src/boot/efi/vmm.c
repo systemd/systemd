@@ -213,7 +213,7 @@ static const void *find_smbios_configuration_table(uint64_t *ret_size) {
         return NULL;
 }
 
-static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_left) {
+static const SmbiosHeader *get_smbios_table(uint8_t type, size_t min_size, uint64_t *ret_size_left) {
         uint64_t size = 0;
         const uint8_t *p = find_smbios_configuration_table(&size);
         if (!p)
@@ -233,6 +233,10 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
                         return NULL;
 
                 if (header->type == type) {
+                        /* Table is smaller than the minimum expected size? Refuse */
+                        if (header->length < min_size)
+                                return NULL;
+
                         if (ret_size_left)
                                 *ret_size_left = size;
                         return header; /* Yay! */
@@ -273,8 +277,8 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
 
 static bool smbios_in_hypervisor(void) {
         /* Look up BIOS Information (Type 0). */
-        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, NULL);
-        if (!type0 || type0->header.length < sizeof(SmbiosTableType0))
+        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, sizeof(SmbiosTableType0), /* left= */ NULL);
+        if (!type0)
                 return false;
 
         /* Bit 4 of 2nd BIOS characteristics extension bytes indicates virtualization. */
@@ -295,17 +299,18 @@ const char* smbios_find_oem_string(const char *name) {
 
         assert(name);
 
-        const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, &left);
-        if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
+        const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, sizeof(SmbiosTableType11), &left);
+        if (!type11)
                 return NULL;
 
-        assert(left >= type11->header.length);
-
         const char *s = type11->contents;
-        left -= type11->header.length;
 
-        for (const char *p = s; p < s + left; ) {
-                const char *e = memchr(p, 0, s + left - p);
+        assert(left >= type11->header.length); /* get_smbios_table() already validated this */
+        left -= type11->header.length;
+        const char *limit = s + left;
+
+        for (const char *p = s; p < limit; ) {
+                const char *e = memchr(p, 0, limit - p);
                 if (!e || e == p) /* Double NUL byte means we've reached the end of the OEM strings. */
                         break;
 
