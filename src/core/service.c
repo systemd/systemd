@@ -446,7 +446,7 @@ static void service_release_fd_store(Service *s) {
         if (!s->fd_store)
                 return;
 
-        log_unit_debug(UNIT(s), "Releasing all stored fds");
+        log_unit_debug(UNIT(s), "Releasing all stored fds.");
 
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
@@ -454,19 +454,21 @@ static void service_release_fd_store(Service *s) {
         assert(s->n_fd_store == 0);
 }
 
-ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *efd) {
-        if (!efd)
-                return NULL;
-
-        efd->fd = asynchronous_close(efd->fd);
-        free(efd->fdname);
-        return mfree(efd);
-}
-
 static void service_release_extra_fds(Service *s) {
         assert(s);
 
-        LIST_CLEAR(extra_fd, s->extra_fds, service_extra_fd_free);
+        if (!s->extra_fds)
+                return;
+
+        log_unit_debug(UNIT(s), "Releasing extra file descriptors.");
+
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                asynchronous_close(i->fd);
+                free(i->fdname);
+        }
+
+        s->extra_fds = mfree(s->extra_fds);
+        s->n_extra_fds = 0;
 }
 
 static void service_release_stdio_fd(Service *s) {
@@ -924,12 +926,18 @@ static int service_dump_fd(int fd, const char *fdname, const char *header, FILE 
         struct stat st;
         int flags;
 
+        assert(fd >= 0);
+        assert(fdname);
+        assert(header);
+        assert(f);
+        assert(prefix);
+
         if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat fdstore entry: %m");
+                return log_debug_errno(errno, "Failed to stat service fd: %m");
 
         flags = fcntl(fd, F_GETFL);
         if (flags < 0)
-                return log_debug_errno(errno, "Failed to get fdstore entry flags: %m");
+                return log_debug_errno(errno, "Failed to get service fd flags: %m");
 
         (void) fd_get_path(fd, &path);
 
@@ -946,32 +954,6 @@ static int service_dump_fd(int fd, const char *fdname, const char *header, FILE 
                 strna(accmode_to_string(flags)));
 
         return 0;
-}
-
-static void service_dump_fdstore(Service *s, FILE *f, const char *prefix) {
-        assert(s);
-        assert(f);
-        assert(prefix);
-
-        LIST_FOREACH(fd_store, i, s->fd_store)
-                (void) service_dump_fd(i->fd,
-                                       i->fdname,
-                                       i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
-                                       f,
-                                       prefix);
-}
-
-static void service_dump_extra_fds(Service *s, FILE *f, const char *prefix) {
-        assert(s);
-        assert(f);
-        assert(prefix);
-
-        LIST_FOREACH(extra_fd, i, s->extra_fds)
-                (void) service_dump_fd(i->fd,
-                                       i->fdname,
-                                       i == s->extra_fds ? "Extra File Descriptor Entry:" : "                            ",
-                                       f,
-                                       prefix);
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
@@ -1102,7 +1084,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sStatus Varlink Error: %s\n",
                         prefix, s->status_varlink_error);
 
-        if (s->n_fd_store_max > 0)
+        if (s->n_fd_store_max > 0) {
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
                         "%sFile Descriptor Store Pin: %s\n"
@@ -1111,7 +1093,20 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, exec_preserve_mode_to_string(s->fd_store_preserve_mode),
                         prefix, s->n_fd_store);
 
-        service_dump_fdstore(s, f, prefix);
+                LIST_FOREACH(fd_store, i, s->fd_store)
+                        (void) service_dump_fd(i->fd,
+                                               i->fdname,
+                                               i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
+                                               f,
+                                               prefix);
+        }
+
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds)
+                (void) service_dump_fd(i->fd,
+                                       i->fdname,
+                                       i == s->extra_fds ? "Extra File Descriptor Entry:" : "                            ",
+                                       f,
+                                       prefix);
 
         if (s->open_files)
                 LIST_FOREACH(open_files, of, s->open_files) {
@@ -1127,8 +1122,6 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
                         fprintf(f, "%sOpen File: %s\n", prefix, ofs);
                 }
-
-        service_dump_extra_fds(s, f, prefix);
 
         cgroup_context_dump(UNIT(s), f, prefix);
 }
@@ -1465,7 +1458,7 @@ static int service_collect_fds(
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0, rn_extra_fds = 0;
+        size_t rn_socket_fds = 0;
         int r;
 
         assert(s);
@@ -1520,61 +1513,31 @@ static int service_collect_fds(
                 }
         }
 
-        if (s->n_fd_store > 0) {
-                size_t n_fds;
-                char **nl;
-                int *t;
-
-                t = reallocarray(rfds, rn_socket_fds + s->n_fd_store, sizeof(int));
+        if (s->n_fd_store + s->n_extra_fds > 0) {
+                int *t = reallocarray(rfds, rn_socket_fds + s->n_fd_store + s->n_extra_fds, sizeof(int));
                 if (!t)
                         return -ENOMEM;
-
                 rfds = t;
 
-                nl = reallocarray(rfd_names, rn_socket_fds + s->n_fd_store + 1, sizeof(char *));
+                char **nl = reallocarray(rfd_names, rn_socket_fds + s->n_fd_store + s->n_extra_fds + 1, sizeof(char *));
                 if (!nl)
                         return -ENOMEM;
-
                 rfd_names = nl;
-                n_fds = rn_socket_fds;
+
+                size_t n_fds = rn_socket_fds;
 
                 LIST_FOREACH(fd_store, fs, s->fd_store) {
                         rfds[n_fds] = fs->fd;
-                        rfd_names[n_fds] = strdup(strempty(fs->fdname));
+                        rfd_names[n_fds] = strdup(fs->fdname);
                         if (!rfd_names[n_fds])
                                 return -ENOMEM;
 
-                        rn_storage_fds++;
                         n_fds++;
                 }
 
-                rfd_names[n_fds] = NULL;
-        }
-
-        LIST_FOREACH(extra_fd, extra_fd, s->extra_fds)
-                rn_extra_fds++;
-
-        if (rn_extra_fds > 0) {
-                size_t n_fds;
-                char **nl;
-                int *t;
-
-                t = reallocarray(rfds, rn_socket_fds + rn_storage_fds + rn_extra_fds, sizeof(int));
-                if (!t)
-                        return -ENOMEM;
-
-                rfds = t;
-
-                nl = reallocarray(rfd_names, rn_socket_fds + rn_storage_fds + rn_extra_fds + 1, sizeof(char *));
-                if (!nl)
-                        return -ENOMEM;
-
-                rfd_names = nl;
-                n_fds = rn_socket_fds + rn_storage_fds;
-
-                LIST_FOREACH(extra_fd, extra_fd, s->extra_fds) {
-                        rfds[n_fds] = extra_fd->fd;
-                        rfd_names[n_fds] = strdup(extra_fd->fdname);
+                FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                        rfds[n_fds] = i->fd;
+                        rfd_names[n_fds] = strdup(i->fdname);
                         if (!rfd_names[n_fds])
                                 return -ENOMEM;
 
@@ -1587,8 +1550,8 @@ static int service_collect_fds(
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
-        *n_storage_fds = rn_storage_fds;
-        *n_extra_fds = rn_extra_fds;
+        *n_storage_fds = s->n_fd_store;
+        *n_extra_fds = s->n_extra_fds;
 
         return 0;
 }
@@ -3181,6 +3144,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
         }
 
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                _cleanup_free_ char *c = NULL;
+                int copy;
+
+                copy = fdset_put_dup(fds, i->fd);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to copy file descriptor for serialization: %m");
+
+                c = cescape(i->fdname);
+                if (!c)
+                        return log_oom();
+
+                (void) serialize_item_format(f, "extra-fd", "%i \"%s\"", copy, c);
+        }
+
         if (s->main_exec_status.pid > 0) {
                 (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
                 (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
@@ -3431,6 +3409,29 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
 
                 TAKE_FD(fd);
+        } else if (streq(key, "extra-fd")) {
+                _cleanup_free_ char *fdv = NULL, *fdn = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn);
+                if (r != 2) {
+                        log_unit_debug(u, "Failed to deserialize extra-fd, ignoring: %s", value);
+                        return 0;
+                }
+
+                fd = deserialize_fd(fds, fdv);
+                if (fd < 0)
+                        return 0;
+
+                if (!GREEDY_REALLOC(s->extra_fds, s->n_extra_fds + 1)) {
+                        log_oom_debug();
+                        return 0;
+                }
+
+                s->extra_fds[s->n_extra_fds++] = (ServiceExtraFD) {
+                        .fd = TAKE_FD(fd),
+                        .fdname = TAKE_PTR(fdn),
+                };
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 

@@ -78,7 +78,7 @@ static int property_get_extra_file_descriptors(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ServiceExtraFD **extra_fds = ASSERT_PTR(userdata);
+        Service *s = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
@@ -88,8 +88,8 @@ static int property_get_extra_file_descriptors(
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(extra_fd, efd, *extra_fds) {
-                r = sd_bus_message_append_basic(reply, 's', efd->fdname);
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                r = sd_bus_message_append_basic(reply, 's', i->fdname);
                 if (r < 0)
                         return r;
         }
@@ -367,7 +367,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ExtraFileDescriptorNames", "as", property_get_extra_file_descriptors, offsetof(Service, extra_fds), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtraFileDescriptorNames", "as", property_get_extra_file_descriptors, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -748,15 +748,13 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
 
         if (streq(name, "ExtraFileDescriptors")) {
-                int fd;
-                const char *fdname;
-
                 r = sd_bus_message_enter_container(message, 'a', "(hs)");
                 if (r < 0)
                         return r;
 
                 for (;;) {
-                        _cleanup_(service_extra_fd_freep) ServiceExtraFD *efd = NULL;
+                        const char *fdname;
+                        int fd;
 
                         r = sd_bus_message_read(message, "(hs)", &fd, &fdname);
                         if (r < 0)
@@ -767,29 +765,30 @@ static int bus_service_set_transient_property(
                         /* Disallow empty string for ExtraFileDescriptors.
                          * Unlike OpenFile, StandardInput and friends, there isn't a good sane
                          * default for an arbitrary FD. */
-                        if (fd < 0 || isempty(fdname) || !fdname_is_valid(fdname))
-                                return -EINVAL;
+                        if (isempty(fdname) || !fdname_is_valid(fdname))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid extra fd name: %s", fdname);
+
+                        if (s->n_extra_fds >= NOTIFY_FD_MAX)
+                                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many extra fds sent");
 
                         if (UNIT_WRITE_FLAGS_NOOP(flags))
                                 continue;
 
-                        efd = new(ServiceExtraFD, 1);
-                        if (!efd)
+                        if (!GREEDY_REALLOC(s->extra_fds, s->n_extra_fds + 1))
                                 return -ENOMEM;
 
-                        *efd = (ServiceExtraFD) {
-                                .fd = -EBADF,
-                                .fdname = strdup(fdname),
-                        };
-
-                        if (!efd->fdname)
+                        _cleanup_free_ char *fdname_dup = strdup(fdname);
+                        if (!fdname_dup)
                                 return -ENOMEM;
 
-                        efd->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (efd->fd < 0)
+                        _cleanup_close_ int fd_dup = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (fd_dup < 0)
                                 return -errno;
 
-                        LIST_APPEND(extra_fd, s->extra_fds, TAKE_PTR(efd));
+                        s->extra_fds[s->n_extra_fds++] = (ServiceExtraFD) {
+                                .fd = TAKE_FD(fd_dup),
+                                .fdname = TAKE_PTR(fdname_dup),
+                        };
                 }
 
                 r = sd_bus_message_exit_container(message);
