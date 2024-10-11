@@ -296,16 +296,16 @@ const char* smbios_find_oem_string(const char *name) {
         assert(name);
 
         const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, &left);
-        if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
-                return NULL;
 
-        assert(left >= type11->header.length);
+        if (!type11 || sizeof(SmbiosTableType11) > left || type11->header.length > left)
+                return NULL;
 
         const char *s = type11->contents;
         left -= type11->header.length;
+        const char *limit = s + left;
 
-        for (const char *p = s; p < s + left; ) {
-                const char *e = memchr(p, 0, s + left - p);
+        for (const char *p = s; p < limit; ) {
+                const char *e = memchr(p, 0, limit - p);
                 if (!e || e == p) /* Double NUL byte means we've reached the end of the OEM strings. */
                         break;
 
