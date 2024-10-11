@@ -188,11 +188,7 @@ bool in_utc_timezone(void);
 static inline usec_t usec_add(usec_t a, usec_t b) {
         /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output,
          * and doesn't overflow. */
-
-        if (a > USEC_INFINITY - b) /* overflow check */
-                return USEC_INFINITY;
-
-        return a + b;
+        return saturate_add(a, b, USEC_INFINITY);
 }
 
 static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
