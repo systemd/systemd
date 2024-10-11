@@ -3,6 +3,10 @@
 set -eu
 set -o pipefail
 
+if [ "${SYSTEMD_LOG_LEVEL:-}" = "debug" ]; then
+    set -x
+fi
+
 command="${1:?}"
 shift
 
