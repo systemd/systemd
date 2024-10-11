@@ -369,6 +369,7 @@ basic_disabled_warnings = [
         '-Wno-missing-field-initializers',
         '-Wno-unused-parameter',
         '-Wno-nonnull-compare',
+        '-Wunknown-warning-option',
 ]
 
 possible_common_cc_flags = [
