@@ -42,7 +42,7 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
 * Make sure to hide a password query dialog as soon as a) the `ask.xxxx` file is deleted, watch this with inotify. b) the `NotAfter=` time elapses, if it is set `!= 0`.
 * Access to the socket is restricted to privileged users.
   To acquire the necessary privileges to send the answer back, consider using PolicyKit.
-  In fact, the GNOME agent we ship does that, and you may simply piggyback on that, by executing "`/usr/bin/pkexec /lib/systemd/systemd-reply-password 1 /path/to/socket`" or "`/usr/bin/pkexec /lib/systemd/systemd-reply-password 0 /path/to/socket`" and writing the password to its standard input.
+  In fact, the GNOME agent we ship does that, and you may simply piggyback on that, by executing "`/usr/bin/pkexec /usr/lib/systemd/systemd-reply-password 1 /path/to/socket`" or "`/usr/bin/pkexec /usr/lib/systemd/systemd-reply-password 0 /path/to/socket`" and writing the password to its standard input.
   Use '`1`' as argument if a password was entered by the user, or '`0`' if the user canceled the request.
 * If you do not want to use PK ensure to acquire the necessary privileges in some other way and send a single datagram
   to the socket consisting of the password string either prefixed with "`+`" or with "`-`" depending on whether the password entry was successful or not.
