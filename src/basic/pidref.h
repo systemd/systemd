@@ -6,7 +6,9 @@
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continuously. */
 typedef struct PidRef {
         pid_t pid;      /* always valid */
-        int fd;         /* only valid if pidfd are available in the kernel, and we manage to get an fd */
+        int fd;         /* only valid if pidfd are available in the kernel, and we manage to get an fd. If we
+                         * know that the PID is not from the local machine we set this to -EREMOTE, otherwise
+                         * we use -EBADF as indicator the fd is invalid. */
         uint64_t fd_id; /* the inode number of pidfd. only useful in kernel 6.9+ where pidfds live in
                            their own pidfs and each process comes with a unique inode number */
 } PidRef;
@@ -37,6 +39,12 @@ static inline int pidref_set_self(PidRef *pidref) {
 }
 
 bool pidref_is_self(const PidRef *pidref);
+
+static inline bool pidref_is_remote(const PidRef *pidref) {
+        /* If the fd is set to -EREMOTE we assume PidRef does not refer to a local PID, but on another
+         * machine (and we just got the PidRef initialized due to deserialization of some RPC message) */
+        return pidref && pidref->fd == -EREMOTE;
+}
 
 void pidref_done(PidRef *pidref);
 PidRef* pidref_free(PidRef *pidref);
