@@ -387,7 +387,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[Union[Path, str]]
+    executable: Path
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section: Section) -> None:
