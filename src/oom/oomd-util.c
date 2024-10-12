@@ -21,8 +21,8 @@
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
                 char,
-                string_hash_func,
-                string_compare_func,
+                path_hash_func,
+                path_compare,
                 OomdCGroupContext,
                 oomd_cgroup_context_free);
 
