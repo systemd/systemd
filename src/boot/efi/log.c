@@ -52,15 +52,6 @@ EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *forma
         return status;
 }
 
-#ifdef EFI_DEBUG
-void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
-        /* Debugging helper — please keep this around, even if not used */
-
-        _cleanup_free_ char16_t *hex = hexdump(data, size);
-        log_internal(EFI_SUCCESS, EFI_LIGHTRED, "%ls[%zu]: %ls", prefix, size, hex);
-}
-#endif
-
 void log_wait(void) {
         if (log_count == 0)
                 return;
