@@ -797,7 +797,8 @@ int manager_start(
 
 int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_(memstream_done) MemStream ms = {};
-        OomdCGroupContext *c;
+        _cleanup_free_ OomdCGroupContext **sorted = NULL;
+        size_t n;
         FILE *f;
         int r;
 
@@ -826,13 +827,22 @@ int manager_get_dump_string(Manager *m, char **ret) {
                 FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
+        r = hashmap_dump_sorted(m->monitored_swap_cgroup_contexts, (void***) &sorted, &n);
+        if (r < 0)
+                return r;
+
         fprintf(f, "Swap Monitored CGroups:\n");
-        HASHMAP_FOREACH(c, m->monitored_swap_cgroup_contexts)
-                oomd_dump_swap_cgroup_context(c, f, "\t");
+        FOREACH_ARRAY(c, sorted, n)
+                oomd_dump_swap_cgroup_context(*c, f, "\t");
+
+        sorted = mfree(sorted);
+        r = hashmap_dump_sorted(m->monitored_mem_pressure_cgroup_contexts, (void***) &sorted, &n);
+        if (r < 0)
+                return r;
 
         fprintf(f, "Memory Pressure Monitored CGroups:\n");
-        HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts)
-                oomd_dump_memory_pressure_cgroup_context(c, f, "\t");
+        FOREACH_ARRAY(c, sorted, n)
+                oomd_dump_memory_pressure_cgroup_context(*c, f, "\t");
 
         return memstream_finalize(&ms, ret, NULL);
 }

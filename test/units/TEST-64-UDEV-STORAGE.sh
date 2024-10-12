@@ -290,15 +290,21 @@ label: gpt
 name="first_partition", size=5M
 uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
 EOF
+    # Partitioning triggers a synthesized event. Wait for the event being finished.
     udevadm settle
+
     udevadm lock --device /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2 \
             mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" /dev/disk/by-id/wwn-0xdeaddeadbeef0000-part2
+    # Making filesystem triggers a synthesized event. Wait for the event being finished.
+    udevadm settle
 
     modprobe -v dm_multipath
     systemctl start multipathd.service
     systemctl status multipathd.service
-    multipath -ll
+    # multipathd touches many devices on start. multipath command may fail if it is invoked before the
+    # initial setup finished. Let's wait for a while.
     udevadm settle
+    multipath -ll
     ls -l /dev/disk/by-id/
 
     for i in {0..15}; do
