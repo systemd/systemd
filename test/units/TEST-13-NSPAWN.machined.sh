@@ -39,6 +39,7 @@ cat >/var/lib/machines/long-running/sbin/init <<\EOF
 
 PID=0
 
+trap "touch /terminate; kill $PID" RTMIN+3
 trap "touch /poweroff" RTMIN+4
 trap "touch /reboot" INT
 trap "touch /trap" TRAP
@@ -115,7 +116,14 @@ timeout 10 bash -c "until test -e /var/lib/machines/long-running/poweroff; do sl
 rm -f /var/lib/machines/long-running/reboot
 machinectl reboot long-running
 timeout 10 bash -c "until test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
-# Skip machinectl terminate for now, as it doesn't play well with our "init"
+# Test for 'machinectl terminate'
+rm -f /var/lib/machines/long-running/terminate
+machinectl terminate long-running
+timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 10 bash -c "while machinectl status long-running; do sleep .5; done"
+# Restart container
+long_running_machine_start
+# Test for 'machinectl kill'
 rm -f /var/lib/machines/long-running/trap
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running
 timeout 10 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
@@ -271,8 +279,10 @@ timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machin
 
 # test io.systemd.Machine.Terminate
 long_running_machine_start
+rm -f /var/lib/machines/long-running/terminate
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Terminate '{"name":"long-running"}'
-timeout 120 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
+timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
 
 # test io.systemd.Machine.Register
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Register '{"name": "registered-container", "class": "container"}'
