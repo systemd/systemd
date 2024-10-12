@@ -179,36 +179,24 @@ testcase_nvme_basic() {
 
     for (( i = 0; i < 5; i++ )); do
         expected_symlinks+=(
-            # both replace mode provides the same devlink
-            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
             # with nsid
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
         )
     done
     for (( i = 5; i < 10; i++ )); do
         expected_symlinks+=(
-            # old replace mode
-            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
-            # newer replace mode
-            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"
             # with nsid
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
         )
     done
     for (( i = 10; i < 15; i++ )); do
         expected_symlinks+=(
-            # old replace mode does not provide devlink, as serial contains "/"
-            # newer replace mode
-            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"
             # with nsid
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
         )
     done
     for (( i = 15; i < 20; i++ )); do
         expected_symlinks+=(
-            # old replace mode does not provide devlink, as serial contains "/"
-            # newer replace mode
-            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_dead_.._.._beef_"$i"
             # with nsid
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_dead_.._.._beef_"$i"_1
         )
@@ -227,7 +215,6 @@ testcase_nvme_basic() {
 testcase_nvme_subsystem() {
     local expected_symlinks=(
         # Controller(s)
-        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_16
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_17
         # Shared namespaces
