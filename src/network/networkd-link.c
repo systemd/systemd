@@ -288,6 +288,7 @@ static Link *link_free(Link *link) {
         network_unref(link->network);
 
         sd_event_source_disable_unref(link->carrier_lost_timer);
+        sd_event_source_disable_unref(link->ipv6_mtu_wait_synced_event_source);
 
         return mfree(link);
 }
@@ -2437,7 +2438,7 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
-                (void) link_set_ipv6_mtu(link, LOG_INFO);
+                (void) link_set_ipv6_mtu_async(link);
 
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
