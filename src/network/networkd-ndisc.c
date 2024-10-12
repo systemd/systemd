@@ -1083,9 +1083,7 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
         link->ndisc_mtu = mtu;
 
-        r = link_set_ipv6_mtu(link, LOG_DEBUG);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to apply IPv6 MTU (%"PRIu32"), ignoring: %m", mtu);
+        (void) link_set_ipv6_mtu(link, LOG_DEBUG);
 
         return 0;
 }

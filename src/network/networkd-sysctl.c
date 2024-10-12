@@ -503,6 +503,7 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
 
 int link_set_ipv6_mtu(Link *link, int log_level) {
         uint32_t mtu = 0;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -526,7 +527,11 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
                 mtu = link->mtu;
         }
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set IPv6 MTU to %"PRIu32": %m", mtu);
+
+        return 0;
 }
 
 static int link_set_ipv4_accept_local(Link *link) {
@@ -616,9 +621,7 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 proxy NDP, ignoring: %m");
 
-        r = link_set_ipv6_mtu(link, LOG_INFO);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+        (void) link_set_ipv6_mtu(link, LOG_INFO);
 
         r = link_set_ipv6ll_stable_secret(link);
         if (r < 0)
