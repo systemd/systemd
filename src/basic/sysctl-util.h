@@ -17,6 +17,7 @@ static inline int sysctl_write(const char *property, const char *value) {
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret);
+int sysctl_read_ip_property_uint32(int af, const char *ifname, const char *property, uint32_t *ret);
 int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value, Hashmap **shadow);
 static inline int sysctl_write_ip_property_boolean(int af, const char *ifname, const char *property, bool value, Hashmap **shadow) {
         return sysctl_write_ip_property(af, ifname, property, one_zero(value), shadow);
