@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -192,4 +193,30 @@ int sysctl_read_ip_property(int af, const char *ifname, const char *property, ch
                 p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
 
         return sysctl_read(p, ret);
+}
+
+int sysctl_read_ip_property_int(int af, const char *ifname, const char *property, int *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sysctl_read_ip_property(af, ifname, property, &s);
+        if (r < 0)
+                return r;
+
+        return safe_atoi(s, ret);
+}
+
+int sysctl_read_ip_property_uint32(int af, const char *ifname, const char *property, uint32_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sysctl_read_ip_property(af, ifname, property, &s);
+        if (r < 0)
+                return r;
+
+        return safe_atou32(s, ret);
 }
