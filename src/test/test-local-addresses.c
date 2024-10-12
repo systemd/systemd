@@ -153,12 +153,13 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
                                     }) == IN_SET(family, AF_UNSPEC, AF_INET6));
 }
 
-static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifindex, int family) {
+static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifindex, int family, const char *ipv6_expected) {
         _cleanup_free_ struct local_address *a = NULL;
         union in_addr_union u;
         int n;
 
-        log_debug("/* Local Outbounds (ifindex:%i, %s) */", request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family));
+        log_debug("/* Local Outbounds (ifindex:%i, %s, expected_ipv6_address=%s) */",
+                  request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family), ipv6_expected);
 
         n = local_outbounds(rtnl, request_ifindex, family, &a);
         assert_se(n >= 0);
@@ -180,7 +181,7 @@ static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifi
                                             .address = u,
                                     }) == (family == AF_UNSPEC && support_rta_via));
 
-        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::123", &u) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, ipv6_expected, &u) >= 0);
         assert_se(has_local_address(a, n,
                                     &(struct local_address) {
                                             .ifindex = ifindex,
@@ -312,12 +313,86 @@ TEST(local_addresses_with_dummy) {
         check_local_gateways(rtnl, ifindex, ifindex, AF_UNSPEC);
         check_local_gateways(rtnl, ifindex, ifindex, AF_INET);
         check_local_gateways(rtnl, ifindex, ifindex, AF_INET6);
-        check_local_outbounds(rtnl, ifindex, 0, AF_UNSPEC);
-        check_local_outbounds(rtnl, ifindex, 0, AF_INET);
-        check_local_outbounds(rtnl, ifindex, 0, AF_INET6);
-        check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC);
-        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET);
-        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6);
+        check_local_outbounds(rtnl, ifindex, 0, AF_UNSPEC, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET6, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6, "2001:db8:1:123::123");
+
+        /* Add one more IPv6 address. */
+        assert_se(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET6) >= 0);
+        assert_se(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
+        assert_se(sd_rtnl_message_addr_set_prefixlen(message, 64) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::124", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        message = sd_netlink_message_unref(message);
+
+        /* Replace the previous IPv6 default gateway with one with preferred source address. */
+        assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_DELROUTE, AF_INET6, RTPROT_STATIC) >= 0);
+        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_GATEWAY, &u.in6) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        message = sd_netlink_message_unref(message);
+
+        assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC) >= 0);
+        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_GATEWAY, &u.in6) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::123", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_PREFSRC, &u.in6) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        message = sd_netlink_message_unref(message);
+
+        /* Check again. */
+        check_local_outbounds(rtnl, ifindex, 0, AF_UNSPEC, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET6, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET, "2001:db8:1:123::123");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6, "2001:db8:1:123::123");
+
+        /* Replace the preferred source address. */
+        assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_DELROUTE, AF_INET6, RTPROT_STATIC) >= 0);
+        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_GATEWAY, &u.in6) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::123", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_PREFSRC, &u.in6) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        message = sd_netlink_message_unref(message);
+
+        assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC) >= 0);
+        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_GATEWAY, &u.in6) >= 0);
+        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
+        assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::124", &u) >= 0);
+        assert_se(sd_netlink_message_append_in6_addr(message, RTA_PREFSRC, &u.in6) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        message = sd_netlink_message_unref(message);
+
+        /* Check again. */
+        check_local_outbounds(rtnl, ifindex, 0, AF_UNSPEC, "2001:db8:1:123::124");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET, "2001:db8:1:123::124");
+        check_local_outbounds(rtnl, ifindex, 0, AF_INET6, "2001:db8:1:123::124");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC, "2001:db8:1:123::124");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET, "2001:db8:1:123::124");
+        check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6, "2001:db8:1:123::124");
 
         /* Cleanup */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, ifindex) >= 0);
