@@ -74,6 +74,9 @@ typedef struct Link {
         sd_device *dev;
         char *driver;
 
+        sd_event_source *ipv6_mtu_wait_synced_event_source;
+        unsigned ipv6_mtu_wait_trial_count;
+
         /* bridge vlan */
         uint16_t bridge_vlan_pvid;
         bool bridge_vlan_pvid_is_untagged;
