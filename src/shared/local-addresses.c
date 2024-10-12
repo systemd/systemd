@@ -44,8 +44,8 @@ bool has_local_address(const struct local_address *addresses, size_t n_addresses
         assert(addresses || n_addresses == 0);
         assert(needle);
 
-        for (size_t i = 0; i < n_addresses; i++)
-                if (address_compare(addresses + i, needle) == 0)
+        FOREACH_ARRAY(i, addresses, n_addresses)
+                if (address_compare(i, needle) == 0)
                         return true;
 
         return false;
@@ -544,21 +544,21 @@ int local_outbounds(
                 return 0;
         }
 
-        for (int i = 0; i < n_gateways; i++) {
+        FOREACH_ARRAY(i, gateways, n_gateways) {
                 _cleanup_close_ int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t salen;
 
-                fd = socket(gateways[i].family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                fd = socket(i->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
                         return -errno;
 
-                switch (gateways[i].family) {
+                switch (i->family) {
 
                 case AF_INET:
                         sa.in = (struct sockaddr_in) {
                                 .sin_family = AF_INET,
-                                .sin_addr = gateways[i].address.in,
+                                .sin_addr = i->address.in,
                                 .sin_port = htobe16(53), /* doesn't really matter which port we pick —
                                                           * we just care about the routing decision */
                         };
@@ -568,9 +568,9 @@ int local_outbounds(
                 case AF_INET6:
                         sa.in6 = (struct sockaddr_in6) {
                                 .sin6_family = AF_INET6,
-                                .sin6_addr = gateways[i].address.in6,
+                                .sin6_addr = i->address.in6,
                                 .sin6_port = htobe16(53),
-                                .sin6_scope_id = gateways[i].ifindex,
+                                .sin6_scope_id = i->ifindex,
                         };
 
                         break;
@@ -584,18 +584,18 @@ int local_outbounds(
                  * IP_UNICAST_IF doesn't actually influence the routing decision for UDP — which I think
                  * should probably just be considered a bug. Once that bug is fixed this is the best API to
                  * use, since it is the most lightweight. */
-                r = socket_set_unicast_if(fd, gateways[i].family, gateways[i].ifindex);
+                r = socket_set_unicast_if(fd, i->family, i->ifindex);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to set unicast interface index %i, ignoring: %m", gateways[i].ifindex);
+                        log_debug_errno(r, "Failed to set unicast interface index %i, ignoring: %m", i->ifindex);
 
                 /* We'll also use SO_BINDTOINDEX. This requires CAP_NET_RAW on old kernels, hence there's a
                  * good chance this fails. Since 5.7 this restriction was dropped and the first
                  * SO_BINDTOINDEX on a socket may be done without privileges. This one has the benefit of
                  * really influencing the routing decision, i.e. this one definitely works for us — as long
                  * as we have the privileges for it. */
-                r = socket_bind_to_ifindex(fd, gateways[i].ifindex);
+                r = socket_bind_to_ifindex(fd, i->ifindex);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", gateways[i].ifindex);
+                        log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", i->ifindex);
 
                 /* Let's now connect() to the UDP socket, forcing the kernel to make a routing decision and
                  * auto-bind the socket. We ignore failures on this, since that failure might happen for a
@@ -612,16 +612,16 @@ int local_outbounds(
                 salen = SOCKADDR_LEN(sa);
                 if (getsockname(fd, &sa.sa, &salen) < 0)
                         return -errno;
-                assert(sa.sa.sa_family == gateways[i].family);
+                assert(sa.sa.sa_family == i->family);
                 assert(salen == SOCKADDR_LEN(sa));
 
-                switch (gateways[i].family) {
+                switch (i->family) {
 
                 case AF_INET:
                         if (in4_addr_is_null(&sa.in.sin_addr)) /* Auto-binding didn't work. :-( */
                                 continue;
 
-                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                        r = add_local_outbound(&list, &n_list, i->ifindex, i->family,
                                                &(union in_addr_union) { .in = sa.in.sin_addr });
                         if (r < 0)
                                 return r;
@@ -631,7 +631,7 @@ int local_outbounds(
                         if (in6_addr_is_null(&sa.in6.sin6_addr))
                                 continue;
 
-                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                        r = add_local_outbound(&list, &n_list, i->ifindex, i->family,
                                                &(union in_addr_union) { .in6 = sa.in6.sin6_addr });
                         if (r < 0)
                                 return r;
