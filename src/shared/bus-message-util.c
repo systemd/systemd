@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-message-util.h"
+#include <unistd.h>
 
+#include "bus-message-util.h"
+#include "bus-util.h"
+#include "copy.h"
 #include "resolve-util.h"
 
 int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *ret) {
@@ -182,4 +185,35 @@ clear:
         free(dns);
 
         return r;
+}
+
+int bus_message_dump_string(sd_bus_message *message) {
+        const char *s;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &s);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        fputs(s, stdout);
+        return 0;
+}
+
+int bus_message_dump_fd(sd_bus_message *message) {
+        int fd, r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        fflush(stdout);
+        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump contents in received file descriptor: %m");
+
+        return 0;
 }

@@ -6,6 +6,7 @@
 #include "analyze.h"
 #include "bus-error.h"
 #include "bus-internal.h"
+#include "bus-message-util.h"
 
 static int dump_malloc_info(sd_bus *bus, char *service) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -26,7 +27,7 @@ static int dump_malloc_info(sd_bus *bus, char *service) {
         if (r < 0)
                 return log_error_errno(r, "Failed to call GetMallocInfo on '%s': %s", service, bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        return bus_message_dump_fd(reply);
 }
 
 int verb_malloc(int argc, char *argv[], void *userdata) {
