@@ -179,23 +179,6 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
-int dump_fd_reply(sd_bus_message *message) {
-        int fd, r;
-
-        assert(message);
-
-        r = sd_bus_message_read(message, "h", &fd);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fflush(stdout);
-        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
-        if (r < 0)
-                return r;
-
-        return 1;  /* Success */
-}
-
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;

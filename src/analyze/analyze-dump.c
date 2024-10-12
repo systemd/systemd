@@ -6,13 +6,12 @@
 #include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
-#include "copy.h"
 
 static int dump_string(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *text;
         int r;
 
         assert(bus);
@@ -21,12 +20,7 @@ static int dump_string(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to call Dump: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fputs(text, stdout);
-        return 0;
+        return bus_message_dump_string(reply);
 }
 
 static int dump_fd(sd_bus *bus) {
@@ -43,13 +37,12 @@ static int dump_fd(sd_bus *bus) {
                 return log_error_errno(r, "Failed to call DumpByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        return bus_message_dump_fd(reply);
 }
 
 static int dump_patterns_string(sd_bus *bus, char **patterns) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
-        const char *text;
         int r;
 
         if (strv_isempty(patterns))
@@ -68,12 +61,7 @@ static int dump_patterns_string(sd_bus *bus, char **patterns) {
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatterns: %s",
                                        bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fputs(text, stdout);
-        return 0;
+        return bus_message_dump_string(reply);
 }
 
 static int dump_patterns_fd(sd_bus *bus, char **patterns) {
@@ -97,7 +85,7 @@ static int dump_patterns_fd(sd_bus *bus, char **patterns) {
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatternsByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        return bus_message_dump_fd(reply);
 }
 
 static int mangle_patterns(char **args, char ***ret) {
