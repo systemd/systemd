@@ -24,6 +24,7 @@ foreach testcase : [
         'simultaneous_events',
         'virtio_scsi_basic',
         'virtio_scsi_identically_named_partitions',
+        'cryptsetup',
 ]
         integration_tests += [
                 integration_test_template + {
