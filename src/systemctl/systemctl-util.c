@@ -486,6 +486,7 @@ int unit_find_paths(
                 const char *unit_name,
                 LookupPaths *lp,
                 bool force_client_side,
+                bool ok_notfound,
                 Hashmap **cached_id_map,
                 Hashmap **cached_name_map,
                 char **ret_fragment_path,
@@ -613,7 +614,7 @@ int unit_find_paths(
                         *ret_dropin_paths = NULL;
         }
 
-        if (r == 0 && !arg_force)
+        if (r == 0 && !ok_notfound)
                 log_error("No files found for %s.", unit_name);
 
         return r;
