@@ -26,6 +26,7 @@ import contextlib
 import dataclasses
 import datetime
 import fnmatch
+import inspect
 import itertools
 import json
 import os
@@ -48,6 +49,7 @@ from typing import (
     IO,
     Any,
     Callable,
+    Literal,
     Optional,
     TypeVar,
     Union,
@@ -230,6 +232,50 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
     raise NotImplementedError(f'unknown file format (starts with {start!r})')
 
 
+@dataclasses.dataclass
+class UkifyConfig:
+    all: bool
+    cmdline: Union[str, Path, None]
+    devicetree: Path
+    efi_arch: str
+    initrd: list[Path]
+    join_profiles: list[Path]
+    json: Union[Literal['pretty'], Literal['short'], Literal['off']]
+    linux: Optional[Path]
+    measure: bool
+    microcode: Path
+    os_release: Union[str, Path, None]
+    output: Optional[str]
+    pcr_banks: list[str]
+    pcr_private_keys: list[str]
+    pcr_public_keys: list[Path]
+    pcrpkey: Optional[Path]
+    phase_path_groups: Optional[list[str]]
+    profile: Union[str, Path, None]
+    sb_cert: Path
+    sb_cert_name: Optional[str]
+    sb_cert_validity: int
+    sb_certdir: Path
+    sb_key: Optional[Path]
+    sbat: Optional[list[str]]
+    sections: list['Section']
+    sections_by_name: dict[str, 'Section']
+    sign_kernel: bool
+    signing_engine: Optional[str]
+    signtool: Optional[type['SignTool']]
+    splash: Optional[Path]
+    stub: Path
+    summary: bool
+    tools: list[Path]
+    uname: Optional[str]
+    verb: str
+    files: list[str] = dataclasses.field(default_factory=list)
+
+    @classmethod
+    def from_namespace(cls, ns: argparse.Namespace) -> 'UkifyConfig':
+        return cls(**{k: v for k, v in vars(ns).items() if k in inspect.signature(cls).parameters})
+
+
 class Uname:
     # This class is here purely as a namespace for the functions
 
@@ -243,7 +289,7 @@ class Uname:
     TEXT_PATTERN = rb'Linux version (?P<version>\d\.\S+) \('
 
     @classmethod
-    def scrape_x86(cls, filename: Path, opts: Optional[argparse.Namespace] = None) -> str:
+    def scrape_x86(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
         # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L136
         # and https://docs.kernel.org/arch/x86/boot.html#the-real-mode-kernel-header
         with open(filename, 'rb') as f:
@@ -263,7 +309,7 @@ class Uname:
         return m.group('version')
 
     @classmethod
-    def scrape_elf(cls, filename: Path, opts: Optional[argparse.Namespace] = None) -> str:
+    def scrape_elf(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
         readelf = find_tool('readelf', opts=opts)
 
         cmd = [
@@ -285,7 +331,7 @@ class Uname:
         return text.rstrip('\0')
 
     @classmethod
-    def scrape_generic(cls, filename: Path, opts: Optional[argparse.Namespace] = None) -> str:
+    def scrape_generic(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
         # import libarchive
         # libarchive-c fails with
         # ArchiveError: Unrecognized archive format (errno=84, retcode=-30, archive_p=94705420454656)
@@ -299,7 +345,7 @@ class Uname:
         return m.group('version').decode()
 
     @classmethod
-    def scrape(cls, filename: Path, opts: Optional[argparse.Namespace] = None) -> Optional[str]:
+    def scrape(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> Optional[str]:
         for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
             try:
                 version = func(filename, opts=opts)
@@ -387,7 +433,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[Union[Path, str]]
+    executable: Path
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section: Section) -> None:
@@ -402,6 +448,81 @@ class UKI:
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
+
+
+class SignTool:
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
+        raise NotImplementedError()
+
+    @staticmethod
+    def verify(opts: UkifyConfig) -> bool:
+        raise NotImplementedError()
+
+
+class PeSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
+        assert opts.sb_certdir is not None
+        assert opts.sb_cert_name is not None
+
+        tool = find_tool('pesign', opts=opts, msg='pesign, required for signing, is not installed')
+        cmd = [
+            tool,
+            '-s',
+            '--force',
+            '-n', opts.sb_certdir,
+            '-c', opts.sb_cert_name,
+            '-i', input_f,
+            '-o', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: UkifyConfig) -> bool:
+        assert opts.linux is not None
+
+        tool = find_tool('pesign', opts=opts)
+        cmd = [tool, '-i', opts.linux, '-S']
+
+        print('+', shell_join(cmd))
+        info = subprocess.check_output(cmd, text=True)
+
+        return 'No signatures found.' in info
+
+
+class SbSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
+        assert opts.sb_key is not None
+        assert opts.sb_cert is not None
+
+        tool = find_tool('sbsign', opts=opts, msg='sbsign, required for signing, is not installed')
+        cmd = [
+            tool,
+            '--key', opts.sb_key,
+            '--cert', opts.sb_cert,
+            *(['--engine', opts.signing_engine] if opts.signing_engine is not None else []),
+            input_f,
+            '--output', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: UkifyConfig) -> bool:
+        assert opts.linux is not None
+
+        tool = find_tool('sbverify', opts=opts)
+        cmd = [tool, '--list', opts.linux]
+
+        print('+', shell_join(cmd))
+        info = subprocess.check_output(cmd, text=True)
+
+        return 'No signature table present' in info
 
 
 def parse_banks(s: str) -> list[str]:
@@ -432,7 +553,7 @@ def parse_phase_paths(s: str) -> list[str]:
     return paths
 
 
-def check_splash(filename: Optional[str]) -> None:
+def check_splash(filename: Optional[Path]) -> None:
     if filename is None:
         return
 
@@ -446,7 +567,7 @@ def check_splash(filename: Optional[str]) -> None:
     print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
-def check_inputs(opts: argparse.Namespace) -> None:
+def check_inputs(opts: UkifyConfig) -> None:
     for name, value in vars(opts).items():
         if name in {'output', 'tools'}:
             continue
@@ -462,9 +583,9 @@ def check_inputs(opts: argparse.Namespace) -> None:
     check_splash(opts.splash)
 
 
-def check_cert_and_keys_nonexistent(opts: argparse.Namespace) -> None:
+def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
     # Raise if any of the keys and certs are found on disk
-    paths = itertools.chain(
+    paths: Iterator[Union[str, Path, None]] = itertools.chain(
         (opts.sb_key, opts.sb_cert),
         *((priv_key, pub_key) for priv_key, pub_key, _ in key_path_groups(opts)),
     )
@@ -476,14 +597,14 @@ def check_cert_and_keys_nonexistent(opts: argparse.Namespace) -> None:
 def find_tool(
     name: str,
     fallback: Optional[str] = None,
-    opts: Optional[argparse.Namespace] = None,
+    opts: Optional[UkifyConfig] = None,
     msg: str = 'Tool {name} not installed!',
 ) -> Union[str, Path]:
     if opts and opts.tools:
         for d in opts.tools:
             tool = d / name
             if tool.exists():
-                return cast(Path, tool)
+                return tool
 
     if shutil.which(name) is not None:
         return name
@@ -504,18 +625,19 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: argparse.Namespace) -> Iterator:
+def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[Path], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
     n_priv = len(opts.pcr_private_keys)
-    pub_keys = opts.pcr_public_keys or [None] * n_priv
-    pp_groups = opts.phase_path_groups or [None] * n_priv
+    pub_keys = opts.pcr_public_keys or []
+    pp_groups = opts.phase_path_groups or []
 
-    yield from zip(
+    yield from itertools.zip_longest(
         opts.pcr_private_keys,
-        pub_keys,
-        pp_groups,
+        pub_keys[:n_priv],
+        pp_groups[:n_priv],
+        fillvalue=None,
     )
 
 
@@ -523,7 +645,7 @@ def pe_strip_section_name(name: bytes) -> str:
     return name.rstrip(b'\x00').decode()
 
 
-def call_systemd_measure(uki: UKI, opts: argparse.Namespace, profile_start: int = 0) -> None:
+def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) -> None:
     measure_tool = find_tool(
         'systemd-measure',
         '/usr/lib/systemd/systemd-measure',
@@ -798,79 +920,6 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
     )
 
 
-def signer_sign(cmd: list[Union[str, Path]]) -> None:
-    print('+', shell_join(cmd))
-    subprocess.check_call(cmd)
-
-
-def sbsign_sign(
-    sbsign_tool: Union[str, Path],
-    input_f: str,
-    output_f: str,
-    opts: argparse.Namespace,
-) -> None:
-    sign_invocation = [
-        sbsign_tool,
-        '--key', opts.sb_key,
-        '--cert', opts.sb_cert,
-    ]  # fmt: skip
-    if opts.signing_engine is not None:
-        sign_invocation += ['--engine', opts.signing_engine]
-    sign_invocation += [
-        input_f,
-        '--output', output_f,
-    ]  # fmt: skip
-    signer_sign(sign_invocation)
-
-
-def pesign_sign(
-    pesign_tool: Union[str, Path],
-    input_f: str,
-    output_f: str,
-    opts: argparse.Namespace,
-) -> None:
-    sign_invocation = [
-        pesign_tool,
-        '-s',
-        '--force',
-        '-n', opts.sb_certdir,
-        '-c', opts.sb_cert_name,
-        '-i', input_f,
-        '-o', output_f,
-    ]  # fmt: skip
-    signer_sign(sign_invocation)
-
-
-SBVERIFY = {
-    'name': 'sbverify',
-    'option': '--list',
-    'output': 'No signature table present',
-}
-
-PESIGCHECK = {
-    'name': 'pesign',
-    'option': '-i',
-    'output': 'No signatures found.',
-    'flags': '-S',
-}
-
-
-def verify(tool: dict[str, str], opts: argparse.Namespace) -> bool:
-    verify_tool = find_tool(tool['name'], opts=opts)
-    cmd = [
-        verify_tool,
-        tool['option'],
-        opts.linux,
-    ]
-    if 'flags' in tool:
-        cmd.append(tool['flags'])
-
-    print('+', shell_join(cmd))
-    info = subprocess.check_output(cmd, text=True)
-
-    return tool['output'] in info
-
-
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
@@ -882,35 +931,27 @@ uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/l
 """
 
 
-def make_uki(opts: argparse.Namespace) -> None:
+def make_uki(opts: UkifyConfig) -> None:
+    assert opts.output is not None
+
     # kernel payload signing
 
-    sign_tool = None
     sign_args_present = opts.sb_key or opts.sb_cert_name
     sign_kernel = opts.sign_kernel
-    sign: Optional[Callable[[Union[str, Path], str, str, argparse.Namespace], None]] = None
     linux = opts.linux
 
     if sign_args_present:
-        if opts.signtool == 'sbsign':
-            sign_tool = find_tool('sbsign', opts=opts, msg='sbsign, required for signing, is not installed')
-            sign = sbsign_sign
-            verify_tool = SBVERIFY
-        else:
-            sign_tool = find_tool('pesign', opts=opts, msg='pesign, required for signing, is not installed')
-            sign = pesign_sign
-            verify_tool = PESIGCHECK
+        assert opts.linux is not None
+        assert opts.signtool is not None
 
-        if sign_kernel is None and opts.linux is not None:
+        if not sign_kernel:
             # figure out if we should sign the kernel
-            sign_kernel = verify(verify_tool, opts)
+            sign_kernel = opts.signtool.verify(opts)
 
         if sign_kernel:
-            assert sign is not None
-            assert sign_tool is not None
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
             linux = Path(linux_signed.name)
-            sign(sign_tool, opts.linux, linux, opts=opts)
+            opts.signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -919,7 +960,7 @@ def make_uki(opts: argparse.Namespace) -> None:
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
 
-    pcrpkey = opts.pcrpkey
+    pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
@@ -1041,15 +1082,15 @@ def make_uki(opts: argparse.Namespace) -> None:
         if names.count('.profile') > 1:
             raise ValueError(f'Profile PE binary {profile} contains multiple .profile sections')
 
-        for section in pe.sections:
-            n = pe_strip_section_name(section.Name)
+        for pesection in pe.sections:
+            n = pe_strip_section_name(pesection.Name)
 
             if n not in to_import:
                 continue
 
-            print(f"Copying section '{n}' from '{profile}': {section.Misc_VirtualSize} bytes")
+            print(f"Copying section '{n}' from '{profile}': {pesection.Misc_VirtualSize} bytes")
             uki.add_section(
-                Section.create(n, section.get_data(length=section.Misc_VirtualSize), measure=True)
+                Section.create(n, pesection.get_data(length=pesection.Misc_VirtualSize), measure=True)
             )
 
         call_systemd_measure(uki, opts=opts, profile_start=prev_len)
@@ -1067,9 +1108,8 @@ def make_uki(opts: argparse.Namespace) -> None:
     # UKI signing
 
     if sign_args_present:
-        assert sign is not None
-        assert sign_tool is not None
-        sign(sign_tool, unsigned_output, opts.output, opts)
+        assert opts.signtool is not None
+        opts.signtool.sign(os.fspath(unsigned_output), os.fspath(opts.output), opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
@@ -1171,12 +1211,12 @@ def generate_priv_pub_key_pair(keylength: int = 2048) -> tuple[bytes, bytes]:
     return priv_key_pem, pub_key_pem
 
 
-def generate_keys(opts: argparse.Namespace) -> None:
+def generate_keys(opts: UkifyConfig) -> None:
     work = False
 
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
-    if opts.sb_key or opts.sb_cert:
+    if opts.sb_key and opts.sb_cert:
         fqdn = socket.getfqdn()
         cn = f'SecureBoot signing key on host {fqdn}'
         key_pem, cert_pem = generate_key_cert_pair(
@@ -1210,7 +1250,7 @@ def generate_keys(opts: argparse.Namespace) -> None:
 
 
 def inspect_section(
-    opts: argparse.Namespace,
+    opts: UkifyConfig,
     section: pefile.SectionStructure,
 ) -> tuple[str, Optional[dict[str, Union[int, str]]]]:
     name = pe_strip_section_name(section.Name)
@@ -1253,7 +1293,7 @@ def inspect_section(
     return name, struct
 
 
-def inspect_sections(opts: argparse.Namespace) -> None:
+def inspect_sections(opts: UkifyConfig) -> None:
     indent = 4 if opts.json == 'pretty' else None
 
     for file in opts.files:
@@ -1422,6 +1462,24 @@ class ConfigItem:
         return (section_name, key, value)
 
 
+class SignToolAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None] = None,
+        option_string: Optional[str] = None,
+    ) -> None:
+        if values is None:
+            setattr(namespace, 'signtool', None)
+        elif values == 'sbsign':
+            setattr(namespace, 'signtool', SbSign)
+        elif values == 'pesign':
+            setattr(namespace, 'signtool', PeSign)
+        else:
+            raise ValueError(f"Unknon signtool '{values}' (this is unreachable)")
+
+
 VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
@@ -1566,6 +1624,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign'),
+        action=SignToolAction,
         dest='signtool',
         help=(
             'whether to use sbsign or pesign. It will also be inferred by the other '
@@ -1880,18 +1939,18 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
-        if opts.signtool and opts.signtool != 'sbsign':
+        if opts.signtool and opts.signtool != SbSign:
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
-        opts.signtool = 'sbsign'
+        opts.signtool = SbSign
     elif bool(opts.sb_cert_name):
         # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
-        if opts.signtool and opts.signtool != 'pesign':
+        if opts.signtool and opts.signtool != PeSign:
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name='
             )
-        opts.signtool = 'pesign'
+        opts.signtool = PeSign
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
@@ -1926,7 +1985,7 @@ def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
 
 
 def main() -> None:
-    opts = parse_args()
+    opts = UkifyConfig.from_namespace(parse_args())
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
