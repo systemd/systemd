@@ -100,6 +100,8 @@ int generator_enable_remount_fs_service(const char *dir);
 
 void log_setup_generator(void);
 
+bool generator_soft_rebooted(void);
+
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
         _DEFINE_MAIN_FUNCTION(                                          \

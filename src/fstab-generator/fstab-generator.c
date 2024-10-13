@@ -1459,6 +1459,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "root")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -1466,12 +1469,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "rootfstype")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 return free_and_strdup_warn(&arg_root_fstype, empty_to_null(value));
 
         } else if (streq(key, "rootflags")) {
+
+                if (generator_soft_rebooted())
+                        return 0;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -1481,12 +1490,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "roothash")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 return free_and_strdup_warn(&arg_root_hash, empty_to_null(value));
 
         } else if (streq(key, "mount.usr")) {
+
+                if (generator_soft_rebooted())
+                        return 0;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -1495,12 +1510,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "mount.usrfstype")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 return free_and_strdup_warn(&arg_usr_fstype, empty_to_null(value));
 
         } else if (streq(key, "mount.usrflags")) {
+
+                if (generator_soft_rebooted())
+                        return 0;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -1510,20 +1531,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "usrhash")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 return free_and_strdup_warn(&arg_usr_hash, empty_to_null(value));
 
-        } else if (streq(key, "rw") && !value)
+        } else if (streq(key, "rw") && !value && !generator_soft_rebooted())
                 arg_root_rw = true;
-        else if (streq(key, "ro") && !value)
+        else if (streq(key, "ro") && !value && !generator_soft_rebooted())
                 arg_root_rw = false;
         else if (streq(key, "systemd.volatile")) {
-                VolatileMode m;
+
+                if (generator_soft_rebooted())
+                        return 0;
 
                 if (value) {
-                        m = volatile_mode_from_string(value);
+                        VolatileMode m = volatile_mode_from_string(value);
                         if (m < 0)
                                 log_warning_errno(m, "Failed to parse systemd.volatile= argument: %s", value);
                         else
