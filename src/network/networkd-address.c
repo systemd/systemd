@@ -2030,7 +2030,6 @@ static int config_parse_broadcast(
                 void *userdata) {
 
         Address *address = ASSERT_PTR(userdata);
-        union in_addr_union u;
         int r;
 
         if (isempty(rvalue)) {
@@ -2050,16 +2049,13 @@ static int config_parse_broadcast(
                 return 1;
         }
 
-        r = in_addr_from_string(AF_INET, rvalue, &u);
-        if (r < 0)
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-        if (in4_addr_is_null(&u.in)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Broadcast cannot be ANY address, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        r = config_parse_in_addr_non_null(
+                        unit, filename, line, section, section_line,
+                        lvalue, /* ltype = */ AF_INET, rvalue,
+                        &address->broadcast, /* userdata = */ NULL);
+        if (r <= 0)
+                return r;
 
-        address->broadcast = u.in;
         address->set_broadcast = true;
         return 1;
 }
