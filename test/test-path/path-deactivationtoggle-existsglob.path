@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Test DeactivationToggle with PathExistsGlob
+
+[Path]
+PathExistsGlob=/tmp/test-path_deactivationtoggle/test_file_glob*
+Unit=path-deactivationtoggle.service
+DeactivationToggle=true
+
+[Install]
+WantedBy=multi-user.target
