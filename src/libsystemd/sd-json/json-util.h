@@ -238,3 +238,4 @@ enum {
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);
+int json_variant_new_fd_info(sd_json_variant **ret, int fd);
