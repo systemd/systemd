@@ -676,6 +676,11 @@ static int add_root_mount(void) {
                 return 0;
         }
 
+        if (generator_soft_rebooted()) {
+                log_info("The system has soft-rebooted, not adding root mount.");
+                return 0;
+        }
+
         r = efi_loader_get_device_part_uuid(NULL);
         if (r == -ENOENT) {
                 log_notice("EFI loader partition unknown, exiting.\n"
@@ -896,6 +901,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "root")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -909,6 +917,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "roothash")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -918,6 +929,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "rootfstype")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -925,15 +939,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "rootflags")) {
 
+                if (generator_soft_rebooted())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 if (!strextend_with_separator(&arg_root_options, ",", value))
                         return log_oom();
 
-        } else if (streq(key, "rw") && !value)
+        } else if (streq(key, "rw") && !value && !generator_soft_rebooted())
                 arg_root_rw = true;
-        else if (streq(key, "ro") && !value)
+        else if (streq(key, "ro") && !value && !generator_soft_rebooted())
                 arg_root_rw = false;
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
                 return parse_image_policy_argument(value, &arg_image_policy);
@@ -955,7 +972,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r, k;
+        int r;
 
         assert_se(arg_dest = dest_late);
 
@@ -975,12 +992,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         if (arg_root_enabled)
                 r = add_root_mount();
+        else
+                r = 0;
 
-        if (!in_initrd()) {
-                k = add_mounts();
-                if (r >= 0)
-                        r = k;
-        }
+        if (!in_initrd())
+                RET_GATHER(r, add_mounts());
 
         return r;
 }
