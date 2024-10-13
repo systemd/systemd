@@ -1728,18 +1728,22 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, FDSe
 
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret);
 
-static int json_transform_and_append(sd_bus_message *m, sd_json_variant **ret) {
+static int json_transform_and_append(sd_bus_message *m, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *element = NULL;
         int r;
 
         assert(m);
-        assert(ret);
+        assert(array);
 
         r = json_transform_one(m, &element);
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_array(ret, element);
+        r = sd_json_variant_append_array(array, element);
+        if (r < 0)
+                return log_error_errno(r, "Failed to append json element to array: %m");
+
+        return 0;
 }
 
 static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **ret) {
@@ -1748,6 +1752,10 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
 
         assert(m);
         assert(ret);
+
+        r = sd_json_variant_new_array(&array, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json empty array: %m");
 
         for (;;) {
                 r = sd_bus_message_at_end(m, false);
@@ -1760,9 +1768,6 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
                 if (r < 0)
                         return r;
         }
-
-        if (!array)
-                return sd_json_variant_new_array(ret, NULL, 0);
 
         *ret = TAKE_PTR(array);
         return 0;
@@ -1784,7 +1789,7 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, sd_js
                           SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value)));
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Failed to build json object: %m");
 
         return r;
 }
@@ -1811,7 +1816,7 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
-                        return r;
+                        return bus_log_parse_error(r);
 
                 assert(type == 'e');
 
@@ -1839,7 +1844,11 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
                         return bus_log_parse_error(r);
         }
 
-        return sd_json_variant_new_object(ret, elements, n_elements);
+        r = sd_json_variant_new_object(ret, elements, n_elements);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create new json object: %m");
+
+        return 0;
 }
 
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
@@ -2055,10 +2064,10 @@ static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
                 return r;
 
         r = sd_json_buildo(ret,
-                          SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
+                          SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type)),
                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Failed to build json object: %m");
 
         return 0;
 }
@@ -2130,38 +2139,37 @@ static int call(int argc, char **argv, void *userdata) {
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+        if (r > 0 || arg_quiet)
+                return 0;
 
-        if (r == 0 && !arg_quiet) {
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                                pager_open(arg_pager_flags);
-
-                        r = json_transform_message(reply, &v);
-                        if (r < 0)
-                                return r;
-
-                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
-
-                } else if (arg_verbose) {
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 
-                        r = sd_bus_message_dump(reply, stdout, 0);
-                        if (r < 0)
-                                return r;
-                } else {
+                r = json_transform_message(reply, &v);
+                if (r < 0)
+                        return r;
 
-                        fputs(sd_bus_message_get_signature(reply, true), stdout);
-                        fputc(' ', stdout);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
-                        r = format_cmdline(reply, stdout, false);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+        } else if (arg_verbose) {
+                pager_open(arg_pager_flags);
 
-                        fputc('\n', stdout);
-                }
+                r = sd_bus_message_dump(reply, stdout, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump dbus message: %m");
+        } else {
+
+                fputs(sd_bus_message_get_signature(reply, true), stdout);
+                fputc(' ', stdout);
+
+                r = format_cmdline(reply, stdout, false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -2289,7 +2297,6 @@ static int on_bus_signal_impl(sd_bus_message *msg) {
         r = sd_bus_message_is_empty(msg);
         if (r < 0)
                 return bus_log_parse_error(r);
-
         if (r > 0 || arg_quiet)
                 return 0;
 
