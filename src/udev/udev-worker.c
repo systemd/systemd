@@ -206,20 +206,24 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
                 /* in case rtnl was initialized */
                 worker->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        if (udev_event->inotify_watch) {
-                r = udev_watch_begin(worker->inotify_fd, dev);
-                if (r < 0 && r != -ENOENT) /* The device may be already removed, ignore -ENOENT. */
-                        log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
+        if (!device_for_action(dev, SD_DEVICE_REMOVE)) {
+
+                /* Enable watch if requested. */
+                if (udev_event->inotify_watch) {
+                        r = udev_watch_begin(worker->inotify_fd, dev);
+                        if (r < 0 && r != -ENOENT) /* The device may be already removed, ignore -ENOENT. */
+                                log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
+                }
+
+                /* Finalize database. */
+                r = device_add_property(dev, "ID_PROCESSING", NULL);
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to remove 'ID_PROCESSING' property: %m");
+
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
         }
-
-        /* Finalize database. */
-        r = device_add_property(dev, "ID_PROCESSING", NULL);
-        if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to remove 'ID_PROCESSING' property: %m");
-
-        r = device_update_db(dev);
-        if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
 
         log_device_uevent(dev, "Device processed");
         return 0;
