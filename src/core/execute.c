@@ -609,6 +609,7 @@ void exec_context_done(ExecContext *c) {
 
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);
+        c->selinux_namespaced_policy = mfree(c->selinux_namespaced_policy);
         c->apparmor_profile = mfree(c->apparmor_profile);
         c->smack_process_label = mfree(c->smack_process_label);
 
@@ -1314,6 +1315,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSELinuxContext: %s%s\n",
                         prefix, c->selinux_context_ignore ? "-" : "", c->selinux_context);
+
+        if (c->selinux_namespaced_policy)
+                fprintf(f,
+                        "%sSELinuxContext: %s\n",
+                        prefix, c->selinux_namespaced_policy);
 
         if (c->apparmor_profile)
                 fprintf(f,

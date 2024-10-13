@@ -54,6 +54,7 @@
 #include "psi-util.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
+#include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
@@ -5140,6 +5141,17 @@ int exec_invoke(
                                                              r,
                                                              "Failed to change SELinux context to %s, ignoring: %m",
                                                              exec_context);
+                                }
+                        }
+
+                        if (context->selinux_namespaced_policy) {
+                                r = mac_selinux_setup_namespaced_policy(context->selinux_namespaced_policy);
+                                if (r < 0) {
+                                        log_exec_debug_errno(context,
+                                                             params,
+                                                             r,
+                                                             "Failed to set up namespaced SELinux policy from %s, ignoring: %m",
+                                                             context->selinux_namespaced_policy);
                                 }
                         }
                 }

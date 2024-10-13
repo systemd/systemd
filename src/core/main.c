@@ -3129,6 +3129,21 @@ int main(int argc, char *argv[]) {
                         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
 
                 } else {
+                        const char *selinuxns = getenv("SELINUXNS");
+
+                        if (selinuxns) {
+                                r = mac_selinux_setup(&loaded_policy);
+                                if (r < 0) {
+                                        error_message = "Failed to setup SELinux namespace support";
+                                        goto finish;
+                                }
+
+                                if (mac_selinux_init() < 0) {
+                                        error_message = "Failed to initialize SELinux namespace support";
+                                        goto finish;
+                                }
+                        }
+
                         /* Running inside a container, as PID 1 */
                         log_set_target_and_open(LOG_TARGET_CONSOLE);
 

@@ -51,6 +51,7 @@ libcore_sources = files(
         'path.c',
         'scope.c',
         'selinux-access.c',
+        'selinux-setup.c',
         'service.c',
         'show-status.c',
         'slice.c',
@@ -147,7 +148,6 @@ systemd_sources = files(
         'apparmor-setup.c',
         'ima-setup.c',
         'ipe-setup.c',
-        'selinux-setup.c',
         'smack-setup.c',
 )
 
