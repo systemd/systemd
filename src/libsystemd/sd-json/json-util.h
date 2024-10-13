@@ -232,3 +232,4 @@ enum {
 #define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
+int json_variant_new_fd(sd_json_variant **ret, int fd);
