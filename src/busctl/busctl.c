@@ -21,6 +21,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "glyph-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
@@ -2008,16 +2009,19 @@ static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
                 break;
         }
 
-        case SD_BUS_TYPE_UNIX_FD:
-                r = sd_bus_message_read_basic(m, type, NULL);
+        case SD_BUS_TYPE_UNIX_FD: {
+                int fd;
+
+                r = sd_bus_message_read_basic(m, type, &fd);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_json_variant_new_null(&v);
+                r = json_variant_new_fd_info(&v, fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform fd: %m");
 
                 break;
+        }
 
         case SD_BUS_TYPE_ARRAY:
         case SD_BUS_TYPE_VARIANT:
