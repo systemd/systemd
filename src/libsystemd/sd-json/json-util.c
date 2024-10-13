@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -280,4 +281,64 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
         *p = TAKE_PIDREF(np);
 
         return 0;
+}
+
+static int json_variant_new_stat(sd_json_variant **ret, struct stat *st) {
+        char mode[64];
+
+        assert(st);
+
+        if (!stat_is_set(st))
+                return sd_json_variant_new_null(ret);
+
+        xsprintf(mode, "%04o", st->st_mode & ~S_IFMT);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR(
+                                        "dev",
+                                        SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("major", major(st->st_dev)),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("minor", minor(st->st_dev)))),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("inode", st->st_ino),
+                        SD_JSON_BUILD_PAIR_STRING("type", inode_type_to_string(st->st_mode)),
+                        SD_JSON_BUILD_PAIR_STRING("mode", mode),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("linkCount", st->st_nlink),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", st->st_uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", st->st_gid),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        st->st_rdev != 0,
+                                        "rdev",
+                                        SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("major", major(st->st_rdev)),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("minor", minor(st->st_rdev)))),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("size", st->st_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("blockSize", st->st_blksize),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("blocks", st->st_blocks));
+}
+
+int json_variant_new_fd(sd_json_variant **ret, int fd) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *path = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+                return -errno;
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        r = json_variant_new_stat(&v, &st);
+        if (r < 0)
+                return r;
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("fd", fd),
+                        SD_JSON_BUILD_PAIR_STRING("path", path),
+                        SD_JSON_BUILD_PAIR_VARIANT("stat", v));
 }

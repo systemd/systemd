@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_tokenizer_one(const char *data, ...) {
         unsigned line = 0, column = 0;
@@ -1305,6 +1306,25 @@ TEST(pidref) {
 
         pidref_done(&data.myself);
         pidref_done(&data.pid1);
+}
+
+TEST(fd) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_OK(json_variant_new_fd(&v, AT_FDCWD));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+
+        ASSERT_OK_ERRNO(fd = openat(AT_FDCWD, ".", O_CLOEXEC | O_DIRECTORY | O_PATH));
+        ASSERT_OK(json_variant_new_fd(&v, fd));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR));
+        ASSERT_OK(json_variant_new_fd(&v, fd));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
