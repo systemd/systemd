@@ -2061,7 +2061,6 @@ static int config_parse_broadcast(
 
         address->broadcast = u.in;
         address->set_broadcast = true;
-        address->family = AF_INET;
         return 1;
 }
 
