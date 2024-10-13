@@ -20,6 +20,7 @@
 # pylint: disable=unnecessary-lambda-assignment
 
 import argparse
+import builtins
 import collections
 import configparser
 import contextlib
@@ -1386,9 +1387,9 @@ class ConfigItem:
     name: Union[str, tuple[str, str]]
     dest: Optional[str] = None
     metavar: Optional[str] = None
-    type: Optional[Callable] = None
+    type: Optional[Callable[[str], Any]] = None
     nargs: Optional[str] = None
-    action: Optional[Union[str, Callable]] = None
+    action: Optional[Union[str, Callable[[str], Any], builtins.type[argparse.Action]]] = None
     default: Any = None
     version: Optional[str] = None
     choices: Optional[tuple[str, ...]] = None
