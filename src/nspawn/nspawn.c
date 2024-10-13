@@ -3563,9 +3563,11 @@ static int inner_child(
         if (arg_selinux_context)
                 if (setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
+#if 0 // TODO use selinux_unshare() from libselinux
         if (arg_selinux_namespace)
                 if (selinux_unshare() < 0)
                         return log_error_errno(errno, "selinux_unshare() failed: %m");
+#endif
 #endif
 
         /* Make sure we keep the caps across the uid/gid dropping, so that we can retain some selected caps

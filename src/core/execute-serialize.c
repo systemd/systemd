@@ -2366,6 +2366,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
+        r = serialize_item(f, "exec-context-selinux-namespaced-policy", c->selinux_namespaced_policy);
+        if (r < 0)
+                return r;
+
         if (c->apparmor_profile) {
                 r = serialize_item_format(f, "exec-context-apparmor-profile",
                                           "%s%s",
@@ -3387,6 +3391,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 c->selinux_context_ignore = false;
 
                         r = free_and_strdup(&c->selinux_context, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-selinux-namespaced-policy="))) {
+                        r = free_and_strdup(&c->selinux_namespaced_policy, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-apparmor-profile="))) {

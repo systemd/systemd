@@ -4,3 +4,4 @@
 #include <stdbool.h>
 
 int mac_selinux_setup(bool *loaded_policy);
+int mac_selinux_setup_namespaced_policy(const char *policy);
