@@ -24,20 +24,20 @@ typedef enum ExecDirFlags {
 
 int execute_strv(
                 const char *name,
-                char* const* paths,
+                char * const *paths,
                 const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
+                void * const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
                 char *envp[],
                 ExecDirFlags flags);
 
 int execute_directories(
-                const char* const* directories,
+                const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
+                void * const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
                 char *envp[],
                 ExecDirFlags flags);
