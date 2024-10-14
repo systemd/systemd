@@ -4007,29 +4007,25 @@ void manager_send_reloading(Manager *m) {
         m->ready_sent = false;
 }
 
-static bool generator_path_any(const char* const* paths) {
-        bool found = false;
+static bool generator_path_any(char * const *paths) {
 
-        /* Optimize by skipping the whole process by not creating output directories
-         * if no generators are found. */
-        STRV_FOREACH(path, paths)
-                if (access(*path, F_OK) == 0)
-                        found = true;
-                else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
+        /* Optimize by skipping the whole process by not creating output directories if no generators are found. */
 
-        return found;
+        STRV_FOREACH(i, paths) {
+                if (access(*i, F_OK) >= 0)
+                        return true;
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to check if generator dir '%s' exists, assuming not: %m", *i);
+        }
+
+        return false;
 }
 
 static int manager_run_environment_generators(Manager *m) {
-        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         _cleanup_strv_free_ char **paths = NULL;
-        void* args[] = {
-                [STDOUT_GENERATE] = &tmp,
-                [STDOUT_COLLECT]  = &tmp,
-                [STDOUT_CONSUME]  = &m->transient_environment,
-        };
         int r;
+
+        assert(m);
 
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
@@ -4038,8 +4034,15 @@ static int manager_run_environment_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        if (!generator_path_any((const char* const*) paths))
+        if (!generator_path_any(paths))
                 return 0;
+
+        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        void *args[_STDOUT_CONSUME_MAX] = {
+                [STDOUT_GENERATE] = &tmp,
+                [STDOUT_COLLECT]  = &tmp,
+                [STDOUT_CONSUME]  = &m->transient_environment,
+        };
 
         WITH_UMASK(0022)
                 r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
@@ -4077,6 +4080,12 @@ static int build_generator_environment(Manager *m, char ***ret) {
                 r = strv_env_assign(&nl, "SYSTEMD_IN_INITRD", one_zero(in_initrd()));
                 if (r < 0)
                         return r;
+
+                if (m->soft_reboots_count > 0) {
+                        r = strv_env_assignf(&nl, "SYSTEMD_SOFT_REBOOTS_COUNT", "%u", m->soft_reboots_count);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (m->first_boot >= 0) {
                         r = strv_env_assign(&nl, "SYSTEMD_FIRST_BOOT", one_zero(m->first_boot));
@@ -4117,16 +4126,11 @@ static int build_generator_environment(Manager *m, char ***ret) {
         return 0;
 }
 
-static int manager_execute_generators(Manager *m, char **paths, bool remount_ro) {
+static int manager_execute_generators(Manager *m, char * const *paths, bool remount_ro) {
         _cleanup_strv_free_ char **ge = NULL;
-        const char *argv[] = {
-                NULL, /* Leave this empty, execute_directory() will fill something in */
-                m->lookup_paths.generator,
-                m->lookup_paths.generator_early,
-                m->lookup_paths.generator_late,
-                NULL,
-        };
         int r;
+
+        assert(m);
 
         r = build_generator_environment(m, &ge);
         if (r < 0)
@@ -4143,6 +4147,14 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
                 if (r < 0)
                         log_warning_errno(r, "Read-only bind remount failed, ignoring: %m");
         }
+
+        const char *argv[] = {
+                NULL, /* Leave this empty, execute_directory() will fill something in */
+                m->lookup_paths.generator,
+                m->lookup_paths.generator_early,
+                m->lookup_paths.generator_late,
+                NULL,
+        };
 
         BLOCK_WITH_UMASK(0022);
         return execute_directories(
@@ -4168,7 +4180,7 @@ static int manager_run_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        if (!generator_path_any((const char* const*) paths))
+        if (!generator_path_any(paths))
                 return 0;
 
         r = lookup_paths_mkdir_generator(&m->lookup_paths);
