@@ -282,13 +282,18 @@ static int have_ask_password(void) {
         if (!dir) {
                 if (errno == ENOENT)
                         return false;
-                else
-                        return -errno;
+
+                return -errno;
         }
 
-        FOREACH_DIRENT_ALL(de, dir, return -errno)
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
                 if (startswith(de->d_name, "ask."))
                         return true;
+        }
+
         return false;
 }
 
@@ -300,9 +305,8 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 
         m->have_ask_password = have_ask_password();
         if (m->have_ask_password < 0)
-                /* Log error but continue. Negative have_ask_password
-                 * is treated as unknown status. */
-                log_error_errno(m->have_ask_password, "Failed to list /run/systemd/ask-password: %m");
+                /* Log error but continue. Negative have_ask_password is treated as unknown status. */
+                log_warning_errno(m->have_ask_password, "Failed to list /run/systemd/ask-password/, ignoring: %m");
 
         return 0;
 }
@@ -311,7 +315,6 @@ static void manager_close_ask_password(Manager *m) {
         assert(m);
 
         m->ask_password_event_source = sd_event_source_disable_unref(m->ask_password_event_source);
-        m->ask_password_inotify_fd = safe_close(m->ask_password_inotify_fd);
         m->have_ask_password = -EINVAL;
 }
 
@@ -320,37 +323,43 @@ static int manager_check_ask_password(Manager *m) {
 
         assert(m);
 
+        /* We only care about passwords prompts when running in system mode (because that's the only time we
+         * manage a console) */
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
         if (!m->ask_password_event_source) {
-                assert(m->ask_password_inotify_fd < 0);
-
-                (void) mkdir_p_label("/run/systemd/ask-password", 0755);
-
-                m->ask_password_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-                if (m->ask_password_inotify_fd < 0)
+                _cleanup_close_ int inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                if (inotify_fd < 0)
                         return log_error_errno(errno, "Failed to create inotify object: %m");
 
-                r = inotify_add_watch_and_warn(m->ask_password_inotify_fd,
-                                               "/run/systemd/ask-password",
-                                               IN_CREATE|IN_DELETE|IN_MOVE);
-                if (r < 0) {
-                        manager_close_ask_password(m);
+                (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+                r = inotify_add_watch_and_warn(inotify_fd, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_DELETE|IN_MOVED_TO|IN_ONLYDIR);
+                if (r < 0)
                         return r;
-                }
 
-                r = sd_event_add_io(m->event, &m->ask_password_event_source,
-                                    m->ask_password_inotify_fd, EPOLLIN,
-                                    manager_dispatch_ask_password_fd, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add event source for /run/systemd/ask-password: %m");
-                        manager_close_ask_password(m);
-                        return r;
-                }
+                _cleanup_(sd_event_source_disable_unrefp) sd_event_source *event_source = NULL;
+                r = sd_event_add_io(
+                                m->event,
+                                &event_source,
+                                inotify_fd,
+                                EPOLLIN,
+                                manager_dispatch_ask_password_fd,
+                                m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add event source for /run/systemd/ask-password/: %m");
 
-                (void) sd_event_source_set_description(m->ask_password_event_source, "manager-ask-password");
+                r = sd_event_source_set_io_fd_own(event_source, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pass ownership of /run/systemd/ask-password/ inotify fd to event source: %m");
+                TAKE_FD(inotify_fd);
+
+                (void) sd_event_source_set_description(event_source, "manager-ask-password");
+
+                m->ask_password_event_source = TAKE_PTR(event_source);
 
                 /* Queries might have been added meanwhile... */
-                manager_dispatch_ask_password_fd(m->ask_password_event_source,
-                                                 m->ask_password_inotify_fd, EPOLLIN, m);
+                (void) manager_dispatch_ask_password_fd(m->ask_password_event_source, sd_event_source_get_io_fd(m->ask_password_event_source), EPOLLIN, m);
         }
 
         return m->have_ask_password;
@@ -908,7 +917,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .dev_autofs_fd = -EBADF,
                 .cgroup_inotify_fd = -EBADF,
                 .pin_cgroupfs_fd = -EBADF,
-                .ask_password_inotify_fd = -EBADF,
                 .idle_pipe = { -EBADF, -EBADF, -EBADF, -EBADF},
 
                  /* start as id #1, so that we can leave #0 around as "null-like" value */
