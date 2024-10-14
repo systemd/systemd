@@ -158,13 +158,18 @@ struct Job {
 
         bool installed:1;
         bool in_run_queue:1;
+
         bool matters_to_anchor:1;
-        bool in_dbus_queue:1;
-        bool sent_dbus_new_signal:1;
+        bool refuse_late_merge:1;
         bool ignore_order:1;
         bool irreversible:1;
-        bool in_gc_queue:1;
+
+        bool in_dbus_queue:1;
+        bool sent_dbus_new_signal:1;
+
         bool ref_by_private_bus:1;
+
+        bool in_gc_queue:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
@@ -173,7 +178,7 @@ void job_unlink(Job *job);
 Job* job_free(Job *job);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 
-Job* job_install(Job *j, bool refuse_late_merge);
+Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
 
