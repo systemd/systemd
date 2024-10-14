@@ -49,6 +49,12 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
                 VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("If true the output will contain Addresses field"),
+                SD_VARLINK_DEFINE_INPUT(acquireAddresses, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the output will contain OSRelease field"),
+                SD_VARLINK_DEFINE_INPUT(acquireOSRelease, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the output will contain UIDShift field"),
+                SD_VARLINK_DEFINE_INPUT(acquireUIDShift, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Name of the machine"),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("128bit ID identifying this machine, formatted in hexadecimal"),
@@ -70,10 +76,19 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("SSH address to connect to"),
                 SD_VARLINK_DEFINE_OUTPUT(sshAddress, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to private SSH key"),
-                SD_VARLINK_DEFINE_OUTPUT(sshPrivateKeyPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(sshPrivateKeyPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("List of addresses of the machine"),
+                SD_VARLINK_DEFINE_OUTPUT(Adresses, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("OS release information of the machine. It contains an array of key value pairs read from the os-release(5) file in the image."),
+                SD_VARLINK_DEFINE_OUTPUT(OSRelease, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("TODO"),
+                SD_VARLINK_DEFINE_OUTPUT(UIDShift, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
+static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
+static SD_VARLINK_DEFINE_ERROR(NoOSReleaseInformation);
+static SD_VARLINK_DEFINE_ERROR(NotSupported);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
@@ -92,4 +107,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
-                &vl_error_MachineExists);
+                &vl_error_MachineExists,
+                SD_VARLINK_SYMBOL_COMMENT("Machine does not use private networking"),
+                &vl_error_NoPrivateNetworking,
+                SD_VARLINK_SYMBOL_COMMENT("Machine does not contain OS release information"),
+                &vl_error_NoOSReleaseInformation,
+                &vl_error_NotSupported);
