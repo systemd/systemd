@@ -251,9 +251,18 @@ static void check_update_watchdog(Uploader *u) {
 
 static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
         Uploader *u = ASSERT_PTR(userp);
+        void* src = buf;
+        if (u->compression != COMPRESSION_NONE) {
+                src = malloc(sizeof(char) * size * nmemb);
+                if (!src) {
+                        log_error("Failed to initialize compression buffer.");
+                        return CURL_READFUNC_ABORT;
+                }
+        }
         int r;
         sd_journal *j;
         size_t filled = 0;
+        size_t compressed = 0;
         ssize_t w;
 
         assert(nmemb <= SSIZE_MAX / size);
@@ -262,7 +271,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
 
         j = u->journal;
 
-        while (j && filled < size * nmemb) {
+        while (j && filled < size * nmemb && u->uploading) {
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
                         if (r < 0) {
@@ -284,20 +293,33 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         u->entry_state = ENTRY_CURSOR;
                 }
 
-                w = write_entry((char*)buf + filled, size * nmemb - filled, u);
+                w = write_entry((char*)src + filled, size * nmemb - filled, u);
                 if (w < 0)
                         return CURL_READFUNC_ABORT;
                 filled += w;
 
+                update_uploader_stat(u, w);
+
                 if (filled == 0) {
                         log_error("Buffer space is too small to write entry.");
                         return CURL_READFUNC_ABORT;
-                } else if (u->entry_state != ENTRY_DONE)
+                } else if (u->entry_state != ENTRY_DONE) {
                         /* This means that all available space was used up */
                         break;
+                }
 
                 log_debug("Entry %zu (%s) has been uploaded.",
                           u->entries_sent, u->current_cursor);
+        }
+
+        if (filled && u->compression != COMPRESSION_NONE) {
+                r = compress_blob(u->compression, src, filled, buf, size * nmemb, &compressed, u->compression_level);
+                if (r < 0) {
+                        log_error("Failed to compress %zu bytes", filled);
+                        return CURL_READFUNC_ABORT;
+                }
+                mfree(src);
+                filled = compressed;
         }
 
         return filled;

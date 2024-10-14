@@ -3,6 +3,7 @@
 systemd_journal_upload_sources = files(
         'journal-upload-journal.c',
         'journal-upload.c',
+        'header-util.c',
 )
 
 libsystemd_journal_remote_sources = files(
@@ -27,6 +28,13 @@ libsystemd_journal_remote = static_library(
                         libxz_cflags,
                         threads,
                         userspace],
+        build_by_default : false)
+
+libsystemd_journal_upload = static_library(
+        'systemd-journal-upload',
+        systemd_journal_upload_sources,
+        include_directories : includes,
+        dependencies : [userspace],
         build_by_default : false)
 
 systemd_journal_remote_sources = files('journal-remote-main.c')
@@ -54,6 +62,9 @@ executables += [
                 ],
                 'sources' : systemd_journal_upload_sources,
                 'dependencies' : common_deps + [libcurl],
+                'link_with' : [
+                        libshared,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
@@ -84,6 +95,16 @@ executables += [
                 'link_with' : [
                         libshared,
                         libsystemd_journal_remote,
+                ],
+        },
+]
+
+executables += [
+        test_template + {
+                'sources' : files('test-header-util.c'),
+                'link_with' : [
+                        libshared,
+                        libsystemd_journal_upload,
                 ],
         },
 ]
