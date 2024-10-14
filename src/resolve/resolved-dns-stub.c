@@ -462,10 +462,6 @@ static int dns_stub_finish_reply_packet(
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
-        /* Don't set the CD bit unless DO is on, too */
-        if (!edns0_do)
-                cd = false;
-
         /* Note that we allow the AD bit to be set even if client didn't signal DO, as per RFC 6840, section
          * 5.7 */
 
@@ -686,6 +682,7 @@ static int dns_stub_patch_bypass_reply_packet(
                 DnsPacket **ret,       /* Where to place the patched packet */
                 DnsPacket *original,   /* The packet to patch */
                 DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
+                bool checking_disabled,
                 bool authenticated) {
         _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
         int r;
@@ -726,9 +723,15 @@ static int dns_stub_patch_bypass_reply_packet(
                 DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
         }
 
+        /* Patch the cd bit to reflect the state of validation */
+        DNS_PACKET_HEADER(c)->flags = htobe16(
+                        (be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_CD) |
+                        (checking_disabled ? DNS_PACKET_FLAG_CD : 0));
+
         /* Ensure we don't pass along an untrusted ad flag for bypass packets */
-        if (!authenticated)
-                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+        DNS_PACKET_HEADER(c)->flags = htobe16(
+                        (be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD) |
+                        (!checking_disabled && authenticated ? DNS_PACKET_FLAG_AD : 0));
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -751,6 +754,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
 
                         r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
+                                        DNS_PACKET_CD(q->question_bypass) && FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                                         FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
                         if (r < 0)
                                 log_debug_errno(r, "Failed to patch bypass reply packet: %m");
@@ -982,7 +986,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   protocol_flags|
                                   SD_RESOLVED_NO_CNAME|
                                   SD_RESOLVED_NO_SEARCH|
-                                  SD_RESOLVED_NO_VALIDATE|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
                                   SD_RESOLVED_CLAMP_TTL|
                                   SD_RESOLVED_RELAX_SINGLE_LABEL);
@@ -990,6 +994,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   protocol_flags|
                                   SD_RESOLVED_NO_SEARCH|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
         if (r < 0) {
