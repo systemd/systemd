@@ -107,6 +107,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
+        if (generator_soft_rebooted()) {
+                log_debug("Running in an initrd entered through soft-reboot, not initiating resume.");
+                return 0;
+        }
+
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
