@@ -33,8 +33,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE |
                                         UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
 
-        [UNIT_PART_OF]                = UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
-
         [UNIT_UPHOLDS]                = UNIT_ATOM_PULL_IN_START_IGNORED |
                                         UNIT_ATOM_RETROACTIVE_START_REPLACE |
                                         UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE |
@@ -42,13 +40,11 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
 
         [UNIT_REQUIRED_BY]            = UNIT_ATOM_PROPAGATE_STOP |
-                                        UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                                         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES,
 
         [UNIT_REQUISITE_OF]           = UNIT_ATOM_PROPAGATE_STOP |
-                                        UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
                                         UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
@@ -59,7 +55,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
 
         [UNIT_BOUND_BY]               = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                                         UNIT_ATOM_PROPAGATE_STOP |
-                                        UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                                         UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
@@ -68,9 +63,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_UPHELD_BY]              = UNIT_ATOM_START_STEADILY |
                                         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED,
-
-        [UNIT_CONSISTS_OF]            = UNIT_ATOM_PROPAGATE_STOP |
-                                        UNIT_ATOM_PROPAGATE_RESTART,
 
         [UNIT_CONFLICTS]              = UNIT_ATOM_PULL_IN_STOP |
                                         UNIT_ATOM_RETROACTIVE_STOP_ON_START,
@@ -89,6 +81,8 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_ON_SUCCESS_OF]          = UNIT_ATOM_ON_SUCCESS_OF,
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
+        [UNIT_PART_OF]                = UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
+        [UNIT_CONSISTS_OF]            = UNIT_ATOM_PROPAGATE_STOP,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
@@ -160,7 +154,6 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
                 return UNIT_UPHOLDS;
 
         case UNIT_ATOM_PROPAGATE_STOP |
-                UNIT_ATOM_PROPAGATE_RESTART |
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
                 UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE |
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
@@ -170,7 +163,6 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
 
         case UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                 UNIT_ATOM_PROPAGATE_STOP |
-                UNIT_ATOM_PROPAGATE_RESTART |
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                 UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
