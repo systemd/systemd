@@ -402,7 +402,9 @@ TEST(error_catching) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC,
+                                /* callbacks = */ NULL, /* callback_args = */ NULL,
+                                /* argv = */ NULL, /* envp = */ NULL, /* flags = */ 0);
 
         /* we should exit with the error code of the first script that failed */
         assert_se(r == 42);
