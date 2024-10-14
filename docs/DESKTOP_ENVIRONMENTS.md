@@ -83,8 +83,10 @@ This has the following advantages:
  * The application ID can be retrieved by stripping the prefix and postfix.
    This in turn should map to the corresponding `.desktop` file when available.
 
-   Note that this nameing scheme might be a unit alias, so runtime detection
-   must check the entire name-array of a unit, rather than just its unit ID.
+   Note that the main unit name should match this scheme as this also enables
+   lookups directly from the cgroup name are possible. Further aliases may be
+   added in case other uses are expecting to find the unit under a different
+   name.
 
 TODO: Define the name of slices that should be used.
 This could be `app-<launcher>-<ApplicationID>-<RANDOM>.slice`.
