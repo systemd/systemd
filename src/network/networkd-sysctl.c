@@ -8,6 +8,7 @@
 
 #include "af-list.h"
 #include "cgroup-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "missing_network.h"
@@ -503,12 +504,21 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
 
 int link_set_ipv6_mtu(Link *link, int log_level) {
         uint32_t mtu = 0;
+        int r;
 
         assert(link);
         assert(link->manager);
 
         if (!link_is_configured_for_family(link, AF_INET6))
                 return 0;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (sd_event_source_get_enabled(link->ipv6_mtu_wait_synced_event_source, /* ret = */ NULL) > 0) {
+                log_link_debug(link, "Waiting for IPv6 MTU is synced to link MTU, delaying to set IPv6 MTU.");
+                return 0;
+        }
 
         assert(link->network);
 
@@ -526,7 +536,88 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
                 mtu = link->mtu;
         }
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set IPv6 MTU to %"PRIu32": %m", mtu);
+
+        return 0;
+}
+
+static int ipv6_mtu_wait_synced_handler(sd_event_source *s, uint64_t usec, void *userdata);
+
+static int link_set_ipv6_mtu_async_impl(Link *link) {
+        uint32_t current_mtu;
+        int r;
+
+        assert(link);
+
+        /* When the link MTU is updated, it seems that the kernel IPv6 MTU of the interface is asynchronously
+         * reset to the link MTU. Hence, we need to check if it is already reset, and wait for a while if not. */
+
+        if (++link->ipv6_mtu_wait_trial_count >= 10) {
+                log_link_debug(link, "Timed out waiting for IPv6 MTU being synced to link MTU, proceeding anyway.");
+                r = link_set_ipv6_mtu(link, LOG_INFO);
+                if (r < 0)
+                        return r;
+
+                return 1; /* done */
+        }
+
+        /* Check if IPv6 MTU is synced. */
+        r = sysctl_read_ip_property_uint32(AF_INET6, link->ifname, "mtu", &current_mtu);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to read IPv6 MTU: %m");
+
+        if (current_mtu == link->mtu) {
+                /* Already synced. Update IPv6 MTU now. */
+                r = link_set_ipv6_mtu(link, LOG_INFO);
+                if (r < 0)
+                        return r;
+
+                return 1; /* done */
+        }
+
+        /* If not, set up a timer event source. */
+        r = event_reset_time_relative(
+                        link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
+                        CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
+                        ipv6_mtu_wait_synced_handler, link,
+                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force = */ true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure timer event source for waiting for IPv6 MTU being synced: %m");
+
+        /* Check again. */
+        r = sysctl_read_ip_property_uint32(AF_INET6, link->ifname, "mtu", &current_mtu);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to read IPv6 MTU: %m");
+
+        if (current_mtu == link->mtu) {
+                /* Synced while setting up the timer event source. Disable it and update IPv6 MTU now. */
+                r = sd_event_source_set_enabled(link->ipv6_mtu_wait_synced_event_source, SD_EVENT_OFF);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to disable timer event source for IPv6 MTU, ignoring: %m");
+
+                r = link_set_ipv6_mtu(link, LOG_INFO);
+                if (r < 0)
+                        return r;
+
+                return 1; /* done */
+        }
+
+        log_link_debug(link, "IPv6 MTU is not synced to the link MTU after it is changed. Waiting for a while.");
+        return 0; /* waiting */
+}
+
+static int ipv6_mtu_wait_synced_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        (void) link_set_ipv6_mtu_async_impl(ASSERT_PTR(userdata));
+        return 0;
+}
+
+int link_set_ipv6_mtu_async(Link *link) {
+        assert(link);
+
+        link->ipv6_mtu_wait_trial_count = 0;
+        return link_set_ipv6_mtu_async_impl(link);
 }
 
 static int link_set_ipv4_accept_local(Link *link) {
@@ -616,9 +707,7 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 proxy NDP, ignoring: %m");
 
-        r = link_set_ipv6_mtu(link, LOG_INFO);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+        (void) link_set_ipv6_mtu(link, LOG_INFO);
 
         r = link_set_ipv6ll_stable_secret(link);
         if (r < 0)
