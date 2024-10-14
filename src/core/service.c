@@ -47,6 +47,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "transaction.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
@@ -2647,8 +2648,18 @@ static void service_enter_restart(Service *s, bool shortcut) {
         }
 
         /* Any units that are bound to this service must also be restarted. We use JOB_START for ourselves
-         * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs. */
-        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_RESTART_DEPENDENCIES, &error, /* ret = */ NULL);
+         * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs.
+         *
+         * When RestartMode=direct is used, the service being restarted don't enter the inactive/failed state,
+         * i.e. unit_process_job -> job_finish_and_invalidate is never called, and the previous job might still
+         * be running (especially for Type=oneshot services).
+         * We need to refuse late merge and re-enqueue the anchor job. */
+        r = manager_add_job_full(UNIT(s)->manager,
+                                 JOB_START, UNIT(s),
+                                 JOB_RESTART_DEPENDENCIES,
+                                 TRANSACTION_REENQUEUE_ANCHOR,
+                                 /* affected_jobs = */ NULL,
+                                 &error, /* ret = */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
                 return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
