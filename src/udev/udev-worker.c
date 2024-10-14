@@ -97,6 +97,12 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
          * event handling; in the case udev acquired the lock, the external process can block until udev has
          * finished its event handling. */
 
+        /* Do not try to lock device on remove event, as the device node specified by DEVNAME= has already
+         * been removed, and may already be assigned to another device. Consider the case e.g. a USB stick
+         * memory was unplugged and then another one is plugged. */
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                goto nolock;
+
         r = udev_get_whole_disk(dev, &dev_whole_disk, &val);
         if (r < 0)
                 return r;
