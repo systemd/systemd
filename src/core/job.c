@@ -162,6 +162,7 @@ static void job_set_state(Job *j, JobState state) {
 void job_uninstall(Job *j) {
         Job **pj;
 
+        assert(j);
         assert(j->installed);
 
         job_set_state(j, JOB_WAITING);
@@ -329,14 +330,16 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
          * this means the 'anchor' job (i.e. the one the user
          * explicitly asked for) is the requester. */
 
-        l = new0(JobDependency, 1);
+        l = new(JobDependency, 1);
         if (!l)
                 return NULL;
 
-        l->subject = subject;
-        l->object = object;
-        l->matters = matters;
-        l->conflicts = conflicts;
+        *l = (JobDependency) {
+                .subject = subject,
+                .object = object,
+                .matters = matters,
+                .conflicts = conflicts,
+        };
 
         if (subject)
                 LIST_PREPEND(subject, subject->subject_list, l);
