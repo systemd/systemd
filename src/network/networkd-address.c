@@ -2030,12 +2030,14 @@ static int config_parse_broadcast(
                 void *userdata) {
 
         Address *address = ASSERT_PTR(userdata);
-        union in_addr_union u;
         int r;
+
+        /* Do not check or set address->family here. It will be checked later in
+         * address_section_verify() -> address_section_adjust_broadcast() . */
 
         if (isempty(rvalue)) {
                 /* The broadcast address will be calculated based on Address=, and set if the link is
-                 * not a wireguard interface. Here, we do not check or set address->family. */
+                 * not a wireguard interface. */
                 address->broadcast = (struct in_addr) {};
                 address->set_broadcast = -1;
                 return 1;
@@ -2043,25 +2045,20 @@ static int config_parse_broadcast(
 
         r = parse_boolean(rvalue);
         if (r >= 0) {
-                /* The broadcast address will be calculated based on Address=. Here, we do not check or
-                 * set address->family. */
+                /* The broadcast address will be calculated based on Address=. */
                 address->broadcast = (struct in_addr) {};
                 address->set_broadcast = r;
                 return 1;
         }
 
-        r = in_addr_from_string(AF_INET, rvalue, &u);
-        if (r < 0)
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-        if (in4_addr_is_null(&u.in)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Broadcast cannot be ANY address, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        r = config_parse_in_addr_non_null(
+                        unit, filename, line, section, section_line,
+                        lvalue, /* ltype = */ AF_INET, rvalue,
+                        &address->broadcast, /* userdata = */ NULL);
+        if (r <= 0)
+                return r;
 
-        address->broadcast = u.in;
         address->set_broadcast = true;
-        address->family = AF_INET;
         return 1;
 }
 
