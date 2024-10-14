@@ -391,13 +391,54 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
-static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
-        int r;
+static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, bool more, AcquireMetadata am) {
+        _cleanup_free_ struct local_address *addresses = NULL;
+        _cleanup_strv_free_ char **os_release = NULL;
+        uid_t shift = UID_INVALID;
+        int n, r;
 
         assert(link);
         assert(m);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        if (should_acquire_metadata(am)) {
+                n = machine_get_addresses(m, &addresses);
+                if (n < 0 && am == ACQUIRE_METADATA_GRACEFUL)
+                        log_debug_errno(n, "Failed to get address (graceful mode), ignoring: %m");
+                else {
+                        if (n == -ENONET)
+                                return sd_varlink_error(link, "io.systemd.Machine.NoPrivateNetworking", NULL);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(n))
+                                return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        if (n < 0)
+                                return log_debug_errno(n, "Failed to get addresses: %m");
+                }
+
+                r = machine_get_os_release(m, &os_release);
+                if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
+                        log_debug_errno(r, "Failed to get OS release (graceful mode), ignoring: %m");
+                else {
+                        if (r == -ENONET)
+                                return sd_varlink_error(link, "io.systemd.Machine.NoOSReleaseInformation", NULL);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to get OS release: %m");
+                }
+
+                r = machine_get_uid_shift(m, &shift);
+                if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
+                        log_debug_errno(r, "Failed to get UID shift (graceful mode), ignoring: %m");
+                else {
+                        if (r == -ENXIO)
+                                return sd_varlink_error(link, "io.systemd.Machine.NoUIDShift", NULL);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to get UID shift: %m");
+                }
+        }
 
         r = sd_json_buildo(
                         &v,
@@ -411,7 +452,12 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
+                        /* TODO(ikruglov): how do we want to output addresses? Currently JSON_BUILD_IN_ADDR() output address like [ 192, 168, 0, 1 ].
+                         * Are we fine with an array of arrays? Or we want array of strings? Or something else? */
+                        //SD_JSON_BUILD_PAIR_CONDITION(!!addresses, "Addresses", JSON_BUILD_IN_ADDR(addresses ? &addresses->address : NULL, addresses ? addresses->family : 0)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(os_release), "OSRelease", JSON_BUILD_STRV_ENV_PAIR(os_release)),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID));
         if (r < 0)
                 return r;
 
@@ -424,6 +470,7 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
 typedef struct MachineLookupParameters {
         const char *name;
         PidRef pidref;
+        AcquireMetadata acquire_metadata;
 } MachineLookupParameters;
 
 static void machine_lookup_parameters_done(MachineLookupParameters *p) {
@@ -432,9 +479,12 @@ static void machine_lookup_parameters_done(MachineLookupParameters *p) {
         pidref_done(&p->pidref);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_acquire_metadata, AcquireMetadata, acquire_metadata_from_string);
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
+                { "acquireMetadata", SD_JSON_VARIANT_STRING, json_dispatch_acquire_metadata, offsetof(MachineLookupParameters, acquire_metadata),  0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -442,7 +492,9 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
                 .pidref = PIDREF_NULL,
+                .acquire_metadata = _ACQUIRE_METADATA_INVALID,
         };
+
         Machine *machine;
         int r;
 
@@ -460,7 +512,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 if (r != 0)
                         return r;
 
-                return list_machine_one(link, machine, /* more= */ false);
+                return list_machine_one_and_maybe_read_metadata(link, machine, /* more =*/ false, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
@@ -469,7 +521,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         Machine *previous = NULL, *i;
         HASHMAP_FOREACH(i, m->machines) {
                 if (previous) {
-                        r = list_machine_one(link, previous, /* more= */ true);
+                        r = list_machine_one_and_maybe_read_metadata(link, previous, /* more = */ true, p.acquire_metadata);
                         if (r < 0)
                                 return r;
                 }
@@ -478,7 +530,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         }
 
         if (previous)
-                return list_machine_one(link, previous, /* more= */ false);
+                return list_machine_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
 
         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
 }
