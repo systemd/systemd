@@ -156,6 +156,7 @@ assert_rc 3 systemctl --quiet is-active propagatestopto-and-pullin.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
 # Test restart mode direct
+
 systemctl start succeeds-on-restart-restartdirect.target
 assert_rc 0 systemctl --quiet is-active succeeds-on-restart-restartdirect.target
 
@@ -167,6 +168,30 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
+COUNTER_FILE=/tmp/test-03-restart-counter
+export FAILURE_FLAG_FILE=/tmp/test-03-restart-failure-flag
+
+assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-normal.service
+assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-direct.service
+assert_rc 3 systemctl --quiet is-active counter.service
+echo 0 >"$COUNTER_FILE"
+
+systemctl start counter.service
+assert_eq "$(cat "$COUNTER_FILE")" "1"
+systemctl --quiet is-active sleep-infinity-restart-normal.service
+systemctl --quiet is-active sleep-infinity-restart-direct.service
+systemctl --quiet is-active counter.service
+
+systemctl kill --signal=KILL sleep-infinity-restart-direct.service
+systemctl --quiet is-active counter.service
+assert_eq "$(cat "$COUNTER_FILE")" "1"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+systemctl kill --signal=KILL sleep-infinity-restart-normal.service
+timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
+assert_eq "$(cat "$COUNTER_FILE")" "2"
 
 # Test shortcutting auto restart
 
