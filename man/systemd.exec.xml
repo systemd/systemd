@@ -1476,6 +1476,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         below the locations defined in the following table. Also, the corresponding environment variable will
         be defined with the full paths of the directories. If multiple directories are set, then in the
         environment variable the paths are concatenated with colon (<literal>:</literal>).</para>
+
+        <para>If the kernel version suppors <ulink url="https://lwn.net/Articles/896255/">id-mapped mounts</ulink>,
+        the specified directories will be owned by "nobody" in the host namespace and will be mapped to (and will be
+        owned by) the service's UID/GUID in its own namespace. For backward compatibility, existing directories
+        created without id-mapped mounts will be kept untouched.</para>
+
         <table>
           <title>Automatic directory creation and environment variables</title>
           <tgroup cols='4'>
