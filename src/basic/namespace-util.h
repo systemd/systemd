@@ -3,9 +3,11 @@
 
 #include <sys/types.h>
 
+typedef enum NamespaceType NamespaceType;
+
 #include "pidref.h"
 
-typedef enum NamespaceType {
+enum NamespaceType {
         NAMESPACE_CGROUP,
         NAMESPACE_IPC,
         NAMESPACE_NET,
@@ -16,7 +18,7 @@ typedef enum NamespaceType {
         NAMESPACE_TIME,
         _NAMESPACE_TYPE_MAX,
         _NAMESPACE_TYPE_INVALID = -EINVAL,
-} NamespaceType;
+};
 
 extern const struct namespace_info {
         const char *proc_name;
