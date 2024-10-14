@@ -1,17 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+typedef struct PidRef PidRef;
+
 #include "macro.h"
+#include "process-util.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continuously. */
-typedef struct PidRef {
+struct PidRef {
         pid_t pid;      /* always valid */
         int fd;         /* only valid if pidfd are available in the kernel, and we manage to get an fd */
         uint64_t fd_id; /* the inode number of pidfd. only useful in kernel 6.9+ where pidfds live in
                            their own pidfs and each process comes with a unique inode number */
-} PidRef;
+};
 
 #define PIDREF_NULL (const PidRef) { .fd = -EBADF }
+
+/* A special pidref value that we are using when a PID shall be automatically acquired from some surrounding
+ * context, for example connection peer. Much like PIDREF_NULL it will be considerd unset by
+ * pidref_is_set().*/
+#define PIDREF_AUTOMATIC (const PidRef) { .pid = PID_AUTOMATIC, .fd = -EBADF }
 
 /* Turns a pid_t into a PidRef structure on-the-fly *without* acquiring a pidfd for it. (As opposed to
  * pidref_set_pid() which does so *with* acquiring one, see below) */
@@ -20,6 +28,8 @@ typedef struct PidRef {
 static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
+
+bool pidref_is_automatic(const PidRef *pidref);
 
 int pidref_acquire_pidfd_id(PidRef *pidref);
 bool pidref_equal(PidRef *a, PidRef *b);
