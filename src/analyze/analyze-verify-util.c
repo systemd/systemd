@@ -251,7 +251,7 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);
-        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, NULL, &error, NULL);
+        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, &error, /* ret = */ NULL);
         if (r < 0)
                 log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&error, r));
 
