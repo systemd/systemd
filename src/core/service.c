@@ -2648,11 +2648,10 @@ static void service_enter_restart(Service *s, bool shortcut) {
 
         /* Any units that are bound to this service must also be restarted. We use JOB_START for ourselves
          * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs. */
-        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_RESTART_DEPENDENCIES, NULL, &error, NULL);
+        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_RESTART_DEPENDENCIES, &error, /* ret = */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
-                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
-                return;
+                return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
         }
 
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't
