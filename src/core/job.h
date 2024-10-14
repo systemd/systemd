@@ -127,13 +127,17 @@ struct Job {
         LIST_HEAD(JobDependency, object_list);
 
         /* Used for graph algs as a "I have been here" marker */
-        Job* marker;
+        Job *marker;
         unsigned generation;
 
         uint32_t id;
 
         JobType type;
         JobState state;
+
+        JobResult result;
+
+        unsigned run_queue_idx;
 
         sd_event_source *timer_event_source;
         usec_t begin_usec;
@@ -148,10 +152,6 @@ struct Job {
          */
         sd_bus_track *bus_track;
         char **deserialized_clients;
-
-        JobResult result;
-
-        unsigned run_queue_idx;
 
         /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
         ActivationDetails *activation_details;
@@ -171,9 +171,12 @@ Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
 void job_unlink(Job *job);
 Job* job_free(Job *job);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
+
 Job* job_install(Job *j, bool refuse_late_merge);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
+
 void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
@@ -181,8 +184,6 @@ int job_coldplug(Job *j);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
 void job_dependency_free(JobDependency *l);
-
-int job_merge(Job *j, Job *other);
 
 JobType job_type_lookup_merge(JobType a, JobType b) _pure_;
 
@@ -230,8 +231,6 @@ void job_add_to_gc_queue(Job *j);
 
 int job_get_before(Job *j, Job*** ret);
 int job_get_after(Job *j, Job*** ret);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
