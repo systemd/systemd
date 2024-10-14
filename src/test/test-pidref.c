@@ -224,4 +224,42 @@ TEST(pidref_verify) {
         assert_se(pidref_verify(&pidref) == (pidref.fd >= 0));
 }
 
+TEST(pidref_is_automatic) {
+        assert_se(!pidref_is_automatic(NULL));
+        assert_se(!pidref_is_automatic(&PIDREF_NULL));
+        assert_se(!pidref_is_automatic(&PIDREF_MAKE_FROM_PID(1)));
+        assert_se(!pidref_is_automatic(&PIDREF_MAKE_FROM_PID(getpid_cached())));
+        assert_se(pidref_is_automatic(&PIDREF_AUTOMATIC));
+
+        assert_se(!pid_is_automatic(0));
+        assert_se(!pid_is_automatic(1));
+        assert_se(!pid_is_automatic(getpid_cached()));
+        assert_se(pid_is_automatic(PID_AUTOMATIC));
+
+        assert_se(!pidref_is_set(&PIDREF_AUTOMATIC));
+        assert_se(!pid_is_valid(PID_AUTOMATIC));
+}
+
+TEST(pidref_is_remote) {
+        assert_se(!pidref_is_remote(NULL));
+        assert_se(!pidref_is_remote(&PIDREF_NULL));
+        assert_se(!pidref_is_remote(&PIDREF_MAKE_FROM_PID(1)));
+        assert_se(!pidref_is_remote(&PIDREF_MAKE_FROM_PID(getpid_cached())));
+        assert_se(!pidref_is_remote(&PIDREF_AUTOMATIC));
+
+        static const PidRef p = {
+                .pid = 1,
+                .fd = -EREMOTE,
+                .fd_id = 4711,
+        };
+
+        assert_se(pidref_is_set(&p));
+        assert_se(pidref_is_remote(&p));
+        assert_se(!pidref_is_automatic(&p));
+        assert_se(pidref_kill(&p, SIGTERM) == -EREMOTE);
+        assert_se(pidref_kill_and_sigcont(&p, SIGTERM) == -EREMOTE);
+        assert_se(pidref_wait_for_terminate(&p, /* ret= */ NULL) == -EREMOTE);
+        assert_se(pidref_verify(&p) == -EREMOTE);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
