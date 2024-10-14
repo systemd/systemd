@@ -2646,16 +2646,17 @@ static void service_enter_restart(Service *s, bool shortcut) {
                 return;
         }
 
-        /* Any units that are bound to this service must also be restarted. We use JOB_START for ourselves
-         * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs.
+        /* Any units that are bound to this service must also be restarted, unless RestartMode=direct.
+         * We use JOB_START for ourselves but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART
+         * for those dependency jobs in the former case, plain JOB_REPLACE when RestartMode=direct.
          *
-         * When RestartMode=direct is used, the service being restarted don't enter the inactive/failed state,
+         * Also, when RestartMode=direct is used, the service being restarted don't enter the inactive/failed state,
          * i.e. unit_process_job -> job_finish_and_invalidate is never called, and the previous job might still
          * be running (especially for Type=oneshot services).
          * We need to refuse late merge and re-enqueue the anchor job. */
         r = manager_add_job_full(UNIT(s)->manager,
                                  JOB_START, UNIT(s),
-                                 JOB_RESTART_DEPENDENCIES,
+                                 s->restart_mode == SERVICE_RESTART_MODE_DIRECT ? JOB_REPLACE : JOB_RESTART_DEPENDENCIES,
                                  TRANSACTION_REENQUEUE_ANCHOR,
                                  /* affected_jobs = */ NULL,
                                  &error, /* ret = */ NULL);
