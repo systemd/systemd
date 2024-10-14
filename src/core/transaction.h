@@ -33,7 +33,9 @@ typedef enum TransactionAddFlags {
         /* Indicate that we're in the recursion for processing UNIT_ATOM_PROPAGATE_STOP_GRACEFUL units */
         TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL = 1 << 5,
 
-        _TRANSACTION_FLAGS_MASK_PUBLIC              = 0,
+        TRANSACTION_DONT_PROPAGATE_STOP             = 1 << 6,
+
+        _TRANSACTION_FLAGS_MASK_PUBLIC              = TRANSACTION_DONT_PROPAGATE_STOP,
 } TransactionAddFlags;
 
 void transaction_add_propagate_reload_jobs(

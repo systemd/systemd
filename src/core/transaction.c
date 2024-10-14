@@ -1084,7 +1084,9 @@ int transaction_add_job_and_dependencies(
                 }
         }
 
-        if (IN_SET(type, JOB_RESTART, JOB_STOP) || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
+        if (!FLAGS_SET(flags, TRANSACTION_DONT_PROPAGATE_STOP) &&
+            (IN_SET(type, JOB_RESTART, JOB_STOP) ||
+             (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART)))) {
                 bool is_stop = type == JOB_STOP;
 
                 UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP) {
