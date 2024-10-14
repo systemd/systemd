@@ -127,7 +127,7 @@ struct Job {
         LIST_HEAD(JobDependency, object_list);
 
         /* Used for graph algs as a "I have been here" marker */
-        Job* marker;
+        Job *marker;
         unsigned generation;
 
         uint32_t id;
