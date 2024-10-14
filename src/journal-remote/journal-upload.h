@@ -3,11 +3,17 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stdatomic.h>
 
 #include "sd-event.h"
 #include "sd-journal.h"
 
+#include "compress.h"
+#include "conf-parser.h"
 #include "time-util.h"
+
+CONFIG_PARSER_PROTOTYPE(config_parse_header);
+CONFIG_PARSER_PROTOTYPE(config_parse_compression);
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
@@ -28,7 +34,7 @@ typedef struct Uploader {
 
         char *url;
         CURL *easy;
-        bool uploading;
+        atomic_bool uploading;
         char error[CURL_ERROR_SIZE];
         struct curl_slist *header;
         char *answer;
@@ -49,10 +55,16 @@ typedef struct Uploader {
         /* general metrics */
         const char *state_file;
 
+        double bytes_left;
+        double entries_left;
+        timer_t batch_timeout_id;
+
         size_t entries_sent;
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
+        Compression compression;
+        int compression_level;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
@@ -64,6 +76,7 @@ int start_upload(Uploader *u,
                                           void *userdata),
                  void *data);
 
+void update_uploader_stat(Uploader *u, int w);
 int open_journal_for_upload(Uploader *u,
                             sd_journal *j,
                             const char *cursor,
