@@ -503,18 +503,18 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static bool slash_boot_exists(void) {
+static bool slash_efi_exists(void) {
         static int cache = -1;
 
         if (cache >= 0)
                 return cache;
 
-        if (access("/boot", F_OK) >= 0)
+        if (access("/efi", F_OK) >= 0)
                 return (cache = true);
         if (errno != ENOENT)
-                log_error_errno(errno, "Failed to determine whether /boot/ exists, assuming no: %m");
+                log_error_errno(errno, "Failed to determine whether /efi/ exists, assuming no: %m");
         else
-                log_debug_errno(errno, "/boot/: %m");
+                log_debug_errno(errno, "/efi/: %m");
         return (cache = false);
 }
 
@@ -538,10 +538,10 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (r > 0)
                 return 0;
 
-        /* If /boot/ is present, unused, and empty, we'll take that.
+        /* Only attempt to mount to /boot/ if there is no XBOOTLDR partition and /efi/ doesn't already exists.
          * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
          * Otherwise, we do nothing. */
-        if (!has_xbootldr && slash_boot_exists()) {
+        if (!has_xbootldr && !slash_efi_exists()) {
                 r = path_is_busy("/boot");
                 if (r < 0)
                         return r;
