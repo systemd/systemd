@@ -448,7 +448,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 r = lookup_machine_by_name_or_pid(link, m, p.machine_name, p.pid, &machine);
                 if (r == -ESRCH)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
-                if (r < 0)
+                if (r != 0)
                         return r;
 
                 return list_machine_one(link, machine, /* more= */ false);
@@ -496,7 +496,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         return method(link, parameters, flags, machine);
