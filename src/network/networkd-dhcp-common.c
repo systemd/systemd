@@ -71,7 +71,7 @@ bool link_dhcp_enabled(Link *link, int family) {
         if (!link->network)
                 return false;
 
-        return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+        return link->network->dhcp & AF_TO_ADDRESS_FAMILY(family);
 }
 
 void network_adjust_dhcp(Network *network) {
