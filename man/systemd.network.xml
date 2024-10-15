@@ -6243,22 +6243,22 @@ Name=enp1s0
 [Network]
 DHCP=ipv6
 
-# The below setting is optional, to also assign an address in the delegated prefix
-# to the upstream interface. If not necessary, then comment out the line below and
-# the [DHCPPrefixDelegation] section.
-DHCPPrefixDelegation=yes
+# The lines below are optional, to also assign an address in the delegated prefix
+# to the upstream interface. Uncomment the lines below if necessary.
+#[Network]
+#DHCPPrefixDelegation=yes
+#[DHCPPrefixDelegation]
+#UplinkInterface=:self
+#SubnetId=0
+#Announce=no
 
-# If the upstream network provides Router Advertisement with Managed bit set,
-# then comment out the line below and WithoutRA= setting in the [DHCPv6] section.
-IPv6AcceptRA=no
-
-[DHCPv6]
-WithoutRA=solicit
-
-[DHCPPrefixDelegation]
-UplinkInterface=:self
-SubnetId=0
-Announce=no</programlisting>
+# If the upstream network does not provides any Router Advertisement (RA) messages
+# or provides an RA with both Managed and Other-information bits unset, then
+# uncomment the lines below.
+#[Network]
+#IPv6AcceptRA=no
+#[DHCPv6]
+#WithoutRA=solicit</programlisting>
 
       <programlisting># /etc/systemd/network/55-dhcpv6-pd-downstream.network
 [Match]

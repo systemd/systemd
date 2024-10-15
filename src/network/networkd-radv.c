@@ -1372,7 +1372,7 @@ int config_parse_router_prefix_delegation(
                 }
 
                 /* When IPv6SendRA= is enabled, only static prefixes are sent by default, and users
-                 * need to explicitly enable DHCPv6PrefixDelegation=. */
+                 * need to explicitly enable DHCPPrefixDelegation=. */
                 *ra = r ? RADV_PREFIX_DELEGATION_STATIC : RADV_PREFIX_DELEGATION_NONE;
                 return 0;
         }
