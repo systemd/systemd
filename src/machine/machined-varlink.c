@@ -583,16 +583,18 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         if (p.image_name) {
+                _cleanup_(image_unrefp) Image *found = NULL;
+
                 if (!image_name_is_valid(p.image_name))
                         return sd_varlink_error_invalid_parameter_name(link, "name");
 
-                r = image_find(IMAGE_MACHINE, p.image_name, /* root = */ NULL, &image);
+                r = image_find(IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
                 if (r == -ENOENT)
                         return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find image: %m");
 
-                return list_image_one_and_maybe_read_metadata(link, image, /* more = */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(link, found, /* more = */ false, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
