@@ -224,4 +224,20 @@ TEST(pidref_verify) {
         assert_se(pidref_verify(&pidref) == (pidref.fd >= 0));
 }
 
+TEST(pidref_is_automatic) {
+        assert_se(!pidref_is_automatic(NULL));
+        assert_se(!pidref_is_automatic(&PIDREF_NULL));
+        assert_se(!pidref_is_automatic(&PIDREF_MAKE_FROM_PID(1)));
+        assert_se(!pidref_is_automatic(&PIDREF_MAKE_FROM_PID(getpid_cached())));
+        assert_se(pidref_is_automatic(&PIDREF_AUTOMATIC));
+
+        assert_se(!pid_is_automatic(0));
+        assert_se(!pid_is_automatic(1));
+        assert_se(!pid_is_automatic(getpid_cached()));
+        assert_se(pid_is_automatic(PID_AUTOMATIC));
+
+        assert_se(!pidref_is_set(&PIDREF_AUTOMATIC));
+        assert_se(!pid_is_valid(PID_AUTOMATIC));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

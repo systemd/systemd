@@ -428,6 +428,10 @@ int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret) {
         }
 }
 
+bool pidref_is_automatic(const PidRef *pidref) {
+        return pidref && pid_is_automatic(pidref->pid);
+}
+
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress_typesafe(pidref->pid, state);
 }
