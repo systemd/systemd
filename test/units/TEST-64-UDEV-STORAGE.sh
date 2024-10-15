@@ -219,6 +219,7 @@ testcase_nvme_basic() {
     for i in "${expected_symlinks[@]}"; do
         udevadm wait --settle --timeout=30 "$i"
     done
+    test ! -e /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
 
     lsblk --noheadings | grep "^nvme"
     [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 20 ]]
