@@ -171,9 +171,15 @@ static int userdb_on_query_reply(
         if (error_id) {
                 log_debug("Got lookup error: %s", error_id);
 
+                /* Convert various forms of record not found into -ESRCH, since NSS typically doesn't care,
+                 * about the details. Note that if a userName specification is refused as invalid parameter,
+                 * we also turn this into -ESRCH following the logic that there cannot be a user record for a
+                 * completely invalid user name. */
                 if (STR_IN_SET(error_id,
                                "io.systemd.UserDatabase.NoRecordFound",
-                               "io.systemd.UserDatabase.ConflictingRecordFound"))
+                               "io.systemd.UserDatabase.ConflictingRecordFound") ||
+                    sd_varlink_error_is_invalid_parameter(error_id, parameters, "userName") ||
+                    sd_varlink_error_is_invalid_parameter(error_id, parameters, "groupName"))
                         r = -ESRCH;
                 else if (streq(error_id, "io.systemd.UserDatabase.ServiceNotAvailable"))
                         r = -EHOSTDOWN;
