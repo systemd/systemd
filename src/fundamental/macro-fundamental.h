@@ -13,7 +13,7 @@
 
 /* Supported on GCC >= 10 and clang */
 #ifndef __has_builtin
-  #define __has_builtin(x) 0
+#  define __has_builtin(x) 0
 #endif
 /* Supported on GCC >= 14 and clang */
 #ifndef __has_feature
