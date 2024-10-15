@@ -493,6 +493,11 @@ static const uint8_t msg_information_request[] = {
         DHCP6_MESSAGE_INFORMATION_REQUEST,
         /* Transaction ID */
         0x0f, 0xb4, 0xe5,
+        /* IA_PD */
+        0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x0c,
+        IA_ID_BYTES,
+        0x00, 0x00, 0x00, 0x00, /* lifetime T1 */
+        0x00, 0x00, 0x00, 0x00, /* lifetime T2 */
         /* MUD URL */
         /* ORO */
         0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x0c,
