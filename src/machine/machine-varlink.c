@@ -236,6 +236,8 @@ int lookup_machine_by_name_or_pid(sd_varlink *link, Manager *manager, const char
         assert(manager);
         assert(ret_machine);
 
+        /* This returns 0 on success, 1 on error and it is replied, and a negative errno otherwise. */
+
         if (machine_name) {
                 r = lookup_machine_by_name(link, manager, machine_name, &machine);
                 if (r == -EINVAL)
@@ -340,7 +342,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         r = lookup_machine_by_name_or_pid(link, manager, p.machine_name, p.pid, &machine);
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (isempty(p.swhom))
