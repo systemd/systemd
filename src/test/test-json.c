@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_tokenizer_one(const char *data, ...) {
         unsigned line = 0, column = 0;
@@ -1305,6 +1306,99 @@ TEST(pidref) {
 
         pidref_done(&data.myself);
         pidref_done(&data.pid1);
+}
+
+TEST(devnum) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        dev_t dev = makedev(123, 456), parsed;
+
+        ASSERT_OK(json_variant_new_devnum(&v, dev));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        ASSERT_OK(json_dispatch_devnum("devnum", v, /* flags= */ 0, &parsed));
+        ASSERT_EQ(major(parsed), major(dev));
+        ASSERT_EQ(minor(parsed), minor(dev));
+        v = sd_json_variant_unref(v);
+
+        dev = makedev(1 << 12, 456);
+        ASSERT_OK(json_variant_new_devnum(&v, dev));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        ASSERT_FAIL(json_dispatch_devnum("devnum", v, /* flags= */ 0, &parsed));
+        v = sd_json_variant_unref(v);
+
+        dev = makedev(123, 1 << 20);
+        ASSERT_OK(json_variant_new_devnum(&v, dev));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        ASSERT_FAIL(json_dispatch_devnum("devnum", v, /* flags= */ 0, &parsed));
+}
+
+TEST(fd_info) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        /* directories */
+        ASSERT_OK(json_variant_new_fd_info(&v, AT_FDCWD));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+
+        ASSERT_OK_ERRNO(fd = openat(AT_FDCWD, ".", O_CLOEXEC | O_DIRECTORY | O_PATH));
+        ASSERT_OK(json_variant_new_fd_info(&v, fd));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+        fd = safe_close(fd);
+
+        /* regular file */
+        ASSERT_OK(fd = open_tmpfile_unlinkable(NULL, O_RDWR));
+        ASSERT_OK(json_variant_new_fd_info(&v, fd));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+        fd = safe_close(fd);
+
+        if (access("/sys/class/net/lo/uevent", F_OK) >= 0) {
+                ASSERT_OK_ERRNO(fd = open("/sys/class/net/lo/uevent", O_CLOEXEC | O_PATH));
+                ASSERT_OK(json_variant_new_fd_info(&v, fd));
+                ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+                v = sd_json_variant_unref(v);
+                fd = safe_close(fd);
+        }
+
+        /* block device */
+        if (access("/dev/sda", F_OK) >= 0) {
+                ASSERT_OK_ERRNO(fd = open("/dev/sda", O_CLOEXEC | O_PATH));
+                ASSERT_OK(json_variant_new_fd_info(&v, fd));
+                ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+                v = sd_json_variant_unref(v);
+                fd = safe_close(fd);
+        }
+
+        /* stream */
+        ASSERT_OK(json_variant_new_fd_info(&v, fileno(stdout)));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+
+        /* socket */
+        ASSERT_OK_ERRNO(fd = socket(AF_INET, SOCK_DGRAM, 0));
+        ASSERT_OK(json_variant_new_fd_info(&v, fd));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        v = sd_json_variant_unref(v);
+        fd = safe_close(fd);
+
+        /* pidfd */
+        ASSERT_OK(pidref_set_pid(&pidref, 0));
+        if (pidref.fd >= 0) {
+                ASSERT_OK(json_variant_new_fd_info(&v, pidref.fd));
+                ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+                v = sd_json_variant_unref(v);
+        }
+        pidref_done(&pidref);
+
+        ASSERT_OK(pidref_set_pid(&pidref, 1));
+        if (pidref.fd >= 0) {
+                ASSERT_OK(json_variant_new_fd_info(&v, pidref.fd));
+                ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+                v = sd_json_variant_unref(v);
+        }
+        pidref_done(&pidref);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

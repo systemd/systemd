@@ -46,6 +46,10 @@ busctl call -j \
 busctl call --verbose --timeout=60 --expect-reply=yes \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByPatterns asas 1 "active" 2 "systemd-*.socket" "*.mount"
+# show information passed fd
+busctl call --json=pretty \
+            org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
+            DumpByFileDescriptor | jq
 
 busctl emit /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForSleep b false
