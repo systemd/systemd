@@ -47,6 +47,12 @@ CHANGES WITH 257 in spe:
           migrated between cgroups. It might be fully removed in a future release
           (reach out if you have use cases).
 
+        * The recommended kernel baseline version has been bumped to v5.4
+          (released in 2019). Expect limited testing on older kernel versions,
+          where "old-kernel" taint flag would also be set. Support for them
+          will be phased out in a future release in 2025, i.e. we expect to bump
+          the minimum baseline to v5.4 then too.
+
         * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
           considered obsolete and systemd by default will refuse to boot under
           it. To forcibly reenable cgroup v1 support,
