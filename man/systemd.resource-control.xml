@@ -1546,6 +1546,24 @@ DeviceAllow=/dev/loop-control
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManagedOOMMemoryPressureDurationSec=</varname></term>
+
+        <listitem>
+          <para>Overrides the default memory pressure duration set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          this unit (cgroup). The specified value supports a time unit such as <literal>ms</literal> or
+          <literal>μs</literal>, see
+          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details on the permitted syntax. This property is ignored unless
+          <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>. Must be set to either empty or
+          a value of at least 1s. Defaults to empty, which means to use the default set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ManagedOOMPreference=none|avoid|omit</varname></term>
 
         <listitem>

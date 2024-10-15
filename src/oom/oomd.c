@@ -21,13 +21,13 @@
 static bool arg_dry_run = false;
 static int arg_swap_used_limit_permyriad = -1;
 static int arg_mem_pressure_limit_permyriad = -1;
-static usec_t arg_mem_pressure_usec = 0;
+static usec_t arg_mem_pressure_usec = USEC_INFINITY;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &arg_swap_used_limit_permyriad    },
                 { "OOM", "DefaultMemoryPressureLimit",       config_parse_permyriad, 0, &arg_mem_pressure_limit_permyriad },
-                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_sec,       0, &arg_mem_pressure_usec            },
+                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_sec_fix_0, 0, &arg_mem_pressure_usec            },
                 {}
         };
 
@@ -167,7 +167,7 @@ static int run(int argc, char *argv[]) {
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the cgroup memory controller.");
 
-        if (arg_mem_pressure_usec > 0 && arg_mem_pressure_usec < 1 * USEC_PER_SEC)
+        if (arg_mem_pressure_usec < 1 * USEC_PER_SEC)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DefaultMemoryPressureDurationSec= must be 0 or at least 1s");
 
         r = manager_new(&m);
