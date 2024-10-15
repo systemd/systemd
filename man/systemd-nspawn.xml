@@ -220,6 +220,20 @@
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--cleanup</option></term>
+
+        <listitem>
+          <para>Clean up left-over mounts and underlying mount points used by the container, and exit without
+          invoking any containers. This may be useful when the previous invocation of
+          <command>systemd-nspawn</command> was unexpectedly terminated. This requires at least one of
+          <option>-M/--machine=</option>, <option>-D/--directory=</option>, or <option>-i/--image=</option>
+          to determine the mounts to be cleaned up.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <refsect2>
