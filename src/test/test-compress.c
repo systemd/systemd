@@ -33,7 +33,7 @@
 #define HUGE_SIZE (4096*1024)
 
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, size_t dst_alloc_size, size_t *dst_size);
+                              void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
                                 void **dst,
                                 size_t* dst_size, size_t dst_max);
@@ -62,7 +62,7 @@ _unused_ static void test_compress_decompress(
         log_info("/* testing %s %s blob compression/decompression */",
                  compression, data);
 
-        r = compress(data, data_len, compressed, sizeof(compressed), &csize);
+        r = compress(data, data_len, compressed, sizeof(compressed), &csize, /* level = */ -1);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
@@ -111,14 +111,14 @@ _unused_ static void test_decompress_startswith(const char *compression,
 
         compressed = compressed1 = malloc(BUFSIZE_1);
         assert_se(compressed1);
-        r = compress(data, data_len, compressed, BUFSIZE_1, &csize);
+        r = compress(data, data_len, compressed, BUFSIZE_1, &csize, /* level = */ -1);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
 
                 compressed = compressed2 = malloc(BUFSIZE_2);
                 assert_se(compressed2);
-                r = compress(data, data_len, compressed, BUFSIZE_2, &csize);
+                r = compress(data, data_len, compressed, BUFSIZE_2, &csize, /* level = */ -1);
         }
         assert_se(r >= 0);
 
@@ -150,7 +150,7 @@ _unused_ static void test_decompress_startswith_short(const char *compression,
 
         log_info("/* %s with %s */", __func__, compression);
 
-        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize);
+        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize, /* level = */ -1);
         assert_se(r >= 0);
 
         for (size_t i = 1; i < strlen(TEXT); i++) {
@@ -242,7 +242,7 @@ static void test_lz4_decompress_partial(void) {
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
         huge[HUGE_SIZE - 1] = '\0';
 
-        r = sym_LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
+        r = sym_LZ4_compress_fast(huge, buf, HUGE_SIZE, buf_size, /* level = */ -1);
         assert_se(r >= 0);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
