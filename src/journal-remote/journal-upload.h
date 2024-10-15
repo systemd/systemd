@@ -7,7 +7,12 @@
 #include "sd-event.h"
 #include "sd-journal.h"
 
+#include "compress.h"
+#include "conf-parser.h"
 #include "time-util.h"
+
+CONFIG_PARSER_PROTOTYPE(config_parse_header);
+CONFIG_PARSER_PROTOTYPE(config_parse_compression);
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
@@ -49,10 +54,16 @@ typedef struct Uploader {
         /* general metrics */
         const char *state_file;
 
+        uint64_t bytes_left;
+        uint64_t entries_left;
+        sd_event_source *batch_timeout_event;
+
         size_t entries_sent;
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
+        Compression compression;
+        int compression_level;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
@@ -64,6 +75,7 @@ int start_upload(Uploader *u,
                                           void *userdata),
                  void *data);
 
+void update_uploader_stat(Uploader *u, uint64_t w);
 int open_journal_for_upload(Uploader *u,
                             sd_journal *j,
                             const char *cursor,

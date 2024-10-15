@@ -11,15 +11,18 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
 #include "log.h"
@@ -42,11 +45,12 @@
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define DEFAULT_PORT  19532
 
-static const char* arg_url = NULL;
+static const char *arg_url = NULL;
 static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
 static const char *arg_directory = NULL;
+static char **arg_headers = NULL;
 static char **arg_file = NULL;
 static const char *arg_cursor = NULL;
 static bool arg_after_cursor = false;
@@ -58,8 +62,14 @@ static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
+static Compression arg_compression = COMPRESSION_NONE;
+static int arg_compression_level = -1;
+static uint64_t arg_batch_max_bytes = UINT_MAX;
+static uint64_t arg_batch_max_entries = UINT_MAX;
+static usec_t arg_batch_timeout_usec = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_headers, strv_freep);
 
 static void close_fd_input(Uploader *u);
 
@@ -121,6 +131,79 @@ static int check_cursor_updating(Uploader *u) {
         return 0;
 }
 
+int config_parse_compression(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *compression = ASSERT_PTR(data);
+        if (isempty(rvalue)) {
+                *compression = COMPRESSION_NONE;
+                return 0;
+        }
+
+        _cleanup_free_ char *s = strdup(rvalue);
+        if (!s)
+                return log_oom();
+
+        Compression c = compression_from_string(ascii_strupper(s));
+        if (c < 0)
+                log_syntax_parse_error(unit, filename, line, c, lvalue, rvalue);
+        if (!compression_supported(c))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compression=%s is not supported on a system", rvalue);
+
+        *compression = c;
+        return 0;
+}
+
+int config_parse_header(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***headers = ASSERT_PTR(data);
+        char *unescaped;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *headers = strv_free(*headers);
+                return 0;
+        }
+
+        if (!header_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid header, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        r = strv_header_replace_consume(headers, TAKE_PTR(unescaped));
+        if (r < 0)
+                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                  "Failed to updated headers: %s", rvalue);
+        return 0;
+}
+
 static int update_cursor_state(Uploader *u) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -156,6 +239,26 @@ fail:
         return log_error_errno(r, "Failed to save state %s: %m", u->state_file);
 }
 
+static int refresh_timeout(Uploader *u) {
+        int r;
+
+        assert(u);
+
+        u->bytes_left = arg_batch_max_bytes;
+        u->entries_left = arg_batch_max_entries;
+        u->uploading = true;
+
+        if (arg_batch_timeout_usec != USEC_INFINITY) {
+                r = sd_event_source_set_time_relative(u->batch_timeout_event, arg_batch_timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create a batch timer: %m");
+                r = sd_event_source_set_enabled(u->batch_timeout_event, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
+        }
+        return 0;
+}
+
 static int load_cursor_state(Uploader *u) {
         int r;
 
@@ -180,6 +283,7 @@ int start_upload(Uploader *u,
                                           size_t nmemb,
                                           void *userdata),
                  void *data) {
+        int r;
         CURLcode code;
 
         assert(u);
@@ -202,6 +306,27 @@ int start_upload(Uploader *u,
                 if (!l)
                         return log_oom();
                 h = l;
+
+                if (arg_compression != COMPRESSION_NONE) {
+                        char *header;
+                        _cleanup_free_ char *encoding = strdup(compression_to_string(arg_compression));
+                        if (!encoding)
+                                return log_oom();
+                        header = strjoin("Content-Encoding: ", ascii_strlower(encoding));
+                        if (!header)
+                                return log_oom();
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
+                STRV_FOREACH(header, arg_headers) {
+                        l = curl_slist_append(h, *header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
 
                 u->header = TAKE_PTR(h);
         }
@@ -279,6 +404,10 @@ int start_upload(Uploader *u,
                 u->answer = mfree(u->answer);
         }
 
+        r = refresh_timeout(u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to refresh uploader timer");
+
         /* upload to this place */
         code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
         if (code)
@@ -292,8 +421,11 @@ int start_upload(Uploader *u,
 }
 
 static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+        int r;
         Uploader *u = ASSERT_PTR(userp);
         ssize_t n;
+        size_t read_size;
+        _cleanup_free_ char *compression_buffer = NULL;
 
         assert(nmemb < SSIZE_MAX / size);
 
@@ -302,10 +434,37 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
 
         assert(!size_multiply_overflow(size, nmemb));
 
-        n = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, n);
-        if (n > 0)
-                return n;
+        read_size = size * nmemb;
+        if (read_size > u->bytes_left)
+                read_size = u->bytes_left;
+
+        if (u->compression != COMPRESSION_NONE) {
+                compression_buffer = malloc(read_size);
+                if (!compression_buffer) {
+                        log_oom();
+                        return CURL_READFUNC_ABORT;
+                }
+        }
+
+        n = read(u->input, compression_buffer ?: buf, read_size);
+        log_debug("%s: allowed %zu, read %zd", __func__, read_size, n);
+
+        if (n > 0) {
+                update_uploader_stat(u, n);
+                if (u->compression == COMPRESSION_NONE) {
+                        return n;
+                }
+
+                size_t compressed_size;
+
+                r = compress_blob(u->compression, compression_buffer, n, buf, read_size, &compressed_size, u->compression_level);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to compress %ld bytes using Compression=%s, CompressionLevel=%d)",
+                                        n, compression_to_string(u->compression), u->compression_level);
+                        return CURL_READFUNC_ABORT;
+                }
+                return compressed_size;
+        }
 
         u->uploading = false;
         if (n < 0) {
@@ -380,6 +539,12 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         return r;
 }
 
+static int finish_uploading(sd_event_source *s, uint64_t usec, void *userdata) {
+        Uploader *u = ASSERT_PTR(userdata);
+        u->uploading = false;
+        return 0;
+}
+
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
         const char *host, *proto = "";
@@ -389,6 +554,8 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         *u = (Uploader) {
                 .input = -1,
+                .compression = arg_compression,
+                .compression_level = arg_compression_level,
         };
 
         host = STARTSWITH_SET(url, "http://", "https://");
@@ -423,9 +590,33 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
+        if (arg_batch_timeout_usec != USEC_INFINITY) {
+                r = sd_event_add_time_relative(u->event, &u->batch_timeout_event, CLOCK_MONOTONIC,
+                                               arg_batch_timeout_usec, 0, finish_uploading, u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start batch timer: %m");
+        }
+
         (void) sd_watchdog_enabled(false, &u->watchdog_usec);
 
         return load_cursor_state(u);
+}
+
+void update_uploader_stat(Uploader *u, uint64_t w) {
+        assert(u);
+        if (!u->uploading)
+                return;
+        if (w > u->bytes_left) {
+                u->bytes_left = 0;
+                u->uploading = false;
+                return;
+        }
+        if (u->entries_left <= 1) {
+                u->uploading = false;
+                return;
+        }
+        u->entries_left--;
+        u->bytes_left -= w;
 }
 
 static void destroy_uploader(Uploader *u) {
@@ -441,6 +632,7 @@ static void destroy_uploader(Uploader *u) {
         free(u->url);
 
         u->input_event = sd_event_source_unref(u->input_event);
+        u->batch_timeout_event = sd_event_source_unref(u->batch_timeout_event);
 
         close_fd_input(u);
         close_journal_input(u);
@@ -496,6 +688,12 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
+                { "Upload",  "Compression",            config_parse_compression,    0,                        &arg_compression          },
+                { "Upload",  "CompressionLevel",       config_parse_int,            0,                        &arg_compression_level    },
+                { "Upload",  "BatchMaxBytes",          config_parse_iec_size,       0,                        &arg_batch_max_bytes      },
+                { "Upload",  "BatchMaxEntries",        config_parse_iec_size,       0,                        &arg_batch_max_entries    },
+                { "Upload",  "BatchTimeoutSec",        config_parse_sec,            0,                        &arg_batch_timeout_usec   },
                 {}
         };
 
@@ -517,28 +715,30 @@ static int help(void) {
 
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Show package version\n"
+               "  -u --url=URL                 Upload to this address (default port "
+                                               STRINGIFY(DEFAULT_PORT) ")\n"
+               "     --key=FILENAME            Specify key in PEM format (default:\n"
+               "                               \"" PRIV_KEY_FILE "\")\n"
+               "     --cert=FILENAME           Specify certificate in PEM format (default:\n"
+               "                               \"" CERT_FILE "\")\n"
+               "     --trust=FILENAME|all      Specify CA certificate or disable checking (default:\n"
+               "                               \"" TRUST_FILE "\")\n"
+               "     --header=\"Name: Value\"  Specify additional HTTP headers\n"
+               "     --compression=ALG         Compression algorithm to use\n"
+               "     --system                  Use the system journal\n"
+               "     --user                    Use the user journal for the current user\n"
+               "  -m --merge                   Use  all available journals\n"
+               "  -M --machine=CONTAINER       Operate on local container\n"
+               "     --namespace=NAMESPACE     Use journal files from namespace\n"
+               "  -D --directory=PATH          Use journal files from directory\n"
+               "     --file=PATH               Use this journal file\n"
+               "     --cursor=CURSOR           Start at the specified cursor\n"
+               "     --after-cursor=CURSOR     Start after the specified cursor\n"
+               "     --follow[=BOOL]           Do [not] wait for input\n"
+               "     --save-state[=FILE]       Save uploaded cursors (default \n"
+               "                               " STATE_FILE ")\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -560,6 +760,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FOLLOW,
                 ARG_SAVE_STATE,
                 ARG_NAMESPACE,
+                ARG_HEADER,
+                ARG_COMPRESSION,
         };
 
         static const struct option options[] = {
@@ -580,6 +782,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "follow",       optional_argument, NULL, ARG_FOLLOW         },
                 { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
+                { "compress",     optional_argument, NULL, ARG_COMPRESSION    },
+                { "header",       optional_argument, NULL, ARG_HEADER         },
                 {}
         };
 
@@ -679,6 +883,21 @@ static int parse_argv(int argc, char *argv[]) {
                         r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
+                        break;
+
+                case ARG_HEADER:
+                        r = strv_header_replace_consume(&arg_headers, optarg);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "--header= value should contain ': '-delimited pair");
+                        break;
+
+                case ARG_COMPRESSION:
+                        arg_compression = compression_from_string(ascii_strupper(optarg));
+                        if (!compression_supported(arg_compression))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s compression is not supported", optarg);
                         break;
 
                 case ARG_CURSOR:
