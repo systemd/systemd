@@ -253,6 +253,7 @@
 {{type}}.ManagedOOMSwap,                   config_parse_managed_oom_mode,               0,                                  offsetof({{type}}, cgroup_context.moom_swap)
 {{type}}.ManagedOOMMemoryPressure,         config_parse_managed_oom_mode,               0,                                  offsetof({{type}}, cgroup_context.moom_mem_pressure)
 {{type}}.ManagedOOMMemoryPressureLimit,    config_parse_managed_oom_mem_pressure_limit, 0,                                  offsetof({{type}}, cgroup_context.moom_mem_pressure_limit)
+{{type}}.ManagedOOMMemoryPressureDurationSec, config_parse_managed_oom_mem_pressure_duration_sec, 0,                        offsetof({{type}}, cgroup_context.moom_mem_pressure_duration_usec)
 {{type}}.ManagedOOMPreference,             config_parse_managed_oom_preference,         0,                                  offsetof({{type}}, cgroup_context.moom_preference)
 {{type}}.NetClass,                         config_parse_warn_compat,                    DISABLED_LEGACY,                    0
 {{type}}.BPFProgram,                       config_parse_bpf_foreign_program,            0,                                  offsetof({{type}}, cgroup_context)
