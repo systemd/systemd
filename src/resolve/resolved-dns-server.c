@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
+
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -69,6 +74,7 @@ int dns_server_new(
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
                 .config_source = config_source,
+                .accessible = -1,
         };
 
         dns_server_reset_features(s);
@@ -1127,4 +1133,34 @@ int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_BOOLEAN("PacketRRSIGMissing", server->packet_rrsig_missing),
                         SD_JSON_BUILD_PAIR_BOOLEAN("PacketInvalid", server->packet_invalid),
                         SD_JSON_BUILD_PAIR_BOOLEAN("PacketDoOff", server->packet_do_off));
+}
+
+int dns_server_is_accessible(DnsServer *s) {
+        _cleanup_close_ int fd = -EBADF;
+        union sockaddr_union sa;
+        int ifindex, r;
+
+        assert(s);
+
+        if (s->accessible >= 0)
+                return s->accessible;
+
+        r = sockaddr_set_in_addr(&sa, s->family, &s->address, dns_server_port(s));
+        if (r < 0)
+                return r;
+
+        fd = socket(s->family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
+
+        ifindex = dns_server_ifindex(s);
+        if (ifindex > 0) {
+                r = socket_bind_to_ifindex(fd, ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        r = RET_NERRNO(connect(fd, &sa.sa, SOCKADDR_LEN(sa)));
+
+        return (s->accessible = r >= 0);
 }
