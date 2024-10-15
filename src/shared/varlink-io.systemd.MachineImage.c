@@ -2,6 +2,7 @@
 
 #include "sd-varlink-idl.h"
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.MachineImage.h"
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
