@@ -181,6 +181,9 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         assert(inotify_fd >= 0);
         assert(dev);
 
+        /* Ignore the request of watching the device node on remove event, as the device node specified by
+         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
+         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
 
