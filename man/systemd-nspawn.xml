@@ -21,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-nspawn</refname>
-    <refpurpose>Spawn a command or OS in a light-weight container</refpurpose>
+    <refpurpose>Spawn a command or OS in a lightweight container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -43,7 +43,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-nspawn</command> may be used to run a command or OS in a light-weight namespace
+    <para><command>systemd-nspawn</command> may be used to run a command or OS in a lightweight namespace
     container. In many ways it is similar to <citerefentry
     project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but more powerful
     since it virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems, and

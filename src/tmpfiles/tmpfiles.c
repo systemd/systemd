@@ -2007,7 +2007,7 @@ static int create_directory_or_subvolume(
                 if (r == 0)
                         /* Don't create a subvolume unless the root directory is one, too. We do this under
                          * the assumption that if the root directory is just a plain directory (i.e. very
-                         * light-weight), we shouldn't try to split it up into subvolumes (i.e. more
+                         * lightweight), we shouldn't try to split it up into subvolumes (i.e. more
                          * heavy-weight). Thus, chroot() environments and suchlike will get a full brtfs
                          * subvolume set up below their tree only if they specifically set up a btrfs
                          * subvolume for the root dir too. */
