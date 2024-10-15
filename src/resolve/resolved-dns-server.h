@@ -106,6 +106,9 @@ struct DnsServer {
 
         /* Servers registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
+
+        /* Tri-state to indicate if the DNS server is accessible. */
+        int accessible;
 };
 
 int dns_server_new(
@@ -187,3 +190,8 @@ static inline bool dns_server_is_fallback(DnsServer *s) {
 }
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);
+
+int dns_server_is_accessible(DnsServer *s);
+static inline void dns_server_reset_accessible(DnsServer *s) {
+        s->accessible = -1;
+}
