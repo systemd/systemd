@@ -118,7 +118,7 @@ FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode) {
         return f;
 }
 
-int write_string_stream_ts(
+int write_string_stream_full(
                 FILE *f,
                 const char *line,
                 WriteStringFileFlags flags,
@@ -234,7 +234,7 @@ static int write_string_file_atomic_at(
         if (r < 0)
                 return r;
 
-        r = write_string_stream_ts(f, line, flags, ts);
+        r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
                 goto fail;
 
@@ -261,7 +261,7 @@ fail:
         return r;
 }
 
-int write_string_file_ts_at(
+int write_string_file_full(
                 int dir_fd,
                 const char *fn,
                 const char *line,
@@ -314,7 +314,7 @@ int write_string_file_ts_at(
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
 
-        r = write_string_stream_ts(f, line, flags, ts);
+        r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
                 goto fail;
 
