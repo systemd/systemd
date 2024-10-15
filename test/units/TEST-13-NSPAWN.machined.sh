@@ -254,6 +254,11 @@ done
 
 long_running_machine_start
 
+varlinkctl introspect /run/systemd/machine/io.systemd.Machine io.systemd.Machine
+varlinkctl introspect /run/systemd/machine/io.systemd.Machine io.systemd.MachineImage
+varlinkctl introspect /run/systemd/machine/io.systemd.MachineImage io.systemd.Machine
+varlinkctl introspect /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage
+
 # test io.systemd.Machine.List
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{}' | grep 'long-running'
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{}' | grep '.host'
