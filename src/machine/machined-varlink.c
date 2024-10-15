@@ -561,7 +561,8 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         struct params {
                 const char *image_name;
                 bool acquire_metadata;
-        };
+        } p = {};
+        int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",            SD_JSON_VARIANT_STRING,    sd_json_dispatch_const_string, offsetof(struct params, image_name),        0 },
@@ -569,11 +570,6 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
-
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        struct params p = {};
-        Image *image;
-        int r;
 
         assert(link);
         assert(parameters);
@@ -600,7 +596,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        images = hashmap_new(&image_hash_ops);
+        _cleanup_hashmap_free_ Hashmap *images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 
@@ -608,7 +604,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 
-        Image *previous = NULL;
+        Image *image, *previous = NULL;
         HASHMAP_FOREACH(image, images) {
                 if (previous) {
                         r = list_image_one_and_maybe_read_metadata(link, previous, /* more = */ true, p.acquire_metadata);
