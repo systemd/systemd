@@ -4112,3 +4112,23 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
 
         return -EBADR; /* Catch-all */
 }
+
+_public_ int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name) {
+
+        /* Returns true if the specified error result is an invalid parameter error for the parameter 'name' */
+
+        if (!streq_ptr(error, SD_VARLINK_ERROR_INVALID_PARAMETER))
+                return false;
+
+        if (!name)
+                return true;
+
+        if (!sd_json_variant_is_object(parameter))
+                return false;
+
+        sd_json_variant *e = sd_json_variant_by_key(parameter, "parameter");
+        if (!e || !sd_json_variant_is_string(e))
+                return false;
+
+        return streq(sd_json_variant_string(e), name);
+}
