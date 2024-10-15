@@ -94,6 +94,8 @@ def get_latest_version():
 def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
+    # The upload directory does not contain point release suffixes
+    version = re.sub(r"\..+$", "", version)
 
     current_branch = subprocess.check_output(["git", "branch", "--show-current"], text=True).strip()
 

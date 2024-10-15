@@ -117,8 +117,8 @@ Network.IPv4LLRoute,                         config_parse_bool,                 
 Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
 Network.LLDP,                                config_parse_lldp_mode,                                   0,                             offsetof(Network, lldp_mode)
 Network.EmitLLDP,                            config_parse_lldp_multicast_mode,                         0,                             offsetof(Network, lldp_multicast_mode)
-Network.Address,                             config_parse_address,                                     0,                             0
-Network.Gateway,                             config_parse_gateway,                                     0,                             0
+Network.Address,                             config_parse_address_section,                             ADDRESS_ADDRESS,               0
+Network.Gateway,                             config_parse_route_section,                               ROUTE_GATEWAY_NETWORK,         0
 Network.Domains,                             config_parse_domains,                                     0,                             0
 Network.UseDomains,                          config_parse_use_domains,                                 0,                             offsetof(Network, use_domains)
 Network.DNS,                                 config_parse_dns,                                         0,                             0
@@ -156,74 +156,75 @@ Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,  
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.DHCPPrefixDelegation,                config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
-Address.Address,                             config_parse_address,                                     0,                             0
-Address.Peer,                                config_parse_address,                                     0,                             0
-Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
-Address.Label,                               config_parse_label,                                       0,                             0
-Address.PreferredLifetime,                   config_parse_lifetime,                                    0,                             0
-Address.HomeAddress,                         config_parse_address_flags,                               IFA_F_HOMEADDRESS,             0
-Address.ManageTemporaryAddress,              config_parse_address_flags,                               IFA_F_MANAGETEMPADDR,          0
-Address.PrefixRoute,                         config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0 /* deprecated */
-Address.AddPrefixRoute,                      config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0
-Address.AutoJoin,                            config_parse_address_flags,                               IFA_F_MCAUTOJOIN,              0
-Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0
-Address.Scope,                               config_parse_address_scope,                               0,                             0
-Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
-Address.NetLabel,                            config_parse_address_netlabel,                            0,                             0
-Address.NFTSet,                              config_parse_address_ip_nft_set,                          NFT_SET_PARSE_NETWORK,         0
-IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0
-IPv6AddressLabel.Label,                      config_parse_address_label,                               0,                             0
-Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
-Neighbor.LinkLayerAddress,                   config_parse_neighbor_lladdr,                             0,                             0
-Neighbor.MACAddress,                         config_parse_neighbor_lladdr,                             0,                             0 /* deprecated */
-RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule_tos,                     0,                             0
-RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule_priority,                0,                             0
-RoutingPolicyRule.Table,                     config_parse_routing_policy_rule_table,                   0,                             0
-RoutingPolicyRule.FirewallMark,              config_parse_routing_policy_rule_fwmark_mask,             0,                             0
-RoutingPolicyRule.From,                      config_parse_routing_policy_rule_prefix,                  0,                             0
-RoutingPolicyRule.To,                        config_parse_routing_policy_rule_prefix,                  0,                             0
-RoutingPolicyRule.IncomingInterface,         config_parse_routing_policy_rule_device,                  0,                             0
-RoutingPolicyRule.OutgoingInterface,         config_parse_routing_policy_rule_device,                  0,                             0
-RoutingPolicyRule.IPProtocol,                config_parse_routing_policy_rule_ip_protocol,             0,                             0
-RoutingPolicyRule.SourcePort,                config_parse_routing_policy_rule_port_range,              0,                             0
-RoutingPolicyRule.DestinationPort,           config_parse_routing_policy_rule_port_range,              0,                             0
-RoutingPolicyRule.InvertRule,                config_parse_routing_policy_rule_invert,                  0,                             0
-RoutingPolicyRule.L3MasterDevice,            config_parse_routing_policy_rule_l3mdev,                  0,                             0
-RoutingPolicyRule.Family,                    config_parse_routing_policy_rule_family,                  0,                             0
-RoutingPolicyRule.User,                      config_parse_routing_policy_rule_uid_range,               0,                             0
-RoutingPolicyRule.SuppressInterfaceGroup,    config_parse_routing_policy_rule_suppress_ifgroup,        0,                             0
-RoutingPolicyRule.SuppressPrefixLength,      config_parse_routing_policy_rule_suppress_prefixlen,      0,                             0
-RoutingPolicyRule.Type,                      config_parse_routing_policy_rule_type,                    0,                             0
-Route.Gateway,                               config_parse_gateway,                                     0,                             0
-Route.Destination,                           config_parse_destination,                                 0,                             0
-Route.Source,                                config_parse_destination,                                 0,                             0
-Route.Metric,                                config_parse_route_priority,                              0,                             0
-Route.Scope,                                 config_parse_route_scope,                                 0,                             0
-Route.PreferredSource,                       config_parse_preferred_src,                               0,                             0
-Route.Table,                                 config_parse_route_table,                                 0,                             0
-Route.GatewayOnLink,                         config_parse_route_gateway_onlink,                        0,                             0
-Route.GatewayOnlink,                         config_parse_route_gateway_onlink,                        0,                             0
-Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
-Route.Protocol,                              config_parse_route_protocol,                              0,                             0
-Route.Type,                                  config_parse_route_type,                                  0,                             0
-Route.MultiPathRoute,                        config_parse_multipath_route,                             0,                             0
-Route.NextHop,                               config_parse_route_nexthop,                               0,                             0
-Route.MTUBytes,                              config_parse_route_metric_mtu,                            RTAX_MTU,                      0
-Route.TCPAdvertisedMaximumSegmentSize,       config_parse_route_metric_advmss,                         RTAX_ADVMSS,                   0
-Route.HopLimit,                              config_parse_route_metric_hop_limit,                      RTAX_HOPLIMIT,                 0
-Route.InitialCongestionWindow,               config_parse_route_metric_tcp_window,                     RTAX_INITCWND,                 0
-Route.TCPRetransmissionTimeoutSec,           config_parse_route_metric_tcp_rto,                        RTAX_RTO_MIN,                  0
-Route.InitialAdvertisedReceiveWindow,        config_parse_route_metric_tcp_window,                     RTAX_INITRWND,                 0
-Route.QuickAck,                              config_parse_route_metric_boolean,                        RTAX_QUICKACK,                 0
-Route.TCPCongestionControlAlgorithm,         config_parse_route_metric_tcp_congestion,                 RTAX_CC_ALGO,                  0
-Route.FastOpenNoCookie,                      config_parse_route_metric_boolean,                        RTAX_FASTOPEN_NO_COOKIE,       0
+Address.Address,                             config_parse_address_section,                             ADDRESS_ADDRESS,               0
+Address.Peer,                                config_parse_address_section,                             ADDRESS_PEER,                  0
+Address.Broadcast,                           config_parse_address_section,                             ADDRESS_BROADCAST,             0
+Address.Label,                               config_parse_address_section,                             ADDRESS_LABEL,                 0
+Address.PreferredLifetime,                   config_parse_address_section,                             ADDRESS_PREFERRED_LIFETIME,    0
+Address.HomeAddress,                         config_parse_address_section,                             ADDRESS_HOME_ADDRESS,          0
+Address.ManageTemporaryAddress,              config_parse_address_section,                             ADDRESS_MANAGE_TEMPORARY_ADDRESS, 0
+Address.PrefixRoute,                         config_parse_address_section,                             ADDRESS_PREFIX_ROUTE,          0 /* deprecated */
+Address.AddPrefixRoute,                      config_parse_address_section,                             ADDRESS_ADD_PREFIX_ROUTE,      0
+Address.AutoJoin,                            config_parse_address_section,                             ADDRESS_AUTO_JOIN,             0
+Address.DuplicateAddressDetection,           config_parse_address_section,                             ADDRESS_DAD,                   0
+Address.Scope,                               config_parse_address_section,                             ADDRESS_SCOPE,                 0
+Address.RouteMetric,                         config_parse_address_section,                             ADDRESS_ROUTE_METRIC,          0
+Address.NetLabel,                            config_parse_address_section,                             ADDRESS_NET_LABEL,             0
+Address.NFTSet,                              config_parse_address_section,                             ADDRESS_NFT_SET,               0
+IPv6AddressLabel.Prefix,                     config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL_PREFIX,     0
+IPv6AddressLabel.Label,                      config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL,            0
+Neighbor.Address,                            config_parse_neighbor_section,                            NEIGHBOR_DESTINATION_ADDRESS,  0
+Neighbor.LinkLayerAddress,                   config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0
+Neighbor.MACAddress,                         config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0 /* deprecated */
+RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TOS,       0
+RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PRIORITY,  0
+RoutingPolicyRule.GoTo,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_GOTO,      0
+RoutingPolicyRule.Table,                     config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TABLE,     0
+RoutingPolicyRule.FirewallMark,              config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FWMARK,    0
+RoutingPolicyRule.From,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FROM,      0
+RoutingPolicyRule.To,                        config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TO,        0
+RoutingPolicyRule.IncomingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IIF,       0
+RoutingPolicyRule.OutgoingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_OIF,       0
+RoutingPolicyRule.IPProtocol,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IP_PROTOCOL, 0
+RoutingPolicyRule.SourcePort,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SPORT,     0
+RoutingPolicyRule.DestinationPort,           config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_DPORT,     0
+RoutingPolicyRule.InvertRule,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_INVERT,    0
+RoutingPolicyRule.L3MasterDevice,            config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_L3MDEV,    0
+RoutingPolicyRule.Family,                    config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FAMILY,    0
+RoutingPolicyRule.User,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_UID_RANGE, 0
+RoutingPolicyRule.SuppressInterfaceGroup,    config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_IFGROUP, 0
+RoutingPolicyRule.SuppressPrefixLength,      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN, 0
+RoutingPolicyRule.Type,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_ACTION,    0
+Route.Gateway,                               config_parse_route_section,                               ROUTE_GATEWAY,                 0
+Route.Destination,                           config_parse_route_section,                               ROUTE_DESTINATION,             0
+Route.Source,                                config_parse_route_section,                               ROUTE_DESTINATION,             0
+Route.Metric,                                config_parse_route_section,                               ROUTE_PRIORITY,                0
+Route.Scope,                                 config_parse_route_section,                               ROUTE_SCOPE,                   0
+Route.PreferredSource,                       config_parse_route_section,                               ROUTE_PREFERRED_SOURCE,        0
+Route.Table,                                 config_parse_route_section,                               ROUTE_TABLE,                   0
+Route.GatewayOnLink,                         config_parse_route_section,                               ROUTE_GATEWAY_ONLINK,          0
+Route.GatewayOnlink,                         config_parse_route_section,                               ROUTE_GATEWAY_ONLINK,          0
+Route.IPv6Preference,                        config_parse_route_section,                               ROUTE_PREFERENCE,              0
+Route.Protocol,                              config_parse_route_section,                               ROUTE_PROTOCOL,                0
+Route.Type,                                  config_parse_route_section,                               ROUTE_TYPE,                    0
+Route.MultiPathRoute,                        config_parse_route_section,                               ROUTE_MULTIPATH,               0
+Route.NextHop,                               config_parse_route_section,                               ROUTE_NEXTHOP,                 0
+Route.MTUBytes,                              config_parse_route_section,                               ROUTE_METRIC_MTU,              0
+Route.TCPAdvertisedMaximumSegmentSize,       config_parse_route_section,                               ROUTE_METRIC_ADVMSS,           0
+Route.HopLimit,                              config_parse_route_section,                               ROUTE_METRIC_HOPLIMIT,         0
+Route.InitialCongestionWindow,               config_parse_route_section,                               ROUTE_METRIC_INITCWND,         0
+Route.TCPRetransmissionTimeoutSec,           config_parse_route_section,                               ROUTE_METRIC_RTO_MIN,          0
+Route.InitialAdvertisedReceiveWindow,        config_parse_route_section,                               ROUTE_METRIC_INITRWND,         0
+Route.QuickAck,                              config_parse_route_section,                               ROUTE_METRIC_QUICKACK,         0
+Route.TCPCongestionControlAlgorithm,         config_parse_route_section,                               ROUTE_METRIC_CC_ALGO,          0
+Route.FastOpenNoCookie,                      config_parse_route_section,                               ROUTE_METRIC_FASTOPEN_NO_COOKIE, 0
 Route.TTLPropagate,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-NextHop.Id,                                  config_parse_nexthop_id,                                  0,                             0
-NextHop.Gateway,                             config_parse_nexthop_gateway,                             0,                             0
-NextHop.Family,                              config_parse_nexthop_family,                              0,                             0
-NextHop.OnLink,                              config_parse_nexthop_onlink,                              0,                             0
-NextHop.Blackhole,                           config_parse_nexthop_blackhole,                           0,                             0
-NextHop.Group,                               config_parse_nexthop_group,                               0,                             0
+NextHop.Id,                                  config_parse_nexthop_section,                             NEXTHOP_ID,                    0
+NextHop.Gateway,                             config_parse_nexthop_section,                             NEXTHOP_GATEWAY,               0
+NextHop.Family,                              config_parse_nexthop_section,                             NEXTHOP_FAMILY,                0
+NextHop.OnLink,                              config_parse_nexthop_section,                             NEXTHOP_ONLINK,                0
+NextHop.Blackhole,                           config_parse_nexthop_section,                             NEXTHOP_BLACKHOLE,             0
+NextHop.Group,                               config_parse_nexthop_section,                             NEXTHOP_GROUP,                 0
 DHCPv4.RequestAddress,                       config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_request_address)
 DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCPv4.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_dns)
@@ -551,6 +552,10 @@ HierarchyTokenBucketClass.Rate,              config_parse_hierarchy_token_bucket
 HierarchyTokenBucketClass.CeilRate,          config_parse_hierarchy_token_bucket_class_rate,           TCLASS_KIND_HTB,               0
 HierarchyTokenBucketClass.BufferBytes,       config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
 HierarchyTokenBucketClass.CeilBufferBytes,   config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
+ClassfulMultiQueueing.Parent,                config_parse_qdisc_parent,                                QDISC_KIND_MQ,                 0
+ClassfulMultiQueueing.Handle,                config_parse_qdisc_handle,                                QDISC_KIND_MQ,                 0
+BandMultiQueueing.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_MULTIQ,             0
+BandMultiQueueing.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_MULTIQ,             0
 NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0

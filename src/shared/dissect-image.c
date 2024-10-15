@@ -1001,6 +1001,9 @@ static int dissect_image(
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
+                        log_debug("Dissecting %s partition with label %s and UUID %s",
+                                  strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
+
                         if (IN_SET(type.designator,
                                    PARTITION_HOME,
                                    PARTITION_SRV,
@@ -3079,6 +3082,7 @@ int dissected_image_decrypt_interactively(
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 
+                assert(!strv_isempty(z));
                 passphrase = z[0];
         }
 }
@@ -3405,10 +3409,8 @@ int dissected_image_load_verity_sig_partition(
         rh = sd_json_variant_by_key(v, "rootHash");
         if (!rh)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
-        if (!sd_json_variant_is_string(rh))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
 
-        r = unhexmem(sd_json_variant_string(rh), &root_hash, &root_hash_size);
+        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
@@ -3426,10 +3428,8 @@ int dissected_image_load_verity_sig_partition(
         sig = sd_json_variant_by_key(v, "signature");
         if (!sig)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
-        if (!sd_json_variant_is_string(sig))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'signature' field of signature JSON object is not a string.");
 
-        r = unbase64mem(sd_json_variant_string(sig), &root_hash_sig, &root_hash_sig_size);
+        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 

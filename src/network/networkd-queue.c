@@ -58,7 +58,11 @@ static void request_hash_func(const Request *req, struct siphash *state) {
 
         siphash24_compress_typesafe(req->type, state);
 
-        if (!IN_SET(req->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
+        if (!IN_SET(req->type,
+                    REQUEST_TYPE_NEXTHOP,
+                    REQUEST_TYPE_ROUTE,
+                    REQUEST_TYPE_ROUTING_POLICY_RULE)) {
+
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
                         siphash24_compress_typesafe(req->link->ifindex, state);
@@ -81,7 +85,11 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         if (r != 0)
                 return r;
 
-        if (!IN_SET(a->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
+        if (!IN_SET(a->type,
+                    REQUEST_TYPE_NEXTHOP,
+                    REQUEST_TYPE_ROUTE,
+                    REQUEST_TYPE_ROUTING_POLICY_RULE)) {
+
                 r = CMP(!!a->link, !!b->link);
                 if (r != 0)
                         return r;
@@ -212,6 +220,23 @@ int link_queue_request_full(
         assert(link);
 
         return request_new(link->manager, link, type,
+                           userdata, free_func, hash_func, compare_func,
+                           process, counter, netlink_handler, ret);
+}
+
+int manager_queue_request_full(
+                Manager *manager,
+                RequestType type,
+                void *userdata,
+                mfree_func_t free_func,
+                hash_func_t hash_func,
+                compare_func_t compare_func,
+                request_process_func_t process,
+                unsigned *counter,
+                request_netlink_handler_t netlink_handler,
+                Request **ret) {
+
+        return request_new(manager, NULL, type,
                            userdata, free_func, hash_func, compare_func,
                            process, counter, netlink_handler, ret);
 }

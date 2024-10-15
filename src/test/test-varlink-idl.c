@@ -14,6 +14,8 @@
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.Machine.h"
+#include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-io.systemd.NamespaceResource.h"
@@ -187,6 +189,10 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Import);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Machine);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_MachineImage);
+        print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
 
@@ -305,7 +311,7 @@ TEST(validate_json) {
 
         const sd_varlink_symbol* symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, SD_VARLINK_METHOD, "Mymethod"));
 
-        assert_se(varlink_idl_validate_method_call(symbol, v, NULL) >= 0);
+        assert_se(varlink_idl_validate_method_call(symbol, v, /* flags= */ 0, /* reterr_bad_field= */ NULL) >= 0);
 }
 
 static int test_recursive_one(unsigned depth) {
@@ -366,7 +372,6 @@ static SD_VARLINK_DEFINE_INTERFACE(
                 "xyz",
                 &vl_method_TestMethod,
                 &vl_method_Done);
-
 
 static void* server_thread(void *userdata) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;

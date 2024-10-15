@@ -43,8 +43,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Indicates whether this entry has been booted."),
                 SD_VARLINK_DEFINE_FIELD(isSelected, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListBootEntries,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("A boot menu entry structure"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(entry, BootEntry, SD_VARLINK_NULLABLE));
 

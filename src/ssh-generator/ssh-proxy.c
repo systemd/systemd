@@ -161,12 +161,12 @@ static int process_machine(const char *machine, const char *port) {
 
         uint32_t cid = VMADDR_CID_ANY;
 
-        const sd_json_dispatch_field dispatch_table[] = {
-                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, PTR_TO_SIZE(&cid), 0 },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, 0, 0 },
                 {}
         };
 
-        r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, NULL);
+        r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &cid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse Varlink reply: %m");
 

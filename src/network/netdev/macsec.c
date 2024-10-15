@@ -777,7 +777,7 @@ int config_parse_macsec_key_file(
         if (!path)
                 return log_oom();
 
-        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue) < 0)
                 return 0;
 
         free_and_replace(*dest, path);

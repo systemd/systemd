@@ -387,7 +387,6 @@ TEST(dnssec_verify_rfc6605_example2) {
                 0xab, 0xf0, 0x8f, 0xe6, 0x95, 0x53, 0x60, 0x17, 0xa5, 0xbf, 0xa9, 0x32, 0x37, 0xee, 0x6e, 0x34,
         };
 
-
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
                 *rrsig = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;

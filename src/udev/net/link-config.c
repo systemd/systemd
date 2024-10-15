@@ -27,6 +27,7 @@
 #include "netif-sriov.h"
 #include "netif-util.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -1446,13 +1447,10 @@ DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
         config_parse_mac_address_policy,
         mac_address_policy,
         MACAddressPolicy,
-        MAC_ADDRESS_POLICY_NONE,
-        "Failed to parse MAC address policy");
+        MAC_ADDRESS_POLICY_NONE);
 
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
-                          _NAMEPOLICY_INVALID,
-                          "Failed to parse interface name policy");
+                          _NAMEPOLICY_INVALID);
 
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
-                          _NAMEPOLICY_INVALID,
-                          "Failed to parse alternative names policy");
+                          _NAMEPOLICY_INVALID);

@@ -369,3 +369,19 @@ To debug systemd-boot in an IDE such as VSCode we can use a launch configuration
     ]
 }
 ```
+
+## mkosi + clangd
+
+[clangd](https://clangd.llvm.org/) is a language server that provides code completion, diagnostics and more
+right in your editor of choice (with the right plugin installed). When using mkosi, we can run clangd in the
+mkosi build container to avoid needing to build systemd on the host machine just to make clangd work.
+
+All that is required is to run `mkosi` once to make sure cached images are available and to modify the path of the
+clangd binary used by your editor to the `mkosi.clangd` script included in the systemd repository. For example, for
+VScode, you'd have to add the following to the VSCode workspace settings of the systemd repository:
+
+```json
+{
+    "clangd.path": "<path-to-systemd-repository>/mkosi.clangd",
+}
+```

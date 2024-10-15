@@ -9,7 +9,7 @@
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "errno-list.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -380,7 +380,7 @@ static int test_one_module(const char *dir,
 
         log_info("======== %s ========", module);
 
-        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
+        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_NOW|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 

@@ -89,28 +89,17 @@
   <refsect1>
     <title>Units</title>
 
-    <para>systemd provides a dependency system between various
-    entities called "units" of 11 different types. Units encapsulate
-    various objects that are relevant for system boot-up and
-    maintenance. The majority of units are configured in unit
-    configuration files, whose syntax and basic set of options is
+    <para>systemd provides a dependency system between various entities called "units" of 11 different
+    types. Units encapsulate various objects that are relevant for system boot-up and maintenance. The
+    majority of units are configured in unit configuration files, whose syntax and basic set of options is
     described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    however some are created automatically from other configuration
-    files, dynamically from system state or programmatically at runtime.
-    Units may be "active" (meaning started, bound, plugged in, …,
-    depending on the unit type, see below), or "inactive" (meaning
-    stopped, unbound, unplugged, …), as well as in the process of
-    being activated or deactivated, i.e. between the two states (these
-    states are called "activating", "deactivating"). A special
-    "failed" state is available as well, which is very similar to
-    "inactive" and is entered when the service failed in some way
-    (process returned error code on exit, or crashed, an operation
-    timed out, or after too many restarts). If this state is entered,
-    the cause will be logged, for later reference. Note that the
-    various unit types may have a number of additional substates,
-    which are mapped to the five generalized unit states described
-    here.</para>
+    however some are created automatically from other configuration files, dynamically from system state or
+    programmatically at runtime. Units may be in a number of states, described in the following table. Note
+    that the various unit types may have a number of additional substates, which are mapped to the
+    generalized unit states described here.</para>
+
+    <xi:include href="unit-states.xml" xpointer="table"/>
 
     <para>The following unit types are available:</para>
 
@@ -574,7 +563,11 @@
         <listitem><para>Enables display of status messages on the
         console, as controlled via
         <varname>systemd.show_status=1</varname> on the kernel command
-        line.</para></listitem>
+        line.</para>
+        <para>You may want to use <function>SetShowStatus()</function> instead of
+        <constant>SIGRTMIN+20</constant> in order to prevent race conditions. See
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -585,7 +578,11 @@
         controlled via
         <varname>systemd.show_status=0</varname>
         on the kernel command
-        line.</para></listitem>
+        line.</para>
+        <para>You may want to use <function>SetShowStatus()</function> instead of
+        <constant>SIGRTMIN+21</constant> in order to prevent race conditions. See
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -843,9 +840,8 @@
 
         <listitem><para>Takes a boolean argument or enables the option if specified
         without an argument. If enabled, the system manager (PID 1) spawns a shell
-        when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
-        to disabled, for security reasons, as the shell is not protected by password
-        authentication.</para>
+        when it crashes. Otherwise, no shell is spawned. Defaults to disabled, for
+        security reasons, as the shell is not protected by password authentication.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>

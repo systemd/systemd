@@ -83,13 +83,13 @@ int dlopen_bpf(void) {
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
-        dl = dlopen("libbpf.so.1", RTLD_LAZY);
+        dl = dlopen("libbpf.so.1", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
                 /* libbpf < 1.0.0 (we rely on 0.1.0+) provide most symbols we care about, but
                  * unfortunately not all until 0.7.0. See bpf-compat.h for more details.
                  * Once we consider we can assume 0.7+ is present we can just use the same symbol
                  * list for both files, and when we assume 1.0+ is present we can remove this dlopen */
-                dl = dlopen("libbpf.so.0", RTLD_LAZY);
+                dl = dlopen("libbpf.so.0", RTLD_NOW|RTLD_NODELETE);
                 if (!dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "neither libbpf.so.1 nor libbpf.so.0 are installed: %s", dlerror());

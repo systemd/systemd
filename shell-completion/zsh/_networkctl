@@ -52,6 +52,7 @@ _arguments \
     '(-a --all)'{-a,--all}'[Show all links with status]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
+    '--no-ask-password[Do not prompt for password]' \
     '(- *)'{-h,--help}'[Show this help]' \
     '(- *)--version[Show package version]' \
     '--drop-in=[Use the given drop-in file name]:NAME' \

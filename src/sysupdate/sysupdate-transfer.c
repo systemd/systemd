@@ -377,10 +377,10 @@ static int config_parse_resource_path(
         return free_and_replace(rr->path, resolved);
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType, "Invalid resource type");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
-                                             PATH_RELATIVE_TO_ROOT, "Invalid PathRelativeTo= value");
+                                             PATH_RELATIVE_TO_ROOT);
 
 static int config_parse_resource_ptype(
                 const char *unit,
@@ -557,6 +557,14 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks Path=.");
 
+        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !arg_transfer_source)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
+
+        if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "PathRelativeTo=explicit can only be used in source specifications.");
+
         if (t->source.path) {
                 if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
                         if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
@@ -618,11 +626,11 @@ int transfer_resolve_paths(
 
         assert(t);
 
-        r = resource_resolve_path(&t->source, root, node);
+        r = resource_resolve_path(&t->source, root, arg_transfer_source, node);
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, node);
+        r = resource_resolve_path(&t->target, root, /*relative_to_directory=*/ NULL, node);
         if (r < 0)
                 return r;
 
@@ -844,6 +852,7 @@ typedef struct CalloutContext {
         TransferProgress callback;
         PidRef pid;
         const char *name;
+        int helper_errno;
         void* userdata;
 } CalloutContext;
 
@@ -886,29 +895,34 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
 
 static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(callout_context_freep) CalloutContext *ctx = ASSERT_PTR(userdata);
-        int code;
+        int r;
 
         assert(s);
         assert(si);
         assert(ctx);
 
+        pidref_done(&ctx->pid);
+
         if (si->si_code == CLD_EXITED) {
-                code = si->si_status;
-                if (code != EXIT_SUCCESS)
-                        log_error("%s failed with exit status %i.", ctx->name, code);
-                else
+                if (si->si_status == EXIT_SUCCESS) {
+                        r = 0;
                         log_debug("%s succeeded.", ctx->name);
+                } else if (ctx->helper_errno != 0) {
+                        r = -ctx->helper_errno;
+                        log_error_errno(r, "%s failed with exit status %i: %m", ctx->name, si->si_status);
+                } else {
+                        r = -EPROTO;
+                        log_error("%s failed with exit status %i.", ctx->name, si->si_status);
+                }
         } else {
-                code = -EPROTO;
+                r = -EPROTO;
                 if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
                         log_error("%s terminated by signal %s.", ctx->name, signal_to_string(si->si_status));
                 else
                         log_error("%s failed due to unknown reason.", ctx->name);
         }
 
-        pidref_done(&ctx->pid);
-
-        return sd_event_exit(sd_event_source_get_event(s), code);
+        return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
 static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -926,23 +940,26 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         };
         struct ucred *ucred;
         CalloutContext *ctx = ASSERT_PTR(userdata);
-        char* progress_str;
+        char *progress_str, *errno_str;
         int progress;
         ssize_t n;
+        int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                return (int) n;
-        }
-
-        cmsg_close_all(&msghdr);
-
-        if (msghdr.msg_flags & MSG_TRUNC) {
-                log_warning("Got overly long notification datagram, ignoring.");
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -ECHRNG) {
+                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
                 return 0;
         }
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return (int) n;
+
+        cmsg_close_all(&msghdr);
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid <= 0) {
@@ -957,17 +974,32 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         buf[n] = 0;
 
         progress_str = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
-        if (!progress_str)
-                return 0;
+        errno_str = find_line_startswith(buf, "ERRNO=");
 
-        truncate_nl(progress_str);
-        progress = parse_percent(progress_str);
-        if (progress < 0) {
-                log_warning("Got invalid percent value '%s', ignoring.", progress_str);
-                return 0;
+        if (errno_str) {
+                truncate_nl(errno_str);
+                r = parse_errno(errno_str);
+                if (r < 0)
+                        log_warning_errno(r, "Got invalid errno value '%s', ignoring: %m", errno_str);
+                else {
+                        ctx->helper_errno = r;
+                        log_debug_errno(r, "Got errno from callout: %i (%m)", r);
+                }
         }
 
-        return ctx->callback(ctx->transfer, ctx->instance, progress);
+        if (progress_str) {
+                truncate_nl(progress_str);
+                progress = parse_percent(progress_str);
+                if (progress < 0)
+                        log_warning("Got invalid percent value '%s', ignoring.", progress_str);
+                else {
+                        r = ctx->callback(ctx->transfer, ctx->instance, progress);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int run_callout(
@@ -1075,8 +1107,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         assert(t);
         assert(i);
-        assert(i->resource);
-        assert(t == container_of(i->resource, Transfer, source));
+        assert(i->resource == &t->source);
         assert(cb);
 
         /* Does this instance already exist in the target? Then we don't need to acquire anything */

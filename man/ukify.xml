@@ -229,6 +229,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--join-profile=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Takes a path to an existing PE file containing an additional profile to add to the
+          unified kernel image. The profile can be generated beforehand with <command>ukify</command>. The
+          profile does not need to be signed or contain PCR measurements. All UKI PE sections of the
+          specified PE file are copied into the generated UKI. This is useful for generating multi-profile
+          UKIs. Note that this only copies PE sections that are defined by the UKI specification, and ignores
+          any other, for example <literal>.text</literal> or similar.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--tools=<replaceable>DIRS</replaceable></option></term>
 
           <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will
@@ -398,6 +411,17 @@
           Otherwise, the section will not be present.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Profile=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--profile=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>A path to a UKI profile to place in an <literal>.profile</literal> section. This
+          option is useful for creating multi-profile UKIs, and is typically used in combination with
+          <option>--extend=</option>, to extend the specified UKI with an additional profile.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -583,11 +607,11 @@
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki.author.myimage,1,UKI for System,uki.author.myimage,1,https://uapi-group.org/specifications/specs/unified_kernel_image/' \
-      --pcr-private-key=pcr-private-initrd-key.pem \
-      --pcr-public-key=pcr-public-initrd-key.pem \
+      --pcr-private-key=tpm2-pcr-private-key-initrd.pem \
+      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
       --phases='enter-initrd' \
-      --pcr-private-key=pcr-private-system-key.pem \
-      --pcr-public-key=pcr-public-system-key.pem \
+      --pcr-private-key=tpm2-pcr-private-key-system.pem \
+      --pcr-public-key=tpm2-pcr-public-key-system.pem \
       --phases='enter-initrd:leave-initrd enter-initrd:leave-initrd:sysinit \
                 enter-initrd:leave-initrd:sysinit:ready' \
       --pcr-banks=sha384,sha512 \
@@ -602,9 +626,9 @@
       and <filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>.
       The policy embedded in the <literal>.pcrsig</literal> section will be signed for the initrd (the
       <constant>enter-initrd</constant> phase) with the key
-      <filename index='false'>pcr-private-initrd-key.pem</filename>, and for the main system (phases
+      <filename index='false'>tpm2-pcr-private-key-initrd.pem</filename>, and for the main system (phases
       <constant>leave-initrd</constant>, <constant>sysinit</constant>, <constant>ready</constant>) with the
-      key <filename index='false'>pcr-private-system-key.pem</filename>. The Linux binary and the resulting
+      key <filename index='false'>tpm2-pcr-private-key-system.pem</filename>. The Linux binary and the resulting
       combined image will be signed with the SecureBoot key <filename index='false'>sb.key</filename>.</para>
     </example>
 
@@ -619,19 +643,19 @@
 Initrd=early_cpio
 Cmdline=quiet rw rhgb
 
-SecureBootPrivateKey=sb.key
-SecureBootCertificate=sb.cert
+SecureBootPrivateKey=secure-boot-key.pem
+SecureBootCertificate=secure-boot-certificate.pem
 SignKernel=yes
 PCRBanks=sha384,sha512
 
 [PCRSignature:initrd]
-PCRPrivateKey=pcr-private-initrd-key.pem
-PCRPublicKey=pcr-public-initrd-key.pem
+PCRPrivateKey=tpm2-pcr-private-key-initrd.pem
+PCRPublicKey=tpm2-pcr-public-key-initrd.pem
 Phases=enter-initrd
 
 [PCRSignature:system]
-PCRPrivateKey=pcr-private-system-key.pem
-PCRPublicKey=pcr-public-system-key.pem
+PCRPrivateKey=tpm2-pcr-private-key-system.pem
+PCRPublicKey=tpm2-pcr-public-key-system.pem
 Phases=enter-initrd:leave-initrd
        enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
@@ -651,8 +675,8 @@ $ ukify -c ukify.conf build \
       <title>Kernel command line PE addon</title>
 
       <programlisting>ukify build \
-      --secureboot-private-key=sb.key \
-      --secureboot-certificate=sb.cert \
+      --secureboot-private-key=secure-boot-key.pem \
+      --secureboot-certificate=secure-boot-certificate.pem \
       --cmdline='debug' \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
@@ -673,12 +697,12 @@ $ ukify -c ukify.conf build \
 
       <para>Next, we can generate the certificate and keys:</para>
       <programlisting># ukify genkey --config=/etc/kernel/uki.conf
-Writing SecureBoot private key to /etc/kernel/secure-boot.key.pem
-Writing SecureBoot certificate to /etc/kernel/secure-boot.cert.pem
-Writing private key for PCR signing to /etc/kernel/pcr-initrd.key.pem
-Writing public key for PCR signing to /etc/kernel/pcr-initrd.pub.pem
-Writing private key for PCR signing to /etc/kernel/pcr-system.key.pem
-Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
+Writing SecureBoot private key to /etc/kernel/secure-boot-key.pem
+Writing SecureBoot certificate to /etc/kernel/secure-boot-certificate.pem
+Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-initrd.pem
+Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-initrd.pem
+Writing private key for PCR signing to /etc/systemd/tpm2-pcr-private-key-system.pem
+Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pem
 </programlisting>
 
       <para>(Both operations need to be done as root to allow write access
@@ -692,6 +716,50 @@ Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
       by default, so after this file has been created, installations of kernels that create a UKI on the
       local machine using <command>kernel-install</command> will perform signing using this config.</para>
     </example>
+
+    <example>
+      <title>Multi-Profile UKI</title>
+
+      <para>First, create a few profiles:</para>
+
+      <programlisting>$ ukify build \
+      --profile='TITLE=Base' \
+      --output=profile0.efi
+      </programlisting>
+
+      <para>Add a second profile (@1):</para>
+
+      <programlisting>$ ukify build \
+      --profile='TITLE=Boot into Storage Target Mode
+ID=storagetm' \
+      --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
+      --output=profile1.efi
+      </programlisting>
+
+      <para>Add a third profile (@2):</para>
+
+      <programlisting>$ ukify build \
+      --profile='TITLE=Factory Reset
+ID=factory-reset' \
+      --cmdline='quiet rw systemd.unit=factory-reset.target' \
+      --output=profile2.efi
+      </programlisting>
+
+      <para>Then, create a UKI and include all the generated profiles:</para>
+
+      <programlisting>$ ukify build \
+      --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
+      --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
+      --cmdline='quiet rw' \
+      --join-profile=profile0.efi \
+      --join-profile=profile1.efi \
+      --join-profile=profile2.efi \
+      --output=base.efi
+      </programlisting>
+
+      <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
+    </example>
+
   </refsect1>
 
   <refsect1>

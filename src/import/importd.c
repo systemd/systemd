@@ -633,7 +633,7 @@ static Manager *manager_unref(Manager *m) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-
+        Manager *m = ASSERT_PTR(userdata);
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
                 .iov_base = buf,
@@ -647,33 +647,32 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct ucred *ucred;
-        Manager *m = userdata;
-        Transfer *t;
         ssize_t n;
-        char *p;
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                return (int) n;
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -ECHRNG) {
+                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
+                return 0;
         }
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return (int) n;
 
         cmsg_close_all(&msghdr);
 
-        if (msghdr.msg_flags & MSG_TRUNC) {
-                log_warning("Got overly long notification datagram, ignoring.");
-                return 0;
-        }
-
-        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+        struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid <= 0) {
                 log_warning("Got notification datagram lacking credential information, ignoring.");
                 return 0;
         }
 
+        Transfer *t;
         HASHMAP_FOREACH(t, m->transfers)
                 if (ucred->pid == t->pidref.pid)
                         break;
@@ -685,7 +684,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         buf[n] = 0;
 
-        p = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
+        char *p = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
         if (!p)
                 return 0;
 

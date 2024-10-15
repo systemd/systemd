@@ -342,14 +342,15 @@ static int get_firmware_date(usec_t *ret) {
                 .tm_mon = m,
                 .tm_year = y,
         };
-        time_t v = timegm(&tm);
-        if (v == (time_t) -1)
-                return -errno;
+
+        usec_t v;
+        r = mktime_or_timegm_usec(&tm, /* utc= */ true, &v);
+        if (r < 0)
+                return r;
         if (tm.tm_mday != (int) d || tm.tm_mon != (int) m || tm.tm_year != (int) y)
                 return -EINVAL; /* date was not normalized? (e.g. "30th of feb") */
 
-        *ret = (usec_t) v * USEC_PER_SEC;
-
+        *ret = v;
         return 0;
 }
 

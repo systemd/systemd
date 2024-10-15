@@ -280,7 +280,6 @@ static int add_local_unix_socket(
         if (r < 0)
                 return r;
 
-
         log_info("Binding SSH to AF_UNIX socket /run/ssh-unix-local/socket.\n"
                  "→ connect via 'ssh .host' locally");
         return 0;

@@ -1017,6 +1017,17 @@
         <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinSourcePort=</varname></term>
+        <listitem>
+          <para>Specifies the lowest value of the UDP tunnel source UDP port (in range 1…65535).
+          Defaults to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -2013,6 +2024,19 @@
           setting of the <option>[WireGuard]</option> section. This option is mandatory for this section.</para>
 
         <xi:include href="version-info.xml" xpointer="v237"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PublicKeyFile=</varname></term>
+        <listitem>
+          <para>Takes an absolute path to a file which contains the Base64 encoded public key for the peer.
+          When this option is specified, then <varname>PublicKey=</varname> will be ignored. Note that the
+          file must be readable by the user <literal>systemd-network</literal>, so it should be, e.g., owned
+          by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode. If the path
+          refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made to
+          it and the key read from it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
       <varlistentry>

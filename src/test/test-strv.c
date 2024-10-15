@@ -660,6 +660,46 @@ TEST(strv_extend_strv) {
         assert_se(strv_length(n) == 4);
 }
 
+TEST(strv_extend_strv_consume) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **n = NULL;
+        const char *s1, *s2, *s3;
+
+        ASSERT_NOT_NULL(a = strv_new("abc", "def", "ghi"));
+        ASSERT_NOT_NULL(b = strv_new("jkl", "mno", "abc", "pqr"));
+
+        s1 = b[0];
+        s2 = b[1];
+        s3 = b[3];
+
+        ASSERT_EQ(strv_extend_strv_consume(&a, TAKE_PTR(b), true), 3);
+
+        assert_se(s1 == a[3]);
+        assert_se(s2 == a[4]);
+        assert_se(s3 == a[5]);
+
+        ASSERT_STREQ(a[0], "abc");
+        ASSERT_STREQ(a[1], "def");
+        ASSERT_STREQ(a[2], "ghi");
+        ASSERT_STREQ(a[3], "jkl");
+        ASSERT_STREQ(a[4], "mno");
+        ASSERT_STREQ(a[5], "pqr");
+        ASSERT_EQ(strv_length(a), (size_t) 6);
+
+        ASSERT_NOT_NULL(c = strv_new("jkl", "mno"));
+
+        s1 = c[0];
+        s2 = c[1];
+
+        ASSERT_EQ(strv_extend_strv_consume(&n, TAKE_PTR(c), false), 2);
+
+        assert_se(s1 == n[0]);
+        assert_se(s2 == n[1]);
+
+        ASSERT_STREQ(n[0], "jkl");
+        ASSERT_STREQ(n[1], "mno");
+        ASSERT_EQ(strv_length(n), (size_t) 2);
+}
+
 TEST(strv_extend_with_size) {
         _cleanup_strv_free_ char **a = NULL;
         size_t n = SIZE_MAX;
@@ -1186,6 +1226,33 @@ TEST(strv_rebreak_lines) {
 
                 assert_se(strv_equal(a, b));
         }
+}
+
+TEST(strv_find_closest) {
+        char **l = STRV_MAKE("aaa", "aaaa", "bbb", "ccc");
+
+        /* prefix match */
+        ASSERT_STREQ(strv_find_closest(l, "a"),    "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aa"),   "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aaa"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "aaaa"), "aaaa");
+        ASSERT_STREQ(strv_find_closest(l, "b"),    "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bb"),   "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bbb"),  "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "c"),    "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "cc"),   "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "ccc"),  "ccc");
+
+        /* levenshtein match */
+        ASSERT_STREQ(strv_find_closest(l, "aab"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "abb"),  "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "cbc"),  "ccc");
+        ASSERT_STREQ(strv_find_closest(l, "aax"),  "aaa");
+        ASSERT_STREQ(strv_find_closest(l, "bbbb"), "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "cbbb"), "bbb");
+        ASSERT_STREQ(strv_find_closest(l, "bbbx"), "bbb");
+
+        ASSERT_NULL(strv_find_closest(l, "sfajosajfosdjaofjdsaf"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

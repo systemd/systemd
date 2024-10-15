@@ -26,23 +26,23 @@ typedef void* (*mfree_func_t)(void *p);
 
 #define alloca_safe(n)                                                  \
         ({                                                              \
-                size_t _nn_ = n;                                        \
+                size_t _nn_ = (n);                                      \
                 assert(_nn_ <= ALLOCA_MAX);                             \
                 alloca(_nn_ == 0 ? 1 : _nn_);                           \
         })                                                              \
 
 #define newa(t, n)                                                      \
         ({                                                              \
-                size_t _n_ = n;                                         \
-                assert(!size_multiply_overflow(sizeof(t), _n_));        \
-                (t*) alloca_safe(sizeof(t)*_n_);                        \
+                size_t _n_ = (n);                                       \
+                assert_se(MUL_ASSIGN_SAFE(&_n_, sizeof(t)));            \
+                (t*) alloca_safe(_n_);                                  \
         })
 
 #define newa0(t, n)                                                     \
         ({                                                              \
-                size_t _n_ = n;                                         \
-                assert(!size_multiply_overflow(sizeof(t), _n_));        \
-                (t*) alloca0((sizeof(t)*_n_));                          \
+                size_t _n_ = (n);                                       \
+                assert_se(MUL_ASSIGN_SAFE(&_n_, sizeof(t)));            \
+                (t*) alloca0(_n_);                                      \
         })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, n, sizeof(t)))

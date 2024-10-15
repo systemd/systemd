@@ -137,8 +137,7 @@ static void socket_init(Unit *u) {
 
         s->trigger_limit = RATELIMIT_OFF;
 
-        s->poll_limit_interval = USEC_INFINITY;
-        s->poll_limit_burst = UINT_MAX;
+        s->poll_limit = RATELIMIT_OFF;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -322,14 +321,14 @@ static int socket_add_extras(Socket *s) {
         if (s->trigger_limit.burst == UINT_MAX)
                 s->trigger_limit.burst = s->accept ? 200 : 20;
 
-        if (s->poll_limit_interval == USEC_INFINITY)
-                s->poll_limit_interval = 2 * USEC_PER_SEC;
-        if (s->poll_limit_burst == UINT_MAX)
-                s->poll_limit_burst = s->accept ? 150 : 15;
+        if (s->poll_limit.interval == USEC_INFINITY)
+                s->poll_limit.interval = 2 * USEC_PER_SEC;
+        if (s->poll_limit.burst == UINT_MAX)
+                s->poll_limit.burst = s->accept ? 150 : 15;
 
         if (have_non_accept_socket(s)) {
 
-                if (!UNIT_DEREF(s->service)) {
+                if (!UNIT_ISSET(s->service)) {
                         Unit *x;
 
                         r = unit_load_related_unit(u, ".service", &x);
@@ -411,17 +410,14 @@ static int socket_verify(Socket *s) {
         if (!s->ports)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
 
+        if (s->max_connections <= 0)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
+
         if (s->accept && have_non_accept_socket(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit configured for accepting sockets, but sockets are non-accepting. Refusing.");
 
-        if (s->accept && s->max_connections <= 0)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "MaxConnection= setting too small. Refusing.");
-
-        if (s->accept && UNIT_DEREF(s->service))
+        if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
-
-        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP)
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing.");
 
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
@@ -668,7 +664,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFlushPending: %s\n",
                          prefix, yes_no(s->flush_pending));
 
-
         if (s->priority >= 0)
                 fprintf(f,
                         "%sPriority: %i\n",
@@ -797,8 +792,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPollLimitBurst: %u\n",
                 prefix, FORMAT_TIMESPAN(s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst,
-                prefix, FORMAT_TIMESPAN(s->poll_limit_interval, USEC_PER_SEC),
-                prefix, s->poll_limit_burst);
+                prefix, FORMAT_TIMESPAN(s->poll_limit.interval, USEC_PER_SEC),
+                prefix, s->poll_limit.burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
         if (str)
@@ -1572,7 +1567,7 @@ static int socket_address_listen_in_cgroup(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), "(sd-listen)", &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-listen)", /* into_cgroup= */ true, &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off listener stub process: %m");
         if (r == 0) {
@@ -1783,7 +1778,7 @@ static int socket_watch_fds(Socket *s) {
                         (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 }
 
-                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit_interval, s->poll_limit_burst);
+                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit.interval, s->poll_limit.burst);
                 if (r < 0)
                         log_unit_debug_errno(UNIT(s), r, "Failed to set poll limit on I/O event source, ignoring: %m");
         }
@@ -1993,7 +1988,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
         /* We have to resolve the user names out-of-process, hence
          * let's fork here. It's messy, but well, what can we do? */
 
-        r = unit_fork_helper_process(UNIT(s), "(sd-chown)", &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-chown)", /* into_cgroup= */ true, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2397,10 +2392,9 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 s->n_accepted++;
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return;
                 if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-
                         log_unit_warning_errno(UNIT(s), r, "Failed to set socket on service: %m");
                         goto fail;
                 }
@@ -3018,7 +3012,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), "(sd-accept)", &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-accept)", /* into_cgroup= */ true, &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off accept stub process: %m");
         if (r == 0) {
@@ -3423,17 +3417,22 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-char* socket_fdname(Socket *s) {
+const char* socket_fdname(Socket *s) {
         assert(s);
 
-        /* Returns the name to use for $LISTEN_NAMES. If the user
-         * didn't specify anything specifically, use the socket unit's
-         * name as fallback. */
+        /* Returns the name to use for $LISTEN_FDNAMES. If the user didn't specify anything specifically,
+         * use the socket unit's name as fallback for Accept=no sockets, "connection" otherwise. */
 
-        return s->fdname ?: UNIT(s)->id;
+        if (s->fdname)
+                return s->fdname;
+
+        if (s->accept)
+                return "connection";
+
+        return UNIT(s)->id;
 }
 
-static PidRef *socket_control_pid(Unit *u) {
+static PidRef* socket_control_pid(Unit *u) {
         return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 

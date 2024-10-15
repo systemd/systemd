@@ -5,4 +5,4 @@
 
 #include "cryptsetup-util.h"
 
-int enroll_recovery(struct crypt_device *cd, const void *volume_key, size_t volume_key_size);
+int enroll_recovery(struct crypt_device *cd, const struct iovec *volume_key);

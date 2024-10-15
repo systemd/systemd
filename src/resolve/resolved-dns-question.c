@@ -73,7 +73,6 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags
         if (!q)
                 return -ENOSPC;
 
-
         DNS_QUESTION_FOREACH_ITEM(item, q) {
                 r = dns_resource_key_equal(item->key, key);
                 if (r < 0)
@@ -184,7 +183,6 @@ int dns_question_contains_key(DnsQuestion *q, const DnsResourceKey *k) {
 
         if (!q)
                 return 0;
-
 
         for (j = 0; j < q->n_keys; j++) {
                 r = dns_resource_key_equal(q->items[j].key, k);

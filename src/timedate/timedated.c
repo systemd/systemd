@@ -380,7 +380,7 @@ static int context_write_data_local_rtc(Context *c) {
                 if (!w)
                         return -ENOMEM;
 
-                *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *mempcpy_typesafe(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         if (unlink("/etc/adjtime") < 0)
@@ -601,8 +601,11 @@ static int property_get_rtc_time(
                 log_debug("/dev/rtc has no valid time, power loss probably occurred?");
         else if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
-        else
-                t = (usec_t) timegm(&tm) * USEC_PER_SEC;
+        else {
+                r = mktime_or_timegm_usec(&tm, /* utc= */ true, &t);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to convert RTC time to UNIX time, ignoring: %m");
+        }
 
         return sd_bus_message_append(reply, "t", t);
 }
@@ -713,16 +716,17 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
         if (c->local_rtc) {
-                struct timespec ts;
                 struct tm tm;
 
                 /* 4. Sync RTC from system clock, with the new delta */
-                assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-                assert_se(localtime_r(&ts.tv_sec, &tm));
-
-                r = hwclock_set(&tm);
+                r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                        log_debug_errno(r, "Failed to convert system time to calendar time, ignoring: %m");
+                else {
+                        r = hwclock_set(&tm);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                }
         }
 
         log_struct(LOG_INFO,
@@ -787,32 +791,46 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
 
         if (fix_system) {
-                struct tm tm;
+                struct tm tm = {
+                        .tm_isdst = -1,
+                };
 
                 /* Sync system clock from RTC; first, initialize the timezone fields of struct tm. */
-                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
+                r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine current timezone, ignoring: %m");
 
                 /* Override the main fields of struct tm, but not the timezone fields */
                 r = hwclock_get(&tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
                 else {
+                        usec_t t;
                         /* And set the system clock with this */
-                        ts.tv_sec = mktime_or_timegm(&tm, !c->local_rtc);
 
-                        if (clock_settime(CLOCK_REALTIME, &ts) < 0)
-                                log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
+                        r = mktime_or_timegm_usec(&tm, !c->local_rtc, &t);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to convert calendar time to system time, ignoring: %m");
+                        else {
+                                /* We leave the subsecond offset as is! */
+                                ts.tv_sec = t / USEC_PER_SEC;
+
+                                if (clock_settime(CLOCK_REALTIME, &ts) < 0)
+                                        log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
+                        }
                 }
-
         } else {
                 struct tm tm;
 
                 /* Sync RTC from system clock */
-                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
-
-                r = hwclock_set(&tm);
+                r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                        log_debug_errno(r, "Failed to convert time to calendar time, ignoring: %m");
+                else {
+                        r = hwclock_set(&tm);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
+                }
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -826,7 +844,6 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         sd_bus *bus = sd_bus_message_get_bus(m);
-        char buf[FORMAT_TIMESTAMP_MAX];
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
         int64_t utc;
@@ -901,16 +918,19 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         /* Sync down to RTC */
-        localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
-
-        r = hwclock_set(&tm);
+        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
         if (r < 0)
-                log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
+        else {
+                r = hwclock_set(&tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+        }
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   LOG_MESSAGE("Changed local time to %s", strnull(format_timestamp(buf, sizeof(buf), timespec_load(&ts)))));
+                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
 
         return sd_bus_reply_method_return(m, NULL);
 }

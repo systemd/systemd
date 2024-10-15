@@ -111,6 +111,7 @@ static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
 #define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
 #define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
 
+#define DNS_PACKET_FLAG_AD (UINT16_C(1) << 5)
 #define DNS_PACKET_FLAG_TC (UINT16_C(1) << 9)
 
 static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {

@@ -182,4 +182,8 @@ void dns_server_unref_stream(DnsServer *s);
 
 DnsScope *dns_server_scope(DnsServer *s);
 
+static inline bool dns_server_is_fallback(DnsServer *s) {
+        return s && s->type == DNS_SERVER_FALLBACK;
+}
+
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret);

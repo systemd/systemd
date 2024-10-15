@@ -51,15 +51,16 @@
     system into the Linux world.</para>
 
     <para>The UEFI boot stub looks for various resources for the kernel invocation inside the UEFI PE binary
-    itself. This allows combining various resources inside a single PE binary image (usually called "Unified
-    Kernel Image", or "UKI" for short), which may then be signed via UEFI SecureBoot as a whole, covering all
-    individual resources at once. Specifically it may include:</para>
+    itself. This allows combining various resources inside a single PE binary image (a "Unified Kernel Image"
+    or "UKI" for short), which may then be signed via UEFI SecureBoot as a whole, covering all individual
+    resources at once. Specifically it may include the following PE sections:</para>
 
     <itemizedlist>
       <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
            src/fundamental/uki.h's UnifiedSection enum -->
 
-      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel image.</para></listitem>
+      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel
+      image. (Required)</para></listitem>
 
       <listitem><para>An <literal>.osrel</literal> section with OS release information, i.e. the contents of
       the <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
@@ -95,21 +96,29 @@
       signature data in the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
-    <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed
-    image, any attempts to override the kernel command line by passing one as invocation parameters to the
-    EFI binary are ignored. Thus, in order to allow overriding the kernel command line, either disable UEFI
-    SecureBoot, or don't include a kernel command line PE section in the kernel image file. If a command line
-    is accepted via EFI invocation parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is
-    present).</para>
+    <para>In a basic UKI, the sections listed above appear at most once. In a multi-profile UKI,
+    multiple sets of these sections are present in a single file and form "profiles",
+    one of which can be selected at boot. For this, the PE section <literal>.profile</literal> is
+    defined to be used as the separator between sets of sections. The
+    <literal>.profile</literal> section itself may contain meta-information about the section, and follows a
+    similar structure as the contents of the <literal>.osrel</literal> section. For further details about
+    multi-profile UKIs, see below.</para> <para>If UEFI SecureBoot is enabled and the
+    <literal>.cmdline</literal> section is present in the executed image, any attempts to override the kernel
+    command line by passing one as invocation parameters to the EFI binary are ignored. Thus, in order to
+    allow overriding the kernel command line, either disable UEFI SecureBoot, or don't include a kernel
+    command line PE section in the kernel image file. If a command line is accepted via EFI invocation
+    parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is present).</para> <para>If a
+    DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing DeviceTree in the
+    corresponding EFI configuration table. systemd-stub will ask the firmware via the
+    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para> <para>The
+    contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and thus the
+    result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is not
+    included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    measurement operation, and thus cannot also be input to it. If an UKI contains multiple profiles, only
+    the PE sections of the selected profile (and those of the base profile, except if overridden) are
+    measured.</para>
 
-    <para>If a DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing
-    DeviceTree in the corresponding EFI configuration table. systemd-stub will ask the firmware via the
-    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
-
-    <para>The contents of eight of these nine sections are measured into TPM PCR 11. It is otherwise not used
-    and thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section
-    is not included in this PCR measurement, since it is supposed to contain signatures for the output of the
-    measurement operation, and thus cannot also be input to it.</para>
+    <para>If non-zero, the selected numeric profile is measured into PCR 12.</para>
 
     <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> sections are present in a
     unified kernel image their contents are passed to the booted kernel in an synthetic initrd cpio archive
@@ -182,13 +191,15 @@
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
-      PE binaries, and a <literal>.cmdline</literal> or <literal>.ucode</literal> section is parsed from them.
-      Addons are supposed to be used to pass additional kernel command line parameters, or Devicetree blobs,
-      and microcode updates, regardless of the kernel image being booted, for example to allow platform vendors
-      to ship platform-specific configuration.</para>
+      PE binaries and specific sections are loaded from them. Addons are used to pass additional kernel
+      command line parameters (<literal>.cmdline</literal> section), or Devicetree blobs
+      (<literal>.dtb</literal> section), additional initrds (<literal>.initrd</literal> section),
+      and microcode updates (<literal>.ucode</literal> section). Addons allow those resources to be passed
+      regardless of the kernel version being booted, for example allowing platform vendors to ship
+      platform-specific configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
-      Shim's MOK, and will be rejected otherwise. Additionally, if both the addon and the UKI contain a
+      Shim's MOK, and only loaded if the check passes. Additionally, if both the addon and the UKI contain a
       <literal>.uname</literal> section, the addon will be rejected if they do not match exactly. It is
       recommended to always add a <literal>.sbat</literal> section to all signed addons, so that they may be
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
@@ -213,14 +224,14 @@
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
-      the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
-      measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+      the initrd, regardless of the kernel version being booted. The generated <command>cpio</command>
+      archive is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal> and/or
-      <literal>.ucode</literal>sections are parsed from them. This is supposed to be used to pass additional
-      command line parameters, Devicetree blobs and microcode updates to the kernel, regardless of the
-      kernel being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>,
+      <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
+      This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
+      and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
@@ -232,18 +243,123 @@
   </refsect1>
 
   <refsect1>
+    <title>Multi-Profile UKIs</title>
+
+    <para>In many contexts it is useful to allow invocation of a single UKI in multiple different modes (or
+    "profiles") without compromising the cryptographic integrity, measurements and so on of the boot
+    process. For example, a single UKI might provide three distinct profiles: a regular boot one, one that
+    invokes a "factory reset" operation, and one that boots into a storage target mode (as in
+    <citerefentry><refentrytitle>systemd-storagetm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>). Each
+    profile would then use the same <literal>.linux</literal> and <literal>.initrd</literal> sections, but would
+    have a separate <literal>.cmdline</literal> section. For example the latter two profiles would extend the
+    regular kernel command line with <literal>systemd.unit=factory-reset.target</literal> or
+    <literal>rd.systemd.unit=storagetm.target</literal>.</para>
+
+    <para>A single UKI may support multiple profiles by means of the special <literal>.profile</literal> PE
+    section. This section acts as separator between the PE sections of the individual
+    profiles. <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and
+    the other PE sections listed above may appear multiple times too, if <literal>.profile</literal> are
+    used, but only once before the first <literal>.profile</literal> section, once between each subsequent
+    pair, and once after the last appearance of <literal>.profile</literal>. The sections listed before the
+    first <literal>.profile</literal> are considered the "base" profile of the UKI. Each
+    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from
+    zero. The PE sections following each <literal>.profile</literal> are specific to that profile. When
+    booting into a specific profile the base section's profiles are used in combination with the specific
+    profile's sections: if the same section is defined in both, the per-profile section overrides the base
+    profile's version, otherwise the per-profile sections is used together with the base profile
+    sections.</para> <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one
+    that just contains a single <literal>.profile</literal>, as having only a single profile @0.</para>
+
+    <para>Here's a simple example for a multi-profile UKI's sections, inspired by the setup suggested above:</para>
+
+    <table>
+      <title>Multi-Profile UKI Example</title>
+
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="section" />
+        <colspec colname="profile" />
+
+        <thead>
+          <row>
+            <entry>Section</entry>
+            <entry>Profile</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><literal>.linux</literal></entry>
+            <entry morerows="3" valign="middle">Base profile</entry>
+          </row>
+          <row>
+            <entry><literal>.osrel</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.initrd</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry>Profile @0</entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry morerows="1" valign="middle">Profile @1</entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry morerows="1" valign="middle">Profile @2</entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The section list above would define three profiles. The first four sections make up the base
+    profile. A <literal>.profile</literal> section then introduces profile @0. It doesn't override any
+    sections (or add any) from the base section, hence it is immediately followed by another
+    <literal>.profile</literal> section that then introduces section @1. This profile overrides the kernel
+    command line. Finally, the last two sections define section @2, again overriding the command line. (Note
+    that in this example the first <literal>.cmdline</literal> could also moved behind the first
+    <literal>.profile</literal> with equivalent effect. To keep things nicely extensible, it's probably a
+    good idea to keep the generic command line in the base section instead of profile 0, in case later added
+    profiles might want to reuse it.)</para>
+
+    <para>The profile to boot may be controlled via the UKI's own command line: if the first argument starts
+    with <literal>@</literal>, followed by a positive integer number in decimal, it selects the profile to
+    boot into. If the first argument is not specified like that, the UKI will automatically boot into profile
+    0.</para>
+
+    <para>A <literal>.profile</literal> section may contain meta-information about the profile. It follows a
+    similar format as <literal>.osrel</literal> (i.e. an environment-variable-assignment-block-like list of
+    newline separated strings). Currently two fields are defined: <literal>ID=</literal> is supposed to carry
+    a short identifying string that identifies the profile
+    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human readable
+    string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
+    Device'</literal>).</para>
+  </refsect1>
+
+  <refsect1>
     <title>TPM PCR Notes</title>
 
     <para>Note that when a unified kernel using <command>systemd-stub</command> is invoked the firmware will
     measure it as a whole to TPM PCR 4, covering all embedded resources, such as the stub code itself, the
-    core kernel, the embedded initrd and kernel command line (see above for a full list).</para>
+    core kernel, the embedded initrd and kernel command line (see above for a full list), including all UKI
+    profiles.</para>
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
-    every type of initrd will be measured two or three times: the initrds embedded in the kernel image will be
-    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials (and the one synthesized
-    from configuration extensions) will be measured to both PCR 9 and PCR 12; the initrd synthesized from
-    system extensions will be measured to both PCR 4 and PCR 9. Let's summarize the OS resources and the PCRs
-    they are measured to:</para>
+    every type of initrd (of the selected UKI profile) will possibly be measured two or three times: the
+    initrds embedded in the kernel image will be measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized
+    from credentials (and the one synthesized from configuration extensions) will be measured to both PCR 9
+    and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR 9. Let's
+    summarize the OS resources and the PCRs they are measured to:</para>
 
     <table>
       <title>OS Resource PCR Summary</title>
@@ -324,6 +440,11 @@
             <entry>Configuration Extensions (synthesized initrd from companion files)</entry>
             <entry>9 + 12</entry>
           </row>
+
+          <row>
+            <entry>Selected profile unless zero</entry>
+            <entry>12</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -340,12 +461,16 @@
       <varlistentry>
         <term><varname>LoaderDevicePartUUID</varname></term>
 
-        <listitem><para>Contains the partition UUID of the EFI System Partition the EFI image was run
-        from. <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <listitem><para>Contains the partition UUID of the partition the boot loader has been started from on
+        the current boot (usually a EFI System Partition). If already set by the boot loader, this will
+        remain untouched by <command>systemd-stub</command>. If not set yet, this will be set to the
+        partition UUID of the partition the unified kernel is started from, in order to support systems that
+        directly boot into a unified kernel image, bypassing any boot loader.
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to automatically find the disk booted from, in order to discover various other
         partitions on the same disk automatically.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v224"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -362,12 +487,27 @@
       <varlistentry>
         <term><varname>LoaderImageIdentifier</varname></term>
 
-        <listitem><para>The path of EFI executable, relative to the EFI System Partition's root
-        directory. Use
+        <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
+        relative to the partition's root directory (i.e. relative to the partition indicated by
+        <varname>LoaderDevicePartUUID</varname>, see above). If not set yet, this will be set to the file
+        system path of the EFI executable of the booted unified kernel, in order to support systems that
+        directly boot into a unified kernel image, bypassing any boot loader.  Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
         this data.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubDevicePartUUID</varname></term>
+        <term><varname>StubImageIdentifier</varname></term>
+
+        <listitem><para>Similar to <varname>LoaderDevicePartUUID</varname> and
+        <varname>StubImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
+        binary rather than the location of the boot loader binary, regardless if booted via a boot loader
+        or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -421,6 +561,16 @@
         unset otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubProfile</varname></term>
+
+        <listitem><para>The numeric index of the selected profile, without the <literal>@</literal>,
+        formatted as decimal string. Set both on single-profile and multi-profile UKIs. (In the former case
+        this variable will be set to <literal>0</literal> unconditionally.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -493,12 +643,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/.extra/tpm2-pcr-pkey.pem</filename></term>
+        <term><filename>/.extra/tpm2-pcr-public-key.pem</filename></term>
         <listitem><para>The PEM public key included in the <literal>.pcrpkey</literal> PE section of the
         unified kernel image is copied into the <filename>/.extra/tpm2-pcr-public-key.pem</filename> file in
         the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/profile</filename></term>
+        <term><filename>/.extra/os-release</filename></term>
+        <listitem><para>The contents of the <literal>.profile</literal> and <literal>.osrel</literal>
+        sections of the selected profile, if any.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
 

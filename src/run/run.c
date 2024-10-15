@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -83,6 +84,7 @@ static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -133,6 +135,7 @@ static int help(void) {
                "                                  STDERR\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
+               "     --json=pretty|short|off      Print unit name and invocation id as JSON\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
@@ -263,6 +266,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHELL,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -311,6 +315,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "json",               required_argument, NULL, ARG_JSON               },
                 {},
         };
 
@@ -618,6 +623,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -663,7 +674,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
-                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
+                arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
 
@@ -851,7 +862,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                        /* Root will be manually suppressed later. */
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
@@ -890,6 +902,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get current working directory: %m");
                 }
+        } else {
+                /* Root was not suppressed earlier, to allow the above check to work properly. */
+                if (empty_or_root(arg_working_directory))
+                        arg_working_directory = mfree(arg_working_directory);
         }
 
         arg_service_type = "exec";
@@ -897,7 +913,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_wait = true;
         arg_aggressive_gc = true;
 
-        arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
         arg_expand_environment = false;
         arg_send_sighup = true;
 
@@ -1165,7 +1181,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                send_term = isatty(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
+                send_term = isatty_safe(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
         }
 
         if (send_term) {
@@ -1551,10 +1567,6 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", service, "fail");
         if (r < 0)
@@ -1686,6 +1698,33 @@ static int chown_to_capsule(const char *path, const char *capsule) {
         return chmod_and_chown(path, 0600, st.st_uid, st.st_gid);
 }
 
+static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(unit);
+
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (sd_id128_is_null(invocation_id))
+                        log_info("Running as unit: %s", unit);
+                else
+                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, unit, SD_ID128_FORMAT_VAL(invocation_id));
+                return 0;
+        }
+
+        r = sd_json_variant_set_field_string(&v, "unit", unit);
+        if (r < 0)
+                return r;
+
+        if (!sd_id128_is_null(invocation_id)) {
+                r = sd_json_variant_set_field_id128(&v, "invocation_id", invocation_id);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1695,6 +1734,8 @@ static int start_transient_service(sd_bus *bus) {
         int r;
 
         assert(bus);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
@@ -1730,6 +1771,8 @@ static int start_transient_service(sd_bus *bus) {
                         r = sd_bus_default_system(&system_bus);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                        (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
 
                         r = bus_call_method(system_bus,
                                             bus_machine_mgr,
@@ -1785,8 +1828,6 @@ static int start_transient_service(sd_bus *bus) {
                 return r;
         slave = safe_close(slave);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
                 return r;
@@ -1812,10 +1853,10 @@ static int start_transient_service(sd_bus *bus) {
                 r = acquire_invocation_id(bus, service, &invocation_id);
                 if (r < 0)
                         return r;
-                if (r == 0) /* No invocation UUID set */
-                        log_info("Running as unit: %s", service);
-                else
-                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, service, SD_ID128_FORMAT_VAL(invocation_id));
+
+                r = print_unit_invocation(service, invocation_id);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
@@ -1839,8 +1880,6 @@ static int start_transient_service(sd_bus *bus) {
                         return log_error_errno(r, "Failed to get event loop: %m");
 
                 if (master >= 0) {
-                        assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGWINCH) >= 0);
-
                         (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
@@ -1999,17 +2038,13 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2131,10 +2166,9 @@ static int start_transient_scope(sd_bus *bus) {
                 return log_oom();
 
         if (!arg_quiet) {
-                if (sd_id128_is_null(invocation_id))
-                        log_info("Running as unit: %s", scope);
-                else
-                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, scope, SD_ID128_FORMAT_VAL(invocation_id));
+                r = print_unit_invocation(scope, invocation_id);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_expand_environment > 0) {
@@ -2179,10 +2213,6 @@ static int make_transient_trigger_unit(
         assert(service);
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2315,7 +2345,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return r;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
@@ -2414,7 +2444,9 @@ static int run(int argc, char* argv[]) {
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_scope)
                 return start_transient_scope(bus);

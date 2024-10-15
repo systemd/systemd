@@ -147,6 +147,25 @@ int config_get_stats_by_path(
 int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st);
 bool stats_by_path_equal(Hashmap *a, Hashmap *b);
 
+typedef struct ConfigSectionParser {
+        ConfigParserCallback parser;
+        int ltype;
+        size_t offset;
+} ConfigSectionParser;
+
+int config_section_parse(
+                const ConfigSectionParser *parsers,
+                size_t n_parsers,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *userdata);
+
 typedef struct ConfigSection {
         unsigned line;
         bool invalid;
@@ -203,6 +222,43 @@ static inline bool section_is_invalid(ConfigSection *section) {
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
+#define log_section_full_errno_zerook(section, level, error, ...)       \
+        ({                                                              \
+                const ConfigSection *_s = (section);                    \
+                log_syntax(/* unit = */ NULL,                           \
+                           level,                                       \
+                           _s ? _s->filename : NULL,                    \
+                           _s ? _s->line : 0,                           \
+                           error,                                       \
+                           __VA_ARGS__);                                \
+        })
+
+#define log_section_full_errno(section, level, error, ...)              \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_section_full_errno_zerook(section, level, _error, __VA_ARGS__); \
+        })
+
+#define log_section_full(section, level, fmt, ...)                      \
+        ({                                                              \
+                if (BUILD_MODE_DEVELOPER)                               \
+                        assert(!strstr(fmt, "%m"));                     \
+                (void) log_section_full_errno_zerook(section, level, 0, fmt, ##__VA_ARGS__); \
+        })
+
+#define log_section_debug(section, ...)                  log_section_full(section, LOG_DEBUG,   __VA_ARGS__)
+#define log_section_info(section, ...)                   log_section_full(section, LOG_INFO,    __VA_ARGS__)
+#define log_section_notice(section, ...)                 log_section_full(section, LOG_NOTICE,  __VA_ARGS__)
+#define log_section_warning(section, ...)                log_section_full(section, LOG_WARNING, __VA_ARGS__)
+#define log_section_error(section, ...)                  log_section_full(section, LOG_ERR,     __VA_ARGS__)
+
+#define log_section_debug_errno(section, error, ...)     log_section_full_errno(section, LOG_DEBUG,   error, __VA_ARGS__)
+#define log_section_info_errno(section, error, ...)      log_section_full_errno(section, LOG_INFO,    error, __VA_ARGS__)
+#define log_section_notice_errno(section, error, ...)    log_section_full_errno(section, LOG_NOTICE,  error, __VA_ARGS__)
+#define log_section_warning_errno(section, error, ...)   log_section_full_errno(section, LOG_WARNING, error, __VA_ARGS__)
+#define log_section_error_errno(section, error, ...)     log_section_full_errno(section, LOG_ERR,     error, __VA_ARGS__)
+
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
 CONFIG_PARSER_PROTOTYPE(config_parse_long);
@@ -217,6 +273,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_si_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64_infinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint32_flag);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint32_invert_flag);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_string);
@@ -246,12 +304,15 @@ CONFIG_PARSER_PROTOTYPE(config_parse_hw_addrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_ether_addr);
 CONFIG_PARSER_PROTOTYPE(config_parse_ether_addrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_data);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_calendar);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_protocol);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
@@ -266,7 +327,7 @@ typedef enum ConfigParseStringFlags {
         CONFIG_PARSE_STRING_SAFE_AND_ASCII = CONFIG_PARSE_STRING_SAFE | CONFIG_PARSE_STRING_ASCII,
 } ConfigParseStringFlags;
 
-#define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
+#define DEFINE_CONFIG_PARSE(function, parser)                           \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 int *i = data, r;                                       \
                                                                         \
@@ -276,17 +337,14 @@ typedef enum ConfigParseStringFlags {
                 assert(data);                                           \
                                                                         \
                 r = parser(rvalue);                                     \
-                if (r < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (r < 0)                                              \
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue); \
                                                                         \
                 *i = r;                                                 \
-                return 0;                                               \
+                return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
+#define DEFINE_CONFIG_PARSE_PTR(function, parser, type)                 \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = ASSERT_PTR(data);                             \
                 int r;                                                  \
@@ -297,13 +355,12 @@ typedef enum ConfigParseStringFlags {
                                                                         \
                 r = parser(rvalue, i);                                  \
                 if (r < 0)                                              \
-                        log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                   msg ", ignoring: %s", rvalue);       \
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue); \
                                                                         \
-                return 0;                                               \
+                return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type, msg) \
+#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type)      \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -313,20 +370,17 @@ typedef enum ConfigParseStringFlags {
                 assert(data);                                           \
                                                                         \
                 x = from_string(rvalue);                                \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (x < 0)                                              \
+                        return log_syntax_parse_error(unit, filename, line, x, lvalue, rvalue); \
                                                                         \
                 *i = x;                                                 \
-                return 0;                                               \
+                return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
-        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type, msg)
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type)                  \
+        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type)
 
-#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
+#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -337,81 +391,73 @@ typedef enum ConfigParseStringFlags {
                                                                         \
                 if (isempty(rvalue)) {                                  \
                         *i = default_value;                             \
-                        return 0;                                       \
+                        return 1;                                       \
                 }                                                       \
                                                                         \
                 x = name##_from_string(rvalue);                         \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
+                if (x < 0)                                              \
+                        return log_syntax_parse_error(unit, filename, line, x, lvalue, rvalue); \
                                                                         \
                 *i = x;                                                 \
-                return 0;                                               \
+                return 1;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
+#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid)               \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
                 type **enums = ASSERT_PTR(data);                               \
                 _cleanup_free_ type *xs = NULL;                                \
-                size_t i = 0;                                                  \
+                size_t n = 0;                                                  \
                 int r;                                                         \
                                                                                \
-                assert(filename);                                              \
                 assert(lvalue);                                                \
-                assert(rvalue);                                                \
-                                                                               \
-                xs = new0(type, 1);                                            \
-                if (!xs)                                                       \
-                        return -ENOMEM;                                        \
-                                                                               \
-                *xs = invalid;                                                 \
                                                                                \
                 for (const char *p = rvalue;;) {                               \
                         _cleanup_free_ char *en = NULL;                        \
-                        type x, *new_xs;                                       \
+                        type x;                                                \
                                                                                \
                         r = extract_first_word(&p, &en, NULL, 0);              \
-                        if (r == -ENOMEM)                                      \
-                                return log_oom();                              \
-                        if (r < 0) {                                           \
-                                log_syntax(unit, LOG_WARNING, filename, line, r, \
-                                           msg ", ignoring: %s", en);          \
-                                return 0;                                      \
-                        }                                                      \
+                        if (r < 0)                                             \
+                                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue); \
                         if (r == 0)                                            \
                                 break;                                         \
                                                                                \
                         x = name##_from_string(en);                            \
                         if (x < 0) {                                           \
                                 log_syntax(unit, LOG_WARNING, filename, line, x, \
-                                           msg ", ignoring: %s", en);          \
+                                           "Failed to parse %s in %s=, ignoring.", \
+                                           en, lvalue);                        \
                                 continue;                                      \
                         }                                                      \
                                                                                \
-                        for (type *ys = xs; x != invalid && *ys != invalid; ys++)       \
-                                if (*ys == x) {                                         \
+                        FOREACH_ARRAY(i, xs, n)                                \
+                                if (*i == x) {                                 \
                                         log_syntax(unit, LOG_NOTICE, filename, line, 0, \
-                                                   "Duplicate entry, ignoring: %s",     \
-                                                   en);                        \
+                                                   "Duplicate entry %s in %s=, ignoring.", \
+                                                   en, lvalue);                \
                                         x = invalid;                           \
+                                        break;                                 \
                                 }                                              \
                                                                                \
                         if (x == invalid)                                      \
                                 continue;                                      \
                                                                                \
-                        *(xs + i) = x;                                         \
-                        new_xs = realloc(xs, (++i + 1) * sizeof(type));        \
-                        if (new_xs)                                            \
-                                xs = new_xs;                                   \
-                        else                                                   \
+                        /* Allocate one more for the trailing 'invalid'. */    \
+                        if (!GREEDY_REALLOC(xs, n + 2))                        \
                                 return log_oom();                              \
                                                                                \
-                        *(xs + i) = invalid;                                   \
+                        xs[n++] = x;                                           \
                 }                                                              \
                                                                                \
-                return free_and_replace(*enums, xs);                           \
+                if (n <= 0) {                                                  \
+                        /* An empty string, or invalid values only. */         \
+                        *enums = mfree(*enums);                                \
+                        return 1;                                              \
+                }                                                              \
+                                                                               \
+                /* Terminate with 'invalid' */                                 \
+                xs[n] = invalid;                                               \
+                free_and_replace(*enums, xs);                                  \
+                return 1;                                                      \
         }
 
 int config_parse_unsigned_bounded(
@@ -420,8 +466,8 @@ int config_parse_unsigned_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 unsigned min,
                 unsigned max,
                 bool ignoring,
@@ -433,8 +479,8 @@ static inline int config_parse_uint32_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint32_t min,
                 uint32_t max,
                 bool ignoring,
@@ -444,7 +490,7 @@ static inline int config_parse_uint32_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)
@@ -460,8 +506,8 @@ static inline int config_parse_uint16_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint16_t min,
                 uint16_t max,
                 bool ignoring,
@@ -471,7 +517,7 @@ static inline int config_parse_uint16_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)
@@ -487,8 +533,8 @@ static inline int config_parse_uint8_bounded(
                 unsigned line,
                 const char *section,
                 unsigned section_line,
-                const char *name,
-                const char *value,
+                const char *lvalue,
+                const char *rvalue,
                 uint8_t min,
                 uint8_t max,
                 bool ignoring,
@@ -498,7 +544,7 @@ static inline int config_parse_uint8_bounded(
         int r;
 
         r = config_parse_unsigned_bounded(
-                        unit, filename, line, section, section_line, name, value,
+                        unit, filename, line, section, section_line, lvalue, rvalue,
                         min, max, ignoring,
                         &t);
         if (r <= 0)

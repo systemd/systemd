@@ -710,8 +710,8 @@ int manager_read_utmp(Manager *m) {
 
         assert(m);
 
-        if (utmpxname(_PATH_UTMPX) < 0)
-                return log_error_errno(errno, "Failed to set utmp path to " _PATH_UTMPX ": %m");
+        if (utmpxname(UTMPX_FILE) < 0)
+                return log_error_errno(errno, "Failed to set utmp path to " UTMPX_FILE ": %m");
 
         utmpx = utxent_start();
 
@@ -725,9 +725,9 @@ int manager_read_utmp(Manager *m) {
                 u = getutxent();
                 if (!u) {
                         if (errno == ENOENT)
-                                log_debug_errno(errno, _PATH_UTMPX " does not exist, ignoring.");
+                                log_debug_errno(errno, UTMPX_FILE " does not exist, ignoring.");
                         else if (errno != 0)
-                                log_warning_errno(errno, "Failed to read " _PATH_UTMPX ", ignoring: %m");
+                                log_warning_errno(errno, "Failed to read " UTMPX_FILE ", ignoring: %m");
                         return 0;
                 }
 
@@ -808,9 +808,9 @@ void manager_connect_utmp(Manager *m) {
          * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as idle
          * detection (which, for tty sessions, relies on the TTY used) */
 
-        r = sd_event_add_inotify(m->event, &s, _PATH_UTMPX, IN_MODIFY|IN_MOVE_SELF|IN_DELETE_SELF|IN_ATTRIB, manager_dispatch_utmp, m);
+        r = sd_event_add_inotify(m->event, &s, UTMPX_FILE, IN_MODIFY|IN_MOVE_SELF|IN_DELETE_SELF|IN_ATTRIB, manager_dispatch_utmp, m);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG: LOG_WARNING, r, "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
+                log_full_errno(r == -ENOENT ? LOG_DEBUG: LOG_WARNING, r, "Failed to create inotify watch on " UTMPX_FILE ", ignoring: %m");
         else {
                 r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)

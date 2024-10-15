@@ -445,6 +445,9 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask);
 int user_record_test_blocked(UserRecord *h);
 int user_record_test_password_change_required(UserRecord *h);
 
+int user_record_is_root(const UserRecord *u);
+int user_record_is_nobody(const UserRecord *u);
+
 /* The following six are user by group-record.c, that's why we export them here */
 int json_dispatch_realm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_gecos(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

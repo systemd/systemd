@@ -31,7 +31,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         return !uid_range_covers(p, 0, 65535);
 }
 
-char* taint_string(void) {
+char** taint_strv(void) {
         const char *stage[12] = {};
         size_t n = 0;
 
@@ -81,5 +81,15 @@ char* taint_string(void) {
 
         assert(n < ELEMENTSOF(stage) - 1);  /* One extra for NULL terminator */
 
-        return strv_join((char**) stage, ":");
+        return strv_copy((char *const *) stage);
+}
+
+char* taint_string(void) {
+        _cleanup_strv_free_ char **taints = NULL;
+
+        taints = taint_strv();
+        if (!taints)
+                return NULL;
+
+        return strv_join(taints, ":");
 }

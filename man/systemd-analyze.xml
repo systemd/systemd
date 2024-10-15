@@ -180,6 +180,11 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">has-tpm2</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">pcrs</arg>
       <arg choice="opt" rep="repeat"><replaceable>PCR</replaceable></arg>
     </cmdsynopsis>
@@ -726,7 +731,9 @@ $ systemd-analyze compare-versions 1 ge 2; echo $?
       augment the compiled in set of unit load paths; see
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
       units files present in the directories containing the command line arguments will be used in preference
-      to the other paths.</para>
+      to the other paths. If a template unit without an instance name is specified (e.g.
+      <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+      name, which can be controlled by <option>--instance=</option> option.</para>
 
       <para>The following errors are currently detected:</para>
       <itemizedlist>
@@ -947,6 +954,40 @@ default         ignore      -         -</programlisting>
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze has-tpm2</command></title>
+
+      <para>Reports whether the system is equipped with a usable TPM2 device. If a TPM2 device has been
+      discovered, is supported, and is being used by firmware, by the OS kernel drivers and by userspace
+      (i.e. systemd) this prints <literal>yes</literal> and exits with exit status zero. If no such device is
+      discovered/supported/used, prints <literal>no</literal>. Otherwise prints
+      <literal>partial</literal>. In either of these two cases exits with non-zero exit status. It also shows
+      five lines indicating separately whether firmware, drivers, the system, the kernel and libraries
+      discovered/support/use TPM2. Currently, required libraries are <filename>libtss2-esys.so.0</filename>,
+      <filename>libtss2-rc.so.0</filename>, and <filename>libtss2-mu.so.0</filename>. The requirement may be
+      changed in the future release.</para>
+
+      <para>Note, this checks for TPM 2.0 devices only, and does not consider TPM 1.2 at all.</para>
+
+      <para>Combine with <option>--quiet</option> to suppress the output.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>yes
++firmware
++driver
++system
++subsystem
++libraries
+  +libtss2-esys.so.0
+  +libtss2-rc.so.0
+  +libtss2-mu.so.0</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze pcrs <optional><replaceable>PCR</replaceable>…</optional></command></title>
 
       <para>This command shows the known TPM2 PCRs along with their identifying names and current values.</para>
@@ -1152,6 +1193,20 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         generators enabled will generally result in some warnings.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--instance=NAME</option></term>
+
+        <listitem>
+          <para>Specifies fallback instance name for template units. This will be used when one or more
+          template units without an instance name (e.g. <filename>foo@.service</filename>) specified for
+          <command>systemd-analyze condition</command> with <option>--unit=</option>,
+          <command>systemd-analyze security</command>, and <command>systemd-analyze verify</command>.
+          If unspecified, <literal>test_instance</literal> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1555,7 +1610,9 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
         compiled in set of unit load paths; see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
         units files present in the directory containing the specified unit will be used in preference to the
-        other paths.</para>
+        other paths. If a template unit without an instance name is specified (e.g.
+        <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+        name, which can be controlled by <option>--instance=</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1635,6 +1692,12 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
     <constant>12</constant>, <constant>0</constant>, <constant>11</constant> is returned if the second
     version string is respectively larger, equal, or smaller to the first. In the three-argument form,
     <constant>0</constant> or <constant>1</constant> if the condition is respectively true or false.</para>
+
+    <para>In case of the <command>has-tpm2</command> command returns 0 if a TPM2 device is discovered,
+    supported and used by firmware, driver, and userspace (i.e. systemd). Otherwise returns the OR
+    combination of the value 1 (in case firmware support is missing), 2 (in case driver support is missing)
+    and 4 (in case userspace support is missing). If no TPM2 support is available at all, value 7 is hence
+    returned.</para>
   </refsect1>
 
   <xi:include href="common-variables.xml" />

@@ -32,6 +32,10 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wshadow\"")
 
+#define DISABLE_WARNING_STRINGOP_OVERREAD                               \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wstringop-overread\"")
+
 #define DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES                      \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
@@ -549,6 +553,7 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
 #define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
+#define voffsetof(v, member) offsetof(typeof(v), member)
 
 #define _FOREACH_ARRAY(i, array, num, m, end)                           \
         for (typeof(array[0]) *i = (array), *end = ({                   \

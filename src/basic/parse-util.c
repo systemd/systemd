@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <linux/ipv6.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -710,22 +711,6 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow
 
         *low = l;
         *high = h;
-
-        return 0;
-}
-
-int parse_ip_prefix_length(const char *s, int *ret) {
-        unsigned l;
-        int r;
-
-        r = safe_atou(s, &l);
-        if (r < 0)
-                return r;
-
-        if (l > 128)
-                return -ERANGE;
-
-        *ret = (int) l;
 
         return 0;
 }

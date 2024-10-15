@@ -321,7 +321,7 @@ static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *pre
         if (snprintf_ok(str, sizeof str, "%so%u%s%s", prefix, idx, strempty(port), strempty(suffix)))
                 udev_builtin_add_property(dev, mode, "ID_NET_NAME_ONBOARD", str);
 
-        log_device_debug(dev, "Onboard index identifier: index=%u port=%s %s %s",
+        log_device_debug(dev, "PCI onboard index identifier: index=%u port=%s %s %s",
                          idx, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
@@ -577,19 +577,26 @@ static int get_device_firmware_node_sun(sd_device *dev, uint32_t *ret) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read firmware_node/sun, ignoring: %m");
 
-        r = safe_atou32(attr, ret);
+        uint32_t sun;
+        r = safe_atou32(attr, &sun);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to parse firmware_node/sun '%s', ignoring: %m", attr);
+                return log_device_debug_errno(dev, r, "Failed to parse firmware_node/sun '%s', ignoring: %m", attr);
+        if (sun == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "firmware_node/sun == 0, ignoring: %m");
 
+        *ret = sun;
         return 0;
 }
 
 static int pci_get_slot_from_firmware_node_sun(sd_device *dev, uint32_t *ret) {
-        int r;
         sd_device *slot_dev;
+        int r;
 
         assert(dev);
         assert(ret);
+
+        if (!naming_scheme_has(NAMING_FIRMWARE_NODE_SUN))
+                return -EOPNOTSUPP;
 
         /* Try getting the ACPI _SUN for the device */
         if (get_device_firmware_node_sun(dev, ret) >= 0)
@@ -597,12 +604,12 @@ static int pci_get_slot_from_firmware_node_sun(sd_device *dev, uint32_t *ret) {
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "pci", NULL, &slot_dev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to find pci parent, ignoring: %m");
+                return log_device_debug_errno(dev, r, "Failed to find parent PCI device, ignoring: %m");
 
         if (is_pci_bridge(slot_dev) && is_pci_multifunction(dev) <= 0)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ESTALE),
-                                              "Not using slot information because the parent pcieport "
-                                              "is a bridge and the PCI device is not multifunction.");
+                return log_device_debug_errno(
+                                dev, SYNTHETIC_ERRNO(ESTALE),
+                                "Not using slot information because the parent PCI slot is a bridge and the PCI device is not multifunction.");
 
         /* Try getting the ACPI _SUN from the parent pcieport */
         if (get_device_firmware_node_sun(slot_dev, ret) >= 0)
@@ -686,12 +693,8 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
                          strna(domain), bus_and_slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
-        if (naming_scheme_has(NAMING_FIRMWARE_NODE_SUN))
-                r = pci_get_slot_from_firmware_node_sun(pci_dev, &slot);
-        else
-                r = -1;
-        /* If we don't find a slot using firmware_node/sun, fallback to hotplug_slot */
-        if (r < 0) {
+        if (pci_get_slot_from_firmware_node_sun(pci_dev, &slot) < 0) {
+                /* If we don't find a slot using firmware_node/sun, fallback to hotplug_slot */
                 r = pci_get_hotplug_slot(pci_dev, &slot);
                 if (r < 0)
                         return r;
@@ -705,7 +708,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
                         prefix, strempty(domain), slot, strempty(func), strempty(port), strempty(suffix)))
                 udev_builtin_add_property(dev, mode, "ID_NET_NAME_SLOT", str);
 
-        log_device_debug(dev, "Slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
+        log_device_debug(dev, "PCI slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
                          strna(domain), slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
@@ -822,7 +825,6 @@ static int names_platform(sd_device *dev, const char *prefix, EventMode mode) {
 static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) {
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
-        sd_device *parent;
         int r;
 
         assert(dev);
@@ -835,14 +837,24 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
         if (!streq(prefix, "en"))
                 return -EOPNOTSUPP;
 
-        /* check if our direct parent has an of_node */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+        /* check if the device itself has an of_node */
+        if (naming_scheme_has(NAMING_DEVICETREE_PORT_ALIASES)) {
+                r = sd_device_new_child(&ofnode_dev, dev, "of_node");
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to get device of_node, ignoring: %m");
+        }
+        if (!ofnode_dev) {
+                sd_device *parent;
 
-        r = sd_device_new_child(&ofnode_dev, parent, "of_node");
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "Failed to get 'of_node' child device: %m");
+                /* check if our direct parent has an of_node as a fallback */
+                r = sd_device_get_parent(dev, &parent);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+
+                r = sd_device_new_child(&ofnode_dev, parent, "of_node");
+                if (r < 0)
+                        return log_device_debug_errno(parent, r, "Failed to get device of_node: %m");
+        }
 
         r = sd_device_get_syspath(ofnode_dev, &ofnode_syspath);
         if (r < 0)
@@ -912,7 +924,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
                 char str[ALTIFNAMSIZ];
                 if (snprintf_ok(str, sizeof str, "%sd%u", prefix, i))
                         udev_builtin_add_property(dev, mode, "ID_NET_NAME_ONBOARD", str);
-                log_device_debug(dev, "devicetree identifier: alias_index=%u %s \"%s\"",
+                log_device_debug(dev, "Devicetree identifier: alias_index=%u %s \"%s\"",
                                  i, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
                 return 0;
         }
@@ -1015,7 +1027,7 @@ static int names_usb(sd_device *dev, const char *prefix, EventMode mode) {
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface", &usbdev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Could not find usb parent device: %m");
+                return log_device_debug_errno(dev, r, "Could not find USB parent device: %m");
 
         r = get_usb_specifier(usbdev, &suffix);
         if (r < 0)
@@ -1054,7 +1066,7 @@ static int get_bcma_specifier(sd_device *dev, char **ret) {
         r = sscanf(sysname, "bcma%*u:%u", &core);
         if (r != 1)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Failed to parse bcma device information.");
+                                              "Failed to parse BCMA device information.");
 
         /* suppress the common core == 0 */
         if (core > 0 && asprintf(&buf, "b%u", core) < 0)
@@ -1077,11 +1089,11 @@ static int names_bcma(sd_device *dev, const char *prefix, EventMode mode) {
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Could not get bcma parent device: %m");
+                return log_device_debug_errno(dev, r, "Could not get BCMA parent device: %m");
 
         r = sd_device_get_parent_with_subsystem_devtype(bcmadev, "pci", NULL, &pcidev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Could not get pci parent device: %m");
+                return log_device_debug_errno(dev, r, "Could not get PCI parent device: %m");
 
         r = get_bcma_specifier(bcmadev, &suffix);
         if (r < 0)

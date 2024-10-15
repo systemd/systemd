@@ -368,17 +368,4 @@ assert_cc(sizeof(dummy_t) == 0);
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
 
-#define DECIMAL_STR_FMT(x) _Generic((x),        \
-        char: "%c",                             \
-        bool: "%d",                             \
-        unsigned char: "%d",                    \
-        short: "%hd",                           \
-        unsigned short: "%hu",                  \
-        int: "%d",                              \
-        unsigned: "%u",                         \
-        long: "%ld",                            \
-        unsigned long: "%lu",                   \
-        long long: "%lld",                      \
-        unsigned long long: "%llu")
-
 #include "log.h"

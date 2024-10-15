@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
+#include "efi-fundamental.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -523,29 +524,22 @@ bool efi_has_tpm2(void) {
 
 #endif
 
-struct efi_guid {
-        uint32_t u1;
-        uint16_t u2;
-        uint16_t u3;
-        uint8_t u4[8];
-} _packed_;
-
 sd_id128_t efi_guid_to_id128(const void *guid) {
-        const struct efi_guid *uuid = ASSERT_PTR(guid); /* cast is safe, because struct efi_guid is packed */
+        const EFI_GUID *uuid = ASSERT_PTR(guid); /* cast is safe, because struct efi_guid is packed */
         sd_id128_t id128;
 
-        id128.bytes[0] = (uuid->u1 >> 24) & 0xff;
-        id128.bytes[1] = (uuid->u1 >> 16) & 0xff;
-        id128.bytes[2] = (uuid->u1 >> 8) & 0xff;
-        id128.bytes[3] = uuid->u1 & 0xff;
+        id128.bytes[0] = (uuid->Data1 >> 24) & 0xff;
+        id128.bytes[1] = (uuid->Data1 >> 16) & 0xff;
+        id128.bytes[2] = (uuid->Data1 >> 8) & 0xff;
+        id128.bytes[3] = uuid->Data1 & 0xff;
 
-        id128.bytes[4] = (uuid->u2 >> 8) & 0xff;
-        id128.bytes[5] = uuid->u2 & 0xff;
+        id128.bytes[4] = (uuid->Data2 >> 8) & 0xff;
+        id128.bytes[5] = uuid->Data2 & 0xff;
 
-        id128.bytes[6] = (uuid->u3 >> 8) & 0xff;
-        id128.bytes[7] = uuid->u3 & 0xff;
+        id128.bytes[6] = (uuid->Data3 >> 8) & 0xff;
+        id128.bytes[7] = uuid->Data3 & 0xff;
 
-        memcpy(&id128.bytes[8], uuid->u4, sizeof(uuid->u4));
+        memcpy(&id128.bytes[8], uuid->Data4, sizeof(uuid->Data4));
 
         return id128;
 }
@@ -553,11 +547,11 @@ sd_id128_t efi_guid_to_id128(const void *guid) {
 void efi_id128_to_guid(sd_id128_t id, void *ret_guid) {
         assert(ret_guid);
 
-        struct efi_guid uuid = {
-                .u1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
-                .u2 = id.bytes[4] << 8 | id.bytes[5],
-                .u3 = id.bytes[6] << 8 | id.bytes[7],
+        EFI_GUID uuid = {
+                .Data1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
+                .Data2 = id.bytes[4] << 8 | id.bytes[5],
+                .Data3 = id.bytes[6] << 8 | id.bytes[7],
         };
-        memcpy(uuid.u4, id.bytes+8, sizeof(uuid.u4));
+        memcpy(uuid.Data4, id.bytes+8, sizeof(uuid.Data4));
         memcpy(ret_guid, &uuid, sizeof(uuid));
 }

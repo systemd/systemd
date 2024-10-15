@@ -105,25 +105,18 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS file_read(
-                EFI_FILE *dir,
-                const char16_t *name,
+EFI_STATUS file_handle_read(
+                EFI_FILE *handle,
                 uint64_t offset,
                 size_t size,
                 char **ret,
                 size_t *ret_size) {
 
-        _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
 
-        assert(dir);
-        assert(name);
+        assert(handle);
         assert(ret);
-
-        err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
-        if (err != EFI_SUCCESS)
-                return err;
 
         if (size == 0) {
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
@@ -163,6 +156,28 @@ EFI_STATUS file_read(
                 *ret_size = size;
 
         return err;
+}
+
+EFI_STATUS file_read(
+                EFI_FILE *dir,
+                const char16_t *name,
+                uint64_t offset,
+                size_t size,
+                char **ret,
+                size_t *ret_size) {
+
+        EFI_STATUS err;
+
+        assert(dir);
+        assert(name);
+        assert(ret);
+
+        _cleanup_(file_closep) EFI_FILE *handle = NULL;
+        err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return file_handle_read(handle, offset, size, ret, ret_size);
 }
 
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {
@@ -476,4 +491,25 @@ void *xmalloc(size_t size) {
         void *p = NULL;
         assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
         return p;
+}
+
+bool free_and_xstrdup16(char16_t **p, const char16_t *s) {
+        char16_t *t;
+
+        assert(p);
+
+        /* Replaces a string pointer with a strdup()ed new string,
+         * possibly freeing the old one. */
+
+        if (streq_ptr(*p, s))
+                return false;
+
+        if (s)
+                t = xstrdup16(s);
+        else
+                t = NULL;
+
+        free(*p);
+        *p = t;
+        return true;
 }

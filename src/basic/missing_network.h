@@ -23,11 +23,6 @@
 #define IPV4_MIN_MTU 68
 #endif
 
-/* linux/ipv6.h */
-#ifndef IPV6_MIN_MTU
-#define IPV6_MIN_MTU 1280
-#endif
-
 /* Note that LOOPBACK_IFINDEX is currently not exposed by the
  * kernel/glibc, but hardcoded internally by the kernel.  However, as
  * it is exported to userspace indirectly via rtnetlink and the

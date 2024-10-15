@@ -110,8 +110,7 @@ AddressFamily link_local_address_family_from_string(const char *s) {
 DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
-                         AddressFamily, "Failed to parse option");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);

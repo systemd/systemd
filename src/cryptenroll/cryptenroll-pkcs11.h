@@ -7,9 +7,9 @@
 #include "log.h"
 
 #if HAVE_P11KIT && HAVE_OPENSSL
-int enroll_pkcs11(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *uri);
+int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key, const char *uri);
 #else
-static inline int enroll_pkcs11(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *uri) {
+static inline int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key, const char *uri) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "PKCS#11 key enrollment not supported.");
 }

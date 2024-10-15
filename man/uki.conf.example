@@ -1,14 +1,14 @@
 [UKI]
-SecureBootPrivateKey=/etc/kernel/secure-boot.key.pem
-SecureBootCertificate=/etc/kernel/secure-boot.cert.pem
+SecureBootPrivateKey=/etc/kernel/secure-boot-key.pem
+SecureBootCertificate=/etc/kernel/secure-boot-certificate.pem
 
 [PCRSignature:initrd]
 Phases=enter-initrd
-PCRPrivateKey=/etc/kernel/pcr-initrd.key.pem
-PCRPublicKey=/etc/kernel/pcr-initrd.pub.pem
+PCRPrivateKey=/etc/systemd/tpm2-pcr-private-key-initrd.pem
+PCRPublicKey=/etc/systemd/tpm2-pcr-public-key-initrd.pem
 
 [PCRSignature:system]
 Phases=enter-initrd:leave-initrd enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
-PCRPrivateKey=/etc/kernel/pcr-system.key.pem
-PCRPublicKey=/etc/kernel/pcr-system.pub.pem
+PCRPrivateKey=/etc/systemd/tpm2-pcr-private-key-system.pem
+PCRPublicKey=/etc/systemd/tpm2-pcr-public-key-system.pem

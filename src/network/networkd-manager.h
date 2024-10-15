@@ -88,6 +88,11 @@ struct Manager {
         unsigned route_remove_messages;
         Set *routes;
 
+        /* IPv6 Address Label */
+        Hashmap *address_labels_by_section;
+        unsigned static_address_label_messages;
+        bool static_address_labels_configured;
+
         /* Route table name */
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
@@ -117,6 +122,14 @@ struct Manager {
 
         /* sysctl */
         int ip_forwarding[2];
+#if HAVE_VMLINUX_H
+        Hashmap *sysctl_shadow;
+        sd_event_source *sysctl_event_source;
+        struct ring_buffer *sysctl_buffer;
+        struct sysctl_monitor_bpf *sysctl_skel;
+        struct bpf_link *sysctl_link;
+        int cgroup_fd;
+#endif
 };
 
 int manager_new(Manager **ret, bool test_mode);
@@ -138,5 +151,13 @@ int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
 
 int manager_reload(Manager *m, sd_bus_message *message);
+
+static inline Hashmap** manager_get_sysctl_shadow(Manager *manager) {
+#if HAVE_VMLINUX_H
+        return &ASSERT_PTR(manager)->sysctl_shadow;
+#else
+        return NULL;
+#endif
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

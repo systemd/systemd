@@ -49,6 +49,9 @@ DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 #if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
 #endif
+#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
+DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
@@ -65,41 +68,6 @@ DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 #endif
 DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
-
-/* Unfortunately libcryptsetup provides neither an environment variable to redirect where to look for token
- * modules, nor does it have an API to change the token lookup path at runtime. The maintainers suggest using
- * ELF interposition instead (see https://gitlab.com/cryptsetup/cryptsetup/-/issues/846). Hence let's do
- * that: let's interpose libcryptsetup's crypt_token_external_path() function with our own, that *does*
- * honour an environment variable where to look for tokens. This is tremendously useful for debugging
- * libcryptsetup tokens: set the environment variable to your build dir and you can easily test token modules
- * without jumping through various hoops. */
-
-/* Do this only on new enough compilers that actually support the "symver" attribute. Given this is a debug
- * feature, let's simply not bother on older compilers */
-#if BUILD_MODE_DEVELOPER && defined(__has_attribute) && __has_attribute(symver)
-const char* my_crypt_token_external_path(void); /* prototype for our own implementation */
-
-/* We use the "symver" attribute to mark this implementation as the default implementation, and drop the
- * SD_SHARED namespace we by default attach to our symbols via a version script. */
-__attribute__((symver("crypt_token_external_path@@")))
-_public_ const char *my_crypt_token_external_path(void) {
-        const char *e;
-
-        e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
-        if (e)
-                return e;
-
-        /* Now chain invoke the original implementation. */
-        if (cryptsetup_dl) {
-                typeof(crypt_token_external_path) *func;
-                func = (typeof(crypt_token_external_path)*) dlsym(cryptsetup_dl, "crypt_token_external_path");
-                if (func)
-                        return func();
-        }
-
-        return NULL;
-}
-#endif
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -296,6 +264,9 @@ int dlopen_cryptsetup(void) {
 #if HAVE_CRYPT_TOKEN_MAX
                         DLSYM_ARG(crypt_token_max),
 #endif
+#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
+                        DLSYM_ARG(crypt_token_set_external_path),
+#endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
@@ -321,6 +292,18 @@ int dlopen_cryptsetup(void) {
          * other code loaded into this process also changes the global log functions of libcryptsetup, who
          * knows? And if so, we still want our own objects to log via our own infra, at the very least.) */
         cryptsetup_enable_logging(NULL);
+
+        const char *e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
+        if (e) {
+#if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
+                r = sym_crypt_token_set_external_path(e);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set the libcryptsetup external token path to '%s', ignoring: %m", e);
+#else
+                log_debug("libcryptsetup version does not support setting the external token path, not setting it to '%s'.", e);
+#endif
+        }
+
         return 1;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");

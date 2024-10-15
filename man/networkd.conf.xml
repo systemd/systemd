@@ -131,6 +131,12 @@
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
 
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv4 (that is, <literal>ipv4</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
@@ -144,6 +150,12 @@
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for more details about the sysctl options. Defaults to unset and the sysctl options will not be
           changed.</para>
+
+          <para>If an interface is configured with a .network file that enables <varname>IPMasquerade=</varname>
+          for IPv6 (that is, <literal>ipv6</literal> or <literal>both</literal>), this setting is implied
+          unless explicitly specified. See <varname>IPMasquerade=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -196,6 +208,37 @@
           which defaults to <literal>no</literal>, will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPv6AddressLabel] Section Options</title>
+
+    <para>An [IPv6AddressLabel] section accepts the following keys. Specify multiple [IPv6AddressLabel]
+    sections to configure multiple address labels. IPv6 address labels are used for address selection.
+    See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>. Precedence is managed by
+    userspace, and only the label itself is stored in the kernel.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Label=</varname></term>
+        <listitem>
+          <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
+          reserved. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+        <listitem>
+          <para>IPv6 prefix is an address with a prefix length, separated by a slash
+          <literal>/</literal> character. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
     </variablelist>

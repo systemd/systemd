@@ -3,6 +3,8 @@
 #include "analyze-verify-util.h"
 #include "tests.h"
 
+const char *arg_instance = "test_instance";
+
 TEST(verify_nonexistent) {
         /* Negative cases */
         assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, NULL) == 0);

@@ -749,15 +749,15 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         s->user->slice,
                         description,
                         /* These should have been pulled in explicitly in user_start(). Just to be sure. */
-                        STRV_MAKE_CONST(s->user->runtime_dir_unit,
-                                        SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
+                        /* requires = */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
+                        /* wants = */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
                         /* We usually want to order session scopes after systemd-user-sessions.service
                          * since the unit is used as login session barrier for unprivileged users. However
                          * the barrier doesn't apply for root as sysadmin should always be able to log in
                          * (and without waiting for any timeout to expire) in case something goes wrong
                          * during the boot process. */
-                        STRV_MAKE_CONST("systemd-logind.service",
-                                        SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
+                        /* extra_after = */ STRV_MAKE_CONST("systemd-logind.service",
+                                                            SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
                         user_record_home_directory(s->user->user_record),
                         properties,
                         error,

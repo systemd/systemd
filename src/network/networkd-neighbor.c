@@ -147,29 +147,29 @@ static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
-        siphash24_compress_typesafe(neighbor->family, state);
+        siphash24_compress_typesafe(neighbor->dst_addr.family, state);
 
-        if (!IN_SET(neighbor->family, AF_INET, AF_INET6))
+        if (!IN_SET(neighbor->dst_addr.family, AF_INET, AF_INET6))
                 /* treat any other address family as AF_UNSPEC */
                 return;
 
         /* Equality of neighbors are given by the destination address.
          * See neigh_lookup() in the kernel. */
-        in_addr_hash_func(&neighbor->in_addr, neighbor->family, state);
+        in_addr_hash_func(&neighbor->dst_addr.address, neighbor->dst_addr.family, state);
 }
 
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         int r;
 
-        r = CMP(a->family, b->family);
+        r = CMP(a->dst_addr.family, b->dst_addr.family);
         if (r != 0)
                 return r;
 
-        if (!IN_SET(a->family, AF_INET, AF_INET6))
+        if (!IN_SET(a->dst_addr.family, AF_INET, AF_INET6))
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
 
-        return memcmp(&a->in_addr, &b->in_addr, FAMILY_ADDRESS_SIZE(a->family));
+        return memcmp(&a->dst_addr.address, &b->dst_addr.address, FAMILY_ADDRESS_SIZE(a->dst_addr.family));
 }
 
 static int neighbor_get_request(Link *link, const Neighbor *neighbor, Request **ret) {
@@ -244,7 +244,7 @@ static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const 
                        "%s %s neighbor (%s): lladdr: %s, dst: %s",
                        str, strna(network_config_source_to_string(neighbor->source)), strna(state),
                        HW_ADDR_TO_STR(&neighbor->ll_addr),
-                       IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr));
+                       IN_ADDR_TO_STRING(neighbor->dst_addr.family, &neighbor->dst_addr.address));
 }
 
 static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
@@ -261,7 +261,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         log_neighbor_debug(neighbor, "Configuring", link);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_NEWNEIGH,
-                                      link->ifindex, neighbor->family);
+                                      link->ifindex, neighbor->dst_addr.family);
         if (r < 0)
                 return r;
 
@@ -273,7 +273,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->family, &neighbor->in_addr);
+        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->dst_addr.family, &neighbor->dst_addr.address);
         if (r < 0)
                 return r;
 
@@ -338,10 +338,13 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                                "The link layer address length (%zu) for neighbor %s does not match with "
                                "the hardware address length (%zu), ignoring the setting.",
                                neighbor->ll_addr.length,
-                               IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
+                               IN_ADDR_TO_STRING(neighbor->dst_addr.family, &neighbor->dst_addr.address),
                                link->hw_addr.length);
                 return 0;
         }
+
+        if (neighbor_get_request(link, neighbor, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
         r = neighbor_dup(neighbor, &tmp);
         if (r < 0)
@@ -448,11 +451,11 @@ int neighbor_remove(Neighbor *neighbor, Link *link) {
         log_neighbor_debug(neighbor, "Removing", link);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_DELNEIGH,
-                                      link->ifindex, neighbor->family);
+                                      link->ifindex, neighbor->dst_addr.family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_DELNEIGH message: %m");
 
-        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->family, &neighbor->in_addr);
+        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->dst_addr.family, &neighbor->dst_addr.address);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
@@ -590,19 +593,19 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return log_oom();
 
         /* First, retrieve the fundamental information about the neighbor. */
-        r = sd_rtnl_message_neigh_get_family(message, &tmp->family);
+        r = sd_rtnl_message_neigh_get_family(message, &tmp->dst_addr.family);
         if (r < 0) {
                 log_link_warning(link, "rtnl: received neighbor message without family, ignoring.");
                 return 0;
         }
-        if (tmp->family == AF_BRIDGE) /* Currently, we do not support it. */
+        if (tmp->dst_addr.family == AF_BRIDGE) /* Currently, we do not support it. */
                 return 0;
-        if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", tmp->family);
+        if (!IN_SET(tmp->dst_addr.family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", tmp->dst_addr.family);
                 return 0;
         }
 
-        r = netlink_message_read_in_addr_union(message, NDA_DST, tmp->family, &tmp->in_addr);
+        r = netlink_message_read_in_addr_union(message, NDA_DST, tmp->dst_addr.family, &tmp->dst_addr.address);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
                 return 0;
@@ -657,28 +660,28 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         return 1;
 }
 
+#define log_neighbor_section(neighbor, fmt, ...)                        \
+        ({                                                              \
+                const Neighbor *_neighbor = (neighbor);                 \
+                log_section_warning_errno(                              \
+                                _neighbor ? _neighbor->section : NULL,  \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [Neighbor] section.",    \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int neighbor_section_verify(Neighbor *neighbor) {
         if (section_is_invalid(neighbor->section))
                 return -EINVAL;
 
-        if (neighbor->family == AF_UNSPEC)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section without Address= configured. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+        if (neighbor->dst_addr.family == AF_UNSPEC)
+                return log_neighbor_section(neighbor, "Neighbor section without Address= configured.");
 
-        if (neighbor->family == AF_INET6 && !socket_ipv6_is_supported())
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section with an IPv6 destination address configured, "
-                                         "but the kernel does not support IPv6. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+        if (neighbor->dst_addr.family == AF_INET6 && !socket_ipv6_is_supported())
+                return log_neighbor_section(neighbor, "Neighbor section with an IPv6 destination address configured, but the kernel does not support IPv6.");
 
         if (neighbor->ll_addr.length == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Neighbor section without LinkLayerAddress= configured. "
-                                         "Ignoring [Neighbor] section from line %u.",
-                                         neighbor->section->filename, neighbor->section->line);
+                return log_neighbor_section(neighbor, "Neighbor section without LinkLayerAddress= configured.");
 
         return 0;
 }
@@ -706,7 +709,7 @@ int network_drop_invalid_neighbors(Network *network) {
                         log_warning("%s: Duplicated neighbor settings for %s is specified at line %u and %u, "
                                     "dropping the neighbor setting specified at line %u.",
                                     dup->section->filename,
-                                    IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
+                                    IN_ADDR_TO_STRING(neighbor->dst_addr.family, &neighbor->dst_addr.address),
                                     neighbor->section->line,
                                     dup->section->line, dup->section->line);
                         /* neighbor_detach() will drop the neighbor from neighbors_by_section. */
@@ -724,8 +727,7 @@ int network_drop_invalid_neighbors(Network *network) {
         return 0;
 }
 
-
-int config_parse_neighbor_address(
+int config_parse_neighbor_section(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -737,76 +739,26 @@ int config_parse_neighbor_address(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(neighbor_unref_or_set_invalidp) Neighbor *n = NULL;
+        static const ConfigSectionParser table[_NEIGHBOR_CONF_PARSER_MAX] = {
+                [NEIGHBOR_DESTINATION_ADDRESS] = { .parser = config_parse_in_addr_data, .ltype = 0, .offset = offsetof(Neighbor, dst_addr), },
+                [NEIGHBOR_LINK_LAYER_ADDRESS]  = { .parser = config_parse_hw_addr,      .ltype = 0, .offset = offsetof(Neighbor, ll_addr),  },
+        };
+
+        _cleanup_(neighbor_unref_or_set_invalidp) Neighbor *neighbor = NULL;
         Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
 
-        r = neighbor_new_static(network, filename, section_line, &n);
+        r = neighbor_new_static(network, filename, section_line, &neighbor);
         if (r < 0)
                 return log_oom();
 
-        if (isempty(rvalue)) {
-                n->family = AF_UNSPEC;
-                n->in_addr = IN_ADDR_NULL;
-                TAKE_PTR(n);
-                return 0;
-        }
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, neighbor);
+        if (r <= 0) /* 0 means non-critical error, but the section will be ignored. */
+                return r;
 
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->in_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Neighbor Address is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_neighbor_lladdr(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(neighbor_unref_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = ASSERT_PTR(userdata);
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = neighbor_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        if (isempty(rvalue)) {
-                n->ll_addr = HW_ADDR_NULL;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = parse_hw_addr(rvalue, &n->ll_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Neighbor %s= is invalid, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(n);
+        TAKE_PTR(neighbor);
         return 0;
 }

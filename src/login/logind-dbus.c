@@ -412,10 +412,23 @@ static int property_get_scheduled_shutdown(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(
-                        reply, "st",
-                        handle_action_to_string(m->scheduled_shutdown_action),
-                        m->scheduled_shutdown_timeout);
+        if (m->delayed_action) {
+                usec_t t = m->scheduled_shutdown_timeout; /* fall back to the schedule time on failure below */
+
+                if (m->inhibit_timeout_source) {
+                        r = sd_event_source_get_time(m->inhibit_timeout_source, &t);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get time of inhibit timeout event source, ignoring: %m");
+                }
+
+                r = sd_bus_message_append(
+                                reply, "st",
+                                handle_action_to_string(m->delayed_action->handle), t);
+        } else
+                r = sd_bus_message_append(
+                                reply, "st",
+                                handle_action_to_string(m->scheduled_shutdown_action),
+                                m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
 
@@ -1886,15 +1899,18 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto fail;
 
+        /* Save the action to prevent another request of shutdown or friends before the current action being
+         * finished. See method_do_shutdown_or_sleep(). This is also used in match_job_removed() to log what
+         * kind of action is finished. */
         m->delayed_action = a;
 
-        /* Make sure the lid switch is ignored for a while */
+        /* Make sure the lid switch is ignored for a while. */
         manager_set_lid_switch_ignore(m, usec_add(now(CLOCK_MONOTONIC), m->holdoff_timeout_usec));
 
         return 0;
 
 fail:
-        /* Tell people that they now may take a lock again */
+        /* Tell people that they now may take a lock again. */
         (void) send_prepare_for(m, a, false);
 
         return r;
@@ -1957,27 +1973,32 @@ static int delay_shutdown_or_sleep(
         assert(m);
         assert(a);
 
-        if (m->inhibit_timeout_source) {
-                r = sd_event_source_set_time_relative(m->inhibit_timeout_source, m->inhibit_delay_max);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time_relative() failed: %m");
-
-                r = sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
-        } else {
-                r = sd_event_add_time_relative(
-                                m->event,
-                                &m->inhibit_timeout_source,
-                                CLOCK_MONOTONIC, m->inhibit_delay_max, 0,
-                                manager_inhibit_timeout_handler, m);
-                if (r < 0)
-                        return r;
-        }
+        r = event_reset_time_relative(
+                        m->event, &m->inhibit_timeout_source,
+                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy = */ 0,
+                        manager_inhibit_timeout_handler, m,
+                        /* priority = */ 0, "inhibit-timeout", /* force = */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset timer event source for inhibit timeout: %m");
 
         m->delayed_action = a;
 
         return 0;
+}
+
+static void cancel_delayed_action(Manager *m) {
+        assert(m);
+
+        (void) sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_OFF);
+
+        /* When m->action_job is NULL, the delayed action has not been triggered yet. Let's clear it to
+         * accept later shutdown and friends.
+         *
+         * When m->action_job is non-NULL, the delayed action has been already triggered, and now we are
+         * waiting for the job being finished. In match_job_removed(), the triggered action will be used.
+         * Hence, do not clear it. */
+        if (!m->action_job)
+                m->delayed_action = NULL;
 }
 
 int bus_manager_shutdown_or_sleep_now_or_later(
@@ -2379,9 +2400,9 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
 static void reset_scheduled_shutdown(Manager *m) {
         assert(m);
 
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
 
         m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
         m->scheduled_shutdown_timeout = USEC_INFINITY;
@@ -2722,6 +2743,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                             username, tty, logind_wall_tty_filter, m);
         }
 
+        cancel_delayed_action(m);
         reset_scheduled_shutdown(m);
 
         return sd_bus_reply_method_return(message, "b", true);
@@ -3750,7 +3772,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PreparingForShutdownWithMetadata", "a{sv}", property_get_preparing_shutdown_with_metadata, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, 0),
+        SD_BUS_PROPERTY("DesignatedMaintenanceTime", "s", property_get_maintenance_time, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Docked", "b", property_get_docked, 0, 0),
         SD_BUS_PROPERTY("LidClosed", "b", property_get_lid_closed, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OnExternalPower", "b", property_get_on_external_power, 0, 0),
@@ -4353,6 +4375,7 @@ int manager_start_scope(
                 const char *slice,
                 const char *description,
                 const char * const *requires,
+                const char * const *wants,
                 const char * const *extra_after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
@@ -4394,6 +4417,16 @@ int manager_start_scope(
 
         STRV_FOREACH(i, requires) {
                 r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(i, wants) {
+                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
                 if (r < 0)
                         return r;
 
@@ -4464,6 +4497,7 @@ int manager_start_scope(
                                         slice,
                                         description,
                                         requires,
+                                        wants,
                                         extra_after,
                                         requires_mounts_for,
                                         more_properties,

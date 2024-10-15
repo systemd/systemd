@@ -341,7 +341,7 @@ static int oci_supplementary_gids(const char *name, sd_json_variant *v, sd_json_
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                gid_t gid, *a;
+                gid_t gid;
 
                 if (!sd_json_variant_is_unsigned(e))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
@@ -351,11 +351,9 @@ static int oci_supplementary_gids(const char *name, sd_json_variant *v, sd_json_
                 if (r < 0)
                         return r;
 
-                a = reallocarray(s->supplementary_gids, s->n_supplementary_gids + 1, sizeof(gid_t));
-                if (!a)
+                if (!GREEDY_REALLOC(s->supplementary_gids, s->n_supplementary_gids + 1))
                         return log_oom();
 
-                s->supplementary_gids = a;
                 s->supplementary_gids[s->n_supplementary_gids++] = gid;
         }
 
@@ -805,15 +803,12 @@ static int oci_devices(const char *name, sd_json_variant *v, sd_json_dispatch_fl
                         {}
                 };
 
-                DeviceNode *node, *nodes;
+                DeviceNode *node;
 
-                nodes = reallocarray(s->extra_nodes, s->n_extra_nodes + 1, sizeof(DeviceNode));
-                if (!nodes)
+                if (!GREEDY_REALLOC(s->extra_nodes, s->n_extra_nodes + 1))
                         return log_oom();
 
-                s->extra_nodes = nodes;
-
-                node = nodes + s->n_extra_nodes;
+                node = s->extra_nodes + s->n_extra_nodes;
                 *node = (DeviceNode) {
                         .uid = UID_INVALID,
                         .gid = GID_INVALID,
@@ -960,7 +955,7 @@ static int oci_cgroup_devices(const char *name, sd_json_variant *v, sd_json_disp
                 struct device_data data = {
                         .major = UINT_MAX,
                         .minor = UINT_MAX,
-                }, *a;
+                };
 
                 static const sd_json_dispatch_field table[] = {
                         { "allow",  SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(struct device_data, allow), SD_JSON_MANDATORY },
@@ -1012,11 +1007,9 @@ static int oci_cgroup_devices(const char *name, sd_json_variant *v, sd_json_disp
                                                 "Device cgroup allow list entries with no type not supported.");
                 }
 
-                a = reallocarray(list, n_list + 1, sizeof(struct device_data));
-                if (!a)
+                if (!GREEDY_REALLOC(list, n_list + 1))
                         return log_oom();
 
-                list = a;
                 list[n_list++] = data;
         }
 
@@ -1742,7 +1735,7 @@ static int oci_seccomp_args(const char *name, sd_json_variant *v, sd_json_dispat
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                static const struct sd_json_dispatch_field table[] = {
+                static const sd_json_dispatch_field table[] = {
                         { "index",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, offsetof(struct scmp_arg_cmp, arg),     SD_JSON_MANDATORY },
                         { "value",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, offsetof(struct scmp_arg_cmp, datum_a), SD_JSON_MANDATORY },
                         { "valueTwo", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, offsetof(struct scmp_arg_cmp, datum_b), 0                 },
@@ -1750,14 +1743,12 @@ static int oci_seccomp_args(const char *name, sd_json_variant *v, sd_json_dispat
                         {},
                 };
 
-                struct scmp_arg_cmp *a, *p;
+                struct scmp_arg_cmp *p;
                 int expected;
 
-                a = reallocarray(rule->arguments, rule->n_arguments + 1, sizeof(struct syscall_rule));
-                if (!a)
+                if (!GREEDY_REALLOC(rule->arguments, rule->n_arguments + 1))
                         return log_oom();
 
-                rule->arguments = a;
                 p = rule->arguments + rule->n_arguments;
 
                 *p = (struct scmp_arg_cmp) {
@@ -2014,7 +2005,7 @@ static int oci_hooks_array(const char *name, sd_json_variant *v, sd_json_dispatc
                         {}
                 };
 
-                OciHook *a, **array, *new_item;
+                OciHook **array, *new_item;
                 size_t *n_array;
 
                 if (streq(name, "prestart")) {
@@ -2029,12 +2020,10 @@ static int oci_hooks_array(const char *name, sd_json_variant *v, sd_json_dispatc
                         n_array = &s->n_oci_hooks_poststop;
                 }
 
-                a = reallocarray(*array, *n_array + 1, sizeof(OciHook));
-                if (!a)
+                if (!GREEDY_REALLOC(*array, *n_array + 1))
                         return log_oom();
 
-                *array = a;
-                new_item = a + *n_array;
+                new_item = *array + *n_array;
 
                 *new_item = (OciHook) {
                         .timeout = USEC_INFINITY,

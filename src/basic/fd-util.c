@@ -511,6 +511,16 @@ int pack_fds(int fds[], size_t n_fds) {
         return 0;
 }
 
+int fd_validate(int fd) {
+        if (fd < 0)
+                return -EBADF;
+
+        if (fcntl(fd, F_GETFD) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int same_fd(int a, int b) {
         struct stat sta, stb;
         pid_t pid;
@@ -520,25 +530,57 @@ int same_fd(int a, int b) {
         assert(b >= 0);
 
         /* Compares two file descriptors. Note that semantics are quite different depending on whether we
-         * have kcmp() or we don't. If we have kcmp() this will only return true for dup()ed file
-         * descriptors, but not otherwise. If we don't have kcmp() this will also return true for two fds of
-         * the same file, created by separate open() calls. Since we use this call mostly for filtering out
-         * duplicates in the fd store this difference hopefully doesn't matter too much. */
+         * have F_DUPFD_QUERY/kcmp() or we don't. If we have F_DUPFD_QUERY/kcmp() this will only return true
+         * for dup()ed file descriptors, but not otherwise. If we don't have F_DUPFD_QUERY/kcmp() this will
+         * also return true for two fds of the same file, created by separate open() calls. Since we use this
+         * call mostly for filtering out duplicates in the fd store this difference hopefully doesn't matter
+         * too much.
+         *
+         * Guarantees that if either of the passed fds is not allocated we'll return -EBADF. */
 
-        if (a == b)
+        if (a == b) {
+                /* Let's validate that the fd is valid */
+                r = fd_validate(a);
+                if (r < 0)
+                        return r;
+
                 return true;
+        }
+
+        /* Try to use F_DUPFD_QUERY if we have it first, as it is the nicest API */
+        r = fcntl(a, F_DUPFD_QUERY, b);
+        if (r > 0)
+                return true;
+        if (r == 0) {
+                /* The kernel will return 0 in case the first fd is allocated, but the 2nd is not. (Which is different in the kcmp() case) Explicitly validate it hence. */
+                r = fd_validate(b);
+                if (r < 0)
+                        return r;
+
+                return false;
+        }
+        /* On old kernels (< 6.10) that do not support F_DUPFD_QUERY this will return EINVAL for regular fds, and EBADF on O_PATH fds. Confusing. */
+        if (errno == EBADF) {
+                /* EBADF could mean two things: the first fd is not valid, or it is valid and is O_PATH and
+                 * F_DUPFD_QUERY is not supported. Let's validate the fd explicitly, to distinguish this
+                 * case. */
+                r = fd_validate(a);
+                if (r < 0)
+                        return r;
+
+                /* If the fd is valid, but we got EBADF, then let's try kcmp(). */
+        } else if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno) && errno != EINVAL)
+                return -errno;
 
         /* Try to use kcmp() if we have it. */
         pid = getpid_cached();
         r = kcmp(pid, pid, KCMP_FILE, a, b);
-        if (r == 0)
-                return true;
-        if (r > 0)
-                return false;
+        if (r >= 0)
+                return !r;
         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                 return -errno;
 
-        /* We don't have kcmp(), use fstat() instead. */
+        /* We have neither F_DUPFD_QUERY nor kcmp(), use fstat() instead. */
         if (fstat(a, &sta) < 0)
                 return -errno;
 
@@ -568,14 +610,21 @@ int same_fd(int a, int b) {
 }
 
 void cmsg_close_all(struct msghdr *mh) {
-        struct cmsghdr *cmsg;
-
         assert(mh);
 
-        CMSG_FOREACH(cmsg, mh)
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
+        struct cmsghdr *cmsg;
+        CMSG_FOREACH(cmsg, mh) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_RIGHTS)
                         close_many(CMSG_TYPED_DATA(cmsg, int),
                                    (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
+                }
+        }
 }
 
 bool fdname_is_valid(const char *s) {

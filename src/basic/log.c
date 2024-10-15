@@ -536,8 +536,8 @@ static int write_to_syslog(
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_time[64],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        time_t t;
         struct tm tm;
+        int r;
 
         if (syslog_fd < 0)
                 return 0;
@@ -547,9 +547,9 @@ static int write_to_syslog(
 
         xsprintf(header_priority, "<%i>", level);
 
-        t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
-        if (!localtime_r(&t, &tm))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), /* utc= */ false, &tm);
+        if (r < 0)
+                return r;
 
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
                 return -EINVAL;
@@ -1679,6 +1679,7 @@ int log_syntax_invalid_utf8_internal(
                 const char *func,
                 const char *rvalue) {
 
+        PROTECT_ERRNO;
         _cleanup_free_ char *p = NULL;
 
         if (rvalue)
@@ -1687,6 +1688,44 @@ int log_syntax_invalid_utf8_internal(
         return log_syntax_internal(unit, level, config_file, config_line,
                                    SYNTHETIC_ERRNO(EINVAL), file, line, func,
                                    "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
+}
+
+int log_syntax_parse_error_internal(
+                const char *unit,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                bool critical,
+                const char *file,
+                int line,
+                const char *func,
+                const char *lvalue,
+                const char *rvalue) {
+
+        PROTECT_ERRNO;
+        _cleanup_free_ char *escaped = NULL;
+
+        /* OOM is always handled as critical. */
+        if (ERRNO_VALUE(error) == ENOMEM)
+                return log_oom_internal(LOG_ERR, file, line, func);
+
+        if (rvalue && !utf8_is_valid(rvalue)) {
+                escaped = utf8_escape_invalid(rvalue);
+                if (!escaped)
+                        rvalue = "(oom)";
+                else
+                        rvalue = " (escaped)";
+        }
+
+        log_syntax_internal(unit, critical ? LOG_ERR : LOG_WARNING, config_file, config_line, error,
+                            file, line, func,
+                            "Failed to parse %s=%s%s%s%s%s",
+                            strna(lvalue), strempty(escaped), strempty(rvalue),
+                            critical ? "" : ", ignoring",
+                            error == 0 ? "." : ": ",
+                            error == 0 ? "" : STRERROR(error));
+
+        return critical ? -ERRNO_VALUE(error) : 0;
 }
 
 void log_set_upgrade_syslog_to_journal(bool b) {

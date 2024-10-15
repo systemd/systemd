@@ -22,8 +22,8 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
 
         _cleanup_free_ char *unit_dir = NULL;
-        assert_se(get_testdata_dir("units/", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units/", &unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

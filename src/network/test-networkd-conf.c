@@ -11,76 +11,65 @@
 #include "strv.h"
 #include "tests.h"
 
-static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
+static void test_config_parse_duid_type_one(const char *rvalue, DUIDType expected, usec_t expected_time) {
         DUID actual = {};
-        int r;
 
-        r = config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual.type);
-        assert_se(r == ret);
-        assert_se(expected == actual.type);
+        ASSERT_OK(config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
+        ASSERT_EQ(actual.type, expected);
         if (expected == DUID_TYPE_LLT)
-                assert_se(expected_time == actual.llt_time);
+                ASSERT_EQ(actual.llt_time, expected_time);
 }
 
 TEST(config_parse_duid_type) {
-        test_config_parse_duid_type_one("", 0, 0, 0);
-        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT, 0);
-        test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", 0, DUID_TYPE_LLT, (usec_t) 946684800000000);
-        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN, 0);
-        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0, 0);
-        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL, 0);
-        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0, 0);
-        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID, 0);
-        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0, 0);
-        test_config_parse_duid_type_one("foo", 0, 0, 0);
-        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("", 0, 0);
+        test_config_parse_duid_type_one("link-layer-time", DUID_TYPE_LLT, 0);
+        test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", DUID_TYPE_LLT, (usec_t) 946684800000000);
+        test_config_parse_duid_type_one("vendor", DUID_TYPE_EN, 0);
+        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0);
+        test_config_parse_duid_type_one("link-layer", DUID_TYPE_LL, 0);
+        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0);
+        test_config_parse_duid_type_one("uuid", DUID_TYPE_UUID, 0);
+        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0);
+        test_config_parse_duid_type_one("foo", 0, 0);
+        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0);
 }
 
-static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, const DUID* expected) {
+static void test_config_parse_duid_rawdata_one(const char *rvalue, const DUID* expected) {
         DUID actual = {};
-        int r;
-        _cleanup_free_ char *d = NULL;
 
-        r = config_parse_duid_rawdata("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        d = hexmem(actual.raw_data, actual.raw_data_len);
-        log_info_errno(r, "\"%s\" → \"%s\" (%m)",
-                       rvalue, strnull(d));
-        assert_se(r == ret);
+        ASSERT_OK(config_parse_duid_rawdata("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
         if (expected) {
-                assert_se(actual.raw_data_len == expected->raw_data_len);
-                assert_se(memcmp(actual.raw_data, expected->raw_data, expected->raw_data_len) == 0);
+                _cleanup_free_ char *d = NULL, *e = NULL;
+                d = hexmem(actual.raw_data, actual.raw_data_len);
+                e = hexmem(expected->raw_data, expected->raw_data_len);
+                ASSERT_STREQ(strna(d), strna(e));
         }
 }
 
-static void test_config_parse_ether_addr_one(const char *rvalue, int ret, const struct ether_addr* expected) {
-        struct ether_addr *actual = NULL;
-        int r;
+static void test_config_parse_ether_addr_one(const char *rvalue, const struct ether_addr* expected) {
+        _cleanup_free_ struct ether_addr *actual = NULL;
 
-        r = config_parse_ether_addr("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        assert_se(ret == r);
+        ASSERT_OK(config_parse_ether_addr("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL));
         if (expected) {
-                assert_se(actual);
-                assert_se(ether_addr_equal(expected, actual));
+                ASSERT_NOT_NULL(actual);
+                ASSERT_STREQ(ETHER_ADDR_TO_STR(actual), ETHER_ADDR_TO_STR(expected));
         } else
-                assert_se(actual == NULL);
-
-        free(actual);
+                ASSERT_NULL(actual);
 }
 
 static void test_config_parse_ether_addrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
         _cleanup_set_free_free_ Set *s = NULL;
 
-        assert_se(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
-        assert_se(set_size(s) == n);
+        ASSERT_OK(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL));
+        ASSERT_EQ(set_size(s), n);
 
         for (size_t m = 0; m < n; m++) {
                 _cleanup_free_ struct ether_addr *q = NULL;
 
-                assert_se(q = set_remove(s, &list[m]));
+                ASSERT_NOT_NULL(q = set_remove(s, &list[m]));
         }
 
-        assert_se(set_isempty(s));
+        ASSERT_TRUE(set_isempty(s));
 }
 
 #define STR_OK                                                          \
@@ -115,19 +104,19 @@ static void test_config_parse_ether_addrs_one(const char *rvalue, const struct e
 }
 
 TEST(config_parse_duid_rawdata) {
-        test_config_parse_duid_rawdata_one("", 0, &(DUID){});
-        test_config_parse_duid_rawdata_one("00:11:22:33:44:55:66:77", 0,
+        test_config_parse_duid_rawdata_one("", &(DUID){});
+        test_config_parse_duid_rawdata_one("00:11:22:33:44:55:66:77",
                                            &(DUID){0, 8, {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77}});
-        test_config_parse_duid_rawdata_one("00:11:22:", 0,
+        test_config_parse_duid_rawdata_one("00:11:22:",
                                            &(DUID){0, 3, {0x00,0x11,0x22}});
-        test_config_parse_duid_rawdata_one("000:11:22", 0, &(DUID){}); /* error, output is all zeros */
-        test_config_parse_duid_rawdata_one("00:111:22", 0, &(DUID){});
-        test_config_parse_duid_rawdata_one("0:1:2:3:4:5:6:7", 0,
+        test_config_parse_duid_rawdata_one("000:11:22", &(DUID){}); /* error, output is all zeros */
+        test_config_parse_duid_rawdata_one("00:111:22", &(DUID){});
+        test_config_parse_duid_rawdata_one("0:1:2:3:4:5:6:7",
                                            &(DUID){0, 8, {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7}});
-        test_config_parse_duid_rawdata_one("11::", 0, &(DUID){0, 1, {0x11}});  /* FIXME: should this be an error? */
-        test_config_parse_duid_rawdata_one("abcdef", 0, &(DUID){});
-        test_config_parse_duid_rawdata_one(STR_TOO_LONG, 0, &(DUID){});
-        test_config_parse_duid_rawdata_one(STR_OK, 0, &(DUID){0, 128, BYTES_OK});
+        test_config_parse_duid_rawdata_one("11::", &(DUID){0, 1, {0x11}});  /* FIXME: should this be an error? */
+        test_config_parse_duid_rawdata_one("abcdef", &(DUID){});
+        test_config_parse_duid_rawdata_one(STR_TOO_LONG, &(DUID){});
+        test_config_parse_duid_rawdata_one(STR_OK, &(DUID){0, 128, BYTES_OK});
 }
 
 TEST(config_parse_ether_addr) {
@@ -136,32 +125,32 @@ TEST(config_parse_ether_addr) {
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
         };
 
-        test_config_parse_ether_addr_one("", 0, NULL);
-        test_config_parse_ether_addr_one("no:ta:ma:ca:dd:re", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
-        test_config_parse_ether_addr_one(" aa:bb:cc:dd:ee:ff", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:d d:ee:ff", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee", 0, NULL);
-        test_config_parse_ether_addr_one("9:aa:bb:cc:dd:ee:ff", 0, NULL);
-        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff:gg", 0, NULL);
-        test_config_parse_ether_addr_one("aa:Bb:CC:dd:ee:ff", 0, &t[0]);
-        test_config_parse_ether_addr_one("01:23:45:67:89:aB", 0, &t[1]);
-        test_config_parse_ether_addr_one("1:23:45:67:89:aB", 0, &t[1]);
-        test_config_parse_ether_addr_one("aa-bb-cc-dd-ee-ff", 0, &t[0]);
-        test_config_parse_ether_addr_one("AA-BB-CC-DD-EE-FF", 0, &t[0]);
-        test_config_parse_ether_addr_one("01-23-45-67-89-ab", 0, &t[1]);
-        test_config_parse_ether_addr_one("aabb.ccdd.eeff", 0, &t[0]);
-        test_config_parse_ether_addr_one("0123.4567.89ab", 0, &t[1]);
-        test_config_parse_ether_addr_one("123.4567.89ab.", 0, NULL);
-        test_config_parse_ether_addr_one("aabbcc.ddeeff", 0, NULL);
-        test_config_parse_ether_addr_one("aabbccddeeff", 0, NULL);
-        test_config_parse_ether_addr_one("aabbccddee:ff", 0, NULL);
-        test_config_parse_ether_addr_one("012345.6789ab", 0, NULL);
-        test_config_parse_ether_addr_one("123.4567.89ab", 0, &t[1]);
+        test_config_parse_ether_addr_one("", NULL);
+        test_config_parse_ether_addr_one("no:ta:ma:ca:dd:re", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:fx", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff", &t[0]);
+        test_config_parse_ether_addr_one(" aa:bb:cc:dd:ee:ff", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\n", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff \t\nxxx", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc: dd:ee:ff", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:d d:ee:ff", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee", NULL);
+        test_config_parse_ether_addr_one("9:aa:bb:cc:dd:ee:ff", NULL);
+        test_config_parse_ether_addr_one("aa:bb:cc:dd:ee:ff:gg", NULL);
+        test_config_parse_ether_addr_one("aa:Bb:CC:dd:ee:ff", &t[0]);
+        test_config_parse_ether_addr_one("01:23:45:67:89:aB", &t[1]);
+        test_config_parse_ether_addr_one("1:23:45:67:89:aB", &t[1]);
+        test_config_parse_ether_addr_one("aa-bb-cc-dd-ee-ff", &t[0]);
+        test_config_parse_ether_addr_one("AA-BB-CC-DD-EE-FF", &t[0]);
+        test_config_parse_ether_addr_one("01-23-45-67-89-ab", &t[1]);
+        test_config_parse_ether_addr_one("aabb.ccdd.eeff", &t[0]);
+        test_config_parse_ether_addr_one("0123.4567.89ab", &t[1]);
+        test_config_parse_ether_addr_one("123.4567.89ab.", NULL);
+        test_config_parse_ether_addr_one("aabbcc.ddeeff", NULL);
+        test_config_parse_ether_addr_one("aabbccddeeff", NULL);
+        test_config_parse_ether_addr_one("aabbccddee:ff", NULL);
+        test_config_parse_ether_addr_one("012345.6789ab", NULL);
+        test_config_parse_ether_addr_one("123.4567.89ab", &t[1]);
 
         test_config_parse_ether_addrs_one("", t, 0);
         test_config_parse_ether_addrs_one("no:ta:ma:ca:dd:re", t, 0);
@@ -205,7 +194,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         assert_se(network->filename = strdup("hogehoge.network"));
 
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
-        assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
+        assert_se(config_parse_address_section("network", "filename", 1, "section", 1, "Address", ADDRESS_ADDRESS, rvalue, network, network) == 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == n_addresses);

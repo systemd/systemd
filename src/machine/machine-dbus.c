@@ -19,7 +19,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
-#include "iovec-util.h"
 #include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
@@ -169,6 +168,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ struct local_address *addresses = NULL;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -182,162 +182,30 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        switch (m->class) {
-
-        case MACHINE_HOST: {
-                _cleanup_free_ struct local_address *addresses = NULL;
-                int n;
-
-                n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
-                if (n < 0)
-                        return n;
-
-                for (int i = 0; i < n; i++) {
-                        r = sd_bus_message_open_container(reply, 'r', "iay");
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_append(reply, "i", addresses[i].family);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_append_array(reply, 'y', &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family));
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_close_container(reply);
-                        if (r < 0)
-                                return r;
-                }
-
-                break;
-        }
-
-        case MACHINE_CONTAINER: {
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_free_ char *us = NULL, *them = NULL;
-                _cleanup_close_ int netns_fd = -EBADF;
-                const char *p;
-                pid_t child;
-
-                r = readlink_malloc("/proc/self/ns/net", &us);
-                if (r < 0)
-                        return r;
-
-                p = procfs_file_alloca(m->leader.pid, "ns/net");
-                r = readlink_malloc(p, &them);
-                if (r < 0)
-                        return r;
-
-                if (streq(us, them))
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
-
-                r = pidref_namespace_open(&m->leader,
-                                          /* ret_pidns_fd = */ NULL,
-                                          /* ret_mntns_fd = */ NULL,
-                                          &netns_fd,
-                                          /* ret_userns_fd = */ NULL,
-                                          /* ret_root_fd = */ NULL);
-                if (r < 0)
-                        return r;
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                        return -errno;
-
-                r = namespace_fork("(sd-addrns)", "(sd-addr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   -1, -1, netns_fd, -1, -1, &child);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-                if (r == 0) {
-                        _cleanup_free_ struct local_address *addresses = NULL;
-                        struct local_address *a;
-                        int i, n;
-
-                        pair[0] = safe_close(pair[0]);
-
-                        n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
-                        if (n < 0)
-                                _exit(EXIT_FAILURE);
-
-                        for (a = addresses, i = 0; i < n; a++, i++) {
-                                struct iovec iov[2] = {
-                                        { .iov_base = &a->family, .iov_len = sizeof(a->family) },
-                                        { .iov_base = &a->address, .iov_len = FAMILY_ADDRESS_SIZE(a->family) },
-                                };
-
-                                r = writev(pair[1], iov, 2);
-                                if (r < 0)
-                                        _exit(EXIT_FAILURE);
-                        }
-
-                        pair[1] = safe_close(pair[1]);
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                pair[1] = safe_close(pair[1]);
-
-                for (;;) {
-                        int family;
-                        ssize_t n;
-                        union in_addr_union in_addr;
-                        struct iovec iov[2];
-                        struct msghdr mh = {
-                                .msg_iov = iov,
-                                .msg_iovlen = 2,
-                        };
-
-                        iov[0] = IOVEC_MAKE(&family, sizeof(family));
-                        iov[1] = IOVEC_MAKE(&in_addr, sizeof(in_addr));
-
-                        n = recvmsg(pair[0], &mh, 0);
-                        if (n < 0)
-                                return -errno;
-                        if ((size_t) n < sizeof(family))
-                                break;
-
-                        r = sd_bus_message_open_container(reply, 'r', "iay");
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_append(reply, "i", family);
-                        if (r < 0)
-                                return r;
-
-                        switch (family) {
-
-                        case AF_INET:
-                                if (n != sizeof(struct in_addr) + sizeof(family))
-                                        return -EIO;
-
-                                r = sd_bus_message_append_array(reply, 'y', &in_addr.in, sizeof(in_addr.in));
-                                break;
-
-                        case AF_INET6:
-                                if (n != sizeof(struct in6_addr) + sizeof(family))
-                                        return -EIO;
-
-                                r = sd_bus_message_append_array(reply, 'y', &in_addr.in6, sizeof(in_addr.in6));
-                                break;
-                        }
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_close_container(reply);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = wait_for_terminate_and_check("(sd-addrns)", child, 0);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (r != EXIT_SUCCESS)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-                break;
-        }
-
-        default:
+        int n = machine_get_addresses(m, &addresses);
+        if (n == -ENONET)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(n))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
+        if (n < 0)
+                return sd_bus_error_set_errnof(error, n, "Failed to get addresses: %m");
+
+        for (int i = 0; i < n; i++) {
+                r = sd_bus_message_open_container(reply, 'r', "iay");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "i", addresses[i].family);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family));
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
@@ -368,8 +236,6 @@ int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-#define EXIT_NOT_FOUND 2
-
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Machine *m = ASSERT_PTR(userdata);
@@ -377,80 +243,13 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
         assert(message);
 
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                r = load_os_release_pairs(NULL, &l);
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_fclose_ FILE *f = NULL;
-                pid_t child;
-
-                r = pidref_namespace_open(&m->leader,
-                                          &pidns_fd,
-                                          &mntns_fd,
-                                          /* ret_netns_fd = */ NULL,
-                                          /* ret_userns_fd = */ NULL,
-                                          &root_fd);
-                if (r < 0)
-                        return r;
-
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
-                        return -errno;
-
-                r = namespace_fork("(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   pidns_fd, mntns_fd, -1, -1, root_fd,
-                                   &child);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-                if (r == 0) {
-                        int fd = -EBADF;
-
-                        pair[0] = safe_close(pair[0]);
-
-                        r = open_os_release(NULL, NULL, &fd);
-                        if (r == -ENOENT)
-                                _exit(EXIT_NOT_FOUND);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        r = copy_bytes(fd, pair[1], UINT64_MAX, 0);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
-
-                        _exit(EXIT_SUCCESS);
-                }
-
-                pair[1] = safe_close(pair[1]);
-
-                f = take_fdopen(&pair[0], "r");
-                if (!f)
-                        return -errno;
-
-                r = load_env_file_pairs(f, "/etc/os-release", &l);
-                if (r < 0)
-                        return r;
-
-                r = wait_for_terminate_and_check("(sd-osrelns)", child, 0);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (r == EXIT_NOT_FOUND)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
-                if (r != EXIT_SUCCESS)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-
-                break;
-        }
-
-        default:
+        r = machine_get_os_release(m, &l);
+        if (r == -ENONET)
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information.");
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
-        }
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get OS release: %m");
 
         return bus_reply_pair_array(message, l);
 }
@@ -844,6 +643,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         int read_only, make_file_or_directory;
         const char *dest, *src, *propagate_directory;
         Machine *m = ASSERT_PTR(userdata);
+        MountInNamespaceFlags flags = 0;
         uid_t uid;
         int r;
 
@@ -889,14 +689,18 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
+        if (read_only)
+                flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (make_file_or_directory)
+                flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
+
         propagate_directory = strjoina("/run/systemd/nspawn/propagate/", m->name);
         r = bind_mount_in_namespace(
                         &m->leader,
                         propagate_directory,
                         "/run/host/incoming/",
                         src, dest,
-                        read_only,
-                        make_file_or_directory);
+                        flags);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in machine's namespace: %m", src, dest);
 
@@ -1191,23 +995,23 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         assert(found);
 
         if (streq(path, "/org/freedesktop/machine1/machine/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
-                pid_t pid;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
+                r = bus_creds_get_pidref(creds, &pidref);
                 if (r < 0)
                         return r;
 
-                r = manager_get_machine_by_pid(m, pid, &machine);
+                r = manager_get_machine_by_pidref(m, &pidref, &machine);
                 if (r <= 0)
                         return 0;
         } else {

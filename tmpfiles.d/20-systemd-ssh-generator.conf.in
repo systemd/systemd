@@ -8,7 +8,7 @@
 # See tmpfiles.d(5) for details
 
 {% if LINK_SSH_PROXY_DROPIN %}
-L {{SSHCONFDIR}}/20-systemd-ssh-proxy.conf - - - - {{LIBEXECDIR}}/ssh_config.d/20-systemd-ssh-proxy.conf
+L$ {{SSHCONFDIR}}/20-systemd-ssh-proxy.conf - - - - {{LIBEXECDIR}}/ssh_config.d/20-systemd-ssh-proxy.conf
 {% endif %}
 {% if CREATE_SSHDPRIVSEPDIR %}
 d {{SSHDPRIVSEPDIR}} 0755

@@ -132,12 +132,12 @@ _public_ int cryptsetup_token_validate(
         }
 
         w = sd_json_variant_by_key(v, "pkcs11-key");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "PKCS#11 token data lacks 'pkcs11-key' field.");
                 return 1;
         }
 
-        r = unbase64mem(sd_json_variant_string(w), NULL, NULL);
+        r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

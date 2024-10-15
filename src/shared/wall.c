@@ -32,7 +32,7 @@ static int write_to_terminal(const char *tty, const char *message) {
                 return -errno;
 
         if (!isatty_safe(fd))
-                return -errno;
+                return -ENOTTY;
 
         return loop_write_full(fd, message, SIZE_MAX, TIMEOUT_USEC);
 }
@@ -51,7 +51,7 @@ static int wall_utmp(
 
         /* libc's setutxent() unfortunately doesn't inform us about success, i.e. whether /var/run/utmp
          * exists. Hence we have to check manually first. */
-        if (access(_PATH_UTMPX, F_OK) < 0) {
+        if (access(UTMPX_FILE, F_OK) < 0) {
                 if (errno == ENOENT)
                         return -ENOPROTOOPT;
 

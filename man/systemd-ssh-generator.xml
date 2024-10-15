@@ -65,7 +65,7 @@
 
     <para>The <varname>ssh.authorized_keys.root</varname> credential can be used to allow specific public keys
     to log in over SSH. See
-    <citerefentry><refentrytitle>systemd.systemd-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more information.</para>
 
     <para>The generator will use a packaged <filename>sshd@.service</filename> service template file if one

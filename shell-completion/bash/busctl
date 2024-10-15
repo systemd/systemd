@@ -89,7 +89,7 @@ _busctl() {
                       --allow-interactive-authorization=no --augment-creds=no
                       --watch-bind=yes -j -l --full --xml-interface'
         [ARG]='--address -H --host -M --machine --match --timeout --size --json
-                      --destination'
+                      --destination --num-matches'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -128,6 +128,7 @@ _busctl() {
         [OBJECT]='introspect'
         [METHOD]='call'
         [EMIT]='emit'
+        [WAIT]='wait'
         [PROPERTY_GET]='get-property'
         [PROPERTY_SET]='set-property'
     )
@@ -174,6 +175,18 @@ _busctl() {
         fi
     elif __contains_word "$verb" ${VERBS[EMIT]}; then
         comps=''
+    elif __contains_word "$verb" ${VERBS[WAIT]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$( __get_busnames $mode)
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 4 ]] ; then
+            comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} signal)
+        else
+            comps=''
+        fi
     elif __contains_word "$verb" ${VERBS[PROPERTY_GET]}; then
         if [[ $n -eq 1 ]] ; then
             comps=$( __get_busnames $mode)

@@ -22,6 +22,10 @@ for i in {1..10}; do
     systemd-run --wait -u "$SERVICE_NAME" bash -c "echo invocation ${i} \$INVOCATION_ID; journalctl --sync"
 done
 
+# Sync journal again here to ensure the following message is stored to journal.
+# systemd[1]: invocation-id-test-26448.service: Deactivated successfully.
+journalctl --sync
+
 journalctl --list-invocation -u "$SERVICE_NAME" | tee "$TMP_DIR"/10
 journalctl --list-invocation -u "$SERVICE_NAME" --reverse | tee "$TMP_DIR"/10-r
 journalctl --list-invocation -u "$SERVICE_NAME" -n +10 | tee "$TMP_DIR"/p10

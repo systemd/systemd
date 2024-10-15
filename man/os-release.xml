@@ -53,9 +53,9 @@
     precedence over <filename>/usr/lib/os-release</filename>.
     Applications should check for the former, and exclusively use its
     data if it exists, and only fall back to
-    <filename>/usr/lib/os-release</filename> if it is missing.
-    Applications should not read data from both files at the same
-    time. <filename>/usr/lib/os-release</filename> is the recommended
+    <filename>/usr/lib/os-release</filename> if that is missing.
+    Applications should not combine the data from both files.
+    <filename>/usr/lib/os-release</filename> is the recommended
     place to store OS release information as part of vendor trees.
     <filename>/etc/os-release</filename> should be a relative symlink
     to <filename>/usr/lib/os-release</filename>, to provide
@@ -88,10 +88,10 @@
     <refsect2>
       <title><filename>/etc/initrd-release</filename></title>
 
-      <para>In the <ulink
-      url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>,
+      <para>In the <ulink url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>
+      and exitrd,
       <filename>/etc/initrd-release</filename> plays the same role as <filename>os-release</filename> in the
-      main system. Additionally, the presence of that file means that the system is in the initrd phase.
+      main system. Additionally, the presence of that file means that the system is in the initrd/exitrd phase.
       <filename>/etc/os-release</filename> should be symlinked to <filename>/etc/initrd-release</filename>
       (or vice versa), so programs that only look for <filename>/etc/os-release</filename> (as described
       above) work correctly.</para>
@@ -594,10 +594,10 @@
           <listitem><para>Takes a space-separated list of one or more of the strings
           <literal>system</literal>, <literal>initrd</literal> and <literal>portable</literal>. This field is
           only supported in <filename>extension-release.d/</filename> files and indicates what environments
-          the system extension is applicable to: i.e. to regular systems, to initrds, or to portable service
-          images. If unspecified, <literal>SYSEXT_SCOPE=system portable</literal> is implied, i.e. any system
-          extension without this field is applicable to regular systems and to portable service environments,
-          but not to initrd environments.</para>
+          the system extension is applicable to: i.e. to regular systems, to initrds and exitrds, or to
+          portable service images. If not specified, <literal>SYSEXT_SCOPE=system portable</literal> is
+          implied, i.e. any system extension without this field is applicable to regular systems and to
+          portable service environments, but not to initrd/exitrd environments.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>

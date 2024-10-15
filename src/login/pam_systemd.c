@@ -27,6 +27,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
+#include "creds-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -563,6 +564,31 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set environment variable %s: @PAMERR@", key);
+
+        return PAM_SUCCESS;
+}
+
+static int propagate_credential_to_environment(pam_handle_t *handle, const char *credential, const char *varname) {
+        int r;
+
+        assert(handle);
+        assert(credential);
+        assert(varname);
+
+        _cleanup_free_ char *value = NULL;
+
+        /* Read a service credential, and propagate it into an environment variable */
+
+        r = read_credential(credential, (void**) &value, /* ret_size= */ NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read credential '%s', ignoring: %m", credential);
+                return PAM_SUCCESS;
+        }
+
+        r = pam_misc_setenv(handle, varname, value, 0);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set environment variable %s: @PAMERR@", varname);
 
         return PAM_SUCCESS;
 }
@@ -1191,6 +1217,19 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = update_environment(handle, "XDG_SEAT", seat);
         if (r != PAM_SUCCESS)
                 return r;
+
+        static const char *const propagate[] = {
+                "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
+                "shell.prompt.suffix", "SHELL_PROMPT_SUFFIX",
+                "shell.welcome",       "SHELL_WELCOME",
+                NULL
+        };
+
+        STRV_FOREACH_PAIR(k, v, propagate) {
+                r = propagate_credential_to_environment(handle, *k, *v);
+                if (r != PAM_SUCCESS)
+                        return r;
+        }
 
         if (vtnr > 0) {
                 char buf[DECIMAL_STR_MAX(vtnr)];

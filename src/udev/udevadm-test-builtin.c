@@ -79,6 +79,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         UdevBuiltinCommand cmd;
         int r;
 
+        log_set_max_level(LOG_DEBUG);
         log_setup();
 
         r = parse_argv(argc, argv);

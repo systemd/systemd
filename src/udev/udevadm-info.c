@@ -323,8 +323,14 @@ static int print_record(sd_device *device, const char *prefix) {
         if (sd_device_get_sysnum(device, &str) >= 0)
                 printf("%sR: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
 
+        if (sd_device_get_device_id(device, &str) >= 0)
+                printf("%sJ: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+
         if (sd_device_get_subsystem(device, &subsys) >= 0)
                 printf("%sU: %s%s%s\n", prefix, ansi_highlight_green(), subsys, ansi_normal());
+
+        if (sd_device_get_driver_subsystem(device, &str) >= 0)
+                printf("%sB: %s%s%s\n", prefix, ansi_highlight_green(), str, ansi_normal());
 
         if (sd_device_get_devtype(device, &str) >= 0)
                 printf("%sT: %s%s%s\n", prefix, ansi_highlight_green(), str, ansi_normal());
@@ -376,8 +382,9 @@ static int record_to_json(sd_device *device, sd_json_variant **ret) {
         assert(device);
         assert(ret);
 
-        /* We don't show any shorthand fields here as done in print_record() except for SYSNAME and SYSNUM as
-         * all the other ones have a matching property which will already be included. */
+        /* We don't show any shorthand fields here as done in print_record() except for SYSNAME, SYSNUM,
+         * DRIVER_SUBSYSTEM, and DEVICE_ID, as all the other ones have a matching property which will already
+         * be included. */
 
         if (sd_device_get_sysname(device, &str) >= 0) {
                 r = sd_json_variant_set_field_string(&v, "SYSNAME", str);
@@ -387,6 +394,18 @@ static int record_to_json(sd_device *device, sd_json_variant **ret) {
 
         if (sd_device_get_sysnum(device, &str) >= 0) {
                 r = sd_json_variant_set_field_string(&v, "SYSNUM", str);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_driver_subsystem(device, &str) >= 0) {
+                r = sd_json_variant_set_field_string(&v, "DRIVER_SUBSYSTEM", str);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_device_id(device, &str) >= 0) {
+                r = sd_json_variant_set_field_string(&v, "DEVICE_ID", str);
                 if (r < 0)
                         return r;
         }

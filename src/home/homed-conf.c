@@ -17,7 +17,7 @@ int manager_parse_config_file(Manager *m) {
                         m);
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage, "Failed to parse default storage setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage);
 
 int config_parse_default_file_system_type(
                 const char *unit,

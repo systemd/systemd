@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 #include "sd-event.h"
 #include "sd-ipv4acd.h"
 #include "sd-netlink.h"

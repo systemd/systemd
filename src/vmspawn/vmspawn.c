@@ -1488,11 +1488,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* if we are going to be starting any units with state then create our runtime dir */
         if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
-                r = runtime_directory(&arg_runtime_directory, arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn");
+                r = runtime_directory(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn",
+                                      &arg_runtime_directory);
                 if (r < 0)
                         return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r) {
-                        /* r > 0 means we need to create our own runtime dir */
+                if (r > 0) { /* We need to create our own runtime dir */
                         r = mkdir_p(arg_runtime_directory, 0755);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create runtime directory: %m");
@@ -2088,14 +2088,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
-                _cleanup_strv_free_ char **extra = NULL;
-
-                r = strv_split_full(&extra, e, /* separator= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = strv_split_and_extend_full(&cmdline, e,
+                                               /* separator = */ NULL, /* filter_duplicates = */ false,
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to split $SYSTEMD_VMSPAWN_QEMU_EXTRA environment variable: %m");
-
-                if (strv_extend_strv(&cmdline, extra, /* filter_duplicates= */ false) < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
         }
 
         if (DEBUG_LOGGING) {
@@ -2124,7 +2121,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGCHLD, SIGWINCH) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;

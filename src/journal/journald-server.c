@@ -1066,13 +1066,13 @@ static void server_write_to_journal(
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
-#define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
-        if (value_size > 0) {                                           \
-                char *k;                                                \
-                k = newa(char, STRLEN(field "=") + value_size + 1);     \
-                *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
-                iovec[n++] = IOVEC_MAKE_STRING(k);                      \
-        }                                                               \
+#define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)               \
+        if (value_size > 0) {                                                   \
+                char *k;                                                        \
+                k = newa(char, STRLEN(field "=") + value_size + 1);             \
+                *mempcpy_typesafe(stpcpy(k, field "="), value, value_size) = 0; \
+                iovec[n++] = IOVEC_MAKE_STRING(k);                              \
+        }
 
 static void server_dispatch_message_real(
                 Server *s,
@@ -1549,39 +1549,42 @@ int server_process_datagram(
         iovec = IOVEC_MAKE(s->buffer, MALLOC_ELEMENTSOF(s->buffer) - 1); /* Leave room for trailing NUL we add later */
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                if (n == -EXFULL) {
-                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
-                                              "Got message with truncated control data (too many fds sent?), ignoring.");
-                        return 0;
-                }
-                return log_ratelimit_error_errno(n, JOURNAL_LOG_RATELIMIT, "recvmsg() failed: %m");
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -ECHRNG) {
+                log_ratelimit_warning_errno(n, JOURNAL_LOG_RATELIMIT,
+                                            "Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
         }
+        if (n == -EXFULL) {
+                log_ratelimit_warning_errno(n, JOURNAL_LOG_RATELIMIT, "Got message with truncated payload data, ignoring.");
+                return 0;
+        }
+        if (n < 0)
+                return log_ratelimit_error_errno(n, JOURNAL_LOG_RATELIMIT, "Failed to receive message: %m");
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+        CMSG_FOREACH(cmsg, &msghdr) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                         cmsg->cmsg_type == SCM_SECURITY) {
+                } else if (cmsg->cmsg_type == SCM_SECURITY) {
                         assert(!label);
                         label = CMSG_TYPED_DATA(cmsg, char);
                         label_len = cmsg->cmsg_len - CMSG_LEN(0);
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SCM_TIMESTAMP &&
+                } else if (cmsg->cmsg_type == SCM_TIMESTAMP &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
                         assert(!tv);
                         tv = memcpy(&tv_buf, CMSG_DATA(cmsg), sizeof(struct timeval));
-                } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                         cmsg->cmsg_type == SCM_RIGHTS) {
+                } else if (cmsg->cmsg_type == SCM_RIGHTS) {
                         assert(!fds);
                         fds = CMSG_TYPED_DATA(cmsg, int);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 }
+        }
 
         /* And a trailing NUL, just in case */
         s->buffer[n] = 0;
@@ -1784,17 +1787,15 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+18) >= 0);
-
-        r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
+        r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr1, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, &s->sigusr2_event_source, SIGUSR2, dispatch_sigusr2, s);
+        r = sd_event_add_signal(s->event, &s->sigusr2_event_source, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigusr2, s);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, &s->sigterm_event_source, SIGTERM, dispatch_sigterm, s);
+        r = sd_event_add_signal(s->event, &s->sigterm_event_source, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
@@ -1805,7 +1806,7 @@ static int server_setup_signals(Server *s) {
 
         /* When journald is invoked on the terminal (when debugging), it's useful if C-c is handled
          * equivalent to SIGTERM. */
-        r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
+        r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigterm, s);
         if (r < 0)
                 return r;
 
@@ -1816,7 +1817,7 @@ static int server_setup_signals(Server *s) {
         /* SIGRTMIN+1 causes an immediate sync. We process this very late, so that everything else queued at
          * this point is really written to disk. Clients can watch /run/systemd/journal/synced with inotify
          * until its mtime changes to see when a sync happened. */
-        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
+        r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, (SIGRTMIN+1)|SD_EVENT_SIGNAL_PROCMASK, dispatch_sigrtmin1, s);
         if (r < 0)
                 return r;
 
@@ -1824,7 +1825,7 @@ static int server_setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(s->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &s->sigrtmin18_info);
+        r = sd_event_add_signal(s->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &s->sigrtmin18_info);
         if (r < 0)
                 return r;
 
@@ -2953,7 +2954,7 @@ static const char* const storage_table[_STORAGE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage);
 
 static const char* const split_mode_table[_SPLIT_MAX] = {
         [SPLIT_LOGIN] = "login",
@@ -2962,7 +2963,7 @@ static const char* const split_mode_table[_SPLIT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode);
 
 int config_parse_line_max(
                 const char* unit,

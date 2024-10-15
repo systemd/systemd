@@ -8,7 +8,11 @@ if ((${NO_SYNC:-0})) || ((${NO_BUILD:-0})); then
 fi
 
 if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
-    if [[ "$(git -C "pkg/$PKG_SUBDIR" rev-parse HEAD)" == "$GIT_COMMIT" ]]; then
+    if [[ "$(git -C "pkg/$PKG_SUBDIR" rev-parse HEAD 2>/dev/null)" == "$GIT_COMMIT" ]]; then
+        exit 0
+    fi
+
+    if [[ -n "$(git -C "pkg/$PKG_SUBDIR" status --porcelain)" ]]; then
         exit 0
     fi
 
@@ -43,7 +47,7 @@ if [[ ! -e "pkg/$PKG_SUBDIR" ]] || [[ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" 
         # --no-cone is needed to check out only one top-level directory
         git -C "pkg/$PKG_SUBDIR" sparse-checkout set --no-cone "${GIT_SUBDIR:-}"
     fi
-else
+elif ! git -C "pkg/$PKG_SUBDIR" cat-file -e "$GIT_COMMIT^{commit}" 2>/dev/null; then
     git -C "pkg/$PKG_SUBDIR" remote set-url origin "$GIT_URL"
     git -C "pkg/$PKG_SUBDIR" fetch origin "$GIT_BRANCH"
 fi

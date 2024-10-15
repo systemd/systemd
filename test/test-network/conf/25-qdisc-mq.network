@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=testtun99
+Name=testtap99
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no
+
+[ClassfulMultiQueueing]
+Parent=root
+Handle=0002

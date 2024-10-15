@@ -76,16 +76,7 @@
         <term><varname>Type=</varname></term>
 
         <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
-        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.
-        Architecture specific partition types can use one of these architecture identifiers:
-        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
-        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
-        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
-        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
-        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
-        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
-        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).
-        </para>
+        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.</para>
 
         <para>The supported identifiers are:</para>
 
@@ -237,7 +228,14 @@
           </tgroup>
         </table>
 
-        <para>This setting defaults to <constant>linux-generic</constant>.</para>
+        <para>Architecture specific partition types can use one of these architecture identifiers:
+        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
+        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
+        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
+        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
+        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
+        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
+        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
@@ -485,18 +483,18 @@
         <term><varname>ExcludeFiles=</varname></term>
         <term><varname>ExcludeFilesTarget=</varname></term>
 
-        <listitem><para>Takes an absolute file system path referring to a source file or directory on the
-        host. This setting may be used to exclude files or directories from the host from being copied into
-        the file system when <varname>CopyFiles=</varname> is used. This option may be used multiple times to
-        exclude multiple files or directories from host from being copied into the newly formatted file
-        system.</para>
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each referring to a
+        source file or directory on the host. This setting may be used to exclude files or directories from
+        the host from being copied into the file system when <varname>CopyFiles=</varname> is used. This
+        option may be used multiple times to exclude multiple files or directories from host from being
+        copied into the newly formatted file system.</para>
 
         <para>If the path is a directory and ends with <literal>/</literal>, only the directory's
         contents are excluded but not the directory itself. If the path is a directory and does not end with
         <literal>/</literal>, both the directory and its contents are excluded.</para>
 
         <para><varname>ExcludeFilesTarget=</varname> is like <varname>ExcludeFiles=</varname> except that
-        instead of excluding the path on the host from being copied into the partition, we exclude any files
+        instead of excluding the path on the host from being copied into the partition, it exclude any files
         and directories from being copied into the given path in the partition.</para>
 
         <para>When
@@ -538,18 +536,64 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MakeSymlinks=</varname></term>
+
+        <listitem><para>Takes one or more arguments, separated by whitespace, each declaring a symlink to
+        create within the new file system. Each argument is a pair of symlink source and target paths,
+        separated by a colon. This option may be used more than once to create multiple symlinks. When
+        <varname>CopyFiles=</varname> and <varname>MakeSymlinks=</varname> are used together the former is
+        applied first.</para>
+
+        <para>The primary use case for this option is to create symlinks that need to exist before
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is executed. For example, when using
+        <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        this setting can be used to create symlinks in <filename>/var/lib/extensions.mutable</filename> to
+        redirect writes to mutable confexts to a custom location.</para>
+
+        <para>Consider using
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        with its <option>--image=</option> option to pre-create other symlinks (as well as other inodes) with
+        fine-grained control of ownership, access modes and other file attributes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Subvolumes=</varname></term>
 
         <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
-        that should be a subvolume within the new file system. This option may be used more than once to
-        specify multiple directories. Note that this setting does not create the directories themselves, that
-        can be configured with <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
+        that should be a subvolume within the new file system. Each path may optionally be followed by a
+        colon and a list of comma-separated subvolume flags. The following flags are understood:</para>
+
+        <table class='flags'>
+          <title>Subvolume Flags</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="spec" />
+            <colspec colname="purpose" />
+            <thead>
+              <row>
+                <entry>Flag</entry>
+                <entry>Purpose</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row id='R'>
+                <entry><literal>ro</literal></entry>
+                <entry>Make this subvolume read-only.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Note that this option does not create the directories themselves, that can be configured with
+        <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.</para>
 
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
         <literal>btrfs</literal>.</para>
 
-        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
-        when running with <option>--offline=no</option>.</para>
+        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        since btrfs-progs 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -564,8 +608,8 @@
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
         <literal>btrfs</literal>.</para>
 
-        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
-        when running with <option>--offline=no</option>.</para>
+        <para>Note that this option is only supported in combination with <option>--offline=yes</option>
+        since btrfs-progs 6.11 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -710,7 +754,7 @@
         <citerefentry
         project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        <para>If both bit 60 and 59 are set for a partition (i.e. the partition is marked both read-only and
         marked for file system growing) the latter is typically without effect: the read-only flag takes
         precedence in most tools reading these flags, and since growing the file system involves writing to
         the partition it is consequently ignored.</para>
@@ -788,6 +832,121 @@
         is specified on the <command>systemd-repart</command> command line.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression algorithm.</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs). Here's an incomplete list
+        of compression algorithms supported by the filesystems known to
+        <command>systemd-repart</command>:</para>
+
+        <table>
+          <title>File System Compression Algorithms</title>
+
+          <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+            <colspec colname="filesystem" />
+            <colspec colname="algorithms" />
+            <colspec colname="manpage" />
+
+            <thead>
+              <row>
+                <entry>File System</entry>
+                <entry>Compression Algorithms</entry>
+                <entry>Documentation</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry><constant>squashfs</constant></entry>
+                <entry>gzip, lzo, lz4, xz, zstd, lzma</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mksquashfs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+
+              <row>
+                <entry><constant>erofs</constant></entry>
+                <entry>lz4, lz4hc, lzma, deflate, libdeflate, zstd</entry>
+                <entry><member><citerefentry project='man-pages'><refentrytitle>mkfs.erofs</refentrytitle><manvolnum>1</manvolnum></citerefentry></member></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
+        configured compression algorithm. The possible compression levels and their meaning are filesystem
+        specific (refer to the filesystem's documentation for the exact meaning of a particular compression
+        level).</para>
+
+        <para>Note that this setting is only taken into account when the filesystem configured with
+        <varname>Format=</varname> supports compression and the <varname>Compression=</varname> setting is
+        configured explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SupplementFor=</varname></term>
+
+        <listitem><para>Takes a partition definition name, such as <literal>10-esp</literal>. If specified,
+        <command>systemd-repart</command> will avoid creating this partition and instead prefer to partially
+        merge the two definitions. However, depending on the existing layout of partitions on disk,
+        <command>systemd-repart</command> may be forced to fall back onto un-merging the definitions and
+        using them as originally written, potentially creating this partition. Specifically,
+        <command>systemd-repart</command> will fall back if this partition is found to already exist on disk,
+        or if the target partition already exists on disk but is too small, or if it cannot allocate space
+        for the merged partition for some other reason.</para>
+
+        <para>The following fields are merged into the target definition in the specified ways:
+        <varname>Weight=</varname> and <varname>PaddingWeight=</varname> are simply overwritten;
+        <varname>SizeMinBytes=</varname> and <varname>PaddingMinBytes=</varname> use the larger of the two
+        values; <varname>SizeMaxBytes=</varname> and <varname>PaddingMaxBytes=</varname> use the smaller
+        value; and <varname>CopyFiles=</varname>, <varname>ExcludeFiles=</varname>,
+        <varname>ExcludeFilesTarget=</varname>, <varname>MakeDirectories=</varname>, and
+        <varname>Subvolumes=</varname> are concatenated.</para>
+
+        <para>Usage of this option in combination with <varname>CopyBlocks=</varname>,
+        <varname>Encrypt=</varname>, or <varname>Verity=</varname> is not supported. The target definition
+        cannot set these settings either. A definition cannot simultaneously be a supplement and act as a
+        target for some other supplement definition. A target cannot have more than one supplement partition
+        associated with it.</para>
+
+        <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in
+        the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        Specification</ulink>. Distributions may prefer to use the ESP as <varname>$BOOT</varname> whenever
+        possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
+        two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for
+        the XBOOTLDR that's sufficiently large to hold kernels and configured as a supplement for the ESP.
+        Whenever possible, <command>systemd-repart</command> will try to merge the two definitions to create
+        one large ESP, but if that's not allowable due to the existing conditions on disk a small ESP and a
+        large XBOOTLDR will be created instead.</para>
+
+        <para>As another example, distributions can also use this to seamlessly share a single
+        <filename>/home</filename> partition in a multi-boot scenario, while preferring to keep
+        <filename>/home</filename> on the root partition by default. Having a <filename>/home</filename>
+        partition separated from the root partition entails some extra complexity: someone has to decide how
+        to split the space between the two partitions. On the other hand, it allows a user to share their
+        home area between multiple installed OSs (i.e. via <citerefentry><refentrytitle>systemd-homed.service
+        </refentrytitle><manvolnum>8</manvolnum></citerefentry>). Distributions should create two definitions:
+        the first for a root partition that takes up some relatively small percentage of the disk, and the
+        second as a supplement for the first to create a <filename>/home</filename> partition that takes up
+        all the remaining free space. On first boot, if <command>systemd-repart</command> finds an existing
+        <filename>/home</filename> partition on disk, it'll un-merge the definitions and create just a small
+        root partition. Otherwise, the definitions will be merged and a single large root partition will be
+        created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

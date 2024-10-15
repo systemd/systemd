@@ -73,12 +73,12 @@ SORT_KEY="$IMAGE_ID"
 
 if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
     if [ -f "$KERNEL_INSTALL_CONF_ROOT/cmdline" ]; then
-        BOOT_OPTIONS="$(tr -s "$IFS" ' ' <"$KERNEL_INSTALL_CONF_ROOT/cmdline")"
+        BOOT_OPTIONS="$(grep -Gv '^\s*#' "$KERNEL_INSTALL_CONF_ROOT/cmdline" | tr -s "$IFS" ' ')"
     fi
 elif [ -f /etc/kernel/cmdline ]; then
-    BOOT_OPTIONS="$(tr -s "$IFS" ' ' </etc/kernel/cmdline)"
+    BOOT_OPTIONS="$(grep -Gv '^\s*#' /etc/kernel/cmdline | tr -s "$IFS" ' ')"
 elif [ -f /usr/lib/kernel/cmdline ]; then
-    BOOT_OPTIONS="$(tr -s "$IFS" ' ' </usr/lib/kernel/cmdline)"
+    BOOT_OPTIONS="$(grep -Gv '^\s*#' /usr/lib/kernel/cmdline | tr -s "$IFS" ' ')"
 elif ! systemd-detect-virt --container --quiet; then
     BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
 else

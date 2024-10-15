@@ -20,7 +20,6 @@
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
@@ -307,11 +306,11 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        sigbus_install();
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        journal_browse_prepare();
 
         r = acquire_first_emergency_log_message(&message);
         if (r < 0)

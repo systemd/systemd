@@ -955,7 +955,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r, k;
+        int r;
 
         assert_se(arg_dest = dest_late);
 
@@ -975,12 +975,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         if (arg_root_enabled)
                 r = add_root_mount();
+        else
+                r = 0;
 
-        if (!in_initrd()) {
-                k = add_mounts();
-                if (r >= 0)
-                        r = k;
-        }
+        if (!in_initrd())
+                RET_GATHER(r, add_mounts());
 
         return r;
 }

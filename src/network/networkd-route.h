@@ -91,7 +91,7 @@ int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg);
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Request *req, const char *error_msg);
 int route_remove(Route *route, Manager *manager);
 int route_remove_and_cancel(Route *route, Manager *manager);
 
@@ -126,11 +126,31 @@ int route_section_verify(Route *route);
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
-CONFIG_PARSER_PROTOTYPE(config_parse_destination);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_scope);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
+typedef enum RouteConfParserType {
+        ROUTE_DESTINATION,
+        ROUTE_PREFERRED_SOURCE,
+        ROUTE_PRIORITY,
+        ROUTE_SCOPE,
+        ROUTE_TABLE,
+        ROUTE_PREFERENCE,
+        ROUTE_PROTOCOL,
+        ROUTE_TYPE,
+        ROUTE_GATEWAY_NETWORK,
+        ROUTE_GATEWAY,
+        ROUTE_GATEWAY_ONLINK,
+        ROUTE_MULTIPATH,
+        ROUTE_NEXTHOP,
+        ROUTE_METRIC_MTU,
+        ROUTE_METRIC_ADVMSS,
+        ROUTE_METRIC_HOPLIMIT,
+        ROUTE_METRIC_INITCWND,
+        ROUTE_METRIC_RTO_MIN,
+        ROUTE_METRIC_INITRWND,
+        ROUTE_METRIC_QUICKACK,
+        ROUTE_METRIC_CC_ALGO,
+        ROUTE_METRIC_FASTOPEN_NO_COOKIE,
+        _ROUTE_CONF_PARSER_MAX,
+        _ROUTE_CONF_PARSER_INVALID = -EINVAL,
+} RouteConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_route_section);

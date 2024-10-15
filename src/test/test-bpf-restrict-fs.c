@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
-        ASSERT_OK(set_unit_path(unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));

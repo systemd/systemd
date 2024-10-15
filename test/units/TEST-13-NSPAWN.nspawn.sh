@@ -42,6 +42,9 @@ at_exit() {
 
     mountpoint -q /var/lib/machines && umount --recursive /var/lib/machines
     rm -f /run/systemd/nspawn/*.nspawn
+
+    rm -fr /var/tmp/TEST-13-NSPAWN.*
+    rm -f /run/verity.d/test-13-nspawn-*.crt
 }
 
 trap at_exit EXIT
@@ -133,9 +136,40 @@ testcase_sanity() {
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
-    # volatile=state: tmpfs overlay is mounted over rootfs
+    # volatile=overlay: tmpfs overlay is mounted over rootfs
     systemd-nspawn --directory="$root" \
                    --volatile=overlay \
+                   bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
+    test ! -e "$root/nope"
+    test ! -e "$root/var/also-nope"
+    test ! -e "$root/usr/nope-too"
+
+    # --volatile= with -U
+    touch "$root/usr/has-usr"
+    # volatile(=yes): rootfs is tmpfs, /usr/ from the OS tree is mounted read only
+    systemd-nspawn --directory="$root"\
+                   --volatile \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+    test ! -e "$root/nope"
+    test ! -e "$root/usr/read-only"
+    systemd-nspawn --directory="$root"\
+                   --volatile=yes \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+    test ! -e "$root/nope"
+    test ! -e "$root/usr/read-only"
+    # volatile=state: rootfs is read-only, /var/ is tmpfs
+    systemd-nspawn --directory="$root" \
+                   --volatile=state \
+                   -U \
+                   bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
+    test ! -e "$root/read-only"
+    test ! -e "$root/var/nope"
+    # volatile=overlay: tmpfs overlay is mounted over rootfs
+    systemd-nspawn --directory="$root" \
+                   --volatile=overlay \
+                   -U \
                    bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
     test ! -e "$root/nope"
     test ! -e "$root/var/also-nope"
@@ -943,6 +977,17 @@ matrix_run_one() {
     return 0
 }
 
+testcase_api_vfs() {
+    local api_vfs_writable
+
+    for api_vfs_writable in yes no network; do
+        matrix_run_one no  no  $api_vfs_writable
+        matrix_run_one yes no  $api_vfs_writable
+        matrix_run_one no  yes $api_vfs_writable
+        matrix_run_one yes yes $api_vfs_writable
+    done
+}
+
 testcase_check_os_release() {
     # https://github.com/systemd/systemd/issues/29185
     local base common_opts root
@@ -957,6 +1002,11 @@ testcase_check_os_release() {
         --directory="$root"
         --bind-ro="$base/usr:/usr"
     )
+
+    # Might be needed to find libraries
+    if [ -f "$base/etc/ld.so.cache" ]; then
+        common_opts+=("--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.cache")
+    fi
 
     # Empty /etc/ & /usr/
     (! systemd-nspawn "${common_opts[@]}")
@@ -973,41 +1023,195 @@ testcase_check_os_release() {
     rm -fr "$root" "$base"
 }
 
-testcase_init() {
-    local root common_opts
+testcase_ip_masquerade() {
+    local root
 
-    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.init.XXX)"
+    if ! command -v networkctl >/dev/null; then
+        echo "This test requires systemd-networkd, skipping..."
+        return 0
+    fi
+
+    systemctl unmask systemd-networkd.service
+    systemctl edit --runtime --stdin systemd-networkd.service --drop-in=debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
+    systemctl start systemd-networkd.service
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.ip_masquerade.XXX)"
     create_dummy_container "$root"
 
-    cat >"$root/sbin/custom-init" <<EOF
-#!/bin/bash
-echo "Hello from custom init, beautiful day, innit?"
-ip link
-EOF
-    chmod +x "$root/sbin/custom-init"
+    systemd-run --unit=nspawn-hoge.service \
+                systemd-nspawn \
+                --register=no \
+                --directory="$root" \
+                --ephemeral \
+                --machine=hoge \
+                --network-veth \
+                bash -x -c "ip link set host0 up; sleep 30s"
 
-    common_opts=(
-        --boot
-        --register=no
-        --directory="$root"
-        --machine=foo-bar
-    )
+    /usr/lib/systemd/systemd-networkd-wait-online -i ve-hoge --timeout 30s
 
-    (! systemd-nspawn "${common_opts[@]}" --init /not/really/there)
-    systemd-nspawn "${common_opts[@]}" --init /sbin/custom-init |& grep "Hello from custom init, beautiful day, innit?"
+    # Check IPMasquerade= for ve-* and friends enabled IP forwarding.
+    [[ "$(cat /proc/sys/net/ipv4/conf/all/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv4/conf/default/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv6/conf/all/forwarding)" == "1" ]]
+    [[ "$(cat /proc/sys/net/ipv6/conf/default/forwarding)" == "1" ]]
 
-    mkdir -p /run/systemd/nspawn/
-    echo -ne "[Exec]\nInit=/sbin/custom-init" >/run/systemd/nspawn/foo-bar.nspawn
-    systemd-nspawn "${common_opts[@]}" --settings=yes |& grep "Hello from custom init, beautiful day, innit?"
+    systemctl stop nspawn-hoge.service || :
+    systemctl stop systemd-networkd.service
+    systemctl mask systemd-networkd.service
 
     rm -fr "$root"
 }
 
-run_testcases
+can_do_rootless_nspawn() {
+    # Our create_dummy_ddi() uses squashfs and openssl.
+    command -v mksquashfs &&
+    command -v openssl &&
 
-for api_vfs_writable in yes no network; do
-    matrix_run_one no  no  $api_vfs_writable
-    matrix_run_one yes no  $api_vfs_writable
-    matrix_run_one no  yes $api_vfs_writable
-    matrix_run_one yes yes $api_vfs_writable
-done
+    # mountfsd must be enabled...
+    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
+    # ...and have pidfd support for unprivileged operation.
+    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
+
+    # nsresourced must be enabled...
+    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
+    # ...and must support the UserNamespaceInterface.
+    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
+           /run/systemd/userdb/io.systemd.NamespaceResource \
+           io.systemd.NamespaceResource.AllocateUserRange \
+           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
+           2>&1 || true) |
+        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
+}
+
+create_dummy_ddi() {
+    local outdir="${1:?}"
+    local container_name="${2:?}"
+
+    cat >"$outdir"/openssl.conf <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req -config "$outdir"/openssl.conf -subj="/CN=waldo" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout "${outdir}/${container_name}.key" -out "${outdir}/${container_name}.crt"
+
+    mkdir -p /run/verity.d
+    cp "${outdir}/${container_name}.crt" "/run/verity.d/test-13-nspawn-${container_name}.crt"
+
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+        systemd-repart --make-ddi=portable \
+                       --copy-source=/usr/share/TEST-13-NSPAWN-container-template \
+                       --certificate="${outdir}/${container_name}.crt" \
+                       --private-key="${outdir}/${container_name}.key" \
+                       "${outdir}/${container_name}.raw"
+}
+
+testcase_unpriv() {
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping rootless test..."
+        return 0
+    fi
+
+    local tmpdir name
+    tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
+    name="unpriv-${tmpdir##*.}"
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    create_dummy_ddi "$tmpdir" "$name"
+    chown --recursive testuser: "$tmpdir"
+
+    systemd-run \
+        --pipe \
+        --uid=testuser \
+        --property=Delegate=yes \
+        -- \
+        systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
+    echo hello | cmp "$tmpdir/stdout.txt" -
+}
+
+testcase_fuse() {
+    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+        echo "FUSE is not supported, skipping the test..."
+        return 0
+    fi
+
+    # Assume that the tests are running on a kernel that is new enough for FUSE
+    # to have user-namespace support; and so we should expect that nspawn
+    # enables FUSE.  This test does not validate that the version check
+    # disables FUSE on old kernels.
+
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fuse.XXX)"
+    create_dummy_container "$root"
+
+    # To avoid adding any complex dependencies to the test, we simply check
+    # that /dev/fuse can be opened for reading and writing (O_RDWR), but that
+    # actually reading from it fails with EPERM.  This can be done with a
+    # simple Bash script: run `cat <>/dev/fuse` and if the EPERM error message
+    # comes from "bash" then we know it couldn't be opened, while if it comes
+    # from "cat" then we know that it was opened but not read.  If we are able
+    # to read from the file, then this indicates that it's not a real FUSE
+    # device (which requires us to mount a type="fuse" filesystem with the
+    # option string "fd=${num}" for /dev/fuse FD before reading from it will
+    # return anything other than EPERM); if this happens then most likely
+    # nspawn didn't create the file at all and Bash "<>" simply created a new
+    # normal file.
+    #
+    #    "cat: -: Operation not permitted"                   # pass the test; opened but not read
+    #    "bash: line 1: /dev/fuse: Operation not permitted"  # fail the test; could not open
+    #    ""                                                  # fail the test; reading worked
+    [[ "$(systemd-nspawn --pipe --directory="$root" \
+              bash -c 'cat <>/dev/fuse' 2>&1)" == 'cat: -: Operation not permitted' ]]
+
+    rm -fr "$root"
+}
+
+testcase_unpriv_fuse() {
+    # Same as above, but for unprivileged operation.
+
+    if [[ "$(cat <>/dev/fuse 2>&1)" != 'cat: -: Operation not permitted' ]]; then
+        echo "FUSE is not supported, skipping the test..."
+        return 0
+    fi
+    if ! can_do_rootless_nspawn; then
+        echo "Skipping rootless test..."
+        return 0
+    fi
+
+    local tmpdir name
+    tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv-fuse.XXX)"
+    # $name must be such that len("ns-$(id -u testuser)-nspawn-${name}-65535")
+    # <= 31, or nsresourced will reject the request for a namespace.
+    # Therefore; len($name) <= 10 bytes.
+    name="ufuse-${tmpdir##*.}"
+    trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
+    create_dummy_ddi "$tmpdir" "$name"
+    chown --recursive testuser: "$tmpdir"
+
+    [[ "$(systemd-run \
+              --pipe \
+              --uid=testuser \
+              --property=Delegate=yes \
+              --setenv=SYSTEMD_LOG_LEVEL \
+              --setenv=SYSTEMD_LOG_TARGET \
+              -- \
+              systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" \
+                  bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
+}
+
+run_testcases

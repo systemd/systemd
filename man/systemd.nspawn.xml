@@ -102,16 +102,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Init=</varname></term>
-
-        <listitem><para>Takes an absolute path specifying the init program to invoke in the container when
-        <varname>Boot=</varname> is enabled. This setting corresponds to the <option>--init=</option> option
-        on the <command>systemd-nspawn</command> command line.</para>
-
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>Ephemeral=</varname></term>
 
         <listitem><para>Takes a boolean argument, which defaults to off, If enabled, the container is run with

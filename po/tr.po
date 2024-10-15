@@ -9,8 +9,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
-"PO-Revision-Date: 2024-06-01 10:59+0000\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-08-25 11:38+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.5.5\n"
+"X-Generator: Weblate 5.7\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -28,7 +28,7 @@ msgstr "Sisteme parolayı geri gönder"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr "Sisteme parolayı geri göndermek kimlik doğrulaması gerektiriyor."
+msgstr "Sisteme parolayı geri göndermek için kimlik doğrulaması gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -37,8 +37,8 @@ msgstr "Sistem hizmetlerini veya diğer birimlerini yönet"
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Sistem hizmetlerini veya diğer birimlerini yönetmek kimlik doğrulaması "
-"gerektiriyor."
+"Sistem hizmetlerini veya diğer birimlerini yönetmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -47,8 +47,8 @@ msgstr "Sistem hizmetlerini veya birim dosyalarını yönet"
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Sistem hizmetlerini veya birim dosyalarını yönetmek kimlik doğrulaması "
-"gerektiriyor."
+"Sistem hizmetlerini veya birim dosyalarını yönetmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -60,7 +60,7 @@ msgid ""
 "environment variables."
 msgstr ""
 "Sistem ve hizmet yöneticisi ortam değişkenlerini ayarlamak ya da kaldırmak "
-"kimlik doğrulaması gerektiriyor."
+"için kimlik doğrulaması gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -68,7 +68,7 @@ msgstr "systemd durumunu yeniden yükle"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "systemd durumunu yeniden yüklemek kimlik doğrulaması gerektiriyor."
+msgstr "systemd durumunu yeniden yüklemek için kimlik doğrulaması gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -327,7 +327,7 @@ msgstr "Makine adını ayarla"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr "Yerel makine adını ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Yerel makine adını ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
@@ -339,7 +339,7 @@ msgid ""
 "as well as the pretty hostname."
 msgstr ""
 "Statik olarak yapılandırılmış yerel (ana) makine adını ve okunaklı (ana) "
-"makine adını ayarlamak kimlik doğrulaması gerektiriyor."
+"makine adını ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -347,7 +347,7 @@ msgstr "Makine bilgisini ayarla"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr "Yerel makine bilgisini ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Yerel makine bilgisini ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -363,7 +363,7 @@ msgstr "Donanım seri numarasını al"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr "Donanım seri numarasını almak kimlik doğrulaması gerektiriyor."
+msgstr "Donanım seri numarasını almak için kimlik doğrulaması gereklidir."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -371,31 +371,31 @@ msgstr "Sistem açıklamasını al"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr "Sistem açıklamasını almak kimlik doğrulaması gerektiriyor."
+msgstr "Sistem açıklamasını almak için kimlik doğrulaması gereklidir."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
 msgstr "Bir disk kalıbını içe aktar"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
-msgstr "Bir kalıbı içe aktarmak için kimlik doğrulaması gereklidir"
+msgid "Authentication is required to import an image."
+msgstr "Bir kalıbı içe aktarmak için kimlik doğrulaması gereklidir."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
 msgstr "Bir disk kalıbını dışa aktar"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
-msgstr "Bir disk kalıbını dışa aktarmak için kimlik doğrulaması gereklidir"
+msgid "Authentication is required to export disk image."
+msgstr "Bir disk kalıbını dışa aktarmak için kimlik doğrulaması gereklidir."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
 msgstr "Bir disk kalıbını indir"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
-msgstr "Bir disk kalıbını indirmek için kimlik doğrulaması gereklidir"
+msgid "Authentication is required to download a disk image."
+msgstr "Bir disk kalıbını indirmek için kimlik doğrulaması gereklidir."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -403,10 +403,10 @@ msgstr "Bir disk kalıbının aktarımını iptal et"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Devam eden bir disk kalıbı aktarımını iptal etmek için kimlik doğrulama "
-"gereklidir"
+"gereklidir."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -414,7 +414,7 @@ msgstr "Sistem yerelini ayarla"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr "Sistem yerelini ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Sistem yerelini ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -422,7 +422,7 @@ msgstr "Sistem klavye ayarlarını ayarla"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Sistem klavye ayarlarını ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Sistem klavye ayarlarını ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -572,7 +572,8 @@ msgstr "Aygıtların yuvaya takılmasına izin ver"
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
 msgstr ""
-"Bir aygıtın yuvaya takılmasına izin vermek kimlik doğrulaması gerektiriyor."
+"Bir aygıtın yuvaya takılmasına izin vermek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -581,8 +582,8 @@ msgstr "Aygıtın yuvaya eklenmesini sıfırla"
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
-"Aygıtların yuvalara nasıl takıldığını sıfırlamak kimlik doğrulama "
-"gerektiriyor."
+"Aygıtların yuvalara nasıl takıldığını sıfırlamak için kimlik doğrulaması "
+"gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -601,8 +602,8 @@ msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
-"Diğer kullanıcılar oturum açmışken sistemi kapatmak kimlik doğrulaması "
-"gerektiriyor."
+"Diğer kullanıcılar oturum açmışken sistemi kapatmak için kimlik doğrulaması "
+"gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
@@ -613,8 +614,8 @@ msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
-"Bir uygulama engellenmesini isterken sistemi kapatmak kimlik doğrulaması "
-"gerektiriyor."
+"Bir uygulama engellenmesini isterken sistemi kapatmak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -622,7 +623,7 @@ msgstr "Sistemi yeniden başlat"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr "Sistemi yeniden başlatmak kimlik doğrulaması gerektiriyor."
+msgstr "Sistemi yeniden başlatmak için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
@@ -633,8 +634,8 @@ msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
-"Diğer kullanıcılar oturum açmışken sistemi yeniden başlatmak kimlik "
-"doğrulaması gerektiriyor."
+"Diğer kullanıcılar oturum açmışken sistemi yeniden başlatmak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
@@ -645,8 +646,8 @@ msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
-"Bir uygulama engellenmesini isterken sistemi yeniden başlatmak kimlik "
-"doğrulaması gerektiriyor."
+"Bir uygulama engellenmesini isterken sistemi yeniden başlatmak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -654,7 +655,7 @@ msgstr "Sistemi durdur"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr "Sistemi durdurmak kimlik doğrulaması gerektiriyor."
+msgstr "Sistemi durdurmak kimlik için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
@@ -665,8 +666,8 @@ msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
-"Diğer kullanıcılar oturum açmışken sistemi durdurmak kimlik doğrulaması "
-"gerektiriyor."
+"Diğer kullanıcılar oturum açmışken sistemi durdurmak için kimlik doğrulaması "
+"gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -677,8 +678,8 @@ msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Bir uygulama engellenmesini isterken sistemi durdurmak kimlik doğrulaması "
-"gerektiriyor."
+"Bir uygulama engellenmesini isterken sistemi durdurmak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -686,7 +687,7 @@ msgstr "Sistemi askıya al"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr "Sistemi askıya almak kimlik doğrulaması gerektiriyor."
+msgstr "Sistemi askıya almak için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
@@ -697,8 +698,8 @@ msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
-"Diğer kullanıcılar oturum açmışken sistemi askıya almak kimlik doğrulaması "
-"gerektiriyor."
+"Diğer kullanıcılar oturum açmışken sistemi askıya almak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
@@ -709,8 +710,8 @@ msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
-"Bir uygulama engellenmesini isterken sistemi askıya almak kimlik doğrulaması "
-"gerektiriyor."
+"Bir uygulama engellenmesini isterken sistemi askıya almak için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -718,7 +719,7 @@ msgstr "Sistemi hazırda beklet"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr "Sistemi hazırda bekletmek kimlik doğrulaması gerektiriyor."
+msgstr "Sistemi hazırda bekletmek için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
@@ -729,8 +730,8 @@ msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
-"Diğer kullanıcılar oturum açmışken sistemi hazırda bekletmek kimlik "
-"doğrulaması gerektiriyor."
+"Diğer kullanıcılar oturum açmışken sistemi hazırda bekletmek için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
@@ -741,8 +742,8 @@ msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
-"Bir uygulama engellenmesini isterken sistemi hazırda bekletmek kimlik "
-"doğrulaması gerektiriyor."
+"Bir uygulama engellenmesini isterken sistemi hazırda bekletmek için kimlik "
+"doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -771,8 +772,8 @@ msgstr "Çekirdekte yeniden başlatma \"nedenini\" ayarla"
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
-"Çekirdekte yeniden başlatma \"nedenini\" ayarlamak kimlik doğrulaması "
-"gerektiriyor."
+"Çekirdekte yeniden başlatma \"nedenini\" ayarlamak için kimlik doğrulaması "
+"gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
@@ -815,8 +816,8 @@ msgid "Set a wall message"
 msgstr "Bir duvar mesajı ayarla"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
-msgstr "Duvar mesajı ayarlamak için kimlik doğrulaması gereklidir"
+msgid "Authentication is required to set a wall message."
+msgstr "Duvar mesajı ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -893,10 +894,21 @@ msgstr ""
 "gereklidir."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+msgid "Create a local virtual machine or container"
+msgstr "Yerel sanal makine veya kapsayıcı oluştur"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Yerel sanal makine veya kapsayıcı oluşturmak için kimlik doğrulaması "
+"gereklidir."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Yerel sanal makine ve kapsayıcı kalıplarını yönet"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1100,17 +1112,17 @@ msgid "Register a DNS-SD service"
 msgstr "Bir DNS-SD hizmeti kaydet"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
-msgstr "Bir DNS-SD hizmeti kaydetmek için kimlik doğrulaması gereklidir"
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "Bir DNS-SD hizmeti kaydetmek için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Bir DNS-SD hizmetinin kaydını sil"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
-"Bir DNS-SD hizmetinin kaydını silmek için kimlik doğrulaması gereklidir"
+"Bir DNS-SD hizmetinin kaydını silmek için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1120,13 +1132,90 @@ msgstr "Ad çözümleme ayarlarını geri al"
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Ad çözümleme ayarlarını sıfırlamak için kimlik doğrulaması gereklidir."
 
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "Arama sonuçlarına abone ol"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "Arama sonuçlarına abone olmak için kimlik doğrulaması gereklidir."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr "Önbelleği dök"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to dump cache."
+msgstr "Önbelleği dökmek için kimlik doğrulaması gereklidir."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr "Sunucu durumunu dök"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump server state."
+msgstr "Sunucu durumunu dökmek için kimlik doğrulaması gereklidir."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr "İstatistikleri dök"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump statistics."
+msgstr "İstatistikleri dökmek için kimlik doğrulaması gereklidir."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr "İstatistikleri sıfırla"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to reset statistics."
+msgstr "İstatistikleri sıfırlamak için kimlik doğrulaması gereklidir."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr "Sistem güncellemelerini denetle"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr "Sistem güncellemelerini denetlemek için kimlik doğrulaması gereklidir."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr "Sistem güncellemelerini kur"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr "Sistem güncellemelerini kurmak için kimlik doğrulaması gereklidir."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr "Belirli sistem sürümünü kur"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"Sistemi belirli (muhtemelen eski) bir sürüme güncellemek için kimlik "
+"doğrulaması gereklidir."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr "Eski sistem güncellemelerini temizle"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
+msgstr ""
+"Eski sistem güncellemelerini temizlemek için kimlik doğrulaması gereklidir."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Sistem zamanını ayarla"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
-msgstr "Sistem zamanını ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Sistem zamanını ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
@@ -1134,7 +1223,7 @@ msgstr "Sistem zaman dilimini ayarla"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr "Sistem zaman dilimini ayarlamak kimlik doğrulaması gerektiriyor."
+msgstr "Sistem zaman dilimini ayarlamak için kimlik doğrulaması gereklidir."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
@@ -1145,8 +1234,8 @@ msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
-"Gerçek zamanlı saat olarak yerel zaman dilimini veya UTC'yi ayarlamak kimlik "
-"doğrulaması gerektiriyor."
+"Gerçek zamanlı saat olarak yerel zaman dilimini veya UTC'yi ayarlamak için "
+"kimlik doğrulaması gereklidir."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1156,7 +1245,8 @@ msgstr "Ağ zaman eş zamanlamasını aç veya kapat"
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
-msgstr "Ağ zaman eş zamanlamasını denetlemek kimlik doğrulaması gerektiriyor."
+msgstr ""
+"Ağ zaman eş zamanlamasını denetlemek için kimlik doğrulaması gereklidir."
 
 #: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."

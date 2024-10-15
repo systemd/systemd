@@ -89,6 +89,23 @@ static int property_get_can_clean(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_can_live_mount(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "b", unit_can_live_mount(u, /* error= */ NULL) >= 0);
+}
+
 static int property_get_names(
                 sd_bus *bus,
                 const char *path,
@@ -882,6 +899,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("CanIsolate", "b", property_get_can_isolate, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanClean", "as", property_get_can_clean, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanFreeze", "b", property_get_can_freeze, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanLiveMount", "b", property_get_can_live_mount, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Job", "(uo)", property_get_job, offsetof(Unit, job), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StopWhenUnneeded", "b", bus_property_get_bool, offsetof(Unit, stop_when_unneeded), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RefuseManualStart", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_start), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -920,6 +938,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
         SD_BUS_PROPERTY("ActivationDetails", "a(ss)", bus_property_get_activation_details, offsetof(Unit, activation_details), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DebugInvocation", "b", bus_property_get_bool, offsetof(Unit, debug_invocation), 0),
 
         SD_BUS_METHOD_WITH_ARGS("Start",
                                 SD_BUS_ARGS("s", mode),
@@ -1437,7 +1456,7 @@ static int property_get_io_counter(
         assert(property);
 
         assert_se((metric = cgroup_io_accounting_metric_from_string(property)) >= 0);
-        (void) unit_get_io_accounting(u, metric, /* allow_cache= */ false, &value);
+        (void) unit_get_io_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
 

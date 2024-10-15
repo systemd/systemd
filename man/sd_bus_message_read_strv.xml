@@ -49,7 +49,9 @@
     signatures (D-Bus type <literal>ag</literal>). On success, a pointer to a
     <constant>NULL</constant>-terminated array of strings (strv) is returned in the output parameter
     <parameter>l</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
-    caller is responsible for freeing this array and its contents.</para>
+    caller is responsible for freeing this array and its contents. Also note that as a matter of
+    optimization, if an empty array is encountered a <constant>NULL</constant> pointer might be returned
+    here, and should be considered equivalent to an array with zero entries.</para>
 
     <para><function>sd_bus_message_read_strv_extend()</function> is similar, but the second parameter is an
     input-output parameter. If <parameter>*l</parameter> is <constant>NULL</constant>, if behaves identically

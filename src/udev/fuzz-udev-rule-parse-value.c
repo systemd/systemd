@@ -11,6 +11,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         int r;
         char *value = UINT_TO_PTR(0x12345678U);
         char *endpos = UINT_TO_PTR(0x87654321U);
+        bool is_case_sensitive;
 
         fuzz_setup_logging();
 
@@ -18,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         memcpy(str, data, size);
         str[size] = '\0';
 
-        r = udev_rule_parse_value(str, &value, &endpos);
+        r = udev_rule_parse_value(str, &value, &endpos, &is_case_sensitive);
         if (r < 0) {
                 /* not modified on failure */
                 assert_se(value == UINT_TO_PTR(0x12345678U));

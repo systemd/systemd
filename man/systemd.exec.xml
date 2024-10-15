@@ -367,6 +367,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindLogSockets=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, sockets from <citerefentry>
+        <refentrytitle>systemd-journald.socket</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will be bind mounted into the mount namespace. This is particularly useful when a different instance
+        of <filename>/run/</filename> is employed, to make sure processes running in the namespace
+        can still make use of <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para>
+
+        <para>This option is implied when <varname>LogNamespace=</varname> is used,
+        when <varname>MountAPIVFS=yes</varname>, or when <varname>PrivateDevices=yes</varname> is used
+        in conjunction with either <varname>RootDirectory=</varname> or <varname>RootImage=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectProc=</varname></term>
 
         <listitem><para>Takes one of <literal>noaccess</literal>, <literal>invisible</literal>,
@@ -1949,18 +1966,29 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new user namespace for the executed processes and
-        configures a minimal user and group mapping, that maps the <literal>root</literal> user and group as well as
-        the unit's own user and group to themselves and everything else to the <literal>nobody</literal> user and
-        group. This is useful to securely detach the user and group databases used by the unit from the rest of the
-        system, and thus to create an effective sandbox environment. All files, directories, processes, IPC objects and
-        other resources owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible
-        from within the unit but appear owned by the <literal>nobody</literal> user and group. If this mode is enabled,
-        all unit processes are run without privileges in the host user namespace (regardless if the unit's own
-        user/group is <literal>root</literal> or not). Specifically this means that the process will have zero process
-        capabilities on the host's user namespace, but full capabilities within the service's user namespace. Settings
-        such as <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
-        additional capabilities in the host's user namespace. Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
+        <literal>identity</literal>. Defaults to false. If enabled, sets up a new user namespace for the
+        executed processes and configures a user and group mapping. If set to a true value or
+        <literal>self</literal>, a minimal user and group mapping is configured that maps the
+        <literal>root</literal> user and group as well as the unit's own user and group to themselves and
+        everything else to the <literal>nobody</literal> user and group. This is useful to securely detach
+        the user and group databases used by the unit from the rest of the system, and thus to create an
+        effective sandbox environment. All files, directories, processes, IPC objects and other resources
+        owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible from
+        within the unit but appear owned by the <literal>nobody</literal> user and group. </para>
+
+        <para>If the parameter is <literal>identity</literal>, user namespacing is set up with an identity
+        mapping for the first 65536 UIDs/GIDs. Any UIDs/GIDs above 65536 will be mapped to the
+        <literal>nobody</literal> user and group, respectively. While this does not provide UID/GID isolation,
+        since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
+        often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
+
+        <para>If this mode is enabled, all unit processes are run without privileges in the host user
+        namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
+        this means that the process will have zero process capabilities on the host's user namespace, but
+        full capabilities within the service's user namespace. Settings such as
+        <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
+        additional capabilities in the host's user namespace.</para>
 
         <para>When this setting is set up by a per-user instance of the service manager, the mapping of the
         <literal>root</literal> user and group to itself is omitted (unless the user manager is root).
@@ -2973,7 +3001,12 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para><option>tty</option> connects standard output to a tty (as configured via <varname>TTYPath=</varname>,
         see below). If the TTY is used for output only, the executed process will not become the controlling process of
-        the terminal, and will not fail or wait for other processes to release the terminal.</para>
+        the terminal, and will not fail or wait for other processes to release the terminal. Note: if a unit
+        tries to print multiple lines to a TTY during bootup or shutdown, then there's a chance that those
+        lines will be broken up by status messages. <function>SetShowStatus()</function> can be used to
+        prevent this problem. See
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
 
         <para><option>journal</option> connects standard output with the journal, which is accessible via
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
@@ -4182,6 +4215,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         </para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$DEBUG_INVOCATION</varname></term>
+
+          <listitem><para>If <varname>RestartMode=debug</varname> is set, and a previous attempt at starting
+          the unit failed, this variable will be passed to the service to indicate that additional logging
+          should be enabled at startup. See
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
 
       </variablelist>

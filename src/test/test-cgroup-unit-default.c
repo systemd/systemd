@@ -24,7 +24,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
 
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
-        ASSERT_OK(set_unit_path(unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {

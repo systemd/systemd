@@ -728,7 +728,6 @@ static int luks_validate(
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
                         continue;
 
-
                 r = blkid_partition_get_uuid_id128(pp, &id);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");
@@ -1997,11 +1996,11 @@ static int wait_for_devlink(const char *path) {
                 _cleanup_free_ char *dn = NULL;
                 usec_t w;
 
-                if (laccess(path, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to determine whether %s exists: %m", path);
-                } else
+                r = access_nofollow(path, F_OK);
+                if (r >= 0)
                         return 0; /* Found it */
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to determine whether %s exists: %m", path);
 
                 if (inotify_fd < 0) {
                         /* We need to wait for the device symlink to show up, let's create an inotify watch for it */
@@ -2378,6 +2377,8 @@ int home_create_luks(
                             user_record_luks_discard(h),
                             /* quiet = */ true,
                             /* sector_size = */ 0,
+                            /* compression = */ NULL,
+                            /* compression_level= */ NULL,
                             extra_mkfs_options);
         if (r < 0)
                 return r;

@@ -59,6 +59,7 @@ _arguments \
                 ))' \
     '(-t --pty)'{-t,--pty}'[The service connects to the terminal]' \
     '(-q --quiet)'{-q,--quiet}'[Suppresses additional informational output]' \
+    '--json=[Output as JSON]:JSON:(pretty short off)' \
     '(-r --remain-after-exit)'{-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
     '(-d --same-dir)'{-d,--same-dir}'[Run on the current working directory]' \
     '--scope[Run this as scope rather than service]' \

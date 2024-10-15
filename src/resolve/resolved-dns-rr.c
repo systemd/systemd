@@ -793,12 +793,14 @@ static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t alt
 
 static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         struct tm tm;
+        int r;
 
         assert(buf);
         assert(l > STRLEN("YYYYMMDDHHmmSS"));
 
-        if (!gmtime_r(&sec, &tm))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(sec * USEC_PER_SEC, /* utc= */ true, &tm);
+        if (r < 0)
+                return r;
 
         if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
                 return -EINVAL;
@@ -2143,26 +2145,31 @@ int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret) {
 }
 
 int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        uint16_t type = 0, class = 0;
-        const char *name = NULL;
-        int r;
+        struct params {
+                uint16_t type;
+                uint16_t class;
+                const char *name;
+        };
 
-        sd_json_dispatch_field dispatch_table[] = {
-                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       PTR_TO_SIZE(&class), SD_JSON_MANDATORY },
-                { "type",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       PTR_TO_SIZE(&type),  SD_JSON_MANDATORY },
-                { "name",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, PTR_TO_SIZE(&name),  SD_JSON_MANDATORY },
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, class), SD_JSON_MANDATORY },
+                { "type",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, type),  SD_JSON_MANDATORY },
+                { "name",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, name),  SD_JSON_MANDATORY },
                 {}
         };
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        struct params p;
+        int r;
 
         assert(v);
         assert(ret);
 
-        r = sd_json_dispatch(v, dispatch_table, 0, NULL);
+        r = sd_json_dispatch(v, dispatch_table, 0, &p);
         if (r < 0)
                 return r;
 
-        key = dns_resource_key_new(class, type, name);
+        key = dns_resource_key_new(p.class, p.type, p.name);
         if (!key)
                 return -ENOMEM;
 
@@ -2362,7 +2369,6 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR("protocol", SD_JSON_BUILD_UNSIGNED(rr->dnskey.protocol)),
                                 SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->dnskey.algorithm)),
                                 SD_JSON_BUILD_PAIR("dnskey", SD_JSON_BUILD_BASE64(rr->dnskey.key, rr->dnskey.key_size)));
-
 
         case DNS_TYPE_RRSIG:
                 return sd_json_buildo(

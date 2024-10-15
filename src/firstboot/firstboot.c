@@ -93,21 +93,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static bool press_any_key(void) {
-        char k = 0;
-        bool need_nl = true;
-
-        printf("-- Press any key to proceed --");
-        fflush(stdout);
-
-        (void) read_one_char(stdin, &k, USEC_INFINITY, &need_nl);
-
-        if (need_nl)
-                putchar('\n');
-
-        return k != 'q';
-}
-
 static void print_welcome(int rfd) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
         static bool done = false;
@@ -142,55 +127,9 @@ static void print_welcome(int rfd) {
 
         printf("\nPlease configure your system!\n\n");
 
-        press_any_key();
+        any_key_to_proceed();
 
         done = true;
-}
-
-static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned break_lines, break_modulo;
-        size_t n, per_column, i, j;
-
-        assert(n_columns > 0);
-
-        n = strv_length(x);
-        per_column = DIV_ROUND_UP(n, n_columns);
-
-        break_lines = lines();
-        if (break_lines > 2)
-                break_lines--;
-
-        /* The first page gets two extra lines, since we want to show
-         * a title */
-        break_modulo = break_lines;
-        if (break_modulo > 3)
-                break_modulo -= 3;
-
-        for (i = 0; i < per_column; i++) {
-
-                for (j = 0; j < n_columns; j++) {
-                        _cleanup_free_ char *e = NULL;
-
-                        if (j * per_column + i >= n)
-                                break;
-
-                        e = ellipsize(x[j * per_column + i], width, percentage);
-                        if (!e)
-                                return log_oom();
-
-                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
-                }
-
-                putchar('\n');
-
-                /* on the first screen we reserve 2 extra lines for the title */
-                if (i % break_lines == break_modulo) {
-                        if (!press_any_key())
-                                return 0;
-                }
-        }
-
-        return 0;
 }
 
 static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*is_valid)(const char *name), char **ret) {
@@ -210,7 +149,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         return log_error_errno(r, "Failed to query user: %m");
 
                 if (isempty(p)) {
-                        log_warning("No data entered, skipping.");
+                        log_info("No data entered, skipping.");
                         return 0;
                 }
 
@@ -234,12 +173,15 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         return free_and_strdup_warn(ret, l[u-1]);
                 }
 
-                if (!is_valid(p)) {
-                        log_error("Entered data invalid.");
-                        continue;
-                }
+                if (is_valid(p))
+                        return free_and_replace(*ret, p);
 
-                return free_and_replace(*ret, p);
+                /* Be more helpful to the user, and give a hint what the user might have wanted to type. */
+                const char *best_match = strv_find_closest(l, p);
+                if (best_match)
+                        log_error("Invalid data '%s', did you mean '%s'?", p, best_match);
+                else
+                        log_error("Invalid data '%s'.", p);
         }
 }
 
@@ -560,8 +502,8 @@ static int process_keymap(int rfd) {
         return 1;
 }
 
-static bool timezone_is_valid_log_error(const char *name) {
-        return timezone_is_valid(name, LOG_ERR);
+static bool timezone_is_valid_log_debug(const char *name) {
+        return timezone_is_valid(name, LOG_DEBUG);
 }
 
 static int prompt_timezone(int rfd) {
@@ -593,7 +535,7 @@ static int prompt_timezone(int rfd) {
         print_welcome(rfd);
 
         r = prompt_loop("Please enter timezone name or number",
-                        zones, 30, timezone_is_valid_log_error, &arg_timezone);
+                        zones, 30, timezone_is_valid_log_debug, &arg_timezone);
         if (r < 0)
                 return r;
 
@@ -682,7 +624,7 @@ static int prompt_hostname(int rfd) {
                         return log_error_errno(r, "Failed to query hostname: %m");
 
                 if (isempty(h)) {
-                        log_warning("No hostname entered, skipping.");
+                        log_info("No hostname entered, skipping.");
                         break;
                 }
 
@@ -809,7 +751,7 @@ static int prompt_root_password(int rfd) {
                                                "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
-                        log_warning("No password entered, skipping.");
+                        log_info("No password entered, skipping.");
                         break;
                 }
 
@@ -889,7 +831,7 @@ static int prompt_root_shell(int rfd) {
                         return log_error_errno(r, "Failed to query root shell: %m");
 
                 if (isempty(s)) {
-                        log_warning("No shell entered, skipping.");
+                        log_info("No shell entered, skipping.");
                         break;
                 }
 
@@ -1616,7 +1558,7 @@ static int reload_system_manager(sd_bus **bus) {
         if (!*bus) {
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
-                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
 
         r = bus_service_manager_reload(*bus);
@@ -1639,7 +1581,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (!*bus) {
                 r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
                 if (r < 0)
-                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
         }
 
         r = bus_wait_for_jobs_new(*bus, &w);

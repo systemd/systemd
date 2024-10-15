@@ -337,8 +337,16 @@
               <entry>Device number in <filename>/sys/</filename> (i.e. the numeric suffix of the last component of <literal>P:</literal>)</entry>
             </row>
             <row>
+              <entry><literal>J:</literal></entry>
+              <entry>Device ID</entry>
+            </row>
+            <row>
               <entry><literal>U:</literal></entry>
               <entry>Kernel subsystem</entry>
+            </row>
+            <row>
+              <entry><literal>B:</literal></entry>
+              <entry>Driver subsystem</entry>
             </row>
             <row>
               <entry><literal>T:</literal></entry>

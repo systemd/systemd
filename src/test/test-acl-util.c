@@ -41,7 +41,7 @@ TEST_RET(add_acls_for_user) {
         cmd = strjoina("getfacl -p ", fn);
         assert_se(system(cmd) == 0);
 
-        if (getuid() == 0) {
+        if (getuid() == 0 && !userns_has_single_user()) {
                 const char *nobody = NOBODY_USER_NAME;
                 r = get_user_creds(&nobody, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)

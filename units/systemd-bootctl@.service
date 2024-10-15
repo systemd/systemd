@@ -16,5 +16,4 @@ After=local-fs.target
 Before=shutdown.target
 
 [Service]
-Environment=LISTEN_FDNAMES=varlink
 ExecStart=bootctl

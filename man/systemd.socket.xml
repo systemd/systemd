@@ -853,18 +853,15 @@
 
       <varlistentry>
         <term><varname>FileDescriptorName=</varname></term>
-        <listitem><para>Assigns a name to all file descriptors this
-        socket unit encapsulates. This is useful to help activated
-        services identify specific file descriptors, if multiple fds
-        are passed. Services may use the
+        <listitem><para>Assigns a name to all file descriptors this socket unit encapsulates.
+        This is useful to help activated services identify specific file descriptors, if multiple fds are passed.
+        Services may use the
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        call to acquire the names configured for the received file
-        descriptors. Names may contain any ASCII character, but must
-        exclude control characters and <literal>:</literal>, and must
-        be at most 255 characters in length. If this setting is not
-        used, the file descriptor name defaults to the name of the
-        socket unit, including its <filename>.socket</filename>
-        suffix.</para>
+        call to acquire the names configured for the received file descriptors. Names may contain any ASCII character,
+        but must exclude control characters and <literal>:</literal>, and must be at most 255 characters in length.
+        If this setting is not used, the file descriptor name defaults to the name of the socket unit
+        (including its <filename>.socket</filename> suffix) when <varname>Accept=no</varname>,
+        <literal>connection</literal> otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>

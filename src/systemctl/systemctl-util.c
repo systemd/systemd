@@ -54,7 +54,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 else
                         r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &buses[focus]);
                 if (r < 0)
-                        return bus_log_connect_error(r, arg_transport);
+                        return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
                 (void) sd_bus_set_allow_interactive_authorization(buses[focus], arg_ask_password);
         }
@@ -86,7 +86,7 @@ void polkit_agent_open_maybe(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
@@ -361,7 +361,7 @@ int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_maske
                 if (r < 0)
                         return r;
 
-                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
+                if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING))
                         continue;
 
                 r = strv_extend(&active, *i);
@@ -731,7 +731,6 @@ int unit_exists(LookupPaths *lp, const char *unit) {
         return !streq_ptr(info.load_state, "not-found") || !streq_ptr(info.active_state, "inactive");
 }
 
-
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         _cleanup_strv_free_ char **with_deps = NULL;
 
@@ -739,14 +738,14 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         assert(ret);
 
         STRV_FOREACH(name, names) {
-                _cleanup_strv_free_ char **deps = NULL;
+                char **deps;
 
                 if (strv_extend(&with_deps, *name) < 0)
                         return log_oom();
 
                 (void) unit_get_dependencies(bus, *name, &deps);
 
-                if (strv_extend_strv(&with_deps, deps, true) < 0)
+                if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates = */ true) < 0)
                         return log_oom();
         }
 

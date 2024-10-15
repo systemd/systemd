@@ -126,38 +126,39 @@ int parse_confirm_spawn(const char *value, char **console) {
         return 0;
 }
 
-DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol, "Failed to parse socket protocol");
-DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc, "Failed to parse /proc/ protection mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset, "Failed to parse /proc/ subset mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp, "Failed to parse private tmp value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome, "Failed to parse protect home value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem, "Failed to parse protect system value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse resource preserve mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_exit_type, service_exit_type, ServiceExitType, "Failed to parse service exit type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart_mode, service_restart_mode, ServiceRestartMode, "Failed to parse service restart mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode, "Failed to parse timeout failure mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_oom_policy, oom_policy, OOMPolicy, "Failed to parse OOM policy");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_managed_oom_preference, managed_oom_preference, ManagedOOMPreference, "Failed to parse ManagedOOMPreference=");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_memory_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch, "Failed to parse memory pressure watch setting");
-DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
-DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
-DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
-DEFINE_CONFIG_PARSE_PTR(config_parse_cg_cpu_weight, cg_cpu_weight_parse, uint64_t, "Invalid CPU weight");
-static DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares_internal, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
-DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagation_flag_from_string, unsigned long, "Failed to parse mount propagation flag");
-DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
-DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol);
+DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_exit_type, service_exit_type, ServiceExitType);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart_mode, service_restart_mode, ServiceRestartMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_oom_policy, oom_policy, OOMPolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_memory_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1);
+DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_cg_cpu_weight, cg_cpu_weight_parse, uint64_t);
+static DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares_internal, cg_cpu_shares_parse, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagation_flag_from_string, unsigned long);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
+DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
 
 int config_parse_cpu_shares(
                 const char *unit,
@@ -174,7 +175,6 @@ int config_parse_cpu_shares(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-
 
         log_syntax(unit, LOG_WARNING, filename, line, 0,
                    "Unit uses %s=; please use CPUWeight= instead. Support for %s= will be removed soon.",
@@ -919,7 +919,11 @@ int config_parse_exec(
                 if (r <= 0)
                         return 0;
 
-                /* A lone ";" is a separator. Let's make sure we don't treat it as an executable name. */
+                /* A lone ";" is a separator. Let's make sure we don't treat it as an executable name.
+                 *
+                 * SOFT DEPRECATION: We support multiple command lines in one ExecStart= line for
+                 * compatibility with older versions, but we no longer document this exists, it's deprecated
+                 * in a soft way. New unit files, should not use this feature. */
                 if (streq(firstword, ";")) {
                         semicolon = true;
                         continue;
@@ -2727,6 +2731,7 @@ int config_parse_environ(
                 COMMON_CREDS_SPECIFIERS(ltype),
                 { 'h', specifier_user_home,  NULL },
                 { 's', specifier_user_shell, NULL },
+                {}
         };
 
         for (const char *p = rvalue;; ) {
@@ -2777,10 +2782,8 @@ int config_parse_pass_environ(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **n = NULL;
+        char ***passenv = ASSERT_PTR(data);
         const Unit *u = userdata;
-        char*** passenv = ASSERT_PTR(data);
-        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2792,6 +2795,8 @@ int config_parse_pass_environ(
                 *passenv = strv_free(*passenv);
                 return 0;
         }
+
+        _cleanup_strv_free_ char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -2823,18 +2828,13 @@ int config_parse_pass_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nlen + 2))
-                        return log_oom();
-
-                n[nlen++] = TAKE_PTR(k);
-                n[nlen] = NULL;
-        }
-
-        if (n) {
-                r = strv_extend_strv(passenv, n, true);
-                if (r < 0)
+                if (strv_consume(&n, TAKE_PTR(k)) < 0)
                         return log_oom();
         }
+
+        r = strv_extend_strv_consume(passenv, TAKE_PTR(n), /* filter_duplicates = */ true);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
@@ -2851,10 +2851,8 @@ int config_parse_unset_environ(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **n = NULL;
-        char*** unsetenv = ASSERT_PTR(data);
+        char ***unsetenv = ASSERT_PTR(data);
         const Unit *u = userdata;
-        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2866,6 +2864,8 @@ int config_parse_unset_environ(
                 *unsetenv = strv_free(*unsetenv);
                 return 0;
         }
+
+        _cleanup_strv_free_ char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -2897,18 +2897,13 @@ int config_parse_unset_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nlen + 2))
-                        return log_oom();
-
-                n[nlen++] = TAKE_PTR(k);
-                n[nlen] = NULL;
-        }
-
-        if (n) {
-                r = strv_extend_strv(unsetenv, n, true);
-                if (r < 0)
+                if (strv_consume(&n, TAKE_PTR(k)) < 0)
                         return log_oom();
         }
+
+        r = strv_extend_strv_consume(unsetenv, TAKE_PTR(n), /* filter_duplicates = */ true);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
@@ -2940,7 +2935,6 @@ int config_parse_log_extra_fields(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
-                struct iovec *t;
                 const char *eq;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
@@ -2970,14 +2964,11 @@ int config_parse_log_extra_fields(
                         continue;
                 }
 
-                t = reallocarray(c->log_extra_fields, c->n_log_extra_fields+1, sizeof(struct iovec));
-                if (!t)
+                if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                         return log_oom();
 
-                c->log_extra_fields = t;
                 c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(k);
-
-                k = NULL;
+                TAKE_PTR(k);
         }
 }
 
@@ -4261,7 +4252,7 @@ int config_parse_io_device_weight(
         w->path = TAKE_PTR(resolved);
         w->weight = u;
 
-        LIST_PREPEND(device_weights, c->io_device_weights, w);
+        LIST_APPEND(device_weights, c->io_device_weights, w);
         return 0;
 }
 
@@ -4332,7 +4323,7 @@ int config_parse_io_device_latency(
         l->path = TAKE_PTR(resolved);
         l->target_usec = usec;
 
-        LIST_PREPEND(device_latencies, c->io_device_latencies, l);
+        LIST_APPEND(device_latencies, c->io_device_latencies, l);
         return 0;
 }
 
@@ -4418,7 +4409,7 @@ int config_parse_io_limit(
                 for (CGroupIOLimitType i = 0; i < _CGROUP_IO_LIMIT_TYPE_MAX; i++)
                         l->limits[i] = cgroup_io_limit_defaults[i];
 
-                LIST_PREPEND(device_limits, c->io_device_limits, l);
+                LIST_APPEND(device_limits, c->io_device_limits, l);
         }
 
         l->limits[type] = num;
@@ -4499,7 +4490,7 @@ int config_parse_blockio_device_weight(
         w->path = TAKE_PTR(resolved);
         w->weight = u;
 
-        LIST_PREPEND(device_weights, c->blockio_device_weights, w);
+        LIST_APPEND(device_weights, c->blockio_device_weights, w);
         return 0;
 }
 
@@ -4586,7 +4577,7 @@ int config_parse_blockio_bandwidth(
                 b->rbps = CGROUP_LIMIT_MAX;
                 b->wbps = CGROUP_LIMIT_MAX;
 
-                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
+                LIST_APPEND(device_bandwidths, c->blockio_device_bandwidths, b);
         }
 
         if (read)

@@ -24,7 +24,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
@@ -252,6 +252,8 @@ static void link_free_engines(Link *link) {
 static Link *link_free(Link *link) {
         assert(link);
 
+        (void) sysctl_clear_link_shadows(link);
+
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
@@ -286,6 +288,7 @@ static Link *link_free(Link *link) {
         network_unref(link->network);
 
         sd_event_source_disable_unref(link->carrier_lost_timer);
+        sd_event_source_disable_unref(link->ipv6_mtu_wait_synced_event_source);
 
         return mfree(link);
 }
@@ -427,8 +430,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 }
 
 void link_enter_failed(Link *link) {
-        int r;
-
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -444,13 +445,8 @@ void link_enter_failed(Link *link) {
         }
 
         log_link_info(link, "Trying to reconfigure the interface.");
-        r = link_reconfigure(link, /* force = */ true);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                goto stop;
-        }
-
-        return;
+        if (link_reconfigure(link, /* force = */ true) > 0)
+                return;
 
 stop:
         (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
@@ -1298,9 +1294,9 @@ static int link_get_network(Link *link, Network **ret) {
                 }
 
                 log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,
-                              "found matching network '%s'%s.",
-                              network->filename,
-                              warn ? ", based on potentially unpredictable interface name" : "");
+                              "Found matching .network file%s: %s",
+                              warn ? ", based on potentially unpredictable interface name" : "",
+                              network->filename);
 
                 if (network->unmanaged)
                         return -ENOENT;
@@ -1309,22 +1305,19 @@ static int link_get_network(Link *link, Network **ret) {
                 return 0;
         }
 
-        return -ENOENT;
+        return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOENT), "No matching .network found.");
 }
 
 int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
-        NetDev *netdev = NULL;
         int r;
 
         assert(link);
 
+        link_assign_netdev(link);
+
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
-
-        r = netdev_get(link->manager, link->ifname, &netdev);
-        if (r < 0 && r != -ENOENT)
-                return r;
 
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
@@ -1390,9 +1383,6 @@ int link_reconfigure_impl(Link *link, bool force) {
         link_free_engines(link);
         link->network = network_unref(link->network);
 
-        netdev_unref(link->netdev);
-        link->netdev = netdev_ref(netdev);
-
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
@@ -1451,8 +1441,14 @@ int link_reconfigure(Link *link, bool force) {
                 return 0; /* 0 means no-op. */
 
         r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
-        if (r < 0)
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                link_enter_failed(link);
                 return r;
+        }
+
+        if (force || link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
 
         return 1; /* 1 means the interface will be reconfigured. */
 }
@@ -1463,16 +1459,25 @@ typedef struct ReconfigureData {
         sd_bus_message *message;
 } ReconfigureData;
 
+static ReconfigureData* reconfigure_data_free(ReconfigureData *data) {
+        if (!data)
+                return NULL;
+
+        link_unref(data->link);
+        sd_bus_message_unref(data->message);
+
+        return mfree(data);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ReconfigureData*, reconfigure_data_free);
+
 static void reconfigure_data_destroy_callback(ReconfigureData *data) {
         int r;
 
         assert(data);
-        assert(data->link);
         assert(data->manager);
         assert(data->manager->reloading > 0);
         assert(data->message);
-
-        link_unref(data->link);
 
         data->manager->reloading--;
         if (data->manager->reloading <= 0) {
@@ -1481,8 +1486,7 @@ static void reconfigure_data_destroy_callback(ReconfigureData *data) {
                         log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
         }
 
-        sd_bus_message_unref(data->message);
-        free(data);
+        reconfigure_data_free(data);
 }
 
 static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
@@ -1493,7 +1497,7 @@ static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink
 
 int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_free_ ReconfigureData *data = NULL;
+        _cleanup_(reconfigure_data_freep) ReconfigureData *data = NULL;
         int r;
 
         assert(link);
@@ -1505,19 +1509,11 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0;
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
-        if (r < 0)
-                return r;
-
         data = new(ReconfigureData, 1);
-        if (!data)
-                return -ENOMEM;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               reconfigure_handler_on_bus_method_reload,
-                               reconfigure_data_destroy_callback, data);
-        if (r < 0)
-                return r;
+        if (!data) {
+                r = -ENOMEM;
+                goto failed;
+        }
 
         *data = (ReconfigureData) {
                 .link = link_ref(link),
@@ -1525,10 +1521,28 @@ int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
                 .message = sd_bus_message_ref(message),
         };
 
-        link->manager->reloading++;
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                goto failed;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                goto failed;
 
         TAKE_PTR(data);
+        link->manager->reloading++;
+
+        if (link->state == LINK_STATE_FAILED)
+                link_set_state(link, LINK_STATE_INITIALIZED);
+
         return 0;
+
+failed:
+        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+        link_enter_failed(link);
+        return r;
 }
 
 static int link_initialized_and_synced(Link *link) {
@@ -1856,8 +1870,6 @@ static int link_carrier_lost(Link *link) {
 }
 
 static int link_admin_state_up(Link *link) {
-        int r;
-
         assert(link);
 
         /* This is called every time an interface admin state changes to up;
@@ -1873,9 +1885,7 @@ static int link_admin_state_up(Link *link) {
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
-        r = link_set_ipv6_mtu(link, LOG_INFO);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+        (void) link_set_ipv6_mtu(link, LOG_INFO);
 
         return 0;
 }
@@ -2426,12 +2436,9 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         link->mtu = mtu;
 
-        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
-                r = link_set_ipv6_mtu(link, LOG_INFO);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
-        }
+                (void) link_set_ipv6_mtu_async(link);
 
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
@@ -2793,6 +2800,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
                                 log_netdev_warning_errno(netdev, r, "Could not process new link message for netdev, ignoring: %m");
+                                netdev_enter_failed(netdev);
                                 return 0;
                         }
                 }

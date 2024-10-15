@@ -169,10 +169,11 @@ static int condition_test_credential(Condition *c, char **env) {
                 if (!j)
                         return -ENOMEM;
 
-                if (laccess(j, F_OK) >= 0)
+                r = access_nofollow(j, F_OK);
+                if (r >= 0)
                         return true; /* yay! */
-                if (errno != ENOENT)
-                        return -errno;
+                if (r != -ENOENT)
+                        return r;
 
                 /* not found in this dir */
         }
@@ -667,7 +668,7 @@ static int has_tpm2(void) {
          *
          * Note that we don't check if we ourselves are built with TPM2 support here! */
 
-        return FLAGS_SET(tpm2_support(), TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_FIRMWARE);
+        return FLAGS_SET(tpm2_support_full(TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_FIRMWARE), TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_FIRMWARE);
 }
 
 static int condition_test_security(Condition *c, char **env) {

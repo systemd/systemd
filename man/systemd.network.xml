@@ -188,8 +188,9 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the ARP (low-level Address Resolution Protocol)
-          for this interface is enabled. When unset, the kernel's default will be used.</para>
+          <para>Takes a boolean. If set to true, the IPv4 ARP (low-level Address Resolution Protocol)
+          and IPv6 NDP (Neighbor Discovery Protocol) for this interface are enabled. When unset, the
+          kernel's default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
@@ -888,15 +889,15 @@ DuplicateAddressDetection=none</programlisting></para>
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>no</literal>. Defaults to
           <literal>no</literal>. Note. Any positive boolean values such as <literal>yes</literal> or
           <literal>true</literal> are now deprecated. Please use one of the values above. Specifying
-          <literal>ipv4</literal> or <literal>both</literal> implies <varname>IPv4Forwarding=</varname>,
-          unless it is explicitly specified. Similarly for <varname>IPv6Forwarding=</varname> when
-          <literal>ipv6</literal> or <literal>both</literal> is specified. These implications are only on
-          this interface. Hence, to make the IP packet forwarding works,
-          <varname>IPv4Forwarding=</varname>/<varname>IPv6Forwarding=</varname> need to be enabled on an
-          upstream interface, or globally enabled by specifying them in
-          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          See <varname>IPv4Forwarding=</varname>/<varname>IPv6Forwarding=</varname> in the above for more
-          details.</para>
+          <literal>ipv4</literal> or <literal>both</literal> implies <varname>IPv4Forwarding=</varname>
+          settings in both .network file for this interface and the global
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          unless they are explicitly specified. Similarly for <varname>IPv6Forwarding=</varname> when
+          <literal>ipv6</literal> or <literal>both</literal> is specified. See
+          <varname>IPv4Forwarding=</varname>/<varname>IPv6Forwarding=</varname> in the above for the per-link
+          settings, and
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for the global settings.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
@@ -1628,8 +1629,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>Label=</varname></term>
         <listitem>
-          <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
-          reserved. This setting is mandatory.</para>
+          <para>The label for the prefix. Takes an unsigned integer in the range 0…4294967294 (0xfffffffe).
+          4294967295 (0xffffffff) is reserved. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
@@ -1638,8 +1639,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>Prefix=</varname></term>
         <listitem>
-          <para>IPv6 prefix is an address with a prefix length, separated by a slash
-          <literal>/</literal> character. This setting is mandatory. </para>
+          <para>Takes an IPv6 address with a prefix length, separated by a slash
+          <literal>/</literal> character. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
@@ -1725,6 +1726,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           increasing number. Defaults to unset, and the kernel will pick a value dynamically.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>GoTo=</varname></term>
+        <listitem>
+          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
+          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
+          mandatory when <varname>Type=goto</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -1853,8 +1866,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>Type=</varname></term>
         <listitem>
           <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of
-          <literal>blackhole</literal>, <literal>unreachable</literal> or <literal>prohibit</literal>.
-          </para>
+          <literal>table</literal>, <literal>goto</literal>, <literal>nop</literal>,
+          <literal>blackhole</literal>, <literal>unreachable</literal>, or <literal>prohibit</literal>.
+          When <literal>goto</literal>, the target priority must be specified in <varname>GoTo=</varname>.
+          Defaults to <literal>table</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
@@ -6051,6 +6066,26 @@ ServerAddress=192.168.0.1/24</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[ClassfulMultiQueueing] Section Options</title>
+    <para>The [ClassfulMultiQueueing] section manages the queueing discipline (qdisc) of Classful Multi Queueing (mq).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[BandMultiQueueing] Section Options</title>
+    <para>The [BandMultiQueueing] section manages the queueing discipline (qdisc) of Band Multi Queueing (multiq).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[HeavyHitterFilter] Section Options</title>
     <para>The [HeavyHitterFilter] section manages the queueing discipline (qdisc) of Heavy Hitter Filter
     (hhf).</para>
@@ -6208,22 +6243,22 @@ Name=enp1s0
 [Network]
 DHCP=ipv6
 
-# The below setting is optional, to also assign an address in the delegated prefix
-# to the upstream interface. If not necessary, then comment out the line below and
-# the [DHCPPrefixDelegation] section.
-DHCPPrefixDelegation=yes
+# The lines below are optional, to also assign an address in the delegated prefix
+# to the upstream interface. Uncomment the lines below if necessary.
+#[Network]
+#DHCPPrefixDelegation=yes
+#[DHCPPrefixDelegation]
+#UplinkInterface=:self
+#SubnetId=0
+#Announce=no
 
-# If the upstream network provides Router Advertisement with Managed bit set,
-# then comment out the line below and WithoutRA= setting in the [DHCPv6] section.
-IPv6AcceptRA=no
-
-[DHCPv6]
-WithoutRA=solicit
-
-[DHCPPrefixDelegation]
-UplinkInterface=:self
-SubnetId=0
-Announce=no</programlisting>
+# If the upstream network does not provides any Router Advertisement (RA) messages
+# or provides an RA with both Managed and Other-information bits unset, then
+# uncomment the lines below.
+#[Network]
+#IPv6AcceptRA=no
+#[DHCPv6]
+#WithoutRA=solicit</programlisting>
 
       <programlisting># /etc/systemd/network/55-dhcpv6-pd-downstream.network
 [Match]

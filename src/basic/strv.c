@@ -66,6 +66,68 @@ char* strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
+static char* strv_find_closest_prefix(char * const *l, const char *name) {
+        size_t best_distance = SIZE_MAX;
+        char *best = NULL;
+
+        assert(name);
+
+        STRV_FOREACH(s, l) {
+                char *e = startswith(*s, name);
+                if (!e)
+                        continue;
+
+                size_t n = strlen(e);
+                if (n < best_distance) {
+                        best_distance = n;
+                        best = *s;
+                }
+        }
+
+        return best;
+}
+
+static char* strv_find_closest_by_levenshtein(char * const *l, const char *name) {
+        ssize_t best_distance = SSIZE_MAX;
+        char *best = NULL;
+
+        assert(name);
+
+        STRV_FOREACH(i, l) {
+                ssize_t distance;
+
+                distance = strlevenshtein(*i, name);
+                if (distance < 0) {
+                        log_debug_errno(distance, "Failed to determine Levenshtein distance between %s and %s: %m", *i, name);
+                        return NULL;
+                }
+
+                if (distance > 5) /* If the distance is just too far off, don't make a bad suggestion */
+                        continue;
+
+                if (distance < best_distance) {
+                        best_distance = distance;
+                        best = *i;
+                }
+        }
+
+        return best;
+}
+
+char* strv_find_closest(char * const *l, const char *name) {
+        assert(name);
+
+        /* Be more helpful to the user, and give a hint what the user might have wanted to type. We search
+         * with two mechanisms: a simple prefix match and – if that didn't yield results –, a Levenshtein
+         * word distance based match. */
+
+        char *found = strv_find_closest_prefix(l, name);
+        if (found)
+                return found;
+
+        return strv_find_closest_by_levenshtein(l, name);
+}
+
 char* strv_find_first_field(char * const *needles, char * const *haystack) {
         STRV_FOREACH(k, needles) {
                 char *value = strv_env_pairs_get((char **)haystack, *k);
@@ -202,20 +264,18 @@ char** strv_new_internal(const char *x, ...) {
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         size_t p, q, i = 0;
-        char **t;
 
         assert(a);
 
-        if (strv_isempty(b))
+        q = strv_length(b);
+        if (q == 0)
                 return 0;
 
         p = strv_length(*a);
-        q = strv_length(b);
-
         if (p >= SIZE_MAX - q)
                 return -ENOMEM;
 
-        t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -244,8 +304,66 @@ rollback:
         return -ENOMEM;
 }
 
+int strv_extend_strv_consume(char ***a, char **b, bool filter_duplicates) {
+        _cleanup_strv_free_ char **b_consume = b;
+        size_t p, q, i;
+
+        assert(a);
+
+        q = strv_length(b);
+        if (q == 0)
+                return 0;
+
+        p = strv_length(*a);
+        if (p == 0) {
+                strv_free_and_replace(*a, b_consume);
+
+                if (filter_duplicates)
+                        strv_uniq(*a);
+
+                return strv_length(*a);
+        }
+
+        if (p >= SIZE_MAX - q)
+                return -ENOMEM;
+
+        char **t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
+        if (!t)
+                return -ENOMEM;
+
+        t[p] = NULL;
+        *a = t;
+
+        if (!filter_duplicates) {
+                *mempcpy_typesafe(t + p, b, q) = NULL;
+                i = q;
+        } else {
+                i = 0;
+
+                STRV_FOREACH(s, b) {
+                        if (strv_contains(t, *s)) {
+                                free(*s);
+                                continue;
+                        }
+
+                        t[p+i] = *s;
+
+                        i++;
+                        t[p+i] = NULL;
+                }
+        }
+
+        assert(i <= q);
+
+        b_consume = mfree(b_consume);
+
+        return (int) i;
+}
+
 int strv_extend_strv_biconcat(char ***a, const char *prefix, const char* const *b, const char *suffix) {
         int r;
+
+        assert(a);
 
         STRV_FOREACH(s, b) {
                 char *v;
@@ -322,7 +440,7 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
 }
 
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
-        _cleanup_strv_free_ char **l = NULL;
+        char **l;
         int r;
 
         assert(t);
@@ -332,7 +450,7 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv(t, l, filter_duplicates);
+        r = strv_extend_strv_consume(t, l, filter_duplicates);
         if (r < 0)
                 return r;
 
@@ -925,9 +1043,15 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_FULL(string_strv_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
+
 static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {
         char **l;
         int r;
+
+        assert(h);
+        assert(key);
+        assert(value);
 
         l = hashmap_get(h, key);
         if (l) {
@@ -956,6 +1080,7 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
                 r = hashmap_put(h, t, l2);
                 if (r < 0)
                         return r;
+
                 TAKE_PTR(t);
                 TAKE_PTR(l2);
         }
@@ -965,6 +1090,10 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
 
 int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
         int r;
+
+        assert(h);
+        assert(key);
+        assert(value);
 
         r = _hashmap_ensure_allocated(h, &string_strv_hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
@@ -976,14 +1105,16 @@ int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HA
 int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
         int r;
 
+        assert(h);
+        assert(key);
+        assert(value);
+
         r = _ordered_hashmap_ensure_allocated(h, &string_strv_hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
                 return r;
 
         return string_strv_hashmap_put_internal(PLAIN_HASHMAP(*h), key, value);
 }
-
-DEFINE_HASH_OPS_FULL(string_strv_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
 
 int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         _cleanup_strv_free_ char **broken = NULL;

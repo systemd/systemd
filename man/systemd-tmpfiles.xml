@@ -65,15 +65,15 @@
 
     <para>If invoked with no arguments, directives from the configuration files found in the directories
     specified by
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. When
-    invoked with positional arguments, if option <option>--replace=<replaceable>PATH</replaceable></option>
-    is specified, arguments specified on the command line are used instead of the configuration file
-    <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by the command line
-    arguments is executed. If the string <literal>-</literal> is specified instead of a filename, the
-    configuration is read from standard input. If the argument is a file name (without any slashes), all
-    configuration directories are searched for a matching file and the file found that has the highest
-    priority is executed. If the argument is a path, that file is used directly without searching the
-    configuration directories for any other matching file.</para>
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    executed. When invoked with positional arguments, if option
+    <option>--replace=<replaceable>PATH</replaceable></option> is specified, arguments specified on the
+    command line are used instead of the configuration file <replaceable>PATH</replaceable>. Otherwise, just
+    the configuration specified by the command line arguments is executed. If the string <literal>-</literal>
+    is specified instead of a filename, the configuration is read from standard input. If the argument is a
+    file name (without any slashes), all configuration directories are searched for a matching file and the
+    file found that has the highest priority is executed. If the argument is a path, that file is used
+    directly without searching the configuration directories for any other matching file.</para>
 
     <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-setup-dev-early.service</filename>,
@@ -152,10 +152,11 @@
       <varlistentry>
         <term><option>--purge</option></term>
 
-        <listitem><para>If this option is passed, all files and directories marked for
-        <emphasis>creation</emphasis> by the <filename>tmpfiles.d/</filename> files specified on the command
-        line will be <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories
-        marked with <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
+        <listitem><para>If this option is passed, all files and directories declared for
+        <emphasis>creation</emphasis> and marked with the <literal>$</literal> character by the
+        <filename>tmpfiles.d/</filename> files specified on the command line will be
+        <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories marked with
+        <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
         <varname>v</varname>, <varname>q</varname>, <varname>Q</varname>, <varname>p</varname>,
         <varname>L</varname>, <varname>c</varname>, <varname>b</varname>, <varname>C</varname>,
         <varname>w</varname>, <varname>e</varname>. If this switch is used at least one

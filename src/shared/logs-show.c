@@ -368,6 +368,7 @@ static int output_timestamp_realtime(
                 usec_t usec) {
 
         char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
+        int r;
 
         assert(f);
         assert(j);
@@ -375,65 +376,76 @@ static int output_timestamp_realtime(
         if (!VALID_REALTIME(usec))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available.");
 
-        if (IN_SET(mode, OUTPUT_SHORT_FULL, OUTPUT_WITH_UNIT)) {
-                const char *k;
+        switch (mode) {
 
-                if (flags & OUTPUT_UTC)
-                        k = format_timestamp_style(buf, sizeof(buf), usec, TIMESTAMP_UTC);
-                else
-                        k = format_timestamp(buf, sizeof(buf), usec);
-                if (!k)
+        case OUTPUT_SHORT_FULL:
+        case OUTPUT_WITH_UNIT: {
+                if (!format_timestamp_style(buf, sizeof(buf), usec, flags & OUTPUT_UTC ? TIMESTAMP_UTC : TIMESTAMP_PRETTY))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Failed to format timestamp: %" PRIu64, usec);
+                break;
+        }
 
-        } else {
+        case OUTPUT_SHORT_UNIX:
+                xsprintf(buf, "%10" PRI_USEC ".%06" PRI_USEC, usec / USEC_PER_SEC, usec % USEC_PER_SEC);
+                break;
+
+        case OUTPUT_SHORT:
+        case OUTPUT_SHORT_PRECISE:
+        case OUTPUT_SHORT_ISO:
+        case OUTPUT_SHORT_ISO_PRECISE: {
                 struct tm tm;
-                time_t t;
+                size_t tail = 0;
 
-                t = (time_t) (usec / USEC_PER_SEC);
-
-                switch (mode) {
-
-                case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, usec % USEC_PER_SEC);
-                        break;
-
-                case OUTPUT_SHORT_ISO:
-                case OUTPUT_SHORT_ISO_PRECISE: {
-                        size_t tail = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S",
-                                               localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC));
-                        if (tail == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format ISO time.");
-
-                        /* No usec in strftime, need to append */
-                        if (mode == OUTPUT_SHORT_ISO_PRECISE) {
-                                assert_se(snprintf_ok(buf + tail, ELEMENTSOF(buf) - tail, ".%06"PRI_USEC, usec % USEC_PER_SEC));
-                                tail += 7;
-                        }
-
-                        int h = tm.tm_gmtoff / 60 / 60;
-                        int m = labs((tm.tm_gmtoff / 60) % 60);
-                        snprintf(buf + tail, ELEMENTSOF(buf) - tail, "%+03d:%02d", h, m);
-                        break;
+                r = localtime_or_gmtime_usec(usec, flags & OUTPUT_UTC, &tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to convert timestamp to calendar time, generating fallback timestamp: %m");
+                else {
+                        tail = strftime(
+                                        buf, sizeof(buf),
+                                        IN_SET(mode, OUTPUT_SHORT_ISO, OUTPUT_SHORT_ISO_PRECISE) ? "%Y-%m-%dT%H:%M:%S" : "%b %d %H:%M:%S",
+                                        &tm);
+                        if (tail <= 0)
+                                log_debug("Failed to format calendar time, generating fallback timestamp.");
                 }
 
-                case OUTPUT_SHORT:
-                case OUTPUT_SHORT_PRECISE:
+                if (tail <= 0) {
+                        /* Generate fallback timestamp if regular formatting didn't work. (This might happen on systems where time_t is 32bit) */
 
-                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S",
-                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format syslog time.");
+                        static const char *const xxx[_OUTPUT_MODE_MAX] = {
+                                [OUTPUT_SHORT]             = "XXX XX XX:XX:XX",
+                                [OUTPUT_SHORT_PRECISE]     = "XXX XX XX:XX:XX.XXXXXX",
+                                [OUTPUT_SHORT_ISO]         = "XXXX-XX-XXTXX:XX:XX+XX:XX",
+                                [OUTPUT_SHORT_ISO_PRECISE] = "XXXX-XX-XXTXX:XX:XX.XXXXXX+XX:XX",
+                        };
 
-                        if (mode == OUTPUT_SHORT_PRECISE) {
-                                assert(sizeof(buf) > strlen(buf));
-                                if (!snprintf_ok(buf + strlen(buf), sizeof(buf) - strlen(buf), ".%06"PRIu64, usec % USEC_PER_SEC))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format precise time.");
-                        }
-                        break;
-
-                default:
-                        assert_not_reached();
+                        fputs(xxx[mode], f);
+                        return strlen(xxx[mode]);
                 }
+
+                assert(tail <= sizeof(buf));
+
+                /* No usec in strftime, need to append */
+                if (IN_SET(mode, OUTPUT_SHORT_ISO_PRECISE, OUTPUT_SHORT_PRECISE)) {
+                        assert_se(snprintf_ok(buf + tail, sizeof(buf) - tail, ".%06" PRI_USEC, usec % USEC_PER_SEC));
+
+                        tail += 7;
+
+                        assert(tail <= sizeof(buf));
+                }
+
+                if (IN_SET(mode, OUTPUT_SHORT_ISO, OUTPUT_SHORT_ISO_PRECISE)) {
+                        int h = tm.tm_gmtoff / 60 / 60,
+                                m = abs((int) ((tm.tm_gmtoff / 60) % 60));
+
+                        assert_se(snprintf_ok(buf + tail, sizeof(buf) - tail, "%+03d:%02d", h, m));
+                }
+
+                break;
+        }
+
+        default:
+                assert_not_reached();
         }
 
         fputs(buf, f);
@@ -1398,7 +1410,6 @@ typedef int (*output_func_t)(
                 dual_timestamp *previous_display_ts,
                 sd_id128_t *previous_boot_id);
 
-
 static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
@@ -1688,7 +1699,6 @@ int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
                         (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
                         (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
                 );
-
 
         if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */

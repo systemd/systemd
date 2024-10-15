@@ -177,22 +177,6 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><command>has-tpm2</command></term>
-
-        <listitem><para>Reports whether the system is equipped with a TPM2 device usable for protecting
-        credentials. If a TPM2 device has been discovered, is supported, and is being used by firmware,
-        by the OS kernel drivers and by userspace (i.e. systemd) this prints <literal>yes</literal> and exits
-        with exit status zero. If no such device is discovered/supported/used, prints
-        <literal>no</literal>. Otherwise prints <literal>partial</literal>. In either of these two cases
-        exits with non-zero exit status. It also shows four lines indicating separately whether firmware,
-        drivers, the system and the kernel discovered/support/use TPM2.</para>
-
-        <para>Combine with <option>--quiet</option> to suppress the output.</para>
-
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -445,8 +429,7 @@
         <term><option>--quiet</option></term>
         <term><option>-q</option></term>
 
-        <listitem><para>When used with <command>has-tpm2</command> suppresses the output, and only returns an
-        exit status indicating support for TPM2.</para>
+        <listitem><para>Suppress additional output.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -461,12 +444,6 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned.</para>
-
-    <para>In case of the <command>has-tpm2</command> command returns 0 if a TPM2 device is discovered,
-    supported and used by firmware, driver, and userspace (i.e. systemd). Otherwise returns the OR
-    combination of the value 1 (in case firmware support is missing), 2 (in case driver support is missing)
-    and 4 (in case userspace support is missing). If no TPM2 support is available at all, value 7 is hence
-    returned.</para>
   </refsect1>
 
   <refsect1>

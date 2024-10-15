@@ -58,6 +58,8 @@ int talk_initctl(char rl) {
 }
 
 int parse_shutdown_time_spec(const char *t, usec_t *ret) {
+        int r;
+
         assert(t);
         assert(ret);
 
@@ -73,9 +75,6 @@ int parse_shutdown_time_spec(const char *t, usec_t *ret) {
         } else {
                 char *e = NULL;
                 long hour, minute;
-                struct tm tm = {};
-                time_t s;
-                usec_t n;
 
                 errno = 0;
                 hour = strtol(t, &e, 10);
@@ -86,22 +85,26 @@ int parse_shutdown_time_spec(const char *t, usec_t *ret) {
                 if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
                         return -EINVAL;
 
-                n = now(CLOCK_REALTIME);
-                s = (time_t) (n / USEC_PER_SEC);
+                usec_t n = now(CLOCK_REALTIME);
+                struct tm tm = {};
 
-                assert_se(localtime_r(&s, &tm));
+                r = localtime_or_gmtime_usec(n, /* utc= */ false, &tm);
+                if (r < 0)
+                        return r;
 
                 tm.tm_hour = (int) hour;
                 tm.tm_min = (int) minute;
                 tm.tm_sec = 0;
 
-                s = mktime(&tm);
-                assert(s >= 0);
+                usec_t s;
+                r = mktime_or_timegm_usec(&tm, /* utc= */ false, &s);
+                if (r < 0)
+                        return r;
 
-                *ret = (usec_t) s * USEC_PER_SEC;
+                while (s <= n)
+                        s += USEC_PER_DAY;
 
-                while (*ret <= n)
-                        *ret += USEC_PER_DAY;
+                *ret = s;
         }
 
         return 0;

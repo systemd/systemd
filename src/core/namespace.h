@@ -54,18 +54,28 @@ typedef enum ProcSubset {
 } ProcSubset;
 
 typedef enum PrivateTmp {
-        PRIVATE_TMP_OFF,
+        PRIVATE_TMP_NO,
         PRIVATE_TMP_CONNECTED, /* Bind mounted from the host's filesystem */
         PRIVATE_TMP_DISCONNECTED, /* A completely private tmpfs, invisible from the host */
         _PRIVATE_TMP_MAX,
         _PRIVATE_TMP_INVALID = -EINVAL,
 } PrivateTmp;
 
+typedef enum PrivateUsers {
+        PRIVATE_USERS_NO,
+        PRIVATE_USERS_SELF,
+        PRIVATE_USERS_IDENTITY,
+        _PRIVATE_USERS_MAX,
+        _PRIVATE_USERS_INVALID = -EINVAL,
+} PrivateUsers;
+
 struct BindMount {
         char *source;
         char *destination;
         bool read_only;
+        bool nodev;
         bool nosuid;
+        bool noexec;
         bool recursive;
         bool ignore_enoent;
 };
@@ -152,6 +162,7 @@ struct NamespaceParameters {
         bool private_ipc;
 
         bool mount_apivfs;
+        bool bind_log_sockets;
         bool mount_nosuid;
 
         ProtectHome protect_home;
@@ -195,6 +206,9 @@ ProcSubset proc_subset_from_string(const char *s) _pure_;
 
 const char* private_tmp_to_string(PrivateTmp i) _const_;
 PrivateTmp private_tmp_from_string(const char *s) _pure_;
+
+const char* private_users_to_string(PrivateUsers i) _const_;
+PrivateUsers private_users_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);

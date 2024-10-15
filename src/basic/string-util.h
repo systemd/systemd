@@ -156,7 +156,7 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m);
 
 bool chars_intersect(const char *a, const char *b) _pure_;
 
-static inline bool _pure_ in_charset(const char *s, const char* charset) {
+static inline bool _pure_ in_charset(const char *s, const char *charset) {
         assert(s);
         assert(charset);
         return s[strspn(s, charset)] == '\0';
@@ -201,18 +201,17 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
 
 char* strrep(const char *s, unsigned n);
 
-#define strrepa(s, n)                                           \
-        ({                                                      \
-                const char *_sss_ = (s);                        \
-                size_t _nnn_ = (n), _len_ = strlen(_sss_);      \
-                assert(!size_multiply_overflow(_len_, _nnn_));  \
-                _len_ *= _nnn_;                                 \
-                char *_d_, *_p_;                                \
-                _p_ = _d_ = newa(char, _len_ + 1);              \
-                for (size_t _i_ = 0; _i_ < _nnn_; _i_++)        \
-                        _p_ = stpcpy(_p_, _sss_);               \
-                *_p_ = 0;                                       \
-                _d_;                                            \
+#define strrepa(s, n)                                                   \
+        ({                                                              \
+                const char *_sss_ = (s);                                \
+                size_t _nnn_ = (n), _len_ = strlen(_sss_);              \
+                assert_se(MUL_ASSIGN_SAFE(&_len_, _nnn_));              \
+                char *_d_, *_p_;                                        \
+                _p_ = _d_ = newa(char, _len_ + 1);                      \
+                for (size_t _i_ = 0; _i_ < _nnn_; _i_++)                \
+                        _p_ = stpcpy(_p_, _sss_);                       \
+                *_p_ = 0;                                               \
+                _d_;                                                    \
         })
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
@@ -248,7 +247,7 @@ REENABLE_WARNING;
 /* Like startswith_no_case(), but operates on arbitrary memory blocks.
  * It works only for ASCII strings.
  */
-static inline void *memory_startswith_no_case(const void *p, size_t sz, const char *token) {
+static inline void* memory_startswith_no_case(const void *p, size_t sz, const char *token) {
         assert(token);
 
         size_t n = strlen(token);

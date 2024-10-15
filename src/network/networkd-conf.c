@@ -5,6 +5,7 @@
 
 #include "conf-parser.h"
 #include "constants.h"
+#include "networkd-address-label.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "networkd-speed-meter.h"
@@ -18,6 +19,7 @@ int manager_parse_config_file(Manager *m) {
                         "systemd/networkd.conf",
                         "Network\0"
                         "IPv6AcceptRA\0"
+                        "IPv6AddressLabel\0"
                         "DHCPv4\0"
                         "DHCPv6\0"
                         "DHCPServer\0"
@@ -33,6 +35,8 @@ int manager_parse_config_file(Manager *m) {
                             FORMAT_TIMESPAN(SPEED_METER_MINIMUM_TIME_INTERVAL, USEC_PER_SEC));
                 m->speed_meter_interval_usec = SPEED_METER_MINIMUM_TIME_INTERVAL;
         }
+
+        manager_drop_invalid_address_labels(m);
 
         return 0;
 }

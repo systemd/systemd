@@ -168,7 +168,16 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
         if (r < 0)
                 return r;
 
-        return retrieve_key(serial, ret);
+        _cleanup_strv_free_erase_ char **l = NULL;
+        r = retrieve_key(serial, &l);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Found an empty password from keyring.");
+
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 static int backspace_chars(int ttyfd, size_t p) {
@@ -323,8 +332,8 @@ int ask_password_plymouth(
                         return -ENOENT;
 
                 } else if (IN_SET(buffer[0], 2, 9)) {
+                        _cleanup_strv_free_erase_ char **l = NULL;
                         uint32_t size;
-                        char **l;
 
                         /* One or more answers */
                         if (p < 5)
@@ -342,15 +351,16 @@ int ask_password_plymouth(
                         if (!l)
                                 return -ENOMEM;
 
-                        *ret = l;
-                        break;
+                        if (strv_isempty(l))
+                                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "Received an empty password.");
+
+                        *ret = TAKE_PTR(l);
+                        return 0;
 
                 } else
                         /* Unknown packet */
                         return -EIO;
         }
-
-        return 0;
 }
 
 #define NO_ECHO "(no echo) "
@@ -873,10 +883,15 @@ int ask_password_agent(
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (ERRNO_IS_NEG_TRANSIENT(n))
                         continue;
-                else if (n == -EXFULL) {
-                        log_debug("Got message with truncated control data, ignoring.");
+                if (n == -ECHRNG) {
+                        log_debug_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
                         continue;
-                } else if (n < 0) {
+                }
+                if (n == -EXFULL) {
+                        log_debug_errno(n, "Got message with truncated payload data, ignoring.");
+                        continue;
+                }
+                if (n < 0) {
                         r = (int) n;
                         goto finish;
                 }
@@ -950,8 +965,8 @@ finish:
 
 static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret) {
         _cleanup_(erase_and_freep) char *buffer = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         size_t size;
-        char **l;
         int r;
 
         assert(req);
@@ -966,7 +981,10 @@ static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFla
         if (!l)
                 return -ENOMEM;
 
-        *ret = l;
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Found an empty password in credential.");
+
+        *ret = TAKE_PTR(l);
         return 0;
 }
 
@@ -988,14 +1006,14 @@ int ask_password_auto(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) &&
             req && req->keyring &&
-            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
+            (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) || !isatty_safe(STDIN_FILENO)) &&
             FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT)) {
                 r = ask_password_keyring(req, flags, ret);
                 if (r != -ENOKEY)
                         return r;
         }
 
-        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO))
+        if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
                 return ask_password_tty(-EBADF, req, until, flags, NULL, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))

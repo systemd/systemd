@@ -87,7 +87,7 @@ static int map_string_field_internal(
                 if (!c)
                         return -ENOMEM;
 
-                *((char*) mempcpy(stpcpy(c, field), s, e - s)) = 0;
+                *mempcpy_typesafe(stpcpy(c, field), s, e - s) = 0;
 
                 e += 1;
 

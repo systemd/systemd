@@ -80,6 +80,7 @@ int close_all_fds_without_malloc(const int except[], size_t n_except);
 
 int pack_fds(int fds[], size_t n);
 
+int fd_validate(int fd);
 int same_fd(int a, int b);
 
 void cmsg_close_all(struct msghdr *mh);

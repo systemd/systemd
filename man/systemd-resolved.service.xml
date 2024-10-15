@@ -118,11 +118,12 @@
       useful for referencing it independently of the current network configuration state.</para></listitem>
 
       <listitem><para>The hostname <literal>_outbound</literal> is resolved to the local IPv4 and IPv6
-      addresses that are most likely used for communication with other hosts. This is determined by
-      requesting a routing decision to the configured default gateways from the kernel and then using the
-      local IP addresses selected by this decision. This hostname is only available if there is at least one
-      local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
-      useful for referencing them independently of the current network configuration state.</para></listitem>
+      addresses that are most likely used for communication with other hosts. This is the preferred source
+      addresses of default gateways if specified, or determined by requesting a routing decision to the
+      configured default gateways from the kernel and then using the local IP addresses selected by this
+      decision. This hostname is only available if there is at least one local default gateway configured.
+      This assigns a stable hostname to the local outbound IP addresses, useful for referencing them
+      independently of the current network configuration state.</para></listitem>
 
       <listitem><para>The hostname <literal>_localdnsstub</literal> is resolved to the IP address 127.0.0.53,
       i.e. the address the local DNS stub (see above) is listening on.</para></listitem>
@@ -216,34 +217,35 @@
       the traditional glibc resolver below.</para></listitem>
 
       <listitem><para>If a query does not match any configured routing domain (either per-link or global), it
-      is sent to all DNS servers that are configured on links with the <varname>DefaultRoute=</varname>
-      option set, as well as the globally configured DNS server.</para></listitem>
+      is sent to all DNS servers that are configured on links configured as the default route, as well as the
+      globally configured DNS server.</para></listitem>
 
-      <listitem><para>If there is no link configured as <varname>DefaultRoute=</varname> and no global DNS
-      server configured, one of the compiled-in fallback DNS servers is used.</para></listitem>
+      <listitem><para>If there are no DNS servers configured on any link also configured as the default route
+      and no global DNS server configured, one of the compiled-in fallback DNS servers is used.</para>
+      </listitem>
 
       <listitem><para>Otherwise the unicast DNS query fails, as no suitable DNS servers can be determined.
       </para></listitem>
     </itemizedlist>
 
-    <para>The <varname>DefaultRoute=</varname> option is a boolean setting configurable with
-    <command>resolvectl</command> or in <filename>.network</filename> files. If not set, it is implicitly
-    determined based on the configured DNS domains for a link: if there's a route-only domain other than
-    <literal>~.</literal>, it defaults to false, otherwise to true.</para>
+    <para>Whether a link is the default route or not can be configured with
+    <command>resolvectl default-route</command> command or <varname>DNSDefaultRoute=</varname> setting in
+    <filename>.network</filename> files. If not configured explicitly, it is implicitly determined based on
+    the configured DNS domains for a link: if there's a route-only domain other than <literal>~.</literal>,
+    it defaults to false, otherwise to true.</para>
 
     <para>Effectively this means: in order to support single-label non-synthesized names, define appropriate
     search domains. In order to preferably route all DNS queries not explicitly matched by routing domain
     configuration to a specific link, configure a <literal>~.</literal> route-only domain on it. This will
     ensure that other links will not be considered for these queries (unless they too carry such a routing
     domain). In order to route all such DNS queries to a specific link only if no other link is preferred,
-    set the <varname>DefaultRoute=</varname> option for the link to true and do not configure a
-    <literal>~.</literal> route-only domain on it. Finally, in order to ensure that a specific link never
-    receives any DNS traffic not matching any of its configured routing domains, set the
-    <varname>DefaultRoute=</varname> option for it to false.</para>
+    configure the link as the default route and do not configure a <literal>~.</literal> route-only domain on
+    it. Finally, in order to ensure that a specific link never receives any DNS traffic not matching any of
+    its configured routing domains, make it not the default route.</para>
 
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for information about the D-Bus APIs <filename>systemd-resolved</filename> provides.</para>
+    for information about the D-Bus APIs <command>systemd-resolved</command> provides.</para>
   </refsect1>
 
   <refsect1>

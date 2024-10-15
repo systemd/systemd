@@ -3571,11 +3571,16 @@ void unit_prune_cgroup(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return;
 
-        /* Cache the last CPU and memory usage values before we destroy the cgroup */
+        /* Cache the last resource usage values before we destroy the cgroup */
         (void) unit_get_cpu_usage(u, /* ret = */ NULL);
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
                 (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
+
+        /* All IO metrics are read at once from the underlying cgroup, so issue just a single call */
+        (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret = */ NULL);
+
+        /* We do not cache IP metrics here because the firewall objects are not freed with cgroups */
 
 #if BPF_FRAMEWORK
         (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
@@ -4858,13 +4863,19 @@ static int unit_get_io_accounting_raw(
 int unit_get_io_accounting(
                 Unit *u,
                 CGroupIOAccountingMetric metric,
-                bool allow_cache,
                 uint64_t *ret) {
 
         uint64_t raw[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
         int r;
 
-        /* Retrieve an IO account parameter. This will subtract the counter when the unit was started. */
+        /*
+         * Retrieve an IO counter, subtracting the value of the counter value at the time the unit was started.
+         * If ret == NULL and metric == _<...>_INVALID, no return value is expected (refresh the caches only).
+         */
+
+        assert(u);
+        assert(metric >= 0 || (!ret && metric == _CGROUP_IO_ACCOUNTING_METRIC_INVALID));
+        assert(metric < _CGROUP_IO_ACCOUNTING_METRIC_MAX);
 
         if (!UNIT_CGROUP_BOOL(u, io_accounting))
                 return -ENODATA;
@@ -4873,11 +4884,8 @@ int unit_get_io_accounting(
         if (!crt)
                 return -ENODATA;
 
-        if (allow_cache && crt->io_accounting_last[metric] != UINT64_MAX)
-                goto done;
-
         r = unit_get_io_accounting_raw(u, crt, raw);
-        if (r == -ENODATA && crt->io_accounting_last[metric] != UINT64_MAX)
+        if (r == -ENODATA && metric >= 0 && crt->io_accounting_last[metric] != UINT64_MAX)
                 goto done;
         if (r < 0)
                 return r;

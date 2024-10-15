@@ -45,6 +45,13 @@ except ImportError as e:
 sys.path.append(os.path.dirname(__file__) + '/..')
 import ukify
 
+# Skip if we're running on an architecture that does not use UEFI.
+try:
+    ukify.guess_efi_arch()
+except ValueError as e:
+    print(str(e), file=sys.stderr)
+    sys.exit(77)
+
 build_root = os.getenv('PROJECT_BUILD_ROOT')
 try:
     slow_tests = bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '1')))
@@ -357,7 +364,7 @@ def test_config_priority(tmp_path):
                                     pathlib.Path('some/path8')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
-    assert opts.signtool == 'sbsign' # from args
+    assert opts.signtool == ukify.SbSign # from args
     assert opts.sb_key == 'SBKEY' # from args
     assert opts.sb_cert == 'SBCERT' # from args
     assert opts.sb_certdir == 'some/path5' # from config
@@ -683,7 +690,9 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
 def test_pcr_signing(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if systemd_measure() is None:
+    try:
+        systemd_measure()
+    except ValueError:
         pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
@@ -750,7 +759,9 @@ def test_pcr_signing(kernel_initrd, tmp_path):
 def test_pcr_signing2(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if systemd_measure() is None:
+    try:
+        systemd_measure()
+    except ValueError:
         pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent

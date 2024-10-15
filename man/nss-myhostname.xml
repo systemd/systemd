@@ -53,11 +53,12 @@
       current network configuration state.</para></listitem>
 
       <listitem><para>The hostname <literal>_outbound</literal> is resolved to the local IPv4 and IPv6
-      addresses that are most likely used for communication with other hosts. This is determined by
-      requesting a routing decision to the configured default gateways from the kernel and then using the
-      local IP addresses selected by this decision. This hostname is only available if there is at least one
-      local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
-      useful for referencing them independently of the current network configuration state.</para></listitem>
+      addresses that are most likely used for communication with other hosts. This is the preferred source
+      addresses of default gateways if specified, or determined by requesting a routing decision to the
+      configured default gateways from the kernel and then using the local IP addresses selected by this
+      decision. This hostname is only available if there is at least one local default gateway configured.
+      This assigns a stable hostname to the local outbound IP addresses, useful for referencing them
+      independently of the current network configuration state.</para></listitem>
     </itemizedlist>
 
     <para>Various software relies on an always-resolvable local

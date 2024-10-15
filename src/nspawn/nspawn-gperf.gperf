@@ -20,7 +20,6 @@ struct ConfigPerfItem;
 %includes
 %%
 Exec.Boot,                    config_parse_boot,           0,                        0
-Exec.Init,                    config_parse_path,           0,                        offsetof(Settings, init)
 Exec.Ephemeral,               config_parse_tristate,       0,                        offsetof(Settings, ephemeral)
 Exec.ProcessTwo,              config_parse_pid2,           0,                        0
 Exec.Parameters,              config_parse_strv,           0,                        offsetof(Settings, parameters)

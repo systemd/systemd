@@ -16,6 +16,7 @@
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "missing_drm.h"
+#include "missing_hidraw.h"
 #include "missing_input.h"
 #include "parse-util.h"
 
@@ -95,12 +96,27 @@ static void sd_eviocrevoke(int fd) {
 
         assert(fd >= 0);
 
-        if (ioctl(fd, EVIOCREVOKE, NULL) < 0) {
-
-                if (errno == EINVAL && !warned) {
-                        log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
+        if (!warned && ioctl(fd, EVIOCREVOKE, NULL) < 0) {
+                if (errno == EINVAL) {
+                        log_warning_errno(errno, "Kernel does not support evdev-revocation, continuing without revoking device access: %m");
                         warned = true;
+                } else if (errno != ENODEV) {
+                        log_warning_errno(errno, "Failed to revoke evdev device, continuing without revoking device access: %m");
                 }
+        }
+}
+
+static void sd_hidiocrevoke(int fd) {
+        static bool warned = false;
+
+        assert(fd >= 0);
+
+        if (!warned && ioctl(fd, HIDIOCREVOKE, NULL) < 0) {
+                if (errno == EINVAL) {
+                        log_warning_errno(errno, "Kernel does not support hidraw-revocation, continuing without revoking device access: %m");
+                        warned = true;
+                } else if (errno != ENODEV)
+                        log_warning_errno(errno, "Failed to revoke hidraw device, continuing without revoking device access: %m");
         }
 }
 
@@ -147,6 +163,11 @@ static int session_device_open(SessionDevice *sd, bool active) {
                         sd_eviocrevoke(fd);
                 break;
 
+        case DEVICE_TYPE_HIDRAW:
+                if (!active)
+                        sd_hidiocrevoke(fd);
+                break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronizations */
@@ -180,12 +201,13 @@ static int session_device_start(SessionDevice *sd) {
                 break;
 
         case DEVICE_TYPE_EVDEV:
-                /* Evdev devices are revoked while inactive. Reopen it and we are fine. */
+        case DEVICE_TYPE_HIDRAW:
+                /* Evdev/hidraw devices are revoked while inactive. Reopen it and we are fine. */
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
 
-                /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
+                /* For evdev/hidraw devices, the file descriptor might be left uninitialized. This might happen while resuming
                  * into a session and logind has been restarted right before. */
                 close_and_replace(sd->fd, r);
                 break;
@@ -229,6 +251,14 @@ static void session_device_stop(SessionDevice *sd) {
                 sd_eviocrevoke(sd->fd);
                 break;
 
+        case DEVICE_TYPE_HIDRAW:
+                /* Revoke access on hidraw file-descriptors during deactivation.
+                 * This will basically prevent any operations on the fd and
+                 * cannot be undone. Good side is: it needs no CAP_SYS_ADMIN
+                 * protection this way. */
+                sd_hidiocrevoke(sd->fd);
+                break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -251,6 +281,9 @@ static DeviceType detect_device_type(sd_device *dev) {
         } else if (device_in_subsystem(dev, "input")) {
                 if (startswith(sysname, "event"))
                         return DEVICE_TYPE_EVDEV;
+        } else if (device_in_subsystem(dev, "hidraw")) {
+                if (startswith(sysname, "hidraw"))
+                        return DEVICE_TYPE_HIDRAW;
         }
 
         return DEVICE_TYPE_UNKNOWN;
@@ -288,6 +321,7 @@ static int session_device_verify(SessionDevice *sd) {
                 break;
 
         case DEVICE_TYPE_DRM:
+        case DEVICE_TYPE_HIDRAW:
                 break;
 
         case  DEVICE_TYPE_UNKNOWN:

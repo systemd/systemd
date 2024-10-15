@@ -260,7 +260,6 @@ static void *thread(void *arg) {
         assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id) >= 0);
         assert_se(strcmp_ptr(error_id, "org.varlink.service.InvalidParameter") == 0);
 
-
         assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
 
         assert_se(!error_id);
@@ -327,7 +326,7 @@ static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+TEST(chat) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *block_event = NULL;
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
@@ -337,8 +336,6 @@ int main(int argc, char *argv[]) {
         _cleanup_close_pair_ int block_fds[2] = EBADF_PAIR;
         pthread_t t;
         const char *sp;
-
-        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir) >= 0);
         sp = strjoina(tmpdir, "/socket");
@@ -378,6 +375,59 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_loop(e) >= 0);
 
         assert_se(pthread_join(t, NULL) == 0);
+}
 
+static int method_invalid(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        sd_json_dispatch_field table[] = {
+                { "iexist", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        const char *p = NULL;
+
+        r = sd_varlink_dispatch(link, parameters, table, &p);
+        if (r != 0)
+                return r;
+
+        assert_not_reached();
+}
+
+static int reply_invalid(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        assert(sd_varlink_error_is_invalid_parameter(error_id, parameters, "idontexist"));
+        assert(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS) >= 0);
         return 0;
 }
+
+TEST(invalid_parameter) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        assert_se(sd_event_default(&e) >= 0);
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        assert_se(sd_varlink_server_new(&s, 0) >= 0);
+
+        assert_se(sd_varlink_server_attach_event(s, e, 0) >= 0);
+
+        assert_se(sd_varlink_server_bind_method(s, "foo.mytest.Invalid", method_invalid) >= 0);
+
+        int connfd[2];
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd) >= 0);
+        assert_se(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL) >= 0);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        assert_se(sd_varlink_connect_fd(&c, connfd[1]) >= 0);
+
+        assert_se(sd_varlink_attach_event(c, e, 0) >= 0);
+
+        assert_se(sd_varlink_bind_reply(c, reply_invalid) >= 0);
+
+        assert_se(sd_varlink_invokebo(c, "foo.mytest.Invalid",
+                                      SD_JSON_BUILD_PAIR_STRING("iexist", "foo"),
+                                      SD_JSON_BUILD_PAIR_STRING("idontexist", "bar")) >= 0);
+
+
+        assert_se(sd_event_loop(e) >= 0);
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

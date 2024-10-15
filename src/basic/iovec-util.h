@@ -70,3 +70,5 @@ static inline struct iovec *iovec_memdup(const struct iovec *source, struct iove
 
         return ret;
 }
+
+struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append);

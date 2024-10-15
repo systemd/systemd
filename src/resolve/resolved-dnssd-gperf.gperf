@@ -2,7 +2,6 @@
 %{
 #include <stddef.h>
 #include "conf-parser.h"
-#include "resolved-conf.h"
 #include "resolved-dnssd.h"
 %}
 struct ConfigPerfItem;

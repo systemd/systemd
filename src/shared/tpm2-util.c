@@ -3,6 +3,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -111,7 +112,7 @@ static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
-int dlopen_tpm2(void) {
+static int dlopen_tpm2_esys(void) {
         int r;
 
         ELF_NOTE_DLOPEN("tpm",
@@ -170,17 +171,21 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        return 0;
+}
+
+static int dlopen_tpm2_rc(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-rc.so.0");
 
-        r = dlopen_many_sym_or_warn(
+        return dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
-        if (r < 0)
-                return r;
+}
 
+static int dlopen_tpm2_mu(void) {
         ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
@@ -209,9 +214,39 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+int dlopen_tpm2(void) {
+        int r;
+
+        r = dlopen_tpm2_esys();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_rc();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 void Esys_Freep(void *p) {
+        assert(p);
+
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
+}
+
+static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) {
+        assert(p);
+
+        if (!*p)
+                return;
+
+        explicit_bzero_safe((*p)->buffer, (*p)->size);
+        sym_Esys_Free(*p);
 }
 
 /* Get a specific TPM capability (or capabilities).
@@ -689,7 +724,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (!filename_is_valid(fn))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
-                context->tcti_dl = dlopen(fn, RTLD_NOW);
+                context->tcti_dl = dlopen(fn, RTLD_NOW|RTLD_NODELETE);
                 if (!context->tcti_dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
 
@@ -4179,8 +4214,11 @@ int tpm2_calculate_sealing_policy(
         assert(pcr_values || n_pcr_values == 0);
         assert(digest);
 
+        /* The combination of signed PCR policies and pcrlock is not supported (because we cannot combine
+         * PolicyAuthorize and PolicyAuthorizeNV in one policy). Callers need to use "sharding" of the
+         * symmetric FDE unlock key to make policies like that work. */
         if (public && pcrlock_policy)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Policies with both signed PCR and pcrlock are currently not supported.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Policies that combined signed PCR and pcrlock are not supported.");
 
         if (public) {
                 r = tpm2_calculate_policy_authorize(public, NULL, digest);
@@ -5375,10 +5413,12 @@ int tpm2_calculate_seal(
 
 int tpm2_seal(Tpm2Context *c,
               uint32_t seal_key_handle,
-              const TPM2B_DIGEST *policy,
+              const TPM2B_DIGEST policy[],
+              size_t n_policy,
               const char *pin,
               struct iovec *ret_secret,
-              struct iovec *ret_blob,
+              struct iovec **ret_blobs,
+              size_t *ret_n_blobs,
               uint16_t *ret_primary_alg,
               struct iovec *ret_srk) {
 
@@ -5386,7 +5426,8 @@ int tpm2_seal(Tpm2Context *c,
         int r;
 
         assert(ret_secret);
-        assert(ret_blob);
+        assert(ret_blobs);
+        assert(ret_n_blobs);
 
         /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
          * is randomized when the TPM2 is first initialized or reset and remains stable across boots. We
@@ -5424,7 +5465,6 @@ int tpm2_seal(Tpm2Context *c,
                 .objectAttributes = hmac_attributes,
                 .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                 .unique.keyedHash.size = SHA256_DIGEST_SIZE,
-                .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
         };
 
         TPMS_SENSITIVE_CREATE hmac_sensitive = {
@@ -5442,12 +5482,6 @@ int tpm2_seal(Tpm2Context *c,
         assert(sizeof(hmac_sensitive.data.buffer) >= hmac_sensitive.data.size);
 
         (void) tpm2_credit_random(c);
-
-        log_debug("Generating secret key data.");
-
-        r = crypto_random_bytes(hmac_sensitive.data.buffer, hmac_sensitive.data.size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to generate secret key: %m");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (ret_srk) {
@@ -5526,24 +5560,51 @@ int tpm2_seal(Tpm2Context *c,
         if (r < 0)
                 return r;
 
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
-        if (r < 0)
-                return r;
+        log_debug("Generating secret key data.");
 
+        /* At least one shard, and if we have multiple policies, then we need one shard for each */
+        size_t n_shards = MAX(n_policy, 1U);
+
+        /* Create a large secret which covers all shards we need */
         _cleanup_(iovec_done_erase) struct iovec secret = {};
-        secret.iov_base = memdup(hmac_sensitive.data.buffer, hmac_sensitive.data.size);
-        if (!secret.iov_base)
-                return log_oom_debug();
-        secret.iov_len = hmac_sensitive.data.size;
-
-        log_debug("Marshalling private and public part of HMAC key.");
-
-        _cleanup_(iovec_done) struct iovec blob = {};
-        r = tpm2_marshal_blob(public, private, /* seed= */ NULL, &blob.iov_base, &blob.iov_len);
+        r = crypto_random_bytes_allocate_iovec(hmac_sensitive.data.size * n_shards, &secret);
         if (r < 0)
-                return log_debug_errno(r, "Could not create sealed blob: %m");
+                return log_debug_errno(r, "Failed to generate secret key: %m");
+
+        struct iovec *blobs = new0(struct iovec, n_shards);
+        size_t n_blobs = 0;
+
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
+        for (size_t shard = 0; shard < n_shards; shard++) {
+
+                /* Patch this shard's policy into the template */
+                if (shard < n_policy)
+                        hmac_template.authPolicy = policy[shard];
+                else
+                        hmac_template.authPolicy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+                /* Copy in this shard's secret key */
+                memcpy(hmac_sensitive.data.buffer,
+                       (const uint8_t*) secret.iov_base + (hmac_sensitive.data.size * shard),
+                       hmac_sensitive.data.size);
+
+                log_debug("Creating HMAC key on TPM for shard %zu.", shard);
+
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+                _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+                r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
+                if (r < 0)
+                        return r;
+
+                log_debug("Marshalling private and public part of HMAC key for shard %zu.", shard);
+
+                r = tpm2_marshal_blob(public, private, /* seed= */ NULL, &blobs[n_blobs].iov_base, &blobs[n_blobs].iov_len);
+                if (r < 0)
+                        return log_debug_errno(r, "Could not create sealed blob: %m");
+
+                n_blobs++;
+        }
 
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
@@ -5571,7 +5632,8 @@ int tpm2_seal(Tpm2Context *c,
         }
 
         *ret_secret = TAKE_STRUCT(secret);
-        *ret_blob = TAKE_STRUCT(blob);
+        *ret_blobs = TAKE_PTR(blobs);
+        *ret_n_blobs = n_blobs;
 
         if (ret_primary_alg)
                 *ret_primary_alg = primary_alg;
@@ -5590,16 +5652,17 @@ int tpm2_unseal(Tpm2Context *c,
                 const char *pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
-                const struct iovec *blob,
-                const struct iovec *known_policy_hash,
+                const struct iovec blobs[],
+                size_t n_blobs,
+                const struct iovec known_policy_hash[],
+                size_t n_known_policy_hash,
                 const struct iovec *srk,
                 struct iovec *ret_secret) {
 
         TSS2_RC rc;
         int r;
 
-        assert(iovec_is_set(blob));
-        assert(iovec_is_valid(known_policy_hash));
+        assert(n_blobs > 0);
         assert(iovec_is_valid(pubkey));
         assert(ret_secret);
 
@@ -5616,12 +5679,11 @@ int tpm2_unseal(Tpm2Context *c,
 
         usec_t start = now(CLOCK_MONOTONIC);
 
-        TPM2B_PUBLIC public;
-        TPM2B_PRIVATE private;
-        TPM2B_ENCRYPTED_SECRET seed = {};
-        r = tpm2_unmarshal_blob(blob->iov_base, blob->iov_len, &public, &private, &seed);
-        if (r < 0)
-                return log_debug_errno(r, "Could not extract parts from blob: %m");
+        size_t n_shards = pcrlock_policy && iovec_is_set(pubkey) ? 2 : 1;
+        if (n_blobs != n_shards)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided key blobs (%zu) does not match policy requirements (%zu).", n_blobs, n_shards);
+        if (n_known_policy_hash > 0 && n_known_policy_hash != n_shards)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided known policy hashes (%zu) does not match policy requirements (%zu or 0).", n_known_policy_hash, n_shards);
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
          * so we need to handle that legacy situation. */
@@ -5657,37 +5719,6 @@ int tpm2_unseal(Tpm2Context *c,
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No SRK or primary alg provided.");
 
-        if (seed.size > 0) {
-                /* This is a calculated (or duplicated) sealed object, and must be imported. */
-                _cleanup_free_ TPM2B_PRIVATE *imported_private = NULL;
-                r = tpm2_import(c,
-                                primary_handle,
-                                /* session= */ NULL,
-                                &public,
-                                &private,
-                                &seed,
-                                /* encryption_key= */ NULL,
-                                /* symmetric= */ NULL,
-                                &imported_private);
-                if (r < 0)
-                        return r;
-
-                private = *imported_private;
-        }
-
-        log_debug("Loading HMAC key into TPM.");
-
-        /*
-         * Nothing sensitive on the bus, no need for encryption. Even if an attacker
-         * gives you back a different key, the session initiation will fail. In the
-         * SRK model, the tpmKey is verified. In the non-srk model, with pin, the bindKey
-         * provides protections.
-         */
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
-        r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
-        if (r < 0)
-                return r;
-
         TPM2B_PUBLIC pubkey_tpm2b;
         _cleanup_(iovec_done) struct iovec fp = {};
         if (iovec_is_set(pubkey)) {
@@ -5700,100 +5731,143 @@ int tpm2_unseal(Tpm2Context *c,
                         return log_debug_errno(r, "Could not get key fingerprint: %m");
         }
 
-        /*
-         * if a pin is set for the seal object, use it to bind the session
-         * key to that object. This prevents active bus interposers from
-         * faking a TPM and seeing the unsealed value. An active interposer
-         * could fake a TPM, satisfying the encrypted session, and just
-         * forward everything to the *real* TPM.
-         */
-        r = tpm2_set_auth(c, hmac_key, pin);
-        if (r < 0)
-                return r;
-
-        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+        _cleanup_(iovec_done_erase) struct iovec secret = {};
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
-                _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-                r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
-                if (r < 0)
-                        return r;
+                bool retry = false;
+                iovec_done_erase(&secret); /* clear data from previous unseal attempt */
 
-                _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-                _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
-                r = tpm2_make_policy_session(
-                                c,
-                                primary_handle,
-                                encryption_session,
-                                &policy_session);
-                if (r < 0)
-                        return r;
+                for (size_t shard = 0; shard < n_blobs; shard++) {
+                        TPM2B_PUBLIC public;
+                        TPM2B_PRIVATE private;
+                        TPM2B_ENCRYPTED_SECRET seed = {};
+                        r = tpm2_unmarshal_blob(blobs[shard].iov_base, blobs[shard].iov_len, &public, &private, &seed);
+                        if (r < 0)
+                                return log_debug_errno(r, "Could not extract parts from blob: %m");
 
-                r = tpm2_build_sealing_policy(
-                                c,
-                                policy_session,
-                                hash_pcr_mask,
-                                pcr_bank,
-                                iovec_is_set(pubkey) ? &pubkey_tpm2b : NULL,
-                                fp.iov_base, fp.iov_len,
-                                pubkey_pcr_mask,
-                                signature,
-                                !!pin,
-                                pcrlock_policy,
-                                &policy_digest);
-                if (r < 0)
-                        return r;
+                        if (seed.size > 0) {
+                                /* This is a calculated (or duplicated) sealed object, and must be imported. */
+                                _cleanup_free_ TPM2B_PRIVATE *imported_private = NULL;
+                                r = tpm2_import(c,
+                                                primary_handle,
+                                                /* session= */ NULL,
+                                                &public,
+                                                &private,
+                                                &seed,
+                                                /* encryption_key= */ NULL,
+                                                /* symmetric= */ NULL,
+                                                &imported_private);
+                                if (r < 0)
+                                        return r;
 
-                /* If we know the policy hash to expect, and it doesn't match, we can shortcut things here, and not
-                 * wait until the TPM2 tells us to go away. */
-                if (iovec_is_set(known_policy_hash) && memcmp_nn(policy_digest->buffer,
+                                private = *imported_private;
+                        }
+
+                        log_debug("Loading HMAC key into TPM for shard %zu.", shard);
+
+                        /* Nothing sensitive on the bus, no need for encryption. Even if an attacker gives
+                         * you back a different key, the session initiation will fail. In the SRK model, the
+                         * tpmKey is verified. In the non-srk model, with pin, the bindKey provides
+                         * protections. */
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
+                        r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
+                        if (r < 0)
+                                return r;
+
+                        /* If a PIN is set for the seal object, use it to bind the session key to that
+                         * object. This prevents active bus interposers from faking a TPM and seeing the
+                         * unsealed value. An active interposer could fake a TPM, satisfying the encrypted
+                         * session, and just forward everything to the *real* TPM. */
+                        r = tpm2_set_auth(c, hmac_key, pin);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+                        r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+                        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+                        r = tpm2_make_policy_session(
+                                        c,
+                                        primary_handle,
+                                        encryption_session,
+                                        &policy_session);
+                        if (r < 0)
+                                return r;
+
+                        /* If both public PCR key and pcrlock policies are requested, then generate the
+                         * public PCR policy for the first shared, and the pcrlock policy for the 2nd */
+                        r = tpm2_build_sealing_policy(
+                                        c,
+                                        policy_session,
+                                        hash_pcr_mask,
+                                        pcr_bank,
+                                        shard == 0 && iovec_is_set(pubkey) ? &pubkey_tpm2b : NULL,
+                                        fp.iov_base, fp.iov_len,
+                                        shard == 0 ? pubkey_pcr_mask : 0,
+                                        signature,
+                                        !!pin,
+                                        (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
+                                        &policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        /* If we know the policy hash to expect, and it doesn't match, we can shortcut things here, and not
+                         * wait until the TPM2 tells us to go away. */
+                        if (n_known_policy_hash > 0 && memcmp_nn(policy_digest->buffer,
                                                                  policy_digest->size,
-                                                                 known_policy_hash->iov_base,
-                                                                 known_policy_hash->iov_len) != 0) {
+                                                                 known_policy_hash[shard].iov_base,
+                                                                 known_policy_hash[shard].iov_len) != 0) {
 #if HAVE_OPENSSL
-                        if (iovec_is_set(pubkey) &&
-                            pubkey_tpm2b.publicArea.type == TPM2_ALG_RSA &&
-                            pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent == TPM2_RSA_DEFAULT_EXPONENT) {
-                                /* Due to bug #30546, if using RSA pubkey with the default exponent, we may
-                                 * need to set the exponent to the TPM special-case value of 0 and retry. */
-                                log_debug("Policy hash mismatch, retrying with RSA pubkey exponent set to 0.");
-                                pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent = 0;
-                                continue;
-                        } else
+                                if (shard == 0 &&
+                                    iovec_is_set(pubkey) &&
+                                    pubkey_tpm2b.publicArea.type == TPM2_ALG_RSA &&
+                                    pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent == TPM2_RSA_DEFAULT_EXPONENT) {
+                                        /* Due to bug #30546, if using RSA pubkey with the default exponent, we may
+                                         * need to set the exponent to the TPM special-case value of 0 and retry. */
+                                        log_debug("Policy hash mismatch, retrying with RSA pubkey exponent set to 0.");
+                                        pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent = 0;
+                                        retry = true;
+                                        break;
+                                }
 #endif
                                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
                                                        "Current policy digest does not match stored policy digest, cancelling "
                                                        "TPM2 authentication attempt.");
+                        }
+
+                        log_debug("Unsealing HMAC key for shard %zu.", shard);
+
+                        _cleanup_(tpm2b_sensitive_data_erase_and_esys_freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+                        rc = sym_Esys_Unseal(
+                                        c->esys_context,
+                                        hmac_key->esys_handle,
+                                        policy_session->esys_handle,
+                                        encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
+                                        ESYS_TR_NONE,
+                                        &unsealed);
+                        if (rc == TPM2_RC_PCR_CHANGED && i > 0) {
+                                log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
+                                retry = true;
+                                break;
+                        }
+                        if (rc != TPM2_RC_SUCCESS)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to unseal HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+                        if (!iovec_append(&secret, &IOVEC_MAKE(unsealed->buffer, unsealed->size)))
+                                return log_oom_debug();
                 }
 
-                log_debug("Unsealing HMAC key.");
-
-                rc = sym_Esys_Unseal(
-                                c->esys_context,
-                                hmac_key->esys_handle,
-                                policy_session->esys_handle,
-                                encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
-                                ESYS_TR_NONE,
-                                &unsealed);
-                if (rc == TSS2_RC_SUCCESS)
+                if (!retry)
                         break;
-                if (rc != TPM2_RC_PCR_CHANGED || i == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to unseal HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
         }
-
-        _cleanup_(iovec_done_erase) struct iovec secret = {};
-        secret.iov_base = memdup(unsealed->buffer, unsealed->size);
-        explicit_bzero_safe(unsealed->buffer, unsealed->size);
-        if (!secret.iov_base)
-                return log_oom_debug();
-        secret.iov_len = unsealed->size;
 
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key unsealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         *ret_secret = TAKE_STRUCT(secret);
-
         return 0;
 }
 
@@ -6064,7 +6138,7 @@ int tpm2_unseal_data(
         if (r < 0)
                 return r;
 
-        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+        _cleanup_(tpm2b_sensitive_data_erase_and_esys_freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         rc = sym_Esys_Unseal(
                         c->esys_context,
                         what->esys_handle,
@@ -6079,11 +6153,10 @@ int tpm2_unseal_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_(iovec_done) struct iovec d = {};
-        d = IOVEC_MAKE(memdup(unsealed->buffer, unsealed->size), unsealed->size);
-
-        explicit_bzero_safe(unsealed->buffer, unsealed->size);
-
+        _cleanup_(iovec_done) struct iovec d = {
+                .iov_base = memdup(unsealed->buffer, unsealed->size),
+                .iov_len = unsealed->size,
+        };
         if (!d.iov_base)
                 return log_oom_debug();
 
@@ -7344,6 +7417,46 @@ int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret) {
         return 0;
 }
 
+static int tpm2_make_shard_array(
+                const struct iovec data[],
+                size_t n_data,
+                int (*encode_iovec)(sd_json_variant **, const void*, size_t n), /* pass sd_json_variant_new_base64() or sd_json_variant_new_hex() */
+                sd_json_variant **ret) {
+
+        int r;
+
+        /* Turns a series of struct iovec into either an array of base64/hex strings, or a single string
+         * thereof. Used for generated "tpm2-blob" or "tpm2-policy-hash" fields. */
+
+        assert(data);
+        assert(n_data > 0);
+        assert(encode_iovec);
+        assert(ret);
+
+        /* Only one item? Then create only one encoded string, for compatibility with older versions which
+         * didn't support the "sharding" scheme */
+        if (n_data == 1)
+                return encode_iovec(ret, data[0].iov_base, data[0].iov_len);
+
+        /* Multiple items? Then generate an array of encoded strings */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        FOREACH_ARRAY(d, data, n_data) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *item = NULL;
+
+                r = encode_iovec(&item, d->iov_base, d->iov_len);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&j, item);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(j);
+        return 0;
+}
+
 int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t hash_pcr_mask,
@@ -7351,8 +7464,10 @@ int tpm2_make_luks2_json(
                 const struct iovec *pubkey,
                 uint32_t pubkey_pcr_mask,
                 uint16_t primary_alg,
-                const struct iovec *blob,
-                const struct iovec *policy_hash,
+                const struct iovec blobs[],
+                size_t n_blobs,
+                const struct iovec policy_hash[],
+                size_t n_policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
@@ -7364,8 +7479,8 @@ int tpm2_make_luks2_json(
         int r;
 
         assert(iovec_is_valid(pubkey));
-        assert(iovec_is_valid(blob));
-        assert(iovec_is_valid(policy_hash));
+        assert(n_blobs >= 1);
+        assert(n_policy_hash >= 1);
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return -ENOMEM;
@@ -7380,6 +7495,16 @@ int tpm2_make_luks2_json(
                         return r;
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *phj = NULL;
+        r = tpm2_make_shard_array(policy_hash, n_policy_hash, sd_json_variant_new_hex, &phj);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bj = NULL;
+        r = tpm2_make_shard_array(blobs, n_blobs, sd_json_variant_new_base64, &bj);
+        if (r < 0)
+                return r;
+
         /* Note: We made the mistake of using "-" in the field names, which isn't particular compatible with
          * other programming languages. Let's not make things worse though, i.e. future additions to the JSON
          * object should use "_" rather than "-" in field names. */
@@ -7388,11 +7513,11 @@ int tpm2_make_luks2_json(
                         &v,
                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
                         SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                        SD_JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_IOVEC_BASE64(blob)),
+                        SD_JSON_BUILD_PAIR("tpm2-blob", SD_JSON_BUILD_VARIANT(bj)),
                         SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
                         SD_JSON_BUILD_PAIR_CONDITION(pcr_bank != 0 && tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
                         SD_JSON_BUILD_PAIR_CONDITION(primary_alg != 0 && tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
-                        SD_JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_IOVEC_HEX(policy_hash)),
+                        SD_JSON_BUILD_PAIR("tpm2-policy-hash", SD_JSON_BUILD_VARIANT(phj)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
@@ -7409,6 +7534,63 @@ int tpm2_make_luks2_json(
         return keyslot;
 }
 
+static int tpm2_parse_shard_array(
+                sd_json_variant *v,
+                const char *name,
+                int (*decode_iovec)(sd_json_variant*, struct iovec *ret), /* pass json_variant_unbase64_iovec() or json_variant_unhex_iovec() */
+                struct iovec **ret_data,
+                size_t *ret_n_data) {
+
+        int r;
+
+        assert(v);
+        assert(name);
+        assert(decode_iovec);
+        assert(ret_data);
+        assert(ret_n_data);
+
+        /* Parses the "tpm2-blob" or "tpm2-policy-hash" fields of our LUKS JSON serialization. This can
+         * either be an array of base64/hex strings, or a single such string. The former to allow for sharded
+         * keys. The latter mostly for compatibility with older versions where we didn't support sharded
+         * keys. */
+
+        struct iovec *data = NULL;
+        size_t n_data = 0;
+        CLEANUP_ARRAY(data, n_data, iovec_array_free);
+
+        if (sd_json_variant_is_array(v)) {
+                if (sd_json_variant_elements(v) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data contains empty '%s' array.", name);
+
+                data = new0(struct iovec, sd_json_variant_elements(v));
+                if (!data)
+                        return log_oom_debug();
+
+                sd_json_variant *i;
+                JSON_VARIANT_ARRAY_FOREACH(i, v) {
+                        r = decode_iovec(i, data + n_data);
+                        if (r < 0)
+                                return log_debug_errno(r, "Invalid data in '%s' field.", name);
+
+                        n_data++;
+                }
+        } else {
+                data = new0(struct iovec, 1);
+                if (!data)
+                        return log_oom_debug();
+
+                r = decode_iovec(v, data + 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid data in '%s' field.", name);
+
+                n_data = 1;
+        }
+
+        *ret_data = TAKE_PTR(data);
+        *ret_n_data = n_data;
+        return 0;
+}
+
 int tpm2_parse_luks2_json(
                 sd_json_variant *v,
                 int *ret_keyslot,
@@ -7417,14 +7599,16 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_pubkey,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
-                struct iovec *ret_blob,
-                struct iovec *ret_policy_hash,
+                struct iovec **ret_blobs,
+                size_t *ret_n_blobs,
+                struct iovec **ret_policy_hash,
+                size_t *ret_n_policy_hash,
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -7489,17 +7673,25 @@ int tpm2_parse_luks2_json(
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-blob' field.");
 
-        r = json_variant_unbase64_iovec(w, &blob);
+        struct iovec *blobs = NULL;
+        size_t n_blobs = 0;
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
+        r = tpm2_parse_shard_array(w, "tpm2-blob", json_variant_unbase64_iovec, &blobs, &n_blobs);
         if (r < 0)
-                return log_debug_errno(r, "Invalid base64 data in 'tpm2-blob' field.");
+                return r;
 
         w = sd_json_variant_by_key(v, "tpm2-policy-hash");
         if (!w)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-        r = json_variant_unhex_iovec(w, &policy_hash);
+        struct iovec *policy_hash = NULL;
+        size_t n_policy_hash = 0;
+        CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
+
+        r = tpm2_parse_shard_array(w, "tpm2-policy-hash", json_variant_unhex_iovec, &policy_hash, &n_policy_hash);
         if (r < 0)
-                return log_debug_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field.");
+                return r;
 
         w = sd_json_variant_by_key(v, "tpm2-pin");
         if (w) {
@@ -7565,10 +7757,14 @@ int tpm2_parse_luks2_json(
                 *ret_pubkey_pcr_mask = pubkey_pcr_mask;
         if (ret_primary_alg)
                 *ret_primary_alg = primary_alg;
-        if (ret_blob)
-                *ret_blob = TAKE_STRUCT(blob);
+        if (ret_blobs)
+                *ret_blobs = TAKE_PTR(blobs);
+        if (ret_n_blobs)
+                *ret_n_blobs = n_blobs;
         if (ret_policy_hash)
-                *ret_policy_hash = TAKE_STRUCT(policy_hash);
+                *ret_policy_hash = TAKE_PTR(policy_hash);
+        if (ret_n_policy_hash)
+                *ret_n_policy_hash = n_policy_hash;
         if (ret_salt)
                 *ret_salt = TAKE_STRUCT(salt);
         if (ret_srk)
@@ -7699,11 +7895,11 @@ int tpm2_sym_mode_from_string(const char *mode) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric mode name '%s'", mode);
 }
 
-Tpm2Support tpm2_support(void) {
+Tpm2Support tpm2_support_full(Tpm2Support mask) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
 
-        if (detect_container() <= 0) {
+        if (((mask & (TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER)) != 0) && detect_container() <= 0) {
                 /* Check if there's a /dev/tpmrm* device via sysfs. If we run in a container we likely just
                  * got the host sysfs mounted. Since devices are generally not virtualized for containers,
                  * let's assume containers never have a TPM, at least for now. */
@@ -7720,18 +7916,65 @@ Tpm2Support tpm2_support(void) {
                         support |= TPM2_SUPPORT_SUBSYSTEM;
         }
 
-        if (efi_has_tpm2())
+        if (FLAGS_SET(mask, TPM2_SUPPORT_FIRMWARE) && efi_has_tpm2())
                 support |= TPM2_SUPPORT_FIRMWARE;
 
 #if HAVE_TPM2
         support |= TPM2_SUPPORT_SYSTEM;
 
-        r = dlopen_tpm2();
-        if (r >= 0)
-                support |= TPM2_SUPPORT_LIBRARIES;
+        if ((mask & (TPM2_SUPPORT_LIBRARIES|TPM2_SUPPORT_LIBTSS2_ALL)) != 0) {
+                r = dlopen_tpm2_esys();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_ESYS;
+
+                r = dlopen_tpm2_rc();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_RC;
+
+                r = dlopen_tpm2_mu();
+                if (r >= 0)
+                        support |= TPM2_SUPPORT_LIBTSS2_MU;
+
+                if (FLAGS_SET(support, TPM2_SUPPORT_LIBTSS2_ALL))
+                        support |= TPM2_SUPPORT_LIBRARIES;
+        }
 #endif
 
-        return support;
+        return support & mask;
+}
+
+static void print_field(const char *prefix, const char *s, bool supported) {
+        printf("%s%s%s%s%s\n", strempty(prefix), supported ? ansi_green() : ansi_red(), plus_minus(supported), s, ansi_normal());
+}
+
+int verb_has_tpm2_generic(bool quiet) {
+        Tpm2Support s;
+
+        s = tpm2_support();
+
+        if (!quiet) {
+                if (s == TPM2_SUPPORT_FULL)
+                        printf("%syes%s\n", ansi_green(), ansi_normal());
+                else if (s == TPM2_SUPPORT_NONE)
+                        printf("%sno%s\n", ansi_red(), ansi_normal());
+                else
+                        printf("%spartial%s\n", ansi_yellow(), ansi_normal());
+
+                print_field(NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field(NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field(NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field(NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field(NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field("  ", "libtss2-esys.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_ESYS));
+                print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
+                print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
+        }
+
+        /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
+         * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
+         * what is there, acknowledging the fact that for process exit statuses it is customary to return
+         * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
+        return ~s & TPM2_SUPPORT_API;
 }
 
 #if HAVE_TPM2
@@ -7964,10 +8207,10 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
          */
         static const uint8_t block_cnt[] = { 0, 0, 0, 1 };
 
-        assert (salt);
-        assert (saltlen > 0);
-        assert (saltlen <= (SIZE_MAX - sizeof(block_cnt)));
-        assert (passlen > 0);
+        assert(salt);
+        assert(saltlen > 0);
+        assert(saltlen <= (SIZE_MAX - sizeof(block_cnt)));
+        assert(passlen > 0);
 
         /*
          * Build a buffer of salt + block_cnt and hmac_sha256 it we

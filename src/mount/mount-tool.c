@@ -638,10 +638,6 @@ static int start_transient_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", mount_unit, "fail");
         if (r < 0)
@@ -665,7 +661,7 @@ static int start_transient_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -716,10 +712,6 @@ static int start_transient_automount(
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -774,7 +766,7 @@ static int start_transient_automount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -923,16 +915,12 @@ static int stop_mount(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         /* Name and mode */
         r = sd_bus_message_append(m, "ss", mount_unit, "fail");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -1525,7 +1513,9 @@ static int run(int argc, char* argv[]) {
 
         r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);

@@ -65,7 +65,7 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_name_timing, resolve_name_timing, ResolveNameTiming, "Failed to parse resolve name timing");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_name_timing, resolve_name_timing, ResolveNameTiming);
 
 static int manager_parse_udev_config(Manager *manager) {
         int r, log_val = -1;

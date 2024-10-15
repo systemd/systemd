@@ -942,7 +942,7 @@ int pty_forward_new(
 
         (void) sd_event_source_set_description(f->master_event_source, "ptyfwd-master");
 
-        r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH, on_sigwinch_event, f);
+        r = sd_event_add_signal(f->event, &f->sigwinch_event_source, SIGWINCH|SD_EVENT_SIGNAL_PROCMASK, on_sigwinch_event, f);
         if (r < 0)
                 return r;
 

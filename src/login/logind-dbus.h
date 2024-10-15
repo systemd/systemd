@@ -32,6 +32,7 @@ int manager_start_scope(
                 const char *slice,
                 const char *description,
                 const char * const *requires,
+                const char * const *wants,
                 const char * const *extra_after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,

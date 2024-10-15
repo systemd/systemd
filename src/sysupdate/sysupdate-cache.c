@@ -62,7 +62,7 @@ int web_cache_add_item(
         };
 
         /* Just to be extra paranoid, let's NUL terminate the downloaded buffer */
-        *(uint8_t*) mempcpy(item->data, data, size) = 0;
+        *mempcpy_typesafe(item->data, data, size) = 0;
 
         web_cache_item_free(hashmap_remove(*web_cache, url));
 

@@ -60,6 +60,7 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
 
         free(peer->endpoint_host);
         free(peer->endpoint_port);
+        free(peer->public_key_file);
         free(peer->preshared_key_file);
         explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
@@ -573,7 +574,7 @@ int config_parse_wireguard_private_key_file(
         if (!path)
                 return log_oom();
 
-        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue) < 0)
                 return 0;
 
         return free_and_replace(w->private_key_file, path);
@@ -609,7 +610,7 @@ int config_parse_wireguard_peer_key(
         return 0;
 }
 
-int config_parse_wireguard_preshared_key_file(
+int config_parse_wireguard_peer_key_file(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -624,14 +625,25 @@ int config_parse_wireguard_preshared_key_file(
         Wireguard *w = WIREGUARD(data);
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         _cleanup_free_ char *path = NULL;
+        char **key_file;
         int r;
+
+        assert(filename);
+        assert(lvalue);
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
                 return log_oom();
 
+        if (streq(lvalue, "PublicKeyFile"))
+                key_file = &peer->public_key_file;
+        else if (streq(lvalue, "PresharedKeyFile"))
+                key_file = &peer->preshared_key_file;
+        else
+                assert_not_reached();
+
         if (isempty(rvalue)) {
-                peer->preshared_key_file = mfree(peer->preshared_key_file);
+                *key_file = mfree(*key_file);
                 TAKE_PTR(peer);
                 return 0;
         }
@@ -640,10 +652,10 @@ int config_parse_wireguard_preshared_key_file(
         if (!path)
                 return log_oom();
 
-        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue) < 0)
                 return 0;
 
-        free_and_replace(peer->preshared_key_file, path);
+        free_and_replace(*key_file, path);
         TAKE_PTR(peer);
         return 0;
 }
@@ -1099,6 +1111,14 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
         if (section_is_invalid(peer->section))
                 return -EINVAL;
 
+        r = wireguard_read_key_file(peer->public_key_file, peer->public_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "%s: Failed to read public key from '%s'. "
+                                              "Ignoring [WireGuardPeer] section from line %u.",
+                                              peer->section->filename, peer->public_key_file,
+                                              peer->section->line);
+
         if (eqzero(peer->public_key))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: WireGuardPeer section without PublicKey= configured. "
@@ -1155,7 +1175,7 @@ static int wireguard_read_default_key_cred(NetDev *netdev, const char *filename)
                                               "%s: No private key specified and default key cannot be parsed, "
                                               "ignoring network device: %m",
                                               filename);
-        if (len != WG_KEY_LEN)
+        if (len != WG_KEY_LEN || memeqzero(key, len))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: No private key specified and default key is invalid. "
                                               "Ignoring network device.",

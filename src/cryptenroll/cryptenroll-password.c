@@ -5,6 +5,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "iovec-util.h"
 #include "memory-util.h"
 #include "password-quality-util.h"
 #include "strv.h"
@@ -97,13 +98,15 @@ int load_volume_key_password(
 
 int enroll_password(
                 struct crypt_device *cd,
-                const void *volume_key,
-                size_t volume_key_size) {
+                const struct iovec *volume_key) {
 
         _cleanup_(erase_and_freep) char *new_password = NULL;
         _cleanup_free_ char *error = NULL;
         const char *node;
         int r, keyslot;
+
+        assert(cd);
+        assert(iovec_is_set(volume_key));
 
         assert_se(node = crypt_get_device_name(cd));
 
@@ -187,8 +190,8 @@ int enroll_password(
         keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
+                        volume_key->iov_base,
+                        volume_key->iov_len,
                         new_password,
                         strlen(new_password));
         if (keyslot < 0)

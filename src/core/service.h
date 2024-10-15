@@ -3,6 +3,7 @@
 
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
+typedef struct ServiceExtraFD ServiceExtraFD;
 
 #include "exit-status.h"
 #include "kill.h"
@@ -95,6 +96,7 @@ typedef enum ServiceTimeoutFailureMode {
 typedef enum ServiceRestartMode {
         SERVICE_RESTART_MODE_NORMAL,
         SERVICE_RESTART_MODE_DIRECT,
+        SERVICE_RESTART_MODE_DEBUG,
         _SERVICE_RESTART_MODE_MAX,
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
@@ -108,6 +110,11 @@ struct ServiceFDStore {
         bool do_poll;
 
         LIST_FIELDS(ServiceFDStore, fd_store);
+};
+
+struct ServiceExtraFD {
+        int fd;
+        char *fdname;
 };
 
 struct Service {
@@ -187,6 +194,7 @@ struct Service {
         ServiceResult result;
         ServiceResult reload_result;
         ServiceResult clean_result;
+        ServiceResult live_mount_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -213,24 +221,31 @@ struct Service {
 
         sd_event_source *exec_fd_event_source;
 
-        ServiceFDStore *fd_store;
+        LIST_HEAD(ServiceFDStore, fd_store);
         size_t n_fd_store;
         unsigned n_fd_store_max;
         ExecPreserveMode fd_store_preserve_mode;
-
-        char *usb_function_descriptors;
-        char *usb_function_strings;
 
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
 
-        OOMPolicy oom_policy;
+        /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
+        ServiceExtraFD *extra_fds;
+        size_t n_extra_fds;
 
         LIST_HEAD(OpenFile, open_files);
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        OOMPolicy oom_policy;
+
+        char *usb_function_descriptors;
+        char *usb_function_strings;
+
+        /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
+        sd_bus_message *mount_request;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

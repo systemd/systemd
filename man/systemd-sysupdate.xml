@@ -257,9 +257,9 @@
         <term><option>--instances-max=</option></term>
         <term><option>-m</option></term>
 
-        <listitem><para>Takes a decimal integer greater than or equal to 2. Controls how many versions to
-        keep at any time. This option may also be configured inside the transfer files, via the
-        <varname>InstancesMax=</varname> setting, see
+        <listitem><para>Takes a decimal integer greater than or equal to 2 while updating or 1 while vacuuming.
+        Controls how many versions to keep at any time. This option may also be configured inside the transfer
+        files, via the <varname>InstancesMax=</varname> setting, see
         <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details.</para>
 
@@ -305,6 +305,15 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--transfer-source=</option></term>
+
+        <listitem><para>Takes a path as its argument. When specified, all transfer sources configured with
+        <varname>PathRelativeTo=explicit</varname> will be interpreted relative to the specified path.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -322,6 +331,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

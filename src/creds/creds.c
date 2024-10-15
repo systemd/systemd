@@ -69,11 +69,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
-        [TRANSCODE_OFF] = "off",
-        [TRANSCODE_BASE64] = "base64",
+        [TRANSCODE_OFF]      = "off",
+        [TRANSCODE_BASE64]   = "base64",
         [TRANSCODE_UNBASE64] = "unbase64",
-        [TRANSCODE_HEX] = "hex",
-        [TRANSCODE_UNHEX] = "unhex",
+        [TRANSCODE_HEX]      = "hex",
+        [TRANSCODE_UNHEX]    = "unhex",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
@@ -434,10 +434,14 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                         if (!d) /* Not set */
                                 continue;
 
+                        ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE;
+                        if (encrypted)
+                                flags |= READ_FULL_FILE_UNBASE64;
+
                         r = read_full_file_full(
                                         dirfd(d), *cn,
                                         UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
+                                        flags,
                                         NULL,
                                         (char**) &data, &size);
                         if (r == -ENOENT) /* Not found */
@@ -690,35 +694,10 @@ static int verb_setup(int argc, char **argv, void *userdata) {
 }
 
 static int verb_has_tpm2(int argc, char **argv, void *userdata) {
-        Tpm2Support s;
+        if (!arg_quiet)
+                log_notice("The 'systemd-creds %1$s' command has been replaced by 'systemd-analyze %1$s'. Redirecting invocation.", argv[optind]);
 
-        s = tpm2_support();
-
-        if (!arg_quiet) {
-                if (s == TPM2_SUPPORT_FULL)
-                        puts("yes");
-                else if (s == TPM2_SUPPORT_NONE)
-                        puts("no");
-                else
-                        puts("partial");
-
-                printf("%sfirmware\n"
-                       "%sdriver\n"
-                       "%ssystem\n"
-                       "%ssubsystem\n"
-                       "%slibraries\n",
-                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
-                       plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
-        }
-
-        /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
-         * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
-         * what is there, acknowledging the fact that for process exit statuses it is customary to return
-         * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
-        return ~s & TPM2_SUPPORT_FULL;
+        return verb_has_tpm2_generic(arg_quiet);
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -732,17 +711,16 @@ static int verb_help(int argc, char **argv, void *userdata) {
         printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n%5$sDisplay and Process Credentials.%6$s\n"
                "\n%3$sCommands:%4$s\n"
-               "  list                    Show installed and available versions\n"
-               "  cat CREDENTIAL...       Show specified credentials\n"
+               "  list                    Show list of passed credentials\n"
+               "  cat CREDENTIAL...       Show contents of specified credentials\n"
                "  setup                   Generate credentials host key, if not existing yet\n"
                "  encrypt INPUT OUTPUT    Encrypt plaintext credential file and write to\n"
                "                          ciphertext credential file\n"
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
-               "  has-tpm2                Report whether TPM2 support is available\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
-               "\n%3$sOptions:%4$s\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
@@ -774,7 +752,6 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
                "     --allow-null         Allow decrypting credentials with empty key\n"
-               "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1073,7 +1050,7 @@ static int creds_main(int argc, char *argv[]) {
                 { "decrypt",  2,        3,        0,            verb_decrypt  },
                 { "setup",    VERB_ANY, 1,        0,            verb_setup    },
                 { "help",     VERB_ANY, 1,        0,            verb_help     },
-                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 },
+                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 }, /* for backward compatibility */
                 {}
         };
 

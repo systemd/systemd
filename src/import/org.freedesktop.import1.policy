@@ -20,7 +20,7 @@
 
         <action id="org.freedesktop.import1.import">
                 <description gettext-domain="systemd">Import a disk image</description>
-                <message gettext-domain="systemd">Authentication is required to import an image</message>
+                <message gettext-domain="systemd">Authentication is required to import an image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -30,7 +30,7 @@
 
         <action id="org.freedesktop.import1.export">
                 <description gettext-domain="systemd">Export a disk image</description>
-                <message gettext-domain="systemd">Authentication is required to export disk image</message>
+                <message gettext-domain="systemd">Authentication is required to export disk image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -40,7 +40,7 @@
 
         <action id="org.freedesktop.import1.pull">
                 <description gettext-domain="systemd">Download a disk image</description>
-                <message gettext-domain="systemd">Authentication is required to download a disk image</message>
+                <message gettext-domain="systemd">Authentication is required to download a disk image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -50,7 +50,7 @@
 
         <action id="org.freedesktop.import1.cancel">
                 <description gettext-domain="systemd">Cancel transfer of a disk image</description>
-                <message gettext-domain="systemd">Authentication is required to cancel the ongoing transfer of a disk image</message>
+                <message gettext-domain="systemd">Authentication is required to cancel the ongoing transfer of a disk image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

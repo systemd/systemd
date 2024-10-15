@@ -17,6 +17,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "shutdown.h"
 #include "string-util.h"
 
 typedef struct RaidDevice {
@@ -133,8 +134,7 @@ static int delete_md(RaidDevice *m) {
         if (fd < 0)
                 return -errno;
 
-        if (fsync(fd) < 0)
-                log_debug_errno(errno, "Failed to sync MD block device %s, ignoring: %m", m->path);
+        (void) sync_with_progress(fd);
 
         return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
 }

@@ -6,9 +6,8 @@
 #include "path-util.h"
 #include "percent-util.h"
 
-
 static int supported_integrity_algorithm(char *user_supplied) {
-        if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "sha1", "sha256", "hmac-sha256"))
+        if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "xxhash64", "sha1", "sha256", "hmac-sha256"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported integrity algorithm (%s)", user_supplied);
         return 0;
 }

@@ -12,6 +12,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "vmspawn-register.h"
 #include "varlink-util.h"
 
@@ -73,7 +74,7 @@ int register_machine(
                         SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path)),
-                        SD_JSON_BUILD_PAIR_CONDITION(isatty(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(isatty_safe(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(!keep_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)));
 }
 

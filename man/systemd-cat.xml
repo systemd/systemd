@@ -63,7 +63,10 @@
 
         <listitem><para>Specify a short string that is used to
         identify the logging tool. If not specified, no identification
-        string is written to the journal.</para></listitem>
+        string is set for the journal entry, and the executable name
+        (or <literal>cat</literal> if the input is read from a pipe)
+        will be used to describe the log source instead.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -298,12 +298,24 @@ fail:
         return r;
 }
 
-static void read_efi_var(const char *variable, char **ret) {
+static int efi_get_variable_string_and_warn(const char *variable, char **ret) {
         int r;
 
         r = efi_get_variable_string(variable, ret);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read EFI variable %s: %m", variable);
+                return log_warning_errno(r, "Failed to read EFI variable '%s', ignoring: %m", variable);
+
+        return r;
+}
+
+static int efi_get_variable_path_and_warn(const char *variable, char **ret) {
+        int r;
+
+        r = efi_get_variable_path(variable, ret);
+        if (r < 0 && r != -ENOENT)
+                return log_warning_errno(r, "Failed to read EFI variable '%s', ignoring: %m", variable);
+
+        return r;
 }
 
 static void print_yes_no_line(bool first, bool good, const char *name) {
@@ -378,12 +390,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_SECUREBOOT_ENROLL,       "Enroll SecureBoot keys"                },
                         { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
                         { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
+                        { EFI_LOADER_FEATURE_MULTI_PROFILE_UKI,       "Multi-Profile UKIs are supported"      },
                 };
                 static const struct {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
-                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets ESP information"                                   },
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets loader partition information"                      },
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
                         { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
@@ -392,27 +405,25 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_CMDLINE_ADDONS,            "Pick up .cmdline from addons"                                },
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
+                        { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
+                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub sets stub partition information"                        },
                 };
-                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
-                sd_id128_t loader_part_uuid = SD_ID128_NULL;
+                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
-                Tpm2Support s;
                 int have;
 
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareInfo), &fw_info);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderInfo), &loader);
-                read_efi_var(EFI_LOADER_VARIABLE(StubInfo), &stub);
-                read_efi_var(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareInfo), &fw_info);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderInfo), &loader);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(StubInfo), &stub);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(StubImageIdentifier), &stub_path);
                 (void) efi_loader_get_features(&loader_features);
                 (void) efi_stub_get_features(&stub_features);
-
-                if (loader_path)
-                        efi_tilt_backslashes(loader_path);
-
-                k = efi_loader_get_device_part_uuid(&loader_part_uuid);
-                if (k < 0 && k != -ENOENT)
-                        r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntrySelected), &current_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &oneshot_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryDefault), &default_entry);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -428,7 +439,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 else
                         printf("\n");
 
-                s = tpm2_support();
+                Tpm2Support s = tpm2_support_full(TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER);
                 printf("  TPM2 Support: %s%s%s\n",
                        FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
                        (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),
@@ -460,34 +471,58 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 }
                 printf("\n");
 
-                printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
+                if (loader) {
+                        printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
+                        printf("      Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
+                        for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
+                                print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
-                for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
-                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
+                        sd_id128_t loader_partition_uuid;
+                        bool have_loader_partition_uuid = efi_loader_get_device_part_uuid(&loader_partition_uuid) >= 0;
 
-                sd_id128_t bootloader_esp_uuid;
-                bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
+                        print_yes_no_line(false, have_loader_partition_uuid, "Boot loader set ESP information");
 
-                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP information");
-                if (have_bootloader_esp_uuid && !sd_id128_is_null(esp_uuid) &&
-                    !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
-                        printf("WARNING: The boot loader reports a different ESP UUID than detected ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                               SD_ID128_FORMAT_VAL(bootloader_esp_uuid),
-                               SD_ID128_FORMAT_VAL(esp_uuid));
+                        if (current_entry)
+                                printf("Current Entry: %s\n", current_entry);
+                        if (default_entry)
+                                printf("Default Entry: %s\n", default_entry);
+                        if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
+                                printf("OneShot Entry: %s\n", oneshot_entry);
+
+                        if (have_loader_partition_uuid && !sd_id128_is_null(esp_uuid) && !sd_id128_equal(esp_uuid, loader_partition_uuid))
+                                printf("WARNING: The boot loader reports a different partition UUID than the detected ESP ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                       SD_ID128_FORMAT_VAL(loader_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid));
+
+                        if (!sd_id128_is_null(loader_partition_uuid))
+                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                       SD_ID128_FORMAT_VAL(loader_partition_uuid));
+                        else
+                                printf("    Partition: n/a\n");
+                        printf("       Loader: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                        printf("\n");
+                }
 
                 if (stub) {
-                        printf("         Stub: %s\n", stub);
+                        printf("%sCurrent Stub:%s\n", ansi_underline(), ansi_normal());
+                        printf("      Product: %s%s%s\n", ansi_highlight(), stub, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
+
+                        sd_id128_t stub_partition_uuid;
+                        bool have_stub_partition_uuid = efi_stub_get_device_part_uuid(&stub_partition_uuid) >= 0;
+
+                        if (have_stub_partition_uuid && (!(!sd_id128_is_null(esp_uuid) && sd_id128_equal(esp_uuid, stub_partition_uuid)) &&
+                                                         !(!sd_id128_is_null(xbootldr_uuid) && sd_id128_equal(xbootldr_uuid, stub_partition_uuid))))
+                                printf("WARNING: The stub loader reports a different UUID than the detected ESP or XBOOTDLR partition ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
+                                       SD_ID128_FORMAT_VAL(stub_partition_uuid), SD_ID128_FORMAT_VAL(esp_uuid), SD_ID128_FORMAT_VAL(xbootldr_uuid));
+                        if (!sd_id128_is_null(stub_partition_uuid))
+                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                       SD_ID128_FORMAT_VAL(stub_partition_uuid));
+                        else
+                                printf("    Partition: n/a\n");
+                        printf("         Stub: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(stub_path));
+                        printf("\n");
                 }
-                if (!sd_id128_is_null(loader_part_uuid))
-                        printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
-                               SD_ID128_FORMAT_VAL(loader_part_uuid));
-                else
-                        printf("          ESP: n/a\n");
-                printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
-                printf("\n");
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;

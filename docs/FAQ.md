@@ -104,7 +104,7 @@ A: Use:
 
 **Q: Whenever my service tries to acquire RT scheduling for one of its threads this is refused with EPERM even though my service is running with full privileges. This works fine on my non-systemd system!**
 
-A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](/MY_SERVICE_CANT_GET_REATLIME) for a longer discussion and what to do about this.
+A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](/MY_SERVICE_CANT_GET_REALTIME) for a longer discussion and what to do about this.
 
 **Q: My service is ordered after `network.target` but at boot it is still called before the network is up. What's going on?**
 

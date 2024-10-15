@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
-        ASSERT_OK(set_unit_path(unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, "sd_trivial", &p);

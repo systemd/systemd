@@ -78,6 +78,8 @@ static int run(int argc, char *argv[]) {
                                /* discard = */ true,
                                /* quiet = */ true,
                                /* sector_size = */ 0,
+                               /* compression = */ NULL,
+                               /* compression_level = */ NULL,
                                /* extra_mkfs_options = */ NULL);
 }
 

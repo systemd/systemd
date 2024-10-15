@@ -149,9 +149,7 @@ int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags) {
                 if (pid == 0)
                         return -EREMOTE;
 
-                /* We might read kernel thread pids from cgroup.procs for which we cannot create a pidfd so
-                 * catch those and don't try to create a pidfd for them. */
-                if (FLAGS_SET(flags, CGROUP_NO_PIDFD) || pid_is_kernel_thread(pid) > 0) {
+                if (FLAGS_SET(flags, CGROUP_NO_PIDFD)) {
                         *ret = PIDREF_MAKE_FROM_PID(pid);
                         return 1;
                 }
@@ -625,7 +623,7 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
          * - we can modify the hierarchy. */
 
         cpath = strjoina("/sys/fs/cgroup/", dn, root, root ? "/cgroup.procs" : NULL);
-        return laccess(cpath, root ? W_OK : F_OK);
+        return access_nofollow(cpath, root ? W_OK : F_OK);
 }
 
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret) {

@@ -74,6 +74,7 @@
 #define BUS_ERROR_CNAME_LOOP                   "org.freedesktop.resolve1.CNameLoop"
 #define BUS_ERROR_ABORTED                      "org.freedesktop.resolve1.Aborted"
 #define BUS_ERROR_NO_SUCH_SERVICE              "org.freedesktop.resolve1.NoSuchService"
+#define BUS_ERROR_INCONSISTENT_SERVICE_RECORDS "org.freedesktop.resolve1.InconsistentServiceRecords"
 #define BUS_ERROR_DNSSEC_FAILED                "org.freedesktop.resolve1.DnssecFailed"
 #define BUS_ERROR_NO_TRUST_ANCHOR              "org.freedesktop.resolve1.NoTrustAnchor"
 #define BUS_ERROR_RR_TYPE_UNSUPPORTED          "org.freedesktop.resolve1.ResourceRecordTypeUnsupported"
@@ -157,5 +158,7 @@
 #define BUS_ERROR_HOME_IN_USE                  "org.freedesktop.home1.HomeInUse"
 #define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
 #define BUS_ERROR_HOME_NOT_REFERENCED          "org.freedesktop.home1.HomeNotReferenced"
+
+#define BUS_ERROR_NO_UPDATE_CANDIDATE          "org.freedesktop.sysupdate1.NoCandidate"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

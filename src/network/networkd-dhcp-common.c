@@ -53,8 +53,10 @@ bool link_dhcp_enabled(Link *link, int family) {
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
 
-        /* Currently, sd-dhcp-client supports only ethernet and infiniband. */
-        if (family == AF_INET && !IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
+        /* Currently, sd-dhcp-client supports only ethernet and infiniband.
+         * (ARMHRD_RAWIP and ARMHRD_NONE are typically wwan modems and will be
+         * treated as ethernet devices.) */
+        if (family == AF_INET && !IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND, ARPHRD_RAWIP, ARPHRD_NONE))
                 return false;
 
         if (family == AF_INET6 && !socket_ipv6_is_supported())
@@ -69,7 +71,7 @@ bool link_dhcp_enabled(Link *link, int family) {
         if (!link->network)
                 return false;
 
-        return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+        return link->network->dhcp & AF_TO_ADDRESS_FAMILY(family);
 }
 
 void network_adjust_dhcp(Network *network) {

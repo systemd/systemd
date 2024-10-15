@@ -422,7 +422,6 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
 
         (void) unlink("/tmp/test-exec_environmentfile.conf");
 
-
         r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
         ASSERT_OK(r);
 
@@ -1397,7 +1396,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
         ASSERT_NOT_NULL(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
         ASSERT_NOT_NULL(unit_paths = strjoin(PRIVATE_UNIT_DIR, ":", user_runtime_unit_dir));
-        ASSERT_OK(set_unit_path(unit_paths));
+        ASSERT_OK(setenv_unit_path(unit_paths));
 
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))

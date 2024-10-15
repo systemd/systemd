@@ -300,9 +300,10 @@ int log_emergency_level(void);
 #define log_dump(level, buffer)                                         \
         log_dump_internal(level, 0, PROJECT_FILE, __LINE__, __func__, buffer)
 
-#define log_oom() log_oom_internal(LOG_ERR, PROJECT_FILE, __LINE__, __func__)
-#define log_oom_debug() log_oom_internal(LOG_DEBUG, PROJECT_FILE, __LINE__, __func__)
-#define log_oom_warning() log_oom_internal(LOG_WARNING, PROJECT_FILE, __LINE__, __func__)
+#define log_oom_full(level) log_oom_internal(level, PROJECT_FILE, __LINE__, __func__)
+#define log_oom()           log_oom_full(LOG_ERR)
+#define log_oom_debug()     log_oom_full(LOG_DEBUG)
+#define log_oom_warning()   log_oom_full(LOG_WARNING)
 
 bool log_on_console(void) _pure_;
 
@@ -359,6 +360,18 @@ int log_syntax_invalid_utf8_internal(
                 const char *func,
                 const char *rvalue);
 
+int log_syntax_parse_error_internal(
+                const char *unit,
+                const char *config_file,
+                unsigned config_line,
+                int error,
+                bool critical, /* When true, propagate the passed error, otherwise this always returns 0. */
+                const char *file,
+                int line,
+                const char *func,
+                const char *lvalue,
+                const char *rvalue);
+
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
@@ -374,6 +387,12 @@ int log_syntax_invalid_utf8_internal(
                         ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, rvalue) \
                         : -EINVAL;                                      \
         })
+
+#define log_syntax_parse_error_full(unit, config_file, config_line, error, critical, lvalue, rvalue) \
+        log_syntax_parse_error_internal(unit, config_file, config_line, error, critical, PROJECT_FILE, __LINE__, __func__, lvalue, rvalue)
+
+#define log_syntax_parse_error(unit, config_file, config_line, error, lvalue, rvalue) \
+        log_syntax_parse_error_full(unit, config_file, config_line, error, /* critical = */ false, lvalue, rvalue)
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 

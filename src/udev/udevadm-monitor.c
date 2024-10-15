@@ -208,9 +208,11 @@ int monitor_main(int argc, char *argv[], void *userdata) {
                 goto finalize;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(event, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to install SIGINT/SIGTERM handling: %m");
+                goto finalize;
+        }
 
         printf("monitor will print the received events for:\n");
         if (arg_print_udev) {

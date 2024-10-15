@@ -9,11 +9,7 @@ if [[ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]]; then
     exit 1
 fi
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
@@ -73,11 +69,12 @@ build() {
     CXX_LD="$( ((LLVM)) && echo lld)" \
     rpmbuild \
         -bb \
+        --noprep \
         --build-in-place \
         --with upstream \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
-        --define "_sourcedir pkg/$PKG_SUBDIR" \
+        --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
         --define "_rpmdir $OUTPUTDIR" \
         ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
         --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -97,7 +94,6 @@ build() {
         --define "__script_requires %{nil}" \
         --define "_find_debuginfo_dwz_opts %{nil}" \
         --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
-        --define "_fixperms true" \
         --noclean \
         "$@" \
         "pkg/$PKG_SUBDIR/systemd.spec"

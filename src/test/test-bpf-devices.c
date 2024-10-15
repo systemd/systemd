@@ -248,7 +248,6 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         assert_se(wrong == 0);
 }
 
-
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL, *parent = NULL;
         _cleanup_(rmdir_and_freep) char *controller_path = NULL;

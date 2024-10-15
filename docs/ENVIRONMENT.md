@@ -23,17 +23,17 @@ All tools:
 * `$SYSTEMD_OFFLINE=[0|1]` — if set to `1`, then `systemctl` will refrain from
   talking to PID 1; this has the same effect as the historical detection of
   `chroot()`. Setting this variable to `0` instead has a similar effect as
-  `$SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to communicate with PID 1
+  `$SYSTEMD_IN_CHROOT=0`; i.e. tools will try to communicate with PID 1
   even if a `chroot()` environment is detected. You almost certainly want to
   set this to `1` if you maintain a package build system or similar and are
   trying to use a modern container system and not plain `chroot()`.
 
-* `$SYSTEMD_IGNORE_CHROOT=1` — if set, don't check whether being invoked in a
-  `chroot()` environment. This is particularly relevant for systemctl, as it
-  will not alter its behaviour for `chroot()` environments if set. Normally it
-  refrains from talking to PID 1 in such a case; turning most operations such
-  as `start` into no-ops.  If that's what's explicitly desired, you might
-  consider setting `$SYSTEMD_OFFLINE=1`.
+* `$SYSTEMD_IN_CHROOT=0|1` — takes a boolean. If set, overrides chroot detection.
+  This is particularly relevant for systemctl, as it will not alter its behaviour
+  for `chroot()` environments if `SYSTEMD_IN_CHROOT=0`. Normally it refrains from
+  talking to PID 1 in such a case; turning most operations such as `start` into
+  no-ops. If that's what's explicitly desired, you might consider setting
+  `$SYSTEMD_OFFLINE=1`.
 
 * `$SYSTEMD_FIRST_BOOT=0|1` — if set, assume "first boot" condition to be false
   or true, instead of checking the flag file created by PID 1.
@@ -404,7 +404,7 @@ All tools:
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
 
-`systemd-sysusers`
+`systemd-sysusers`:
 
 * `$SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
   in `/etc/shadow` will be the number of days from Jan 1, 1970 00:00 UTC until

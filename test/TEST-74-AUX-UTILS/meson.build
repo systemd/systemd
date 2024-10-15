@@ -4,5 +4,8 @@ integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
                 'storage': 'persistent',
+                'vm' : true,
         },
 ]
+
+testdata_subdirs += [meson.current_source_dir() / 'TEST-74-AUX-UTILS.units']

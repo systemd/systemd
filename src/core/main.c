@@ -57,6 +57,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -174,14 +175,14 @@ static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
 
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE, "Invalid crash action");
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_action, CrashAction, CRASH_FREEZE);
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
         int r;
 
-        r = xdg_user_config_dir(&base, "/systemd");
+        r = xdg_user_config_dir("/systemd", &base);
         if (r < 0)
                 return r;
 
@@ -783,9 +784,9 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0,                        NULL                              },
                 { "Manager", "DefaultDeviceTimeoutSec",      config_parse_sec,                   0,                        &arg_defaults.device_timeout_usec },
                 { "Manager", "DefaultRestartSec",            config_parse_sec,                   0,                        &arg_defaults.restart_usec        },
-                { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit_interval}, /* obsolete alias */
-                { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit_interval},
-                { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit_burst   },
+                { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit.interval}, /* obsolete alias */
+                { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit.interval},
+                { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit.burst   },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
                 { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
@@ -1938,7 +1939,7 @@ static int do_reexecute(
                 FDSet *fds,
                 const char *switch_root_dir,
                 const char *switch_root_init,
-                uint64_t capability_ambient_set,
+                uint64_t saved_capability_ambient_set,
                 const char **ret_error_message) {
 
         size_t i, args_size;
@@ -2000,7 +2001,7 @@ static int do_reexecute(
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
 
-        r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(saved_capability_ambient_set, /* also_inherit= */ false);
         if (r < 0)
                 log_warning_errno(r, "Failed to apply the starting ambient set, ignoring: %m");
 
@@ -2379,12 +2380,12 @@ static int initialize_runtime(
                 bool first_boot,
                 struct rlimit *saved_rlimit_nofile,
                 struct rlimit *saved_rlimit_memlock,
-                uint64_t *original_ambient_set,
+                uint64_t *saved_ambient_set,
                 const char **ret_error_message) {
 
         int r;
 
-        assert(original_ambient_set);
+        assert(saved_ambient_set);
         assert(ret_error_message);
 
         /* Sets up various runtime parameters. Many of these initializations are conditionalized:
@@ -2478,7 +2479,7 @@ static int initialize_runtime(
                 /* Create the runtime directory and place the inaccessible device nodes there, if we run in
                  * user mode. In system mode mount_setup() already did that. */
 
-                r = xdg_user_runtime_dir(&p, "/systemd");
+                r = xdg_user_runtime_dir("/systemd", &p);
                 if (r < 0) {
                         *ret_error_message = "$XDG_RUNTIME_DIR is not set";
                         return log_struct_errno(LOG_EMERG, r,
@@ -2506,14 +2507,16 @@ static int initialize_runtime(
          * system manager operation, because by default it starts with an empty ambient set.
          *
          * Preserve the ambient set for later use with sd-executor processes. */
-        r = capability_get_ambient(original_ambient_set);
+        r = capability_get_ambient(saved_ambient_set);
         if (r < 0)
                 log_warning_errno(r, "Failed to save ambient capabilities, ignoring: %m");
 
         /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
          * not affect the permitted and effective sets which are important for the manager itself to
          * operate. */
-        (void) capability_ambient_set_apply(0, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(0, /* also_inherit= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset ambient capability set, ignoring: %m");
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
@@ -2918,6 +2921,12 @@ static int initialize_security(
                 return r;
         }
 
+        r = ipe_setup();
+        if (r < 0) {
+                *ret_error_message = "Failed to load IPE policy";
+                return r;
+        }
+
         dual_timestamp_now(security_finish_timestamp);
         return 0;
 }
@@ -3011,7 +3020,7 @@ int main(int argc, char *argv[]) {
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
         const char *error_message = NULL;
-        uint64_t original_ambient_set;
+        uint64_t saved_ambient_set = 0;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
         FDSet *fds = NULL;
@@ -3286,7 +3295,7 @@ int main(int argc, char *argv[]) {
                                first_boot,
                                &saved_rlimit_nofile,
                                &saved_rlimit_memlock,
-                               &original_ambient_set,
+                               &saved_ambient_set,
                                &error_message);
         if (r < 0)
                 goto finish;
@@ -3308,7 +3317,7 @@ int main(int argc, char *argv[]) {
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_START)] = security_start_timestamp;
         m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_FINISH)] = security_finish_timestamp;
 
-        m->original_ambient_set = original_ambient_set;
+        m->saved_ambient_set = saved_ambient_set;
 
         set_manager_defaults(m);
         set_manager_settings(m);
@@ -3385,7 +3394,7 @@ finish:
                                  fds,
                                  switch_root_dir,
                                  switch_root_init,
-                                 original_ambient_set,
+                                 saved_ambient_set,
                                  &error_message); /* This only returns if reexecution failed */
 
         arg_serialization = safe_fclose(arg_serialization);

@@ -620,7 +620,6 @@ static int nft_add_element(
         assert(key);
         assert(data || dlen == 0);
 
-
         /*
          * Ideally there would be an API that provides:
          *
@@ -1284,16 +1283,11 @@ int config_parse_nft_set(
         NFTSetContext *nft_set_context = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(nft_set_context);
         assert(IN_SET(ltype, NFT_SET_PARSE_NETWORK, NFT_SET_PARSE_CGROUP));
 
         if (isempty(rvalue)) {
                 nft_set_context_clear(nft_set_context);
-
-                return 0;
+                return 1;
         }
 
         for (const char *p = rvalue;;) {
@@ -1303,17 +1297,10 @@ int config_parse_nft_set(
                 NFTSetSource source;
 
                 r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        _cleanup_free_ char *esc = NULL;
-
-                        esc = cescape(rvalue);
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax %s=%s, ignoring: %m", lvalue, strna(esc));
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
-                        return 0;
+                        return 1;
 
                 q = tuple;
                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &family_str, &table, &set);
@@ -1365,7 +1352,7 @@ int config_parse_nft_set(
 
                 r = nft_set_add(nft_set_context, source, nfproto, table, set);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         assert_not_reached();

@@ -23,12 +23,15 @@
 #include "iovec-util.h"
 #include "json-internal.h"
 #include "json-util.h"
+#include "ordered-set.h"
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "set.h"
+#include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -2075,6 +2078,14 @@ _public_ int sd_json_variant_set_field_string(sd_json_variant **v, const char *f
         return sd_json_variant_set_field(v, field, m);
 }
 
+_public_ int sd_json_variant_set_field_id128(sd_json_variant **v, const char *field, sd_id128_t value) {
+        return sd_json_variant_set_field_string(v, field, SD_ID128_TO_STRING(value));
+}
+
+_public_ int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *field, sd_id128_t value) {
+        return sd_json_variant_set_field_string(v, field, SD_ID128_TO_UUID_STRING(value));
+}
+
 _public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t i) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
@@ -4081,6 +4092,42 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_STRING_ORDERED_SET: {
+                        OrderedSet *set;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        set = va_arg(ap, OrderedSet*);
+
+                        if (current->n_suppress == 0) {
+                                _cleanup_free_ char **sv = NULL;
+
+                                sv = ordered_set_get_strv(set);
+                                if (!sv) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                r = sd_json_variant_new_array_strv(&add, sv);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_DUAL_TIMESTAMP: {
                         dual_timestamp *ts;
 
@@ -4098,7 +4145,128 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                                         SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
                                                         SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
                                         if (r < 0)
-                                                return r;
+                                                goto finish;
+                                } else
+                                        add = JSON_VARIANT_MAGIC_NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_RATELIMIT: {
+                        const RateLimit *rl;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        rl = va_arg(ap, const RateLimit*);
+
+                        if (current->n_suppress == 0) {
+                                if (ratelimit_configured(rl)) {
+                                        r = sd_json_buildo(
+                                                        &add,
+                                                        SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
+                                                        SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                        if (r < 0)
+                                                goto finish;
+                                } else
+                                        add = JSON_VARIANT_MAGIC_NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_PIDREF: {
+                        PidRef *pidref;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        pidref = va_arg(ap, PidRef*);
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_pidref(&add, pidref);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_DEVNUM: {
+                        dev_t devnum;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        devnum = va_arg(ap, dev_t);
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_devnum(&add, devnum);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_TRISTATE: {
+                        int tristate;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        tristate = va_arg(ap, int);
+
+                        if (current->n_suppress == 0) {
+                                if (tristate >= 0) {
+                                        r = sd_json_variant_new_boolean(&add, tristate);
+                                        if (r < 0)
+                                                goto finish;
                                 } else
                                         add = JSON_VARIANT_MAGIC_NULL;
                         }
@@ -4251,9 +4419,47 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO: {
+                case _JSON_BUILD_PAIR_INTEGER_NON_ZERO:
+                case _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE: {
                         const char *n;
-                        uint64_t u;
+                        int64_t i;
+                        bool include;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        i = va_arg(ap, int64_t);
+
+                        if (command == _JSON_BUILD_PAIR_INTEGER_NON_ZERO)
+                                include = i != 0;
+                        else if (command == _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE)
+                                include = i >= 0;
+                        else
+                                assert_not_reached();
+
+                        if (include && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_integer(&add_more, i);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO:
+                case _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL: {
+                        const char *n;
+                        uint64_t u, eq;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4262,8 +4468,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                         n = va_arg(ap, const char *);
                         u = va_arg(ap, uint64_t);
+                        eq = command == _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO ? 0 : va_arg(ap, uint64_t);
 
-                        if (u != 0 && current->n_suppress == 0) {
+                        if (u != eq && current->n_suppress == 0) {
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4380,6 +4587,36 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 add_more = sd_json_variant_ref(v);
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY: {
+                        const void *array;
+                        size_t sz;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        array = va_arg(ap, const void*);
+                        sz = va_arg(ap, size_t);
+
+                        if (sz > 0 && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_array_bytes(&add_more, array, sz);
+                                if (r < 0)
+                                        goto finish;
                         }
 
                         n_subtract = 2; /* we generated two item */
@@ -4520,6 +4757,192 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 r = sd_json_variant_new_array_bytes(&add_more, a->bytes, a->length);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL: {
+                        const dual_timestamp *ts;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        ts = va_arg(ap, const dual_timestamp*);
+
+                        if (ts && dual_timestamp_is_set(ts) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_buildo(&add_more,
+                                                SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
+                                                SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_RATELIMIT_ENABLED: {
+                        const RateLimit *rl;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        rl = va_arg(ap, const RateLimit*);
+
+                        if (rl && ratelimit_configured(rl) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_buildo(&add_more,
+                                                SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
+                                                SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_PIDREF_NON_NULL: {
+                        PidRef *p;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        p = va_arg(ap, PidRef*);
+
+                        if (pidref_is_set(p) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = json_variant_new_pidref(&add_more, p);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two items */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_CALLBACK_NON_NULL: {
+                        sd_json_build_callback_t cb;
+                        void *userdata;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        cb = va_arg(ap, sd_json_build_callback_t);
+                        userdata = va_arg(ap, void*);
+
+                        if (current->n_suppress == 0) {
+                                if (cb) {
+                                        r = cb(&add_more, n, userdata);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                if (add_more) {
+                                        r = sd_json_variant_new_string(&add, n);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_BASE64_NON_EMPTY:
+                case _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY:
+                case _JSON_BUILD_PAIR_HEX_NON_EMPTY:
+                case _JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY: {
+                        const void *p;
+                        size_t sz;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        p = va_arg(ap, const void *);
+                        sz = va_arg(ap, size_t);
+
+                        if (sz > 0 && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = command == _SD_JSON_BUILD_BASE64    ? sd_json_variant_new_base64(&add_more, p, sz) :
+                                    command == _SD_JSON_BUILD_BASE32HEX ? sd_json_variant_new_base32hex(&add_more, p, sz) :
+                                    command == _SD_JSON_BUILD_HEX       ? sd_json_variant_new_hex(&add_more, p, sz) :
+                                                                          sd_json_variant_new_octescape(&add_more, p, sz);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_TRISTATE_NON_NULL: {
+                        int tristate;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char*);
+                        tristate = va_arg(ap, int);
+
+                        if (tristate >= 0 && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_boolean(&add_more, tristate);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -5039,22 +5462,16 @@ _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant,
 
 _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = ASSERT_PTR(userdata);
+        const char *n;
         int r;
 
         assert_return(variant, -EINVAL);
 
-        if (sd_json_variant_is_null(variant)) {
-                *s = mfree(*s);
-                return 0;
-        }
+        r = sd_json_dispatch_const_string(name, variant, flags, &n);
+        if (r < 0)
+                return r;
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        if ((flags & SD_JSON_STRICT) && !string_is_safe(sd_json_variant_string(variant)))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' contains unsafe characters, refusing.", strna(name));
-
-        r = free_and_strdup(s, sd_json_variant_string(variant));
+        r = free_and_strdup(s, n);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to allocate string: %m");
 
@@ -5193,6 +5610,29 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid UID.", strna(name));
 
+        return 0;
+}
+
+_public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *signo = userdata;
+        uint32_t k;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *signo = SIGNO_INVALID;
+                return 0;
+        }
+
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (!SIGNAL_VALID(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+
+        *signo = k;
         return 0;
 }
 

@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2022-10-24 15:23+0000\n"
 "Last-Translator: H A <contact+fedora@hen.ee>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
@@ -344,7 +344,7 @@ msgstr "Impordi VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr "Autentmine on vajalik, et importida VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -354,7 +354,7 @@ msgstr "Ekspordi VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr "Autentmine on vajalik, et eksportida VM või konteinerpilti"
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -364,7 +364,7 @@ msgstr "Lae alla VM või konteinerpildi"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr "Autentmine on vajalik, et laadida alla VM või konteinerpildi"
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -374,7 +374,7 @@ msgstr ""
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr "Autentimine on vajalik, et muuta kasutaja koduala parooli."
 
 #: src/locale/org.freedesktop.locale1.policy:22
@@ -735,8 +735,9 @@ msgid "Set a wall message"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
-msgstr ""
+#, fuzzy
+msgid "Authentication is required to set a wall message."
+msgstr "Autentimine on vajalik, et saata sunduuendamis sõnumi."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -807,10 +808,23 @@ msgstr ""
 "konteinereid."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Halda kohalikke virtuaalsüsteeme ja konteinereid"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Autentimine on vajalik, et hallata kohalikke virtuaalsüsteeme ja "
+"konteinereid."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Halda kohalikke virtuaalmasinaid ja konteinerpilte"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -996,7 +1010,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registeeri DNS-SD teenust"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Autentimine on vajalik, et registeerida DNS-SD teenust"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1004,8 +1019,9 @@ msgid "Unregister a DNS-SD service"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
-msgstr ""
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "Autentimine on vajalik, et registeerida DNS-SD teenust"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1014,6 +1030,89 @@ msgstr "Lähtesta nimeteenuse seadeid"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Autentimine on vajalik, et lähtestada nimeteenuse seadeid."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Autentimine on vajalik, et seadistada default route."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Autentimine on vajalik, et seadistada domeene."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Autentimine on vajalik, et seadistada NTP servereid."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Autentimine on vajalik, et seadistada domeene."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Autentimine on vajalik, et taastada NTP sätted."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Autentimine on vajalik, et määrata süsteemi ajavööndit."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Autentimine on vajalik, et määrata süsteemi aega."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

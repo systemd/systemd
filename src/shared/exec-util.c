@@ -50,13 +50,13 @@ static int do_spawn(
         assert(ret_pid);
 
         if (null_or_empty_path(path) > 0) {
-                log_debug("%s is empty (a mask).", path);
+                log_debug("%s is masked, skipping.", path);
                 return 0;
         }
 
         pid_t pid;
         r = safe_fork_full(
-                        "(direxec)",
+                        "(exec-inner)",
                         (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS,
@@ -89,11 +89,11 @@ static int do_spawn(
 }
 
 static int do_execute(
-                char* const* paths,
+                char * const *paths,
                 const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
+                void * const callback_args[_STDOUT_CONSUME_MAX],
                 int output_fd,
                 char *argv[],
                 char *envp[],
@@ -103,12 +103,15 @@ static int do_execute(
         bool parallel_execution;
         int r;
 
-        /* We fork this all off from a child process so that we can somewhat cleanly make
-         * use of SIGALRM to set a time limit.
+        /* We fork this all off from a child process so that we can somewhat cleanly make use of SIGALRM
+         * to set a time limit.
          *
-         * We attempt to perform parallel execution if configured by the user, however
-         * if `callbacks` is nonnull, execution must be serial.
+         * We attempt to perform parallel execution if configured by the user, however if `callbacks` is nonnull,
+         * execution must be serial.
          */
+
+        assert(!strv_isempty(paths));
+
         parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
 
         if (parallel_execution) {
@@ -154,6 +157,18 @@ static int do_execute(
                                 args = quote_command_line(strv_skip(argv, 1), SHELL_ESCAPE_EMPTY);
 
                         log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
+                }
+
+                if (FLAGS_SET(flags, EXEC_DIR_WARN_WORLD_WRITABLE)) {
+                        struct stat st;
+
+                        r = stat(t, &st);
+                        if (r < 0)
+                                log_warning_errno(errno, "Failed to stat '%s', ignoring: %m", t);
+                        else if (S_ISREG(st.st_mode) && (st.st_mode & 0002))
+                                log_warning("'%s' is marked world-writable, which is a security risk as it "
+                                            "is executed with privileges. Please remove world writability "
+                                            "permission bits. Proceeding anyway.", t);
                 }
 
                 r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pid);
@@ -206,12 +221,11 @@ static int do_execute(
         while (!hashmap_isempty(pids)) {
                 _cleanup_free_ char *t = NULL;
                 pid_t pid;
+                void *p;
 
-                pid = PTR_TO_PID(hashmap_first_key(pids));
+                t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, &p));
+                pid = PTR_TO_PID(p);
                 assert(pid > 0);
-
-                t = hashmap_remove(pids, PID_TO_PTR(pid));
-                assert(t);
 
                 r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
                 if (r < 0)
@@ -225,11 +239,11 @@ static int do_execute(
 
 int execute_strv(
                 const char *name,
-                char* const* paths,
+                char * const *paths,
                 const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
+                void * const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
                 char *envp[],
                 ExecDirFlags flags) {
@@ -245,10 +259,10 @@ int execute_strv(
 
         if (callbacks) {
                 assert(name);
-                assert(callback_args);
                 assert(callbacks[STDOUT_GENERATE]);
                 assert(callbacks[STDOUT_COLLECT]);
                 assert(callbacks[STDOUT_CONSUME]);
+                assert(callback_args);
 
                 fd = open_serialization_fd(name);
                 if (fd < 0)
@@ -286,10 +300,10 @@ int execute_strv(
 }
 
 int execute_directories(
-                const char* const* directories,
+                const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
+                void * const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
                 char *envp[],
                 ExecDirFlags flags) {
@@ -298,7 +312,7 @@ int execute_directories(
         _cleanup_free_ char *name = NULL;
         int r;
 
-        assert(!strv_isempty((char**) directories));
+        assert(!strv_isempty((char* const*) directories));
 
         r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
         if (r < 0)
@@ -315,7 +329,7 @@ int execute_directories(
                         return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
         }
 
-        return execute_strv(name, paths, NULL, timeout, callbacks, callback_args, argv, envp, flags);
+        return execute_strv(name, paths, /* root = */ NULL, timeout, callbacks, callback_args, argv, envp, flags);
 }
 
 static int gather_environment_generate(int fd, void *arg) {
@@ -324,11 +338,13 @@ static int gather_environment_generate(int fd, void *arg) {
         _cleanup_strv_free_ char **new = NULL;
         int r;
 
-        /* Read a series of VAR=value assignments from fd, use them to update the list of
-         * variables in env. Also update the exported environment.
+        /* Read a series of VAR=value assignments from fd, use them to update the list of variables in env.
+         * Also update the exported environment.
          *
          * fd is always consumed, even on error.
          */
+
+        assert(fd >= 0);
 
         f = fdopen(fd, "r");
         if (!f) {
@@ -350,7 +366,7 @@ static int gather_environment_generate(int fd, void *arg) {
                 if (r < 0)
                         return r;
 
-                if (setenv(*x, *y, true) < 0)
+                if (setenv(*x, *y, /* overwrite = */ true) < 0)
                         return -errno;
         }
 
@@ -358,11 +374,13 @@ static int gather_environment_generate(int fd, void *arg) {
 }
 
 static int gather_environment_collect(int fd, void *arg) {
-        _cleanup_fclose_ FILE *f = NULL;
         char ***env = ASSERT_PTR(arg);
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         /* Write out a series of env=cescape(VAR=value) assignments to fd. */
+
+        assert(fd >= 0);
 
         f = fdopen(fd, "w");
         if (!f) {
@@ -382,11 +400,13 @@ static int gather_environment_collect(int fd, void *arg) {
 }
 
 static int gather_environment_consume(int fd, void *arg) {
-        _cleanup_fclose_ FILE *f = NULL;
         char ***env = ASSERT_PTR(arg);
-        int r = 0;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r, ret = 0;
 
         /* Read a series of env=cescape(VAR=value) assignments from fd into env. */
+
+        assert(fd >= 0);
 
         f = fdopen(fd, "r");
         if (!f) {
@@ -397,34 +417,32 @@ static int gather_environment_consume(int fd, void *arg) {
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 const char *v;
-                int k;
 
-                k = read_line(f, LONG_LINE_MAX, &line);
-                if (k < 0)
-                        return k;
-                if (k == 0)
-                        break;
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return ret;
 
                 v = startswith(line, "env=");
                 if (!v) {
-                        log_debug("Serialization line \"%s\" unexpectedly didn't start with \"env=\".", line);
-                        if (r == 0)
-                                r = -EINVAL;
-
+                        RET_GATHER(ret, log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                        "Serialization line unexpectedly didn't start with \"env=\", ignoring: %s",
+                                                        line));
                         continue;
                 }
 
-                k = deserialize_environment(v, env);
-                if (k < 0) {
-                        log_debug_errno(k, "Invalid serialization line \"%s\": %m", line);
-
-                        if (r == 0)
-                                r = k;
-                }
+                r = deserialize_environment(v, env);
+                if (r < 0)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to deserialize line \"%s\": %m", line));
         }
-
-        return r;
 }
+
+const gather_stdout_callback_t gather_environment[_STDOUT_CONSUME_MAX] = {
+        gather_environment_generate,
+        gather_environment_collect,
+        gather_environment_consume,
+};
 
 int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
         ExecCommandFlags flags = 0;
@@ -465,12 +483,6 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
 
         return 0;
 }
-
-const gather_stdout_callback_t gather_environment[] = {
-        gather_environment_generate,
-        gather_environment_collect,
-        gather_environment_consume,
-};
 
 static const char* const exec_command_strings[] = {
         "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
@@ -555,8 +567,8 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
 
         /* In the child: */
 
-        stdout_is_tty = isatty(STDOUT_FILENO);
-        stderr_is_tty = isatty(STDERR_FILENO);
+        stdout_is_tty = isatty_safe(STDOUT_FILENO);
+        stderr_is_tty = isatty_safe(STDERR_FILENO);
 
         if (!stdout_is_tty || !stderr_is_tty) {
                 int fd;

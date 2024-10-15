@@ -76,9 +76,9 @@
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
         <option>--ucode=</option>, <option>--splash=</option>, <option>--dtb=</option>,
-        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option> see below.  Only
-        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
-        current values of PCR register 11 instead.)</para>
+        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option>,
+        <option>--profile=</option>, see below.  Only <option>--linux=</option> is mandatory. (Alternatively,
+        specify <option>--current</option> to use the current values of PCR register 11 instead.)</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
@@ -124,6 +124,7 @@
         <term><option>--uname=<replaceable>PATH</replaceable></option></term>
         <term><option>--sbat=<replaceable>PATH</replaceable></option></term>
         <term><option>--pcrpkey=<replaceable>PATH</replaceable></option></term>
+        <term><option>--profile=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         configures the files to read the unified kernel image components from. Each option corresponds with
@@ -131,7 +132,10 @@
         the path to the ELF kernel file that the unified PE kernel will wrap. All switches except
         <option>--linux=</option> are optional. Each option may be used at most once.</para>
 
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v252"/>
+
+        <para id="v257">With the exception of <option>--profile=</option>, which has been added in version
+        257.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -282,9 +286,9 @@
       <title>Generate a private/public key pair, a unified kernel image, and a TPM PCR 11 signature for
       it, and embed the signature and the public key in the image</title>
 
-      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key.pem
 ..+.+++++++++......+.........+......+.......+....+.....+.+...+..........
-$ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
+$ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
 # systemd-measure sign \
      --linux=vmlinux \
      --osrel=os-release.txt \
@@ -292,25 +296,25 @@ $ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
      --initrd=initrd.cpio \
      --splash=splash.bmp \
      --dtb=devicetree.dtb \
-     --pcrpkey=tpm2-pcr-public.pem \
+     --pcrpkey=tpm2-pcr-public-key.pem \
      --bank=sha1 \
      --bank=sha256 \
-     --private-key=tpm2-pcr-private.pem \
-     --public-key=tpm2-pcr-public.pem >tpm2-pcr-signature.json
+     --private-key=tpm2-pcr-private-key.pem \
+     --public-key=tpm2-pcr-public-key.pem >tpm2-pcr-signature.json
 # ukify --output=vmlinuz.efi \
      --os-release=@os-release.txt \
      --cmdline=@cmdline.txt \
      --splash=splash.bmp \
      --devicetree=devicetree.dtb \
-     --pcr-private-key=tpm2-pcr-private.pem \
-     --pcr-public-key=tpm2-pcr-public.pem \
+     --pcr-private-key=tpm2-pcr-private-key.pem \
+     --pcr-public-key=tpm2-pcr-public-key.pem \
      --pcr-banks=sha1,sha256 \
      vmlinux initrd.cpio</programlisting>
 
      <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
 
      <programlisting># systemd-cryptenroll --tpm2-device=auto \
-     --tpm2-public-key=tpm2-pcr-public.pem \
+     --tpm2-public-key=tpm2-pcr-public-key.pem \
      --tpm2-signature=tpm2-pcr-signature.json \
      /dev/sda5</programlisting>
 
@@ -335,38 +339,38 @@ $ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
       two classes of secrets or credentials: one that can be unlocked during the entire runtime, and the
       other that can only be used in the initrd.</para>
 
-      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key.pem
 .+........+.+........+.......+...+...+........+....+......+..+..........
-$ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
-$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-initrd-private.pem
+$ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
+$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key-initrd.pem
 ..+.......++........+........+......+........+....+.....+.+..+..........
-$ openssl rsa -pubout -in tpm2-pcr-initrd-private.pem -out tpm2-pcr-initrd-public.pem
+$ openssl rsa -pubout -in tpm2-pcr-private-key-initrd.pem -out tpm2-pcr-public-key-initrd.pem
 # ukify --output vmlinux-1.2.3.efi \
      --os-release=@os-release.txt \
      --cmdline=@cmdline.txt \
      --splash=splash.bmp \
      --devicetree=devicetree.dtb \
-     --pcr-private-key=tpm2-pcr-private.pem \
-     --pcr-public-key=tpm2-pcr-public.pem \
+     --pcr-private-key=tpm2-pcr-private-key.pem \
+     --pcr-public-key=tpm2-pcr-public-key.pem \
      --phases=enter-initrd,enter-initrd:leave-initrd,enter-initrd:leave-initrd:sysinit,enter-initrd:leave-initrd:sysinit:ready \
      --pcr-banks=sha1,sha256 \
-     --pcr-private-key=tpm2-pcr-initrd-private.pem \
-     --pcr-public-key=tpm2-pcr-initrd-public.pem \
+     --pcr-private-key=tpm2-pcr-private-key-initrd.pem \
+     --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
      --phases=enter-initrd \
      vmlinux-1.2.3 initrd.cpio \
      --uname=1.2.3
 + /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
 --osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
 --splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
---private-key=tpm2-pcr-private.pem --public-key=tpm2-pcr-public.pem \
+--private-key=tpm2-pcr-private-key.pem --public-key=tpm2-pcr-public-key.pem \
 --phase=enter-initrd --phase=enter-initrd:leave-initrd \
 --phase=enter-initrd:leave-initrd:sysinit \
 --phase=enter-initrd:leave-initrd:sysinit:ready
 + /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
 --osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
 --splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
---private-key=tpm2-pcr-initrd-private.pem \
---public-key=tpm2-pcr-initrd-public.pem \
+--private-key=tpm2-pcr-private-key-initrd.pem \
+--public-key=tpm2-pcr-public-key-initrd.pem \
 --phase=enter-initrd
 Wrote unsigned vmlinux-1.2.3.efi
       </programlisting>
@@ -381,8 +385,8 @@ Wrote unsigned vmlinux-1.2.3.efi
       by the first <option>--pcr-private-key=</option> option, covering all boot phases. The
       <literal>.pcrpkey</literal> section is used in the default policies of
       <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter policy
-      bound to <filename>tpm-pcr-initrd-public.pem</filename>, specify <option>--tpm2-public-key=</option> on
-      the command line of those tools.</para>
+      bound to <filename>tpm2-pcr-public-key-initrd.pem</filename>, specify
+      <option>--tpm2-public-key=</option> on the command line of those tools.</para>
     </example>
   </refsect1>
 

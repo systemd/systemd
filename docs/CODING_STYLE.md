@@ -591,6 +591,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   important for objects that unprivileged users may allocate, but also matters
   for everything else any user may allocate.
 
+- Please use `secure_getenv()` for all environment variable accesses, unless
+  it's clear that `getenv()` would be the better choice. This matters in
+  particular in `src/basic/` and `src/shared/` (i.e. library code that might
+  end up in unexpected processes), but should be followed everywhere else too
+  (in order to make it unproblematic to move code around). To say this clearly:
+  the default should be `secure_getenv()`, the exception should be regular
+  `getenv()`.
+
 ## Types
 
 - Think about the types you use. If a value cannot sensibly be negative, do not

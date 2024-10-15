@@ -201,7 +201,6 @@ int config_parse_dns(
         for (const char *p = rvalue;;) {
                 _cleanup_(in_addr_full_freep) struct in_addr_full *dns = NULL;
                 _cleanup_free_ char *w = NULL;
-                struct in_addr_full **m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -224,12 +223,10 @@ int config_parse_dns(
                 if (IN_SET(dns->port, 53, 853))
                         dns->port = 0;
 
-                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_full*));
-                if (!m)
+                if (!GREEDY_REALLOC(n->dns, n->n_dns + 1))
                         return log_oom();
 
-                m[n->n_dns++] = TAKE_PTR(dns);
-                n->dns = m;
+                n->dns[n->n_dns++] = TAKE_PTR(dns);
         }
 }
 
@@ -291,4 +288,4 @@ static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, USE_DOMAINS_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains, "Failed to parse UseDomains=")
+DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains);

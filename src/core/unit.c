@@ -120,10 +120,7 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        u->start_ratelimit = (const RateLimit) {
-                m->defaults.start_limit_interval,
-                m->defaults.start_limit_burst,
-        };
+        u->start_ratelimit = m->defaults.start_limit;
 
         u->auto_start_stop_ratelimit = (const RateLimit) {
                 .interval = 10 * USEC_PER_SEC,
@@ -2388,7 +2385,7 @@ static int unit_log_resources(Unit *u) {
 
                 assert(io_fields[k].journal_field);
 
-                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                (void) unit_get_io_accounting(u, k, &value);
                 if (value == UINT64_MAX)
                         continue;
 
@@ -2564,7 +2561,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
                 if (j->state == JOB_RUNNING) {
                         if (ns == UNIT_ACTIVE)
                                 job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, true, false);
-                        else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
+                        else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING)) {
                                 unexpected = true;
 
                                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -3320,9 +3317,11 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         return unit_add_two_dependencies(u, d, e, other, add_reference, mask);
 }
 
-int set_unit_path(const char *p) {
+int setenv_unit_path(const char *p) {
+        assert(p);
+
         /* This is mostly for debug purposes */
-        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, 1));
+        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, /* overwrite = */ true));
 }
 
 char* unit_dbus_path(Unit *u) {
@@ -3809,7 +3808,7 @@ bool unit_need_daemon_reload(Unit *u) {
         if (u->load_state == UNIT_LOADED) {
                 _cleanup_strv_free_ char **dropins = NULL;
 
-                (void) unit_find_dropin_paths(u, &dropins);
+                (void) unit_find_dropin_paths(u, /* use_unit_path_cache = */ false, &dropins);
 
                 if (!strv_equal(u->dropin_paths, dropins))
                         return true;
@@ -3831,6 +3830,7 @@ void unit_reset_failed(Unit *u) {
 
         ratelimit_reset(&u->start_ratelimit);
         u->start_limit_hit = false;
+        u->debug_invocation = false;
 }
 
 Unit *unit_following(Unit *u) {
@@ -4217,9 +4217,10 @@ static int user_from_unit_name(Unit *u, char **ret) {
         return 0;
 }
 
-static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
+static int unit_verify_contexts(const Unit *u) {
         assert(u);
 
+        const ExecContext *ec = unit_get_exec_context(u);
         if (!ec)
                 return 0;
 
@@ -4232,6 +4233,11 @@ static int unit_verify_contexts(const Unit *u, const ExecContext *ec) {
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
             exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
+
+        const KillContext *kc = unit_get_kill_context(u);
+
+        if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
         return 0;
 }
@@ -4299,7 +4305,7 @@ int unit_patch_contexts(Unit *u) {
                         /* With DynamicUser= we want private directories, so if the user hasn't manually
                          * selected PrivateTmp=, enable it, but to a fully private (disconnected) tmpfs
                          * instance. */
-                        if (ec->private_tmp == PRIVATE_TMP_OFF)
+                        if (ec->private_tmp == PRIVATE_TMP_NO)
                                 ec->private_tmp = PRIVATE_TMP_DISCONNECTED;
                         ec->remove_ipc = true;
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
@@ -4363,7 +4369,7 @@ int unit_patch_contexts(Unit *u) {
                 }
         }
 
-        return unit_verify_contexts(u, ec);
+        return unit_verify_contexts(u);
 }
 
 ExecContext *unit_get_exec_context(const Unit *u) {
@@ -5401,24 +5407,30 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         if (!p->unit_id)
                 return -ENOMEM;
 
+        p->debug_invocation = u->debug_invocation;
+
         return 0;
 }
 
-int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
+int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret) {
+        CGroupRuntime *crt = NULL;
         pid_t pid;
         int r;
 
         assert(u);
         assert(ret);
 
-        /* Forks off a helper process and makes sure it is a member of the unit's cgroup. Returns == 0 in the child,
-         * and > 0 in the parent. The pid parameter is always filled in with the child's PID. */
+        /* Forks off a helper process and makes sure it is a member of the unit's cgroup, if configured to
+         * do so. Returns == 0 in the child, and > 0 in the parent. The pid parameter is always filled in
+         * with the child's PID. */
 
-        (void) unit_realize_cgroup(u);
+        if (into_cgroup) {
+                (void) unit_realize_cgroup(u);
 
-        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
-        if (!crt)
-                return -ENOMEM;
+                crt = unit_setup_cgroup_runtime(u);
+                if (!crt)
+                        return -ENOMEM;
+        }
 
         r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
         if (r < 0)
@@ -5442,7 +5454,7 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
         (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
         (void) ignore_signals(SIGPIPE);
 
-        if (crt->cgroup_path) {
+        if (crt && crt->cgroup_path) {
                 r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0);
                 if (r < 0) {
                         log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
@@ -5460,7 +5472,7 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
         assert(u);
         assert(ret_pid);
 
-        r = unit_fork_helper_process(u, "(sd-rmrf)", &pid);
+        r = unit_fork_helper_process(u, "(sd-rmrf)", /* into_cgroup= */ true, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -5564,12 +5576,13 @@ static int unit_get_invocation_path(Unit *u, char **ret) {
                 p = strjoin("/run/systemd/units/invocation:", u->id);
         else {
                 _cleanup_free_ char *user_path = NULL;
-                r = xdg_user_runtime_dir(&user_path, "/systemd/units/invocation:");
+
+                r = xdg_user_runtime_dir("/systemd/units/invocation:", &user_path);
                 if (r < 0)
                         return r;
+
                 p = strjoin(user_path, u->id);
         }
-
         if (!p)
                 return -ENOMEM;
 
@@ -5601,23 +5614,25 @@ static int unit_export_invocation_id(Unit *u) {
         return 0;
 }
 
-static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
+static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite) {
         const char *p;
         char buf[2];
         int r;
 
         assert(u);
-        assert(c);
 
-        if (u->exported_log_level_max)
+        /* When the debug_invocation logic runs, overwrite will be true as we always want to switch the max
+         * log level that the journal applies, and we want to always restore the previous level once done */
+
+        if (!overwrite && u->exported_log_level_max)
                 return 0;
 
-        if (c->log_level_max < 0)
+        if (log_level_max < 0)
                 return 0;
 
-        assert(c->log_level_max <= 7);
+        assert(log_level_max <= 7);
 
-        buf[0] = '0' + c->log_level_max;
+        buf[0] = '0' + log_level_max;
         buf[1] = 0;
 
         p = strjoina("/run/systemd/units/log-level-max:", u->id);
@@ -5693,12 +5708,12 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (u->exported_log_ratelimit_interval)
                 return 0;
 
-        if (c->log_ratelimit_interval_usec == 0)
+        if (c->log_ratelimit.interval == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit_interval_usec) < 0)
+        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit.interval) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
@@ -5720,12 +5735,12 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         if (u->exported_log_ratelimit_burst)
                 return 0;
 
-        if (c->log_ratelimit_burst == 0)
+        if (c->log_ratelimit.burst == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_ratelimit_burst) < 0)
+        if (asprintf(&buf, "%u", c->log_ratelimit.burst) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
@@ -5767,7 +5782,7 @@ void unit_export_state_files(Unit *u) {
 
         c = unit_get_exec_context(u);
         if (c) {
-                (void) unit_export_log_level_max(u, c);
+                (void) unit_export_log_level_max(u, c->log_level_max, /* overwrite= */ false);
                 (void) unit_export_log_extra_fields(u, c);
                 (void) unit_export_log_ratelimit_interval(u, c);
                 (void) unit_export_log_ratelimit_burst(u, c);
@@ -5823,6 +5838,29 @@ void unit_unlink_state_files(Unit *u) {
 
                 u->exported_log_ratelimit_burst = false;
         }
+}
+
+int unit_set_debug_invocation(Unit *u, bool enable) {
+        int r;
+
+        assert(u);
+
+        if (u->debug_invocation == enable)
+                return 0; /* Nothing to do */
+
+        u->debug_invocation = enable;
+
+        /* Ensure that the new log level is exported for the journal, in place of the previous one */
+        if (u->exported_log_level_max) {
+                const ExecContext *ec = unit_get_exec_context(u);
+                if (ec) {
+                        r = unit_export_log_level_max(u, enable ? LOG_PRI(LOG_DEBUG) : ec->log_level_max, /* overwrite= */ true);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 1;
 }
 
 int unit_prepare_exec(Unit *u) {
@@ -6355,6 +6393,82 @@ Condition *unit_find_failed_condition(Unit *u) {
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
 }
 
+int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
+        assert(u);
+
+        if (!UNIT_VTABLE(u)->live_mount) {
+                log_unit_debug(u, "Live mounting not supported for unit type '%s'", unit_type_to_string(u->type));
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting for unit '%s' cannot be scheduled: live mounting not supported for unit type '%s'",
+                                u->id,
+                                unit_type_to_string(u->type));
+        }
+
+        if (u->load_state != UNIT_LOADED) {
+                log_unit_debug(u, "Unit not loaded");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_NO_SUCH_UNIT,
+                                "Live mounting for unit '%s' cannot be scheduled: unit not loaded",
+                                u->id);
+        }
+
+        if (!UNIT_VTABLE(u)->can_live_mount)
+                return 0;
+
+        return UNIT_VTABLE(u)->can_live_mount(u, error);
+}
+
+int unit_live_mount(
+                Unit *u,
+                const char *src,
+                const char *dst,
+                sd_bus_message *message,
+                MountInNamespaceFlags flags,
+                const MountOptions *options,
+                sd_bus_error *error) {
+
+        assert(u);
+        assert(UNIT_VTABLE(u)->live_mount);
+
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                log_unit_debug(u, "Unit not active");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_UNIT_INACTIVE,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: unit not active",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (unit_active_state(u) == UNIT_REFRESHING) {
+                log_unit_debug(u, "Unit already live mounting");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_UNIT_BUSY,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: another live mount in progress",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (u->job) {
+                log_unit_debug(u, "Unit already has a job in progress, cannot live mount");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_UNIT_BUSY,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: another operation in progress",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        return UNIT_VTABLE(u)->live_mount(u, src, dst, message, flags, options, error);
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE]           = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
@@ -6471,6 +6585,22 @@ int unit_arm_timer(
         (void) sd_event_source_set_description(*source, d);
 
         return 0;
+}
+
+bool unit_passes_filter(Unit *u, char * const *states, char * const *patterns) {
+        assert(u);
+
+        if (!strv_isempty(states)) {
+                char * const *unit_states = STRV_MAKE(
+                                unit_load_state_to_string(u->load_state),
+                                unit_active_state_to_string(unit_active_state(u)),
+                                unit_sub_state_to_string(u));
+
+                if (!strv_overlap(states, unit_states))
+                        return false;
+        }
+
+        return strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE);
 }
 
 static int unit_get_nice(Unit *u) {

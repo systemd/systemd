@@ -236,7 +236,7 @@ static int nexthop_compare_full(const NextHop *a, const NextHop *b) {
                 return r;
 
         if (IN_SET(a->family, AF_INET, AF_INET6)) {
-                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                r = memcmp(&a->gw.address, &b->gw.address, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
         }
@@ -481,7 +481,7 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
         log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
                        str, strna(network_config_source_to_string(nexthop->source)), strna(state),
                        nexthop->id,
-                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw),
+                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw.address),
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
@@ -627,8 +627,8 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
                 if (r < 0)
                         return r;
 
-                if (in_addr_is_set(nexthop->family, &nexthop->gw)) {
-                        r = netlink_message_append_in_addr_union(m, NHA_GATEWAY, nexthop->family, &nexthop->gw);
+                if (in_addr_is_set(nexthop->family, &nexthop->gw.address)) {
+                        r = netlink_message_append_in_addr_union(m, NHA_GATEWAY, nexthop->family, &nexthop->gw.address);
                         if (r < 0)
                                 return r;
 
@@ -722,7 +722,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                         return r;
         }
 
-        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
+        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw.address);
 }
 
 static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
@@ -1093,9 +1093,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         (void) nexthop_update_group(nexthop, message);
 
         if (nexthop->family != AF_UNSPEC) {
-                r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw);
+                r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw.address);
                 if (r == -ENODATA)
-                        nexthop->gw = IN_ADDR_NULL;
+                        nexthop->gw.address = IN_ADDR_NULL;
                 else if (r < 0)
                         log_debug_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
         }
@@ -1129,66 +1129,60 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
+#define log_nexthop_section(nexthop, fmt, ...)                          \
+        ({                                                              \
+                const NextHop *_nexthop = (nexthop);                    \
+                log_section_warning_errno(                              \
+                                _nexthop ? _nexthop->section : NULL,    \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [NextHop] section.",     \
+                                ##__VA_ARGS__);                         \
+        })
+
 static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
         if (!nh->network->manager->manage_foreign_nexthops && nh->id == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: [NextHop] section without specifying Id= is not supported "
-                                         "if ManageForeignNextHops=no is set in networkd.conf. "
-                                         "Ignoring [NextHop] section from line %u.",
-                                         nh->section->filename, nh->section->line);
+                return log_nexthop_section(nh, "Nexthop without specifying Id= is not supported if ManageForeignNextHops=no is set in networkd.conf.");
+
+        if (nh->family == AF_UNSPEC)
+                nh->family = nh->gw.family;
+        else if (nh->gw.family != AF_UNSPEC && nh->gw.family != nh->family)
+                return log_nexthop_section(nh, "Family= and Gateway= settings for nexthop contradict each other.");
+
+        assert(nh->gw.family == nh->family || nh->gw.family == AF_UNSPEC);
 
         if (!hashmap_isempty(nh->group)) {
-                if (in_addr_is_set(nh->family, &nh->gw))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have gateway address. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                if (in_addr_is_set(nh->family, &nh->gw.address))
+                        return log_nexthop_section(nh, "Nexthop group cannot have gateway address.");
 
                 if (nh->family != AF_UNSPEC)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have Family= setting. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot have Family= setting.");
 
                 if (nh->blackhole)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot be a blackhole. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot be a blackhole.");
 
                 if (nh->onlink > 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: nexthop group cannot have on-link flag. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Nexthop group cannot have on-link flag.");
+
         } else if (nh->family == AF_UNSPEC)
                 /* When neither Family=, Gateway=, nor Group= is specified, assume IPv4. */
                 nh->family = AF_INET;
 
         if (nh->blackhole) {
-                if (in_addr_is_set(nh->family, &nh->gw))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: blackhole nexthop cannot have gateway address. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                if (in_addr_is_set(nh->family, &nh->gw.address))
+                        return log_nexthop_section(nh, "Blackhole nexthop cannot have gateway address.");
 
                 if (nh->onlink > 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: blackhole nexthop cannot have on-link flag. "
-                                                 "Ignoring [NextHop] section from line %u.",
-                                                 nh->section->filename, nh->section->line);
+                        return log_nexthop_section(nh, "Blackhole nexthop cannot have on-link flag.");
         }
 
-        if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
+        if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw.address) &&
             ordered_hashmap_isempty(nh->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
-                log_warning("%s: Gateway= without static address configured. "
-                            "Enabling OnLink= option.",
-                            nh->section->filename);
+                log_section_warning(nh->section, "Nexthop with Gateway= specified, but no static address configured. Enabling OnLink= option.");
                 nh->onlink = true;
         }
 
@@ -1262,7 +1256,7 @@ int manager_build_nexthop_ids(Manager *manager) {
         return 0;
 }
 
-int config_parse_nexthop_id(
+static int config_parse_nexthop_family(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1274,261 +1268,38 @@ int config_parse_nexthop_id(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        uint32_t id;
+        int *family = ASSERT_PTR(data);
+
+        if (isempty(rvalue))
+                *family = AF_UNSPEC;
+        else if (streq(rvalue, "ipv4"))
+                *family = AF_INET;
+        else if (streq(rvalue, "ipv6"))
+                *family = AF_INET6;
+        else
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+        return 1;
+}
+
+static int config_parse_nexthop_group(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Hashmap **group = ASSERT_PTR(data);
         int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
 
         if (isempty(rvalue)) {
-                n->id = 0;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = safe_atou32(rvalue, &id);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse nexthop id \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
-        if (id == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid nexthop id \"%s\", ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        n->id = id;
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_nexthop_gateway(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        if (isempty(rvalue)) {
-                n->family = AF_UNSPEC;
-                n->gw = IN_ADDR_NULL;
-
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_nexthop_family(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        AddressFamily a;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        if (isempty(rvalue) &&
-            !in_addr_is_set(n->family, &n->gw)) {
-                /* Accept an empty string only when Gateway= is null or not specified. */
-                n->family = AF_UNSPEC;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        a = nexthop_address_family_from_string(rvalue);
-        if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_set(n->family, &n->gw) &&
-            ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
-             (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified family '%s' conflicts with the family of the previously specified Gateway=, "
-                           "ignoring assignment.", rvalue);
-                return 0;
-        }
-
-        switch (a) {
-        case ADDRESS_FAMILY_IPV4:
-                n->family = AF_INET;
-                break;
-        case ADDRESS_FAMILY_IPV6:
-                n->family = AF_INET6;
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_nexthop_onlink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        r = parse_tristate(rvalue, &n->onlink);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_nexthop_blackhole(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        n->blackhole = r;
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_nexthop_group(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = nexthop_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return log_oom();
-
-        if (isempty(rvalue)) {
-                n->group = hashmap_free_free(n->group);
-                TAKE_PTR(n);
-                return 0;
+                *group = hashmap_free_free(*group);
+                return 1;
         }
 
         for (const char *p = rvalue;;) {
@@ -1538,15 +1309,10 @@ int config_parse_nexthop_group(
                 char *sep;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
-                        break;
+                        return 1;
 
                 nhg = new0(struct nexthop_grp, 1);
                 if (!nhg)
@@ -1586,7 +1352,7 @@ int config_parse_nexthop_group(
                         continue;
                 }
 
-                r = hashmap_ensure_put(&n->group, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                r = hashmap_ensure_put(group, NULL, UINT32_TO_PTR(nhg->id), nhg);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r == -EEXIST) {
@@ -1598,7 +1364,44 @@ int config_parse_nexthop_group(
                 assert(r > 0);
                 TAKE_PTR(nhg);
         }
+}
 
-        TAKE_PTR(n);
+int config_parse_nexthop_section(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const ConfigSectionParser table[_NEXTHOP_CONF_PARSER_MAX] = {
+                [NEXTHOP_ID]        = { .parser = config_parse_uint32,         .ltype = 0, .offset = offsetof(NextHop, id),        },
+                [NEXTHOP_GATEWAY]   = { .parser = config_parse_in_addr_data,   .ltype = 0, .offset = offsetof(NextHop, gw),        },
+                [NEXTHOP_FAMILY]    = { .parser = config_parse_nexthop_family, .ltype = 0, .offset = offsetof(NextHop, family),    },
+                [NEXTHOP_ONLINK]    = { .parser = config_parse_tristate,       .ltype = 0, .offset = offsetof(NextHop, onlink),    },
+                [NEXTHOP_BLACKHOLE] = { .parser = config_parse_bool,           .ltype = 0, .offset = offsetof(NextHop, blackhole), },
+                [NEXTHOP_GROUP]     = { .parser = config_parse_nexthop_group,  .ltype = 0, .offset = offsetof(NextHop, group),     },
+        };
+
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *nexthop = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        r = nexthop_new_static(network, filename, section_line, &nexthop);
+        if (r < 0)
+                return log_oom();
+
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, nexthop);
+        if (r <= 0) /* 0 means non-critical error, but the section will be ignored. */
+                return r;
+
+        TAKE_PTR(nexthop);
         return 0;
 }

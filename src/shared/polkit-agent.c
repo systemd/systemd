@@ -14,6 +14,7 @@
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "stdio-util.h"
+#include "terminal-util.h"
 #include "time-util.h"
 
 #if ENABLE_POLKIT
@@ -31,8 +32,16 @@ int polkit_agent_open(void) {
                 return 0;
 
         /* We check STDIN here, not STDOUT, since this is about input, not output */
-        if (!isatty(STDIN_FILENO))
+        if (!isatty_safe(STDIN_FILENO))
                 return 0;
+
+        /* Also check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
+         * interactively on a terminal, hence fail */
+        r = get_ctty_devnr(0, NULL);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return r;
 
         if (!is_main_thread())
                 return -EPERM;

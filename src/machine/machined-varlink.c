@@ -2,15 +2,20 @@
 
 #include "sd-varlink.h"
 
+#include "bus-polkit.h"
+#include "discover-image.h"
 #include "format-util.h"
 #include "hostname-util.h"
+#include "image-varlink.h"
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machined-varlink.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
+#include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
 
 typedef struct LookupParameters {
@@ -146,9 +151,9 @@ static int user_lookup_name(Manager *m, const char *name, uid_t *ret_uid, char *
 static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, uid),       0              },
-                { "userName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, user_name), SD_JSON_STRICT },
-                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),   0              },
+                { "uid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, uid),       0             },
+                { "userName", SD_JSON_VARIANT_STRING,   json_dispatch_const_user_group_name, offsetof(LookupParameters, user_name), SD_JSON_RELAX },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string,       offsetof(LookupParameters, service),   0             },
                 {}
         };
 
@@ -312,9 +317,9 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char 
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,      offsetof(LookupParameters, gid),        0              },
-                { "groupName", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
-                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
+                { "gid",       SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, gid),        0             },
+                { "groupName", SD_JSON_VARIANT_STRING,   json_dispatch_const_user_group_name, offsetof(LookupParameters, group_name), SD_JSON_RELAX },
+                { "service",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string,       offsetof(LookupParameters, service),    0             },
                 {}
         };
 
@@ -364,9 +369,9 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
 static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "userName",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, user_name),  SD_JSON_STRICT },
-                { "groupName", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, group_name), SD_JSON_STRICT },
-                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(LookupParameters, service),    0              },
+                { "userName",  SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name, offsetof(LookupParameters, user_name),  SD_JSON_RELAX },
+                { "groupName", SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name, offsetof(LookupParameters, group_name), SD_JSON_RELAX },
+                { "service",   SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,       offsetof(LookupParameters, service),    0             },
                 {}
         };
 
@@ -399,13 +404,14 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
                         SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(m->name)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
                         SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(machine_class_to_string(m->class))),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->service, "service", SD_JSON_BUILD_STRING(m->service)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->root_directory, "rootDirectory", SD_JSON_BUILD_STRING(m->root_directory)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->unit, "unit", SD_JSON_BUILD_STRING(m->unit)),
-                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", SD_JSON_BUILD_UNSIGNED(m->leader.pid)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", JSON_BUILD_PIDREF(&m->leader)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!m->ssh_address, "sshAddress", SD_JSON_BUILD_STRING(m->ssh_address)));
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path));
         if (r < 0)
                 return r;
 
@@ -415,30 +421,44 @@ static int list_machine_one(sd_varlink *link, Machine *m, bool more) {
         return sd_varlink_reply(link, v);
 }
 
-static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        const char *mn = NULL;
+typedef struct MachineLookupParameters {
+        const char *name;
+        PidRef pidref;
+} MachineLookupParameters;
 
-        const sd_json_dispatch_field dispatch_table[] = {
-                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, PTR_TO_SIZE(&mn), 0 },
+static void machine_lookup_parameters_done(MachineLookupParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+}
+
+static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+                .pidref = PIDREF_NULL,
+        };
+        Machine *machine;
         int r;
 
+        assert(link);
         assert(parameters);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, 0);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
 
-        if (mn) {
-                if (!hostname_is_valid(mn, /* flags= */ VALID_HOSTNAME_DOT_HOST))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
-
-                Machine *machine = hashmap_get(m->machines, mn);
-                if (!machine)
+        if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
+                r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
+                if (r == -ESRCH)
                         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+                if (r != 0)
+                        return r;
 
                 return list_machine_one(link, machine, /* more= */ false);
         }
@@ -461,6 +481,155 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return list_machine_one(link, previous, /* more= */ false);
 
         return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+}
+
+static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, sd_varlink_method_t method) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+                .pidref = PIDREF_NULL,
+        };
+        Machine *machine;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        return method(link, parameters, flags, machine);
+}
+
+static int vl_method_unregister(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_unregister_internal);
+}
+
+static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_terminate_internal);
+}
+
+static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, bool read_metadata) {
+        int r;
+
+        assert(link);
+        assert(image);
+
+        if (read_metadata && !image->metadata_valid) {
+                r = image_read_metadata(image, &image_policy_container);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read image metadata: %m");
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("name", image->name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("path", image->path),
+                        SD_JSON_BUILD_PAIR_STRING("type", image_type_to_string(image->type)),
+                        SD_JSON_BUILD_PAIR_STRING("class", image_class_to_string(image->class)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", image->read_only),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("creationTimestamp", image->crtime),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("modificationTimestamp", image->mtime),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usage", image->usage, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usageExclusive", image->usage_exclusive, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("limit", image->limit, UINT64_MAX),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("limitExclusive", image->limit_exclusive, UINT64_MAX));
+        if (r < 0)
+                return r;
+
+        if (image->metadata_valid) {
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("hostname", image->hostname),
+                                SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(image->machine_id), "machineId", SD_JSON_BUILD_ID128(image->machine_id)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(image->machine_info), "machineInfo", JSON_BUILD_STRV_ENV_PAIR(image->machine_info)),
+                                SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(image->os_release), "OSRelease", JSON_BUILD_STRV_ENV_PAIR(image->os_release)));
+                if (r < 0)
+                        return r;
+        }
+
+        if (more)
+                return sd_varlink_notify(link, v);
+
+        return sd_varlink_reply(link, v);
+}
+
+static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                const char *image_name;
+                bool acquire_metadata;
+        } p = {};
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",            SD_JSON_VARIANT_STRING,    sd_json_dispatch_const_string, offsetof(struct params, image_name),        0 },
+                { "acquireMetadata", SD_JSON_VARIANT_BOOLEAN,   sd_json_dispatch_stdbool,      offsetof(struct params, acquire_metadata),  0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.image_name) {
+                _cleanup_(image_unrefp) Image *found = NULL;
+
+                if (!image_name_is_valid(p.image_name))
+                        return sd_varlink_error_invalid_parameter_name(link, "name");
+
+                r = image_find(IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
+                if (r == -ENOENT)
+                        return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to find image: %m");
+
+                return list_image_one_and_maybe_read_metadata(link, found, /* more = */ false, p.acquire_metadata);
+        }
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        _cleanup_hashmap_free_ Hashmap *images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(IMAGE_MACHINE, /* root = */ NULL, images);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to discover images: %m");
+
+        Image *image, *previous = NULL;
+        HASHMAP_FOREACH(image, images) {
+                if (previous) {
+                        r = list_image_one_and_maybe_read_metadata(link, previous, /* more = */ true, p.acquire_metadata);
+                        if (r < 0)
+                                return r;
+                }
+
+                previous = image;
+        }
+
+        if (previous)
+                return list_image_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
+
+        return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
 }
 
 static int manager_varlink_init_userdb(Manager *m) {
@@ -519,14 +688,22 @@ static int manager_varlink_init_machine(Manager *m) {
 
         sd_varlink_server_set_userdata(s, m);
 
-        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Machine);
+        r = sd_varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_Machine,
+                        &vl_interface_io_systemd_MachineImage);
         if (r < 0)
-                return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
+                return log_error_errno(r, "Failed to add Machine and MachineImage interfaces to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Machine.Register", vl_method_register,
-                        "io.systemd.Machine.List",     vl_method_list);
+                        "io.systemd.Machine.Register",    vl_method_register,
+                        "io.systemd.Machine.List",        vl_method_list,
+                        "io.systemd.Machine.Unregister",  vl_method_unregister,
+                        "io.systemd.Machine.Terminate",   vl_method_terminate,
+                        "io.systemd.Machine.Kill",        vl_method_kill,
+                        "io.systemd.MachineImage.List",   vl_method_list_images,
+                        "io.systemd.MachineImage.Update", vl_method_update_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -534,7 +711,11 @@ static int manager_varlink_init_machine(Manager *m) {
 
         r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
+
+        r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

@@ -153,8 +153,6 @@ Manager* manager_free(Manager *manager) {
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
-        sd_event_source_unref(manager->memory_pressure_event_source);
-        sd_event_source_unref(manager->sigrtmin18_event_source);
         sd_event_unref(manager->event);
 
         free(manager->cgroup);
@@ -585,9 +583,6 @@ static int event_queue_start(Manager *manager) {
         if (!manager->events || manager->exit || manager->stop_exec_queue)
                 return 0;
 
-        /* To make the stack directory /run/udev/links cleaned up later. */
-        manager->udev_node_needs_cleanup = true;
-
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
@@ -729,7 +724,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -1183,11 +1178,6 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         /* There are no idle workers. */
 
-        if (manager->udev_node_needs_cleanup) {
-                (void) udev_node_cleanup();
-                manager->udev_node_needs_cleanup = false;
-        }
-
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
 
@@ -1352,13 +1342,13 @@ int manager_main(Manager *manager) {
                 return log_error_errno(r, "Failed to create post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
-        r = sd_event_add_memory_pressure(manager->event, &manager->memory_pressure_event_source, NULL, NULL);
+        r = sd_event_add_memory_pressure(manager->event, /* ret_event_source= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(manager->event, &manager->memory_pressure_event_source,
-                                (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(manager->event, /* ret_event_source= */ NULL,
+                                (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
 

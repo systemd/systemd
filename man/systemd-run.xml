@@ -106,15 +106,6 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para>
-
-        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--scope</option></term>
 
         <listitem>
@@ -528,8 +519,10 @@
       <xi:include href="user-system-options.xml" xpointer="machine" />
       <xi:include href="user-system-options.xml" xpointer="capsule" />
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
 
     <para>All command line arguments after the first non-option argument become part of the command line of

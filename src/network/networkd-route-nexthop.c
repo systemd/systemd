@@ -478,9 +478,10 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         }
 
         if (ordered_set_isempty(route->nexthops)) {
-                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw))
-                        buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->nexthop.family, &route->nexthop.gw));
-                else if (route->gateway_from_dhcp_or_ra) {
+                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) {
+                        if (asprintf(&buf, "gw: %s:%"PRIu32, IN_ADDR_TO_STRING(route->nexthop.family, &route->nexthop.gw), route->nexthop.weight + 1) < 0)
+                                return -ENOMEM;
+                } else if (route->gateway_from_dhcp_or_ra) {
                         if (route->nexthop.family == AF_INET)
                                 buf = strdup("gw: _dhcp4");
                         else if (route->nexthop.family == AF_INET6)
@@ -803,6 +804,16 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
         return 0;
 }
 
+#define log_route_section(route, fmt, ...)                              \
+        ({                                                              \
+                const Route *_route = (route);                          \
+                log_section_warning_errno(                              \
+                                _route ? _route->section : NULL,        \
+                                SYNTHETIC_ERRNO(EINVAL),                \
+                                fmt " Ignoring [Route] section.",       \
+                                ##__VA_ARGS__);                         \
+        })
+
 int route_section_verify_nexthops(Route *route) {
         assert(route);
         assert(route->section);
@@ -814,37 +825,30 @@ int route_section_verify_nexthops(Route *route) {
                         /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
                         switch (route->family) {
                         case AF_UNSPEC:
-                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
-                                            "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
-                                            route->section->filename, route->section->line);
+                                log_section_warning(route->section,
+                                                    "Deprecated value \"_dhcp\" is specified for Gateway=. "
+                                                    "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".");
 
                                 route->nexthop.family = route->family = AF_INET;
                                 break;
                         case AF_INET:
                         case AF_INET6:
-                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
-                                            "Assuming \"%s\" based on Destination=, Source=, or PreferredSource= setting.",
-                                            route->section->filename, route->section->line, route->family == AF_INET ? "_dhcp4" : "_ipv6ra");
+                                log_section_warning(route->section,
+                                                    "Deprecated value \"_dhcp\" is specified for Gateway=. "
+                                                    "Assuming \"%s\" based on Destination=, Source=, or PreferredSource= setting.",
+                                                    route->family == AF_INET ? "_dhcp4" : "_ipv6ra");
 
                                 route->nexthop.family = route->family;
                                 break;
                         default:
-                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                         "%s: Invalid route family. Ignoring [Route] section from line %u.",
-                                                         route->section->filename, route->section->line);
+                                return log_route_section(route, "Invalid route family.");
                         }
 
                 if (route->nexthop.family == AF_INET && !FLAGS_SET(route->network->dhcp, ADDRESS_FAMILY_IPV4))
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled. "
-                                                 "Ignoring [Route] section from line %u.",
-                                                 route->section->filename, route->section->line);
+                        return log_route_section(route, "Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled.");
 
                 if (route->nexthop.family == AF_INET6 && route->network->ndisc == 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled. "
-                                                 "Ignoring [Route] section from line %u.",
-                                                 route->section->filename, route->section->line);
+                        return log_route_section(route, "Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled.");
         }
 
         /* When only Gateway= is specified, assume the route family based on the Gateway address. */
@@ -854,20 +858,14 @@ int route_section_verify_nexthops(Route *route) {
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Route section without Gateway=, Destination=, Source=, "
-                                         "or PreferredSource= field configured. "
-                                         "Ignoring [Route] section from line %u.",
-                                         route->section->filename, route->section->line);
+                return log_route_section(route, "Route section without Gateway=, Destination=, Source=, or PreferredSource= field configured.");
         }
 
         if (route->gateway_onlink < 0 && in_addr_is_set(route->nexthop.family, &route->nexthop.gw) &&
             route->network && ordered_hashmap_isempty(route->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
-                log_warning("%s: Gateway= without static address configured. "
-                            "Enabling GatewayOnLink= option.",
-                            route->section->filename);
+                log_section_warning(route->section, "Gateway= without static address configured. Enabling GatewayOnLink= option.");
                 route->gateway_onlink = true;
         }
 
@@ -876,45 +874,30 @@ int route_section_verify_nexthops(Route *route) {
 
         if (route->family == AF_INET6) {
                 if (route->nexthop.family == AF_INET)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: IPv4 gateway is configured for IPv6 route. "
-                                                 "Ignoring [Route] section from line %u.",
-                                                 route->section->filename, route->section->line);
+                        return log_route_section(route, "IPv4 gateway is configured for IPv6 route.");
 
                 RouteNextHop *nh;
                 ORDERED_SET_FOREACH(nh, route->nexthops)
                         if (nh->family == AF_INET)
-                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                         "%s: IPv4 multipath route is specified for IPv6 route. "
-                                                         "Ignoring [Route] section from line %u.",
-                                                         route->section->filename, route->section->line);
+                                return log_route_section(route, "IPv4 multipath route is specified for IPv6 route.");
         }
 
         if (route->nexthop_id != 0 &&
             (route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
              !ordered_set_isempty(route->nexthops)))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: NextHopId= cannot be specified with Gateway= or MultiPathRoute=. "
-                                         "Ignoring [Route] section from line %u.",
-                                         route->section->filename, route->section->line);
+                return log_route_section(route, "NextHopId= cannot be specified with Gateway= or MultiPathRoute=.");
 
         if (route_is_reject(route) &&
             (route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
              !ordered_set_isempty(route->nexthops)))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: reject type route cannot be specified with Gateway= or MultiPathRoute=. "
-                                         "Ignoring [Route] section from line %u.",
-                                         route->section->filename, route->section->line);
+                return log_route_section(route, "Reject type route cannot be specified with Gateway= or MultiPathRoute=.");
 
         if ((route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) &&
             !ordered_set_isempty(route->nexthops))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Gateway= cannot be specified with MultiPathRoute=. "
-                                         "Ignoring [Route] section from line %u.",
-                                         route->section->filename, route->section->line);
+                return log_route_section(route, "Gateway= cannot be specified with MultiPathRoute=.");
 
         if (ordered_set_size(route->nexthops) == 1) {
                 _cleanup_(route_nexthop_freep) RouteNextHop *nh = ordered_set_steal_first(route->nexthops);
@@ -936,124 +919,52 @@ int config_parse_gateway(
                 const char *section,
                 unsigned section_line,
                 const char *lvalue,
-                int ltype,
+                int ltype, /* 0 : only address is accepted, 1 : also supports an empty string, _dhcp, and friends. */
                 const char *rvalue,
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
+        Route *route = ASSERT_PTR(userdata);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(section, "Network")) {
-                /* we are not in an Route section, so use line number instead */
-                r = route_new_static(network, filename, line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-        } else {
-                r = route_new_static(network, filename, section_line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-
+        if (ltype) {
                 if (isempty(rvalue)) {
                         route->gateway_from_dhcp_or_ra = false;
                         route->nexthop.family = AF_UNSPEC;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_dhcp")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_UNSPEC;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_INET;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
 
                 if (streq(rvalue, "_ipv6ra")) {
                         route->gateway_from_dhcp_or_ra = true;
                         route->nexthop.family = AF_INET6;
                         route->nexthop.gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
+                        return 1;
                 }
         }
 
+        assert(rvalue);
+
         r = in_addr_from_string_auto(rvalue, &route->nexthop.family, &route->nexthop.gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         route->gateway_from_dhcp_or_ra = false;
-        TAKE_PTR(route);
-        return 0;
-}
-
-int config_parse_route_gateway_onlink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        r = config_parse_tristate(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                  &route->gateway_onlink, network);
-        if (r <= 0)
-                return r;
-
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }
 
 int config_parse_route_nexthop(
@@ -1068,45 +979,24 @@ int config_parse_route_nexthop(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
-        uint32_t id;
+        uint32_t id, *p = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
         if (isempty(rvalue)) {
-                route->nexthop_id = 0;
-                TAKE_PTR(route);
-                return 0;
+                *p = 0;
+                return 1;
         }
 
         r = safe_atou32(rvalue, &id);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse nexthop ID, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (id == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid nexthop ID, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        route->nexthop_id = id;
-        TAKE_PTR(route);
-        return 0;
+        *p = id;
+        return 1;
 }
 
 int config_parse_multipath_route(
@@ -1122,9 +1012,8 @@ int config_parse_multipath_route(
                 void *userdata) {
 
         _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
-        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
-        Network *network = userdata;
+        OrderedSet **nexthops = ASSERT_PTR(data);
         const char *p;
         char *dev;
         int r;
@@ -1135,19 +1024,9 @@ int config_parse_multipath_route(
         assert(rvalue);
         assert(data);
 
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
         if (isempty(rvalue)) {
-                route->nexthops = ordered_set_free(route->nexthops);
-                TAKE_PTR(route);
-                return 0;
+                *nexthops = ordered_set_free(*nexthops);
+                return 1;
         }
 
         nh = new0(RouteNextHop, 1);
@@ -1156,13 +1035,8 @@ int config_parse_multipath_route(
 
         p = rvalue;
         r = extract_first_word(&p, &word, NULL, 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid multipath route option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r <= 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         dev = strchr(word, '@');
         if (dev) {
@@ -1210,7 +1084,7 @@ int config_parse_multipath_route(
                 nh->weight--;
         }
 
-        r = ordered_set_ensure_put(&route->nexthops, &route_nexthop_hash_ops, nh);
+        r = ordered_set_ensure_put(nexthops, &route_nexthop_hash_ops, nh);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1220,6 +1094,5 @@ int config_parse_multipath_route(
         }
 
         TAKE_PTR(nh);
-        TAKE_PTR(route);
-        return 0;
+        return 1;
 }

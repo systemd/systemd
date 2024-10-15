@@ -375,6 +375,9 @@ static void test_dns_name_is_valid_one(const char *s, int ret, int ret_ldh) {
 }
 
 TEST(dns_name_is_valid) {
+        test_dns_name_is_valid_one("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[._qotd._tcp.local", 1, 0);
+        test_dns_name_is_valid_one("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]._qotd._tcp.local", 0, 0);
+
         test_dns_name_is_valid_one("foo",               1, 1);
         test_dns_name_is_valid_one("foo.",              1, 1);
         test_dns_name_is_valid_one("foo..",             0, 0);

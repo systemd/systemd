@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include "conf-parser.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "networkd-util.h"
 
 typedef struct Link Link;
@@ -20,42 +20,43 @@ typedef struct RoutingPolicyRule {
         NetworkConfigSource source;
         NetworkConfigState state;
 
-        bool invert_rule;
-        bool priority_set;
-        bool l3mdev; /* FRA_L3MDEV */
+        unsigned n_ref;
 
+        /* struct fib_rule_hdr */
+        AddressFamily address_family; /* Used when parsing Family= */
+        int family; /* Automatically determined by From=, To=, and Family= */
         uint8_t tos;
-        uint8_t type;
-        uint8_t ipproto; /* FRA_IP_PROTO */
+        uint8_t action;
+        uint32_t flags;
+
+        /* attributes */
+        struct in_addr_prefix to; /* FRA_DST */
+        struct in_addr_prefix from; /* FRA_SRC */
+        char *iif; /* FRA_IIFNAME */
+        uint32_t priority_goto; /* FRA_GOTO */
+        bool priority_set;
+        uint32_t priority; /* FRA_PRIORITY */
+        uint32_t fwmark; /* FRA_FWMARK */
+        uint32_t realms; /* FRA_FLOW (IPv4 only) */
+        uint64_t tunnel_id; /* FRA_TUN_ID */
+        int32_t suppress_ifgroup; /* FRA_SUPPRESS_IFGROUP */
+        int32_t suppress_prefixlen; /* FRA_SUPPRESS_PREFIXLEN */
+        uint32_t table; /* FRA_TABLE, also used in struct fib_rule_hdr */
+        uint32_t fwmask; /* FRA_FWMASK */
+        char *oif; /* FRA_OIFNAME */
+        bool l3mdev; /* FRA_L3MDEV */
+        struct fib_rule_uid_range uid_range; /* FRA_UID_RANGE */
         uint8_t protocol; /* FRA_PROTOCOL */
-        uint8_t to_prefixlen;
-        uint8_t from_prefixlen;
-
-        uint32_t table;
-        uint32_t fwmark;
-        uint32_t fwmask;
-        uint32_t priority;
-
-        AddressFamily address_family; /* Specified by Family= */
-        int family; /* Automatically determined by From= or To= */
-
-        char *iif;
-        char *oif;
-
-        union in_addr_union to;
-        union in_addr_union from;
-
-        struct fib_rule_port_range sport;
-        struct fib_rule_port_range dport;
-        struct fib_rule_uid_range uid_range;
-
-        int suppress_prefixlen;
-        int32_t suppress_ifgroup;
+        uint8_t ipproto; /* FRA_IP_PROTO */
+        struct fib_rule_port_range sport; /* FRA_SPORT_RANGE */
+        struct fib_rule_port_range dport; /* FRA_DPORT_RANGE */
 } RoutingPolicyRule;
 
-const char* fr_act_type_full_to_string(int t) _const_;
+int fr_act_type_from_string(const char *s) _pure_;
+const char* fr_act_type_to_string(int t) _const_;
 
-RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
+RoutingPolicyRule* routing_policy_rule_ref(RoutingPolicyRule *rule);
+RoutingPolicyRule* routing_policy_rule_unref(RoutingPolicyRule *rule);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 
@@ -74,18 +75,28 @@ void link_foreignize_routing_policy_rules(Link *link);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_l3mdev);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_ifgroup);
-CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);
+typedef enum RoutingPolicyRuleConfParserType {
+        ROUTING_POLICY_RULE_IIF,
+        ROUTING_POLICY_RULE_OIF,
+        ROUTING_POLICY_RULE_FAMILY,
+        ROUTING_POLICY_RULE_FWMARK,
+        ROUTING_POLICY_RULE_GOTO,
+        ROUTING_POLICY_RULE_INVERT,
+        ROUTING_POLICY_RULE_IP_PROTOCOL,
+        ROUTING_POLICY_RULE_L3MDEV,
+        ROUTING_POLICY_RULE_SPORT,
+        ROUTING_POLICY_RULE_DPORT,
+        ROUTING_POLICY_RULE_FROM,
+        ROUTING_POLICY_RULE_TO,
+        ROUTING_POLICY_RULE_PRIORITY,
+        ROUTING_POLICY_RULE_SUPPRESS_IFGROUP,
+        ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN,
+        ROUTING_POLICY_RULE_TABLE,
+        ROUTING_POLICY_RULE_TOS,
+        ROUTING_POLICY_RULE_ACTION,
+        ROUTING_POLICY_RULE_UID_RANGE,
+        _ROUTING_POLICY_RULE_CONF_PARSER_MAX,
+        _ROUTING_POLICY_RULE_CONF_PARSER_INVALID = -EINVAL,
+} RoutingPolicyRuleConfParserType;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule);

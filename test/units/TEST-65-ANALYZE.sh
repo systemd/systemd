@@ -172,6 +172,13 @@ systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
 systemd-analyze timestamp now
 systemd-analyze timestamp -- -1
 systemd-analyze timestamp yesterday now tomorrow
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15'
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 UTC'
+systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 CET'
+for i in $(timedatectl list-timezones); do
+    [[ -e "/usr/share/zoneinfo/$i" ]] || continue
+    systemd-analyze timestamp "Fri 2012-11-23 23:02:15 $i"
+done
 (! systemd-analyze timestamp yesterday never tomorrow)
 (! systemd-analyze timestamp 1)
 (! systemd-analyze timestamp '*-2-29 0:0:0')
@@ -380,6 +387,29 @@ EOF
 systemd-analyze verify /tmp/multi-exec-start.service
 echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
 (! systemd-analyze verify /tmp/multi-exec-start.service)
+
+# Prevent regression from #20233 where systemd-analyze will return nonzero exit codes on warnings
+
+# Unit file with warning "Unknown key name 'foo' in section 'Unit', ignoring"
+cat <<EOF >/tmp/testwarnings.service
+[Unit]
+Foo=Bar
+
+[Service]
+ExecStart=echo hello
+EOF
+
+# yes/no/one should all return nonzero exit status for warnings in unit file
+(! systemd-analyze verify --recursive-errors=yes /tmp/testwarnings.service)
+
+(! systemd-analyze verify --recursive-errors=no /tmp/testwarnings.service)
+
+(! systemd-analyze verify --recursive-errors=one /tmp/testwarnings.service)
+
+# zero exit status since no errors and only warnings
+systemd-analyze verify /tmp/testwarnings.service
+
+rm /tmp/testwarnings.service
 
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
@@ -960,6 +990,17 @@ systemd-analyze architectures uname
 
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
+
+systemd-analyze condition --instance=tmp --unit=systemd-growfs@.service
+systemd-analyze verify --instance=tmp --man=no systemd-growfs@.service
+systemd-analyze security --instance=tmp systemd-growfs@.service
+
+systemd-analyze has-tpm2 ||:
+if systemd-analyze has-tpm2 -q ; then
+    echo "have tpm2"
+else
+    echo "have no tpm2"
+fi
 
 systemd-analyze log-level info
 

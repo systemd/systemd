@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "macro.h"
+#include "pidref.h"
 
 #define JSON_VARIANT_REPLACE(v, q)        \
         do {                              \
@@ -109,8 +110,11 @@ int json_log_internal(sd_json_variant *variant, int level, int error, const char
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_const_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 static inline int json_variant_unbase64_iovec(sd_json_variant *v, struct iovec *ret) {
         return sd_json_variant_unbase64(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
@@ -138,20 +142,39 @@ enum {
         _JSON_BUILD_IOVEC_HEX,
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
+        _JSON_BUILD_STRING_ORDERED_SET,
         _JSON_BUILD_STRING_UNDERSCORIFY,
         _JSON_BUILD_DUAL_TIMESTAMP,
+        _JSON_BUILD_RATELIMIT,
+        _JSON_BUILD_TRISTATE,
+        _JSON_BUILD_PIDREF,
+        _JSON_BUILD_DEVNUM,
 
+        _JSON_BUILD_PAIR_INTEGER_NON_ZERO,
+        _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE,
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
+        _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL,
         _JSON_BUILD_PAIR_FINITE_USEC,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY,
         _JSON_BUILD_PAIR_STRV_NON_EMPTY,
         _JSON_BUILD_PAIR_VARIANT_NON_NULL,
         /* _SD_JSON_BUILD_PAIR_VARIANT_ARRAY_NON_EMPTY, */
+        _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY,
         _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_IN_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL,
         _JSON_BUILD_PAIR_HW_ADDR_NON_NULL,
+        _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL,
+        _JSON_BUILD_PAIR_RATELIMIT_ENABLED,
+        _JSON_BUILD_PAIR_CALLBACK_NON_NULL,
+        _JSON_BUILD_PAIR_BASE64_NON_EMPTY,
+        _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY,
+        _JSON_BUILD_PAIR_HEX_NON_EMPTY,
+        _JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY,
+        _JSON_BUILD_PAIR_TRISTATE_NON_NULL,
+        _JSON_BUILD_PAIR_PIDREF_NON_NULL,
+        _JSON_BUILD_PAIR_DEVNUM,
 
         _SD_JSON_BUILD_REALLYMAX,
 };
@@ -166,19 +189,37 @@ enum {
 #define JSON_BUILD_ETHER_ADDR(v) SD_JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
+#define JSON_BUILD_STRING_ORDERED_SET(s) _JSON_BUILD_STRING_ORDERED_SET, (OrderedSet *) { s }
 #define JSON_BUILD_STRING_UNDERSCORIFY(s) _JSON_BUILD_STRING_UNDERSCORIFY, (const char *) { s }
 #define JSON_BUILD_DUAL_TIMESTAMP(t) _JSON_BUILD_DUAL_TIMESTAMP, (dual_timestamp*) { t }
+#define JSON_BUILD_RATELIMIT(rl) _JSON_BUILD_RATELIMIT, (const RateLimit*) { rl }
+#define JSON_BUILD_TRISTATE(i) _JSON_BUILD_TRISTATE, (int) { i }
+#define JSON_BUILD_PIDREF(p) _JSON_BUILD_PIDREF, (const PidRef*) { p }
+#define JSON_BUILD_DEVNUM(d) _JSON_BUILD_DEVNUM, (dev_t) { d }
 
+#define JSON_BUILD_PAIR_INTEGER_NON_ZERO(name, i) _JSON_BUILD_PAIR_INTEGER_NON_ZERO, (const char*) { name }, (int64_t) { i }
+#define JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE(name, i) _JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE, (const char*) { name }, (int64_t) { i }
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
+#define JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL(name, u, eq) _JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL, (const char*) { name }, (uint64_t) { u }, (uint64_t) { eq }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }
 #define JSON_BUILD_PAIR_STRING_NON_EMPTY(name, s) _JSON_BUILD_PAIR_STRING_NON_EMPTY, (const char*) { name }, (const char*) { s }
 #define JSON_BUILD_PAIR_STRV_NON_EMPTY(name, l) _JSON_BUILD_PAIR_STRV_NON_EMPTY, (const char*) { name }, (char**) { l }
 #define JSON_BUILD_PAIR_VARIANT_NON_NULL(name, v) _JSON_BUILD_PAIR_VARIANT_NON_NULL, (const char*) { name }, (sd_json_variant*) { v }
+#define JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
 #define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL, (const char*) { name }, (const struct in_addr*) { v }
 #define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL, (const char*) { name }, (const struct in6_addr*) { v }
 #define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, v, f) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (const union in_addr_union*) { v }, (int) { f }
 #define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL, (const char*) { name }, (const struct ether_addr*) { v }
 #define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_HW_ADDR_NON_NULL, (const char*) { name }, (const struct hw_addr_data*) { v }
+#define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
+#define JSON_BUILD_PAIR_RATELIMIT_ENABLED(name, rl) _JSON_BUILD_PAIR_RATELIMIT_ENABLED, (const char*) { name }, (const RateLimit*) { rl }
+#define JSON_BUILD_PAIR_CALLBACK_NON_NULL(name, c, u) _JSON_BUILD_PAIR_CALLBACK_NON_NULL, (const char*) { name }, (sd_json_build_callback_t) { c }, (void*) { u }
+#define JSON_BUILD_PAIR_BASE64_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BASE64_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BASE32HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_HEX_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_OCTESCAPE_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_HEX_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
+#define JSON_BUILD_PAIR_TRISTATE_NON_NULL(name, i) _JSON_BUILD_PAIR_TRISTATE_NON_NULL, (const char*) { name }, (int) { i }
+#define JSON_BUILD_PAIR_PIDREF_NON_NULL(name, p) _JSON_BUILD_PAIR_PIDREF_NON_NULL, (const char*) { name }, (const PidRef*) { p }
 
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) SD_JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
@@ -188,3 +229,13 @@ enum {
 #define JSON_BUILD_PAIR_ETHER_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_ETHER_ADDR(v))
 #define JSON_BUILD_PAIR_HW_ADDR(name, v) SD_JSON_BUILD_PAIR(name, JSON_BUILD_HW_ADDR(v))
 #define JSON_BUILD_PAIR_STRING_SET(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_SET(s))
+#define JSON_BUILD_PAIR_STRING_ORDERED_SET(name, s) SD_JSON_BUILD_PAIR(name, JSON_BUILD_STRING_ORDERED_SET(s))
+#define JSON_BUILD_PAIR_DUAL_TIMESTAMP(name, t) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DUAL_TIMESTAMP(t))
+#define JSON_BUILD_PAIR_RATELIMIT(name, rl) SD_JSON_BUILD_PAIR(name, JSON_BUILD_RATELIMIT(rl))
+#define JSON_BUILD_PAIR_TRISTATE(name, i) SD_JSON_BUILD_PAIR(name, JSON_BUILD_TRISTATE(i))
+#define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
+#define JSON_BUILD_PAIR_DEVNUM(name, d) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DEVNUM(d))
+
+int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
+int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);
+int json_variant_new_fd_info(sd_json_variant **ret, int fd);

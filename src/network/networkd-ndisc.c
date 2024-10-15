@@ -150,9 +150,10 @@ static int ndisc_check_ready(Link *link) {
 static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(req);
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set NDisc route");
+        r = route_configure_handler_internal(rtnl, m, req, "Could not set NDisc route");
         if (r <= 0)
                 return r;
 
@@ -964,6 +965,7 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -985,7 +987,7 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         }
 
         /* Set the reachable time for Neighbor Solicitations. */
-        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "base_reachable_time_ms", (uint32_t) msec);
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "base_reachable_time_ms", (uint32_t) msec, manager_get_sysctl_shadow(link->manager));
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply neighbor reachable time (%"PRIu64"), ignoring: %m", msec);
 
@@ -997,6 +999,7 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -1018,7 +1021,7 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         }
 
         /* Set the retransmission time for Neighbor Solicitations. */
-        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec);
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec, manager_get_sysctl_shadow(link->manager));
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
 
@@ -1030,6 +1033,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -1053,7 +1057,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         if (hop_limit <= 0)
                 return 0;
 
-        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit);
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit, manager_get_sysctl_shadow(link->manager));
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
 
@@ -1079,9 +1083,7 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
         link->ndisc_mtu = mtu;
 
-        r = link_set_ipv6_mtu(link, LOG_DEBUG);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to apply IPv6 MTU (%"PRIu32"), ignoring: %m", mtu);
+        (void) link_set_ipv6_mtu(link, LOG_DEBUG);
 
         return 0;
 }
@@ -2524,5 +2526,4 @@ static const char* const ndisc_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DH
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client, IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES);
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_start_dhcp6_client, ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client,
-                         "Failed to parse DHCPv6Client= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_start_dhcp6_client, ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client);

@@ -240,6 +240,11 @@
             names like <varname>single</varname>, <varname>rescue</varname>, <varname>1</varname>,
             <varname>3</varname>, <varname>5</varname>, …; see
             <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+            <para>For typical unit files please set <literal>WantedBy=</literal> to a regular target (like
+            <filename>multi-user.target</filename> or <filename>graphical.target</filename>),
+            instead of <filename>default.target</filename>, since such a service will also be run on special
+            boots like on system update, emergency boot…</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -73,6 +73,7 @@ typedef enum PathRelativeTo {
         PATH_RELATIVE_TO_ESP,
         PATH_RELATIVE_TO_XBOOTLDR,
         PATH_RELATIVE_TO_BOOT, /* Refers to $BOOT from the BLS. No direct counterpart in PartitionDesignator */
+        PATH_RELATIVE_TO_EXPLICIT,
         _PATH_RELATIVE_TO_MAX,
         _PATH_RELATIVE_TO_INVALID = -EINVAL,
 } PathRelativeTo;
@@ -102,7 +103,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache);
 
 Instance* resource_find_instance(Resource *rr, const char *version);
 
-int resource_resolve_path(Resource *rr, const char *root, const char *node);
+int resource_resolve_path(Resource *rr, const char *root, const char *relative_to_directory, const char *node);
 
 ResourceType resource_type_from_string(const char *s) _pure_;
 const char* resource_type_to_string(ResourceType t) _const_;

@@ -6,13 +6,12 @@
 #include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-message-util.h"
 #include "bus-util.h"
-#include "copy.h"
 
-static int dump_fallback(sd_bus *bus) {
+static int dump_string(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *text;
         int r;
 
         assert(bus);
@@ -21,35 +20,33 @@ static int dump_fallback(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to call Dump: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fputs(text, stdout);
-        return 0;
+        return bus_message_dump_string(reply);
 }
 
-static int dump(sd_bus *bus) {
+static int dump_fd(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
         if (IN_SET(r, -EACCES, -EBADR))
-                return 0;  /* Fall back to non-fd method. We need to do this even if the bus supports sending
-                            * fds to cater to very old managers which didn't have the fd-based method. */
+                /* Fall back to non-fd method. We need to do this even if the bus supports sending
+                 * fds to cater to very old managers which didn't have the fd-based method. */
+                return dump_string(bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to call DumpByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        return bus_message_dump_fd(reply);
 }
 
-static int dump_patterns_fallback(sd_bus *bus, char **patterns) {
+static int dump_patterns_string(sd_bus *bus, char **patterns) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
-        const char *text;
         int r;
+
+        if (strv_isempty(patterns))
+                return dump_string(bus);
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpUnitsMatchingPatterns");
         if (r < 0)
@@ -64,18 +61,16 @@ static int dump_patterns_fallback(sd_bus *bus, char **patterns) {
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatterns: %s",
                                        bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fputs(text, stdout);
-        return 0;
+        return bus_message_dump_string(reply);
 }
 
-static int dump_patterns(sd_bus *bus, char **patterns) {
+static int dump_patterns_fd(sd_bus *bus, char **patterns) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         int r;
+
+        if (strv_isempty(patterns))
+                return dump_fd(bus);
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpUnitsMatchingPatternsByFileDescriptor");
         if (r < 0)
@@ -90,7 +85,7 @@ static int dump_patterns(sd_bus *bus, char **patterns) {
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatternsByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        return bus_message_dump_fd(reply);
 }
 
 static int mangle_patterns(char **args, char ***ret) {
@@ -109,9 +104,6 @@ static int mangle_patterns(char **args, char ***ret) {
                         return log_oom();
         }
 
-        if (strv_isempty(mangled))
-                mangled = strv_free(mangled);
-
         *ret = TAKE_PTR(mangled);
         return 0;
 }
@@ -123,9 +115,7 @@ int verb_dump(int argc, char *argv[], void *userdata) {
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
-
-        pager_open(arg_pager_flags);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         r = mangle_patterns(strv_skip(argv, 1), &patterns);
         if (r < 0)
@@ -134,12 +124,8 @@ int verb_dump(int argc, char *argv[], void *userdata) {
         r = sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD);
         if (r < 0)
                 return log_error_errno(r, "Unable to determine if bus connection supports fd passing: %m");
-        if (r > 0)
-                r = patterns ? dump_patterns(bus, patterns) : dump(bus);
-        if (r == 0) /* wasn't supported */
-                r = patterns ? dump_patterns_fallback(bus, patterns) : dump_fallback(bus);
-        if (r < 0)
-                return r;
 
-        return EXIT_SUCCESS;
+        pager_open(arg_pager_flags);
+
+        return r > 0 ? dump_patterns_fd(bus, patterns) : dump_patterns_string(bus, patterns);
 }

@@ -45,25 +45,18 @@ static int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         m->machines = hashmap_new(&machine_hash_ops);
-        m->machine_units = hashmap_new(&string_hash_ops);
-        m->machine_leaders = hashmap_new(NULL);
-
-        if (!m->machines || !m->machine_units || !m->machine_leaders)
+        if (!m->machines)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -87,9 +80,13 @@ static Manager* manager_unref(Manager *m) {
 
         assert(m->n_operations == 0);
 
-        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
-        hashmap_free(m->machine_units);
-        hashmap_free(m->machine_leaders);
+        hashmap_free(m->machines); /* This will free all machines, thus the by_unit/by_leader hashmaps shall be empty */
+
+        assert(hashmap_isempty(m->machines_by_unit));
+        hashmap_free(m->machines_by_unit);
+        assert(hashmap_isempty(m->machines_by_leader));
+        hashmap_free(m->machines_by_leader);
+
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
@@ -332,7 +329,7 @@ static int run(int argc, char *argv[]) {
          * make sure this check stays in. */
         (void) mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

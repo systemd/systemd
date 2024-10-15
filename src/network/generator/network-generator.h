@@ -62,7 +62,7 @@ struct Network {
         /* [Network] */
         DHCPType dhcp_type;
         char **dns;
-        char *vlan;
+        char **vlan;
         char *bridge;
         char *bond;
 
@@ -79,6 +79,9 @@ struct NetDev {
         char *ifname;
         char *kind;
         uint32_t mtu;
+
+        /* [VLAN] */
+        uint16_t vlan_id;
 };
 
 struct Link {

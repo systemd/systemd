@@ -128,7 +128,7 @@ static int emit_deprecation_warning(void) {
                                 NULL,
                                 &b);
 
-                r = strv_extend_strv(&a, b, true);
+                r = strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates = */ true);
                 if (r < 0)
                         return r;
         }
@@ -244,7 +244,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
         r = sd_event_loop(event);
         if (r == -ETIMEDOUT)
-                return log_error_errno(r, "Timed out for waiting the udev queue being empty.");
+                return log_error_errno(r, "Timed out while waiting for udev queue to empty.");
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 

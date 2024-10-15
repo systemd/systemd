@@ -20,7 +20,7 @@
 
         <action id="org.freedesktop.resolve1.register-service">
                 <description gettext-domain="systemd">Register a DNS-SD service</description>
-                <message gettext-domain="systemd">Authentication is required to register a DNS-SD service</message>
+                <message gettext-domain="systemd">Authentication is required to register a DNS-SD service.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -31,7 +31,7 @@
 
         <action id="org.freedesktop.resolve1.unregister-service">
                 <description gettext-domain="systemd">Unregister a DNS-SD service</description>
-                <message gettext-domain="systemd">Authentication is required to unregister a DNS-SD service</message>
+                <message gettext-domain="systemd">Authentication is required to unregister a DNS-SD service.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -131,6 +131,61 @@
         <action id="org.freedesktop.resolve1.revert">
                 <description gettext-domain="systemd">Revert name resolution settings</description>
                 <message gettext-domain="systemd">Authentication is required to reset name resolution settings.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
+        <action id="org.freedesktop.resolve1.subscribe-query-results">
+                <description gettext-domain="systemd">Subscribe query results</description>
+                <message gettext-domain="systemd">Authentication is required to subscribe query results.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
+        <action id="org.freedesktop.resolve1.dump-cache">
+                <description gettext-domain="systemd">Dump cache</description>
+                <message gettext-domain="systemd">Authentication is required to dump cache.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
+        <action id="org.freedesktop.resolve1.dump-server-state">
+                <description gettext-domain="systemd">Dump server state</description>
+                <message gettext-domain="systemd">Authentication is required to dump server state.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
+        <action id="org.freedesktop.resolve1.dump-statistics">
+                <description gettext-domain="systemd">Dump statistics</description>
+                <message gettext-domain="systemd">Authentication is required to dump statistics.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
+        <action id="org.freedesktop.resolve1.reset-statistics">
+                <description gettext-domain="systemd">Reset statistics</description>
+                <message gettext-domain="systemd">Authentication is required to reset statistics.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

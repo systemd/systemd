@@ -20,7 +20,7 @@ size_t page_size(void) _pure_;
 #define PAGE_OFFSET_U64(l)     ALIGN_OFFSET_U64(l, page_size())
 
 /* Normal memcpy() requires src to be nonnull. We do nothing if n is 0. */
-static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
+static inline void* memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
                 return dst;
         assert(src);
@@ -28,12 +28,19 @@ static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
 }
 
 /* Normal mempcpy() requires src to be nonnull. We do nothing if n is 0. */
-static inline void *mempcpy_safe(void *dst, const void *src, size_t n) {
+static inline void* mempcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
                 return dst;
         assert(src);
         return mempcpy(dst, src, n);
 }
+
+#define mempcpy_typesafe(dst, src, n)                                   \
+        ({                                                              \
+                size_t _sz_;                                            \
+                assert_se(MUL_SAFE(&_sz_, sizeof((dst)[0]), n));        \
+                (typeof((dst)[0])*) mempcpy_safe(dst, src, _sz_);       \
+        })
 
 /* Normal memcmp() requires s1 and s2 to be nonnull. We do nothing if n is 0. */
 static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {

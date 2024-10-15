@@ -410,7 +410,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
         if (!full_cmdline)
                 return log_oom_debug();
-        r = strv_extend_strv(&full_cmdline, cmdline, /* filter_duplicates= */ false);
+        r = strv_extend_strv_consume(&full_cmdline, TAKE_PTR(cmdline), /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom_debug();
 
@@ -870,23 +870,25 @@ static int varlink_read(sd_varlink *v) {
                 bool prefer_read = v->prefer_read;
                 if (!prefer_read) {
                         n = recv(v->input_fd, p, rs, MSG_DONTWAIT);
-                        if (n < 0 && errno == ENOTSOCK)
+                        if (n < 0)
+                                n = -errno;
+                        if (n == -ENOTSOCK)
                                 prefer_read = v->prefer_read = true;
                 }
-                if (prefer_read)
+                if (prefer_read) {
                         n = read(v->input_fd, p, rs);
-        }
-        if (n < 0) {
-                if (errno == EAGAIN)
-                        return 0;
-
-                if (ERRNO_IS_DISCONNECT(errno)) {
-                        v->read_disconnected = true;
-                        return 1;
+                        if (n < 0)
+                                n = -errno;
                 }
-
-                return -errno;
         }
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (ERRNO_IS_NEG_DISCONNECT(n)) {
+                v->read_disconnected = true;
+                return 1;
+        }
+        if (n < 0)
+                return n;
         if (n == 0) { /* EOF */
 
                 if (v->allow_fd_passing_input)
@@ -897,7 +899,7 @@ static int varlink_read(sd_varlink *v) {
         }
 
         if (v->allow_fd_passing_input) {
-                struct cmsghdr* cmsg;
+                struct cmsghdr *cmsg;
 
                 cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
                 if (cmsg) {
@@ -1227,7 +1229,7 @@ static int generic_method_get_interface_description(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        static const struct sd_json_dispatch_field dispatch_table[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 { "interface",  SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                 {}
         };
@@ -1352,8 +1354,17 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 else {
                         const char *bad_field;
 
-                        r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
-                        if (r < 0) {
+                        r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
+                        if (r == -EBADE) {
+                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set: %m",
+                                                  method);
+
+                                if (v->state == VARLINK_PROCESSING_METHOD) {
+                                        r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
                                                   method, strna(bad_field));
@@ -1363,8 +1374,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         if (r < 0)
                                                 return r;
                                 }
-                                invalid = true;
                         }
+
+                        invalid = r < 0;
                 }
 
                 if (!invalid) {
@@ -1514,7 +1526,7 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (v->state != VARLINK_PENDING_METHOD)
+        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
@@ -1569,7 +1581,7 @@ static void handle_revents(sd_varlink *v, int revents) {
         }
 }
 
-_public_ int sd_varlink_wait(sd_varlink *v, usec_t timeout) {
+_public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
         int r, events;
         usec_t t;
 
@@ -1683,7 +1695,7 @@ _public_ int sd_varlink_get_events(sd_varlink *v) {
         return ret;
 }
 
-_public_ int sd_varlink_get_timeout(sd_varlink *v, usec_t *ret) {
+_public_ int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
@@ -2437,7 +2449,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
                 if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
@@ -2650,8 +2662,11 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, SD_VARLINK_REPLY_CONTINUES, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
@@ -2817,7 +2832,7 @@ _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
         return v->peer_pidfd;
 }
 
-_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, usec_t timeout) {
+_public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
         assert_return(v, -EINVAL);
         assert_return(timeout > 0, -EINVAL);
 
@@ -4096,4 +4111,24 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
         }
 
         return -EBADR; /* Catch-all */
+}
+
+_public_ int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name) {
+
+        /* Returns true if the specified error result is an invalid parameter error for the parameter 'name' */
+
+        if (!streq_ptr(error, SD_VARLINK_ERROR_INVALID_PARAMETER))
+                return false;
+
+        if (!name)
+                return true;
+
+        if (!sd_json_variant_is_object(parameter))
+                return false;
+
+        sd_json_variant *e = sd_json_variant_by_key(parameter, "parameter");
+        if (!e || !sd_json_variant_is_string(e))
+                return false;
+
+        return streq(sd_json_variant_string(e), name);
 }

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Import.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -53,8 +54,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The priority of the log message, using the BSD syslog priority levels"),
                 SD_VARLINK_DEFINE_FIELD(priority, SD_VARLINK_INT, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListTransfers,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("Image class to filter by"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A unique numeric identifier for the ongoing transfer"),
@@ -70,8 +72,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Progress in percent"),
                 SD_VARLINK_DEFINE_OUTPUT(percent, SD_VARLINK_FLOAT, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 Pull,
+                SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("The remote URL to download from"),
                 SD_VARLINK_DEFINE_INPUT(remote, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The local image name to download to"),
@@ -88,8 +91,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(keepDownload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to permit interactive authentication. Defaults to false."),
-                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("A progress update, as percent value"),
                 SD_VARLINK_DEFINE_OUTPUT(progress, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A log message about the ongoing transfer"),

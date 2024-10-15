@@ -114,5 +114,4 @@ TEST(asynchronous_rm_rf) {
         }
 }
 
-
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -164,6 +164,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_SOFT_REBOOTS_COUNT</varname></term>
+
+        <listitem><para>If the system has soft-rebooted, this variable is set to the count of soft-reboots.
+        This environment variable is only set for system generators.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$SYSTEMD_FIRST_BOOT</varname></term>
 
         <listitem><para>If this boot-up cycle is considered a "first boot", this is set to

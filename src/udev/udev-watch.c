@@ -111,7 +111,7 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
         assert(dev);
         assert(dirfd >= 0);
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
 
@@ -181,6 +181,9 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         assert(inotify_fd >= 0);
         assert(dev);
 
+        /* Ignore the request of watching the device node on remove event, as the device node specified by
+         * DEVNAME= has already been removed, and may already be assigned to another device. Consider the
+         * case e.g. a USB stick memory was unplugged and then another one is plugged. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
 
@@ -188,7 +191,7 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
-        r = device_get_device_id(dev, &id);
+        r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
 

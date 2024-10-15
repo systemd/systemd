@@ -463,8 +463,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         bus_client_log(message, "dns default route change");
 
         if (l->default_route != b) {
-                l->default_route = b;
-
+                link_set_default_route(l, b);
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
 

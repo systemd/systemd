@@ -88,7 +88,7 @@ static int convert_user(
         _cleanup_(group_record_unrefp) GroupRecord *converted_group = NULL;
         _cleanup_(user_record_unrefp) UserRecord *converted_user = NULL;
         _cleanup_free_ char *h = NULL;
-        sd_json_variant *p, *hp = NULL;
+        sd_json_variant *p, *hp = NULL, *ssh = NULL;
         int r;
 
         assert(u);
@@ -115,8 +115,10 @@ static int convert_user(
 
         /* Acquire the source hashed password array as-is, so that it retains the JSON_VARIANT_SENSITIVE flag */
         p = sd_json_variant_by_key(u->json, "privileged");
-        if (p)
+        if (p) {
                 hp = sd_json_variant_by_key(p, "hashedPassword");
+                ssh = sd_json_variant_by_key(p, "sshAuthorizedKeys");
+        }
 
         r = user_record_build(
                         &converted_user,
@@ -127,8 +129,9 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
-                                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(
-                                                                                  SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_VARIANT(hp))))));
+                                        SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
+                                                                           SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
+                                                                           SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build container user record: %m");
 
@@ -227,7 +230,6 @@ int bind_user_prepare(
                 _cleanup_(user_record_unrefp) UserRecord *u = NULL, *cu = NULL;
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
                 _cleanup_free_ char *sm = NULL, *sd = NULL;
-                CustomMount *cm;
 
                 r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE, &u);
                 if (r < 0)
@@ -242,9 +244,9 @@ int bind_user_prepare(
                  * and the user/group databases fully synthesized at runtime. Moreover, the name of the
                  * user/group name of the "nobody" account differs between distros, hence a check by numeric
                  * UID is safer. */
-                if (u->uid == 0 || streq(u->user_name, "root"))
+                if (user_record_is_root(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'root' user not supported, sorry.");
-                if (u->uid == UID_NOBODY || STR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody"))
+                if (user_record_is_nobody(u))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mapping 'nobody' user not supported, sorry.");
 
                 if (u->uid >= uid_shift && u->uid < uid_shift + uid_range)
@@ -287,11 +289,8 @@ int bind_user_prepare(
                 if (!sd)
                         return log_oom();
 
-                cm = reallocarray(*custom_mounts, *n_custom_mounts + 1, sizeof(CustomMount));
-                if (!cm)
+                if (!GREEDY_REALLOC(*custom_mounts, *n_custom_mounts + 1))
                         return log_oom();
-
-                *custom_mounts = cm;
 
                 (*custom_mounts)[(*n_custom_mounts)++] = (CustomMount) {
                         .type = CUSTOM_MOUNT_BIND,

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
@@ -31,6 +32,7 @@
 #include "log.h"
 #include "manager.h"
 #include "missing_audit.h"
+#include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -77,6 +79,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
@@ -107,6 +110,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -122,6 +126,7 @@ static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
                       SERVICE_START, SERVICE_START_POST,
                       SERVICE_RUNNING,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL);
 }
@@ -133,7 +138,7 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                      SERVICE_CLEANING);
+                      SERVICE_CLEANING, SERVICE_MOUNTING);
 }
 
 static void service_init(Unit *u) {
@@ -441,12 +446,29 @@ static void service_release_fd_store(Service *s) {
         if (!s->fd_store)
                 return;
 
-        log_unit_debug(UNIT(s), "Releasing all stored fds");
+        log_unit_debug(UNIT(s), "Releasing all stored fds.");
 
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
 
         assert(s->n_fd_store == 0);
+}
+
+static void service_release_extra_fds(Service *s) {
+        assert(s);
+
+        if (!s->extra_fds)
+                return;
+
+        log_unit_debug(UNIT(s), "Releasing extra file descriptors.");
+
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                asynchronous_close(i->fd);
+                free(i->fdname);
+        }
+
+        s->extra_fds = mfree(s->extra_fds);
+        s->n_extra_fds = 0;
 }
 
 static void service_release_stdio_fd(Service *s) {
@@ -505,6 +527,9 @@ static void service_done(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_fd_store(s);
+        service_release_extra_fds(s);
+
+        s->mount_request = sd_bus_message_unref(s->mount_request);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -682,9 +707,6 @@ static int service_verify(Service *s) {
 
         if (s->type == SERVICE_DBUS && !s->bus_name)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
-
-        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
@@ -899,40 +921,39 @@ static int service_load(Unit *u) {
         return service_verify(s);
 }
 
-static void service_dump_fdstore(Service *s, FILE *f, const char *prefix) {
-        assert(s);
+static int service_dump_fd(int fd, const char *fdname, const char *header, FILE *f, const char *prefix) {
+        _cleanup_free_ char *path = NULL;
+        struct stat st;
+        int flags;
+
+        assert(fd >= 0);
+        assert(fdname);
+        assert(header);
         assert(f);
         assert(prefix);
 
-        LIST_FOREACH(fd_store, i, s->fd_store) {
-                _cleanup_free_ char *path = NULL;
-                struct stat st;
-                int flags;
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat service fd: %m");
 
-                if (fstat(i->fd, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat fdstore entry: %m");
-                        continue;
-                }
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return log_debug_errno(errno, "Failed to get service fd flags: %m");
 
-                flags = fcntl(i->fd, F_GETFL);
-                if (flags < 0) {
-                        log_debug_errno(errno, "Failed to get fdstore entry flags: %m");
-                        continue;
-                }
+        (void) fd_get_path(fd, &path);
 
-                (void) fd_get_path(i->fd, &path);
+        fprintf(f,
+                "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
+                prefix,
+                header,
+                fdname,
+                strna(inode_type_to_string(st.st_mode)),
+                DEVNUM_FORMAT_VAL(st.st_dev),
+                (uint64_t) st.st_ino,
+                DEVNUM_FORMAT_VAL(st.st_rdev),
+                strna(path),
+                strna(accmode_to_string(flags)));
 
-                fprintf(f,
-                        "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
-                        prefix, i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
-                        i->fdname,
-                        strna(inode_type_to_string(st.st_mode)),
-                        DEVNUM_FORMAT_VAL(st.st_dev),
-                        (uint64_t) st.st_ino,
-                        DEVNUM_FORMAT_VAL(st.st_rdev),
-                        strna(path),
-                        strna(accmode_to_string(flags)));
-        }
+        return 0;
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
@@ -947,6 +968,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sResult: %s\n"
                 "%sReload Result: %s\n"
                 "%sClean Result: %s\n"
+                "%sMount Result: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
@@ -961,6 +983,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
                 prefix, service_result_to_string(s->clean_result),
+                prefix, service_result_to_string(s->live_mount_result),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
@@ -1061,7 +1084,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sStatus Varlink Error: %s\n",
                         prefix, s->status_varlink_error);
 
-        if (s->n_fd_store_max > 0)
+        if (s->n_fd_store_max > 0) {
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
                         "%sFile Descriptor Store Pin: %s\n"
@@ -1070,7 +1093,20 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, exec_preserve_mode_to_string(s->fd_store_preserve_mode),
                         prefix, s->n_fd_store);
 
-        service_dump_fdstore(s, f, prefix);
+                LIST_FOREACH(fd_store, i, s->fd_store)
+                        (void) service_dump_fd(i->fd,
+                                               i->fdname,
+                                               i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
+                                               f,
+                                               prefix);
+        }
+
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds)
+                (void) service_dump_fd(i->fd,
+                                       i->fdname,
+                                       i == s->extra_fds ? "Extra File Descriptor Entry:" : "                            ",
+                                       f,
+                                       prefix);
 
         if (s->open_files)
                 LIST_FOREACH(open_files, of, s->open_files) {
@@ -1124,42 +1160,37 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 
 static int service_load_pid_file(Service *s, bool may_warn) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        bool questionable_pid_file = false;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *k = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r, prio;
+        bool questionable_pid_file = false;
+        int r, prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
         assert(s);
 
         if (!s->pid_file)
                 return -ENOENT;
 
-        prio = may_warn ? LOG_INFO : LOG_DEBUG;
-
-        r = chase(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
+        r = chase_and_fopen_unlocked(s->pid_file, NULL, CHASE_SAFE, "re", NULL, &f);
         if (r == -ENOLINK) {
                 log_unit_debug_errno(UNIT(s), r,
                                      "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
-                r = chase(s->pid_file, NULL, 0, NULL, &fd);
+                r = chase_and_fopen_unlocked(s->pid_file, NULL, 0, "re", NULL, &f);
         }
         if (r < 0)
                 return log_unit_full_errno(UNIT(s), prio, r,
-                                           "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+                                           "Can't open PID file '%s' (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
-        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
-         * chase() returned us into a proper fd first. */
-        r = read_one_line_file(FORMAT_PROC_FD_PATH(fd), &k);
+        /* Let's read the PID file now that we chased it down. */
+        r = read_line(f, LINE_MAX, &k);
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r,
-                                            "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",
-                                            s->pid_file);
+                return log_unit_error_errno(UNIT(s), r, "Failed to read PID file '%s': %m", s->pid_file);
 
         r = pidref_set_pidstr(&pidref, k);
         if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to create reference to PID %s from file '%s': %m", k, s->pid_file);
 
         if (s->main_pid_known && pidref_equal(&pidref, &s->main_pid))
                 return 0;
@@ -1176,14 +1207,14 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
-                if (fstat(fd, &st) < 0)
-                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
+                if (fstat(fileno(f), &st) < 0)
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file '%s': %m", s->pid_file);
 
                 if (st.st_uid != 0)
                         return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
-                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
+                                                    "New main PID "PID_FMT" from PID file does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
 
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pidref.pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, accepting anyway since PID file is owned by root.", pidref.pid);
         }
 
         if (s->main_pid_known) {
@@ -1255,6 +1286,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
+                    SERVICE_MOUNTING,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
@@ -1280,7 +1312,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-        if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
+        if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_stop_watchdog(s);
 
         if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(u->manager)) {
@@ -1303,6 +1335,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 if (start_only)
                         unit_destroy_runtime_data(u, &s->exec_context);
         }
+
+        if (state != SERVICE_MOUNTING) /* Just in case */
+                s->mount_request = sd_bus_message_unref(s->mount_request);
 
         if (old_state != state)
                 log_unit_debug(u, "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
@@ -1344,6 +1379,9 @@ static usec_t service_coldplug_timeout(Service *s) {
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
+
+        case SERVICE_MOUNTING:
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_start_usec);
 
         default:
                 return USEC_INFINITY;
@@ -1389,7 +1427,7 @@ static int service_coldplug(Unit *u) {
                 (void) unit_setup_exec_runtime(u);
         }
 
-        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
+        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
@@ -1415,11 +1453,12 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds) {
+                size_t *n_storage_fds,
+                size_t *n_extra_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0;
         int r;
 
         assert(s);
@@ -1427,8 +1466,10 @@ static int service_collect_fds(
         assert(fd_names);
         assert(n_socket_fds);
         assert(n_storage_fds);
+        assert(n_extra_fds);
 
         if (s->socket_fd >= 0) {
+                Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
 
                 /* Pass the per-connection socket */
 
@@ -1436,16 +1477,15 @@ static int service_collect_fds(
                 if (!rfds)
                         return -ENOMEM;
 
-                rfd_names = strv_new("connection");
+                rfd_names = strv_new(socket_fdname(sock));
                 if (!rfd_names)
                         return -ENOMEM;
 
                 rn_socket_fds = 1;
         } else {
-                Unit *u;
-
                 /* Pass all our configured sockets for singleton services */
 
+                Unit *u;
                 UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         int cn_fds;
@@ -1458,8 +1498,7 @@ static int service_collect_fds(
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
                                 return cn_fds;
-
-                        if (cn_fds <= 0)
+                        if (cn_fds == 0)
                                 continue;
 
                         if (!rfds) {
@@ -1474,31 +1513,34 @@ static int service_collect_fds(
                 }
         }
 
-        if (s->n_fd_store > 0) {
-                size_t n_fds;
-                char **nl;
-                int *t;
-
-                t = reallocarray(rfds, rn_socket_fds + s->n_fd_store, sizeof(int));
+        if (s->n_fd_store + s->n_extra_fds > 0) {
+                int *t = reallocarray(rfds, rn_socket_fds + s->n_fd_store + s->n_extra_fds, sizeof(int));
                 if (!t)
                         return -ENOMEM;
-
                 rfds = t;
 
-                nl = reallocarray(rfd_names, rn_socket_fds + s->n_fd_store + 1, sizeof(char *));
+                char **nl = reallocarray(rfd_names, rn_socket_fds + s->n_fd_store + s->n_extra_fds + 1, sizeof(char *));
                 if (!nl)
                         return -ENOMEM;
-
                 rfd_names = nl;
-                n_fds = rn_socket_fds;
+
+                size_t n_fds = rn_socket_fds;
 
                 LIST_FOREACH(fd_store, fs, s->fd_store) {
                         rfds[n_fds] = fs->fd;
-                        rfd_names[n_fds] = strdup(strempty(fs->fdname));
+                        rfd_names[n_fds] = strdup(fs->fdname);
                         if (!rfd_names[n_fds])
                                 return -ENOMEM;
 
-                        rn_storage_fds++;
+                        n_fds++;
+                }
+
+                FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                        rfds[n_fds] = i->fd;
+                        rfd_names[n_fds] = strdup(i->fdname);
+                        if (!rfd_names[n_fds])
+                                return -ENOMEM;
+
                         n_fds++;
                 }
 
@@ -1508,7 +1550,8 @@ static int service_collect_fds(
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
-        *n_storage_fds = rn_storage_fds;
+        *n_storage_fds = s->n_fd_store;
+        *n_extra_fds = s->n_extra_fds;
 
         return 0;
 }
@@ -1707,7 +1750,8 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds);
+                                        &exec_params.n_storage_fds,
+                                        &exec_params.n_extra_fds);
                 if (r < 0)
                         return r;
 
@@ -1715,7 +1759,7 @@ static int service_spawn_internal(
 
                 exec_params.flags |= EXEC_PASS_FDS;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
@@ -1728,7 +1772,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 14);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1830,6 +1874,13 @@ static int service_spawn_internal(
                         if (asprintf(our_env + n_env++, "%sUNIT=%s", monitor_prefix, UNIT(env_source)->id) < 0)
                                 return -ENOMEM;
                 }
+        }
+
+        if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && UNIT(s)->debug_invocation) {
+                char *t = strdup("DEBUG_INVOCATION=1");
+                if (!t)
+                        return -ENOMEM;
+                our_env[n_env++] = t;
         }
 
         if (UNIT(s)->activation_details) {
@@ -2071,14 +2122,29 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
                 }
 
+                /* If the relevant option is set, and the unit doesn't already have logging level set to
+                 * debug, enable it now. Make sure to overwrite the state in /run/systemd/units/ too, to
+                 * ensure journald doesn't prune the messages. The previous state is saved and restored
+                 * once the auto-restart flow ends. */
+                if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG) {
+                        r = unit_set_debug_invocation(UNIT(s), true);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to enable debug invocation, ignoring: %m");
+                        if (r > 0)
+                                log_unit_notice(UNIT(s), "Service dead, subsequent restarts will be executed with debug level logging.");
+                }
+
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else
+        } else {
                 /* If we shan't restart, the restart counter would be flushed out. But rather than doing that
                  * immediately here, this is delegated to service_start(), i.e. next start, so that the user
                  * can still introspect the counter. */
                 service_set_state(s, end_state);
+
+                (void) unit_set_debug_invocation(UNIT(s), false);
+        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
@@ -2823,6 +2889,32 @@ static int service_start(Unit *u) {
         return 1;
 }
 
+static void service_mount_request_reply(Service *s, bool success, const char *error) {
+        assert(s);
+        assert(error);
+
+        if (!s->mount_request)
+                return;
+
+        if (success) {
+                (void) sd_bus_reply_method_return(s->mount_request, NULL);
+                log_unit_debug(UNIT(s),
+                               "'%s' method succeeded",
+                               strna(sd_bus_message_get_member(s->mount_request)));
+        } else {
+                (void) sd_bus_reply_method_errorf(s->mount_request, error,
+                                                  "method '%s' for unit '%s' failed",
+                                                  strna(sd_bus_message_get_member(s->mount_request)),
+                                                  UNIT(s)->id);
+                log_unit_debug(UNIT(s),
+                               "'%s' method failed: %s",
+                               strna(sd_bus_message_get_member(s->mount_request)),
+                               error);
+        }
+
+        s->mount_request = sd_bus_message_unref(s->mount_request);
+}
+
 static int service_stop(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
@@ -2847,6 +2939,10 @@ static int service_stop(Unit *u) {
                 service_set_state(s, service_determine_dead_state(s));
                 return 0;
 
+        case SERVICE_MOUNTING:
+                service_kill_control_process(s);
+                service_mount_request_reply(s, /* success= */ false, BUS_ERROR_UNIT_INACTIVE);
+                _fallthrough_;
         case SERVICE_CONDITION:
         case SERVICE_START_PRE:
         case SERVICE_START:
@@ -3046,6 +3142,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                         return log_oom();
 
                 (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
+        }
+
+        FOREACH_ARRAY(i, s->extra_fds, s->n_extra_fds) {
+                _cleanup_free_ char *c = NULL;
+                int copy;
+
+                copy = fdset_put_dup(fds, i->fd);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to copy file descriptor for serialization: %m");
+
+                c = cescape(i->fdname);
+                if (!c)
+                        return log_oom();
+
+                (void) serialize_item_format(f, "extra-fd", "%i \"%s\"", copy, c);
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -3298,6 +3409,29 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
 
                 TAKE_FD(fd);
+        } else if (streq(key, "extra-fd")) {
+                _cleanup_free_ char *fdv = NULL, *fdn = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn);
+                if (r != 2) {
+                        log_unit_debug(u, "Failed to deserialize extra-fd, ignoring: %s", value);
+                        return 0;
+                }
+
+                fd = deserialize_fd(fds, fdv);
+                if (fd < 0)
+                        return 0;
+
+                if (!GREEDY_REALLOC(s->extra_fds, s->n_extra_fds + 1)) {
+                        log_oom_debug();
+                        return 0;
+                }
+
+                s->extra_fds[s->n_extra_fds++] = (ServiceExtraFD) {
+                        .fd = TAKE_FD(fd),
+                        .fdname = TAKE_PTR(fdn),
+                };
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
@@ -3830,6 +3964,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 case SERVICE_RELOAD:
                                 case SERVICE_RELOAD_SIGNAL:
                                 case SERVICE_RELOAD_NOTIFY:
+                                case SERVICE_MOUNTING:
                                         /* If neither main nor control processes are running then the current
                                          * state can never exit cleanly, hence immediately terminate the
                                          * service. */
@@ -3944,7 +4079,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success,
                                 code, status);
 
-                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
+                if (!IN_SET(s->state, SERVICE_RELOAD, SERVICE_MOUNTING) && s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->control_command &&
@@ -4084,6 +4219,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 service_enter_dead(s, SERVICE_SUCCESS, false);
                                 break;
 
+                        case SERVICE_MOUNTING:
+                                s->live_mount_result = f;
+
+                                service_mount_request_reply(s, f == SERVICE_SUCCESS, SD_BUS_ERROR_FAILED);
+
+                                service_enter_running(s, SERVICE_SUCCESS);
+                                break;
+
                         default:
                                 assert_not_reached();
                         }
@@ -4101,7 +4244,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * detect when the cgroup becomes empty. Note that the control process is always
          * our child so it's pointless to watch all other processes. */
         if (!control_pid_good(s))
-                if (!s->main_pid_known || s->main_pid_alien)
+                if (!s->main_pid_known || s->main_pid_alien || unit_cgroup_delegate(u))
                         (void) unit_enqueue_rewatch_pids(u);
 }
 
@@ -4154,6 +4297,14 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_process(s);
                 s->reload_result = SERVICE_FAILURE_TIMEOUT;
+                service_enter_running(s, SERVICE_SUCCESS);
+                break;
+
+        case SERVICE_MOUNTING:
+                log_unit_warning(UNIT(s), "Mount operation timed out. Killing mount process.");
+                service_kill_control_process(s);
+                s->live_mount_result = SERVICE_FAILURE_TIMEOUT;
+                service_mount_request_reply(s, /* success= */ false, SD_BUS_ERROR_TIMEOUT);
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
@@ -4713,7 +4864,8 @@ static bool pick_up_pid_from_bus_name(Service *s) {
                        SERVICE_RUNNING,
                        SERVICE_RELOAD,
                        SERVICE_RELOAD_SIGNAL,
-                       SERVICE_RELOAD_NOTIFY);
+                       SERVICE_RELOAD_NOTIFY,
+                       SERVICE_MOUNTING);
 }
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
@@ -4862,7 +5014,10 @@ static void service_reset_failed(Unit *u) {
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
+        s->live_mount_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
+
+        (void) unit_set_debug_invocation(u, /* enable= */ false);
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
@@ -4896,6 +5051,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_RELOAD,
                       SERVICE_RELOAD_SIGNAL,
                       SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING,
                       SERVICE_STOP,
                       SERVICE_STOP_WATCHDOG,
                       SERVICE_STOP_SIGTERM,
@@ -5003,6 +5159,172 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
+static int service_live_mount(Unit *u,
+                const char *src,
+                const char *dst,
+                sd_bus_message *message,
+                MountInNamespaceFlags flags,
+                const MountOptions *options,
+                sd_bus_error *error) {
+
+        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
+        Service *s = ASSERT_PTR(SERVICE(u));
+        const char *propagate_directory;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+        assert(src);
+        assert(dst);
+        assert(message);
+        assert(!s->mount_request);
+
+        if (s->state != SERVICE_RUNNING || !pidref_is_set(&s->main_pid)) {
+                log_unit_warning(u, "Service is not running, cannot live mount");
+                return sd_bus_error_setf(
+                                error,
+                                BUS_ERROR_UNIT_INACTIVE,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: service not running",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dst)) {
+                log_unit_warning(u, "Refusing to live mount over credential mount '%s'", dst);
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: cannot mount over credential mount",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        if (path_startswith_strv(dst, s->exec_context.inaccessible_paths)) {
+                log_unit_warning(u, "%s is not accessible to this unit, cannot live mount", dst);
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: destination is not accessible to this unit",
+                                src,
+                                dst,
+                                u->id);
+        }
+
+        service_unwatch_control_pid(s);
+        s->live_mount_result = SERVICE_SUCCESS;
+        s->control_command = NULL;
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install timer: %m");
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to install timer",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+
+        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
+
+        /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
+         * directly, and instead fork a worker process. We record the D-Bus message, so that we can reply
+         * after the operation has finished. This way callers can wait on the message and know that the new
+         * resource is available (or the operation failed) once they receive the response. */
+        r = unit_fork_helper_process(u, "(sd-mount-in-ns)", /* into_cgroup= */ false, &worker);
+        if (r < 0) {
+                log_unit_warning_errno(
+                                u,
+                                r,
+                                "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
+                                src,
+                                dst);
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to fork process",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+        if (r == 0) {
+                if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
+                        r = mount_image_in_namespace(
+                                        &s->main_pid,
+                                        propagate_directory,
+                                        "/run/systemd/incoming/",
+                                        src, dst,
+                                        flags,
+                                        options,
+                                        s->exec_context.mount_image_policy ?: &image_policy_service);
+                else
+                        r = bind_mount_in_namespace(
+                                        &s->main_pid,
+                                        propagate_directory,
+                                        "/run/systemd/incoming/",
+                                        src, dst,
+                                        flags);
+                if (r < 0)
+                        log_unit_warning_errno(
+                                        u,
+                                        r,
+                                        "Failed to mount '%s' on '%s' in unit's namespace: %m",
+                                        src,
+                                        dst);
+                else
+                        log_unit_debug(u, "Mounted '%s' on '%s' in unit's namespace", src, dst);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        r = unit_watch_pidref(u, &worker, /* exclusive= */ true);
+        if (r < 0) {
+                sd_bus_error_set_errnof(
+                                error,
+                                r,
+                                "Live mounting '%s' on '%s' for unit '%s' failed: failed to watch worker process",
+                                src,
+                                dst,
+                                u->id);
+                goto fail;
+        }
+
+        s->mount_request = sd_bus_message_ref(message);
+        s->control_pid = TAKE_PIDREF(worker);
+        service_set_state(s, SERVICE_MOUNTING);
+        return 0;
+
+fail:
+        s->live_mount_result = SERVICE_FAILURE_RESOURCES;
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        return r;
+}
+
+static int service_can_live_mount(const Unit *u, sd_bus_error *error) {
+        assert(u);
+
+        /* Ensure that the unit runs in a private mount namespace */
+        if (!exec_needs_mount_namespace(unit_get_exec_context(u), /* params= */ NULL, unit_get_exec_runtime(u))) {
+
+                /* This is also called in property_get_can_live_mount(). Suppress the debugging log when called in it. */
+                if (error)
+                        log_unit_debug(u, "Unit not running in private mount namespace, cannot live mount");
+
+                return sd_bus_error_setf(
+                                error,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Live mounting for unit '%s' cannot be scheduled: unit not running in private mount namespace",
+                                u->id);
+        }
+
+        return 0;
+}
+
 static const char* service_finished_job(Unit *u, JobType t, JobResult result) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
@@ -5045,6 +5367,7 @@ static void service_release_resources(Unit *u) {
 
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
+        service_release_extra_fds(s);
 
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
                 service_release_fd_store(s);
@@ -5114,6 +5437,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] = {
         [SERVICE_RESTART_MODE_NORMAL] = "normal",
         [SERVICE_RESTART_MODE_DIRECT] = "direct",
+        [SERVICE_RESTART_MODE_DEBUG]  = "debug",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);
@@ -5231,6 +5555,9 @@ const UnitVTable service_vtable = {
 
         .clean = service_clean,
         .can_clean = service_can_clean,
+
+        .live_mount = service_live_mount,
+        .can_live_mount = service_can_live_mount,
 
         .freezer_action = unit_cgroup_freezer_action,
 

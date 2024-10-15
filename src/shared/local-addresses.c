@@ -44,8 +44,8 @@ bool has_local_address(const struct local_address *addresses, size_t n_addresses
         assert(addresses || n_addresses == 0);
         assert(needle);
 
-        for (size_t i = 0; i < n_addresses; i++)
-                if (address_compare(addresses + i, needle) == 0)
+        FOREACH_ARRAY(i, addresses, n_addresses)
+                if (address_compare(i, needle) == 0)
                         return true;
 
         return false;
@@ -81,7 +81,8 @@ static int add_local_address_full(
                 uint32_t priority,
                 uint32_t weight,
                 int family,
-                const union in_addr_union *address) {
+                const union in_addr_union *address,
+                const union in_addr_union *prefsrc) {
 
         assert(list);
         assert(n_list);
@@ -99,12 +100,13 @@ static int add_local_address_full(
                 .weight = weight,
                 .family = family,
                 .address = *address,
+                .prefsrc = prefsrc ? *prefsrc : IN_ADDR_NULL,
         };
 
         return 1;
 }
 
-static int add_local_address(
+int add_local_address(
                 struct local_address **list,
                 size_t *n_list,
                 int ifindex,
@@ -112,7 +114,10 @@ static int add_local_address(
                 int family,
                 const union in_addr_union *address) {
 
-        return add_local_address_full(list, n_list, ifindex, scope, 0, 0, family, address);
+        return add_local_address_full(
+                        list, n_list, ifindex,
+                        scope, /* priority = */ 0, /* weight = */ 0,
+                        family, address, /* prefsrc = */ NULL);
 }
 
 int local_addresses(
@@ -235,9 +240,14 @@ static int add_local_gateway(
                 uint32_t priority,
                 uint32_t weight,
                 int family,
-                const union in_addr_union *address) {
+                const union in_addr_union *address,
+                const union in_addr_union *prefsrc) {
 
-        return add_local_address_full(list, n_list, ifindex, 0, priority, weight, family, address);
+        return add_local_address_full(
+                        list, n_list,
+                        ifindex,
+                        /* scope = */ 0, priority, weight,
+                        family, address, prefsrc);
 }
 
 static int parse_nexthop_one(
@@ -246,6 +256,7 @@ static int parse_nexthop_one(
                 bool allow_via,
                 int family,
                 uint32_t priority,
+                const union in_addr_union *prefsrc,
                 const struct rtnexthop *rtnh) {
 
         bool has_gw = false;
@@ -268,7 +279,7 @@ static int parse_nexthop_one(
 
                         union in_addr_union a;
                         memcpy(&a, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(family));
-                        r = add_local_gateway(list, n_list, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops, family, &a);
+                        r = add_local_gateway(list, n_list, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops, family, &a, prefsrc);
                         if (r < 0)
                                 return r;
 
@@ -294,7 +305,8 @@ static int parse_nexthop_one(
                                 return -EBADMSG; /* gateway address should be always IPv6. */
 
                         r = add_local_gateway(list, n_list, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops, via->family,
-                                              &(union in_addr_union) { .in6 = via->address.in6 });
+                                              &(union in_addr_union) { .in6 = via->address.in6 },
+                                              /* prefsrc = */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -311,6 +323,7 @@ static int parse_nexthops(
                 bool allow_via,
                 int family,
                 uint32_t priority,
+                const union in_addr_union *prefsrc,
                 const struct rtnexthop *rtnh,
                 size_t size) {
 
@@ -334,7 +347,7 @@ static int parse_nexthops(
                 if (ifindex > 0 && rtnh->rtnh_ifindex != ifindex)
                         goto next_nexthop;
 
-                r = parse_nexthop_one(list, n_list, allow_via, family, priority, rtnh);
+                r = parse_nexthop_one(list, n_list, allow_via, family, priority, prefsrc, rtnh);
                 if (r < 0)
                         return r;
 
@@ -393,6 +406,7 @@ int local_gateways(
                 return r;
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+                union in_addr_union prefsrc = IN_ADDR_NULL;
                 uint16_t type;
                 unsigned char dst_len, src_len, table;
                 uint32_t ifi = 0, priority = 0;
@@ -439,6 +453,10 @@ int local_gateways(
                 if (af != AF_UNSPEC && af != family)
                         continue;
 
+                r = netlink_message_read_in_addr_union(m, RTA_PREFSRC, family, &prefsrc);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+
                 r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
                 if (r < 0 && r != -ENODATA)
                         return r;
@@ -453,7 +471,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, family, &gateway);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, family, &gateway, &prefsrc);
                                 if (r < 0)
                                         return r;
 
@@ -474,8 +492,10 @@ int local_gateways(
                                 if (via.family != AF_INET6)
                                         return -EBADMSG;
 
+                                /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
                                 r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
-                                                      &(union in_addr_union) { .in6 = via.address.in6 });
+                                                      &(union in_addr_union) { .in6 = via.address.in6 },
+                                                      /* prefsrc = */ NULL);
                                 if (r < 0)
                                         return r;
                         }
@@ -490,7 +510,7 @@ int local_gateways(
                 if (r < 0 && r != -ENODATA)
                         return r;
                 if (r >= 0) {
-                        r = parse_nexthops(&list, &n_list, ifindex, allow_via, family, priority, rta_multipath, rta_len);
+                        r = parse_nexthops(&list, &n_list, ifindex, allow_via, family, priority, &prefsrc, rta_multipath, rta_len);
                         if (r < 0)
                                 return r;
                 }
@@ -512,7 +532,51 @@ static int add_local_outbound(
                 int family,
                 const union in_addr_union *address) {
 
-        return add_local_address_full(list, n_list, ifindex, 0, 0, 0, family, address);
+        return add_local_address_full(
+                        list, n_list, ifindex,
+                        /* scope = */ 0, /* priority = */ 0, /* weight = */ 0,
+                        family, address, /* prefsrc = */ NULL);
+}
+
+static int add_local_outbound_by_prefsrc(
+                struct local_address **list,
+                size_t *n_list,
+                const struct local_address *gateway,
+                const struct local_address *addresses,
+                size_t n_addresses) {
+
+        int r;
+
+        assert(list);
+        assert(n_list);
+        assert(gateway);
+
+        if (!in_addr_is_set(gateway->family, &gateway->prefsrc))
+                return 0;
+
+        /* If the gateway has prefsrc, then let's honor the field. But, check if the address is assigned to
+         * the same interface, like we do with SO_BINDTOINDEX. */
+
+        bool found = false;
+        FOREACH_ARRAY(a, addresses, n_addresses) {
+                if (a->ifindex != gateway->ifindex)
+                        continue;
+                if (a->family != gateway->family)
+                        continue;
+                if (in_addr_equal(a->family, &a->address, &gateway->prefsrc) <= 0)
+                        continue;
+
+                found = true;
+                break;
+        }
+        if (!found)
+                return -EHOSTUNREACH;
+
+        r = add_local_outbound(list, n_list, gateway->ifindex, gateway->family, &gateway->prefsrc);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int local_outbounds(
@@ -521,9 +585,9 @@ int local_outbounds(
                 int af,
                 struct local_address **ret) {
 
-        _cleanup_free_ struct local_address *list = NULL, *gateways = NULL;
+        _cleanup_free_ struct local_address *list = NULL, *gateways = NULL, *addresses = NULL;
         size_t n_list = 0;
-        int r, n_gateways;
+        int r, n_gateways, n_addresses;
 
         /* Determines our default outbound addresses, i.e. the "primary" local addresses we use to talk to IP
          * addresses behind the default routes. This is still an address of the local host (i.e. this doesn't
@@ -544,21 +608,31 @@ int local_outbounds(
                 return 0;
         }
 
-        for (int i = 0; i < n_gateways; i++) {
+        n_addresses = local_addresses(context, ifindex, af, &addresses);
+        if (n_addresses < 0)
+                return n_addresses;
+
+        FOREACH_ARRAY(i, gateways, n_gateways) {
                 _cleanup_close_ int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t salen;
 
-                fd = socket(gateways[i].family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                r = add_local_outbound_by_prefsrc(&list, &n_list, i, addresses, n_addresses);
+                if (r > 0 || r == -EHOSTUNREACH)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                fd = socket(i->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
                         return -errno;
 
-                switch (gateways[i].family) {
+                switch (i->family) {
 
                 case AF_INET:
                         sa.in = (struct sockaddr_in) {
                                 .sin_family = AF_INET,
-                                .sin_addr = gateways[i].address.in,
+                                .sin_addr = i->address.in,
                                 .sin_port = htobe16(53), /* doesn't really matter which port we pick —
                                                           * we just care about the routing decision */
                         };
@@ -568,9 +642,9 @@ int local_outbounds(
                 case AF_INET6:
                         sa.in6 = (struct sockaddr_in6) {
                                 .sin6_family = AF_INET6,
-                                .sin6_addr = gateways[i].address.in6,
+                                .sin6_addr = i->address.in6,
                                 .sin6_port = htobe16(53),
-                                .sin6_scope_id = gateways[i].ifindex,
+                                .sin6_scope_id = i->ifindex,
                         };
 
                         break;
@@ -584,18 +658,18 @@ int local_outbounds(
                  * IP_UNICAST_IF doesn't actually influence the routing decision for UDP — which I think
                  * should probably just be considered a bug. Once that bug is fixed this is the best API to
                  * use, since it is the most lightweight. */
-                r = socket_set_unicast_if(fd, gateways[i].family, gateways[i].ifindex);
+                r = socket_set_unicast_if(fd, i->family, i->ifindex);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to set unicast interface index %i, ignoring: %m", gateways[i].ifindex);
+                        log_debug_errno(r, "Failed to set unicast interface index %i, ignoring: %m", i->ifindex);
 
                 /* We'll also use SO_BINDTOINDEX. This requires CAP_NET_RAW on old kernels, hence there's a
                  * good chance this fails. Since 5.7 this restriction was dropped and the first
                  * SO_BINDTOINDEX on a socket may be done without privileges. This one has the benefit of
                  * really influencing the routing decision, i.e. this one definitely works for us — as long
                  * as we have the privileges for it. */
-                r = socket_bind_to_ifindex(fd, gateways[i].ifindex);
+                r = socket_bind_to_ifindex(fd, i->ifindex);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", gateways[i].ifindex);
+                        log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", i->ifindex);
 
                 /* Let's now connect() to the UDP socket, forcing the kernel to make a routing decision and
                  * auto-bind the socket. We ignore failures on this, since that failure might happen for a
@@ -612,16 +686,16 @@ int local_outbounds(
                 salen = SOCKADDR_LEN(sa);
                 if (getsockname(fd, &sa.sa, &salen) < 0)
                         return -errno;
-                assert(sa.sa.sa_family == gateways[i].family);
+                assert(sa.sa.sa_family == i->family);
                 assert(salen == SOCKADDR_LEN(sa));
 
-                switch (gateways[i].family) {
+                switch (i->family) {
 
                 case AF_INET:
                         if (in4_addr_is_null(&sa.in.sin_addr)) /* Auto-binding didn't work. :-( */
                                 continue;
 
-                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                        r = add_local_outbound(&list, &n_list, i->ifindex, i->family,
                                                &(union in_addr_union) { .in = sa.in.sin_addr });
                         if (r < 0)
                                 return r;
@@ -631,7 +705,7 @@ int local_outbounds(
                         if (in6_addr_is_null(&sa.in6.sin6_addr))
                                 continue;
 
-                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                        r = add_local_outbound(&list, &n_list, i->ifindex, i->family,
                                                &(union in_addr_union) { .in6 = sa.in6.sin6_addr });
                         if (r < 0)
                                 return r;

@@ -340,6 +340,8 @@ done
 systemctl is-active "*-journald.service"
 systemctl cat "*udevd*"
 systemctl cat "$UNIT_NAME"
+(! systemctl cat hopefully-nonexistent-unit.service)
+systemctl cat --force hopefully-nonexistent-unit.service
 systemctl help "$UNIT_NAME"
 systemctl service-watchdogs
 systemctl service-watchdogs "$(systemctl service-watchdogs)"

@@ -481,7 +481,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
-int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);
+int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, uint64_t *ret);
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
 int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
 

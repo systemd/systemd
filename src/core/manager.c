@@ -101,8 +101,8 @@
 #include "virt.h"
 #include "watchdog.h"
 
-#define NOTIFY_RCVBUF_SIZE (8*1024*1024)
-#define CGROUPS_AGENT_RCVBUF_SIZE (8*1024*1024)
+/* Make sure clients notifying us don't block */
+#define MANAGER_SOCKET_RCVBUF_SIZE (8*U64_MB)
 
 /* Initial delay and the interval for printing status messages about running jobs */
 #define JOBS_IN_PROGRESS_WAIT_USEC (2*USEC_PER_SEC)
@@ -1031,7 +1031,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         r = mkdir_label("/run/systemd/units", 0755);
                 else {
                         _cleanup_free_ char *units_path = NULL;
-                        r = xdg_user_runtime_dir(&units_path, "/systemd/units");
+                        r = xdg_user_runtime_dir("/systemd/units", &units_path);
                         if (r < 0)
                                 return r;
 
@@ -1081,7 +1081,7 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
-                (void) fd_increase_rxbuf(fd, NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(fd, MANAGER_SOCKET_RCVBUF_SIZE);
 
                 m->notify_socket = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/notify");
                 if (!m->notify_socket)
@@ -1174,7 +1174,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate cgroups agent socket: %m");
 
-                fd_increase_rxbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(fd, MANAGER_SOCKET_RCVBUF_SIZE);
 
                 (void) sockaddr_un_unlink(&sa.un);
 
@@ -1238,7 +1238,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
-                (void) fd_increase_rxbuf(m->user_lookup_fds[0], NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(m->user_lookup_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
         }
 
         if (!m->user_lookup_event_source) {
@@ -1274,7 +1274,7 @@ static int manager_setup_handoff_timestamp_fd(Manager *m) {
                         return log_error_errno(errno, "Failed to allocate handoff timestamp socket: %m");
 
                 /* Make sure children never have to block */
-                (void) fd_increase_rxbuf(m->handoff_timestamp_fds[0], NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(m->handoff_timestamp_fds[0], MANAGER_SOCKET_RCVBUF_SIZE);
 
                 r = setsockopt_int(m->handoff_timestamp_fds[0], SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
@@ -1890,6 +1890,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
                 return false;
         if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state),
                     SERVICE_RUNNING,
+                    SERVICE_MOUNTING,
                     SERVICE_RELOAD,
                     SERVICE_RELOAD_NOTIFY,
                     SERVICE_RELOAD_SIGNAL))
@@ -2749,11 +2750,15 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
-        if (n == -EXFULL) {
+        if (n == -ECHRNG) {
                 log_warning_errno(n, "Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
+        }
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
                 return 0;
         }
         if (n < 0)
@@ -2825,11 +2830,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
                 log_warning("Got SCM_PIDFD for process " PID_FMT " but SCM_CREDENTIALS for process " PID_FMT ". Ignoring.",
                             pidref.pid, ucred->pid);
-                return 0;
-        }
-
-        if ((size_t) n >= sizeof(buf) || (msghdr.msg_flags & MSG_TRUNC)) {
-                log_warning("Received notify message exceeded maximum size. Ignoring.");
                 return 0;
         }
 
@@ -3707,20 +3707,13 @@ int manager_reload(Manager *m) {
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
-        lookup_paths_done(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL);
-        if (r < 0)
-                return r;
-
         (void) manager_run_environment_generators(m);
         (void) manager_run_generators(m);
-
-        lookup_paths_log(&m->lookup_paths);
 
         /* We flushed out generated files, for which we don't watch mtime, so we should flush the old map. */
         manager_free_unit_name_maps(m);
@@ -3892,7 +3885,7 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
-static void manager_send_ready_user_scope(Manager *m) {
+static void manager_send_ready_on_basic_target(Manager *m) {
         int r;
 
         assert(m);
@@ -3911,18 +3904,18 @@ static void manager_send_ready_user_scope(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready_system_scope(Manager *m) {
+static void manager_send_ready_on_idle(Manager *m) {
         int r;
 
         assert(m);
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return;
 
         /* Skip the notification if nothing changed. */
         if (m->ready_sent && m->status_ready)
                 return;
 
+        /* Note that for user managers, we might have already sent READY=1 in manager_send_ready_user_scope().
+         * But we still need to flush STATUS=. The second READY=1 will be treated as a noop so it doesn't
+         * hurt to send it twice. */
         r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
@@ -3947,7 +3940,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        manager_send_ready_user_scope(m);
+        manager_send_ready_on_basic_target(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3978,7 +3971,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready_system_scope(m);
+        manager_send_ready_on_idle(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
@@ -4014,29 +4007,25 @@ void manager_send_reloading(Manager *m) {
         m->ready_sent = false;
 }
 
-static bool generator_path_any(const char* const* paths) {
-        bool found = false;
+static bool generator_path_any(char * const *paths) {
 
-        /* Optimize by skipping the whole process by not creating output directories
-         * if no generators are found. */
-        STRV_FOREACH(path, paths)
-                if (access(*path, F_OK) == 0)
-                        found = true;
-                else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open generator directory %s: %m", *path);
+        /* Optimize by skipping the whole process by not creating output directories if no generators are found. */
 
-        return found;
+        STRV_FOREACH(i, paths) {
+                if (access(*i, F_OK) >= 0)
+                        return true;
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to check if generator dir '%s' exists, assuming not: %m", *i);
+        }
+
+        return false;
 }
 
 static int manager_run_environment_generators(Manager *m) {
-        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         _cleanup_strv_free_ char **paths = NULL;
-        void* args[] = {
-                [STDOUT_GENERATE] = &tmp,
-                [STDOUT_COLLECT]  = &tmp,
-                [STDOUT_CONSUME]  = &m->transient_environment,
-        };
         int r;
+
+        assert(m);
 
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
@@ -4045,8 +4034,15 @@ static int manager_run_environment_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        if (!generator_path_any((const char* const*) paths))
+        if (!generator_path_any(paths))
                 return 0;
+
+        char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        void *args[_STDOUT_CONSUME_MAX] = {
+                [STDOUT_GENERATE] = &tmp,
+                [STDOUT_COLLECT]  = &tmp,
+                [STDOUT_CONSUME]  = &m->transient_environment,
+        };
 
         WITH_UMASK(0022)
                 r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
@@ -4084,6 +4080,12 @@ static int build_generator_environment(Manager *m, char ***ret) {
                 r = strv_env_assign(&nl, "SYSTEMD_IN_INITRD", one_zero(in_initrd()));
                 if (r < 0)
                         return r;
+
+                if (m->soft_reboots_count > 0) {
+                        r = strv_env_assignf(&nl, "SYSTEMD_SOFT_REBOOTS_COUNT", "%u", m->soft_reboots_count);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (m->first_boot >= 0) {
                         r = strv_env_assign(&nl, "SYSTEMD_FIRST_BOOT", one_zero(m->first_boot));
@@ -4124,16 +4126,11 @@ static int build_generator_environment(Manager *m, char ***ret) {
         return 0;
 }
 
-static int manager_execute_generators(Manager *m, char **paths, bool remount_ro) {
+static int manager_execute_generators(Manager *m, char * const *paths, bool remount_ro) {
         _cleanup_strv_free_ char **ge = NULL;
-        const char *argv[] = {
-                NULL, /* Leave this empty, execute_directory() will fill something in */
-                m->lookup_paths.generator,
-                m->lookup_paths.generator_early,
-                m->lookup_paths.generator_late,
-                NULL,
-        };
         int r;
+
+        assert(m);
 
         r = build_generator_environment(m, &ge);
         if (r < 0)
@@ -4151,6 +4148,14 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
                         log_warning_errno(r, "Read-only bind remount failed, ignoring: %m");
         }
 
+        const char *argv[] = {
+                NULL, /* Leave this empty, execute_directory() will fill something in */
+                m->lookup_paths.generator,
+                m->lookup_paths.generator_early,
+                m->lookup_paths.generator_late,
+                NULL,
+        };
+
         BLOCK_WITH_UMASK(0022);
         return execute_directories(
                         (const char* const*) paths,
@@ -4158,7 +4163,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
                         /* callbacks= */ NULL, /* callback_args= */ NULL,
                         (char**) argv,
                         ge,
-                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID | EXEC_DIR_WARN_WORLD_WRITABLE);
 }
 
 static int manager_run_generators(Manager *m) {
@@ -4175,7 +4180,7 @@ static int manager_run_generators(Manager *m) {
         if (!paths)
                 return log_oom();
 
-        if (!generator_path_any((const char* const*) paths))
+        if (!generator_path_any(paths))
                 return 0;
 
         r = lookup_paths_mkdir_generator(&m->lookup_paths);
@@ -4342,8 +4347,7 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.timeout_abort_set = defaults->timeout_abort_set;
         m->defaults.device_timeout_usec = defaults->device_timeout_usec;
 
-        m->defaults.start_limit_interval = defaults->start_limit_interval;
-        m->defaults.start_limit_burst = defaults->start_limit_burst;
+        m->defaults.start_limit = defaults->start_limit;
 
         m->defaults.cpu_accounting = defaults->cpu_accounting;
         m->defaults.memory_accounting = defaults->memory_accounting;
@@ -4932,20 +4936,22 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
         assert(source);
 
-        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
+        if (n == -ECHRNG) {
+                log_warning_errno(n, "Got message with truncated control data (unexpected fds sent?), ignoring.");
+                return 0;
+        }
         if (n == -EXFULL) {
-                log_warning("Got message with truncated control, ignoring.");
+                log_warning_errno(n, "Got message with truncated payload data, ignoring.");
                 return 0;
         }
         if (n < 0)
                 return log_error_errno(n, "Failed to receive handoff timestamp message: %m");
 
-        if (msghdr.msg_flags & MSG_TRUNC) {
-                log_warning("Got truncated handoff timestamp message, ignoring.");
-                return 0;
-        }
+        cmsg_close_all(&msghdr);
+
         if (n != sizeof(ts)) {
                 log_warning("Got handoff timestamp message of unexpected size %zi (expected %zu), ignoring.", n, sizeof(ts));
                 return 0;
@@ -4953,7 +4959,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
         struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || !pid_is_valid(ucred->pid)) {
-                log_warning("Received notify message without valid credentials. Ignoring.");
+                log_warning("Received handoff timestamp message without valid credentials. Ignoring.");
                 return 0;
         }
 
@@ -5104,8 +5110,7 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .timeout_abort_usec = manager_default_timeout(scope),
                 .timeout_abort_set = false,
                 .device_timeout_usec = manager_default_timeout(scope),
-                .start_limit_interval = DEFAULT_START_LIMIT_INTERVAL,
-                .start_limit_burst = DEFAULT_START_LIMIT_BURST,
+                .start_limit = { DEFAULT_START_LIMIT_INTERVAL, DEFAULT_START_LIMIT_BURST },
 
                 /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
                  * controller to be enabled, so the default is to enable it unless we got told otherwise. */

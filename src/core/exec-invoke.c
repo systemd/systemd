@@ -354,7 +354,7 @@ static int setup_input(
                         return -errno;
 
                 /* Try to make this the controlling tty, if it is a tty */
-                if (isatty(STDIN_FILENO))
+                if (isatty_safe(STDIN_FILENO))
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
 
                 return STDIN_FILENO;
@@ -2077,7 +2077,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2096,33 +2096,48 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
          * For unprivileged users (i.e. without capabilities), the root to root mapping is excluded. As such, it
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
+        if (private_users == PRIVATE_USERS_NO)
+                return 0;
+
+        if (private_users == PRIVATE_USERS_IDENTITY) {
+                uid_map = strdup("0 0 65536\n");
+                if (!uid_map)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
-        if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid))
+        } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
                              UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
                              ouid, ouid, uid, uid);
-        else
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
                              ouid, ouid);
+                if (r < 0)
+                        return -ENOMEM;
+        }
 
-        if (r < 0)
-                return -ENOMEM;
-
+        if (private_users == PRIVATE_USERS_IDENTITY) {
+                gid_map = strdup("0 0 65536\n");
+                if (!gid_map)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
-        if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid))
+        } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
                              GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
                              ogid, ogid, gid, gid);
-        else
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
                              ogid, ogid);
-
-        if (r < 0)
-                return -ENOMEM;
+                if (r < 0)
+                        return -ENOMEM;
+        }
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
          * namespace. */
@@ -2233,7 +2248,7 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
-        return 0;
+        return 1;
 }
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
@@ -2330,7 +2345,7 @@ static int setup_exec_directory(
                         assert_cc(EXEC_DIRECTORY_STATE < EXEC_DIRECTORY_LOGS);
                         assert_cc(EXEC_DIRECTORY_LOGS < EXEC_DIRECTORY_CONFIGURATION);
 
-                        r = laccess(p, F_OK);
+                        r = access_nofollow(p, F_OK);
                         if (r == -ENOENT) {
                                 _cleanup_free_ char *q = NULL;
 
@@ -2348,7 +2363,7 @@ static int setup_exec_directory(
                                         goto fail;
                                 }
 
-                                r = laccess(q, F_OK);
+                                r = access_nofollow(q, F_OK);
                                 if (r >= 0) {
                                         /* It does exist! This hence looks like an update. Symlink the
                                          * configuration directory into the state directory. */
@@ -2414,7 +2429,7 @@ static int setup_exec_directory(
                                 goto fail;
 
                         if (is_dir(p, false) > 0 &&
-                            (laccess(pp, F_OK) == -ENOENT)) {
+                            (access_nofollow(pp, F_OK) == -ENOENT)) {
 
                                 /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
                                  * it over. Most likely the service has been upgraded from one that didn't use
@@ -2643,23 +2658,9 @@ static int compile_bind_mounts(
                 return -ENOMEM;
 
         FOREACH_ARRAY(item, context->bind_mounts, context->n_bind_mounts) {
-                _cleanup_free_ char *s = NULL, *d = NULL;
-
-                s = strdup(item->source);
-                if (!s)
-                        return -ENOMEM;
-
-                d = strdup(item->destination);
-                if (!d)
-                        return -ENOMEM;
-
-                bind_mounts[h++] = (BindMount) {
-                        .source = TAKE_PTR(s),
-                        .destination = TAKE_PTR(d),
-                        .read_only = item->read_only,
-                        .recursive = item->recursive,
-                        .ignore_enoent = item->ignore_enoent,
-                };
+                r = bind_mount_add(&bind_mounts, &h, item);
+                if (r < 0)
+                        return r;
         }
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
@@ -2883,13 +2884,8 @@ static int setup_ephemeral(
         if (*root_image) {
                 log_debug("Making ephemeral copy of %s to %s", *root_image, new_root);
 
-                fd = copy_file(*root_image,
-                               new_root,
-                               O_EXCL,
-                               0600,
-                               COPY_LOCK_BSD|
-                               COPY_REFLINK|
-                               COPY_CRTIME);
+                fd = copy_file(*root_image, new_root, O_EXCL, 0600,
+                               COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
@@ -3242,6 +3238,7 @@ static int apply_mount_namespace(
                 .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
+                .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
 
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
@@ -3854,8 +3851,8 @@ static bool exec_context_need_unprivileged_private_users(
         if (params->runtime_scope != RUNTIME_SCOPE_USER)
                 return false;
 
-        return context->private_users ||
-               context->private_tmp != PRIVATE_TMP_OFF ||
+        return context->private_users != PRIVATE_USERS_NO ||
+               context->private_tmp != PRIVATE_TMP_NO ||
                context->private_devices ||
                context->private_network ||
                context->network_namespace_path ||
@@ -3863,6 +3860,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->ipc_namespace_path ||
                context->private_mounts > 0 ||
                context->mount_apivfs > 0 ||
+               context->bind_log_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
@@ -3914,7 +3912,7 @@ static int exec_context_named_iofds(
         for (size_t i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
-        n_fds = p->n_storage_fds + p->n_socket_fds;
+        n_fds = p->n_storage_fds + p->n_socket_fds + p->n_extra_fds;
 
         for (size_t i = 0; i < n_fds  && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
@@ -4098,7 +4096,7 @@ int exec_invoke(
         int ngids_after_pam = 0;
 
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
-        size_t n_storage_fds, n_socket_fds;
+        size_t n_storage_fds, n_socket_fds, n_extra_fds;
 
         assert(command);
         assert(context);
@@ -4107,7 +4105,9 @@ int exec_invoke(
 
         /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
          * and is already applied earlier. Just for safety. */
-        if (context->log_level_max >= 0)
+        if (params->debug_invocation)
+                log_set_max_level(LOG_PRI(LOG_DEBUG));
+        else if (context->log_level_max >= 0)
                 log_set_max_level(context->log_level_max);
 
         /* Explicitly test for CVE-2021-4034 inspired invocations */
@@ -4133,12 +4133,13 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
-                n_storage_fds = n_socket_fds = 0;
+                n_storage_fds = n_socket_fds = n_extra_fds = 0;
         } else {
                 n_socket_fds = params->n_socket_fds;
                 n_storage_fds = params->n_storage_fds;
+                n_extra_fds = params->n_extra_fds;
         }
-        n_fds = n_socket_fds + n_storage_fds;
+        n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0)
@@ -4435,14 +4436,6 @@ int exec_invoke(
                 }
         }
 
-        if (context->nice_set) {
-                r = setpriority_closest(context->nice);
-                if (r < 0) {
-                        *exit_status = EXIT_NICE;
-                        return log_exec_error_errno(context, params, r, "Failed to set up process scheduling priority (nice level): %m");
-                }
-        }
-
         if (context->cpu_sched_set) {
                 struct sched_attr attr = {
                         .size = sizeof(attr),
@@ -4455,6 +4448,21 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_SETSCHEDULER;
                         return log_exec_error_errno(context, params, errno, "Failed to set up CPU scheduling: %m");
+                }
+        }
+
+        /*
+         * Set nice value _after_ the call to sched_setattr() because struct sched_attr includes sched_nice
+         * which we do not set, thus it will clobber any previously set nice value. Scheduling policy might
+         * be reasonably set together with nice value e.g. in case of SCHED_BATCH (see sched(7)).
+         * It would be ideal to set both with the same call, but we cannot easily do so because of all the
+         * extra logic in setpriority_closest().
+         */
+        if (context->nice_set) {
+                r = setpriority_closest(context->nice);
+                if (r < 0) {
+                        *exit_status = EXIT_NICE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up process scheduling priority (nice level): %m");
                 }
         }
 
@@ -4753,18 +4761,23 @@ int exec_invoke(
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
+                PrivateUsers pu = context->private_users;
+                if (pu == PRIVATE_USERS_NO)
+                        pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
-                if (r < 0 && context->private_users) {
+                if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing for unprivileged user: %m");
                 }
                 if (r < 0)
                         log_exec_info_errno(context, params, r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
-                else
+                else {
+                        assert(r > 0);
                         userns_set_up = true;
+                }
         }
 
         if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
@@ -4877,8 +4890,8 @@ int exec_invoke(
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
 
-        if (needs_sandboxing && context->private_users && !userns_set_up) {
-                r = setup_private_users(saved_uid, saved_gid, uid, gid);
+        if (needs_sandboxing && !userns_set_up) {
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");

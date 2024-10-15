@@ -29,6 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "inotify-util.h"
 #include "io-util.h"
@@ -63,6 +64,12 @@ bool isatty_safe(int fd) {
         assert(fd >= 0);
 
         if (isatty(fd))
+                return true;
+
+        /* Linux/glibc returns EIO for hung up TTY on isatty(). Which is wrong, the thing doesn't stop being
+         * a TTY after all, just because it is temporarily hung up. Let's work around this here, until this
+         * is fixed in glibc. See: https://sourceware.org/bugzilla/show_bug.cgi?id=32103 */
+        if (errno == EIO)
                 return true;
 
         /* Be resilient if we're working on stdio, since they're set up by parent process. */
@@ -140,7 +147,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                 }
         }
 
-        if (t != USEC_INFINITY && fd > 0) {
+        if (t != USEC_INFINITY && fd >= 0) {
                 /* Let's wait the specified amount of time for input. When we have no fd we skip this, under
                  * the assumption that this is an fmemopen() stream or so where waiting doesn't make sense
                  * anyway, as the data is either already in the stream or cannot possible be placed there
@@ -249,6 +256,71 @@ int ask_string(char **ret, const char *text, ...) {
         return 0;
 }
 
+bool any_key_to_proceed(void) {
+        char key = 0;
+        bool need_nl = true;
+
+        /*
+         * Insert a new line here as well as to when the user inputs, as this is also used during the
+         * boot up sequence when status messages may be interleaved with the current program output.
+         * This ensures that the status messages aren't appended on the same line as this message.
+         */
+        puts("-- Press any key to proceed --");
+
+        (void) read_one_char(stdin, &key, USEC_INFINITY, &need_nl);
+
+        if (need_nl)
+                putchar('\n');
+
+        return key != 'q';
+}
+
+int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
+        unsigned break_lines, break_modulo;
+        size_t n, per_column, i, j;
+
+        assert(n_columns > 0);
+
+        n = strv_length(x);
+        per_column = DIV_ROUND_UP(n, n_columns);
+
+        break_lines = lines();
+        if (break_lines > 2)
+                break_lines--;
+
+        /* The first page gets two extra lines, since we want to show
+         * a title */
+        break_modulo = break_lines;
+        if (break_modulo > 3)
+                break_modulo -= 3;
+
+        for (i = 0; i < per_column; i++) {
+
+                for (j = 0; j < n_columns; j++) {
+                        _cleanup_free_ char *e = NULL;
+
+                        if (j * per_column + i >= n)
+                                break;
+
+                        e = ellipsize(x[j * per_column + i], width, percentage);
+                        if (!e)
+                                return log_oom();
+
+                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
+                }
+
+                putchar('\n');
+
+                /* on the first screen we reserve 2 extra lines for the title */
+                if (i % break_lines == break_modulo) {
+                        if (!any_key_to_proceed())
+                                return 0;
+                }
+        }
+
+        return 0;
+}
+
 int open_terminal(const char *name, int mode) {
         _cleanup_close_ int fd = -EBADF;
         unsigned c = 0;
@@ -281,7 +353,7 @@ int open_terminal(const char *name, int mode) {
         }
 
         if (!isatty_safe(fd))
-                return negative_errno();
+                return -ENOTTY;
 
         return TAKE_FD(fd);
 }
@@ -432,6 +504,18 @@ int release_terminal(void) {
 int terminal_vhangup_fd(int fd) {
         assert(fd >= 0);
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
+}
+
+int terminal_vhangup(const char *tty) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(tty);
+
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        return terminal_vhangup_fd(fd);
 }
 
 int vt_disallocate(const char *tty_path) {
@@ -968,8 +1052,11 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
                 return 0;
 
         tty = skip_dev_prefix(tty);
+        if (path_startswith(tty, "pts/"))
+                return -EMEDIUMTYPE;
         if (!in_charset(tty, ALPHANUMERICAL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s contains non-alphanumeric characters", tty);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "TTY name '%s' contains non-alphanumeric characters, not searching kernel cmdline for size.", tty);
 
         rowskey = strjoin("systemd.tty.rows.", tty);
         if (!rowskey)
@@ -1031,8 +1118,8 @@ bool on_tty(void) {
 
         if (cached_on_tty < 0)
                 cached_on_tty =
-                        isatty(STDOUT_FILENO) > 0 &&
-                        isatty(STDERR_FILENO) > 0;
+                        isatty_safe(STDOUT_FILENO) &&
+                        isatty_safe(STDERR_FILENO);
 
         return cached_on_tty;
 }
@@ -1487,7 +1574,7 @@ int vt_restore(int fd) {
         assert(fd >= 0);
 
         if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTTY), "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT to text mode, ignoring: %m"));
@@ -1514,7 +1601,7 @@ int vt_release(int fd, bool restore) {
          * VT-switching modes. */
 
         if (!isatty_safe(fd))
-                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTTY), "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;

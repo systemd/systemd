@@ -141,8 +141,6 @@ int parse_nice(const char *p, int *ret);
 int parse_ip_port(const char *s, uint16_t *ret);
 int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow_zero);
 
-int parse_ip_prefix_length(const char *s, int *ret);
-
 int parse_oom_score_adjust(const char *s, int *ret);
 
 /* Implement floating point using fixed integers, to improve performance when

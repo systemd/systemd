@@ -3,5 +3,5 @@
 
 #include <time.h>
 
-int hwclock_get(struct tm *ret);
+int hwclock_get(struct tm *tm);
 int hwclock_set(const struct tm *tm);

@@ -167,8 +167,6 @@ static int run(int argc, char *argv[]) {
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the cgroup memory controller.");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-
         if (arg_mem_pressure_usec > 0 && arg_mem_pressure_usec < 1 * USEC_PER_SEC)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DefaultMemoryPressureDurationSec= must be 0 or at least 1s");
 

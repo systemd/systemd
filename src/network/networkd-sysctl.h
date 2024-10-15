@@ -27,11 +27,22 @@ typedef enum IPReversePathFilter {
         _IP_REVERSE_PATH_FILTER_INVALID = -EINVAL,
 } IPReversePathFilter;
 
+#if HAVE_VMLINUX_H
+int sysctl_add_monitor(Manager *manager);
+void sysctl_remove_monitor(Manager *manager);
+int sysctl_clear_link_shadows(Link *link);
+#else
+static inline int sysctl_add_monitor(Manager *manager) { return 0; }
+static inline void sysctl_remove_monitor(Manager *manager) { }
+static inline int sysctl_clear_link_shadows(Link *link) { return 0; }
+#endif
+
 void manager_set_sysctl(Manager *manager);
 
 int link_get_ip_forwarding(Link *link, int family);
 int link_set_sysctl(Link *link);
 int link_set_ipv6_mtu(Link *link, int log_level);
+int link_set_ipv6_mtu_async(Link *link);
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;

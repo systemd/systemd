@@ -10,6 +10,7 @@ struct Veth {
 
         char *ifname_peer;
         struct hw_addr_data hw_addr_peer;
+        int ifindex_peer;
 };
 
 DEFINE_NETDEV_CAST(VETH, Veth);

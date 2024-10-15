@@ -15,13 +15,16 @@
 #include "edit-util.h"
 #include "mkdir-label.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "networkctl.h"
 #include "networkctl-config-file.h"
+#include "networkctl-util.h"
 #include "pager.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "virt.h"
 
@@ -29,6 +32,22 @@ typedef enum ReloadFlags {
         RELOAD_NETWORKD = 1 << 0,
         RELOAD_UDEVD    = 1 << 1,
 } ReloadFlags;
+
+typedef enum LinkConfigType {
+        CONFIG_NETWORK,
+        CONFIG_LINK,
+        CONFIG_NETDEV,
+        _CONFIG_MAX,
+        _CONFIG_INVALID = -EINVAL,
+} LinkConfigType;
+
+static const char* const link_config_type_table[_CONFIG_MAX] = {
+        [CONFIG_NETWORK] = "network",
+        [CONFIG_LINK]    = "link",
+        [CONFIG_NETDEV]  = "netdev",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(link_config_type, LinkConfigType);
 
 static int get_config_files_by_name(
                 const char *name,
@@ -114,28 +133,25 @@ static int get_dropin_by_name(
 }
 
 static int get_network_files_by_link(
-                sd_netlink **rtnl,
                 const char *link,
+                int ifindex,
+                bool ignore_missing,
                 char **ret_path,
                 char ***ret_dropins) {
 
         _cleanup_strv_free_ char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
-        int r, ifindex;
+        int r;
 
-        assert(rtnl);
         assert(link);
+        assert(ifindex > 0);
         assert(ret_path);
         assert(ret_dropins);
 
-        ifindex = rtnl_resolve_interface_or_warn(rtnl, link);
-        if (ifindex < 0)
-                return ifindex;
-
         r = sd_network_link_get_network_file(ifindex, &path);
         if (r == -ENODATA)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Link '%s' has no associated network file.", link);
+                return log_full_errno(ignore_missing ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENOENT),
+                                      "Link '%s' has no associated network file.", link);
         if (r < 0)
                 return log_error_errno(r, "Failed to get network file for link '%s': %m", link);
 
@@ -149,7 +165,40 @@ static int get_network_files_by_link(
         return 0;
 }
 
-static int get_link_files_by_link(const char *link, char **ret_path, char ***ret_dropins) {
+static int get_netdev_files_by_link(
+                const char *link,
+                int ifindex,
+                bool ignore_missing,
+                char **ret_path,
+                char ***ret_dropins) {
+
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(link);
+        assert(ifindex > 0);
+        assert(ret_path);
+        assert(ret_dropins);
+
+        r = sd_network_link_get_netdev_file(ifindex, &path);
+        if (r == -ENODATA)
+                return log_full_errno(ignore_missing ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENOENT),
+                                      "Link '%s' has no associated netdev file.", link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get netdev file for link '%s': %m", link);
+
+        r = sd_network_link_get_netdev_file_dropins(ifindex, &dropins);
+        if (r < 0 && r != -ENODATA)
+                return log_error_errno(r, "Failed to get netdev drop-ins for link '%s': %m", link);
+
+        *ret_path = TAKE_PTR(path);
+        *ret_dropins = TAKE_PTR(dropins);
+
+        return 0;
+}
+
+static int get_link_files_by_link(const char *link, bool ignore_missing, char **ret_path, char ***ret_dropins) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_strv_free_ char **dropins_split = NULL;
         _cleanup_free_ char *p = NULL;
@@ -166,7 +215,8 @@ static int get_link_files_by_link(const char *link, char **ret_path, char ***ret
 
         r = sd_device_get_property_value(device, "ID_NET_LINK_FILE", &path);
         if (r == -ENOENT)
-                return log_error_errno(r, "Link '%s' has no associated link file.", link);
+                return log_full_errno(ignore_missing ? LOG_DEBUG : LOG_ERR, r,
+                                      "Link '%s' has no associated link file.", link);
         if (r < 0)
                 return log_error_errno(r, "Failed to get link file for link '%s': %m", link);
 
@@ -190,62 +240,72 @@ static int get_link_files_by_link(const char *link, char **ret_path, char ***ret
 }
 
 static int get_config_files_by_link_config(
-                const char *link_config,
+                const char *ifname,
+                LinkConfigType type,
+                bool ignore_missing,
                 sd_netlink **rtnl,
                 char **ret_path,
-                char ***ret_dropins,
-                ReloadFlags *ret_reload) {
+                char ***ret_dropins) {
 
-        _cleanup_strv_free_ char **dropins = NULL, **link_config_split = NULL;
-        _cleanup_free_ char *path = NULL;
-        const char *ifname, *type;
-        ReloadFlags reload;
-        size_t n;
         int r;
 
-        assert(link_config);
+        assert(ifname);
+        assert(type >= 0 && type < _CONFIG_MAX);
         assert(rtnl);
         assert(ret_path);
         assert(ret_dropins);
 
-        link_config_split = strv_split(link_config, ":");
-        if (!link_config_split)
-                return log_oom();
+        if (type == CONFIG_LINK)
+                return get_link_files_by_link(ifname, ignore_missing, ret_path, ret_dropins);
 
-        n = strv_length(link_config_split);
-        if (n == 0 || isempty(link_config_split[0]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No link name is given.");
-        if (n > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid link config '%s'.", link_config);
+        if (!networkd_is_running())
+                return log_full_errno(ignore_missing ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ESRCH),
+                                      "Cannot get network/netdev file for link if systemd-networkd is not running.");
 
-        ifname = link_config_split[0];
-        type = n == 2 ? link_config_split[1] : "network";
+        int ifindex = rtnl_resolve_interface_or_warn(rtnl, ifname);
+        if (ifindex < 0)
+                return ifindex;
 
-        if (streq(type, "network")) {
-                if (!networkd_is_running())
-                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                               "Cannot get network file for link if systemd-networkd is not running.");
+        if (type == CONFIG_NETWORK)
+                r = get_network_files_by_link(ifname, ifindex, ignore_missing, ret_path, ret_dropins);
+        else if (type == CONFIG_NETDEV)
+                r = get_netdev_files_by_link(ifname, ifindex, ignore_missing, ret_path, ret_dropins);
+        else
+                assert_not_reached();
 
-                r = get_network_files_by_link(rtnl, ifname, &path, &dropins);
-                if (r < 0)
-                        return r;
+        return r;
+}
 
-                reload = RELOAD_NETWORKD;
-        } else if (streq(type, "link")) {
-                r = get_link_files_by_link(ifname, &path, &dropins);
-                if (r < 0)
-                        return r;
+static int parse_link_config(const char *link_config, char **ret_ifname, LinkConfigType *ret_type) {
+        const char *p = ASSERT_PTR(link_config);
+        _cleanup_free_ char *ifname = NULL;
+        int r;
 
-                reload = RELOAD_UDEVD;
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid config type '%s' for link '%s'.", type, ifname);
+        assert(ret_ifname);
+        assert(ret_type);
 
-        *ret_path = TAKE_PTR(path);
-        *ret_dropins = TAKE_PTR(dropins);
+        r = extract_first_word(&p, &ifname, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r <= 0)
+                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to extract link name from '%s': %m", link_config);
 
-        if (ret_reload)
-                *ret_reload = reload;
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid link name: %s", ifname);
+
+        LinkConfigType t;
+
+        if (isempty(p))
+                t = CONFIG_NETWORK;
+        else if (streq(p, "all"))
+                t = _CONFIG_MAX;
+        else {
+                t = link_config_type_from_string(p);
+                if (t < 0)
+                        return log_error_errno(t, "Invalid config type '%s' for link '%s'.", p, ifname);
+        }
+
+        *ret_ifname = TAKE_PTR(ifname);
+        *ret_type = t;
 
         return 0;
 }
@@ -396,40 +456,58 @@ static int reload_daemons(ReloadFlags flags) {
 }
 
 int verb_edit(int argc, char *argv[], void *userdata) {
+        char **args = ASSERT_PTR(strv_skip(argv, 1));
         _cleanup_(edit_file_context_done) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !!arg_drop_in,
+                .read_from_stdin = arg_stdin,
         };
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         ReloadFlags reload = 0;
         int r;
 
-        if (!on_tty())
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files if not on a tty.");
+        if (!on_tty() && !arg_stdin)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files interactively if not on a tty.");
+
+        /* Duplicating main configs makes no sense. This also mimics the behavior of systemctl. */
+        if (arg_stdin && !arg_drop_in && strv_length(args) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When 'edit --stdin' without '--drop-in=', exactly one config file for editing must be specified.");
 
         r = mac_selinux_init();
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
+        STRV_FOREACH(name, args) {
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
                 const char *link_config;
 
                 link_config = startswith(*name, "@");
                 if (link_config) {
-                        ReloadFlags flags;
+                        _cleanup_free_ char *ifname = NULL;
+                        LinkConfigType type;
 
-                        r = get_config_files_by_link_config(link_config, &rtnl, &path, &dropins, &flags);
+                        r = parse_link_config(link_config, &ifname, &type);
                         if (r < 0)
                                 return r;
+                        if (type == _CONFIG_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Config type 'all' cannot be used with 'edit'.");
 
-                        reload |= flags;
+                        r = get_config_files_by_link_config(ifname, type,
+                                                            /* ignore_missing = */ false,
+                                                            &rtnl,
+                                                            &path, &dropins);
+                        if (r < 0)
+                                return r;
 
                         r = add_config_to_edit(&context, path, dropins);
                         if (r < 0)
                                 return r;
+
+                        reload |= type == CONFIG_LINK ? RELOAD_UDEVD : RELOAD_NETWORKD;
 
                         continue;
                 }
@@ -474,6 +552,66 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         return reload_daemons(reload);
 }
 
+static int cat_files_by_link_one(
+                const char *ifname,
+                LinkConfigType type,
+                sd_netlink **rtnl,
+                bool ignore_missing,
+                bool *first) {
+
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(ifname);
+        assert(type >= 0 && type < _CONFIG_MAX);
+        assert(rtnl);
+        assert(first);
+
+        r = get_config_files_by_link_config(ifname, type, ignore_missing, rtnl, &path, &dropins);
+        if (ignore_missing && IN_SET(r, -ENOENT, -ESRCH))
+                return 0;
+        if (r < 0)
+                return r;
+
+        if (!*first)
+                putchar('\n');
+
+        r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
+        if (r < 0)
+                return r;
+
+        *first = false;
+
+        return 0;
+}
+
+static int cat_files_by_link_config(const char *link_config, sd_netlink **rtnl, bool *first) {
+        _cleanup_free_ char *ifname = NULL;
+        LinkConfigType type;
+        int r;
+
+        assert(link_config);
+        assert(rtnl);
+        assert(first);
+
+        r = parse_link_config(link_config, &ifname, &type);
+        if (r < 0)
+                return r;
+
+        if (type == _CONFIG_MAX) {
+                for (LinkConfigType i = 0; i < _CONFIG_MAX; i++) {
+                        r = cat_files_by_link_one(ifname, i, rtnl, /* ignore_missing = */ true, first);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
+
+        return cat_files_by_link_one(ifname, type, rtnl, /* ignore_missing = */ false, first);
+}
+
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **args = strv_skip(argv, 1);
@@ -486,37 +624,37 @@ int verb_cat(int argc, char *argv[], void *userdata) {
 
         bool first = true;
         STRV_FOREACH(name, args) {
-                _cleanup_strv_free_ char **dropins = NULL;
-                _cleanup_free_ char *path = NULL;
                 const char *link_config;
 
                 link_config = startswith(*name, "@");
                 if (link_config) {
-                        r = get_config_files_by_link_config(link_config, &rtnl, &path, &dropins, /* ret_reload = */ NULL);
+                        r = cat_files_by_link_config(link_config, &rtnl, &first);
                         if (r < 0)
-                                return RET_GATHER(ret, r);
-                } else {
-                        r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
-                        if (r == -ENOENT) {
-                                RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
-                                continue;
-                        }
-                        if (r == -ERFKILL) {
-                                RET_GATHER(ret, log_debug_errno(r, "Network config '%s' is masked, ignoring.", *name));
-                                continue;
-                        }
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
-                                return RET_GATHER(ret, r);
-                        }
+                                return r;
+                        continue;
                 }
+
+                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free_ char *path = NULL;
+
+                r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
+                if (r == -ENOENT) {
+                        RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
+                        continue;
+                }
+                if (r == -ERFKILL) {
+                        RET_GATHER(ret, log_debug_errno(r, "Network config '%s' is masked, ignoring.", *name));
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
 
                 if (!first)
                         putchar('\n');
 
                 r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
-                        return RET_GATHER(ret, r);
+                        return r;
 
                 first = false;
         }

@@ -84,14 +84,12 @@ add_at_exit_handler() {
 }
 
 # Decide if we can (and want to) run qemu with KVM acceleration.
-# Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
-# check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
-# running under KVM. If these conditions are met, enable KVM (and possibly
-# nested KVM), otherwise disable it.
-if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && ! systemd-detect-virt -qv); then
-    QEMU_KVM=yes
-else
+# Check if KVM is not explicitly disabled (TEST_NO_KVM), otherwise
+# enable KVM (and possibly nested KVM).
+if get_bool "${TEST_NO_KVM:=}"; then
     QEMU_KVM=no
+else
+    QEMU_KVM=yes
 fi
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
@@ -213,6 +211,7 @@ BASICTOOLS=(
     ping
     pkill
     ps
+    pwd
     readlink
     realpath
     rev
@@ -731,7 +730,9 @@ install_verity_minimal() {
             cat
             echo
             grep
+            ls
             mount
+            mountpoint
             sleep
             touch
         )
@@ -1239,7 +1240,7 @@ install_package_file() {
     # in the whole python stack in a very questionable state, making the tests fail.
     # And given we're trying to transition to mkosi-based images anyway I'm not even
     # going to bother
-    [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && return 0
+    [[ "$file" =~ /tests/.*.py$ ]] && return 0
     # If the current file is a directory, create it with the original
     # mode; if it's a symlink to a directory, copy it as-is
     if [[ -d "$file" ]]; then
@@ -1454,10 +1455,31 @@ install_missing_libraries() {
         [[ -e "$libgcc_s" ]] && inst_library "$libgcc_s"
     done < <(ldconfig -p | awk '/\/libgcc_s.so.1$/ { print $4 }')
 
-    local lib path
+    local lib path libs
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive libgcrypt libkmod; do
+    libs=(
+        libarchive
+        libbpf
+        libcryptsetup
+        libdw
+        libelf
+        libfido2
+        libgcrypt
+        libidn
+        libidn2
+        libip4tc
+        libkmod
+        libqrencode
+        p11-kit-1
+        pwquality
+        tss2-esys
+        tss2-mu
+        tss2-rc
+        tss2-tcti-device
+        xkbcommon
+    )
+    for lib in "${libs[@]}"; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"

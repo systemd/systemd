@@ -27,18 +27,16 @@
 #include "user-util.h"
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
-        CustomMount *c, *ret;
+        CustomMount *ret;
 
         assert(l);
         assert(n);
         assert(t >= 0);
         assert(t < _CUSTOM_MOUNT_TYPE_MAX);
 
-        c = reallocarray(*l, *n + 1, sizeof(CustomMount));
-        if (!c)
+        if (!GREEDY_REALLOC(*l, *n + 1))
                 return NULL;
 
-        *l = c;
         ret = *l + *n;
         (*n)++;
 
@@ -1061,18 +1059,29 @@ bool has_custom_root_mount(const CustomMount *mounts, size_t n) {
         return false;
 }
 
-static int setup_volatile_state(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p, *options;
+static int setup_volatile_state(const char *directory) {
         int r;
 
         assert(directory);
 
         /* --volatile=state means we simply overmount /var with a tmpfs, and the rest read-only. */
 
+        /* First, remount the root directory. */
         r = bind_remount_recursive(directory, MS_RDONLY, MS_RDONLY, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to remount %s read-only: %m", directory);
+
+        return 0;
+}
+
+static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
+        _cleanup_free_ char *buf = NULL;
+        const char *p, *options;
+        int r;
+
+        assert(directory);
+
+        /* Then, after remount_idmap(), overmount /var/ with a tmpfs. */
 
         p = prefix_roota(directory, "/var");
         r = mkdir(p, 0755);
@@ -1249,10 +1258,26 @@ int setup_volatile_mode(
                 return setup_volatile_yes(directory, uid_shift, selinux_apifs_context);
 
         case VOLATILE_STATE:
-                return setup_volatile_state(directory, uid_shift, selinux_apifs_context);
+                return setup_volatile_state(directory);
 
         case VOLATILE_OVERLAY:
                 return setup_volatile_overlay(directory, uid_shift, selinux_apifs_context);
+
+        default:
+                return 0;
+        }
+}
+
+int setup_volatile_mode_after_remount_idmap(
+                const char *directory,
+                VolatileMode mode,
+                uid_t uid_shift,
+                const char *selinux_apifs_context) {
+
+        switch (mode) {
+
+        case VOLATILE_STATE:
+                return setup_volatile_state_after_remount_idmap(directory, uid_shift, selinux_apifs_context);
 
         default:
                 return 0;

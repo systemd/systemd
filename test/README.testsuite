@@ -4,7 +4,7 @@
 
 To run the integration tests with meson + mkosi, make sure you're running the
 latest version of mkosi. See
-[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/test/README.md)
+[`docs/HACKING.md`](https://github.com/systemd/systemd/blob/main/docs/HACKING.md)
 for more specific details. Make sure `mkosi` is available in `$PATH` when
 reconfiguring meson to make sure it is picked up properly.
 
@@ -202,10 +202,6 @@ systemd-nspawn.
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
 
-`TEST_NESTED_KVM=1`:  Allow tests to run with nested KVM. By default, the
-testsuite disables nested KVM if the host machine already runs under KVM.
-Setting this variable disables such checks.
-
 `QEMU_MEM=512M`: Configure amount of memory for qemu VMs (defaults to 512M).
 
 `QEMU_SMP=1`: Configure number of CPUs for qemu VMs (defaults to 1).
@@ -236,6 +232,8 @@ or Debian's default kernel path and initrd are used by default.)
 
 A script will try to find your qemu binary. If you want to specify a different
 one with `$QEMU_BIN`.
+
+`TEST_SKIP`: takes a space separated list of tests to skip.
 
 ### Debugging the qemu image
 
@@ -287,7 +285,12 @@ is available at:
 
 https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/
 
-paths listed at this URL can be appended to the URL to download them.
+paths listed at this URL can be appended to the URL to download them. Unfortunately
+there are too many results and the web server cannot list them all at once. Fortunately
+there is a workaround: copy the last line on the page, and append it to the URL, with
+a '?marker=' prefix, and the web server will show the next page of results. For example:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/?marker=noble/amd64/s/systemd-upstream/20240616_211635_5993a@/result.tar
 
 The 5 characters at the end of the last directory are not random, but the first
 5 characters of a SHA1 hash generated based on the set of parameters given to

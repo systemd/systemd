@@ -539,6 +539,10 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       service, the line is silently skipped. If <literal>^</literal> and <literal>~</literal> are combined
       Base64 decoding is applied to the credential contents.</para>
 
+      <para>If the dollar sign (<literal>$</literal>) is used, the file becomes subject to removal when
+      <command>systemd-tmpfiles</command> is invoked with the <option>--purge</option> switch. Lines without
+      this character are unaffected by that switch.</para>
+
       <para>Note that for all line types that result in creation of any kind of file node
       (i.e. <varname>f</varname>,
       <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,

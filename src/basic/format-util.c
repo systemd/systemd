@@ -5,38 +5,6 @@
 #include "stdio-util.h"
 #include "strxcpyx.h"
 
-assert_cc(STRLEN("%") + DECIMAL_STR_MAX(int) <= IF_NAMESIZE);
-int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {
-        if (ifindex <= 0)
-                return -EINVAL;
-
-        if (if_indextoname(ifindex, buf))
-                return 0;
-
-        if (!FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX))
-                return -errno;
-
-        if (FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX_WITH_PERCENT))
-                assert(snprintf_ok(buf, IF_NAMESIZE, "%%%d", ifindex));
-        else
-                assert(snprintf_ok(buf, IF_NAMESIZE, "%d", ifindex));
-
-        return 0;
-}
-
-int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret) {
-        char buf[IF_NAMESIZE];
-        int r;
-
-        assert(ret);
-
-        r = format_ifname_full(ifindex, flag, buf);
-        if (r < 0)
-                return r;
-
-        return strdup_to(ret, buf);
-}
-
 char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
         typedef struct {
                 const char *suffix;

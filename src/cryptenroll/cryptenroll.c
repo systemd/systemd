@@ -504,7 +504,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
 
-
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_device_key);
                         if (r < 0)
                                 return r;
@@ -607,19 +606,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 else if (streq(slot, "tpm2"))
                                         arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
                                 else {
-                                        int *a;
-
                                         r = safe_atou(slot, &n);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse slot index: %s", slot);
                                         if (n > INT_MAX)
                                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
 
-                                        a = reallocarray(arg_wipe_slots, arg_n_wipe_slots + 1, sizeof(int));
-                                        if (!a)
+                                        if (!GREEDY_REALLOC(arg_wipe_slots, arg_n_wipe_slots + 1))
                                                 return log_oom();
 
-                                        arg_wipe_slots = a;
                                         arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
                                 }
                         }
@@ -771,16 +766,12 @@ static int load_volume_key_keyfile(
 
 static int prepare_luks(
                 struct crypt_device **ret_cd,
-                void **ret_volume_key,
-                size_t *ret_volume_key_size) {
+                struct iovec *ret_volume_key) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(erase_and_freep) void *vk = NULL;
-        size_t vks;
         int r;
 
         assert(ret_cd);
-        assert(!ret_volume_key == !ret_volume_key_size);
 
         r = crypt_init(&cd, arg_node);
         if (r < 0)
@@ -804,28 +795,31 @@ static int prepare_luks(
         r = crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
-        vks = (size_t) r;
 
-        vk = malloc(vks);
-        if (!vk)
+        _cleanup_(iovec_done_erase) struct iovec vk = {};
+
+        vk.iov_base = malloc(r);
+        if (!vk.iov_base)
                 return log_oom();
+
+        vk.iov_len = (size_t) r;
 
         switch (arg_unlock_type) {
 
         case UNLOCK_PASSWORD:
-                r = load_volume_key_password(cd, arg_node, vk, &vks);
+                r = load_volume_key_password(cd, arg_node, vk.iov_base, &vk.iov_len);
                 break;
 
         case UNLOCK_KEYFILE:
-                r = load_volume_key_keyfile(cd, vk, &vks);
+                r = load_volume_key_keyfile(cd, vk.iov_base, &vk.iov_len);
                 break;
 
         case UNLOCK_FIDO2:
-                r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk, &vks);
+                r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk.iov_base, &vk.iov_len);
                 break;
 
         case UNLOCK_TPM2:
-                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk, &vks);
+                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk.iov_base, &vk.iov_len);
                 break;
 
         default:
@@ -836,16 +830,14 @@ static int prepare_luks(
                 return r;
 
         *ret_cd = TAKE_PTR(cd);
-        *ret_volume_key = TAKE_PTR(vk);
-        *ret_volume_key_size = vks;
+        *ret_volume_key = TAKE_STRUCT(vk);
 
         return 0;
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(erase_and_freep) void *vk = NULL;
-        size_t vks;
+        _cleanup_(iovec_done_erase) struct iovec vk = {};
         int slot, slot_to_wipe, r;
 
         log_setup();
@@ -860,34 +852,36 @@ static int run(int argc, char *argv[]) {
         cryptsetup_enable_logging(NULL);
 
         if (arg_enroll_type < 0)
-                r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
+                r = prepare_luks(&cd, /* ret_volume_key= */ NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
         else
-                r = prepare_luks(&cd, &vk, &vks);
+                r = prepare_luks(&cd, &vk);
         if (r < 0)
                 return r;
 
         switch (arg_enroll_type) {
 
         case ENROLL_PASSWORD:
-                slot = enroll_password(cd, vk, vks);
+                slot = enroll_password(cd, &vk);
                 break;
 
         case ENROLL_RECOVERY:
-                slot = enroll_recovery(cd, vk, vks);
+                slot = enroll_recovery(cd, &vk);
                 break;
 
         case ENROLL_PKCS11:
-                slot = enroll_pkcs11(cd, vk, vks, arg_pkcs11_token_uri);
+                slot = enroll_pkcs11(cd, &vk, arg_pkcs11_token_uri);
                 break;
 
         case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, arg_fido2_parameters_in_header);
+                slot = enroll_fido2(cd, &vk, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, arg_fido2_parameters_in_header);
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
+                        assert(slot != slot_to_wipe);
+
                         /* Updating PIN on an existing enrollment */
                         r = wipe_slots(
                                         cd,

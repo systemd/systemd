@@ -11,6 +11,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "exec-credential.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -425,22 +426,6 @@ static bool mount_is_extrinsic(Unit *u) {
         return false;
 }
 
-static bool mount_point_is_credentials(Manager *manager, const char *path) {
-        const char *e;
-
-        assert(manager);
-        assert(path);
-
-        /* Returns true if this is a credentials mount. We don't want to generate mount units for them,
-         * since their lifetime is strictly bound to services. */
-
-        e = path_startswith(path, manager->prefix[EXEC_DIRECTORY_RUNTIME]);
-        if (!e)
-                return false;
-
-        return !isempty(path_startswith(e, "credentials"));
-}
-
 static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
         const char *after, *before, *e;
         int r;
@@ -581,16 +566,13 @@ static int mount_verify(Mount *m) {
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
                                             "Cannot create mount unit for API file system '%s'. Refusing.", m->where);
 
-        if (mount_point_is_credentials(UNIT(m)->manager, m->where))
+        if (mount_point_is_credentials(UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME], m->where))
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
                                             "Cannot create mount unit for credential mount '%s'. Refusing.", m->where);
 
         p = get_mount_parameters_fragment(m);
         if (p && !p->what && !UNIT(m)->perpetual)
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "What= setting is missing. Refusing.");
-
-        if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP)
-                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
 
         return 0;
 }
@@ -1830,8 +1812,10 @@ static int mount_setup_unit(
         assert(fstype);
 
         /* Ignore API and credential mount points. They should never be referenced in dependencies ever.
-         * Also check the comment for mount_point_is_credentials(). */
-        if (mount_point_is_api(where) || mount_point_ignore(where) || mount_point_is_credentials(m, where))
+         * Furthermore, the lifetime of credential mounts is strictly bound to the owning services,
+         * so mount units make little sense for them. */
+        if (mount_point_is_api(where) || mount_point_ignore(where) ||
+            mount_point_is_credentials(m->prefix[EXEC_DIRECTORY_RUNTIME], where))
                 return 0;
 
         if (streq(fstype, "autofs"))
@@ -1873,6 +1857,7 @@ static int mount_setup_unit(
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_set_free_ Set *devices = NULL;
         int r;
 
         assert(m);
@@ -1899,7 +1884,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
-                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+                /* Just to achieve device name uniqueness. Note that the suppression of the duplicate
+                 * processing is merely an optimization, hence in case of OOM (unlikely) we'll just process
+                 * it twice. */
+                if (set_put_strdup_full(&devices, &path_hash_ops_free, device) != 0)
+                        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }

@@ -219,13 +219,11 @@ static int acquire_boot_count_path(
         uint64_t left, done;
         int r;
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderBootCountPath), &path);
+        r = efi_get_variable_path(EFI_LOADER_VARIABLE(LoaderBootCountPath), &path);
         if (r == -ENOENT)
                 return -EUNATCH; /* in this case, let the caller print a message */
         if (r < 0)
                 return log_error_errno(r, "Failed to read LoaderBootCountPath EFI variable: %m");
-
-        efi_tilt_backslashes(path);
 
         if (!path_is_normalized(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

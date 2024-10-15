@@ -162,8 +162,7 @@ typedef struct UnitDefaults {
         usec_t restart_usec, timeout_start_usec, timeout_stop_usec, timeout_abort_usec, device_timeout_usec;
         bool timeout_abort_set;
 
-        usec_t start_limit_interval;
-        unsigned start_limit_burst;
+        RateLimit start_limit;
 
         bool cpu_accounting;
         bool memory_accounting;
@@ -513,7 +512,7 @@ struct Manager {
         unsigned soft_reboots_count;
 
         /* Original ambient capabilities when we were initialized */
-        uint64_t original_ambient_set;
+        uint64_t saved_ambient_set;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

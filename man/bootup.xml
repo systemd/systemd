@@ -46,11 +46,10 @@
     the root file system, which is then responsible for probing all remaining hardware, mounting all
     necessary file systems and spawning all configured services.</para>
 
-    <para>On shutdown, the system manager stops all services, unmounts
-    all file systems (detaching the storage technologies backing
-    them), and then (optionally) jumps back into the initrd code which
-    unmounts/detaches the root file system and the storage it resides
-    on. As a last step, the system is powered down.</para>
+    <para>On shutdown, the system manager stops all services, unmounts all non-busy file systems (detaching
+    the storage technologies backing them), and then (optionally) jumps into the exitrd. The exitrd is backed
+    by tmpfs and unmounts/detaches the remaining file systems, including the real root. As a last step, the
+    system is powered down.</para>
 
     <para>Additional information about the system boot process may be
     found in
@@ -342,6 +341,17 @@ systemd-reboot.service     |               |               |               |
     applications and resources are generally terminated and released already, the second phase hence operates only as
     safety net for everything that couldn't be stopped or released for some reason during the primary, unit-based
     shutdown phase described above.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The exitrd</title>
+
+    <para>The "exitrd" is a concept symmetrical to the initrd. When the system manager is shutting down and
+    <filename>/run/initramfs/shutdown</filename> exists, it will switch root to
+    <filename>/run/initramfs/</filename> and execute <filename>/shutdown</filename>. This program runs from
+    the tmpfs mounted on <filename>/run/</filename>, so it can unmount the old root file system and perform
+    additional steps, for example dismantle complex storage or perform additional logging about the shutdown.
+    </para>
   </refsect1>
 
   <refsect1>

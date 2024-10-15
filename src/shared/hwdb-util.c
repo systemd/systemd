@@ -76,18 +76,15 @@ static int trie_children_cmp(const struct trie_child_entry *a, const struct trie
 }
 
 static int node_add_child(struct trie *trie, struct trie_node *node, struct trie_node *node_child, uint8_t c) {
-        struct trie_child_entry *child;
-
         /* extend array, add new entry, sort for bisection */
-        child = reallocarray(node->children, node->children_count + 1, sizeof(struct trie_child_entry));
-        if (!child)
+        if (!GREEDY_REALLOC(node->children, node->children_count + 1))
                 return -ENOMEM;
 
-        node->children = child;
         trie->children_count++;
-        node->children[node->children_count].c = c;
-        node->children[node->children_count].child = node_child;
-        node->children_count++;
+        node->children[node->children_count++] = (struct trie_child_entry) {
+                .c = c,
+                .child = node_child,
+        };
         typesafe_qsort(node->children, node->children_count, trie_children_cmp);
         trie->nodes_count++;
 
@@ -136,7 +133,6 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                                const char *key, const char *value,
                                const char *filename, uint16_t file_priority, uint32_t line_number, bool compat) {
         ssize_t k, v, fn = 0;
-        struct trie_value_entry *val;
 
         k = strbuf_add_string(trie->strings, key);
         if (k < 0)
@@ -155,7 +151,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                 struct trie_value_entry search = {
                         .key_off = k,
                         .value_off = v,
-                };
+                }, *val;
 
                 val = typesafe_bsearch_r(&search, node->values, node->values_count, trie_values_cmp, trie);
                 if (val) {
@@ -170,19 +166,17 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         }
 
         /* extend array, add new entry, sort for bisection */
-        val = reallocarray(node->values, node->values_count + 1, sizeof(struct trie_value_entry));
-        if (!val)
+        if (!GREEDY_REALLOC(node->values, node->values_count + 1))
                 return -ENOMEM;
+
         trie->values_count++;
-        node->values = val;
-        node->values[node->values_count] = (struct trie_value_entry) {
+        node->values[node->values_count++] = (struct trie_value_entry) {
                 .key_off = k,
                 .value_off = v,
                 .filename_off = fn,
                 .file_priority = file_priority,
                 .line_number = line_number,
         };
-        node->values_count++;
         typesafe_qsort_r(node->values, node->values_count, trie_values_cmp, trie);
         return 0;
 }
@@ -667,7 +661,7 @@ int hwdb_query(const char *modalias, const char *root) {
         assert(modalias);
 
         if (!isempty(root))
-                NULSTR_FOREACH(p, hwdb_bin_paths) {
+                NULSTR_FOREACH(p, HWDB_BIN_PATHS) {
                         _cleanup_free_ char *hwdb_bin = NULL;
 
                         hwdb_bin = path_join(root, p);
@@ -699,7 +693,7 @@ bool hwdb_should_reload(sd_hwdb *hwdb) {
                 return false;
 
         /* if hwdb.bin doesn't exist anywhere, we need to update */
-        NULSTR_FOREACH(p, hwdb_bin_paths)
+        NULSTR_FOREACH(p, HWDB_BIN_PATHS)
                 if (stat(p, &st) >= 0) {
                         found = true;
                         break;

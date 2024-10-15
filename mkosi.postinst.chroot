@@ -3,18 +3,11 @@
 set -e
 set -o nounset
 
-if [[ "$DISTRIBUTION" =~ ubuntu|debian ]]; then
-    SUDO_GROUP=sudo
-else
-    SUDO_GROUP=wheel
-fi
-
 useradd \
     --uid 4711 \
     --user-group \
     --create-home \
     --password "$(openssl passwd -1 testuser)" \
-    --groups "$SUDO_GROUP",systemd-journal \
     --shell /bin/bash \
     testuser
 

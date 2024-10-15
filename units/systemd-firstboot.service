@@ -31,7 +31,7 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-firstboot --prompt-locale --prompt-timezone --prompt-root-password
+ExecStart=systemd-firstboot --prompt-locale --prompt-keymap --prompt-timezone --prompt-root-password
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty

@@ -171,9 +171,15 @@ static int userdb_on_query_reply(
         if (error_id) {
                 log_debug("Got lookup error: %s", error_id);
 
+                /* Convert various forms of record not found into -ESRCH, since NSS typically doesn't care,
+                 * about the details. Note that if a userName specification is refused as invalid parameter,
+                 * we also turn this into -ESRCH following the logic that there cannot be a user record for a
+                 * completely invalid user name. */
                 if (STR_IN_SET(error_id,
                                "io.systemd.UserDatabase.NoRecordFound",
-                               "io.systemd.UserDatabase.ConflictingRecordFound"))
+                               "io.systemd.UserDatabase.ConflictingRecordFound") ||
+                    sd_varlink_error_is_invalid_parameter(error_id, parameters, "userName") ||
+                    sd_varlink_error_is_invalid_parameter(error_id, parameters, "groupName"))
                         r = -ESRCH;
                 else if (streq(error_id, "io.systemd.UserDatabase.ServiceNotAvailable"))
                         r = -EHOSTDOWN;
@@ -911,7 +917,6 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
                         return r;
         }
 
-
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
@@ -1443,7 +1448,7 @@ int userdb_block_nss_systemd(int b) {
 
         /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
 
-        dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_LAZY|RTLD_NODELETE);
+        dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
                 /* If the file isn't installed, don't complain loudly */
                 log_debug("Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dlerror());

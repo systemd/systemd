@@ -26,6 +26,7 @@ static sd_varlink_method_flags_t arg_method_flags = 0;
 static bool arg_collect = false;
 static bool arg_quiet = false;
 static char **arg_graceful = NULL;
+static usec_t arg_timeout = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 
@@ -65,6 +66,8 @@ static int help(void) {
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "  -q --quiet             Do not output method reply\n"
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
+               "     --timeout=SECS      Maximum time to wait for method call completion\n"
+               "  -E                     Short for --more --timeout=infinity\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -90,6 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_COLLECT,
                 ARG_GRACEFUL,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -102,6 +106,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",  no_argument,       NULL, ARG_COLLECT  },
                 { "quiet",    no_argument,       NULL, 'q'          },
                 { "graceful", required_argument, NULL, ARG_GRACEFUL },
+                { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
                 {},
         };
 
@@ -110,7 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hjq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjqE", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -123,6 +128,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                case 'E':
+                        arg_timeout = USEC_INFINITY;
+                        _fallthrough_;
 
                 case ARG_MORE:
                         arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
@@ -163,6 +172,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TIMEOUT:
+                        if (isempty(optarg)) {
+                                arg_timeout = USEC_INFINITY;
+                                break;
+                        }
+
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+
+                        if (arg_timeout == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -185,6 +209,8 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         assert(ret);
         assert(where);
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
         if (STARTSWITH_SET(where, "/", "./")) { /* If the string starts with a slash or dot slash we use it as a file system path */
                 _cleanup_close_ int fd = -EBADF;
                 struct stat st;
@@ -196,32 +222,35 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", where);
 
-                /* Is this a socket in the fs? Then connect() to it. */
                 if (S_ISSOCK(st.st_mode)) {
-                        r = sd_varlink_connect_address(ret, FORMAT_PROC_FD_PATH(fd));
+                        /* Is this a socket in the fs? Then connect() to it. */
+
+                        r = sd_varlink_connect_address(&vl, FORMAT_PROC_FD_PATH(fd));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to '%s': %m", where);
 
-                        return 0;
-                }
+                } else if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
+                        /* Is this an executable binary? Then fork it off. */
 
-                /* Is this an executable binary? Then fork it off. */
-                if (S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
-                        r = sd_varlink_connect_exec(ret, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
+                        r = sd_varlink_connect_exec(&vl, where, STRV_MAKE(where)); /* Ideally we'd use FORMAT_PROC_FD_PATH(fd) here too, but that breaks the #! logic */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to spawn '%s' process: %m", where);
-
-                        return 0;
-                }
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.", where);
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unrecognized path '%s' is neither an AF_UNIX socket, nor an executable binary.", where);
+        } else {
+                /* Otherwise assume this is an URL */
+                r = sd_varlink_connect_url(&vl, where);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
         }
 
-        /* Otherwise assume this is an URL */
-        r = sd_varlink_connect_url(ret, where);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to URL '%s': %m", where);
+        if (arg_timeout != 0) {
+                r = sd_varlink_set_relative_timeout(vl, arg_timeout);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set Varlink timeout, ignoring: %m");
+        }
 
+        *ret = TAKE_PTR(vl);
         return 0;
 }
 
@@ -259,7 +288,7 @@ static int verb_info(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                static const struct sd_json_dispatch_field dispatch_table[] = {
+                static const sd_json_dispatch_field dispatch_table[] = {
                         { "vendor",     SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, vendor),     SD_JSON_MANDATORY },
                         { "product",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, product),    SD_JSON_MANDATORY },
                         { "version",    SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(GetInfoData, version),    SD_JSON_MANDATORY },
@@ -334,6 +363,10 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
         url = argv[1];
         interfaces = strv_skip(argv, 2);
 
+        STRV_FOREACH(i, interfaces)
+                if (!varlink_idl_interface_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink interface name: '%s'", *i);
+
         r = varlink_connect_auto(&vl, url);
         if (r < 0)
                 return r;
@@ -347,12 +380,12 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                const struct sd_json_dispatch_field dispatch_table[] = {
-                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, PTR_TO_SIZE(&auto_interfaces), SD_JSON_MANDATORY },
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "interfaces", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_MANDATORY },
                         {}
                 };
 
-                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, NULL);
+                r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &auto_interfaces);
                 if (r < 0)
                         return r;
 
@@ -379,7 +412,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                         return r;
 
                 if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || list_methods) {
-                        static const struct sd_json_dispatch_field dispatch_table[] = {
+                        static const sd_json_dispatch_field dispatch_table[] = {
                                 { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
                                 {}
                         };
@@ -498,13 +531,16 @@ static int verb_call(int argc, char *argv[], void *userdata) {
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
 
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
+
         if (parameter) {
                 source = "<argv[4]>";
 
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
                 r = sd_json_parse_with_source(parameter, source, 0, &jp, &line, &column);
         } else {
-                if (isatty(STDIN_FILENO) > 0 && !arg_quiet)
+                if (isatty_safe(STDIN_FILENO) && !arg_quiet)
                         log_notice("Expecting method call parameter JSON object on standard input. (Provide empty string or {} for no parameters.)");
 
                 source = "<stdin>";

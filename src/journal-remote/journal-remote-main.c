@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
+#include "logs-show.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "parse-argument.h"
@@ -20,7 +21,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "signal-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -72,10 +72,7 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode,
-                                journal_write_split_mode,
-                                JournalWriteSplitMode,
-                                "Failed to parse split mode setting");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
 
 /**********************************************************************
  **********************************************************************
@@ -1072,11 +1069,6 @@ static int run(int argc, char **argv) {
 
         log_setup();
 
-        /* The journal merging logic potentially needs a lot of fds. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
-
         r = parse_config();
         if (r < 0)
                 return r;
@@ -1084,6 +1076,8 @@ static int run(int argc, char **argv) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        journal_browse_prepare();
 
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);

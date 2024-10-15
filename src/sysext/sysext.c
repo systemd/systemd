@@ -1476,8 +1476,8 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL, *filename = NULL;
+        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
         Image *img;
@@ -1658,6 +1658,17 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_oom();
 
+                /* Also get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &filename);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", img->path);
+
+                r = strv_extend(&extensions_v, filename);
+                if (r < 0)
+                        return log_oom();
+
                 n_extensions++;
         }
 
@@ -1672,8 +1683,9 @@ static int merge_subprocess(
 
         /* Order by version sort with strverscmp_improved() */
         typesafe_qsort(extensions, n_extensions, strverscmp_improvedp);
+        typesafe_qsort(extensions_v, n_extensions, strverscmp_improvedp);
 
-        buf = strv_join(extensions, "', '");
+        buf = strv_join(extensions_v, "', '");
         if (!buf)
                 return log_oom();
 
@@ -1748,13 +1760,11 @@ static int merge_subprocess(
                 if (!p)
                         return log_oom();
 
-                if (laccess(p, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to check if '%s' exists: %m", p);
-
-                        /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
+                r = access_nofollow(p, F_OK);
+                if (r == -ENOENT) /* Hierarchy apparently was empty in all extensions, and wasn't mounted, ignoring. */
                         continue;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s' exists: %m", p);
 
                 r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)

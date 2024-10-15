@@ -9,6 +9,7 @@
 #include "string-util.h"
 
 int systemd_installation_has_version(const char *root, const char *minimal_version) {
+        bool found = false;
         int r;
 
         /* Try to guess if systemd installation is later than the specified version. This
@@ -63,6 +64,8 @@ int systemd_installation_has_version(const char *root, const char *minimal_versi
                                 continue;
                         *t2 = '\0';
 
+                        found = true;
+
                         r = strverscmp_improved(t, minimal_version);
                         log_debug("Found libsystemd shared at \"%s.so\", version %s (%s).",
                                   *name, t,
@@ -72,5 +75,5 @@ int systemd_installation_has_version(const char *root, const char *minimal_versi
                 }
         }
 
-        return false;
+        return !found ? -ENOENT : false;
 }

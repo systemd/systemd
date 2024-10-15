@@ -29,6 +29,7 @@
 #include "netdevsim.h"
 #include "netif-util.h"
 #include "netlink-util.h"
+#include "network-util.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
@@ -191,13 +192,39 @@ static bool netdev_is_stacked(NetDev *netdev) {
         return true;
 }
 
-static void netdev_detach_from_manager(NetDev *netdev) {
-        if (netdev->ifname && netdev->manager)
-                hashmap_remove(netdev->manager->netdevs, netdev->ifname);
+NetDev* netdev_detach_name(NetDev *netdev, const char *name) {
+        assert(netdev);
+
+        if (!netdev->manager || !name)
+                return NULL; /* Already detached or not attached yet. */
+
+        return hashmap_remove_value(netdev->manager->netdevs, name, netdev);
 }
 
-static NetDev *netdev_free(NetDev *netdev) {
+static NetDev* netdev_detach_impl(NetDev *netdev) {
         assert(netdev);
+
+        if (netdev->state != _NETDEV_STATE_INVALID &&
+            NETDEV_VTABLE(netdev) &&
+            NETDEV_VTABLE(netdev)->detach)
+                NETDEV_VTABLE(netdev)->detach(netdev);
+
+        NetDev *n = netdev_detach_name(netdev, netdev->ifname);
+
+        netdev->manager = NULL;
+        return n; /* Return NULL when it is not attached yet, or already detached. */
+}
+
+void netdev_detach(NetDev *netdev) {
+        assert(netdev);
+
+        netdev_unref(netdev_detach_impl(netdev));
+}
+
+static NetDev* netdev_free(NetDev *netdev) {
+        assert(netdev);
+
+        netdev_detach_impl(netdev);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
          * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
@@ -211,10 +238,9 @@ static NetDev *netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
-        netdev_detach_from_manager(netdev);
-
         condition_free_list(netdev->conditions);
         free(netdev->filename);
+        strv_free(netdev->dropins);
         free(netdev->description);
         free(netdev->ifname);
 
@@ -244,9 +270,52 @@ void netdev_drop(NetDev *netdev) {
 
         log_netdev_debug(netdev, "netdev removed");
 
-        netdev_detach_from_manager(netdev);
-        netdev_unref(netdev);
-        return;
+        netdev_detach(netdev);
+}
+
+int netdev_attach_name(NetDev *netdev, const char *name) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->manager);
+        assert(name);
+
+        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, name, netdev);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r == -EEXIST) {
+                NetDev *n = hashmap_get(netdev->manager->netdevs, name);
+
+                assert(n);
+                if (!streq(netdev->filename, n->filename))
+                        log_netdev_warning_errno(netdev, r,
+                                                 "Device \"%s\" was already configured by \"%s\", ignoring %s.",
+                                                 name, n->filename, netdev->filename);
+
+                return -EEXIST;
+        }
+        assert(r > 0);
+
+        return 0;
+}
+
+static int netdev_attach(NetDev *netdev) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->ifname);
+
+        r = netdev_attach_name(netdev, netdev->ifname);
+        if (r < 0)
+                return r;
+
+        if (NETDEV_VTABLE(netdev)->attach) {
+                r = NETDEV_VTABLE(netdev)->attach(netdev);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret) {
@@ -265,11 +334,51 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         return 0;
 }
 
+void link_assign_netdev(Link *link) {
+        _unused_ _cleanup_(netdev_unrefp) NetDev *old = NULL;
+        NetDev *netdev;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->ifname);
+
+        old = TAKE_PTR(link->netdev);
+
+        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
+                return;
+
+        int ifindex = NETDEV_VTABLE(netdev)->get_ifindex ?
+                NETDEV_VTABLE(netdev)->get_ifindex(netdev, link->ifname) :
+                netdev->ifindex;
+        if (ifindex != link->ifindex)
+                return;
+
+        if (NETDEV_VTABLE(netdev)->iftype != link->iftype)
+                return;
+
+        if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
+                const char *kind;
+
+                if (netdev->kind == NETDEV_KIND_TAP)
+                        kind = "tun"; /* the kernel does not distinguish between tun and tap */
+                else
+                        kind = netdev_kind_to_string(netdev->kind);
+
+                if (!streq_ptr(kind, link->kind))
+                        return;
+        }
+
+        link->netdev = netdev_ref(netdev);
+
+        if (netdev != old)
+                log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+}
+
 void netdev_enter_failed(NetDev *netdev) {
         netdev->state = NETDEV_STATE_FAILED;
 }
 
-static int netdev_enter_ready(NetDev *netdev) {
+int netdev_enter_ready(NetDev *netdev) {
         assert(netdev);
         assert(netdev->ifname);
 
@@ -308,96 +417,108 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         return 1;
 }
 
+int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
+        assert(netdev);
+        assert(ifindex > 0);
+
+        if (netdev->ifindex == ifindex)
+                return 0; /* Already set. */
+
+        if (netdev->ifindex > 0 && netdev->ifindex != ifindex)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                "Could not set ifindex to %i, already set to %i.",
+                                                ifindex, netdev->ifindex);
+
+        netdev->ifindex = ifindex;
+        log_netdev_debug(netdev, "Gained index %i.", ifindex);
+        return 1; /* set new ifindex. */
+}
+
+static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
+        int r;
+
+        assert(netdev);
+        assert(name);
+        assert(ifindex > 0);
+
+        if (NETDEV_VTABLE(netdev)->set_ifindex)
+                return NETDEV_VTABLE(netdev)->set_ifindex(netdev, name, ifindex);
+
+        if (!streq(netdev->ifname, name))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Received netlink message with unexpected interface name %s (ifindex=%i).",
+                                                name, ifindex);
+
+        r = netdev_set_ifindex_internal(netdev, ifindex);
+        if (r <= 0)
+                return r;
+
+        return netdev_enter_ready(netdev);
+}
+
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         uint16_t type;
         const char *kind;
         const char *received_kind;
         const char *received_name;
-        int r, ifindex;
+        int r, ifindex, family;
 
         assert(netdev);
         assert(message);
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
+                return log_netdev_warning_errno(netdev, r, "Could not get rtnl message type: %m");
 
         if (type != RTM_NEWLINK)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
+
+        r = sd_rtnl_message_get_family(message, &family);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Failed to get family from received rtnl message: %m");
+
+        if (family != AF_UNSPEC)
+                return 0; /* IFLA_LINKINFO is only contained in the message with AF_UNSPEC. */
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
-        if (r < 0) {
-                log_netdev_error_errno(netdev, r, "Could not get ifindex: %m");
-                netdev_enter_failed(netdev);
-                return r;
-        } else if (ifindex <= 0) {
-                log_netdev_error(netdev, "Got invalid ifindex: %d", ifindex);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
-        }
-
-        if (netdev->ifindex > 0) {
-                if (netdev->ifindex != ifindex) {
-                        log_netdev_error(netdev, "Could not set ifindex to %d, already set to %d",
-                                         ifindex, netdev->ifindex);
-                        netdev_enter_failed(netdev);
-                        return -EEXIST;
-                } else
-                        /* ifindex already set to the same for this netdev */
-                        return 0;
-        }
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Could not get ifindex: %m");
+        if (ifindex <= 0)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Got invalid ifindex: %d", ifindex);
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &received_name);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get IFNAME: %m");
-
-        if (!streq(netdev->ifname, received_name)) {
-                log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
-        }
+                return log_netdev_warning_errno(netdev, r, "Could not get IFNAME: %m");
 
         if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
 
                 r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not get LINKINFO: %m");
 
                 r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not get KIND: %m");
 
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+                        return log_netdev_warning_errno(netdev, r, "Could not exit container: %m");
 
                 if (netdev->kind == NETDEV_KIND_TAP)
                         /* the kernel does not distinguish between tun and tap */
                         kind = "tun";
-                else {
+                else
                         kind = netdev_kind_to_string(netdev->kind);
-                        if (!kind) {
-                                log_netdev_error(netdev, "Could not get kind");
-                                netdev_enter_failed(netdev);
-                                return -EINVAL;
-                        }
-                }
+                if (!kind)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Could not get netdev kind.");
 
-                if (!streq(kind, received_kind)) {
-                        log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
-                                         received_kind, kind);
-                        netdev_enter_failed(netdev);
-                        return -EINVAL;
-                }
+                if (!streq(kind, received_kind))
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                        "Received newlink with wrong KIND %s, expected %s",
+                                                        received_kind, kind);
         }
 
-        netdev->ifindex = ifindex;
-
-        log_netdev_debug(netdev, "netdev has index %d", netdev->ifindex);
-
-        netdev_enter_ready(netdev);
-
-        return 0;
+        return netdev_set_ifindex_impl(netdev, received_name, ifindex);
 }
 
 #define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
@@ -832,7 +953,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         NETDEV_VTABLE(netdev)->sections,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        netdev, NULL, NULL);
+                        netdev,
+                        NULL,
+                        &netdev->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
@@ -847,26 +970,11 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r == -EEXIST) {
-                NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
+        r = netdev_attach(netdev);
+        if (r < 0)
+                return r;
 
-                assert(n);
-                if (!streq(netdev->filename, n->filename))
-                        log_netdev_warning_errno(netdev, r,
-                                                 "Device was already configured by \"%s\", ignoring %s.",
-                                                 n->filename, netdev->filename);
-
-                /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
-                 * removed from the hashmap 'manager->netdevs'. */
-                netdev->ifname = mfree(netdev->ifname);
-                return -EEXIST;
-        }
-        assert(r > 0);
-
-        log_netdev_debug(netdev, "loaded \"%s\"", netdev_kind_to_string(netdev->kind));
+        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
 
         r = netdev_request_to_create(netdev);
         if (r < 0)

@@ -796,10 +796,10 @@ int replace_env_full(
                                         t = v;
                                 }
 
-                                r = strv_extend_strv(&unset_variables, u, /* filter_duplicates= */ true);
+                                r = strv_extend_strv_consume(&unset_variables, TAKE_PTR(u), /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
-                                r = strv_extend_strv(&bad_variables, b, /* filter_duplicates= */ true);
+                                r = strv_extend_strv_consume(&bad_variables, TAKE_PTR(b), /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -931,11 +931,11 @@ int replace_env_argv(
                         return r;
                 n[++k] = NULL;
 
-                r = strv_extend_strv(&unset_variables, u, /* filter_duplicates= */ true);
+                r = strv_extend_strv_consume(&unset_variables, TAKE_PTR(u), /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv(&bad_variables, b, /*filter_duplicates= */ true);
+                r = strv_extend_strv_consume(&bad_variables, TAKE_PTR(b), /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
         }

@@ -1901,17 +1901,15 @@ static int rlimit_to_nice(rlim_t limit) {
 }
 
 int setpriority_closest(int priority) {
-        int current, limit, saved_errno;
         struct rlimit highest;
+        int r, current, limit;
 
         /* Try to set requested nice level */
-        if (setpriority(PRIO_PROCESS, 0, priority) >= 0)
+        r = RET_NERRNO(setpriority(PRIO_PROCESS, 0, priority));
+        if (r >= 0)
                 return 1;
-
-        /* Permission failed */
-        saved_errno = -errno;
-        if (!ERRNO_IS_PRIVILEGE(saved_errno))
-                return saved_errno;
+        if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
 
         errno = 0;
         current = getpriority(PRIO_PROCESS, 0);
@@ -1925,24 +1923,21 @@ int setpriority_closest(int priority) {
         * then the whole setpriority() system call is blocked to us, hence let's propagate the error
         * right-away */
         if (priority > current)
-                return saved_errno;
+                return r;
 
         if (getrlimit(RLIMIT_NICE, &highest) < 0)
                 return -errno;
 
         limit = rlimit_to_nice(highest.rlim_cur);
 
-        /* We are already less nice than limit allows us */
-        if (current < limit) {
-                log_debug("Cannot raise nice level, permissions and the resource limit do not allow it.");
-                return 0;
-        }
+        /* Push to the allowed limit if we're higher than that. Note that we could also be less nice than
+         * limit allows us, but still higher than what's requested. In that case our current value is
+         * the best choice. */
+        if (current > limit)
+                if (setpriority(PRIO_PROCESS, 0, limit) < 0)
+                        return -errno;
 
-        /* Push to the allowed limit */
-        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
-                return -errno;
-
-        log_debug("Cannot set requested nice level (%i), used next best (%i).", priority, limit);
+        log_debug("Cannot set requested nice level (%i), using next best (%i).", priority, MIN(current, limit));
         return 0;
 }
 
@@ -2064,9 +2059,14 @@ int posix_spawn_wrapper(
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
 #if HAVE_PIDFD_SPAWN
+        static enum {
+                CLONE_ONLY_PID,
+                CLONE_CAN_PIDFD,  /* 5.2 */
+                CLONE_CAN_CGROUP, /* 5.7 */
+        } clone_support = CLONE_CAN_CGROUP;
         _cleanup_close_ int cgroup_fd = -EBADF;
 
-        if (cgroup) {
+        if (cgroup && clone_support >= CLONE_CAN_CGROUP) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
                 r = cg_get_path_and_check(
@@ -2097,31 +2097,44 @@ int posix_spawn_wrapper(
                 return -r;
 
 #if HAVE_PIDFD_SPAWN
-        _cleanup_close_ int pidfd = -EBADF;
+        if (clone_support >= CLONE_CAN_PIDFD) {
+                _cleanup_close_ int pidfd = -EBADF;
 
-        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
-        if (r == 0) {
-                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-                if (r < 0)
-                        return r;
-
-                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-        }
-        if (ERRNO_IS_NOT_SUPPORTED(r)) {
-                /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
-                if (cgroup && cg_is_threaded(cgroup) > 0)
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) &&
+                    cg_is_threaded(cgroup) > 0) /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
                         return -EUCLEAN;
+                if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
+                    FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
+                         * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
+                         * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
+                         * but not CLONE_INTO_CGROUP. */
 
-                /* clone3() not available? */
-        } else if (!ERRNO_IS_PRIVILEGE(r))
-                return -r;
+                        /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
+                         * retry every time. */
+                        assert(clone_support >= CLONE_CAN_CGROUP);
+                        clone_support = CLONE_CAN_PIDFD;
 
-        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
-         * flags to remove the cgroup one, which is what redirects to clone3() */
-        flags &= ~POSIX_SPAWN_SETCGROUP;
-        r = posix_spawnattr_setflags(&attr, flags);
-        if (r != 0)
-                return -r;
+                        flags &= ~POSIX_SPAWN_SETCGROUP;
+                        r = posix_spawnattr_setflags(&attr, flags);
+                        if (r != 0)
+                                return -r;
+
+                        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                }
+                if (r == 0) {
+                        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                        if (r < 0)
+                                return r;
+
+                        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+                }
+                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                        return -r;
+
+                clone_support = CLONE_ONLY_PID; /* No CLONE_PIDFD either? */
+        }
 #endif
 
         pid_t pid;

@@ -20,9 +20,9 @@ Conflicts=shutdown.target initrd-switch-root.target
 Wants=systemd-networkd.socket network.target systemd-networkd-persistent-storage.service
 
 [Service]
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN
 BusName=org.freedesktop.network1
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN
 DeviceAllow=char-* rw
 ExecStart=!!{{LIBEXECDIR}}/systemd-networkd
 FileDescriptorStoreMax=512
@@ -48,7 +48,7 @@ RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service
+SystemCallFilter=@system-service bpf
 Type=notify-reload
 User=systemd-network
 {{SERVICE_WATCHDOG}}

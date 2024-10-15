@@ -204,8 +204,6 @@ static int run(int argc, char *argv[]) {
         if (arg_quiet)
                 log_set_max_level(LOG_ERR);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-
         r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_required_family, arg_any, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");

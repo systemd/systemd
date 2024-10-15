@@ -23,15 +23,38 @@ jobs:
 
     steps:
       - name: Repo checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
         with:
           # We need a full repo clone
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@88ea3923a7e1f89dd485d079f6eb5f5e8f937589
+        uses: super-linter/super-linter/slim@b92721f792f381cedc002ecdbb9847a15ece5bb8
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
+
+      - name: Check that tabs are not used in Python code
+        run: sh -c '! git grep -P "\\t" -- src/ukify/ukify.py'
+
+      - name: Install ruff and mypy
+        run: |
+          python3 -m pip install --break-system-packages --upgrade setuptools wheel pip
+          python3 -m pip install --break-system-packages mypy types-Pillow ruff
+
+      - name: Run mypy
+        run: |
+          python3 -m mypy --version
+          python3 -m mypy src/ukify/ukify.py
+
+      - name: Run ruff check
+        run: |
+          ruff --version
+          ruff check src/ukify/ukify.py
+
+      - name: Run ruff format
+        run: |
+          ruff --version
+          ruff format --check src/ukify/ukify.py

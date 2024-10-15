@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/ipv6.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/ioctl.h>
@@ -681,9 +682,9 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
-        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_set_signal_exit(m->event, true);
+        if (r < 0)
+                return r;
 
         (void) sd_event_set_watchdog(m->event, true);
 
@@ -719,10 +720,25 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
-        (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
-        (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &m->sigrtmin18_info);
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        if (r < 0)
+                return log_debug_errno(r, "Failed install SIGHUP handler: %m");
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
+        if (r < 0)
+                return log_debug_errno(r, "Failed install SIGUSR1 handler: %m");
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
+        if (r < 0)
+                return log_debug_errno(r, "Failed install SIGUSR2 handler: %m");
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
+        if (r < 0)
+                return log_debug_errno(r, "Failed install SIGRTMIN+1 handler: %m");
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
+        if (r < 0)
+                return log_debug_errno(r, "Failed install SIGRTMIN+18 handler: %m");
 
         manager_cleanup_saved_user(m);
 
@@ -800,10 +816,6 @@ Manager *manager_free(Manager *m) {
 
         sd_bus_flush_close_unref(m->bus);
 
-        sd_event_source_unref(m->sigusr1_event_source);
-        sd_event_source_unref(m->sigusr2_event_source);
-        sd_event_source_unref(m->sigrtmin1_event_source);
-
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);
         dns_resource_key_unref(m->mdns_host_ipv4_key);
@@ -866,8 +878,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                 return 0;
         if (l <= 0)
                 return l;
-
-        assert(!(mh.msg_flags & MSG_TRUNC));
 
         p->size = (size_t) l;
 
@@ -1727,7 +1737,6 @@ void manager_cleanup_saved_user(Manager *m) {
         }
 
         FOREACH_DIRENT_ALL(de, d, log_error_errno(errno, "Failed to read interface directory: %m")) {
-                _cleanup_free_ char *p = NULL;
                 int ifindex;
                 Link *l;
 
@@ -1751,13 +1760,8 @@ void manager_cleanup_saved_user(Manager *m) {
                 continue;
 
         rm:
-                p = path_join("/run/systemd/resolve/netif", de->d_name);
-                if (!p) {
-                        log_oom();
-                        return;
-                }
-
-                (void) unlink(p);
+                if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                        log_warning_errno(errno, "Failed to remove left-over interface configuration file '%s', ignoring: %m", de->d_name);
         }
 }
 

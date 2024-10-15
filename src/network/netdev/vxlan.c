@@ -21,7 +21,7 @@ static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(df, VxLanDF, NETDEV_VXLAN_DF_YES);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_df, df, VxLanDF, "Failed to parse VXLAN IPDoNotFragment= setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_df, df, VxLanDF);
 
 static int vxlan_get_local_address(VxLan *v, Link *link, int *ret_family, union in_addr_union *ret_address) {
         assert(v);

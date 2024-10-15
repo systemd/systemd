@@ -188,7 +188,7 @@ mimepackagesdir = prefixdir / 'share/mime/packages'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
-        configfiledir= sysconfdir
+        configfiledir = sysconfdir
 endif
 pkgconfigfiledir = configfiledir / 'systemd'
 
@@ -228,6 +228,13 @@ if libcryptsetup_plugins_dir == ''
         libcryptsetup_plugins_dir = libdir / 'cryptsetup'
 endif
 
+shellprofiledir = get_option('shellprofiledir')
+if shellprofiledir == ''
+        shellprofiledir = sysconfdir / 'profile.d'
+endif
+conf.set10('LINK_SHELL_EXTRA_DROPIN', shellprofiledir != 'no' and not shellprofiledir.startswith('/usr/'))
+conf.set('SHELLPROFILEDIR', shellprofiledir, description : 'shell profile directory')
+
 memory_accounting_default = get_option('memory-accounting-default')
 status_unit_format_default = get_option('status-unit-format-default')
 if status_unit_format_default == 'auto'
@@ -257,6 +264,7 @@ conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
 conf.set_quoted('SSHCONFDIR',                                 sshconfdir)
 conf.set_quoted('SSHDCONFDIR',                                sshdconfdir)
+conf.set_quoted('SHELLPROFILEDIR',                            shellprofiledir)
 conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      bindir / 'systemctl')
@@ -277,6 +285,7 @@ conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir / 'lang
 conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        libexecdir / 'systemd-makefs')
 conf.set_quoted('SYSTEMD_PULL_PATH',                          libexecdir / 'systemd-pull')
 conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               libexecdir / 'systemd-shutdown')
+conf.set_quoted('SYSTEMD_SYSUPDATE_PATH',                     libexecdir / 'systemd-sysupdate')
 conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', bindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 libexecdir / 'systemd-update-helper')
@@ -358,6 +367,7 @@ endif
 # avoid them.
 basic_disabled_warnings = [
         '-Wno-missing-field-initializers',
+        '-Wno-unknown-warning-option',
         '-Wno-unused-parameter',
         '-Wno-nonnull-compare',
 ]
@@ -399,6 +409,7 @@ possible_common_cc_flags = [
         '-Wstrict-aliasing=2',
         '-Wstrict-prototypes',
         '-Wsuggest-attribute=noreturn',
+        '-Wunterminated-string-initialization',
         '-Wunused-function',
         '-Wwrite-strings',
         '-Wzero-length-bounds',
@@ -551,10 +562,10 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 decl_headers = '''
 #include <dirent.h>
-#include <uchar.h>
+#include <sched.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sched.h>
+#include <uchar.h>
 '''
 
 foreach decl : ['char16_t',
@@ -762,7 +773,6 @@ foreach header : ['crypt.h',
                   'linux/ioprio.h',
                   'linux/memfd.h',
                   'linux/time_types.h',
-                  'linux/vm_sockets.h',
                   'sys/auxv.h',
                   'sys/sdt.h',
                   'threads.h',
@@ -1108,6 +1118,7 @@ else
         elif bpf_compiler == 'gcc'
                 bpf_gcc = find_program('bpf-gcc',
                                        'bpf-none-gcc',
+                                       'bpf-unknown-none-gcc',
                                        required : true,
                                        version : '>= 13.1.0')
                 bpf_gcc_found = bpf_gcc.found()
@@ -1278,7 +1289,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_reencrypt_run',
                  'crypt_set_data_offset',
                  'crypt_set_keyring_to_link',
-                 'crypt_resume_by_volume_key']
+                 'crypt_resume_by_volume_key',
+                 'crypt_token_set_external_path']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1650,6 +1662,7 @@ foreach term : ['analyze',
                 'hwdb',
                 'idn',
                 'ima',
+                'ipe',
                 'initrd',
                 'kernel-install',
                 'ldconfig',
@@ -1812,15 +1825,22 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_o_unstripped_cmd += ['-I.']
 
-        if not meson.is_cross_build()
-                target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
-                if target_triplet_cmd.returncode() == 0
-                        target_triplet = target_triplet_cmd.stdout().strip()
-                        bpf_o_unstripped_cmd += [
-                                '-isystem',
-                                '/usr/include/@0@'.format(target_triplet)
-                        ]
+        if cc.get_id() == 'gcc' or meson.is_cross_build()
+                if cc.get_id() != 'gcc'
+                        warning('Cross compiler is not gcc. Guessing the target triplet for bpf likely fails.')
                 endif
+                target_triplet_cmd = run_command(cc.cmd_array(), '-print-multiarch', check: false)
+        else
+                # clang does not support -print-multiarch (D133170) and its -dump-machine
+                # does not match multiarch. Query gcc instead.
+                target_triplet_cmd = run_command('gcc', '-print-multiarch', check: false)
+        endif
+        if target_triplet_cmd.returncode() == 0
+                target_triplet = target_triplet_cmd.stdout().strip()
+                bpf_o_unstripped_cmd += [
+                        '-isystem',
+                        '/usr/include/@0@'.format(target_triplet)
+                ]
         endif
 
         bpf_o_unstripped_cmd += [
@@ -2073,6 +2093,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-json',
         'src/libsystemd/sd-netlink',
         'src/libsystemd/sd-network',
+        'src/libsystemd/sd-path',
         'src/libsystemd/sd-resolve',
         'src/libsystemd/sd-varlink')]
 
@@ -2699,6 +2720,7 @@ subdir('man')
 subdir('modprobe.d')
 subdir('network')
 subdir('presets')
+subdir('profile.d')
 subdir('shell-completion/bash')
 subdir('shell-completion/zsh')
 subdir('sysctl.d')
@@ -2921,6 +2943,7 @@ summary({
         'ssh server privilege separation directory' : sshdprivsepdir,
         'ssh client configuration directory' : sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
+        'Shell profile directory' :         shellprofiledir,
         'RPM macros directory' :            rpmmacrosdir,
         'modprobe.d directory' :            modprobedir,
         'D-Bus policy directory' :          dbuspolicydir,

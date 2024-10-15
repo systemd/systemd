@@ -71,14 +71,6 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for privileged operations.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--unit=</option></term>
 
         <listitem><para>Use this unit name instead of an automatically generated one.</para>
@@ -210,6 +202,7 @@
         </listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

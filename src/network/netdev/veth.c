@@ -62,7 +62,73 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
                                                 "Veth NetDev without peer name configured in %s. Ignoring",
                                                 filename);
 
+        if (streq(v->ifname_peer, netdev->ifname))
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Veth peer name cannot be the same as the main interface name.");
+
         return 0;
+}
+
+static int netdev_veth_attach(NetDev *netdev) {
+        Veth *v = VETH(netdev);
+
+        assert(v->ifname_peer);
+        return netdev_attach_name(netdev, v->ifname_peer);
+}
+
+static void netdev_veth_detach(NetDev *netdev) {
+        Veth *v = VETH(netdev);
+
+        netdev_detach_name(netdev, v->ifname_peer);
+}
+
+static int netdev_veth_set_ifindex(NetDev *netdev, const char *name, int ifindex) {
+        Veth *v = VETH(netdev);
+        int r;
+
+        assert(name);
+        assert(ifindex > 0);
+
+        if (streq(netdev->ifname, name)) {
+                r = netdev_set_ifindex_internal(netdev, ifindex);
+                if (r <= 0)
+                        return r;
+
+        } else if (streq(v->ifname_peer, name)) {
+                if (v->ifindex_peer == ifindex)
+                        return 0; /* already set. */
+
+                if (v->ifindex_peer > 0 && v->ifindex_peer != ifindex)
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EEXIST),
+                                                        "Could not set ifindex %i for peer %s, already set to %i.",
+                                                        ifindex, v->ifname_peer, v->ifindex_peer);
+
+                v->ifindex_peer = ifindex;
+                log_netdev_debug(netdev, "Peer interface %s gained index %i.", v->ifname_peer, ifindex);
+
+        } else
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "Received netlink message with unexpected interface name %s (index=%i).",
+                                                name, ifindex);
+
+        if (netdev->ifindex > 0 && v->ifindex_peer > 0)
+                return netdev_enter_ready(netdev);
+
+        return 0;
+}
+
+static int netdev_veth_get_ifindex(NetDev *netdev, const char *name) {
+        Veth *v = VETH(netdev);
+
+        assert(name);
+
+        if (streq(netdev->ifname, name))
+                return netdev->ifindex;
+
+        if (streq(v->ifname_peer, name))
+                return v->ifindex_peer;
+
+        return -ENODEV;
 }
 
 static void veth_done(NetDev *netdev) {
@@ -78,6 +144,10 @@ const NetDevVTable veth_vtable = {
         .fill_message_create = netdev_veth_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_veth_verify,
+        .attach = netdev_veth_attach,
+        .detach = netdev_veth_detach,
+        .set_ifindex = netdev_veth_set_ifindex,
+        .get_ifindex = netdev_veth_get_ifindex,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

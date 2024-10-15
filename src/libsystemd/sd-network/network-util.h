@@ -2,9 +2,14 @@
 #pragma once
 
 #include <errno.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 
+#include "constants.h"
 #include "macro.h"
+
+#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
+#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
 
 bool network_is_online(void);
 
@@ -17,6 +22,17 @@ typedef enum AddressFamily {
         _ADDRESS_FAMILY_MAX,
         _ADDRESS_FAMILY_INVALID = -EINVAL,
 } AddressFamily;
+
+static inline AddressFamily AF_TO_ADDRESS_FAMILY(int af) {
+        switch (af) {
+        case AF_INET:
+                return ADDRESS_FAMILY_IPV4;
+        case AF_INET6:
+                return ADDRESS_FAMILY_IPV6;
+        default:
+                return ADDRESS_FAMILY_NO;
+        }
+}
 
 typedef enum LinkOperationalState {
         LINK_OPERSTATE_MISSING,

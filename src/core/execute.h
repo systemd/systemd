@@ -302,8 +302,7 @@ struct ExecContext {
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
 
-        usec_t log_ratelimit_interval_usec;
-        unsigned log_ratelimit_burst;
+        RateLimit log_ratelimit;
 
         int log_level_max;
 
@@ -314,11 +313,12 @@ struct ExecContext {
 
         int private_mounts;
         int mount_apivfs;
+        int bind_log_sockets;
         int memory_ksm;
         PrivateTmp private_tmp;
         bool private_network;
         bool private_devices;
-        bool private_users;
+        PrivateUsers private_users;
         bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
@@ -421,6 +421,7 @@ struct ExecParameters {
         char **fd_names;
         size_t n_socket_fds;
         size_t n_storage_fds;
+        size_t n_extra_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
@@ -463,6 +464,8 @@ struct ExecParameters {
         char *unit_id;
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX];
+
+        bool debug_invocation;
 };
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -518,6 +521,7 @@ bool exec_context_maintains_privileges(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
+bool exec_context_get_effective_bind_log_sockets(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
@@ -630,7 +634,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max < 0 ||                           \
+                bool _do_log = _p->debug_invocation ||                            \
+                               _c->log_level_max < 0 ||                           \
                                _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \
@@ -675,7 +680,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max < 0 ||                           \
+                bool _do_log = _p->debug_invocation ||                            \
+                               _c->log_level_max < 0 ||                           \
                                _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \

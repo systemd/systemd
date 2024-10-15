@@ -345,9 +345,11 @@ _public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
         assert_return(ret, -EINVAL);
         assert_return(ifname, -EINVAL);
 
-        r = device_new_from_main_ifname(ret, ifname);
-        if (r >= 0)
-                return r;
+        if (ifname_valid(ifname)) {
+                r = device_new_from_main_ifname(ret, ifname);
+                if (r >= 0)
+                        return r;
+        }
 
         r = rtnl_resolve_ifname_full(NULL, RESOLVE_IFNAME_ALTERNATIVE | RESOLVE_IFNAME_NUMERIC, ifname, &main_name, NULL);
         if (r < 0)
@@ -384,25 +386,80 @@ _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
         return 0;
 }
 
-static int device_strjoin_new(
+static int device_new_from_path_join(
+                sd_device **device,
+                const char *subsystem,
+                const char *driver_subsystem,
+                const char *sysname,
                 const char *a,
                 const char *b,
                 const char *c,
-                const char *d,
-                sd_device **ret) {
+                const char *d) {
 
-        const char *p;
+        _cleanup_(sd_device_unrefp) sd_device *new_device = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
-        p = strjoina(a, b, c, d);
-        if (access(p, F_OK) < 0)
-                return IN_SET(errno, ENOENT, ENAMETOOLONG) ? 0 : -errno; /* If this sysfs is too long then it doesn't exist either */
+        assert(device);
+        assert(subsystem);
+        assert(sysname);
 
-        r = sd_device_new_from_syspath(ret, p);
+        p = path_join(a, b, c, d);
+        if (!p)
+                return -ENOMEM;
+
+        r = sd_device_new_from_syspath(&new_device, p);
+        if (r == -ENODEV)
+                return 0;
         if (r < 0)
                 return r;
 
-        return 1;
+        /* Check if the found device really has the expected subsystem and sysname, for safety. */
+        if (!device_in_subsystem(new_device, subsystem))
+                return 0;
+
+        const char *new_driver_subsystem = NULL;
+        (void) sd_device_get_driver_subsystem(new_device, &new_driver_subsystem);
+
+        if (!streq_ptr(driver_subsystem, new_driver_subsystem))
+                return 0;
+
+        const char *new_sysname;
+        r = sd_device_get_sysname(new_device, &new_sysname);
+        if (r < 0)
+                return r;
+
+        if (!streq(sysname, new_sysname))
+                return 0;
+
+        /* If this is the first device we found, then take it. */
+        if (!*device) {
+                *device = TAKE_PTR(new_device);
+                return 1;
+        }
+
+        /* Unfortunately, (subsystem, sysname) pair is not unique. For examples,
+         *   - /sys/bus/gpio and /sys/class/gpio, both have gpiochip%N. However, these point to different devpaths.
+         *   - /sys/bus/mdio_bus and /sys/class/mdio_bus,
+         *   - /sys/bus/mei and /sys/class/mei,
+         *   - /sys/bus/typec and /sys/class/typec, and so on.
+         * Hence, if we already know a device, then we need to check if it is equivalent to the newly found one. */
+
+        const char *devpath, *new_devpath;
+        r = sd_device_get_devpath(*device, &devpath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devpath(new_device, &new_devpath);
+        if (r < 0)
+                return r;
+
+        if (!streq(devpath, new_devpath))
+                return log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
+                                       "sd-device: found multiple devices for subsystem=%s and sysname=%s, refusing: %s, %s",
+                                       subsystem, sysname, devpath, new_devpath);
+
+        return 1; /* Fortunately, they are consistent. */
 }
 
 _public_ int sd_device_new_from_subsystem_sysname(
@@ -410,6 +467,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 const char *subsystem,
                 const char *sysname) {
 
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char *name;
         int r;
 
@@ -428,19 +486,15 @@ _public_ int sd_device_new_from_subsystem_sysname(
 
         if (streq(subsystem, "subsystem")) {
                 FOREACH_STRING(s, "/sys/bus/", "/sys/class/") {
-                        r = device_strjoin_new(s, name, NULL, NULL, ret);
+                        r = device_new_from_path_join(&device, subsystem, NULL, sysname, s, name, NULL, NULL);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                return 0;
                 }
 
         } else if (streq(subsystem, "module")) {
-                r = device_strjoin_new("/sys/module/", name, NULL, NULL, ret);
+                r = device_new_from_path_join(&device, subsystem, NULL, sysname, "/sys/module/", name, NULL, NULL);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        return 0;
 
         } else if (streq(subsystem, "drivers")) {
                 const char *sep;
@@ -452,35 +506,31 @@ _public_ int sd_device_new_from_subsystem_sysname(
                         sep++;
 
                         if (streq(sep, "drivers")) /* If the sysname is "drivers", then it's the drivers directory itself that is meant. */
-                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers", NULL, ret);
+                                r = device_new_from_path_join(&device, subsystem, subsys, "drivers", "/sys/bus/", subsys, "/drivers", NULL);
                         else
-                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
+                                r = device_new_from_path_join(&device, subsystem, subsys, sep, "/sys/bus/", subsys, "/drivers/", sep);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                return 0;
                 }
         }
 
-        r = device_strjoin_new("/sys/bus/", subsystem, "/devices/", name, ret);
+        r = device_new_from_path_join(&device, subsystem, NULL, sysname, "/sys/bus/", subsystem, "/devices/", name);
         if (r < 0)
                 return r;
-        if (r > 0)
-                return 0;
 
-        r = device_strjoin_new("/sys/class/", subsystem, "/", name, ret);
+        r = device_new_from_path_join(&device, subsystem, NULL, sysname, "/sys/class/", subsystem, name, NULL);
         if (r < 0)
                 return r;
-        if (r > 0)
-                return 0;
 
-        r = device_strjoin_new("/sys/firmware/", subsystem, "/", name, ret);
+        r = device_new_from_path_join(&device, subsystem, NULL, sysname, "/sys/firmware/", subsystem, name, NULL);
         if (r < 0)
                 return r;
-        if (r > 0)
-                return 0;
 
-        return -ENODEV;
+        if (!device)
+                return -ENODEV;
+
+        *ret = TAKE_PTR(device);
+        return 0;
 }
 
 _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
@@ -1196,6 +1246,20 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         return 0;
 }
 
+_public_ int sd_device_get_driver_subsystem(sd_device *device, const char **ret) {
+        assert_return(device, -EINVAL);
+
+        if (!device_in_subsystem(device, "drivers"))
+                return -ENOENT;
+
+        assert(device->driver_subsystem);
+
+        if (ret)
+                *ret = device->driver_subsystem;
+
+        return 0;
+}
+
 _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         int r;
 
@@ -1211,7 +1275,7 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         if (devtype)
                 *devtype = device->devtype;
 
-        return !!device->devtype;
+        return 0;
 }
 
 _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype, sd_device **ret) {
@@ -1621,9 +1685,8 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         }
 }
 
-int device_get_device_id(sd_device *device, const char **ret) {
-        assert(device);
-        assert(ret);
+_public_ int sd_device_get_device_id(sd_device *device, const char **ret) {
+        assert_return(device, -EINVAL);
 
         if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
@@ -1673,7 +1736,8 @@ int device_get_device_id(sd_device *device, const char **ret) {
                 device->device_id = TAKE_PTR(id);
         }
 
-        *ret = device->device_id;
+        if (ret)
+                *ret = device->device_id;
         return 0;
 }
 

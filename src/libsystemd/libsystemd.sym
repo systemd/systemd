@@ -868,6 +868,7 @@ global:
         sd_json_dispatch_uint32;
         sd_json_dispatch_uint64;
         sd_json_dispatch_uint8;
+        sd_json_dispatch_signal;
         sd_json_dispatch_unsupported;
         sd_json_dispatch_variant;
         sd_json_dispatch_variant_noref;
@@ -934,10 +935,12 @@ global:
         sd_json_variant_sensitive;
         sd_json_variant_set_field;
         sd_json_variant_set_field_boolean;
+        sd_json_variant_set_field_id128;
         sd_json_variant_set_field_integer;
         sd_json_variant_set_field_string;
         sd_json_variant_set_field_strv;
         sd_json_variant_set_field_unsigned;
+        sd_json_variant_set_field_uuid;
         sd_json_variant_set_fieldb;
         sd_json_variant_sort;
         sd_json_variant_string;
@@ -972,6 +975,7 @@ global:
         sd_varlink_error_errno;
         sd_varlink_error_invalid_parameter;
         sd_varlink_error_invalid_parameter_name;
+        sd_varlink_error_is_invalid_parameter;
         sd_varlink_error_to_errno;
         sd_varlink_errorb;
         sd_varlink_flush;
@@ -1044,7 +1048,11 @@ global:
         sd_varlink_take_fd;
         sd_varlink_unref;
         sd_varlink_wait;
+        sd_device_get_device_id;
+        sd_device_get_driver_subsystem;
         sd_device_monitor_is_running;
         sd_device_monitor_get_fd;
+        sd_device_monitor_get_events;
+        sd_device_monitor_get_timeout;
         sd_device_monitor_receive;
 } LIBSYSTEMD_256;

@@ -58,7 +58,7 @@ Host .host
 </programlisting>
 
     <para>A configuration fragment along these lines is by default installed into
-    <filename>/etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf.in</filename>.</para>
+    <filename>/etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf</filename>.</para>
 
     <para>With this in place, SSH connections to host string <literal>unix/</literal> followed by an absolute
     <constant>AF_UNIX</constant> file system path to a socket will be directed to the specified socket, which

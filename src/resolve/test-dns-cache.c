@@ -555,7 +555,7 @@ TEST(dns_cache_lookup_success) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -592,7 +592,7 @@ TEST(dns_cache_lookup_clamp_ttl) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = SD_RESOLVED_CLAMP_TTL;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -635,7 +635,7 @@ TEST(dns_cache_lookup_returns_most_recent_response) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -680,7 +680,7 @@ TEST(dns_cache_lookup_retains_multiple_answers_from_one_response) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -724,7 +724,7 @@ TEST(dns_cache_lookup_nxdomain) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -809,7 +809,7 @@ TEST(dns_cache_lookup_mdns_multiple_shared_responses_are_cached) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
         dns_resource_key_unref(key);
 
         ASSERT_EQ(cache.n_hit, 1u);
@@ -865,7 +865,7 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_TRUE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
         dns_resource_key_unref(key);
 
         ASSERT_EQ(cache.n_hit, 1u);

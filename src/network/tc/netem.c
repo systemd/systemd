@@ -60,7 +60,7 @@ int config_parse_network_emulator_delay(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = ASSERT_PTR(data);
         NetworkEmulator *ne;
         usec_t u;
@@ -121,7 +121,7 @@ int config_parse_network_emulator_rate(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = ASSERT_PTR(data);
         NetworkEmulator *ne;
         uint32_t rate;
@@ -181,7 +181,7 @@ int config_parse_network_emulator_packet_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        _cleanup_(qdisc_unref_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = ASSERT_PTR(data);
         NetworkEmulator *ne;
         int r;

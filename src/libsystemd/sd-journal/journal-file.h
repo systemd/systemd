@@ -46,7 +46,7 @@ typedef enum LocationType {
 
         /* We should seek to the precise location specified, and
          * return it, as we haven't read it yet. */
-        LOCATION_SEEK
+        LOCATION_SEEK,
 } LocationType;
 
 typedef enum OfflineState {
@@ -56,7 +56,7 @@ typedef enum OfflineState {
         OFFLINE_CANCEL,
         OFFLINE_AGAIN_FROM_SYNCING,
         OFFLINE_AGAIN_FROM_OFFLINING,
-        OFFLINE_DONE
+        OFFLINE_DONE,
 } OfflineState;
 
 typedef struct JournalFile {

@@ -369,7 +369,7 @@
       <varlistentry>
         <term><option>--read-only</option></term>
 
-        <listitem><para>Mount the container's root file system (and any other file systems container in the container
+        <listitem><para>Mount the container's root file system (and any other file systems contained in the container
         image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
         <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
         marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case the container
@@ -404,7 +404,7 @@
         <filename>/efi/</filename> or <filename>/boot/</filename> are prohibited in case such a partition
         exists in the container image operated on, and even if <option>--volatile=state</option> is used the
         hypothetical file <filename index="false">/etc/foobar</filename> is potentially writable if
-        <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only container
+        <option>--bind=/etc/foobar</option> is used to mount it from outside the read-only container
         <filename>/etc/</filename> directory.</para>
 
         <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
@@ -566,7 +566,7 @@
 
               <row>
                 <entry><option>--boot</option> specified</entry>
-                <entry>An init program is automatically searched for (unless the <option>--init=</option> is used) and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
+                <entry>An init program is automatically searched for and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
               </row>
 
             </tbody>
@@ -576,14 +576,6 @@
         <para>Note that <option>--boot</option> is the default mode of operation if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
         </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--init=</option></term>
-
-        <listitem><para>Invoke the specified path as the init program in the container when <option>--boot</option> is used.</para>
-
-        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>

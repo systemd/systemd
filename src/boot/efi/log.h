@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi-string.h"
+#include "proto/simple-text-io.h"
 
 #if defined __has_attribute
 #  if __has_attribute(no_stack_protector)
@@ -21,12 +22,18 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 
 _noreturn_ void freeze(void);
 void log_wait(void);
-_gnu_printf_(2, 3) EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...);
-#define log_error_status(status, ...) log_internal(status, __VA_ARGS__)
-#define log_error(...) log_internal(EFI_INVALID_PARAMETER, __VA_ARGS__)
-#define log_oom() log_internal(EFI_OUT_OF_RESOURCES, "Out of memory.")
-#define log_trace() log_internal(EFI_SUCCESS, "%s:%i@%s", __FILE__, __LINE__, __func__)
+_gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...);
+#define log_full(status, text_color, format, ...)                       \
+        log_internal(status, text_color, "%s:%i@%s: " format, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define log_debug(...) log_full(EFI_SUCCESS, EFI_LIGHTGRAY, __VA_ARGS__)
+#define log_info(...) log_full(EFI_SUCCESS, EFI_WHITE, __VA_ARGS__)
+#define log_error_status(status, ...) log_full(status, EFI_LIGHTRED, __VA_ARGS__)
+#define log_error(...) log_full(EFI_INVALID_PARAMETER, EFI_LIGHTRED, __VA_ARGS__)
+#define log_oom() log_full(EFI_OUT_OF_RESOURCES, EFI_LIGHTRED, "Out of memory.")
 
-#ifdef EFI_DEBUG
-void log_hexdump(const char16_t *prefix, const void *data, size_t size);
-#endif
+/* Debugging helper — please keep this around, even if not used */
+#define log_hexdump(prefix, data, size)                                 \
+        ({                                                              \
+                _cleanup_free_ char16_t *hex = hexdump(data, size);     \
+                log_debug("%ls[%zu]: %ls", prefix, size, hex);          \
+        })

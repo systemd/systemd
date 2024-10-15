@@ -52,7 +52,7 @@ fi
 # Do one iteration with a separate data device, to test those branches
 separate_data=1
 
-for algorithm in crc32c crc32 sha1 sha256
+for algorithm in crc32c crc32 xxhash64 sha1 sha256
 do
     if [ "${separate_data}" -eq 1 ]; then
         data_option="--data-device=${image_dir}/data"

@@ -332,7 +332,6 @@ char* format_timestamp_style(
 
         struct tm tm;
         bool utc, us;
-        time_t sec;
         size_t n;
 
         assert(buf);
@@ -375,9 +374,7 @@ char* format_timestamp_style(
                 return strcpy(buf, xxx[style]);
         }
 
-        sec = (time_t) (t / USEC_PER_SEC); /* Round down */
-
-        if (!localtime_or_gmtime_r(&sec, &tm, utc))
+        if (localtime_or_gmtime_usec(t, utc, &tm) < 0)
                 return NULL;
 
         /* Start with the week day */
@@ -665,7 +662,6 @@ static int parse_timestamp_impl(
         unsigned fractional = 0;
         const char *k;
         struct tm tm, copy;
-        time_t sec;
 
         /* Allowed syntaxes:
          *
@@ -778,10 +774,9 @@ static int parse_timestamp_impl(
                 }
         }
 
-        sec = (time_t) (usec / USEC_PER_SEC);
-
-        if (!localtime_or_gmtime_r(&sec, &tm, utc))
-                return -EINVAL;
+        r = localtime_or_gmtime_usec(usec, utc, &tm);
+        if (r < 0)
+                return r;
 
         tm.tm_isdst = isdst;
 
@@ -939,11 +934,11 @@ from_tm:
         } else
                 minus = gmtoff * USEC_PER_SEC;
 
-        sec = mktime_or_timegm(&tm, utc);
-        if (sec < 0)
-                return -EINVAL;
+        r = mktime_or_timegm_usec(&tm, utc, &usec);
+        if (r < 0)
+                return r;
 
-        usec = usec_add(sec * USEC_PER_SEC, fractional);
+        usec = usec_add(usec, fractional);
 
 finish:
         usec = usec_add(usec, plus);
@@ -999,8 +994,12 @@ int parse_timestamp(const char *t, usec_t *ret) {
         assert(t);
 
         t_len = strlen(t);
-        if (t_len > 2 && t[t_len - 1] == 'Z' && t[t_len - 2] != ' ')  /* RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
-                return parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        if (t_len > 2 && t[t_len - 1] == 'Z') {
+                /* Try to parse as RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
+                r = parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                if (r >= 0)
+                        return r;
+        }
 
         if (t_len > 7 && IN_SET(t[t_len - 6], '+', '-') && t[t_len - 7] != ' ') {  /* RFC3339-style welded offset: "1990-12-31T15:59:60-08:00" */
                 k = strptime(&t[t_len - 6], "%z", &tm);
@@ -1043,6 +1042,14 @@ int parse_timestamp(const char *t, usec_t *ret) {
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
                 return negative_errno();
+
+        /* The input string may be in argv. Let's copy it. */
+        _cleanup_free_ char *t_copy = strdup(t);
+        if (!t_copy)
+                return -ENOMEM;
+
+        t = t_copy;
+        assert_se(tz = endswith(t_copy, tz));
 
         r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, NULL);
         if (r < 0) {
@@ -1625,17 +1632,54 @@ int get_timezone(char **ret) {
         return strdup_to(ret, e);
 }
 
-time_t mktime_or_timegm(struct tm *tm, bool utc) {
+int mktime_or_timegm_usec(
+                struct tm *tm, /* input + normalized output */
+                bool utc,
+                usec_t *ret) {
+
+        time_t t;
+
         assert(tm);
 
-        return utc ? timegm(tm) : mktime(tm);
+        if (tm->tm_year < 69) /* early check for negative (i.e. before 1970) time_t (Note that in some timezones the epoch is in the year 1969!)*/
+                return -ERANGE;
+        if ((usec_t) tm->tm_year > CONST_MIN(USEC_INFINITY / USEC_PER_YEAR, (usec_t) TIME_T_MAX / (365U * 24U * 60U * 60U)) - 1900) /* early check for possible overrun of usec_t or time_t */
+                return -ERANGE;
+
+        /* timegm()/mktime() is a bit weird to use, since it returns -1 in two cases: on error as well as a
+         * valid time indicating one second before the UNIX epoch. Let's treat both cases the same here, and
+         * return -ERANGE for anything negative, since usec_t is unsigned, and we can thus not express
+         * negative times anyway. */
+
+        t = utc ? timegm(tm) : mktime(tm);
+        if (t < 0) /* Refuse negative times and errors */
+                return -ERANGE;
+        if ((usec_t) t >= USEC_INFINITY / USEC_PER_SEC) /* Never return USEC_INFINITY by accident (or overflow) */
+                return -ERANGE;
+
+        if (ret)
+                *ret = (usec_t) t * USEC_PER_SEC;
+        return 0;
 }
 
-struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
-        assert(t);
-        assert(tm);
+int localtime_or_gmtime_usec(
+                usec_t t,
+                bool utc,
+                struct tm *ret) {
 
-        return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
+        t /= USEC_PER_SEC; /* Round down */
+        if (t > (usec_t) TIME_T_MAX)
+                return -ERANGE;
+        time_t sec = (time_t) t;
+
+        struct tm buf = {};
+        if (!(utc ? gmtime_r(&sec, &buf) : localtime_r(&sec, &buf)))
+                return -EINVAL;
+
+        if (ret)
+                *ret = buf;
+
+        return 0;
 }
 
 static uint32_t sysconf_clock_ticks_cached(void) {

@@ -92,18 +92,24 @@ TEST(message_address) {
         struct in_addr in_data;
         struct ifa_cacheinfo cache;
         const char *label;
+        int r;
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
         ifindex = (int) if_nametoindex("lo");
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &message, RTM_GETADDR, ifindex, AF_INET) >= 0);
         assert_se(sd_netlink_message_set_request_dump(message, true) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, &reply) == 1);
 
-        assert_se(sd_netlink_message_read_in_addr(reply, IFA_LOCAL, &in_data) >= 0);
-        assert_se(sd_netlink_message_read_in_addr(reply, IFA_ADDRESS, &in_data) >= 0);
-        assert_se(sd_netlink_message_read_string(reply, IFA_LABEL, &label) >= 0);
-        assert_se(sd_netlink_message_read_cache_info(reply, IFA_CACHEINFO, &cache) == 0);
+        r = sd_netlink_call(rtnl, message, 0, &reply);
+        assert_se(r >= 0);
+
+        /* If the loopback device is down we won't get any results. */
+        if (r > 0) {
+                assert_se(sd_netlink_message_read_in_addr(reply, IFA_LOCAL, &in_data) >= 0);
+                assert_se(sd_netlink_message_read_in_addr(reply, IFA_ADDRESS, &in_data) >= 0);
+                assert_se(sd_netlink_message_read_string(reply, IFA_LABEL, &label) >= 0);
+                assert_se(sd_netlink_message_read_cache_info(reply, IFA_CACHEINFO, &cache) >= 0);
+        }
 }
 
 TEST(message_route) {

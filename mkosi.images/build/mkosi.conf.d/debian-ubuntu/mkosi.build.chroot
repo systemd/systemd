@@ -18,11 +18,7 @@ rm -rf "$SRCDIR"/debian/patches/*
 DEB_HOST_GNU_TYPE="$(dpkg-architecture --query DEB_HOST_GNU_TYPE)"
 mount --mkdir --bind "$BUILDDIR" "$SRCDIR/obj-$DEB_HOST_GNU_TYPE"
 
-if [[ -d .git/ ]] && [[ -z "$(git status --porcelain)" ]]; then
-    TS="$(git show --no-patch --format=%ct HEAD)"
-else
-    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
-fi
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 # Add a new changelog entry to update the version. We use a fixed date since a dynamic one causes a full
 # rebuild every time.
@@ -102,18 +98,22 @@ if ! build; then
         sed "s/Package: //" |
         xargs -d '\n' -I {} sh -c "[ -d debian/{} ] && (cd debian/{} && find . ! -type d ! -path "*dh-exec*" -printf '%P\n')" |
         # Remove compression suffix from compressed manpages as the manpages in debian/tmp will be uncompressed.
-        sed --regexp-extended 's/([0-9])\.gz$/\1/' |
-        sort --unique >/tmp/packaged-files
+        sed --regexp-extended 's/([0-9])\.gz$/\1/' >/tmp/packaged-files
 
     # We figure out the installed files by running find on debian/tmp/ which contains the files installed
     # by meson install.
-    (cd debian/tmp/ && find . ! -type d ! -path "*dh-exec*" -printf '%P\n') >/tmp/installed-files
+    (cd debian/tmp/ && find . ! -type d ! -path "*dh-exec*" -printf '%P\n' | sort --unique) >/tmp/installed-files
 
     if [[ -f debian/not-installed ]]; then
-        grep --invert-match "^#" debian/not-installed >>/tmp/installed-files
+        pushd debian/tmp
+        grep --invert-match "^#" ../not-installed |
+            xargs -I {} bash -O nullglob -c "printf '%s\n' {}" |
+            sed "/^$/d" |
+            xargs -I {} sh -c "test -f '{}' && echo '{}' || true" >>/tmp/packaged-files
+        popd
     fi
 
-    sort --unique --output /tmp/installed-files /tmp/installed-files
+    sort --unique --output /tmp/packaged-files /tmp/packaged-files
 
     # We get all the installed files that were not packaged by finding entries in the installed file that are
     # not in the packaged file.

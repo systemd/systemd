@@ -10,9 +10,10 @@ export SYSTEMD_LOG_LEVEL=debug
 export PAGER=
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 SD_PCRLOCK="/usr/lib/systemd/systemd-pcrlock"
+SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
-if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] ; then
-    echo "$SD_PCREXTEND or $SD_PCRLOCK not found, skipping pcrlock tests"
+if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] ; then
+    echo "$SD_PCREXTEND or $SD_PCRLOCK or $SD_MEASURE not found, skipping pcrlock tests"
     exit 0
 fi
 
@@ -127,6 +128,17 @@ echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/92
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
+# Now combined pcrlock and signed PCR
+# Generate key pair
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$img".private.pem
+openssl rsa -pubout -in "$img".private.pem -out "$img".public.pem
+systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key="$img".public.pem --wipe-slot=tpm2 "$img"
+"$SD_MEASURE" sign --current --bank=sha256 --private-key="$img".private.pem --public-key="$img".public.pem --phase=: | tee "$img".pcrsign
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach pcrlock "$img" - "tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,tpm2-signature=$img.pcrsign,headless"
+systemd-cryptsetup detach pcrlock
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --wipe-slot=tpm2 "$img"
+rm "$img".public.pem "$img".private.pem "$img".pcrsign
+
 # Now use the root fs support, i.e. make the tool write a copy of the pcrlock
 # file as service credential to some temporary dir and remove the local copy, so that
 # it has to use the credential version.
@@ -134,7 +146,18 @@ mkdir /tmp/fakexbootldr
 SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
 mv /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
 
-systemd-creds decrypt /tmp/fakexbootldr/loader/credentials/pcrlock.*.cred
+ls -al /tmp/fakexbootldr/loader/credentials
+
+CREDENTIAL_FILE="$(echo /tmp/fakexbootldr/loader/credentials/pcrlock.*.cred)"
+test -f "$CREDENTIAL_FILE"
+
+# Strip dir and .cred suffix from file name.
+CREDENTIAL_NAME=${CREDENTIAL_FILE#/tmp/fakexbootldr/loader/credentials/}
+CREDENTIAL_NAME=${CREDENTIAL_NAME%.cred}
+
+systemd-creds decrypt --name="$CREDENTIAL_NAME" "$CREDENTIAL_FILE"
+ln -s "$CREDENTIAL_FILE" /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
+test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 
 SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
 systemd-cryptsetup detach pcrlock

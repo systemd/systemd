@@ -627,14 +627,25 @@
       <varlistentry>
         <term><varname>PathRelativeTo=</varname></term>
 
-        <listitem><para>Specifies what partition <varname>Path=</varname> should be relative to. Takes one of
-        <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>, or <constant>boot</constant>.
-        If unspecified, defaults to <constant>root</constant>.</para>
+        <listitem><para>Specifies what anchor point <varname>Path=</varname> should be relative to. Takes one
+        of <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
+        <constant>boot</constant> or <constant>directory</constant>. If unspecified, defaults to
+        <constant>root</constant>.</para>
+
+        <para>If set to <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
+        the specified <varname>Path=</varname> will be resolved relative to the mount point of the
+        corresponding partition, as defined by the
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        Specification</ulink>.</para>
 
         <para>If set to <constant>boot</constant>, the specified <varname>Path=</varname> will be resolved
         relative to the mount point of the $BOOT partition (i.e. the ESP or XBOOTLDR), as defined by the
         <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
         Specification</ulink>.</para>
+
+        <para>If set to <constant>explicit</constant>, the specified <varname>Path=</varname> will be
+        resolved relative to the directory specified with <option>--transfer-source=</option> when invoking
+        <command>systemd-sysupdate</command>.</para>
 
         <para>The values <constant>esp</constant>, <constant>xbootldr</constant>, and
         <constant>boot</constant> are only supported when <varname>Type=</varname> is set to

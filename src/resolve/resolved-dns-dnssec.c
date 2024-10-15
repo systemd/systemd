@@ -1219,7 +1219,7 @@ int dnssec_verify_rrset_search(
                         if (realtime == USEC_INFINITY)
                                 realtime = now(CLOCK_REALTIME);
 
-                        /* Have we seen an unreasonable number of invalid signaures? */
+                        /* Have we seen an unreasonable number of invalid signatures? */
                         if (nvalidations > DNSSEC_INVALID_MAX) {
                                 if (ret_rrsig)
                                         *ret_rrsig = NULL;

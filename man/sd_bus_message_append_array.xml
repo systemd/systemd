@@ -34,7 +34,7 @@
         <funcdef>int sd_bus_message_append_array</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>void *<parameter>ptr</parameter></paramdef>
+        <paramdef>const void *<parameter>ptr</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
       </funcprototype>
 

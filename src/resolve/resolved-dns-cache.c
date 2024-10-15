@@ -5,7 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"

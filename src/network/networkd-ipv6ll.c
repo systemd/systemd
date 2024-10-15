@@ -7,6 +7,7 @@
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
 #include "socket-util.h"
@@ -189,6 +190,7 @@ int link_set_ipv6ll_stable_secret(Link *link) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
 
         if (link->network->ipv6ll_address_gen_mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY)
@@ -219,17 +221,18 @@ int link_set_ipv6ll_stable_secret(Link *link) {
         }
 
         return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret",
-                                        IN6_ADDR_TO_STRING(&a));
+                                        IN6_ADDR_TO_STRING(&a), manager_get_sysctl_shadow(link->manager));
 }
 
 int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {
         assert(link);
+        assert(link->manager);
         assert(mode >= 0 && mode < _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX);
 
         if (mode == link->ipv6ll_address_gen_mode)
                 return 0;
 
-        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode);
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "addr_gen_mode", mode, manager_get_sysctl_shadow(link->manager));
 }
 
 static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
@@ -243,5 +246,4 @@ DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddres
 DEFINE_CONFIG_PARSE_ENUM(
         config_parse_ipv6_link_local_address_gen_mode,
         ipv6_link_local_address_gen_mode,
-        IPv6LinkLocalAddressGenMode,
-        "Failed to parse IPv6 link-local address generation mode");
+        IPv6LinkLocalAddressGenMode);

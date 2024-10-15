@@ -15,6 +15,7 @@
 
 static int append_machine_properties(
                 sd_bus_message *m,
+                bool enable_fuse,
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
@@ -29,24 +30,23 @@ static int append_machine_properties(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device policies in
-         * sync regardless if we are run with or without the --keep-unit switch. */
+        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device
+         * policies in sync regardless if we are run with or without the --keep-unit switch. */
         r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 2,
-                                  /* Allow the container to
-                                   * access and create the API
-                                   * device nodes, so that
-                                   * PrivateDevices= in the
-                                   * container can work
-                                   * fine */
+                                  /* Allow the container to access and create the API device nodes, so that
+                                   * PrivateDevices= in the container can work fine */
                                   "/dev/net/tun", "rwm",
-                                  /* Allow the container
-                                   * access to ptys. However,
-                                   * do not permit the
-                                   * container to ever create
-                                   * these device nodes. */
+                                  /* Allow the container access to ptys. However, do not permit the container
+                                   * to ever create these device nodes. */
                                   "char-pts", "rw");
         if (r < 0)
                 return bus_log_create_error(r);
+        if (enable_fuse) {
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
+                                          "/dev/fuse", "rwm");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         for (j = 0; j < n_mounts; j++) {
                 CustomMount *cm = mounts + j;
@@ -147,16 +147,16 @@ int register_machine(
                 int kill_signal,
                 char **properties,
                 sd_bus_message *properties_message,
-                bool keep_unit,
                 const char *service,
-                StartMode start_mode) {
+                StartMode start_mode,
+                RegisterMachineFlags flags) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
 
-        if (keep_unit) {
+        if (FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT)) {
                 r = bus_call_method(
                                 bus,
                                 bus_machine_mgr,
@@ -207,6 +207,7 @@ int register_machine(
 
                 r = append_machine_properties(
                                 m,
+                                FLAGS_SET(flags, REGISTER_MACHINE_ENABLE_FUSE),
                                 mounts,
                                 n_mounts,
                                 kill_signal,
@@ -262,8 +263,8 @@ int allocate_scope(
                 int kill_signal,
                 char **properties,
                 sd_bus_message *properties_message,
-                bool allow_pidfd,
-                StartMode start_mode) {
+                StartMode start_mode,
+                AllocateScopeFlags flags) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -302,7 +303,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PID reference: %m");
 
-        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
+        r = bus_append_scope_pidref(m, &pidref, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -327,6 +328,7 @@ int allocate_scope(
 
         r = append_machine_properties(
                         m,
+                        FLAGS_SET(flags, ALLOCATE_SCOPE_ENABLE_FUSE),
                         mounts,
                         n_mounts,
                         kill_signal,
@@ -354,9 +356,20 @@ int allocate_scope(
         if (r < 0) {
                 /* If this failed with a property we couldn't write, this is quite likely because the server
                  * doesn't support PIDFDs yet, let's try without. */
-                if (allow_pidfd &&
+                if (FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD) &&
                     sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                        return allocate_scope(bus, machine_name, pid, slice, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false, start_mode);
+                        return allocate_scope(
+                                        bus,
+                                        machine_name,
+                                        pid,
+                                        slice,
+                                        mounts,
+                                        n_mounts,
+                                        kill_signal,
+                                        properties,
+                                        properties_message,
+                                        start_mode,
+                                        flags & ~ALLOCATE_SCOPE_ALLOW_PIDFD);
 
                 return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
         }

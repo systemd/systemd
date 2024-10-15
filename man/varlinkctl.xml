@@ -199,16 +199,33 @@
       <varlistentry>
         <term><option>--more</option></term>
 
-        <listitem><para>When used with <command>call</command>: expect multiple method replies. If this flag is
-        set the method call is sent with the <constant>more</constant> flag set, which tells the service to
-        generate multiple replies, if needed. The command remains running until the service sends a reply
-        message that indicates it is the last in the series. This flag should be set only for method calls
-        that support this mechanism.</para>
+        <listitem><para>When used with <command>call</command>: expect multiple method replies. If this flag
+        is set the method call is sent with the <constant>more</constant> flag set, which tells the service
+        to generate multiple replies, if needed. The command remains running until the service sends a reply
+        message that indicates it is the last in the series (or if the configured time-out is reached, see
+        below). This flag should be set only for method calls that support this mechanism.</para>
 
         <para>If this mode is enabled output is automatically switched to JSON-SEQ mode, so that individual
         reply objects can be easily discerned.</para>
 
+        <para>This switch has no effect on the method call time-out applied by default: regardless if
+        <option>--more</option> is specified or not, the default time-out will be 45s. Use
+        <option>--timeout=</option> (see below) to change or disable the time-out. When invoking a method
+        call that continuously returns updates it is typically desirable to disable the time-out with
+        <option>--timeout=infinity</option>. On the other hand, when invoking a <option>--more</option>
+        method call for the purpose of enumerating objects (which likely will complete quickly) it is
+        typically beneficial to leave the time-out logic enabled, for robustness reasons.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+
+        <listitem><para>A shortcut for <option>--more --timeout=infinity</option>. This switch is
+        useful for method calls that implement subscription to a continuous stream of updates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -274,6 +291,17 @@
           a method call fails with the specified error this will be treated as success, i.e. will cause the
           <command>varlinkctl</command> invocation to exit with a zero exit status. This option may be used more
           than once in order to treat multiple different errors as successes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout=</option></term>
+
+        <listitem>
+          <para>Expects a time-out in seconds as parameter. By default a time-out of 45s is enforced. To turn
+          off the time-out specify <literal>infinity</literal> or an empty string.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>

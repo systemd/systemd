@@ -685,7 +685,8 @@ static int dns_stub_send_failure(
 static int dns_stub_patch_bypass_reply_packet(
                 DnsPacket **ret,       /* Where to place the patched packet */
                 DnsPacket *original,   /* The packet to patch */
-                DnsPacket *request) {  /* The packet the patched packet shall look like a reply to */
+                DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
+                bool authenticated) {
         _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
         int r;
 
@@ -725,6 +726,10 @@ static int dns_stub_patch_bypass_reply_packet(
                 DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
         }
 
+        /* Ensure we don't pass along an untrusted ad flag for bypass packets */
+        if (!authenticated)
+                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+
         *ret = TAKE_PTR(c);
         return 0;
 }
@@ -745,7 +750,8 @@ static void dns_stub_query_complete(DnsQuery *query) {
                     q->answer_full_packet->protocol == DNS_PROTOCOL_DNS) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
 
-                        r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet);
+                        r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
+                                        FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
                         if (r < 0)
                                 log_debug_errno(r, "Failed to patch bypass reply packet: %m");
                         else

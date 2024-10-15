@@ -509,7 +509,6 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                                 return log_debug_errno(errno,
                                                        "Failed to open %s/%s: %m", dirname, filename);
 
-
                         r = make_credential_host_secret(dfd, machine_id, flags, dirname, filename, ret);
                         if (r == -EEXIST) {
                                 log_debug_errno(r, "Credential secret %s/%s appeared while we were creating it, rereading.",
@@ -886,7 +885,7 @@ int encrypt_credential_and_warn(
                  * container tpm2_support will detect this, and will return a different flag combination of
                  * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
 
-                try_tpm2 = tpm2_support() == TPM2_SUPPORT_FULL;
+                try_tpm2 = tpm2_is_fully_supported();
                 if (!try_tpm2)
                         log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else
@@ -957,12 +956,18 @@ int encrypt_credential_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
+                struct iovec *blobs = NULL;
+                size_t n_blobs = 0;
+                CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+
                 r = tpm2_seal(tpm2_context,
                               /* seal_key_handle= */ 0,
                               &tpm2_policy,
+                              /* n_policy_hash= */ 1,
                               /* pin= */ NULL,
                               &tpm2_key,
-                              &tpm2_blob,
+                              &blobs,
+                              &n_blobs,
                               &tpm2_primary_alg,
                               /* ret_srk= */ NULL);
                 if (r < 0) {
@@ -976,6 +981,9 @@ int encrypt_credential_and_warn(
 
                 if (!iovec_memdup(&IOVEC_MAKE(tpm2_policy.buffer, tpm2_policy.size), &tpm2_policy_hash))
                         return log_oom();
+
+                assert(n_blobs == 1);
+                tpm2_blob = TAKE_STRUCT(blobs[0]);
 
                 assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                 assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
@@ -1341,7 +1349,9 @@ int decrypt_credential_and_warn(
                                 /* pcrlock_policy= */ NULL,
                                 le16toh(t->primary_alg),
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
+                                /* n_blobs= */ 1,
                                 &IOVEC_MAKE(t->policy_hash_and_blob + le32toh(t->blob_size), le32toh(t->policy_hash_size)),
+                                /* n_policy_hash= */ 1,
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r < 0)
@@ -1571,14 +1581,12 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to encrypt: %s", error_id);
         }
 
-        r = sd_json_dispatch(
-                        reply,
-                        (const sd_json_dispatch_field[]) {
-                                { "blob", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), SD_JSON_MANDATORY },
-                                {},
-                        },
-                        SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS,
-                        /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "blob", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, ret);
         if (r < 0)
                 return r;
 
@@ -1638,14 +1646,12 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
 
-        r = sd_json_dispatch(
-                        reply,
-                        (const sd_json_dispatch_field[]) {
-                                { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), SD_JSON_MANDATORY },
-                                {},
-                        },
-                        SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS,
-                        /* userdata= */ NULL);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, ret);
         if (r < 0)
                 return r;
 

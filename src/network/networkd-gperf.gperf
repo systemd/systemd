@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
+#include "networkd-address-label.h"
 #include "networkd-conf.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dns.h"
@@ -22,24 +23,26 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Network.SpeedMeter,                      config_parse_bool,                      0,          offsetof(Manager, use_speed_meter)
-Network.SpeedMeterIntervalSec,           config_parse_sec,                       0,          offsetof(Manager, speed_meter_interval_usec)
-Network.ManageForeignRoutingPolicyRules, config_parse_bool,                      0,          offsetof(Manager, manage_foreign_rules)
-Network.ManageForeignRoutes,             config_parse_bool,                      0,          offsetof(Manager, manage_foreign_routes)
-Network.ManageForeignNextHops,           config_parse_bool,                      0,          offsetof(Manager, manage_foreign_nexthops)
-Network.RouteTable,                      config_parse_route_table_names,         0,          0
-Network.IPv4Forwarding,                  config_parse_tristate,                  0,          offsetof(Manager, ip_forwarding[0])
-Network.IPv6Forwarding,                  config_parse_tristate,                  0,          offsetof(Manager, ip_forwarding[1])
-Network.IPv6PrivacyExtensions,           config_parse_ipv6_privacy_extensions,   0,          offsetof(Manager, ipv6_privacy_extensions)
-Network.UseDomains,                      config_parse_use_domains,               0,          offsetof(Manager, use_domains)
-IPv6AcceptRA.UseDomains,                 config_parse_use_domains,               0,          offsetof(Manager, ndisc_use_domains)
-DHCPv4.UseDomains,                       config_parse_use_domains,               0,          offsetof(Manager, dhcp_use_domains)
-DHCPv4.DUIDType,                         config_parse_duid_type,                 0,          offsetof(Manager, dhcp_duid)
-DHCPv4.DUIDRawData,                      config_parse_duid_rawdata,              0,          offsetof(Manager, dhcp_duid)
-DHCPv6.UseDomains,                       config_parse_use_domains,               0,          offsetof(Manager, dhcp6_use_domains)
-DHCPv6.DUIDType,                         config_parse_duid_type,                 0,          offsetof(Manager, dhcp6_duid)
-DHCPv6.DUIDRawData,                      config_parse_duid_rawdata,              0,          offsetof(Manager, dhcp6_duid)
-DHCPServer.PersistLeases,                config_parse_bool,                      0,          offsetof(Manager, dhcp_server_persist_leases)
+Network.SpeedMeter,                      config_parse_bool,                       0,                                                         offsetof(Manager, use_speed_meter)
+Network.SpeedMeterIntervalSec,           config_parse_sec,                        0,                                                         offsetof(Manager, speed_meter_interval_usec)
+Network.ManageForeignRoutingPolicyRules, config_parse_bool,                       0,                                                         offsetof(Manager, manage_foreign_rules)
+Network.ManageForeignRoutes,             config_parse_bool,                       0,                                                         offsetof(Manager, manage_foreign_routes)
+Network.ManageForeignNextHops,           config_parse_bool,                       0,                                                         offsetof(Manager, manage_foreign_nexthops)
+Network.RouteTable,                      config_parse_route_table_names,          0,                                                         0
+Network.IPv4Forwarding,                  config_parse_tristate,                   0,                                                         offsetof(Manager, ip_forwarding[0])
+Network.IPv6Forwarding,                  config_parse_tristate,                   0,                                                         offsetof(Manager, ip_forwarding[1])
+Network.IPv6PrivacyExtensions,           config_parse_ipv6_privacy_extensions,    0,                                                         offsetof(Manager, ipv6_privacy_extensions)
+Network.UseDomains,                      config_parse_use_domains,                0,                                                         offsetof(Manager, use_domains)
+IPv6AcceptRA.UseDomains,                 config_parse_use_domains,                0,                                                         offsetof(Manager, ndisc_use_domains)
+IPv6AddressLabel.Prefix,                 config_parse_ipv6_address_label_section, IPV6_ADDRESS_LABEL_BY_MANAGER | IPV6_ADDRESS_LABEL_PREFIX, 0
+IPv6AddressLabel.Label,                  config_parse_ipv6_address_label_section, IPV6_ADDRESS_LABEL_BY_MANAGER | IPV6_ADDRESS_LABEL,        0
+DHCPv4.UseDomains,                       config_parse_use_domains,                0,                                                         offsetof(Manager, dhcp_use_domains)
+DHCPv4.DUIDType,                         config_parse_duid_type,                  0,                                                         offsetof(Manager, dhcp_duid)
+DHCPv4.DUIDRawData,                      config_parse_duid_rawdata,               0,                                                         offsetof(Manager, dhcp_duid)
+DHCPv6.UseDomains,                       config_parse_use_domains,                0,                                                         offsetof(Manager, dhcp6_use_domains)
+DHCPv6.DUIDType,                         config_parse_duid_type,                  0,                                                         offsetof(Manager, dhcp6_duid)
+DHCPv6.DUIDRawData,                      config_parse_duid_rawdata,               0,                                                         offsetof(Manager, dhcp6_duid)
+DHCPServer.PersistLeases,                config_parse_bool,                       0,                                                         offsetof(Manager, dhcp_server_persist_leases)
 /* Deprecated */
-DHCP.DUIDType,                           config_parse_manager_duid_type,         0,          0
-DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,      0,          0
+DHCP.DUIDType,                           config_parse_manager_duid_type,          0,                                                         0
+DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,       0,                                                         0

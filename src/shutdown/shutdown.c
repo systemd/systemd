@@ -40,6 +40,7 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
+#include "shutdown.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -223,8 +224,10 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
         return r;
 }
 
-static int sync_with_progress(void) {
+int sync_with_progress(int fd) {
         unsigned long long dirty = ULLONG_MAX;
+        _cleanup_free_ char *path = NULL;
+        const char *what;
         pid_t pid;
         int r;
 
@@ -233,11 +236,20 @@ static int sync_with_progress(void) {
         /* Due to the possibility of the sync operation hanging, we fork a child process and monitor
          * the progress. If the timeout lapses, the assumption is that the particular sync stalled. */
 
-        r = asynchronous_sync(&pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fork sync(): %m");
+        if (fd >= 0) {
+                r = asynchronous_fsync(fd, &pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fork fsync(): %m");
 
-        log_info("Syncing filesystems and block devices.");
+                (void) fd_get_path(fd, &path);
+        } else {
+                r = asynchronous_sync(&pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fork sync(): %m");
+        }
+
+        what = path ?: "filesystems and block devices";
+        log_info("Syncing %s.", what);
 
         /* Start monitoring the sync operation. If more than
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
@@ -248,7 +260,7 @@ static int sync_with_progress(void) {
                         /* Sync finished without error (sync() call itself does not return an error code) */
                         return 0;
                 if (r != -ETIMEDOUT)
-                        return log_error_errno(r, "Failed to sync filesystems and block devices: %m");
+                        return log_error_errno(r, "Failed to sync %s: %m", what);
 
                 /* Reset the check counter if we made some progress */
                 if (sync_making_progress(&dirty) > 0)
@@ -256,10 +268,10 @@ static int sync_with_progress(void) {
         }
 
         /* Only reached in the event of a timeout. We should issue a kill to the stray process. */
+        r = log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                            "Syncing %s - timed out, issuing SIGKILL to PID "PID_FMT".", what, pid);
         (void) kill(pid, SIGKILL);
-        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                               "Syncing filesystems and block devices - timed out, issuing SIGKILL to PID "PID_FMT".",
-                               pid);
+        return r;
 }
 
 static int read_current_sysctl_printk_log_level(void) {
@@ -432,7 +444,7 @@ int main(int argc, char *argv[]) {
          * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
          * result. */
         if (!in_container)
-                (void) sync_with_progress();
+                (void) sync_with_progress(-EBADF);
 
         disable_coredumps();
         disable_binfmt();
@@ -600,7 +612,7 @@ int main(int argc, char *argv[]) {
          * which might have caused IO, hence let's do it once more. Do not remove this sync, data corruption
          * will result. */
         if (!in_container)
-                (void) sync_with_progress();
+                (void) sync_with_progress(-EBADF);
 
         notify_supervisor();
 

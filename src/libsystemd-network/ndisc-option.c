@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/ipv6.h>
 #include <netinet/icmp6.h>
 
 #include "dns-domain.h"

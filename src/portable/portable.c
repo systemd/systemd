@@ -32,6 +32,7 @@
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"
+#include "portable-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
@@ -721,13 +722,7 @@ static int extract_image_and_extensions(
 
                 e = strv_env_pairs_get(extension_release, "PORTABLE_PREFIXES");
                 if (e) {
-                        _cleanup_strv_free_ char **l = NULL;
-
-                        l = strv_split(e, WHITESPACE);
-                        if (!l)
-                                return -ENOMEM;
-
-                        r = strv_extend_strv(&valid_prefixes, l, true);
+                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates = */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -909,7 +904,6 @@ static int portable_changes_add(
                 const char *source) {
 
         _cleanup_free_ char *p = NULL, *s = NULL;
-        PortableChange *c;
         int r;
 
         assert(path);
@@ -923,10 +917,8 @@ static int portable_changes_add(
         if (!changes)
                 return 0;
 
-        c = reallocarray(*changes, *n_changes + 1, sizeof(PortableChange));
-        if (!c)
+        if (!GREEDY_REALLOC(*changes, *n_changes + 1))
                 return -ENOMEM;
-        *changes = c;
 
         r = path_simplify_alloc(path, &p);
         if (r < 0)
@@ -936,7 +928,7 @@ static int portable_changes_add(
         if (r < 0)
                 return r;
 
-        c[(*n_changes)++] = (PortableChange) {
+        (*changes)[(*n_changes)++] = (PortableChange) {
                 .type_or_errno = type_or_errno,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
@@ -1255,8 +1247,12 @@ static int install_profile_dropin(
                 return -ENOMEM;
 
         if (flags & PORTABLE_PREFER_COPY) {
+                CopyFlags copy_flags = COPY_REFLINK|COPY_FSYNC;
 
-                r = copy_file_atomic(from, dropin, 0644, COPY_REFLINK|COPY_FSYNC);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        copy_flags |= COPY_REPLACE;
+
+                r = copy_file_atomic(from, dropin, 0644, copy_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
@@ -1264,8 +1260,12 @@ static int install_profile_dropin(
 
         } else {
 
-                if (symlink(from, dropin) < 0)
-                        return log_debug_errno(errno, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        r = symlink_atomic(from, dropin);
+                else
+                        r = RET_NERRNO(symlink(from, dropin));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to link %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, dropin, from);
         }
@@ -1351,14 +1351,22 @@ static int attach_unit_file(
 
         if ((flags & PORTABLE_PREFER_SYMLINK) && m->source) {
 
-                if (symlink(m->source, path) < 0)
-                        return log_debug_errno(errno, "Failed to symlink unit file '%s': %m", path);
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        r = symlink_atomic(m->source, path);
+                else
+                        r = RET_NERRNO(symlink(m->source, path));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to symlink unit file '%s': %m", path);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, path, m->source);
 
         } else {
+                LinkTmpfileFlags link_flags = LINK_TMPFILE_SYNC;
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -EBADF;
+
+                if (flags & PORTABLE_FORCE_ATTACH)
+                        link_flags |= LINK_TMPFILE_REPLACE;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1374,7 +1382,7 @@ static int attach_unit_file(
                 if (fchmod(fd, 0644) < 0)
                         return log_debug_errno(errno, "Failed to change unit file access mode for '%s': %m", path);
 
-                r = link_tmpfile(fd, tmp, path, LINK_TMPFILE_SYNC);
+                r = link_tmpfile(fd, tmp, path, link_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to install unit file '%s': %m", path);
 

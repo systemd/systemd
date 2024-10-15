@@ -386,39 +386,34 @@
 
       <varlistentry>
         <term><varname>ExecStart=</varname></term>
-        <listitem><para>Commands that are executed when this service is started. The value is split into zero
-        or more command lines according to the rules described in the section "Command Lines" below.</para>
+        <listitem><para>Commands that are executed when this service is started.</para>
 
-        <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be given. When
-        <varname>Type=oneshot</varname> is used, zero or more commands may be specified. Commands may be specified by
-        providing multiple command lines in the same directive, or alternatively, this directive may be specified more
-        than once with the same effect. If the empty string is assigned to this option, the list of commands to start
-        is reset, prior assignments of this option will have no effect. If no <varname>ExecStart=</varname> is
-        specified, then the service must have <varname>RemainAfterExit=yes</varname> and at least one
-        <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
-        <varname>ExecStop=</varname> are not valid.)</para>
+        <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be
+        given. When <varname>Type=oneshot</varname> is used, this setting may be used multiple times to
+        define multiple commands to execute. If the empty string is assigned to this option, the list of
+        commands to start is reset, prior assignments of this option will have no effect. If no
+        <varname>ExecStart=</varname> is specified, then the service must have
+        <varname>RemainAfterExit=yes</varname> and at least one <varname>ExecStop=</varname> line
+        set. (Services lacking both <varname>ExecStart=</varname> and <varname>ExecStop=</varname> are not
+        valid.)</para>
 
-        <para>If more than one command is specified, the commands are
-        invoked sequentially in the order they appear in the unit
-        file. If one of the commands fails (and is not prefixed with
-        <literal>-</literal>), other lines are not executed, and the
-        unit is considered failed.</para>
+        <para>If more than one command is configured, the commands are invoked sequentially in the order they
+        appear in the unit file. If one of the commands fails (and is not prefixed with
+        <literal>-</literal>), other lines are not executed, and the unit is considered failed.</para>
 
-        <para>Unless <varname>Type=forking</varname> is set, the
-        process started via this command line will be considered the
-        main process of the daemon.</para>
+        <para>Unless <varname>Type=forking</varname> is set, the process started via this command line will
+        be considered the main process of the daemon.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ExecStartPre=</varname></term>
         <term><varname>ExecStartPost=</varname></term>
-        <listitem><para>Additional commands that are executed before
-        or after the command in <varname>ExecStart=</varname>,
-        respectively. Syntax is the same as for
-        <varname>ExecStart=</varname>, except that multiple command
-        lines are allowed and the commands are executed one after the
-        other, serially.</para>
+
+        <listitem><para>Additional commands that are executed before or after the command in
+        <varname>ExecStart=</varname>, respectively. Syntax is the same as for <varname>ExecStart=</varname>.
+        Multiple command lines are allowed, regardless of the service type (i.e. <varname>Type=</varname>),
+        and the commands are executed one after the other, serially.</para>
 
         <para>If any of those commands (not prefixed with
         <literal>-</literal>) fail, the rest are not executed and the
@@ -454,8 +449,9 @@
 
       <varlistentry>
         <term><varname>ExecCondition=</varname></term>
-        <listitem><para>Optional commands that are executed before the commands in <varname>ExecStartPre=</varname>.
-        Syntax is the same as for <varname>ExecStart=</varname>, except that multiple command lines are allowed and the
+        <listitem><para>Optional commands that are executed before the commands in
+        <varname>ExecStartPre=</varname>. Syntax is the same as for <varname>ExecStart=</varname>. Multiple
+        command lines are allowed, regardless of the service type (i.e. <varname>Type=</varname>), and the
         commands are executed one after the other, serially.</para>
 
         <para>The behavior is like an <varname>ExecStartPre=</varname> and condition check hybrid: when an
@@ -936,19 +932,39 @@
         <listitem>
           <para>Takes a string value that specifies how a service should restart:
             <itemizedlist>
-              <listitem><para>If set to <option>normal</option> (the default), the service restarts by
-              going through a failed/inactive state.</para></listitem>
+              <listitem>
+                <para>If set to <option>normal</option> (the default), the service restarts by going through
+                a failed/inactive state.</para>
 
-              <listitem><para>If set to <option>direct</option>, the service transitions to the activating
-              state directly during auto-restart, skipping failed/inactive state.
-              <varname>ExecStopPost=</varname> is invoked.
-              <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para></listitem>
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>direct</option>, the service transitions to the activating
+                state directly during auto-restart, skipping failed/inactive state.
+                <varname>ExecStopPost=</varname> is invoked.
+                <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para>
+
+                <para>This option is useful in cases where a dependency can fail temporarily but we don't
+                want these temporary failures to make the dependent units fail. Dependent units are not
+                notified of these temporary failures.</para>
+
+                <xi:include href="version-info.xml" xpointer="v254"/>
+              </listitem>
+
+              <listitem>
+                <para>If set to <option>debug</option>, the service manager will log messages that are
+                related to this unit at debug level while automated restarts are attempted, until either the
+                service hits the rate limit or it succeeds, and the <varname>$DEBUG_INVOCATION=1</varname>
+                environment variable will be set for the unit. This is useful to be able to get additional
+                information when a service fails to start, without needing to proactively or permanently
+                enable debug level logging in systemd, which is very verbose. This is otherwise equivalent
+                to <option>normal</option> mode.</para>
+
+                <xi:include href="version-info.xml" xpointer="v257"/>
+              </listitem>
             </itemizedlist>
           </para>
-
-          <para>This option is useful in cases where a dependency can fail temporarily
-          but we don't want these temporary failures to make the dependent units fail.
-          When this option is set to <option>direct</option>, dependent units are not notified of these temporary failures.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -1334,9 +1350,7 @@
     <varname>ExecStopPost=</varname>, and
     <varname>ExecCondition=</varname> options.</para>
 
-    <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
-    (these semicolons must be passed as separate words). Lone semicolons may be escaped as
-    <literal>\;</literal>.</para>
+    <para>Multiple command lines may be specified by using the relevant setting multiple times.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
@@ -1414,16 +1428,16 @@
     <para>For each command, the first argument must be either an absolute path to an executable or a simple
     file name without any slashes. If the command is not a full (absolute) path, it will be resolved to a
     full path using a fixed search path determined at compilation time. Searched directories include
-    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename> on
-    systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename> directories, and their
-    <filename>sbin/</filename> counterparts on systems using split <filename>bin/</filename> and
-    <filename>sbin/</filename>. It is thus safe to use just the executable name in case of executables
-    located in any of the "standard" directories, and an absolute path must be used in other cases.
-    Hint: this search path may be queried using <command>systemd-path search-binaries-default</command>.
-    </para>
+    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, and their
+    <filename>sbin/</filename> counterparts (only on systems using split <filename>bin/</filename> and
+    <filename>sbin/</filename>). It is thus safe to use just the executable name in case of executables
+    located in any of the "standard" directories, and an absolute path must be used in other cases.  Hint:
+    this search path may be queried using <command>systemd-path search-binaries-default</command>.</para>
 
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal></para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
@@ -1479,7 +1493,8 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=echo one ; echo "two two"</programlisting>
+    <programlisting>ExecStart=echo one
+ExecStart=echo "two two"</programlisting>
 
     <para>This will execute <command>echo</command> two times,
     each time with one argument: <literal>one</literal> and
@@ -1489,7 +1504,9 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>Example:</para>
 
     <programlisting>Type=oneshot
-ExecStart=:echo $USER ; -false ; +:@true $TEST</programlisting>
+ExecStart=:echo $USER
+ExecStart=-false
+ExecStart=+:@true $TEST</programlisting>
 
     <para>This will execute <command>/usr/bin/echo</command> with the literal argument
     <literal>$USER</literal> (<literal>:</literal> suppresses variable expansion), and then

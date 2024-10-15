@@ -24,17 +24,21 @@
     <title>Description</title>
 
     <para>Operating systems using the
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> system and service
-    manager are organized based on a file system hierarchy inspired by UNIX, more specifically the hierarchy described
-    in the <ulink url="http://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html">File System Hierarchy</ulink>
-    specification and <citerefentry
-    project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with various
-    extensions, partially documented in the <ulink
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> system and
+    service manager are organized based on a file system hierarchy inspired by UNIX, more specifically the
+    hierarchy described in the <ulink url="http://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html">File
+    System Hierarchy</ulink> specification and <citerefentry
+    project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with
+    various extensions, partially documented in the <ulink
     url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory
     Specification</ulink> and <ulink url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs">XDG User
-    Directories</ulink>. This manual page describes a more generalized, though minimal and modernized subset of these
-    specifications that defines more strictly the suggestions and restrictions systemd makes on the file system
-    hierarchy.</para>
+    Directories</ulink>. This manual page describes a more generalized, though minimal and modernized subset
+    of these specifications that defines more strictly the suggestions and restrictions systemd makes on the
+    file system hierarchy. Note that this document makes no attempt to define the directory structure
+    comprehensively, it only documents a skeleton of a directory tree, that downstreams can extend. Because
+    of that traditional directories such as <filename>/usr/include/</filename> or
+    <filename>/var/spool/</filename> are not covered, even though it might (or might not) make a lot of sense
+    to include them in the structure of an actually deployed OS.</para>
 
     <para>Many of the paths described here can be queried
     with the
@@ -183,11 +187,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/usr/include/</filename></term>
-        <listitem><para>C and C++ API header files of system libraries.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><filename>/usr/lib/</filename></term>
         <listitem><para>Static, private vendor data that is compatible with all architectures (though not
         necessarily architecture-independent). Note that this includes internal executables or other binaries
@@ -203,9 +202,10 @@
         url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers (Tuples)</ulink>
         list. Legacy locations of <varname>$libdir</varname> are <filename>/usr/lib/</filename>,
         <filename>/usr/lib64/</filename>. This directory should not be used for package-specific data, unless
-        this data is architecture-dependent, too. To query <varname>$libdir</varname> for the primary
-        architecture of the system, invoke: <programlisting># systemd-path
-        system-library-arch</programlisting></para></listitem>
+        this data is architecture-dependent, too.</para>
+
+        <para>To query <varname>$libdir</varname> for the primary architecture of the system, invoke:
+        <programlisting>systemd-path system-library-arch</programlisting></para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -279,11 +279,6 @@
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         calls.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><filename>/var/spool/</filename></term>
-        <listitem><para>Persistent system spool data, such as printer or mail queues.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -578,6 +573,9 @@
     Similarly, <filename>/run/</filename> shall be the only location to
     place sockets and FIFOs. Regular files, directories and symlinks
     may be used in all directories.</para>
+
+    <para>Applications should expect that a security policy might be enforced on a system that enforces these
+    rules.</para>
   </refsect1>
 
   <refsect1>
@@ -614,10 +612,6 @@
           <row>
       <entry><filename>/usr/lib/<replaceable>arch-id</replaceable>/<replaceable>package</replaceable>/</filename></entry>
       <entry>Private other vendor resources of the package that are architecture-specific and cannot be shared between architectures. Note that this generally does not include private executables since binaries of a specific architecture may be freely invoked from any other supported system architecture.</entry>
-          </row>
-          <row>
-      <entry><filename>/usr/include/<replaceable>package</replaceable>/</filename></entry>
-      <entry>Public C/C++ APIs of public shared libraries of the package.</entry>
           </row>
         </tbody>
       </tgroup>
@@ -665,10 +659,6 @@
           <row>
       <entry><filename>/var/log/<replaceable>package</replaceable>/</filename></entry>
       <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, possibly using <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> or <varname>LogsDirectory=</varname> (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), as it might be missing.</entry>
-          </row>
-          <row>
-      <entry><filename>/var/spool/<replaceable>package</replaceable>/</filename></entry>
-      <entry>Persistent spool/queue data of the package. As above, the package should make sure to create this directory if necessary, as it might be missing.</entry>
           </row>
         </tbody>
       </tgroup>

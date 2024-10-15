@@ -2,7 +2,6 @@
 
 #include "log.h"
 #include "proto/rng.h"
-#include "proto/simple-text-io.h"
 #include "util.h"
 
 static unsigned log_count = 0;
@@ -32,14 +31,14 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
         freeze();
 }
 
-EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
+EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...) {
         assert(format);
 
         int32_t attr = ST->ConOut->Mode->Attribute;
 
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(text_color, EFI_BLACK));
 
         va_list ap;
         va_start(ap, format);
@@ -52,15 +51,6 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
         log_count++;
         return status;
 }
-
-#ifdef EFI_DEBUG
-void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
-        /* Debugging helper — please keep this around, even if not used */
-
-        _cleanup_free_ char16_t *hex = hexdump(data, size);
-        log_internal(EFI_SUCCESS, "%ls[%zu]: %ls", prefix, size, hex);
-}
-#endif
 
 void log_wait(void) {
         if (log_count == 0)

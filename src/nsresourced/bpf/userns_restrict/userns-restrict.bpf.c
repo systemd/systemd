@@ -24,7 +24,7 @@
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
  * the definition of a bpf_core_cast macro. So use that one to avoid
  * defining a prototype for bpf_rdonly_cast */
-void *bpf_rdonly_cast(void *, __u32) __ksym;
+void* bpf_rdonly_cast(const void *, __u32) __ksym;
 #endif
 
 /* BPF module that implements an allowlist of mounts (identified by mount ID) for user namespaces (identified

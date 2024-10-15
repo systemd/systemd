@@ -13,11 +13,11 @@ f+! /run/utmp 0664 root utmp -
 {% endif %}
 
 d /run/systemd/ask-password 0755 root root -
-d /run/systemd/seats 0755 root root -
-d /run/systemd/sessions 0755 root root -
-d /run/systemd/users 0755 root root -
+d$ /run/systemd/seats 0755 root root -
+d$ /run/systemd/sessions 0755 root root -
+d$ /run/systemd/users 0755 root root -
 d /run/systemd/machines 0755 root root -
-d /run/systemd/shutdown 0755 root root -
+d$ /run/systemd/shutdown 0755 root root -
 
 d /run/log 0755 root root -
 
@@ -65,9 +65,3 @@ d /var/lib/systemd/ephemeral-trees 0755 root root 0
 d /var/lib/private 0700 root root -
 d /var/log/private 0700 root root -
 d /var/cache/private 0700 root root -
-
-{% if ENABLE_EFI %}
-# Copy sd-stub provided PCR signature and public key file from initrd into /run/, so that it will survive the initrd stage
-C /run/systemd/tpm2-pcr-signature.json 0444 root root - /.extra/tpm2-pcr-signature.json
-C /run/systemd/tpm2-pcr-public-key.pem 0444 root root - /.extra/tpm2-pcr-public-key.pem
-{% endif %}

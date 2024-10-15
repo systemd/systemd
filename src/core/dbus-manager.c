@@ -22,6 +22,7 @@
 #include "dbus-scope.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -29,6 +30,7 @@
 #include "format-util.h"
 #include "initrd-util.h"
 #include "install.h"
+#include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
 #include "os-util.h"
@@ -1082,7 +1084,13 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
 
-        r = bus_verify_manage_units_async(m, message, error);
+        r = bus_verify_manage_units_async_impl(
+                        m,
+                        name,
+                        "start",
+                        N_("Authentication is required to start transient '$(unit)'."),
+                        message,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1218,14 +1226,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 if (k != u->id)
                         continue;
 
-                if (!strv_isempty(states) &&
-                    !strv_contains(states, unit_load_state_to_string(u->load_state)) &&
-                    !strv_contains(states, unit_active_state_to_string(unit_active_state(u))) &&
-                    !strv_contains(states, unit_sub_state_to_string(u)))
-                        continue;
-
-                if (!strv_isempty(patterns) &&
-                    !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
+                if (!unit_passes_filter(u, states, patterns))
                         continue;
 
                 r = reply_unit_info(reply, u);
@@ -1572,10 +1573,10 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         (void) sd_bus_creds_get_comm(creds, &comm);
         caller = manager_get_unit_by_pidref(manager, &pidref);
 
-        log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                 method, pidref.pid,
-                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                 caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                   method, pidref.pid,
+                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1672,6 +1673,8 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Exit");
+
         /* Exit() (in contrast to SetExitCode()) is actually allowed even if
          * we are running on the host. It will fall back on reboot() in
          * systemd-shutdown if it cannot do the exit() because it isn't a
@@ -1695,6 +1698,8 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
+
+        log_caller(message, m, "Reboot");
 
         m->objective = MANAGER_REBOOT;
 
@@ -1738,6 +1743,8 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                         return r;
         }
 
+        log_caller(message, m, "Soft reboot");
+
         free_and_replace(m->switch_root, rt);
         m->objective = MANAGER_SOFT_REBOOT;
 
@@ -1758,6 +1765,8 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Poweroff");
+
         m->objective = MANAGER_POWEROFF;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1777,6 +1786,8 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        log_caller(message, m, "Halt");
+
         m->objective = MANAGER_HALT;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1795,6 +1806,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
                 return r;
+
+        log_caller(message, m, "Kexec");
 
         m->objective = MANAGER_KEXEC;
 
@@ -2921,6 +2934,7 @@ static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **re
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Name \"%s\" of auxiliary scope doesn't have .scope suffix.", name);
 
+        log_unit_warning(from, "D-Bus call StartAuxiliaryScope() has been invoked which is deprecated.");
         main_pid = unit_main_pid(from);
 
         r = sd_bus_message_enter_container(message, 'a', "h");
@@ -3042,6 +3056,10 @@ static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        log_once(LOG_WARNING, "StartAuxiliaryScope() is deprecated because state of resources cannot be "
+                              "migrated between cgroups. Please report this to "
+                              "systemd-devel@lists.freedesktop.org or https://github.com/systemd/systemd/issues/ "
+                              "if you see this message and know the software making use of this functionality.");
         r = aux_scope_from_message(m, message, &u, error);
         if (r < 0)
                 return r;
@@ -3112,11 +3130,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTimeoutAbortUSec", "t", property_get_default_timeout_abort_usec, 0, 0),
         SD_BUS_PROPERTY("DefaultDeviceTimeoutUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.device_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestartUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         /* The following two items are obsolete alias */
-        SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultStartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultStartLimitInterval", "t", bus_property_get_usec, offsetof(Manager, defaults.start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultStartLimitBurst", "u", bus_property_get_unsigned, offsetof(Manager, defaults.start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultCPUAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.cpu_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultBlockIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.blockio_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultIOAccounting", "b", bus_property_get_bool, offsetof(Manager, defaults.io_accounting), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3613,7 +3631,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "ah", pidfds, "t", flags, "a(sv)", properties),
                                 SD_BUS_RESULT("o", job),
                                 method_start_aux_scope,
-                                SD_BUS_VTABLE_UNPRIVILEGED),
+                                SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
                                 SD_BUS_ARGS("s", id, "o", unit),

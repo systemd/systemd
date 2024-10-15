@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
 "PO-Revision-Date: 2024-02-15 23:36+0000\n"
 "Last-Translator: mooo <hazap@hotmail.com>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
@@ -366,7 +366,7 @@ msgstr "Importuoti VM ar konteinerio atvaizdį"
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr ""
 "Norint importuoti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
 
@@ -377,7 +377,7 @@ msgstr "Eksportuoti VM ar konteinerio atvaizdį"
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr ""
 "Norint eksportuoti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
 
@@ -388,7 +388,7 @@ msgstr "Atsisiųsti VM ar konteinerio atvaizdį"
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr ""
 "Norint atsisiųsti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
 
@@ -399,7 +399,7 @@ msgstr ""
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Norint tvarkyti aktyvius seansus, naudotojus ir darbo vietas, reikia "
 "nustatyti tapatybę."
@@ -804,7 +804,8 @@ msgid "Set a wall message"
 msgstr "Nustatyti sienos pranešimą"
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+#, fuzzy
+msgid "Authentication is required to set a wall message."
 msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -882,10 +883,23 @@ msgstr ""
 "nustatyti tapatybę."
 
 #: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Tvarkyti vietines virtualiąsias mašinas ir konteinerius"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Norint tvarkyti vietines virtualiąsias mašinas ir konteinerius, reikia "
+"nustatyti tapatybę."
+
+#: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
 msgstr "Tvarkyti vietinę virtualiąją mašiną ir konteinerio atvaizdžius"
 
-#: src/machine/org.freedesktop.machine1.policy:96
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1085,7 +1099,8 @@ msgid "Register a DNS-SD service"
 msgstr "Registruoti DNS-SD tarnybą"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
 msgstr "Norint registruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -1093,7 +1108,8 @@ msgid "Unregister a DNS-SD service"
 msgstr "Išregistruoti DNS-SD tarnybą"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr "Norint išregistruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -1105,6 +1121,89 @@ msgstr ""
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Norint nustatyti sistemos klaviatūros nustatymus, reikia nustatyti tapatybę."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Norint pristabdyti sistemą, reikia nustatyti tapatybę."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Norint stabdyti \"$(unit)\", reikia nustatyti tapatybę."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Norint stabdyti \"$(unit)\", reikia nustatyti tapatybę."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "Norint nustatyti sistemos laiko juostą, reikia nustatyti tapatybę."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+#, fuzzy
+msgid "Authentication is required to cleanup old system updates."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

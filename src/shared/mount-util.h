@@ -106,22 +106,26 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_unlink_and_free);
 
 int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath);
 
+typedef enum MountInNamespaceFlags {
+        MOUNT_IN_NAMESPACE_READ_ONLY              = 1 << 0,
+        MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY = 1 << 1,
+        MOUNT_IN_NAMESPACE_IS_IMAGE               = 1 << 2,
+} MountInNamespaceFlags;
+
 int bind_mount_in_namespace(
                 const PidRef *target,
                 const char *propagate_path,
                 const char *incoming_path,
                 const char *src,
                 const char *dest,
-                bool read_only,
-                bool make_file_or_directory);
+                MountInNamespaceFlags flags);
 int mount_image_in_namespace(
                 const PidRef *target,
                 const char *propagate_path,
                 const char *incoming_path,
                 const char *src,
                 const char *dest,
-                bool read_only,
-                bool make_file_or_directory,
+                MountInNamespaceFlags flags,
                 const MountOptions *options,
                 const ImagePolicy *image_policy);
 

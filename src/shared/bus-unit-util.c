@@ -656,9 +656,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (r >= 0) {
                         char *n;
 
-                        /* When this is a percentage we'll convert this into a relative value in the range 0…UINT32_MAX
-                         * and pass it in the MemoryLowScale property (and related ones). This way the physical memory
-                         * size can be determined server-side. */
+                        /* When this is a percentage we'll convert this into a relative value in the range
+                         * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related ones). This
+                         * way the physical memory size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
                         r = sd_bus_message_append(m, "(sv)", n, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
@@ -728,7 +728,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
-        if (cgroup_io_limit_type_from_string(field) >= 0 || STR_IN_SET(field, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
+        if (cgroup_io_limit_type_from_string(field) >= 0 ||
+            STR_IN_SET(field, "BlockIOReadBandwidth",
+                              "BlockIOWriteBandwidth")) {
+
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(st)", 0);
                 else {
@@ -1038,6 +1041,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectSystem",
                               "ProtectHome",
                               "PrivateTmpEx",
+                              "PrivateUsersEx",
                               "SELinuxContext",
                               "RootImage",
                               "RootVerity",
@@ -1076,6 +1080,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectClock",
                               "ProtectControlGroups",
                               "MountAPIVFS",
+                              "BindLogSockets",
                               "CPUSchedulingResetOnFork",
                               "LockPersonality",
                               "ProtectHostname",
@@ -2418,15 +2423,13 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                         if (r >= 0) {
                                 assert(r >= 0 && r < 256);
 
-                                status = reallocarray(status, n_status + 1, sizeof(int));
-                                if (!status)
+                                if (!GREEDY_REALLOC(status, n_status + 1))
                                         return log_oom();
 
                                 status[n_status++] = r;
 
                         } else if ((r = signal_from_string(word)) >= 0) {
-                                signal = reallocarray(signal, n_signal + 1, sizeof(int));
-                                if (!signal)
+                                if (!GREEDY_REALLOC(signal, n_signal + 1))
                                         return log_oom();
 
                                 signal[n_signal++] = r;
@@ -2591,7 +2594,8 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
                               "Persistent",
                               "OnTimezoneChange",
                               "OnClockChange",
-                              "FixedRandomDelay"))
+                              "FixedRandomDelay",
+                              "DeferReactivation"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "AccuracySec",

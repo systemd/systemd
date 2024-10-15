@@ -73,6 +73,7 @@ JSON or table format'
             'timespan:Parse a systemd syntax timespan'
             'security:Analyze security settings of a service'
             'inspect-elf:Parse and print ELF package metadata'
+            'has-tpm2:Report whether TPM2 support is available'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 

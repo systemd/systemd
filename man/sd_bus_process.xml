@@ -52,12 +52,24 @@
     <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_process()</function> processes at most one incoming message per call.  If the parameter
-    <parameter>ret</parameter> is not <constant>NULL</constant> and the call processed a message,
-    <parameter>*ret</parameter> is set to this message.  The caller owns a reference to this message and should call
-    <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> when the
-    message is no longer needed. If <parameter>ret</parameter> is not <constant>NULL</constant>, progress was made, but no message was
-    processed, <parameter>*ret</parameter> is set to <constant>NULL</constant>.</para>
+    <para><function>sd_bus_process()</function> processes at most one incoming message per call.  If the
+    parameter <parameter>ret</parameter> is not <constant>NULL</constant> and the call processed a message,
+    <parameter>*ret</parameter> is set to this message. The caller owns a reference to this message and
+    should call
+    <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    when the message is no longer needed. If <parameter>ret</parameter> is not <constant>NULL</constant> and
+    progress was made, but no message was processed, <parameter>*ret</parameter> is set to
+    <constant>NULL</constant>. Note that only messages not already handled by the various types of registered
+    message handlers (i.e. by filters registered via
+    <citerefentry><refentrytitle>sd_bus_add_filter</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    object handlers registered via
+    <citerefentry><refentrytitle>sd_bus_add_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    matches registered via
+    <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and related) will be returned through this parameter. Also note that if such a message handler returns a
+    zero return value (as opposed to some value &gt; 0) an incoming message will not be considered handled,
+    and be passed to other suitable handlers (until one returns &gt; > 0), or returned by
+    <function>sd_bus_process()</function> (in case none returns &gt; 0).</para>
 
     <para>If the bus object is connected to an
     <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> event loop (with

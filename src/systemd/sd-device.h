@@ -74,6 +74,7 @@ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *su
 
 int sd_device_get_syspath(sd_device *device, const char **ret);
 int sd_device_get_subsystem(sd_device *device, const char **ret);
+int sd_device_get_driver_subsystem(sd_device *device, const char **ret);
 int sd_device_get_devtype(sd_device *device, const char **ret);
 int sd_device_get_devnum(sd_device *device, dev_t *devnum);
 int sd_device_get_ifindex(sd_device *device, int *ifindex);
@@ -85,6 +86,7 @@ int sd_device_get_sysnum(sd_device *device, const char **ret);
 int sd_device_get_action(sd_device *device, sd_device_action_t *ret);
 int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 int sd_device_get_diskseq(sd_device *device, uint64_t *ret);
+int sd_device_get_device_id(sd_device *device, const char **ret);
 
 int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret);
@@ -143,6 +145,8 @@ sd_device_monitor *sd_device_monitor_ref(sd_device_monitor *m);
 sd_device_monitor *sd_device_monitor_unref(sd_device_monitor *m);
 
 int sd_device_monitor_get_fd(sd_device_monitor *m);
+int sd_device_monitor_get_events(sd_device_monitor *m);
+int sd_device_monitor_get_timeout(sd_device_monitor *m, uint64_t *ret);
 int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size);
 int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event);
 int sd_device_monitor_detach_event(sd_device_monitor *m);

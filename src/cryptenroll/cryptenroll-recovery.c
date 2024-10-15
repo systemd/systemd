@@ -3,6 +3,7 @@
 #include "ansi-color.h"
 #include "cryptenroll-recovery.h"
 #include "glyph-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
@@ -11,8 +12,7 @@
 
 int enroll_recovery(
                 struct crypt_device *cd,
-                const void *volume_key,
-                size_t volume_key_size) {
+                const struct iovec *volume_key) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(erase_and_freep) char *password = NULL;
@@ -21,8 +21,7 @@ int enroll_recovery(
         const char *node;
 
         assert_se(cd);
-        assert_se(volume_key);
-        assert_se(volume_key_size > 0);
+        assert_se(iovec_is_set(volume_key));
 
         assert_se(node = crypt_get_device_name(cd));
 
@@ -37,8 +36,8 @@ int enroll_recovery(
         keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
+                        volume_key->iov_base,
+                        volume_key->iov_len,
                         password,
                         strlen(password));
         if (keyslot < 0)

@@ -37,6 +37,7 @@ typedef struct L2tpSession {
         ConfigSection *section;
 
         char *name;
+        int ifindex;
 
         uint32_t session_id;
         uint32_t peer_session_id;

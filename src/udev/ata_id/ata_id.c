@@ -507,6 +507,10 @@ static int run(int argc, char *argv[]) {
                         printf("ID_ATA_WRITE_CACHE=1\n");
                         printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
                 }
+                if (id.command_set_1 & (1<<6)) {
+                        printf("ID_ATA_READ_LOOKAHEAD=1\n");
+                        printf("ID_ATA_READ_LOOKAHEAD_ENABLED=%d\n", (id.cfs_enable_1 & (1<<6)) ? 1 : 0);
+                }
                 if (id.command_set_1 & (1<<10)) {
                         printf("ID_ATA_FEATURE_SET_HPA=1\n");
                         printf("ID_ATA_FEATURE_SET_HPA_ENABLED=%d\n", (id.cfs_enable_1 & (1<<10)) ? 1 : 0);

@@ -95,7 +95,7 @@ static int verify_tty(const char *name) {
                 return -errno;
 
         if (!isatty_safe(fd))
-                return -errno;
+                return -ENOTTY;
 
         return 0;
 }

@@ -96,12 +96,15 @@ To show all installed unit files use 'systemctl list-unit-files'.</programlistin
 
             <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
             <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
-            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of
-            <constant>active</constant>, <constant>reloading</constant>, <constant>inactive</constant>,
-            <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
-            column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
-            of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
-            values. <programlisting>systemctl --state=help</programlisting> command may be used to display the
+            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of the
+            following:</para>
+
+            <xi:include href="unit-states.xml" xpointer="table"/>
+
+            <para>The SUB column shows the unit-type-specific detailed state of the unit, possible values
+            vary by unit type. The list of possible LOAD, ACTIVE, and SUB states is not constant and new
+            systemd releases may both add and remove values.
+            <programlisting>systemctl --state=help</programlisting> command may be used to display the
             current set of possible values.</para>
 
             <para>This is the default command.</para>
@@ -291,7 +294,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <literal>inactive</literal> or <literal>maintenance</literal> is a white circle ("○"),
             <literal>active</literal> is a green dot ("●"), <literal>deactivating</literal> is a white dot,
             <literal>failed</literal> or <literal>error</literal> is a red cross ("×"), and
-            <literal>reloading</literal> is a green clockwise circle arrow ("↻").</para>
+            <literal>reloading</literal> or <literal>refreshing</literal> is a green clockwise circle arrow
+            ("↻").</para>
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been
             loaded into memory. Other possible values for "Loaded:" include: <literal>error</literal> if
@@ -2450,26 +2454,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem>
-          <para>When used with <command>start</command> and related
-          commands, disables asking for passwords. Background services
-          may require input of a password or passphrase string, for
-          example to unlock system hard disks or cryptographic
-          certificates. Unless this option is specified and the
-          command is invoked from a terminal,
-          <command>systemctl</command> will query the user on the
-          terminal for the necessary secrets. Use this option to
-          switch this behavior off. In this case, the password must be
-          supplied by some other means (for example graphical password
-          agents) or the service might fail. This also disables
-          querying the user for authentication for privileged
-          operations.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--kill-whom=</option></term>
 
         <listitem>
@@ -2896,6 +2880,7 @@ EOF
       <xi:include href="user-system-options.xml" xpointer="machine" />
       <xi:include href="user-system-options.xml" xpointer="capsule" />
 
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="legend" />
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -4,6 +4,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_bridge.h>
+#include <linux/ipv6.h>
 
 #include "missing_network.h"
 #include "netif-util.h"

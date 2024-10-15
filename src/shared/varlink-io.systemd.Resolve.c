@@ -112,6 +112,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ResolvedCanonical,
+                SD_VARLINK_FIELD_COMMENT("The DNS-SD name of the service. For simple SRV services this field is absent or null."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(domain, SD_VARLINK_STRING, 0));
@@ -171,17 +172,20 @@ static SD_VARLINK_DEFINE_ERROR(BadAddressSize);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
 static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
+static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
                 "io.systemd.Resolve",
                 &vl_method_ResolveHostname,
                 &vl_method_ResolveAddress,
+                SD_VARLINK_SYMBOL_COMMENT("Resolves a named DNS-SD or unnamed simple SRV service."),
                 &vl_method_ResolveService,
                 &vl_method_ResolveRecord,
                 &vl_type_ResolvedAddress,
                 &vl_type_ResolvedName,
                 &vl_type_ResolvedService,
+                SD_VARLINK_SYMBOL_COMMENT("Encodes the canonical name, type and domain of a DNS-SD or simple SRV service. Note that due to CNAME redirections and similar, a named DNS-SD service might resolve to a canonical service that is an unnamed simple SRV service. Or in other words: resolving a named service might return an unnamed canonical service."),
                 &vl_type_ResolvedCanonical,
                 &vl_type_ResourceKey,
                 &vl_type_ResourceRecord,
@@ -203,4 +207,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_BadAddressSize,
                 &vl_error_ResourceRecordTypeInvalidForQuery,
                 &vl_error_ZoneTransfersNotPermitted,
-                &vl_error_ResourceRecordTypeObsolete);
+                &vl_error_ResourceRecordTypeObsolete,
+                SD_VARLINK_SYMBOL_COMMENT("The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved)."),
+                &vl_error_InconsistentServiceRecords);

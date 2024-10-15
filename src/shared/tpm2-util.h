@@ -291,8 +291,8 @@ int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
 int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, uint16_t *ret_primary_alg, struct iovec *ret_srk);
-int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec *blob, const struct iovec *policy_hash, const struct iovec *srk, struct iovec *ret_secret);
+int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -391,8 +391,8 @@ int tpm2_find_device_auto(char **ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret);
 int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec *blob, const struct iovec *policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, sd_json_variant **ret);
-int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec *ret_blob, struct iovec *ret_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *pcrlock_nv, TPM2Flags *ret_flags);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, sd_json_variant **ret);
+int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec **ret_blobs, size_t *ret_n_blobs, struct iovec **ret_policy_hash, size_t *ret_n_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *pcrlock_nv, TPM2Flags *ret_flags);
 
 /* Default to PCR 7 only */
 #define TPM2_PCR_INDEX_DEFAULT UINT32_C(7)
@@ -450,18 +450,33 @@ typedef struct {
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
-        /* NOTE! The systemd-creds tool returns these flags 1:1 as exit status. Hence these flags are pretty
-         * much ABI! Hence, be extra careful when changing/extending these definitions. */
-        TPM2_SUPPORT_NONE      = 0,       /* no support */
-        TPM2_SUPPORT_FIRMWARE  = 1 << 0,  /* firmware reports TPM2 was used */
-        TPM2_SUPPORT_DRIVER    = 1 << 1,  /* the kernel has a driver loaded for it */
-        TPM2_SUPPORT_SYSTEM    = 1 << 2,  /* we support it ourselves */
-        TPM2_SUPPORT_SUBSYSTEM = 1 << 3,  /* the kernel has the tpm subsystem enabled */
-        TPM2_SUPPORT_LIBRARIES = 1 << 4,  /* we can dlopen the tpm2 libraries */
-        TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
+        /* NOTE! The systemd-analyze has-tpm2 command returns these flags 1:1 as exit status. Hence these
+         * flags are pretty much ABI! Hence, be extra careful when changing/extending these definitions. */
+        TPM2_SUPPORT_NONE         = 0,       /* no support */
+        TPM2_SUPPORT_FIRMWARE     = 1 << 0,  /* firmware reports TPM2 was used */
+        TPM2_SUPPORT_DRIVER       = 1 << 1,  /* the kernel has a driver loaded for it */
+        TPM2_SUPPORT_SYSTEM       = 1 << 2,  /* we support it ourselves */
+        TPM2_SUPPORT_SUBSYSTEM    = 1 << 3,  /* the kernel has the tpm subsystem enabled */
+        TPM2_SUPPORT_LIBRARIES    = 1 << 4,  /* we can dlopen the tpm2 libraries */
+        TPM2_SUPPORT_API          = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
+
+        /* Flags below are not returned by systemd-analyze has-tpm2 as exit status. */
+        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 5,  /* we can dlopen libtss2-esys.so.0 */
+        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 6,  /* we can dlopen libtss2-rc.so.0 */
+        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 7,  /* we can dlopen libtss2-mu.so.0 */
+        TPM2_SUPPORT_LIBTSS2_ALL  = TPM2_SUPPORT_LIBTSS2_ESYS|TPM2_SUPPORT_LIBTSS2_RC|TPM2_SUPPORT_LIBTSS2_MU,
+        TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
 } Tpm2Support;
 
-Tpm2Support tpm2_support(void);
+Tpm2Support tpm2_support_full(Tpm2Support mask);
+static inline Tpm2Support tpm2_support(void) {
+        return tpm2_support_full(TPM2_SUPPORT_FULL);
+}
+static inline bool tpm2_is_fully_supported(void) {
+        return tpm2_support() == TPM2_SUPPORT_FULL;
+}
+
+int verb_has_tpm2_generic(bool quiet);
 
 int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);

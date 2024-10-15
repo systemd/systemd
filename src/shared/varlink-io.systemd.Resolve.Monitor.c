@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 
 /* We want to reuse the ResourceKey and ResourceRecord structures from the io.systemd.Resolve interface,
@@ -17,8 +18,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(raw, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_METHOD(
+static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeQueryResults,
+                SD_VARLINK_REQUIRES_MORE,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 /* First reply */
                 SD_VARLINK_DEFINE_OUTPUT(ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 /* Subsequent replies */
@@ -49,6 +52,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpCache,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ScopeCache, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -72,6 +76,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpServerState,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ServerState, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -98,11 +103,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpStatistics,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(transactions, TransactionStatistics, 0),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(cache, CacheStatistics, 0),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(dnssec, DnssecStatistics, 0));
 
-static SD_VARLINK_DEFINE_METHOD(ResetStatistics);
+static SD_VARLINK_DEFINE_METHOD(
+                ResetStatistics,
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,

@@ -141,6 +141,12 @@
           For example, e"string\n" is parsed as 7 characters: 6 lowercase letters and a newline.
           This can be useful for writing special characters when a kernel driver requires them.</para>
 
+          <para>The string can be prefixed with a lowercase i (i"string") to mark that the string or pattern
+          will match case-insensitively. For example, i"foo" will match
+          <literal>foo</literal>, <literal>FOO</literal>, <literal>FoO</literal> and so on. The prefix can be
+          used only for match (<literal>==</literal>) or unmatch (<literal>!=</literal>) rules, e.g.
+          <varname>ATTR{foo}==i"abcd"</varname>.</para>
+
           <para>Please note that <constant>NUL</constant> is not allowed in either string variant.</para>
       </refsect2>
 

@@ -85,7 +85,7 @@ node /org/freedesktop/machine1 {
       UnregisterMachine(in  s name);
       TerminateMachine(in  s id);
       KillMachine(in  s name,
-                  in  s who,
+                  in  s whom,
                   in  i signal);
       GetMachineAddresses(in  s name,
                           out a(iay) addresses);

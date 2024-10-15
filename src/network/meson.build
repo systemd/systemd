@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+subdir('bpf/sysctl_monitor')
+
 sources = files(
         'netdev/bareudp.c',
         'netdev/batadv.c',
@@ -93,6 +95,8 @@ sources = files(
         'tc/gred.c',
         'tc/hhf.c',
         'tc/htb.c',
+        'tc/mq.c',
+        'tc/multiq.c',
         'tc/netem.c',
         'tc/pie.c',
         'tc/qdisc.c',
@@ -116,7 +120,18 @@ systemd_networkd_wait_online_sources = files(
 
 networkctl_sources = files(
         'networkctl.c',
-        'networkctl-config-file.c'
+        'networkctl-address-label.c',
+        'networkctl-config-file.c',
+        'networkctl-description.c',
+        'networkctl-dump-util.c',
+        'networkctl-journal.c',
+        'networkctl-link-info.c',
+        'networkctl-list.c',
+        'networkctl-lldp.c',
+        'networkctl-misc.c',
+        'networkctl-status-link.c',
+        'networkctl-status-system.c',
+        'networkctl-util.c',
 )
 
 network_generator_sources = files(
@@ -126,6 +141,10 @@ network_generator_sources = files(
 
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
 networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
+
+if conf.get('HAVE_VMLINUX_H') == 1
+        sources += sysctl_monitor_skel_h
+endif
 
 sources += custom_target(
         'networkd-gperf.c',

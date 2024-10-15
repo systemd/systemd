@@ -99,7 +99,7 @@ Tunnel.ERSPANHardwareId,                  config_parse_erspan_hwid,             
 Tunnel.SerializeTunneledPackets,          config_parse_tristate,                     0,                             offsetof(Tunnel, gre_erspan_sequence)
 Tunnel.ISATAP,                            config_parse_tristate,                     0,                             offsetof(Tunnel, isatap)
 Tunnel.External,                          config_parse_bool,                         0,                             offsetof(Tunnel, external)
-FooOverUDP.Protocol,                      config_parse_ip_protocol,                  0,                             offsetof(FouTunnel, fou_protocol)
+FooOverUDP.Protocol,                      config_parse_ip_protocol,                  /* relax = */ true,            offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,                 config_parse_fou_encap_type,               0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                          config_parse_ip_port,                      0,                             offsetof(FouTunnel, port)
 FooOverUDP.PeerPort,                      config_parse_ip_port,                      0,                             offsetof(FouTunnel, peer_port)
@@ -238,6 +238,7 @@ Bridge.FDBMaxLearned,                     config_parse_bridge_fdb_max_learned,  
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
 BareUDP.DestinationPort,                  config_parse_ip_port,                      0,                             offsetof(BareUDP, dest_port)
+BareUDP.MinSourcePort,                    config_parse_ip_port,                      0,                             offsetof(BareUDP, min_port)
 BareUDP.EtherType,                        config_parse_bare_udp_iftype,              0,                             offsetof(BareUDP, iftype)
 WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
 WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark) /* deprecated */
@@ -249,8 +250,9 @@ WireGuard.RouteMetric,                    config_parse_wireguard_route_priority,
 WireGuardPeer.AllowedIPs,                 config_parse_wireguard_allowed_ips,        0,                             0
 WireGuardPeer.Endpoint,                   config_parse_wireguard_endpoint,           0,                             0
 WireGuardPeer.PublicKey,                  config_parse_wireguard_peer_key,           0,                             0
+WireGuardPeer.PublicKeyFile,              config_parse_wireguard_peer_key_file,      0,                             0
 WireGuardPeer.PresharedKey,               config_parse_wireguard_peer_key,           0,                             0
-WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_file, 0,                             0
+WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_peer_key_file,      0,                             0
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
 WireGuardPeer.RouteTable,                 config_parse_wireguard_peer_route_table,   0,                             0
 WireGuardPeer.RouteMetric,                config_parse_wireguard_peer_route_priority,0,                             0

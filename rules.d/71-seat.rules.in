@@ -12,6 +12,7 @@ ACTION=="remove", GOTO="seat_end"
 TAG=="uaccess", SUBSYSTEM!="sound", TAG+="seat"
 SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
 SUBSYSTEM=="input", KERNEL=="input*", TAG+="seat"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", TAG+="seat"
 SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
 
 # Assign keyboard and LCD backlights to the seat

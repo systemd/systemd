@@ -61,6 +61,11 @@ def main():
         print(f"TEST_NO_QEMU=1, skipping {args.name}", file=sys.stderr)
         exit(77)
 
+    for s in os.getenv("TEST_SKIP", "").split():
+        if s in args.name:
+            print(f"Skipping {args.name} due to TEST_SKIP", file=sys.stderr)
+            exit(77)
+
     keep_journal = os.getenv("TEST_SAVE_JOURNAL", "fail")
     shell = bool(int(os.getenv("TEST_SHELL", "0")))
 
@@ -145,7 +150,7 @@ def main():
         '--runtime-scratch=no',
         *args.mkosi_args,
         '--qemu-firmware', args.firmware,
-        '--qemu-kvm', "auto" if not bool(int(os.getenv("TEST_NO_KVM", "0"))) else "no",
+        *(['--qemu-kvm', 'no'] if int(os.getenv("TEST_NO_KVM", "0")) else []),
         '--kernel-command-line-extra',
         ' '.join([
             'systemd.hostname=H',
@@ -155,7 +160,7 @@ def main():
             *(
                 [
                     "systemd.mask=serial-getty@.service",
-                    "systemd.show_status=no",
+                    "systemd.show_status=error",
                     "systemd.crash_shell=0",
                     "systemd.crash_action=poweroff",
                 ]
@@ -169,6 +174,14 @@ def main():
     ]
 
     result = subprocess.run(cmd)
+
+    # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
+    if args.vm and result.returncode == 247 and args.exit_code != 247:
+        journal_file.unlink(missing_ok=True)
+        result = subprocess.run(cmd)
+        if args.vm and result.returncode == 247 and args.exit_code != 247:
+            print(f"Test {args.name} failed due to QEMU crash (error 247), ignoring", file=sys.stderr)
+            exit(77)
 
     if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
         journal_file.unlink(missing_ok=True)

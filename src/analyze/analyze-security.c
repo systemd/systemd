@@ -26,6 +26,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "portable-util.h"
 #include "pretty-print.h"
 #include "seccomp-util.h"
 #include "service.h"
@@ -2869,7 +2870,7 @@ static int analyze_security(sd_bus *bus,
                                                        *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
-                                r = unit_name_replace_instance(mangled, "test-instance", &instance);
+                                r = unit_name_replace_instance(mangled, arg_instance, &instance);
                                 if (r < 0)
                                         return log_oom();
 
@@ -2904,7 +2905,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
         if (!arg_offline) {
                 r = acquire_bus(&bus, NULL);
                 if (r < 0)
-                        return bus_log_connect_error(r, arg_transport);
+                        return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
         }
 
         pager_open(arg_pager_flags);

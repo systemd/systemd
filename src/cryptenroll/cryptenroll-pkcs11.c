@@ -33,8 +33,7 @@ static int uri_set_private_class(const char *uri, char **ret_uri) {
 
 int enroll_pkcs11(
                 struct crypt_device *cd,
-                const void *volume_key,
-                size_t volume_key_size,
+                const struct iovec *volume_key,
                 const char *uri) {
 
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
@@ -49,8 +48,7 @@ int enroll_pkcs11(
         int r;
 
         assert_se(cd);
-        assert_se(volume_key);
-        assert_se(volume_key_size > 0);
+        assert_se(iovec_is_set(volume_key));
         assert_se(uri);
 
         assert_se(node = crypt_get_device_name(cd));
@@ -83,8 +81,8 @@ int enroll_pkcs11(
         int keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
+                        volume_key->iov_base,
+                        volume_key->iov_len,
                         base64_encoded,
                         base64_encoded_size);
         if (keyslot < 0)

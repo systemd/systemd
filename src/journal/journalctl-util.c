@@ -8,7 +8,6 @@
 #include "journalctl-util.h"
 #include "logs-show.h"
 #include "rlimit-util.h"
-#include "sigbus.h"
 #include "strv.h"
 #include "terminal-util.h"
 
@@ -27,11 +26,7 @@ int acquire_journal(sd_journal **ret) {
 
         assert(ret);
 
-        /* Increase max number of open files if we can, we might needs this when browsing journal files, which might be
-         * split up into many files. */
-        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
-        sigbus_install();
+        journal_browse_prepare();
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type | arg_journal_additional_open_flags);

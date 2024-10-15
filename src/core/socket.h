@@ -161,8 +161,7 @@ struct Socket {
         char *fdname;
 
         RateLimit trigger_limit;
-        usec_t poll_limit_interval;
-        unsigned poll_limit_burst;
+        RateLimit poll_limit;
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
@@ -186,7 +185,7 @@ int socket_port_to_address(const SocketPort *s, char **ret);
 
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret);
 
-char* socket_fdname(Socket *s);
+const char* socket_fdname(Socket *s);
 
 extern const UnitVTable socket_vtable;
 

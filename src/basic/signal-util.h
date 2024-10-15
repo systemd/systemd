@@ -28,7 +28,7 @@ int sigaction_many_internal(const struct sigaction *sa, ...);
 int sigset_add_many_internal(sigset_t *ss, ...);
 #define sigset_add_many(...) sigset_add_many_internal(__VA_ARGS__, -1)
 
-int sigprocmask_many_internal(int how, sigset_t *old, ...);
+int sigprocmask_many_internal(int how, sigset_t *ret_old_mask, ...);
 #define sigprocmask_many(...) sigprocmask_many_internal(__VA_ARGS__, -1)
 
 const char* signal_to_string(int i) _const_;
@@ -46,6 +46,7 @@ static inline void block_signals_reset(sigset_t *ss) {
                 assert_se(sigprocmask_many(SIG_BLOCK, &_t, __VA_ARGS__) >= 0);     \
                 _t;                                                                \
         })
+#define SIGNO_INVALID (-EINVAL)
 
 static inline bool SIGNAL_VALID(int signo) {
         return signo > 0 && signo < _NSIG;

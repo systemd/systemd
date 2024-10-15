@@ -46,12 +46,20 @@ busctl call -j \
 busctl call --verbose --timeout=60 --expect-reply=yes \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByPatterns asas 1 "active" 2 "systemd-*.socket" "*.mount"
+# show information passed fd
+busctl call --json=pretty \
+            org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
+            DumpByFileDescriptor | jq
 
 busctl emit /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForSleep b false
 busctl emit --auto-start=no --destination=systemd-logind.service \
             /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForShutdown b false
+
+systemd-run --quiet --service-type=notify --unit=test-busctl-wait --pty \
+	-p ExecStartPost="busctl emit /test org.freedesktop.fake1 TestSignal s success" \
+	busctl --timeout=3 wait /test org.freedesktop.fake1 TestSignal | grep -qF 's "success"'
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version
@@ -108,3 +116,5 @@ busctl get-property -j \
 # Invalid argument
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
+
+busctl --quiet --timeout 1 --num-matches 1 --match "interface=org.freedesktop.systemd1.Manager" monitor >/dev/null

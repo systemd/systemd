@@ -42,7 +42,7 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -76,6 +76,11 @@ _public_ int cryptsetup_token_open_pin(
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to parse token JSON data: %m");
 
+        struct iovec *blobs = NULL, *policy_hash = NULL;
+        size_t n_blobs = 0, n_policy_hash = 0;
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+        CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
+
         r = tpm2_parse_luks2_json(
                         v,
                         /* ret_keyslot= */ NULL,
@@ -84,8 +89,10 @@ _public_ int cryptsetup_token_open_pin(
                         &pubkey,
                         &pubkey_pcr_mask,
                         &primary_alg,
-                        &blob,
+                        &blobs,
+                        &n_blobs,
                         &policy_hash,
+                        &n_policy_hash,
                         &salt,
                         &srk,
                         &pcrlock_nv,
@@ -106,8 +113,10 @@ _public_ int cryptsetup_token_open_pin(
                         pin_string,
                         params.pcrlock_path,
                         primary_alg,
-                        &blob,
-                        &policy_hash,
+                        blobs,
+                        n_blobs,
+                        policy_hash,
+                        n_policy_hash,
                         &salt,
                         &srk,
                         &pcrlock_nv,
@@ -167,8 +176,8 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL;
-        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL;
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
@@ -181,6 +190,11 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON object: %m");
 
+        struct iovec *blobs = NULL, *policy_hash = NULL;
+        size_t n_blobs = 0, n_policy_hash = 0;
+        CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
+        CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
+
         r = tpm2_parse_luks2_json(
                         v,
                         NULL,
@@ -189,8 +203,10 @@ _public_ void cryptsetup_token_dump(
                         &pubkey,
                         &pubkey_pcr_mask,
                         &primary_alg,
-                        &blob,
+                        &blobs,
+                        &n_blobs,
                         &policy_hash,
+                        &n_policy_hash,
                         &salt,
                         &srk,
                         &pcrlock_nv,
@@ -206,15 +222,7 @@ _public_ void cryptsetup_token_dump(
         if (!pubkey_pcrs_str)
                 return (void) crypt_log_debug_errno(cd, ENOMEM, "Cannot format PCR hash mask: %m");
 
-        r = crypt_dump_buffer_to_hex_string(blob.iov_base, blob.iov_len, &blob_str);
-        if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
-
         r = crypt_dump_buffer_to_hex_string(pubkey.iov_base, pubkey.iov_len, &pubkey_str);
-        if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
-
-        r = crypt_dump_buffer_to_hex_string(policy_hash.iov_base, policy_hash.iov_len, &policy_hash_str);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
@@ -223,13 +231,31 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
         crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
-        crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
-        crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
         crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
         crypt_log(cd, "\ttpm2-pcrlock-nv:  %s\n", true_false(iovec_is_set(&pcrlock_nv)));
+
+        FOREACH_ARRAY(p, policy_hash, n_policy_hash) {
+                _cleanup_free_ char *policy_hash_str = NULL;
+
+                r = crypt_dump_buffer_to_hex_string(p->iov_base, p->iov_len, &policy_hash_str);
+                if (r < 0)
+                        return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
+
+                crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
+        }
+
+        FOREACH_ARRAY(b, blobs, n_blobs) {
+                _cleanup_free_ char *blob_str = NULL;
+
+                r = crypt_dump_buffer_to_hex_string(b->iov_base, b->iov_len, &blob_str);
+                if (r < 0)
+                        return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
+
+                crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
+        }
 }
 
 /*
@@ -308,24 +334,42 @@ _public_ int cryptsetup_token_validate(
         }
 
         w = sd_json_variant_by_key(v, "tpm2-blob");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-blob' field.");
                 return 1;
         }
 
-        r = unbase64mem(sd_json_variant_string(w), NULL, NULL);
-        if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
+        if (sd_json_variant_is_array(w)) {
+                sd_json_variant *i;
+                JSON_VARIANT_ARRAY_FOREACH(i, w) {
+                        r = sd_json_variant_unbase64(i, /* ret= */ NULL, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
+                }
+        } else {
+                r = sd_json_variant_unbase64(w, /* ret= */ NULL, /* ret_size= */ NULL);
+                if (r < 0)
+                        return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
+        }
 
         w = sd_json_variant_by_key(v, "tpm2-policy-hash");
-        if (!w || !sd_json_variant_is_string(w)) {
+        if (!w) {
                 crypt_log_debug(cd, "TPM2 token data lacks 'tpm2-policy-hash' field.");
                 return 1;
         }
 
-        r = unhexmem(sd_json_variant_string(w), NULL, NULL);
-        if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
+        if (sd_json_variant_is_array(w)) {
+                sd_json_variant *i;
+                JSON_VARIANT_ARRAY_FOREACH(i, w) {
+                        r = sd_json_variant_unhex(i, /* ret= */ NULL, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return crypt_log_debug_errno(cd, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+                }
+        } else {
+                r = sd_json_variant_unhex(w, /* ret= */ NULL, /* ret_size= */ NULL);
+                if (r < 0)
+                        return crypt_log_debug_errno(cd, r, "Invalid hex data in 'tpm2-policy-hash' field: %m");
+        }
 
         w = sd_json_variant_by_key(v, "tpm2-pin");
         if (w) {

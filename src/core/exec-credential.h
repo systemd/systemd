@@ -67,3 +67,5 @@ int exec_setup_credentials(
                 const char *unit,
                 uid_t uid,
                 gid_t gid);
+
+bool mount_point_is_credentials(const char *runtime_prefix, const char *path);

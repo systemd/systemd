@@ -2,20 +2,21 @@
 #
 # Kabyle translation of systemd.
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
+# ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-01 15:13+0900\n"
-"PO-Revision-Date: 2021-10-03 16:04+0000\n"
-"Last-Translator: Slimane Selyan Amiri <selyan.kab@gmail.com>\n"
+"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"PO-Revision-Date: 2024-10-07 04:52+0000\n"
+"Last-Translator: ButterflyOfFire <butterflyoffire@protonmail.com>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
-"master/kab/>\n"
+"main/kab/>\n"
 "Language: kab\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 5.7.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -142,7 +143,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
-msgstr ""
+msgstr "Awal n uɛeddi: "
 
 #: src/home/pam_systemd_home.c:312
 #, c-format
@@ -336,7 +337,7 @@ msgid "Import a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import an image"
+msgid "Authentication is required to import an image."
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:32
@@ -344,7 +345,7 @@ msgid "Export a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export disk image"
+msgid "Authentication is required to export disk image."
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:42
@@ -352,7 +353,7 @@ msgid "Download a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a disk image"
+msgid "Authentication is required to download a disk image."
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:52
@@ -361,12 +362,12 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
-"Authentication is required to cancel the ongoing transfer of a disk image"
+"Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "Sbedd tutlayt n unagraw"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
@@ -535,7 +536,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Ales asenker n unagraw"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
@@ -563,7 +564,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "Sexsi anagraw"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
@@ -704,7 +705,7 @@ msgid "Set a wall message"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:397
-msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to set a wall message."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:406
@@ -774,10 +775,19 @@ msgid ""
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
-msgid "Manage local virtual machine and container images"
+msgid "Create a local virtual machine or container"
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid "Manage local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -960,7 +970,7 @@ msgid "Register a DNS-SD service"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to register a DNS-SD service."
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
@@ -968,7 +978,7 @@ msgid "Unregister a DNS-SD service"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-msgid "Authentication is required to unregister a DNS-SD service"
+msgid "Authentication is required to unregister a DNS-SD service."
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
@@ -977,6 +987,80 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to dump cache."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump server state."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump statistics."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to reset statistics."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
 msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

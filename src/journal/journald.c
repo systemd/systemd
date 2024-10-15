@@ -36,7 +36,7 @@ static int run(int argc, char *argv[]) {
                  * daemon when it comes to logging hence LOG_TARGET_AUTO won't do the right thing for
                  * us. Hence explicitly log to the console if we're started from a console or to kmsg
                  * otherwise. */
-                log_target = isatty(STDERR_FILENO) ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG;
+                log_target = isatty_safe(STDERR_FILENO) ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG;
 
                 log_set_prohibit_ipc(true); /* better safe than sorry */
                 log_set_target(log_target);

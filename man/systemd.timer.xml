@@ -306,6 +306,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DeferReactivation=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When enabled, the timer schedules the next elapse based on
+        the trigger unit entering inactivity, instead of the last trigger time.
+        This is most apparent in the case where the service unit takes longer to run than the timer interval.
+        With this setting enabled, the timer will schedule the next elapse based on when the service finishes
+        running, and so it will have to wait until the next realtime elapse time to trigger.
+        Otherwise, the default behavior is for the timer unit to immediately trigger again once the service
+        finishes running. This happens because the timer schedules the next elapse based on the previous trigger
+        time, and since the interval is shorter than the service runtime, that elapse will be in the past,
+        causing it to immediately trigger once done.</para>
+
+        <para>This setting has no effect if a realtime timer has not been specified with
+        <varname>OnCalendar=</varname>. Defaults to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnClockChange=</varname></term>
         <term><varname>OnTimezoneChange=</varname></term>
 

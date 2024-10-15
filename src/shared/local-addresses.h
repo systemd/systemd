@@ -12,9 +12,12 @@ struct local_address {
         uint32_t weight;
         int family;
         union in_addr_union address;
+        union in_addr_union prefsrc;
 };
 
 bool has_local_address(const struct local_address *addresses, size_t n_addresses, const struct local_address *needle);
+
+int add_local_address(struct local_address **list, size_t *n_list, int ifindex, unsigned char scope, int family, const union in_addr_union *address);
 
 int local_addresses(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
 

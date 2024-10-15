@@ -30,12 +30,13 @@ CoredumpReceive=yes
 TasksMax=16384
 {{SERVICE_WATCHDOG}}
 
-{# Enforce a strict device policy, similar to the one nspawn configures when it
- # allocates its own scope unit. Make sure to keep these policies in sync if you
- # change them! #}
+{# Enforce a strict device policy, similar to the one nspawn configures (in
+ # nspawn-register.c:append_machine_properties()) when it allocates its own
+ # scope unit. Make sure to keep these policies in sync if you change them! #}
 DevicePolicy=closed
 DeviceAllow=/dev/net/tun rwm
 DeviceAllow=char-pts rw
+DeviceAllow=/dev/fuse rwm
 
 # nspawn itself needs access to /dev/loop-control and /dev/loop, to implement
 # the --image= option. Add these here, too.

@@ -2172,3 +2172,16 @@ org.freedesktop.timedate1.SetTime()
 org.freedesktop.timedate1.SetTimezone()
 org.freedesktop.timedate1.TimeUSec
 org.freedesktop.timedate1.Timezone
+org.freedesktop.timesync1.Manager.SetRuntimeNTPServers()
+org.freedesktop.timesync1.Manager.LinkNTPServers
+org.freedesktop.timesync1.Manager.SystemNTPServers
+org.freedesktop.timesync1.Manager.RuntimeNTPServers
+org.freedesktop.timesync1.Manager.FallbackNTPServers
+org.freedesktop.timesync1.Manager.ServerName
+org.freedesktop.timesync1.Manager.ServerAddress
+org.freedesktop.timesync1.Manager.RootDistanceMaxUSec
+org.freedesktop.timesync1.Manager.PollIntervalMinUSec
+org.freedesktop.timesync1.Manager.PollIntervalMaxUSec
+org.freedesktop.timesync1.Manager.PollIntervalUSec
+org.freedesktop.timesync1.Manager.NTPMessage
+org.freedesktop.timesync1.Manager.Frequency

@@ -41,12 +41,13 @@ DEFINE_STRNLEN(char16_t, strnlen16);
                 (_c >= 'A' && _c <= 'Z') ? _c + ('a' - 'A') : _c; \
         })
 
-#define DEFINE_STRTOLOWER(type, name)     \
-        void name(type *s) {              \
-                if (!s)                   \
-                        return;           \
-                for (; *s; s++)           \
-                        *s = TOLOWER(*s); \
+#define DEFINE_STRTOLOWER(type, name)                \
+        type* name(type *s) {                        \
+                if (!s)                              \
+                        return NULL;                 \
+                for (type *p = s; *p; p++)           \
+                        *p = TOLOWER(*p);            \
+                return s;                            \
         }
 
 DEFINE_STRTOLOWER(char, strtolower8);

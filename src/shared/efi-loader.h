@@ -11,6 +11,7 @@
 #if ENABLE_EFI
 
 int efi_loader_get_device_part_uuid(sd_id128_t *ret);
+int efi_stub_get_device_part_uuid(sd_id128_t *ret);
 int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader);
 
 int efi_loader_get_entries(char ***ret);
@@ -22,6 +23,8 @@ int efi_measured_uki(int log_level);
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret);
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);
+
+int efi_get_variable_id128(const char *variable, sd_id128_t *ret);
 
 #else
 
@@ -55,6 +58,10 @@ static inline int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 }
 
 static inline int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_get_variable_id128(const char *variable, sd_id128_t *ret) {
         return -EOPNOTSUPP;
 }
 

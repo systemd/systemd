@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "network-util.h"
 #include "nulstr-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -65,26 +66,20 @@ static int from_home_dir(const char *envname, const char *suffix, char **buffer,
         return 0;
 }
 
-static int from_user_dir(const char *field, char **buffer, const char **ret) {
+static int from_xdg_user_dir(const char *field, char **buffer, const char **ret) {
+        _cleanup_free_ char *user_dirs = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *b = NULL;
-        _cleanup_free_ const char *fn = NULL;
-        const char *c = NULL;
         int r;
 
         assert(field);
         assert(buffer);
         assert(ret);
 
-        r = from_home_dir("XDG_CONFIG_HOME", ".config", &b, &c);
+        r = sd_path_lookup(SD_PATH_USER_CONFIGURATION, "user-dirs.dirs", &user_dirs);
         if (r < 0)
                 return r;
 
-        fn = path_join(c, "user-dirs.dirs");
-        if (!fn)
-                return -ENOMEM;
-
-        f = fopen(fn, "re");
+        f = fopen(user_dirs, "re");
         if (!f) {
                 if (errno == ENOENT)
                         goto fallback;
@@ -107,14 +102,12 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 if (!p)
                         continue;
 
-                p += strspn(p, WHITESPACE);
-
+                p = skip_leading_chars(p, WHITESPACE);
                 if (*p != '=')
                         continue;
                 p++;
 
-                p += strspn(p, WHITESPACE);
-
+                p = skip_leading_chars(p, WHITESPACE);
                 if (*p != '"')
                         continue;
                 p++;
@@ -125,62 +118,34 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 *e = 0;
 
                 /* Three syntaxes permitted: relative to $HOME, $HOME itself, and absolute path */
-                if (startswith(p, "$HOME/")) {
-                        _cleanup_free_ char *h = NULL;
+                if (streq(p, "$HOME"))
+                        goto home;
 
-                        r = get_home_dir(&h);
-                        if (r < 0)
-                                return r;
+                const char *s = startswith(p, "$HOME/");
+                if (s)
+                        return from_home_dir(/* envname = */ NULL, s, buffer, ret);
 
-                        if (!path_extend(&h, p+5))
+                if (path_is_absolute(p)) {
+                        char *c = strdup(p);
+                        if (!c)
                                 return -ENOMEM;
 
-                        *buffer = h;
-                        *ret = TAKE_PTR(h);
-                        return 0;
-                } else if (streq(p, "$HOME")) {
-
-                        r = get_home_dir(buffer);
-                        if (r < 0)
-                                return r;
-
-                        *ret = *buffer;
-                        return 0;
-                } else if (path_is_absolute(p)) {
-                        char *copy;
-
-                        copy = strdup(p);
-                        if (!copy)
-                                return -ENOMEM;
-
-                        *buffer = copy;
-                        *ret = copy;
+                        *ret = *buffer = c;
                         return 0;
                 }
         }
 
 fallback:
         /* The desktop directory defaults to $HOME/Desktop, the others to $HOME */
-        if (streq(field, "XDG_DESKTOP_DIR")) {
-                _cleanup_free_ char *h = NULL;
+        if (streq(field, "XDG_DESKTOP_DIR"))
+                return from_home_dir(/* envname = */ NULL, "Desktop", buffer, ret);
 
-                r = get_home_dir(&h);
-                if (r < 0)
-                        return r;
+home:
+        r = get_home_dir(buffer);
+        if (r < 0)
+                return r;
 
-                if (!path_extend(&h, "Desktop"))
-                        return -ENOMEM;
-
-                *buffer = h;
-                *ret = TAKE_PTR(h);
-        } else {
-                r = get_home_dir(buffer);
-                if (r < 0)
-                        return r;
-
-                *ret = *buffer;
-        }
-
+        *ret = *buffer;
         return 0;
 }
 
@@ -287,28 +252,28 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_USER_DOCUMENTS:
-                return from_user_dir("XDG_DOCUMENTS_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DOCUMENTS_DIR", buffer, ret);
 
         case SD_PATH_USER_MUSIC:
-                return from_user_dir("XDG_MUSIC_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_MUSIC_DIR", buffer, ret);
 
         case SD_PATH_USER_PICTURES:
-                return from_user_dir("XDG_PICTURES_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_PICTURES_DIR", buffer, ret);
 
         case SD_PATH_USER_VIDEOS:
-                return from_user_dir("XDG_VIDEOS_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_VIDEOS_DIR", buffer, ret);
 
         case SD_PATH_USER_DOWNLOAD:
-                return from_user_dir("XDG_DOWNLOAD_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DOWNLOAD_DIR", buffer, ret);
 
         case SD_PATH_USER_PUBLIC:
-                return from_user_dir("XDG_PUBLICSHARE_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_PUBLICSHARE_DIR", buffer, ret);
 
         case SD_PATH_USER_TEMPLATES:
-                return from_user_dir("XDG_TEMPLATES_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_TEMPLATES_DIR", buffer, ret);
 
         case SD_PATH_USER_DESKTOP:
-                return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
+                return from_xdg_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
         case SD_PATH_SYSTEMD_UTIL:
                 *ret = PREFIX_NOSLASH "/lib/systemd";
@@ -390,55 +355,56 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         return -EOPNOTSUPP;
 }
 
-static int get_path_alloc(uint64_t type, const char *suffix, char **path) {
+static int get_path_alloc(uint64_t type, const char *suffix, char **ret) {
         _cleanup_free_ char *buffer = NULL;
-        char *buffer2 = NULL;
-        const char *ret;
+        const char *p;
         int r;
 
-        assert(path);
+        assert(ret);
 
-        r = get_path(type, &buffer, &ret);
+        r = get_path(type, &buffer, &p);
         if (r < 0)
                 return r;
 
         if (suffix) {
-                suffix += strspn(suffix, "/");
-                buffer2 = path_join(ret, suffix);
-                if (!buffer2)
+                char *suffixed = path_join(p, suffix);
+                if (!suffixed)
                         return -ENOMEM;
+
+                path_simplify(suffixed);
+
+                free_and_replace(buffer, suffixed);
         } else if (!buffer) {
-                buffer = strdup(ret);
+                buffer = strdup(p);
                 if (!buffer)
                         return -ENOMEM;
         }
 
-        *path = buffer2 ?: TAKE_PTR(buffer);
+        *ret = TAKE_PTR(buffer);
         return 0;
 }
 
-_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
+_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **ret) {
         int r;
 
-        assert_return(path, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = get_path_alloc(type, suffix, path);
+        r = get_path_alloc(type, suffix, ret);
         if (r != -EOPNOTSUPP)
                 return r;
 
         /* Fall back to sd_path_lookup_strv */
         _cleanup_strv_free_ char **l = NULL;
-        char *buffer;
 
         r = sd_path_lookup_strv(type, suffix, &l);
         if (r < 0)
                 return r;
 
-        buffer = strv_join(l, ":");
-        if (!buffer)
+        char *joined = strv_join(l, ":");
+        if (!joined)
                 return -ENOMEM;
 
-        *path = buffer;
+        *ret = joined;
         return 0;
 }
 
@@ -615,25 +581,16 @@ static int get_search(uint64_t type, char ***ret) {
         }
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR:
-        case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR: {
-                RuntimeScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR ?
-                        RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
-                char **t;
-
-                t = generator_binary_paths(scope);
-                if (!t)
-                        return -ENOMEM;
-
-                *ret = t;
-                return 0;
-        }
-
+        case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR:
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR:
         case SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR: {
-                char **t;
+                RuntimeScope scope = IN_SET(type, SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR,
+                                                  SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR) ?
+                                     RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+                bool env_generator = IN_SET(type, SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR,
+                                                  SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR);
 
-                t = env_generator_binary_paths(type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR ?
-                                               RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER);
+                char **t = generator_binary_paths_internal(scope, env_generator);
                 if (!t)
                         return -ENOMEM;
 
@@ -649,11 +606,11 @@ static int get_search(uint64_t type, char ***ret) {
         return -EOPNOTSUPP;
 }
 
-_public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths) {
-        _cleanup_strv_free_ char **l = NULL, **n = NULL;
+_public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        assert_return(paths, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_search(type, &l);
         if (r == -EOPNOTSUPP) {
@@ -669,31 +626,20 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***path
                 l[0] = TAKE_PTR(t);
                 l[1] = NULL;
 
-                *paths = TAKE_PTR(l);
+                *ret = TAKE_PTR(l);
                 return 0;
-
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
-        if (!suffix) {
-                *paths = TAKE_PTR(l);
-                return 0;
-        }
+        if (suffix)
+                STRV_FOREACH(i, l) {
+                        if (!path_extend(i, suffix))
+                                return -ENOMEM;
 
-        n = new(char*, strv_length(l)+1);
-        if (!n)
-                return -ENOMEM;
+                        path_simplify(*i);
+                }
 
-        char **j = n;
-        STRV_FOREACH(i, l) {
-                *j = path_join(*i, suffix);
-                if (!*j)
-                        return -ENOMEM;
-
-                j++;
-        }
-        *j = NULL;
-
-        *paths = TAKE_PTR(n);
+        *ret = TAKE_PTR(l);
         return 0;
 }

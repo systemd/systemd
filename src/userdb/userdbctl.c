@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <utmp.h>
 
 #include "build.h"
 #include "dirent-util.h"
@@ -1221,15 +1220,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_services = strv_free(arg_services);
                         else {
-                                _cleanup_strv_free_ char **l = NULL;
-
-                                l = strv_split(optarg, ":");
-                                if (!l)
-                                        return log_oom();
-
-                                r = strv_extend_strv(&arg_services, l, true);
+                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates = */ true);
                                 if (r < 0)
-                                        return log_oom();
+                                        return log_error_errno(r, "Failed to parse -s/--service= argument: %m");
                         }
 
                         break;

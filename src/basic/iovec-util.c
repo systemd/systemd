@@ -82,3 +82,15 @@ void iovec_array_free(struct iovec *iovec, size_t n_iovec) {
 
         free(iovec);
 }
+
+struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append) {
+        assert(iovec_is_valid(iovec));
+
+        if (!iovec_is_set(append))
+                return iovec;
+
+        if (!greedy_realloc_append(&iovec->iov_base, &iovec->iov_len, append->iov_base, append->iov_len, 1))
+                return NULL;
+
+        return iovec;
+}

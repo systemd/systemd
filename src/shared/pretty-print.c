@@ -460,21 +460,16 @@ bool shall_tint_background(void) {
         return cache != 0;
 }
 
-void draw_progress_bar(const char *prefix, double percentage) {
-
-        /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
-         * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
-         * as a single buffer, to make things more efficient. */
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
-
+void draw_progress_bar_impl(const char *prefix, double percentage) {
         fputc('\r', stderr);
-        if (prefix)
+        if (prefix) {
                 fputs(prefix, stderr);
+                fputc(' ', stderr);
+        }
 
         if (!terminal_is_dumb()) {
                 size_t cols = columns();
-                size_t prefix_width = utf8_console_width(prefix);
+                size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;
                 size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
 
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
@@ -518,30 +513,32 @@ void draw_progress_bar(const char *prefix, double percentage) {
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
-        fflush(stderr);
 
-        /* Disable buffering again */
-        setvbuf(stderr, NULL, _IONBF, 0);
 }
 
-void clear_progress_bar(const char *prefix) {
-
-        char buffer[LONG_LINE_MAX];
-        setvbuf(stderr, buffer, _IOFBF, sizeof(buffer));
-
+void clear_progress_bar_impl(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
                 fputs(strrepa(" ",
-                              prefix ? utf8_console_width(prefix) + 4 :
-                              LESS_BY(columns(), 1U)), /* 4: %3.0f%% */
+                              prefix ? utf8_console_width(prefix) + 5 : /* %3.0f%% (4 chars) + space */
+                              LESS_BY(columns(), 1U)),
                       stderr);
         else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
-        fflush(stderr);
+}
 
-        /* Disable buffering again */
-        setvbuf(stderr, NULL, _IONBF, 0);
+void draw_progress_bar(const char *prefix, double percentage) {
+        /* We are going output a bunch of small strings that shall appear as a single line to STDERR which is
+         * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
+         * as a single buffer, to make things more efficient. */
+        WITH_BUFFERED_STDERR;
+        draw_progress_bar_impl(prefix, percentage);
+}
+
+void clear_progress_bar(const char *prefix) {
+        WITH_BUFFERED_STDERR;
+        clear_progress_bar_impl(prefix);
 }

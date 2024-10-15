@@ -438,7 +438,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_action, handle_action, HandleAction, "Failed to parse handle action setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_action, handle_action, HandleAction);
 
 int config_parse_handle_action_sleep(
                 const char *unit,

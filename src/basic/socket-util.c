@@ -21,7 +21,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
+#include "format-ifname.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -1447,18 +1447,22 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         ssize_t n;
 
-        /* A wrapper around recvmsg() that checks for MSG_CTRUNC, and turns it into an error, in a reasonably
-         * safe way, closing any SCM_RIGHTS fds in the error path.
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
+         * in a reasonably safe way, closing any received fds in the error path.
          *
          * Note that unlike our usual coding style this might modify *msg on failure. */
+
+        assert(sockfd >= 0);
+        assert(msg);
 
         n = recvmsg(sockfd, msg, flags);
         if (n < 0)
                 return -errno;
 
-        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC)) {
+        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ||
+            (!FLAGS_SET(flags, MSG_PEEK) && FLAGS_SET(msg->msg_flags, MSG_TRUNC))) {
                 cmsg_close_all(msg);
-                return -EXFULL; /* a recognizable error code */
+                return FLAGS_SET(msg->msg_flags, MSG_CTRUNC) ? -ECHRNG : -EXFULL;
         }
 
         return n;

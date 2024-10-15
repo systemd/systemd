@@ -434,8 +434,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <filename>/run/</filename>, depending on whether <option>--runtime</option> is specified.
         Specially, if the name is prefixed by <literal>@</literal>, it will be treated as
         a network interface, and editing will be performed on the network config files associated
-        with it. Additionally, the interface name can be suffixed with <literal>:network</literal> (default)
-        or <literal>:link</literal>, in order to choose the type of network config to operate on.</para>
+        with it. Additionally, the interface name can be suffixed with <literal>:network</literal> (default),
+        <literal>:link</literal>, or <literal>:netdev</literal>, in order to choose the type of network config
+        to operate on.</para>
 
         <para>If <option>--drop-in=</option> is specified, edit the drop-in file instead of
         the main configuration file. Unless <option>--no-reload</option> is specified,
@@ -448,6 +449,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for more information.</para>
 
+        <para>If <option>--stdin</option> is specified, the new content will be read from standard input.
+        In this mode, the old content of the file is discarded.</para>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
@@ -457,9 +461,10 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <optional><replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…</optional>
         </term>
         <listitem>
-          <para>Show network configuration files. This command honors the <literal>@</literal> prefix in the
-          same way as <command>edit</command>. When no argument is specified,
-          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          <para>Show network configuration files. This command honors the <literal>@</literal> prefix in a
+          similar way as <command>edit</command>, with support for an additional suffix <literal>:all</literal>
+          for showing all types of configuration files associated with the interface at once. When no argument
+          is specified, <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           and its drop-in files will be shown.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
@@ -608,12 +613,29 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, the contents of the file will be read from standard
+          input and the editor will not be launched. In this mode, the old contents of the file are
+          automatically replaced. This is useful to "edit" configuration from scripts, especially so that
+          drop-in directories are created and populated in one go.</para>
+
+          <para>Multiple drop-ins may be "edited" in this mode with <option>--drop-in=</option>, and
+          the same contents will be written to all of them. Otherwise exactly one main configuration file
+          is expected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
-
     </variablelist>
   </refsect1>
 

@@ -284,7 +284,7 @@ bool exec_needs_mount_namespace(
              context->directories[EXEC_DIRECTORY_LOGS].n_items > 0))
                 return true;
 
-        if (context->log_namespace)
+        if (exec_context_get_effective_bind_log_sockets(context))
                 return true;
 
         return false;
@@ -391,7 +391,7 @@ int exec_spawn(
         assert(context);
         assert(params);
         assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds == 0));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds + params->n_extra_fds == 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
@@ -468,7 +468,7 @@ int exec_spawn(
 
         /* Restore the original ambient capability set the manager was started with to pass it to
          * sd-executor. */
-        r = capability_ambient_set_apply(unit->manager->original_ambient_set, /* also_inherit= */ false);
+        r = capability_ambient_set_apply(unit->manager->saved_ambient_set, /* also_inherit= */ false);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to apply the starting ambient set: %m");
 
@@ -539,6 +539,7 @@ void exec_context_init(ExecContext *c) {
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
                 .mount_apivfs = -1,
+                .bind_log_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
         };
@@ -626,8 +627,7 @@ void exec_context_done(ExecContext *c) {
         c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
         c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
 
-        c->log_ratelimit_interval_usec = 0;
-        c->log_ratelimit_burst = 0;
+        c->log_ratelimit = (RateLimit) {};
 
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
@@ -928,6 +928,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sShallConfirmSpawn: %s\n"
                 "%sWatchdogUSec: " USEC_FMT "\n"
                 "%sNotifySocket: %s\n"
+                "%sDebugInvocation: %s\n"
                 "%sFallbackSmackProcessLabel: %s\n",
                 prefix, runtime_scope_to_string(p->runtime_scope),
                 prefix, p->flags,
@@ -940,6 +941,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 prefix, yes_no(p->shall_confirm_spawn),
                 prefix, p->watchdog_usec,
                 prefix, strempty(p->notify_socket),
+                prefix, yes_no(p->debug_invocation),
                 prefix, strempty(p->fallback_smack_process_label));
 
         strv_dump(f, prefix, "FdNames", p->fd_names);
@@ -978,6 +980,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sMountAPIVFS: %s\n"
+                "%sBindLogSockets: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n"
@@ -999,10 +1002,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_clock),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
-                prefix, yes_no(c->private_users),
+                prefix, private_users_to_string(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(exec_context_get_effective_mount_apivfs(c)),
+                prefix, yes_no(exec_context_get_effective_bind_log_sockets(c)),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime),
@@ -1216,13 +1220,13 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sLogLevelMax: %s\n", prefix, strna(t));
         }
 
-        if (c->log_ratelimit_interval_usec > 0)
+        if (c->log_ratelimit.interval > 0)
                 fprintf(f,
                         "%sLogRateLimitIntervalSec: %s\n",
-                        prefix, FORMAT_TIMESPAN(c->log_ratelimit_interval_usec, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(c->log_ratelimit.interval, USEC_PER_SEC));
 
-        if (c->log_ratelimit_burst > 0)
-                fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
+        if (c->log_ratelimit.burst > 0)
+                fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit.burst);
 
         if (!set_isempty(c->log_filter_allowed_patterns) || !set_isempty(c->log_filter_denied_patterns)) {
                 fprintf(f, "%sLogFilterPatterns:", prefix);
@@ -1480,6 +1484,27 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
 
         /* Default to "yes" if root directory or image are specified */
         if (exec_context_with_rootfs(c))
+                return true;
+
+        return false;
+}
+
+bool exec_context_get_effective_bind_log_sockets(const ExecContext *c) {
+        assert(c);
+
+        /* If log namespace is specified, "/run/systemd/journal.namespace/" would be bind mounted to
+         * "/run/systemd/journal/", which effectively means BindLogSockets=yes */
+        if (c->log_namespace)
+                return true;
+
+        if (c->bind_log_sockets >= 0)
+                return c->bind_log_sockets > 0;
+
+        if (exec_context_get_effective_mount_apivfs(c))
+                return true;
+
+        /* When PrivateDevices=yes, /dev/log gets symlinked to /run/systemd/journal/dev-log */
+        if (exec_context_with_rootfs(c) && c->private_devices)
                 return true;
 
         return false;
@@ -2021,7 +2046,7 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
 }
 
 int exec_command_append(ExecCommand *c, const char *path, ...) {
-        _cleanup_strv_free_ char **l = NULL;
+        char **l;
         va_list ap;
         int r;
 
@@ -2035,7 +2060,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend_strv(&c->argv, l, false);
+        r = strv_extend_strv_consume(&c->argv, l, /* filter_duplicates = */ false);
         if (r < 0)
                 return r;
 
@@ -2607,7 +2632,7 @@ void exec_params_deep_clear(ExecParameters *p) {
          * to be fully cleaned up to make sanitizers and analyzers happy, as opposed as the shallow clean
          * function above. */
 
-        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds);
+        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
 
         p->cgroup_path = mfree(p->cgroup_path);
 

@@ -45,7 +45,7 @@ static int load_etc_machine_info(void) {
         _cleanup_free_ char *p = NULL, *s = NULL, *layout = NULL;
         int r;
 
-        p = path_join(arg_root, "etc/machine-info");
+        p = path_join(arg_root, "/etc/machine-info");
         if (!p)
                 return log_oom();
 

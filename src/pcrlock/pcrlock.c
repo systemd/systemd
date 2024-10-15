@@ -850,7 +850,6 @@ catchall:
                 return log_oom();
         return 1;
 
-
 invalid:
         /* Mark the payload as invalid, so that we do not bother parsing/validating it any further */
         rec->event_payload_valid = EVENT_PAYLOAD_VALID_NO;
@@ -1811,6 +1810,31 @@ static int event_log_load_components(EventLog *el) {
         return 0;
 }
 
+static void event_log_unload_empty_components(EventLog *el) {
+        assert(el);
+
+        /* Remove components that have no defined variants from our list, because they'd reduce the set of
+         * valid policies to zero. */
+
+        size_t i = 0;
+        while (i < el->n_components) {
+                EventLogComponent *c = el->components[i];
+
+                if (c->n_variants > 0) {
+                        i++;
+                        continue;
+                }
+
+                log_notice("Component '%s' has no defined variants, removing.", c->id);
+                event_log_component_free(c);
+
+                memmove(el->components + i, el->components + i + 1, (el->n_components - i - 1) * sizeof(el->components[0]));
+                el->n_components--;
+
+                /* Continue without increasing i */
+        }
+}
+
 static int event_log_validate_fully_recognized(EventLog *el) {
 
         for (uint32_t pcr = 0; pcr < ELEMENTSOF(el->registers); pcr++) {
@@ -1927,8 +1951,7 @@ static int event_log_map_components(EventLog *el) {
                         continue;
                 }
 
-                if (c->n_variants == 0)
-                        log_notice("Component '%s' has no defined variants.", c->id);
+                assert(c->n_variants > 0);
 
                 FOREACH_ARRAY(ii, c->variants, c->n_variants) {
                         EventLogComponentVariant *i = *ii;
@@ -2394,6 +2417,8 @@ static int event_log_load_and_process(EventLog **ret) {
         r = event_log_load_components(el);
         if (r < 0)
                 return r;
+
+        event_log_unload_empty_components(el);
 
         r = event_log_map_components(el);
         if (r < 0)
@@ -4056,15 +4081,6 @@ static int event_log_predict_pcrs(
 
         component = ASSERT_PTR(el->components[component_index]);
 
-        if (component->n_variants == 0)
-                return event_log_predict_pcrs(
-                        el,
-                        context,
-                        parent_result,
-                        component_index + 1, /* Next component */
-                        pcr,
-                        path);
-
         FOREACH_ARRAY(ii, component->variants, component->n_variants) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
                 EventLogComponentVariant *variant = *ii;
@@ -4120,12 +4136,11 @@ static ssize_t event_log_calculate_component_combinations(EventLog *el) {
         FOREACH_ARRAY(cc, el->components, el->n_components) {
                 EventLogComponent *c = *cc;
 
+                assert(c->n_variants > 0);
+
                 /* Overflow check */
                 if (c->n_variants > (size_t) (SSIZE_MAX/count))
                         return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many component combinations.");
-                /* If no variant, this will lead to count being 0 and sigfpe */
-                if (c->n_variants == 0)
-                        continue;
                 count *= c->n_variants;
         }
 
@@ -4291,21 +4306,22 @@ static int remove_policy_file(const char *path) {
         return 1;
 }
 
-static int determine_boot_policy_file(char **ret) {
-        _cleanup_free_ char *path = NULL, *fn = NULL, *joined = NULL;
-        sd_id128_t machine_id;
+static int determine_boot_policy_file(char **ret_path, char **ret_credential_name) {
         int r;
 
-        assert(ret);
-
+        _cleanup_free_ char *path = NULL;
         r = get_global_boot_credentials_path(&path);
         if (r < 0)
                 return r;
         if (r == 0) {
-                *ret = NULL;
+                if (ret_path)
+                        *ret_path = NULL;
+                if (ret_credential_name)
+                        *ret_credential_name = NULL;
                 return 0; /* not found! */
         }
 
+        sd_id128_t machine_id;
         r = sd_id128_get_machine(&machine_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to read machine ID: %m");
@@ -4320,28 +4336,48 @@ static int determine_boot_policy_file(char **ret) {
         if (r < 0)
                 return r;
 
-        fn = strjoin("pcrlock.", arg_entry_token, ".cred");
+        _cleanup_free_ char *fn = strjoin("pcrlock.", arg_entry_token, ".cred");
         if (!fn)
                 return log_oom();
 
         if (!filename_is_valid(fn))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fn);
 
-        joined = path_join(path, fn);
-        if (!joined)
-                return log_oom();
+        _cleanup_free_ char *joined = NULL;
+        if (ret_path) {
+                joined = path_join(path, fn);
+                if (!joined)
+                        return log_oom();
+        }
 
-        *ret = TAKE_PTR(joined);
+        _cleanup_free_ char *cn = NULL;
+        if (ret_credential_name) {
+                /* The .cred suffix of the file is stripped when PID 1 imports the credential, hence exclude it from
+                 * the embedded credential name. */
+                cn = strjoin("pcrlock.", arg_entry_token);
+                if (!cn)
+                        return log_oom();
+
+                ascii_strlower(cn); /* lowercase this file, no matter what, since stored on VFAT, and we don't want
+                                     * to run into case change incompatibilities */
+        }
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(joined);
+
+        if (ret_credential_name)
+                *ret_credential_name = TAKE_PTR(cn);
+
         return 1; /* found! */
 }
 
 static int write_boot_policy_file(const char *json_text) {
-        _cleanup_free_ char *boot_policy_file = NULL;
+        _cleanup_free_ char *boot_policy_file = NULL, *credential_name = NULL;
         int r;
 
         assert(json_text);
 
-        r = determine_boot_policy_file(&boot_policy_file);
+        r = determine_boot_policy_file(&boot_policy_file, &credential_name);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -4349,18 +4385,10 @@ static int write_boot_policy_file(const char *json_text) {
                 return 0;
         }
 
-        _cleanup_free_ char *c = NULL;
-        r = path_extract_filename(boot_policy_file, &c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from %s: %m", boot_policy_file);
-
-        ascii_strlower(c); /* lowercase this file, no matter what, since stored on VFAT, and we don't want to
-                            * run into case change incompatibilities */
-
         _cleanup_(iovec_done) struct iovec encoded = {};
         r = encrypt_credential_and_warn(
                         CRED_AES256_GCM_BY_NULL,
-                        c,
+                        credential_name,
                         now(CLOCK_REALTIME),
                         /* not_after= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
@@ -4424,6 +4452,9 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
         if (r < 0)
                 return r;
+
+        if (!force && new_prediction.pcrs == 0)
+                log_notice("Set of PCRs to use for policy is empty. Generated policy will not provide any protection in its current form. Proceeding.");
 
         usec_t predict_start_usec = now(CLOCK_MONOTONIC);
 
@@ -4887,7 +4918,7 @@ static int remove_policy(void) {
         }
 
         _cleanup_free_ char *boot_policy_file = NULL;
-        r = determine_boot_policy_file(&boot_policy_file);
+        r = determine_boot_policy_file(&boot_policy_file, /* ret_credential_name= */ NULL);
         if (r == 0)
                 log_info("Did not find XBOOTLDR/ESP partition, not removing boot policy file.");
         else if (r > 0) {
@@ -4955,7 +4986,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --components=PATH        Directory to read .pcrlock files from\n"
                "     --location=STRING[:STRING]\n"
                "                              Do not process components beyond this component name\n"
-               "     --recovery-pin=yes       Ask for a recovery PIN\n"
+               "     --recovery-pin=MODE      Controls whether to show, hide, or ask for a recovery PIN\n"
                "     --pcrlock=PATH           .pcrlock file to write expected PCR measurement to\n"
                "     --policy=PATH            JSON file to write policy output to\n"
                "     --force                  Write policy even if it matches existing policy\n"

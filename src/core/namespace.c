@@ -93,7 +93,7 @@ typedef struct MountEntry {
         const char *path_const;   /* Memory allocated on stack or static */
         MountMode mode;
         bool ignore:1;            /* Ignore if path does not exist? */
-        bool has_prefix:1;        /* Already is prefixed by the root dir? */
+        bool has_prefix:1;        /* Already prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
@@ -119,6 +119,12 @@ typedef struct MountList {
         MountEntry *mounts;
         size_t n_mounts;
 } MountList;
+
+static const BindMount bind_log_sockets_table[] = {
+        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
+};
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
@@ -441,6 +447,8 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
                         .mode = b->recursive ? MOUNT_BIND_RECURSIVE : MOUNT_BIND,
                         .read_only = b->read_only,
                         .nosuid = b->nosuid,
+                        .noexec = b->noexec,
+                        .flags = b->nodev ? MS_NODEV : 0,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
@@ -518,13 +526,19 @@ static int append_extensions(
                               &pick_filter_image_raw,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
+                if (r == -ENOENT && m->ignore_enoent)
+                        continue;
                 if (r < 0)
                         return r;
-                if (!result.path)
+                if (!result.path) {
+                        if (m->ignore_enoent)
+                                continue;
+
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(ENOENT),
                                         "No matching entry in .v/ directory %s found.",
                                         m->source);
+                }
 
                 r = verity_settings_load(&verity, result.path, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
                 if (r < 0)
@@ -567,10 +581,6 @@ static int append_extensions(
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
 
-                /* Pick up the counter where the ExtensionImages left it. */
-                if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, n_mount_images++) < 0)
-                        return -ENOMEM;
-
                 /* Look for any prefixes */
                 if (startswith(e, "-")) {
                         e++;
@@ -586,13 +596,23 @@ static int append_extensions(
                               &pick_filter_image_dir,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
+                if (r == -ENOENT && ignore_enoent)
+                        continue;
                 if (r < 0)
                         return r;
-                if (!result.path)
+                if (!result.path) {
+                        if (ignore_enoent)
+                                continue;
+
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(ENOENT),
                                         "No matching entry in .v/ directory %s found.",
                                         e);
+                }
+
+                /* Pick up the counter where the ExtensionImages left it. */
+                if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, n_mount_images++) < 0)
+                        return -ENOMEM;
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
                         char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
@@ -1078,7 +1098,7 @@ static int create_temporary_mount_point(RuntimeScope scope, char **ret) {
         return 0;
 }
 
-static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
+static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -1093,8 +1113,9 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         int r;
 
         assert(m);
+        assert(p);
 
-        r = create_temporary_mount_point(scope, &temporary_mount);
+        r = create_temporary_mount_point(p->runtime_scope, &temporary_mount);
         if (r < 0)
                 return r;
 
@@ -1139,9 +1160,15 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         FOREACH_STRING(d, "/dev/mqueue", "/dev/hugepages")
                 (void) bind_mount_device_dir(temporary_mount, d);
 
-        const char *devlog = strjoina(temporary_mount, "/dev/log");
-        if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
-                log_debug_errno(errno, "Failed to create symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m", devlog);
+        /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
+         * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
+        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
+                const char *devlog = strjoina(temporary_mount, "/dev/log");
+                if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
+                        log_debug_errno(errno,
+                                        "Failed to create symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m",
+                                        devlog);
+        }
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
@@ -1623,12 +1650,24 @@ static int apply_one_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
-                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(
+                                mount_entry_source(m),
+                                IMAGE_SYSEXT,
+                                extension_name,
+                                /* relax_extension_release_check= */ false,
+                                &extension_release);
                 if (r == -ENOENT) {
-                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                        r = load_extension_release_pairs(
+                                        mount_entry_source(m),
+                                        IMAGE_CONFEXT,
+                                        extension_name,
+                                        /* relax_extension_release_check= */ false,
+                                        &extension_release);
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
+                if (r == -ENOENT && m->ignore)
+                        return 0;
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'extension-release' data of extension tree %s: %m", mount_entry_source(m));
 
@@ -1642,12 +1681,6 @@ static int apply_one_mount(
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(host_os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s'.", empty_to_root(root_directory));
-
-                r = load_extension_release_pairs(mount_entry_source(m), class, extension_name, /* relax_extension_release_check= */ false, &extension_release);
-                if (r == -ENOENT && m->ignore)
-                        return 0;
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to parse directory %s extension-release metadata: %m", extension_name);
 
                 r = extension_release_validate(
                                 extension_name,
@@ -1714,7 +1747,7 @@ static int apply_one_mount(
                 break;
 
         case MOUNT_PRIVATE_DEV:
-                return mount_private_dev(m, p->runtime_scope);
+                return mount_private_dev(m, p);
 
         case MOUNT_BIND_DEV:
                 return mount_bind_dev(m);
@@ -1911,7 +1944,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
  * - that are outside of the relevant root directory
  * - which are duplicates
  */
-static void drop_unused_mounts(MountList *ml, const char *root_directory) {
+static void sort_and_drop_unused_mounts(MountList *ml, const char *root_directory) {
         assert(ml);
         assert(root_directory);
 
@@ -2056,7 +2089,7 @@ static int apply_mounts(
                 if (!again)
                         break;
 
-                drop_unused_mounts(ml, root);
+                sort_and_drop_unused_mounts(ml, root);
         }
 
         /* Now that all filesystems have been set up, but before the
@@ -2579,6 +2612,11 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .read_only = true,
                         .source_malloc = TAKE_PTR(q),
                 };
+
+        } else if (p->bind_log_sockets) {
+                r = append_bind_mounts(&ml, bind_log_sockets_table, ELEMENTSOF(bind_log_sockets_table));
+                if (r < 0)
+                        return r;
         }
 
         /* Will be used to add bind mounts at runtime */
@@ -2627,7 +2665,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         if (r < 0)
                 return r;
 
-        drop_unused_mounts(&ml, root);
+        sort_and_drop_unused_mounts(&ml, root);
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
@@ -2755,7 +2793,6 @@ void bind_mount_free_many(BindMount *b, size_t n) {
 
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
-        BindMount *c;
 
         assert(b);
         assert(n);
@@ -2769,17 +2806,16 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         if (!d)
                 return -ENOMEM;
 
-        c = reallocarray(*b, *n + 1, sizeof(BindMount));
-        if (!c)
+        if (!GREEDY_REALLOC(*b, *n + 1))
                 return -ENOMEM;
 
-        *b = c;
-
-        c[(*n)++] = (BindMount) {
+        (*b)[(*n)++] = (BindMount) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
+                .nodev = item->nodev,
                 .nosuid = item->nosuid,
+                .noexec = item->noexec,
                 .recursive = item->recursive,
                 .ignore_enoent = item->ignore_enoent,
         };
@@ -2805,7 +2841,6 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        MountImage *c;
 
         assert(m);
         assert(n);
@@ -2838,13 +2873,10 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
                 LIST_APPEND(mount_options, options, TAKE_PTR(o));
         }
 
-        c = reallocarray(*m, *n + 1, sizeof(MountImage));
-        if (!c)
+        if (!GREEDY_REALLOC(*m, *n + 1))
                 return -ENOMEM;
 
-        *m = c;
-
-        c[(*n)++] = (MountImage) {
+        (*m)[(*n)++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .mount_options = TAKE_PTR(options),
@@ -2873,7 +2905,6 @@ int temporary_filesystem_add(
                 const char *options) {
 
         _cleanup_free_ char *p = NULL, *o = NULL;
-        TemporaryFileSystem *c;
 
         assert(t);
         assert(n);
@@ -2889,13 +2920,10 @@ int temporary_filesystem_add(
                         return -ENOMEM;
         }
 
-        c = reallocarray(*t, *n + 1, sizeof(TemporaryFileSystem));
-        if (!c)
+        if (!GREEDY_REALLOC(*t, *n + 1))
                 return -ENOMEM;
 
-        *t = c;
-
-        c[(*n)++] = (TemporaryFileSystem) {
+        (*t)[(*n)++] = (TemporaryFileSystem) {
                 .path = TAKE_PTR(p),
                 .options = TAKE_PTR(o),
         };
@@ -3197,9 +3225,17 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
-        [PRIVATE_TMP_OFF]          = "off",
+        [PRIVATE_TMP_NO]           = "no",
         [PRIVATE_TMP_CONNECTED]    = "connected",
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);
+
+static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
+        [PRIVATE_USERS_NO]       = "no",
+        [PRIVATE_USERS_SELF]     = "self",
+        [PRIVATE_USERS_IDENTITY] = "identity",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);

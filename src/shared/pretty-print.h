@@ -55,3 +55,34 @@ bool shall_tint_background(void);
 
 void draw_progress_bar(const char *prefix, double percentage);
 void clear_progress_bar(const char *prefix);
+void draw_progress_bar_impl(const char *prefix, double percentage);
+void clear_progress_bar_impl(const char *prefix);
+
+static inline FILE* enable_buffering(FILE *f, char *buffer, size_t size) {
+        assert(f);
+        assert(buffer);
+        assert(size > 0);
+
+        if (setvbuf(f, buffer, _IOFBF, size) != 0)
+                return NULL;
+
+        return f;
+}
+
+static inline void fflush_and_disable_bufferingp(FILE **p) {
+        assert(p);
+
+        if (*p) {
+                fflush(*p);
+                setvbuf(*p, NULL, _IONBF, 0); /* Disable buffering again. */
+        }
+}
+
+/* Even though the macro below is slightly generic, but it may not work most streams except for stderr,
+ * as stdout is buffered and fopen() enables buffering by default. */
+#define _WITH_BUFFERED_STREAM(f, size, p)                               \
+        _unused_ _cleanup_(fflush_and_disable_bufferingp) FILE *p =     \
+                enable_buffering(f, (char[size]) {}, size)
+
+#define WITH_BUFFERED_STDERR                                            \
+        _WITH_BUFFERED_STREAM(stderr, LONG_LINE_MAX, UNIQ_T(p, UNIQ))

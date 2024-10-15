@@ -190,7 +190,7 @@ __systemctl()
         local -a units; units=("${(q-)@}")
         local -A props
         props=(${(f)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property=\"Id,$property\" -- ${units} 2>/dev/null")"})
-        echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
+        echo -E - "${(@)${(k@)props[(Re)$property=$value]}#Id=}"
     }
 
 (( $+functions[_systemctl_get_non_template_names] )) ||

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
@@ -829,7 +830,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         if (isempty(type)) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
+                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
                 goto finish;
         }
 
@@ -1233,20 +1234,40 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         return 1;
 }
 
-static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m;
+static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
         int r;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
-        assert(link);
+        assert(action);
 
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
+        return varlink_verify_polkit_async(
+                                link,
+                                m->bus,
+                                action,
+                                /* details= */ NULL,
+                                &m->polkit_registry);
+}
+
+static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
 
         /* if the client didn't set the more flag, it is using us incorrectly */
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-query-results");
+        if (r <= 0)
+                return r;
 
         /* Send a ready message to the connecting client, to indicate that we are now listinening, and all
          * queries issued after the point the client sees this will also be reported to the client. */
@@ -1266,15 +1287,14 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
 
 static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-cache");
+        if (r <= 0)
+                return r;
 
         LIST_FOREACH(scopes, s, m->dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
@@ -1313,16 +1333,13 @@ static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant
 
 static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
-        Manager *m;
-        int r;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         Link *l;
+        int r;
 
-        assert(link);
-
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-server-state");
+        if (r <= 0)
+                return r;
 
         LIST_FOREACH(servers, server, m->dns_servers) {
                 r = dns_server_dump_state_to_json_list(server, &list);
@@ -1354,15 +1371,14 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
 
 static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
         assert(link);
 
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.dump-statistics");
+        if (r <= 0)
+                return r;
 
         r = dns_manager_dump_statistics_json(m, &j);
         if (r < 0)
@@ -1372,14 +1388,12 @@ static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *m;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
 
-        assert(link);
-
-        if (sd_json_variant_elements(parameters) > 0)
-                return sd_varlink_error_invalid_parameter(link, parameters);
-
-        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.reset-statistics");
+        if (r <= 0)
+                return r;
 
         dns_manager_reset_statistics(m);
 
@@ -1395,7 +1409,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (m->varlink_monitor_server)
                 return 0;
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ROOT_ONLY);
+        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -1419,7 +1433,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0600);
+        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 

@@ -400,9 +400,12 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 
 _public_ int sd_is_mq(int fd, const char *path) {
         struct mq_attr attr;
+        int r;
 
         /* Check that the fd is valid */
-        assert_return(fcntl(fd, F_GETFD) >= 0, -errno);
+        r = fd_validate(fd);
+        if (r < 0)
+                return r;
 
         if (mq_getattr(fd, &attr) < 0) {
                 if (errno == EBADF)
@@ -738,17 +741,18 @@ _public_ int sd_pid_notifyf_with_fds(
 }
 
 _public_ int sd_booted(void) {
-        /* We test whether the runtime unit file directory has been
-         * created. This takes place in mount-setup.c, so is
-         * guaranteed to happen very early during boot. */
+        int r;
 
-        if (laccess("/run/systemd/system/", F_OK) >= 0)
+        /* We test whether the runtime unit file directory has been created. This takes place in mount-setup.c,
+         * so is guaranteed to happen very early during boot. */
+
+        r = access_nofollow("/run/systemd/system/", F_OK);
+        if (r >= 0)
                 return true;
-
-        if (errno == ENOENT)
+        if (r == -ENOENT)
                 return false;
 
-        return -errno;
+        return r;
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {

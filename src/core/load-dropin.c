@@ -102,17 +102,13 @@ int unit_load_dropin(Unit *u) {
                 return r;
 
         /* Load .conf dropins */
-        r = unit_find_dropin_paths(u, &l);
+        r = unit_find_dropin_paths(u, /* use_unit_path_cache = */ true, &l);
         if (r <= 0)
                 return 0;
 
-        if (!u->dropin_paths)
-                u->dropin_paths = TAKE_PTR(l);
-        else {
-                r = strv_extend_strv(&u->dropin_paths, l, true);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = strv_extend_strv_consume(&u->dropin_paths, TAKE_PTR(l), /* filter_duplicates = */ true);
+        if (r < 0)
+                return log_oom();
 
         u->dropin_mtime = 0;
         STRV_FOREACH(f, u->dropin_paths) {

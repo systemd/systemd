@@ -68,6 +68,7 @@ const char* color_mode_to_string(ColorMode m) _const_;
 ColorMode color_mode_from_string(const char *s) _pure_;
 
 int terminal_vhangup_fd(int fd);
+int terminal_vhangup(const char *tty);
 
 int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols);
 int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_cols);
@@ -77,6 +78,8 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
 int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
 int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
+bool any_key_to_proceed(void);
+int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage);
 
 int vt_disallocate(const char *name);
 

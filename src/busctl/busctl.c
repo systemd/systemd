@@ -17,9 +17,11 @@
 #include "capsule-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "glyph-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
@@ -63,6 +65,7 @@ static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
 static const char *arg_destination = NULL;
+static uint64_t arg_num_matches = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -152,7 +155,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         *ret = TAKE_PTR(bus);
 
@@ -1361,6 +1364,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         dump(m, stdout);
                         fflush(stdout);
 
+                        if (arg_num_matches != UINT64_MAX && --arg_num_matches == 0) {
+                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                        log_info("Received requested number of matching messages, exiting.");
+                                return 0;
+                        }
+
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
                                 if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
                                         log_info("Connection terminated, exiting.");
@@ -1373,7 +1382,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, UINT64_MAX);
+                r = sd_bus_wait(bus, arg_timeout > 0 ? arg_timeout : UINT64_MAX);
+                if (r == 0 && arg_timeout > 0) {
+                        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                log_info("Timed out waiting for messages, exiting.");
+                        return 0;
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for bus: %m");
         }
@@ -1389,7 +1403,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
                 "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
         int r;
 
-        if (isatty(STDOUT_FILENO))
+        if (isatty_safe(STDOUT_FILENO))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
@@ -1465,12 +1479,13 @@ static int status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int message_append_cmdline(sd_bus_message *m, const char *signature, char ***x) {
+static int message_append_cmdline(sd_bus_message *m, const char *signature, FDSet **passed_fdset, char ***x) {
         char **p;
         int r;
 
         assert(m);
         assert(signature);
+        assert(passed_fdset);
         assert(x);
 
         p = *x;
@@ -1619,7 +1634,7 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                                         return bus_log_create_error(r);
 
                                 for (unsigned i = 0; i < n; i++) {
-                                        r = message_append_cmdline(m, s, &p);
+                                        r = message_append_cmdline(m, s, passed_fdset, &p);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -1636,7 +1651,7 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = message_append_cmdline(m, v, &p);
+                        r = message_append_cmdline(m, v, passed_fdset, &p);
                         if (r < 0)
                                 return r;
 
@@ -1668,7 +1683,7 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                                 if (r < 0)
                                         return bus_log_create_error(r);
 
-                                r = message_append_cmdline(m, s, &p);
+                                r = message_append_cmdline(m, s, passed_fdset, &p);
                                 if (r < 0)
                                         return r;
                         }
@@ -1679,9 +1694,25 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         break;
                 }
 
-                case SD_BUS_TYPE_UNIX_FD:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "UNIX file descriptor not supported as type.");
+                case SD_BUS_TYPE_UNIX_FD: {
+                        int fd;
+
+                        fd = parse_fd(v);
+                        if (fd < 0)
+                                return log_error_errno(fd, "Failed to parse '%s' as a file descriptor: %m", v);
+
+                        if (!*passed_fdset) {
+                                r = fdset_new_fill(/* filter_cloexec= */ 0, passed_fdset);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create fd set: %m");
+                        }
+
+                        if (!fdset_contains(*passed_fdset, fd))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Failed to find file descriptor '%s' among passed file descriptors.", v);
+
+                        r = sd_bus_message_append_basic(m, t, &fd);
+                        break;
+                }
 
                 default:
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1698,18 +1729,22 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret);
 
-static int json_transform_and_append(sd_bus_message *m, sd_json_variant **ret) {
+static int json_transform_and_append(sd_bus_message *m, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *element = NULL;
         int r;
 
         assert(m);
-        assert(ret);
+        assert(array);
 
         r = json_transform_one(m, &element);
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_array(ret, element);
+        r = sd_json_variant_append_array(array, element);
+        if (r < 0)
+                return log_error_errno(r, "Failed to append json element to array: %m");
+
+        return 0;
 }
 
 static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **ret) {
@@ -1718,6 +1753,10 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
 
         assert(m);
         assert(ret);
+
+        r = sd_json_variant_new_array(&array, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json empty array: %m");
 
         for (;;) {
                 r = sd_bus_message_at_end(m, false);
@@ -1730,9 +1769,6 @@ static int json_transform_array_or_struct(sd_bus_message *m, sd_json_variant **r
                 if (r < 0)
                         return r;
         }
-
-        if (!array)
-                return sd_json_variant_new_array(ret, NULL, 0);
 
         *ret = TAKE_PTR(array);
         return 0;
@@ -1754,7 +1790,7 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, sd_js
                           SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(contents)),
                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(value)));
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Failed to build json object: %m");
 
         return r;
 }
@@ -1781,7 +1817,7 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
                 if (r < 0)
-                        return r;
+                        return bus_log_parse_error(r);
 
                 assert(type == 'e');
 
@@ -1809,7 +1845,11 @@ static int json_transform_dict_array(sd_bus_message *m, sd_json_variant **ret) {
                         return bus_log_parse_error(r);
         }
 
-        return sd_json_variant_new_object(ret, elements, n_elements);
+        r = sd_json_variant_new_object(ret, elements, n_elements);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create new json object: %m");
+
+        return 0;
 }
 
 static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
@@ -1969,16 +2009,19 @@ static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
                 break;
         }
 
-        case SD_BUS_TYPE_UNIX_FD:
-                r = sd_bus_message_read_basic(m, type, NULL);
+        case SD_BUS_TYPE_UNIX_FD: {
+                int fd;
+
+                r = sd_bus_message_read_basic(m, type, &fd);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_json_variant_new_null(&v);
+                r = json_variant_new_fd_info(&v, fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to transform fd: %m");
 
                 break;
+        }
 
         case SD_BUS_TYPE_ARRAY:
         case SD_BUS_TYPE_VARIANT:
@@ -2025,10 +2068,10 @@ static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
                 return r;
 
         r = sd_json_buildo(ret,
-                          SD_JSON_BUILD_PAIR("type",  SD_JSON_BUILD_STRING(type)),
+                          SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type)),
                           SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_VARIANT(v)));
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Failed to build json object: %m");
 
         return 0;
 }
@@ -2037,6 +2080,7 @@ static int call(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -2073,7 +2117,7 @@ static int call(int argc, char **argv, void *userdata) {
 
                 p = argv+6;
 
-                r = message_append_cmdline(m, argv[5], &p);
+                r = message_append_cmdline(m, argv[5], &passed_fdset, &p);
                 if (r < 0)
                         return r;
 
@@ -2099,38 +2143,37 @@ static int call(int argc, char **argv, void *userdata) {
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+        if (r > 0 || arg_quiet)
+                return 0;
 
-        if (r == 0 && !arg_quiet) {
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                        if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                                pager_open(arg_pager_flags);
-
-                        r = json_transform_message(reply, &v);
-                        if (r < 0)
-                                return r;
-
-                        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
-
-                } else if (arg_verbose) {
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 
-                        r = sd_bus_message_dump(reply, stdout, 0);
-                        if (r < 0)
-                                return r;
-                } else {
+                r = json_transform_message(reply, &v);
+                if (r < 0)
+                        return r;
 
-                        fputs(sd_bus_message_get_signature(reply, true), stdout);
-                        fputc(' ', stdout);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
-                        r = format_cmdline(reply, stdout, false);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+        } else if (arg_verbose) {
+                pager_open(arg_pager_flags);
 
-                        fputc('\n', stdout);
-                }
+                r = sd_bus_message_dump(reply, stdout, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump dbus message: %m");
+        } else {
+
+                fputs(sd_bus_message_get_signature(reply, true), stdout);
+                fputc(' ', stdout);
+
+                r = format_cmdline(reply, stdout, false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -2139,6 +2182,7 @@ static int call(int argc, char **argv, void *userdata) {
 static int emit_signal(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -2164,7 +2208,7 @@ static int emit_signal(int argc, char **argv, void *userdata) {
 
                 p = argv+5;
 
-                r = message_append_cmdline(m, argv[4], &p);
+                r = message_append_cmdline(m, argv[4], &passed_fdset, &p);
                 if (r < 0)
                         return r;
 
@@ -2249,10 +2293,108 @@ static int get_property(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int on_bus_signal_impl(sd_bus_message *msg) {
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_is_empty(msg);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        if (r > 0 || arg_quiet)
+                return 0;
+
+        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                r = json_transform_message(msg, &v);
+                if (r < 0)
+                        return r;
+
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+
+        } else if (arg_verbose) {
+                pager_open(arg_pager_flags);
+
+                r = sd_bus_message_dump(msg, stdout, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump dbus message: %m\n");
+        } else {
+
+                fputs(sd_bus_message_get_signature(msg, true), stdout);
+                fputc(' ', stdout);
+
+                r = format_cmdline(msg, stdout, false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                fputc('\n', stdout);
+        }
+
+        return 0;
+}
+
+static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+        sd_event *e = sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg)));
+        return sd_event_exit(e, on_bus_signal_impl(msg));
+}
+
+static int wait_signal(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        int argn = 1, r;
+
+        const char *sender = argc == 5 ? argv[argn++] : NULL;
+        const char *path = argv[argn++];
+        const char *interface = argv[argn++];
+        const char *member = argv[argn++];
+
+        if (sender && !service_name_is_valid(sender))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", sender);
+        if (!object_path_is_valid(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", path);
+        if (!interface_name_is_valid(interface))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", interface);
+        if (!member_name_is_valid(member))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", member);
+
+        r = acquire_bus(/* set_monitor= */ false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_match_signal(bus, NULL, sender, path, interface, member, on_bus_signal, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match signal %s on interface %s: %m", member, interface);
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m\n");
+
+        r = sd_bus_attach_event(bus, e, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus event: %m\n");
+
+        if (arg_timeout) {
+                r = sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, arg_timeout, 0, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to schedule timeout: %m\n");
+        }
+
+        /* The match is installed and we're ready to observe the signal */
+        sd_notify(/* unset_environment= */ false, "READY=1");
+
+        return sd_event_loop(e);
+}
+
 static int set_property(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
         char **p;
         int r;
 
@@ -2274,7 +2416,7 @@ static int set_property(int argc, char **argv, void *userdata) {
                 return bus_log_create_error(r);
 
         p = argv + 6;
-        r = message_append_cmdline(m, argv[5], &p);
+        r = message_append_cmdline(m, argv[5], &passed_fdset, &p);
         if (r < 0)
                 return r;
 
@@ -2319,6 +2461,8 @@ static int help(void) {
                "                           Call a method\n"
                "  emit OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]\n"
                "                           Emit a signal\n"
+               "  wait OBJECT INTERFACE SIGNAL\n"
+               "                           Wait for a signal\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
                "                           Get property value\n"
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
@@ -2356,6 +2500,8 @@ static int help(void) {
                "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
+               "     --num-matches=NUMBER  Exit after receiving a number of matches while\n"
+               "                           monitoring\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2395,6 +2541,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WATCH_BIND,
                 ARG_JSON,
                 ARG_DESTINATION,
+                ARG_NUM_MATCHES,
         };
 
         static const struct option options[] = {
@@ -2427,6 +2574,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
                 { "json",                            required_argument, NULL, ARG_JSON                            },
                 { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
+                { "num-matches",                     required_argument, NULL, ARG_NUM_MATCHES                     },
                 {},
         };
 
@@ -2595,6 +2743,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_destination = optarg;
                         break;
 
+                case ARG_NUM_MATCHES:
+                        r = safe_atou64(optarg, &arg_num_matches);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --num-matches= parameter '%s': %m", optarg);
+                        if (arg_num_matches == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--num-matches= parameter cannot be 0");
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2618,6 +2775,7 @@ static int busctl_main(int argc, char *argv[]) {
                 { "introspect",   3,        4,        0,            introspect     },
                 { "call",         5,        VERB_ANY, 0,            call           },
                 { "emit",         4,        VERB_ANY, 0,            emit_signal    },
+                { "wait",         4,        5,        0,            wait_signal    },
                 { "get-property", 5,        VERB_ANY, 0,            get_property   },
                 { "set-property", 6,        VERB_ANY, 0,            set_property   },
                 { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },

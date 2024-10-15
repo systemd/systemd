@@ -28,9 +28,11 @@ int rmdir_parents(const char *path, const char *stop);
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 
 int readlinkat_malloc(int fd, const char *p, char **ret);
-int readlink_malloc(const char *p, char **r);
+static inline int readlink_malloc(const char *p, char **ret) {
+        return readlinkat_malloc(AT_FDCWD, p, ret);
+}
 int readlink_value(const char *p, char **ret);
-int readlink_and_make_absolute(const char *p, char **r);
+int readlink_and_make_absolute(const char *p, char **ret);
 
 int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
 static inline int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
@@ -49,7 +51,7 @@ int futimens_opath(int fd, const struct timespec ts[2]);
 int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
-#define laccess(path, mode)                                             \
+#define access_nofollow(path, mode)                                             \
         RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);

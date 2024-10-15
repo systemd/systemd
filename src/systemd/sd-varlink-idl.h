@@ -34,6 +34,12 @@ _SD_BEGIN_DECLARATIONS;
  * format on-the-fly. Can also parse the textual format back to C structures. Validates the interface
  * definitions for internal consistency and validates JSON objects against the interface definitions. */
 
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_interface_flags_t) {
+        _SD_VARLINK_INTERFACE_FLAGS_MAX     = (1 << 0) - 1,
+        _SD_VARLINK_INTERFACE_FLAGS_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(SD_VARLINK_INTERFACE_FLAGS)
+} sd_varlink_interface_flags_t;
+
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_type_t) {
         SD_VARLINK_ENUM_TYPE,
         SD_VARLINK_STRUCT_TYPE,
@@ -45,6 +51,14 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_type_t) {
         _SD_VARLINK_SYMBOL_TYPE_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(SD_VARLINK_SYMBOL)
 } sd_varlink_symbol_type_t;
+
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_flags_t) {
+        SD_VARLINK_SUPPORTS_MORE         = 1 << 0, /* Call supports "more" flag */
+        SD_VARLINK_REQUIRES_MORE         = 1 << 1, /* Call requires "more" flag */
+        _SD_VARLINK_SYMBOL_FLAGS_MAX     = (1 << 2) - 1,
+        _SD_VARLINK_SYMBOL_FLAGS_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(SD_VARLINK_SYMBOL_FLAGS)
+} sd_varlink_symbol_flags_t;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_type_t) {
         _SD_VARLINK_FIELD_TYPE_END_MARKER = 0, /* zero type means: this is the last entry in the fields[] array of VarlinkSymbol */
@@ -99,6 +113,7 @@ struct sd_varlink_field {
 struct sd_varlink_symbol {
         const char *name; /* most symbols have a name, but sometimes they are created on-the-fly for fields, in which case they are anonymous */
         sd_varlink_symbol_type_t symbol_type;
+        sd_varlink_symbol_flags_t symbol_flags;
 #if __STDC_VERSION__ >= 199901L
         sd_varlink_field fields[];
 #else
@@ -109,6 +124,7 @@ struct sd_varlink_symbol {
 /* An interface definition has a name and consist of symbols */
 struct sd_varlink_interface {
         const char *name;
+        sd_varlink_interface_flags_t interface_flags;
 #if __STDC_VERSION__ >= 199901L
         const sd_varlink_symbol *symbols[];
 #else
@@ -146,6 +162,14 @@ struct sd_varlink_interface {
         const sd_varlink_symbol vl_method_ ## _name = {                 \
                 .name = #_name,                                         \
                 .symbol_type = SD_VARLINK_METHOD,                       \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
+#define SD_VARLINK_DEFINE_METHOD_FULL(_name, _flags, ...)               \
+        const sd_varlink_symbol vl_method_ ## _name = {                 \
+                .name = #_name,                                         \
+                .symbol_type = SD_VARLINK_METHOD,                       \
+                .symbol_flags = _flags,                                 \
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 

@@ -9,7 +9,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 
 #include "sd-messages.h"
 
@@ -27,6 +27,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -120,7 +121,7 @@ char* getlogname_malloc(void) {
         uid_t uid;
         struct stat st;
 
-        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+        if (isatty_safe(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
                 uid = st.st_uid;
         else
                 uid = getuid();
@@ -801,7 +802,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                         return false;
                 if (l > NAME_MAX) /* must fit in a filename: 255 */
                         return false;
-                if (l > UT_NAMESIZE - 1) /* must fit in utmp: 31 */
+                if (l > sizeof_field(struct utmpx, ut_user) - 1) /* must fit in utmp: 31 */
                         return false;
         }
 

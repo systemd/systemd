@@ -87,3 +87,90 @@ of the libraries they specify in order to be enabled.
 | required    | Core functionality needs the dependency, the binary will not work if it cannot be found                                              |
 | recommended | Important functionality needs the dependency, the binary will work but in most cases the dependency should be provided               |
 | suggested   | Secondary functionality needs the dependency, the binary will work and the dependency is only needed for full-featured installations |
+
+### Displaying `dlopen()` notes
+
+The raw ELF section can be extracted using `objdump`:
+```console
+$ objdump -j .note.dlopen -s /usr/lib64/systemd/libsystemd-shared-257.so
+
+/usr/lib64/systemd/libsystemd-shared-257.so:     file format elf64-x86-64
+
+Contents of section .note.dlopen:
+ 0334 04000000 8e000000 0a0c7c40 46444f00  ..........|@FDO.
+ 0344 5b7b2266 65617475 7265223a 22627066  [{"feature":"bpf
+ 0354 222c2264 65736372 69707469 6f6e223a  ","description":
+ 0364 22537570 706f7274 20666972 6577616c  "Support firewal
+ 0374 6c696e67 20616e64 2073616e 64626f78  ling and sandbox
+ 0384 696e6720 77697468 20425046 222c2270  ing with BPF","p
+ 0394 72696f72 69747922 3a227375 67676573  riority":"sugges
+ 03a4 74656422 2c22736f 6e616d65 223a5b22  ted","soname":["
+ 03b4 6c696262 70662e73 6f2e3122 2c226c69  libbpf.so.1","li
+ 03c4 62627066 2e736f2e 30225d7d 5d000000  bbpf.so.0"]}]...
+ 03d4 04000000 9e000000 0a0c7c40 46444f00  ..........|@FDO.
+...
+```
+
+It is more convenient to use a higher level tool:
+```console
+$ dlopen-notes /usr/lib64/systemd/libsystemd-shared-257.so
+# /usr/lib64/systemd/libsystemd-shared-257.so
+[
+  {
+    "feature": "archive",
+    "description": "Support for decompressing archive files",
+    "priority": "suggested",
+    "soname": [
+      "libarchive.so.13"
+    ]
+  },
+  {
+    "feature": "bpf",
+    "description": "Support firewalling and sandboxing with BPF",
+    "priority": "suggested",
+    "soname": [
+      "libbpf.so.1",
+      "libbpf.so.0"
+    ]
+  },
+...
+```
+
+`dlopen-notes` can display the notes grouped in a few different ways.
+One option is to filter the libraries by "feature". This answers the
+question "what libraries are needed to provide specified features":
+
+```console
+$ dlopen-notes.py -f archive,bpf /usr/lib64/systemd/libsystemd-shared-257.so
+# grouped by feature
+{
+  "bpf": {
+    "description": "Support firewalling and sandboxing with BPF",
+    "sonames": {
+      "libbpf.so.1": "suggested",
+      "libbpf.so.0": "suggested"
+    }
+  },
+  "archive": {
+    "description": "Support for decompressing archive files",
+    "sonames": {
+      "libarchive.so.13": "suggested"
+    }
+  }
+}
+
+The format that is used when building `deb` packages:
+```console
+$ dlopen-notes -s /usr/lib64/systemd/libsystemd-shared-257.so
+libarchive.so.13 suggested
+libbpf.so.0 suggested
+libbpf.so.1 suggested
+...
+```
+
+The format that can be useful when building `rpm` packages:
+```console
+$ dlopen-notes --rpm-requires archive --rpm-recommends bpf  /usr/lib64/systemd/libsystemd-shared-257.so
+Requires: libarchive.so.13()(64bit)
+Recommends: libbpf.so.1()(64bit)
+```

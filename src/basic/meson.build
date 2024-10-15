@@ -33,6 +33,7 @@ basic_sources = files(
         'fd-util.c',
         'fileio.c',
         'filesystems.c',
+        'format-ifname.c',
         'format-util.c',
         'fs-util.c',
         'gcrypt-util.c',
@@ -69,7 +70,6 @@ basic_sources = files(
         'ordered-set.c',
         'os-util.c',
         'parse-util.c',
-        'path-lookup.c',
         'path-util.c',
         'percent-util.c',
         'pidref.c',
@@ -105,7 +105,6 @@ basic_sources = files(
         'uid-classification.c',
         'uid-range.c',
         'unit-def.c',
-        'unit-file.c',
         'unit-name.c',
         'user-util.c',
         'utf8.c',
@@ -131,7 +130,7 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, config_h],
+        command : [generate_arphrd_list, cpp, files('linux/if_arp.h'), config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')

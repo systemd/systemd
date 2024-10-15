@@ -626,16 +626,15 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 }
 
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***list = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
-        char ***list = userdata;
-        sd_json_variant *e;
         int r;
 
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
+        sd_json_variant *e;
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-
                 if (!sd_json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
@@ -647,7 +646,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
 
-        r = strv_extend_strv(list, l, true);
+        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates = */ true);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to merge user/group arrays: %m");
 
@@ -752,10 +751,7 @@ static int dispatch_pkcs11_key_data(const char *name, sd_json_variant *variant, 
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -775,8 +771,6 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Pkcs11EncryptedKey *array, *k;
-
                 static const sd_json_dispatch_field pkcs11_key_dispatch_table[] = {
                         { "uri",            SD_JSON_VARIANT_STRING, dispatch_pkcs11_uri,      offsetof(Pkcs11EncryptedKey, uri),             SD_JSON_MANDATORY },
                         { "data",           SD_JSON_VARIANT_STRING, dispatch_pkcs11_key_data, 0,                                             SD_JSON_MANDATORY },
@@ -787,12 +781,10 @@ static int dispatch_pkcs11_key(const char *name, sd_json_variant *variant, sd_js
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key + 1, sizeof(Pkcs11EncryptedKey));
-                if (!array)
+                if (!GREEDY_REALLOC(h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key + 1))
                         return log_oom();
 
-                h->pkcs11_encrypted_key = array;
-                k = h->pkcs11_encrypted_key + h->n_pkcs11_encrypted_key;
+                Pkcs11EncryptedKey *k = h->pkcs11_encrypted_key + h->n_pkcs11_encrypted_key;
                 *k = (Pkcs11EncryptedKey) {};
 
                 r = sd_json_dispatch(e, pkcs11_key_dispatch_table, flags, k);
@@ -819,10 +811,7 @@ static int dispatch_fido2_hmac_credential(const char *name, sd_json_variant *var
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -841,22 +830,15 @@ static int dispatch_fido2_hmac_credential_array(const char *name, sd_json_varian
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Fido2HmacCredential *array;
                 size_t l;
                 void *b;
 
-                if (!sd_json_variant_is_string(e))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
-
-                array = reallocarray(h->fido2_hmac_credential, h->n_fido2_hmac_credential + 1, sizeof(Fido2HmacCredential));
-                if (!array)
+                if (!GREEDY_REALLOC(h->fido2_hmac_credential, h->n_fido2_hmac_credential + 1))
                         return log_oom();
 
-                r = unbase64mem(sd_json_variant_string(e), &b, &l);
+                r = sd_json_variant_unbase64(e, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
-
-                h->fido2_hmac_credential = array;
 
                 h->fido2_hmac_credential[h->n_fido2_hmac_credential++] = (Fido2HmacCredential) {
                         .id = b,
@@ -879,10 +861,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, sd_json_variant *var
                 return 0;
         }
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = unbase64mem(sd_json_variant_string(variant), &b, &l);
+        r = sd_json_variant_unbase64(variant, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 
@@ -902,8 +881,6 @@ static int dispatch_fido2_hmac_salt(const char *name, sd_json_variant *variant, 
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                Fido2HmacSalt *array, *k;
-
                 static const sd_json_dispatch_field fido2_hmac_salt_dispatch_table[] = {
                         { "credential",     SD_JSON_VARIANT_STRING,  dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      SD_JSON_MANDATORY },
                         { "salt",           SD_JSON_VARIANT_STRING,  dispatch_fido2_hmac_salt_value, 0,                                        SD_JSON_MANDATORY },
@@ -917,12 +894,10 @@ static int dispatch_fido2_hmac_salt(const char *name, sd_json_variant *variant, 
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->fido2_hmac_salt, h->n_fido2_hmac_salt + 1, sizeof(Fido2HmacSalt));
-                if (!array)
+                if (!GREEDY_REALLOC(h->fido2_hmac_salt, h->n_fido2_hmac_salt + 1))
                         return log_oom();
 
-                h->fido2_hmac_salt = array;
-                k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
+                Fido2HmacSalt *k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
                 *k = (Fido2HmacSalt) {
                         .uv = -1,
                         .up = -1,
@@ -950,8 +925,6 @@ static int dispatch_recovery_key(const char *name, sd_json_variant *variant, sd_
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                RecoveryKey *array, *k;
-
                 static const sd_json_dispatch_field recovery_key_dispatch_table[] = {
                         { "type",           SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0,                                      SD_JSON_MANDATORY },
                         { "hashedPassword", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(RecoveryKey, hashed_password), SD_JSON_MANDATORY },
@@ -961,12 +934,10 @@ static int dispatch_recovery_key(const char *name, sd_json_variant *variant, sd_
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
 
-                array = reallocarray(h->recovery_key, h->n_recovery_key + 1, sizeof(RecoveryKey));
-                if (!array)
+                if (!GREEDY_REALLOC(h->recovery_key, h->n_recovery_key + 1))
                         return log_oom();
 
-                h->recovery_key = array;
-                k = h->recovery_key + h->n_recovery_key;
+                RecoveryKey *k = h->recovery_key + h->n_recovery_key;
                 *k = (RecoveryKey) {};
 
                 r = sd_json_dispatch(e, recovery_key_dispatch_table, flags, k);
@@ -1805,7 +1776,7 @@ static const char *user_record_home_directory_real(UserRecord *h) {
                 return h->home_directory_auto;
 
         /* The root user is special, hence be special about it */
-        if (streq_ptr(h->user_name, "root"))
+        if (user_record_is_root(h))
                 return "/root";
 
         return "/";
@@ -1853,7 +1824,7 @@ static const char *user_record_shell_real(UserRecord *h) {
         if (h->shell)
                 return h->shell;
 
-        if (streq_ptr(h->user_name, "root"))
+        if (user_record_is_root(h))
                 return "/bin/sh";
 
         if (user_record_disposition(h) == USER_REGULAR)
@@ -2033,7 +2004,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
         if (!uid_is_valid(h->uid))
                 return _USER_DISPOSITION_INVALID;
 
-        if (h->uid == 0 || h->uid == UID_NOBODY)
+        if (user_record_is_root(h) || user_record_is_nobody(h))
                 return USER_INTRINSIC;
 
         if (uid_is_system(h->uid))
@@ -2409,6 +2380,18 @@ int user_record_test_password_change_required(UserRecord *h) {
 
         /* No password changing necessary */
         return change_permitted ? 0 : -EROFS;
+}
+
+int user_record_is_root(const UserRecord *u) {
+        assert(u);
+
+        return u->uid == 0 || streq_ptr(u->user_name, "root");
+}
+
+int user_record_is_nobody(const UserRecord *u) {
+        assert(u);
+
+        return u->uid == UID_NOBODY || STRPTR_IN_SET(u->user_name, NOBODY_USER_NAME, "nobody");
 }
 
 int suitable_blob_filename(const char *name) {

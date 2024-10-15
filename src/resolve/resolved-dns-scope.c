@@ -42,7 +42,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
-                .mdns_goodbye_event_source = NULL,
+
+                /* Enforce ratelimiting for the multicast protocols */
+                .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {
@@ -71,9 +73,6 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_mdns_membership(s, true);
 
         log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
-
-        /* Enforce ratelimiting for the multicast protocols */
-        s->ratelimit = (const RateLimit) { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST };
 
         *ret = s;
         return 0;
@@ -139,23 +138,15 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s) {
 }
 
 unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
-        unsigned n = 0;
-        DnsServer *i;
-
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return 0;
 
         if (s->link)
-                i = s->link->dns_servers;
+                return s->link->n_dns_servers;
         else
-                i = s->manager->dns_servers;
-
-        for (; i; i = i->servers_next)
-                n++;
-
-        return n;
+                return s->manager->n_dns_servers;
 }
 
 void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
@@ -393,7 +384,7 @@ static int dns_scope_socket(
                 assert(family != AF_UNSPEC);
                 assert(address);
 
-                ifindex = s->link ? s->link->ifindex : 0;
+                ifindex = dns_scope_ifindex(s);
 
                 switch (family) {
                 case AF_INET:
@@ -777,6 +768,10 @@ DnsScopeMatch dns_scope_good_domain(
                 /* If there was no match at all, then see if this scope is suitable as default route. */
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
+
+                /* Prefer suitable per-link scopes where possible */
+                if (dns_server_is_fallback(dns_scope_get_dns_server(s)))
+                        return DNS_SCOPE_LAST_RESORT;
 
                 return DNS_SCOPE_MAYBE;
         }
@@ -1447,6 +1442,15 @@ int dns_scope_ifindex(DnsScope *s) {
         return 0;
 }
 
+const char* dns_scope_ifname(DnsScope *s) {
+        assert(s);
+
+        if (s->link)
+                return s->link->ifname;
+
+        return NULL;
+}
+
 static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsScope *scope = userdata;
 
@@ -1730,8 +1734,8 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         ret,
                         SD_JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
                         SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
 }
 

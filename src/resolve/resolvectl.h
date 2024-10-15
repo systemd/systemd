@@ -24,6 +24,7 @@ typedef enum ExecutionMode {
 extern ExecutionMode arg_mode;
 extern char **arg_set_dns;
 extern char **arg_set_domain;
+extern bool arg_disable_default_route;
 extern bool arg_ifindex_permissive;
 
 int ifname_mangle_full(const char *s, bool drop_protocol_specifier);

@@ -25,10 +25,9 @@ Conflicts=rescue.service
 Before=rescue.service
 
 [Service]
-# The '-o' option value tells agetty to replace 'login' arguments with an
-# option to preserve environment (-p), followed by '--' for safety, and then
-# the entered username.
-ExecStart=-/sbin/agetty -o '-p -- \\u' --noreset --noclear - ${TERM}
+# The '-o' option value tells agetty to replace 'login' arguments with '--' for
+# safety, and then the entered username.
+ExecStart=-/sbin/agetty -o '-- \\u' --noreset --noclear - ${TERM}
 Type=idle
 Restart=always
 RestartSec=0
@@ -47,3 +46,4 @@ ImportCredential=tty.container.%I.agetty.*:agetty.
 ImportCredential=tty.container.%I.login.*:login.
 ImportCredential=agetty.*
 ImportCredential=login.*
+ImportCredential=shell.*

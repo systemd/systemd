@@ -260,7 +260,7 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
       readonly (st) ScheduledShutdown = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DesignatedMaintenanceTime = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
@@ -1516,8 +1516,9 @@ node /org/freedesktop/login1/session/1 {
       available.</para>
 
       <para><varname>Type</varname> encodes the session type. It's one of <literal>unspecified</literal> (for
-      cron PAM sessions and suchlike), <literal>tty</literal> (for text logins) or
-      <literal>x11</literal>/<literal>mir</literal>/<literal>wayland</literal> (for graphical logins).</para>
+      cron PAM sessions and suchlike), <literal>tty</literal> (for text logins), <literal>web</literal> (for
+      web-based logins), or <literal>x11</literal>/<literal>mir</literal>/<literal>wayland</literal> (for
+      graphical logins).</para>
 
       <para><varname>Class</varname> encodes the session class. It's one of <literal>user</literal> (for
       normal user sessions), <literal>greeter</literal> (for display manager pseudo-sessions), or
@@ -1616,12 +1617,12 @@ node /org/freedesktop/login1/session/1 {
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
       <function>CanSleep()</function>,
-      <varname>SleepOperation</varname>,
-      <varname>DesignatedMaintenanceTime</varname>, and
+      <varname>SleepOperation</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
       <para><varname>HandleSecureAttentionKey</varname>,
+      <function>SecureAttentionKey()</function>,
       <varname>PreparingForShutdownWithMetadata</varname>, and
-      <function>SecureAttentionKey()</function> were added in version 257.</para>
+      <varname>DesignatedMaintenanceTime</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
