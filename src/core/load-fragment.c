@@ -4121,6 +4121,46 @@ int config_parse_managed_oom_mem_pressure_limit(
         return 0;
 }
 
+int config_parse_managed_oom_mem_pressure_duration_sec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *duration = ASSERT_PTR(data);
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                *duration = USEC_INFINITY;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        if (usec < 1 * USEC_PER_SEC || usec == USEC_INFINITY) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= must be at least 1s and less than infinity, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        *duration = usec;
+        return 0;
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
