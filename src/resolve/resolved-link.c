@@ -299,6 +299,9 @@ static int link_update_dns_servers(Link *l) {
         }
 
         dns_server_unlink_marked(l->dns_servers);
+
+        dns_server_reset_accessible_all(l->dns_servers);
+
         return 0;
 
 clear:
