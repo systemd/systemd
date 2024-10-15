@@ -299,6 +299,15 @@ static int link_update_dns_servers(Link *l) {
         }
 
         dns_server_unlink_marked(l->dns_servers);
+
+        /* If the link state changed, we should re-check if DNS servers
+         * are accessible. */
+        LIST_FOREACH(servers, s, l->dns_servers)
+                dns_server_reset_accessible(s);
+
+        LIST_FOREACH(servers, s, l->manager->dns_servers)
+                dns_server_reset_accessible(s);
+
         return 0;
 
 clear:
