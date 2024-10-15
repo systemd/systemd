@@ -444,12 +444,13 @@ systemctl is-active testservice-50e.service
 VBASE="vtest$RANDOM"
 VDIR="/tmp/$VBASE.v"
 EMPTY_VDIR="/tmp/$VBASE-empty.v"
+NONEXISTENT_VDIR="/tmp/$VBASE-nonexistent.v"
 mkdir "$VDIR" "$EMPTY_VDIR"
 
 ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
 ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
-systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR" bash -c '/opt/script1.sh | grep ID'
+systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -c '/opt/script1.sh | grep ID'
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -531,12 +532,13 @@ systemctl is-active testservice-50f.service
 VBASE="vtest$RANDOM"
 VDIR="/tmp/$VBASE.v"
 EMPTY_VDIR="/tmp/$VBASE-empty.v"
+NONEXISTENT_VDIR="/tmp/$VBASE-nonexistent.v"
 mkdir "$VDIR" "$EMPTY_VDIR"
 
 ln -s "$IMAGE_DIR/app0" "$VDIR/${VBASE}_0"
 ln -s "$IMAGE_DIR/app1" "$VDIR/${VBASE}_1"
 
-systemd-run -P --property ExtensionDirectories="$VDIR -$EMPTY_VDIR" cat /opt/script1.sh | grep -q -F "extension-release.app2"
+systemd-run -P --property ExtensionDirectories="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 

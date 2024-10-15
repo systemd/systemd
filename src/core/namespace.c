@@ -511,6 +511,8 @@ static int append_extensions(
                               &pick_filter_image_raw,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
+                if (r == -ENOENT && m->ignore_enoent)
+                        continue;
                 if (r < 0)
                         return r;
                 if (!result.path) {
@@ -574,6 +576,8 @@ static int append_extensions(
                               &pick_filter_image_dir,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
+                if (r == -ENOENT && ignore_enoent)
+                        continue;
                 if (r < 0)
                         return r;
                 if (!result.path) {
