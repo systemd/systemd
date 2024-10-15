@@ -54,7 +54,9 @@ static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
 
-bool pidref_is_automatic(const PidRef *pidref);
+static inline bool pidref_is_automatic(const PidRef *pidref) {
+        return pidref && pid_is_automatic(pidref->pid);
+}
 
 static inline bool pidref_is_remote(const PidRef *pidref) {
         /* If the fd is set to -EREMOTE we assume PidRef does not refer to a local PID, but on another

@@ -11,6 +11,8 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
+static inline bool pid_is_automatic(pid_t p);
+
 #include "alloc-util.h"
 #include "format-util.h"
 #include "macro.h"
