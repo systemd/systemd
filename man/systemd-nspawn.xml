@@ -220,6 +220,17 @@
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--cleanup</option></term>
+
+        <listitem>
+          <para>Clean up directories used by the container. This is useful when the previous invocation of
+          <command>systemd-nspawn</command> was unexpectedly terminated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <refsect2>
