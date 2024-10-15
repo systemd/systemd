@@ -211,6 +211,7 @@ BASICTOOLS=(
     ping
     pkill
     ps
+    pwd
     readlink
     realpath
     rev
