@@ -266,6 +266,8 @@ int sd_varlink_invocation(sd_varlink_invocation_flags_t flags);
 
 int sd_varlink_error_to_errno(const char *error, sd_json_variant *parameters);
 
+int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name);
+
 /* Define helpers so that __attribute__((cleanup(sd_varlink_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_close_unref);

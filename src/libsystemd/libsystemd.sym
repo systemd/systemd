@@ -975,6 +975,7 @@ global:
         sd_varlink_error_errno;
         sd_varlink_error_invalid_parameter;
         sd_varlink_error_invalid_parameter_name;
+        sd_varlink_error_is_invalid_parameter;
         sd_varlink_error_to_errno;
         sd_varlink_errorb;
         sd_varlink_flush;
