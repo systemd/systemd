@@ -16,6 +16,7 @@ _arguments \
     '(- *)'{-h,--help}'[Show this help.]' \
     '(- *)--version[Print a short version string and exit.]' \
     '(--quiet -q)'{--quiet,-q}'[Turns off any status output by the tool itself.]' \
+    '--cleanup[Cleanup left-over mounts and underlying mount points used by the container.]' \
     '(--directory -D)'{--directory=,-D+}'[Directory to use as file system root for the namespace container. If omitted the current directory will be used.]:directories:_directories' \
     '--template=[Initialize root directory from template directory, if missing.]:template:_directories' \
     '(--ephemeral -x)'{--ephemeral,-x}'[Run container with snapshot of root directory, and remove it after exit.]' \
