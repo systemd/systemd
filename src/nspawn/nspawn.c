@@ -320,7 +320,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
-               "%5$sSpawn a command or OS in a light-weight container.%6$s\n\n"
+               "%5$sSpawn a command or OS in a lightweight container.%6$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
