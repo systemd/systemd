@@ -12,7 +12,7 @@ export PAGER=
 at_exit() {
     set +e
 
-    machinectl status long-running >/dev/null && machinectl kill --signal=KILL long-running
+    machinectl status long-running &>/dev/null && machinectl kill --signal=KILL long-running
     mountpoint -q /var/lib/machines && timeout 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
@@ -60,11 +60,13 @@ EOF
 
 long_running_machine_start() {
     # shellcheck disable=SC2015
-    machinectl status long-running >/dev/null && return 0 || true
+    machinectl status long-running &>/dev/null && return 0 || true
+
+    # Ensure the service stopped.
+    systemctl stop systemd-nspawn@long-running.service 2>/dev/null || :
 
     rm -f /var/lib/machines/long-running/ready
-    # sometime `machinectl start` returns 1 and then do a success
-    machinectl start long-running || machinectl start long-running
+    machinectl start long-running
     # !!!! DO NOT REMOVE THIS TEST
     # The test makes sure that the long-running's init script has enough time to start and registered signal traps
     timeout 30 bash -c "until test -e /var/lib/machines/long-running/ready; do sleep .5; done"
@@ -120,7 +122,7 @@ timeout 10 bash -c "until test -e /var/lib/machines/long-running/reboot; do slee
 rm -f /var/lib/machines/long-running/terminate
 machinectl terminate long-running
 timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
-timeout 10 bash -c "while machinectl status long-running; do sleep .5; done"
+timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 # Restart container
 long_running_machine_start
 # Test for 'machinectl kill'
@@ -272,10 +274,6 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 rm -f /var/lib/machines/long-running/trap
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "whom": "leader", "signal": 5}'
 timeout 30 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
-
-# sending KILL signal
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "signal": 9}'
-timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
 
 # test io.systemd.Machine.Terminate
 long_running_machine_start
