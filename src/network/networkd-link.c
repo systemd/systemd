@@ -288,6 +288,7 @@ static Link *link_free(Link *link) {
         network_unref(link->network);
 
         sd_event_source_disable_unref(link->carrier_lost_timer);
+        sd_event_source_disable_unref(link->ipv6_mtu_wait_synced_event_source);
 
         return mfree(link);
 }
@@ -1869,8 +1870,6 @@ static int link_carrier_lost(Link *link) {
 }
 
 static int link_admin_state_up(Link *link) {
-        int r;
-
         assert(link);
 
         /* This is called every time an interface admin state changes to up;
@@ -1886,9 +1885,7 @@ static int link_admin_state_up(Link *link) {
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
-        r = link_set_ipv6_mtu(link, LOG_INFO);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+        (void) link_set_ipv6_mtu(link, LOG_INFO);
 
         return 0;
 }
@@ -2439,12 +2436,9 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         link->mtu = mtu;
 
-        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
-                r = link_set_ipv6_mtu(link, LOG_INFO);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
-        }
+                (void) link_set_ipv6_mtu_async(link);
 
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
