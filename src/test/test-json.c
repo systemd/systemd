@@ -1307,4 +1307,15 @@ TEST(pidref) {
         pidref_done(&data.pid1);
 }
 
+TEST(devnum) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        dev_t dev = makedev(123, 456), parsed;
+
+        ASSERT_OK(json_variant_new_devnum(&v, dev));
+        ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
+        ASSERT_OK(json_dispatch_devnum("devnum", v, /* flags= */ 0, &parsed));
+        ASSERT_EQ(major(parsed), major(dev));
+        ASSERT_EQ(minor(parsed), minor(dev));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
