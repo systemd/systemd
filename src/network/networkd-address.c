@@ -644,12 +644,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (!address->link->network)
                 return 0;
 
-        if (address->family == AF_INET &&
-            !FLAGS_SET(address->link->network->ip_masquerade, ADDRESS_FAMILY_IPV4))
-                return 0;
-
-        if (address->family == AF_INET6 &&
-            !FLAGS_SET(address->link->network->ip_masquerade, ADDRESS_FAMILY_IPV6))
+        if (!FLAGS_SET(address->link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(address->family)))
                 return 0;
 
         if (address->scope >= RT_SCOPE_LINK)

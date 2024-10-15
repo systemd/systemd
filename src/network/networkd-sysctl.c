@@ -303,9 +303,7 @@ int link_get_ip_forwarding(Link *link, int family) {
                 return t;
 
         /* If IPMasquerade= is enabled, also enable IP forwarding. */
-        if (family == AF_INET && FLAGS_SET(link->network->ip_masquerade, ADDRESS_FAMILY_IPV4))
-                return true;
-        if (family == AF_INET6 && FLAGS_SET(link->network->ip_masquerade, ADDRESS_FAMILY_IPV6))
+        if (FLAGS_SET(link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(family)))
                 return true;
 
         /* If IPv6SendRA= is enabled, also enable IPv6 forwarding. */
@@ -377,7 +375,7 @@ static int link_set_ip_forwarding(Link *link, int family) {
 
         /* When IPMasquerade= is enabled and the global setting is unset, enable _global_ IP forwarding, and
          * re-apply per-link setting for all links. */
-        if (FLAGS_SET(link->network->ip_masquerade, family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6) &&
+        if (FLAGS_SET(link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(family)) &&
             link->manager->ip_forwarding[family == AF_INET6] < 0) {
 
                 link->manager->ip_forwarding[family == AF_INET6] = true;
