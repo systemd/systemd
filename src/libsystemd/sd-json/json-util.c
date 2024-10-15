@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "devnum-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -279,5 +280,48 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
         pidref_done(p);
         *p = TAKE_PIDREF(np);
 
+        return 0;
+}
+
+int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum) {
+        if (devnum == 0)
+                return sd_json_variant_new_null(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("major", major(devnum)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("minor", minor(devnum)));
+}
+
+int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        dev_t *ret = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = 0;
+                return 0;
+        }
+
+        struct {
+                uint32_t major;
+                uint32_t minor;
+        } data;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "major", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32, voffsetof(data, major), SD_JSON_MANDATORY },
+                { "minor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32, voffsetof(data, minor), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(variant, dispatch_table, flags, &data);
+        if (r < 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(data.major) || !DEVICE_MINOR_VALID(data.minor))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid device number.", strna(name));
+
+        *ret = makedev(data.major, data.minor);
         return 0;
 }
