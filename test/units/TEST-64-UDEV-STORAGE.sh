@@ -219,6 +219,7 @@ testcase_nvme_basic() {
     for i in "${expected_symlinks[@]}"; do
         udevadm wait --settle --timeout=30 "$i"
     done
+    test ! -e /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
 
     lsblk --noheadings | grep "^nvme"
     [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 20 ]]
@@ -227,7 +228,6 @@ testcase_nvme_basic() {
 testcase_nvme_subsystem() {
     local expected_symlinks=(
         # Controller(s)
-        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_16
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_17
         # Shared namespaces
