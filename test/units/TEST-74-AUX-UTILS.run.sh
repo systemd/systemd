@@ -244,4 +244,16 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Let's chain a couple of run0 calls together, for fun
     readarray -t cmdline < <(printf "%.0srun0\n" {0..31})
     assert_eq "$("${cmdline[@]}" bash -c 'echo $SUDO_USER')" "$USER"
+
+    # Tests for working directory, especially for specifying "/" (see PR #34771).
+    cd /
+    assert_eq "$(run0 pwd)" "/"
+    assert_eq "$(run0 -D /tmp pwd)" "/tmp"
+    assert_eq "$(run0 --user=testuser pwd)" "/home/testuser"
+    assert_eq "$(run0 -D /tmp --user=testuser pwd)" "/tmp"
+    cd /tmp
+    assert_eq "$(run0 pwd)" "/tmp"
+    assert_eq "$(run0 -D / pwd)" "/"
+    assert_eq "$(run0 --user=testuser pwd)" "/home/testuser"
+    assert_eq "$(run0 -D / --user=testuser pwd)" "/"
 fi
