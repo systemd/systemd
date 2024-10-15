@@ -31,14 +31,11 @@ int drop_in_file(
                 char **ret_unit_dir,
                 char **ret_path) {
 
-        char prefix[DECIMAL_STR_MAX(unsigned) + 1] = {};
         _cleanup_free_ char *n = NULL, *unit_dir = NULL, *path = NULL;
 
         assert(dir);
         assert(unit);
         assert(name);
-        assert(ret_unit_dir);
-        assert(ret_path);
 
         n = xescape(name, "/.");
         if (!n)
@@ -46,16 +43,28 @@ int drop_in_file(
         if (!filename_is_valid(n))
                 return -EINVAL;
 
-        if (level != UINT_MAX)
-                xsprintf(prefix, "%u-", level);
+        if (ret_unit_dir || ret_path) {
+                unit_dir = path_join(dir, strjoina(unit, ".d"));
+                if (!unit_dir)
+                        return -ENOMEM;
+        }
 
-        unit_dir = path_join(dir, strjoina(unit, ".d"));
-        path = strjoin(unit_dir, "/", prefix, n, ".conf");
-        if (!unit_dir || !path)
-                return -ENOMEM;
+        if (ret_path) {
+                char prefix[DECIMAL_STR_MAX(unsigned) + 1] = {};
 
-        *ret_unit_dir = TAKE_PTR(unit_dir);
-        *ret_path = TAKE_PTR(path);
+                if (level != UINT_MAX)
+                        xsprintf(prefix, "%u-", level);
+
+                path = strjoin(unit_dir, "/", prefix, n, ".conf");
+                if (!path)
+                        return -ENOMEM;
+        }
+
+        if (ret_unit_dir)
+                *ret_unit_dir = TAKE_PTR(unit_dir);
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
         return 0;
 }
 
