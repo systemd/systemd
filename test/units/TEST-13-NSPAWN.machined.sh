@@ -261,11 +261,11 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 
 pid=$(varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"long-running"}' | jq '.leader.pid')
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"long-running"}' >/tmp/expected
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"pid\":$pid}" >/tmp/got
-diff -u /tmp/expected /tmp/got
-
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"name\":\"long-running\", \"pid\":$pid}"
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"pid\":$pid}" | diff /tmp/expected -
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"name\":\"long-running\", \"pid\":$pid}" | diff /tmp/expected -
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"name\":\"non-existent\", \"pid\":$pid}")
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":""}')
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"ah@??.hmm"}')
 
 # test io.systemd.Machine.Kill
 # sending TRAP signal
