@@ -6,14 +6,14 @@
 #include "fileio.h"
 #include "selinux-util.h"
 
-int write_string_file_atomic_label_ts(const char *fn, const char *line, struct timespec *ts) {
+int write_string_file_full_label(int atfd, const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
         int r;
 
-        r = mac_selinux_create_file_prepare(fn, S_IFREG);
+        r = mac_selinux_create_file_prepare_at(atfd, fn, S_IFREG);
         if (r < 0)
                 return r;
 
-        r = write_string_file_ts(fn, line, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC, ts);
+        r = write_string_file_full(atfd, fn, line, flags, ts);
 
         mac_selinux_create_file_clear();
 
