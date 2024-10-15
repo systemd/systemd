@@ -850,7 +850,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                        /* Root will be manually suppressed later. */
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
@@ -889,6 +890,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get current working directory: %m");
                 }
+        } else {
+                /* Root was not suppressed earlier, to allow the above check to work properly. */
+                if (empty_or_root(arg_working_directory))
+                        arg_working_directory = mfree(arg_working_directory);
         }
 
         arg_service_type = "exec";
