@@ -75,7 +75,7 @@ int write_drop_in(
                 const char *name,
                 const char *data) {
 
-        _cleanup_free_ char *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(dir);
@@ -83,12 +83,11 @@ int write_drop_in(
         assert(name);
         assert(data);
 
-        r = drop_in_file(dir, unit, level, name, &p, &q);
+        r = drop_in_file(dir, unit, level, name, /* ret_unit_dir= */ NULL, &p);
         if (r < 0)
                 return r;
 
-        (void) mkdir_p(p, 0755);
-        return write_string_file_atomic_label(q, data);
+        return write_string_file_at_label(AT_FDCWD, p, data, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
 }
 
 int write_drop_in_format(
