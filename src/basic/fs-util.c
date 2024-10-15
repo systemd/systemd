@@ -153,10 +153,6 @@ int readlinkat_malloc(int fd, const char *p, char **ret) {
         }
 }
 
-int readlink_malloc(const char *p, char **ret) {
-        return readlinkat_malloc(AT_FDCWD, p, ret);
-}
-
 int readlink_value(const char *p, char **ret) {
         _cleanup_free_ char *link = NULL, *name = NULL;
         int r;
