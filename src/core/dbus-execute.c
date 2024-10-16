@@ -1909,6 +1909,21 @@ int bus_exec_context_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "ProtectControlGroups")) {
+                int v;
+
+                r = sd_bus_message_read(message, "b", &v);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_control_groups = v ? PROTECT_CONTROL_GROUPS_YES : PROTECT_CONTROL_GROUPS_NO;
+                        (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
+                }
+
+                return 1;
+        }
+
         if (streq(name, "PrivateDevices"))
                 return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
 
@@ -1959,9 +1974,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "ProtectClock"))
                 return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
-
-        if (streq(name, "ProtectControlGroups"))
-                return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
         if (streq(name, "CPUSchedulingResetOnFork"))
                 return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);

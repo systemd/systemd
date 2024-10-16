@@ -259,7 +259,7 @@ bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_kernel_logs ||
-            context->protect_control_groups ||
+            context->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
             exec_needs_ipc_namespace(context))
@@ -1000,7 +1000,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_kernel_logs),
                 prefix, yes_no(c->protect_clock),
-                prefix, yes_no(c->protect_control_groups),
+                prefix, protect_control_groups_to_string(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, private_users_to_string(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
