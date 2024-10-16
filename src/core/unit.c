@@ -2044,7 +2044,11 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (state == UNIT_RELOADING)
+        if (IN_SET(state, UNIT_RELOADING, UNIT_REFRESHING))
+                /* "refreshing" means some resources in the unit namespace is being updated. Unlike reload,
+                 * the unit processes aren't made aware of refresh. Let's put the job back to queue
+                 * in both cases, as refresh typically takes place before reload and it's better to wait
+                 * for it rather than failing. */
                 return -EAGAIN;
 
         if (state != UNIT_ACTIVE)
@@ -6399,8 +6403,8 @@ int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
         if (!UNIT_VTABLE(u)->live_mount)
                 return sd_bus_error_setf(
                                 error,
-                                SD_BUS_ERROR_INVALID_ARGS,
-                                "Live mounting not supported for unit type '%s' of unit '%s'.",
+                                SD_BUS_ERROR_NOT_SUPPORTED,
+                                "Live mounting not supported for unit type '%s' of unit '%s'",
                                 unit_type_to_string(u->type),
                                 u->id);
 
@@ -6408,7 +6412,7 @@ int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_NO_SUCH_UNIT,
-                                "Unit '%s' not loaded, cannot live mount.",
+                                "Unit '%s' not loaded, cannot live mount",
                                 u->id);
 
         if (!UNIT_VTABLE(u)->can_live_mount)
@@ -6430,7 +6434,7 @@ int unit_live_mount(
         assert(UNIT_VTABLE(u)->live_mount);
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
-                log_unit_debug(u, "Unit not active");
+                log_unit_debug(u, "Unit not active, cannot perform live mount.");
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_UNIT_INACTIVE,
@@ -6441,7 +6445,7 @@ int unit_live_mount(
         }
 
         if (unit_active_state(u) == UNIT_REFRESHING) {
-                log_unit_debug(u, "Unit already live mounting");
+                log_unit_debug(u, "Unit already live mounting, refusing further requests.");
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_UNIT_BUSY,
