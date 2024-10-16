@@ -50,11 +50,11 @@ sd_id128_t arg_boot_id = {};
 int arg_boot_offset = 0;
 bool arg_dmesg = false;
 bool arg_no_hostname = false;
-const char *arg_cursor = NULL;
-const char *arg_cursor_file = NULL;
-const char *arg_after_cursor = NULL;
+char *arg_cursor = NULL;
+char *arg_cursor_file = NULL;
+char *arg_after_cursor = NULL;
 bool arg_show_cursor = false;
-const char *arg_directory = NULL;
+char *arg_directory = NULL;
 char **arg_file = NULL;
 bool arg_file_stdin = false;
 int arg_priorities = 0;
@@ -75,7 +75,7 @@ char **arg_user_units = NULL;
 bool arg_invocation = false;
 sd_id128_t arg_invocation_id = SD_ID128_NULL;
 int arg_invocation_offset = 0;
-const char *arg_field = NULL;
+char *arg_field = NULL;
 bool arg_catalog = false;
 bool arg_reverse = false;
 int arg_journal_type = 0;
@@ -83,27 +83,35 @@ int arg_journal_additional_open_flags = 0;
 int arg_namespace_flags = 0;
 char *arg_root = NULL;
 char *arg_image = NULL;
-const char *arg_machine = NULL;
-const char *arg_namespace = NULL;
+char *arg_machine = NULL;
+char *arg_namespace = NULL;
 uint64_t arg_vacuum_size = 0;
 uint64_t arg_vacuum_n_files = 0;
 usec_t arg_vacuum_time = 0;
 Set *arg_output_fields = NULL;
-const char *arg_pattern = NULL;
+char *arg_pattern = NULL;
 pcre2_code *arg_compiled_pattern = NULL;
 PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
 static ImagePolicy *arg_image_policy = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cursor_file, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_after_cursor, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verify_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exclude_identifier, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_field, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pattern, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
@@ -567,24 +575,29 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_machine = optarg;
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NAMESPACE:
                         if (streq(optarg, "*")) {
                                 arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
                         } else if (startswith(optarg, "+")) {
                                 arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                arg_namespace = optarg + 1;
+                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
+                                if (r < 0)
+                                        return r;
                         } else if (isempty(optarg)) {
                                 arg_namespace_flags = 0;
-                                arg_namespace = NULL;
+                                arg_namespace = mfree(arg_namespace);
                         } else {
                                 arg_namespace_flags = 0;
-                                arg_namespace = optarg;
+                                r = free_and_strdup_warn(&arg_namespace, optarg);
+                                if (r < 0)
+                                        return r;
                         }
-
                         break;
 
                 case ARG_LIST_NAMESPACES:
@@ -592,7 +605,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        arg_directory = optarg;
+                        r = free_and_strdup_warn(&arg_directory, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'i':
@@ -628,15 +643,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'c':
-                        arg_cursor = optarg;
+                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CURSOR_FILE:
-                        arg_cursor_file = optarg;
+                        r = free_and_strdup_warn(&arg_cursor_file, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_AFTER_CURSOR:
-                        arg_after_cursor = optarg;
+                        r = free_and_strdup_warn(&arg_after_cursor, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SHOW_CURSOR:
@@ -689,9 +710,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY_KEY:
-                        r = free_and_strdup(&arg_verify_key, optarg);
-                        if (r < 0)
-                                return r;
+                        erase_and_free(arg_verify_key);
+                        arg_verify_key = strdup(optarg);
+                        if (!arg_verify_key)
+                                return log_oom();
+
                         /* Use memset not explicit_bzero() or similar so this doesn't look confusing
                          * in ps or htop output. */
                         memset(optarg, 'x', strlen(optarg));
@@ -791,7 +814,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'g':
-                        arg_pattern = optarg;
+                        r = free_and_strdup_warn(&arg_pattern, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CASE_SENSITIVE:
@@ -861,7 +886,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         arg_action = ACTION_LIST_FIELDS;
-                        arg_field = optarg;
+                        r = free_and_strdup_warn(&arg_field, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'N':
@@ -1032,6 +1059,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+        _cleanup_strv_free_ char **args = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1041,7 +1069,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        char **args = strv_skip(argv, optind);
+        r = strv_copy_unless_empty(strv_skip(argv, optind), &args);
+        if (r < 0)
+                return log_oom();
 
         if (arg_image) {
                 assert(!arg_root);
