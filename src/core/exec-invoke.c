@@ -3579,7 +3579,7 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, const char **home, char **ret_buf) {
+static int acquire_home(const ExecContext *c, const char **home, uid_t uid, char **ret_buf) {
         int r;
 
         assert(c);
@@ -3597,7 +3597,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (c->dynamic_user)
                 return -EADDRNOTAVAIL;
 
-        r = get_home_dir(ret_buf);
+        r = get_home_dir_for_uid(uid, ret_buf);
         if (r < 0)
                 return r;
 
@@ -4331,7 +4331,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, &home, &home_buffer);
+        r = acquire_home(context, &home, uid, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
