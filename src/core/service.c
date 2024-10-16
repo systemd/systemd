@@ -5305,11 +5305,11 @@ fail:
         return r;
 }
 
-static int service_can_live_mount(const Unit *u, sd_bus_error *error) {
-        assert(u);
+static int service_can_live_mount(Unit *u, sd_bus_error *error) {
+        Service *s = ASSERT_PTR(SERVICE(u));
 
         /* Ensure that the unit runs in a private mount namespace */
-        if (!exec_needs_mount_namespace(unit_get_exec_context(u), /* params= */ NULL, unit_get_exec_runtime(u)))
+        if (!exec_needs_mount_namespace(&s->exec_context, /* params= */ NULL, s->exec_runtime))
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,

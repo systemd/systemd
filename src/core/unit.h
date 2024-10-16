@@ -587,7 +587,7 @@ typedef struct UnitVTable {
 
         /* Add a bind/image mount into the unit namespace while it is running. */
         int (*live_mount)(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
-        int (*can_live_mount)(const Unit *u, sd_bus_error *error);
+        int (*can_live_mount)(Unit *u, sd_bus_error *error);
 
         /* Serialize state and file descriptors that should be carried over into the new
          * instance after reexecution. */
@@ -650,7 +650,7 @@ typedef struct UnitVTable {
         int (*bus_commit_properties)(Unit *u);
 
         /* Return the unit this unit is following */
-        Unit *(*following)(Unit *u);
+        Unit* (*following)(Unit *u);
 
         /* Return the set of units that are following each other */
         int (*following_set)(Unit *u, Set **s);
