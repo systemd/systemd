@@ -3098,7 +3098,7 @@ static int apply_mount_namespace(
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
-        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+        if (context->protect_control_groups != PROTECT_CONTROL_GROUPS_NO && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
                 if (!read_write_paths_cleanup)
                         return -ENOMEM;
@@ -3242,7 +3242,7 @@ static int apply_mount_namespace(
                  * sandbox inside the mount namespace. */
                 .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
 
-                .protect_control_groups = needs_sandboxing && context->protect_control_groups,
+                .protect_control_groups = needs_sandboxing ? context->protect_control_groups : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
@@ -3886,7 +3886,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
-               context->protect_control_groups ||
+               context->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                context->protect_clock ||
                context->protect_hostname ||
                !strv_isempty(context->read_write_paths) ||

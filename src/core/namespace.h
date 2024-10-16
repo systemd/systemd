@@ -69,6 +69,13 @@ typedef enum PrivateUsers {
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
 
+typedef enum ProtectControlGroups {
+        PROTECT_CONTROL_GROUPS_NO,
+        PROTECT_CONTROL_GROUPS_YES,
+        _PROTECT_CONTROL_GROUPS_MAX,
+        _PROTECT_CONTROL_GROUPS_INVALID = -EINVAL,
+} ProtectControlGroups;
+
 struct BindMount {
         char *source;
         char *destination;
@@ -151,7 +158,6 @@ struct NamespaceParameters {
 
         bool ignore_protect_paths;
 
-        bool protect_control_groups;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
@@ -165,6 +171,7 @@ struct NamespaceParameters {
         bool bind_log_sockets;
         bool mount_nosuid;
 
+        ProtectControlGroups protect_control_groups;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
@@ -209,6 +216,9 @@ PrivateTmp private_tmp_from_string(const char *s) _pure_;
 
 const char* private_users_to_string(PrivateUsers i) _const_;
 PrivateUsers private_users_from_string(const char *s) _pure_;
+
+const char* protect_control_groups_to_string(ProtectControlGroups i) _const_;
+ProtectControlGroups protect_control_groups_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
