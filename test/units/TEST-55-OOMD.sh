@@ -97,14 +97,15 @@ fi
 
 test_basic() {
     systemctl "$@" start TEST-55-OOMD-testchill.service
-    systemctl "$@" start TEST-55-OOMD-testbloat.service
+    systemctl "$@" status TEST-55-OOMD-testchill.service
+    systemctl "$@" status TEST-55-OOMD-workload.slice
 
     # Verify systemd-oomd is monitoring the expected units.
     timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
     oomctl | grep "/TEST-55-OOMD-workload.slice"
     oomctl | grep "20.00%"
 
-    systemctl "$@" status TEST-55-OOMD-testchill.service
+    systemctl "$@" start TEST-55-OOMD-testbloat.service
 
     # systemd-oomd watches for elevated pressure for 2 seconds before acting.
     # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
