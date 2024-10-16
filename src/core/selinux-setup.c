@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #if HAVE_SELINUX
@@ -10,6 +11,8 @@
 
 #include "sd-messages.h"
 
+#include "errno-util.h"
+#include "fd-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -100,6 +103,41 @@ int mac_selinux_setup(bool *loaded_policy) {
                 } else
                         log_debug("Unable to load SELinux policy. Ignoring.");
         }
+#endif
+
+        return 0;
+}
+
+int mac_selinux_setup_namespaced_policy(const char *policy) {
+
+#if HAVE_SELINUX
+        int r;
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(policy);
+
+        // TODO use selinux_unshare() from libselinux
+        fd = open("/sys/fs/selinux/unshare", O_WRONLY | O_CLOEXEC);
+        if (fd < 0)
+                return errno;
+
+        r = RET_NERRNO(write(fd, "1\n", sizeof("1\n")));
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(umount("/sys/fs/selinux"));
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(mount("selinuxfs", "/sys/fs/selinux", "selinuxfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL));
+        if (r < 0)
+                return r;
+
+        int enforce = 0;
+        r = selinux_init_load_policy(&enforce);
+        if (r < 0)
+                log_error("Failed to load namespaced policy '%s', ignoring.", policy);
+
 #endif
 
         return 0;

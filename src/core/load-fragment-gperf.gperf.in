@@ -166,8 +166,10 @@
 {{type}}.UtmpMode,                         config_parse_exec_utmp_mode,                 0,                                  offsetof({{type}}, exec_context.utmp_mode)
 {% if HAVE_SELINUX %}
 {{type}}.SELinuxContext,                   config_parse_exec_selinux_context,           0,                                  offsetof({{type}}, exec_context)
+{{type}}.SELinuxNamespacedPolicy,          config_parse_unit_path_printf,               0,                                  offsetof({{type}}, exec_context.selinux_namespaced_policy)
 {% else %}
 {{type}}.SELinuxContext,                   config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
+{{type}}.SELinuxNamespacedPolicy,          config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
 {% endif %}
 {% if HAVE_APPARMOR %}
 {{type}}.AppArmorProfile,                  config_parse_exec_apparmor_profile,          0,                                  offsetof({{type}}, exec_context)

@@ -1175,6 +1175,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("UtmpIdentifier", "s", NULL, offsetof(ExecContext, utmp_id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UtmpMode", "s", property_get_exec_utmp_mode, offsetof(ExecContext, utmp_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SELinuxContext", "(bs)", property_get_selinux_context, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SELinuxNamespacedPolicy", "s", NULL, offsetof(ExecContext, selinux_namespaced_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AppArmorProfile", "(bs)", property_get_apparmor_profile, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SmackProcessLabel", "(bs)", property_get_smack_process_label, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreSIGPIPE", "b", bus_property_get_bool, offsetof(ExecContext, ignore_sigpipe), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2028,6 +2029,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "SELinuxContext"))
                 return bus_set_transient_string(u, name, &c->selinux_context, message, flags, error);
+
+        if (streq(name, "SELinuxNamespacedPolicy"))
+                return bus_set_transient_string(u, name, &c->selinux_namespaced_policy, message, flags, error);
 
         if (streq(name, "SecureBits"))
                 return bus_set_transient_secure_bits(u, name, &c->secure_bits, message, flags, error);

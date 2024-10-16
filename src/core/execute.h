@@ -273,6 +273,7 @@ struct ExecContext {
         bool smack_process_label_ignore;
 
         char *selinux_context;
+        char *selinux_namespaced_policy;
         char *apparmor_profile;
         char *smack_process_label;
 
