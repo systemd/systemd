@@ -1262,7 +1262,7 @@ static void service_search_main_pid(Service *s) {
         r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         if (r < 0)
                 /* FIXME: we need to do something here */
-                log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", s->main_pid.pid);
+                log_unit_warning_errno(UNIT(s), r, "Failed to watch main PID "PID_FMT": %m", s->main_pid.pid);
 }
 
 static void service_set_state(Service *s, ServiceState state) {
