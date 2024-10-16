@@ -770,7 +770,7 @@ int manager_start(
         if (r < 0)
                 return r;
 
-        m->default_mem_pressure_duration_usec = mem_pressure_usec ?: DEFAULT_MEM_PRESSURE_DURATION_USEC;
+        m->default_mem_pressure_duration_usec = mem_pressure_usec;
 
         r = manager_connect_bus(m);
         if (r < 0)
