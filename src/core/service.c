@@ -2890,14 +2890,16 @@ static int service_start(Unit *u) {
         return 1;
 }
 
-static void service_mount_request_reply(Service *s, bool success, const char *error) {
+static void service_live_mount_finish(Service *s, ServiceResult f, const char *error) {
         assert(s);
         assert(error);
+
+        s->live_mount_result = f;
 
         if (!s->mount_request)
                 return;
 
-        if (success) {
+        if (f == SERVICE_SUCCESS) {
                 (void) sd_bus_reply_method_return(s->mount_request, NULL);
                 log_unit_debug(UNIT(s),
                                "'%s' method succeeded",
@@ -2942,7 +2944,7 @@ static int service_stop(Unit *u) {
 
         case SERVICE_MOUNTING:
                 service_kill_control_process(s);
-                service_mount_request_reply(s, /* success= */ false, BUS_ERROR_UNIT_INACTIVE);
+                service_live_mount_finish(s, SERVICE_FAILURE_PROTOCOL, BUS_ERROR_UNIT_INACTIVE);
                 _fallthrough_;
         case SERVICE_CONDITION:
         case SERVICE_START_PRE:
@@ -4221,9 +4223,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_MOUNTING:
-                                s->live_mount_result = f;
-
-                                service_mount_request_reply(s, f == SERVICE_SUCCESS, SD_BUS_ERROR_FAILED);
+                                service_live_mount_finish(s, f, SD_BUS_ERROR_FAILED);
 
                                 service_enter_running(s, SERVICE_SUCCESS);
                                 break;
@@ -4304,8 +4304,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_MOUNTING:
                 log_unit_warning(UNIT(s), "Mount operation timed out. Killing mount process.");
                 service_kill_control_process(s);
-                s->live_mount_result = SERVICE_FAILURE_TIMEOUT;
-                service_mount_request_reply(s, /* success= */ false, SD_BUS_ERROR_TIMEOUT);
+                service_live_mount_finish(s, SERVICE_FAILURE_TIMEOUT, SD_BUS_ERROR_TIMEOUT);
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
