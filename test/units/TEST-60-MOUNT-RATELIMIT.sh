@@ -59,7 +59,7 @@ check_dependencies() {
 
     # mount LOOP_0
     mount -t ext4 "${LOOP_0}p1" /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -68,7 +68,7 @@ check_dependencies() {
     assert_in "blockdev@${escaped_0}.target" "$after"
     assert_not_in "${escaped_1}.device" "$after"
     assert_not_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
@@ -79,7 +79,7 @@ check_dependencies() {
 
     # mount LOOP_1 (using fake _netdev option)
     mount -t ext4 -o _netdev "${LOOP_1}p1" /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
     assert_in "remote-fs-pre.target" "$after"
@@ -88,7 +88,7 @@ check_dependencies() {
     assert_not_in "blockdev@${escaped_0}.target" "$after"
     assert_in "${escaped_1}.device" "$after"
     assert_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
@@ -99,7 +99,7 @@ check_dependencies() {
 
     # mount tmpfs
     mount -t tmpfs tmpfs /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -108,7 +108,7 @@ check_dependencies() {
     assert_not_in "blockdev@${escaped_0}.target" "$after"
     assert_not_in "${escaped_1}.device" "$after"
     assert_not_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
