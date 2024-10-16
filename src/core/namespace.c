@@ -200,6 +200,11 @@ static const MountEntry protect_home_yes_table[] = {
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
+/* ProtectControlGroups=yes table */
+static const MountEntry protect_control_groups_yes_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_READ_ONLY,     true  },
+};
+
 /* ProtectSystem=yes table */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
@@ -722,6 +727,22 @@ static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t 
         }
 
         return 0;
+}
+
+static int append_protect_control_groups(MountList *ml, ProtectControlGroups protect_control_groups, bool ignore_protect) {
+        assert(ml);
+
+        switch (protect_control_groups) {
+
+        case PROTECT_CONTROL_GROUPS_NO:
+                return 0;
+
+        case PROTECT_CONTROL_GROUPS_YES:
+                return append_static_mounts(ml, protect_control_groups_yes_table, ELEMENTSOF(protect_control_groups_yes_table), ignore_protect);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int append_protect_home(MountList *ml, ProtectHome protect_home, bool ignore_protect) {
@@ -1931,7 +1952,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
          */
 
         return p->mount_apivfs ||
-                p->protect_control_groups ||
+                p->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL;
@@ -2490,16 +2511,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         return r;
         }
 
-        if (p->protect_control_groups) {
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/sys/fs/cgroup",
-                        .mode = MOUNT_READ_ONLY,
-                };
-        }
+        r = append_protect_control_groups(&ml, p->protect_control_groups, false);
+        if (r < 0)
+                return r;
 
         r = append_protect_home(&ml, p->protect_home, p->ignore_protect_paths);
         if (r < 0)
@@ -3194,6 +3208,13 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
+
+static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
+        [PROTECT_CONTROL_GROUPS_NO]     = "no",
+        [PROTECT_CONTROL_GROUPS_YES]    = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
 
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT]  = "mnt",
