@@ -54,6 +54,10 @@ typedef struct Uploader {
         /* general metrics */
         const char *state_file;
 
+        uint64_t bytes_left;
+        uint64_t entries_left;
+        sd_event_source *batch_timeout_event;
+
         size_t entries_sent;
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
