@@ -100,14 +100,15 @@ test_basic() {
     shift
 
     systemctl "$@" start TEST-55-OOMD-testchill.service
-    systemctl "$@" start TEST-55-OOMD-testbloat.service
+    systemctl "$@" status TEST-55-OOMD-testchill.service
+    systemctl "$@" status TEST-55-OOMD-workload.slice
 
     # Verify systemd-oomd is monitoring the expected units.
     timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
     assert_in 'Memory Pressure Limit: 20.00%' \
               "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A7 "Path: $cgroup_path")"
 
-    systemctl "$@" status TEST-55-OOMD-testchill.service
+    systemctl "$@" start TEST-55-OOMD-testbloat.service
 
     # systemd-oomd watches for elevated pressure for 2 seconds before acting.
     # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
