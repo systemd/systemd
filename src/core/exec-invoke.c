@@ -2175,14 +2175,14 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
                         if (errno != ENOENT) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to open %s: %m", a);
                                 goto child_fail;
                         }
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
                         if (write(fd, "deny\n", 5) < 0) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
                                 goto child_fail;
                         }
 
@@ -2193,11 +2193,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "gid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
                         goto child_fail;
                 }
                 fd = safe_close(fd);
@@ -2206,11 +2206,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "uid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
                         goto child_fail;
                 }
 
@@ -2224,7 +2224,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         errno_pipe[1] = safe_close(errno_pipe[1]);
 
         if (unshare(CLONE_NEWUSER) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to unshare user namespace: %m");
 
         /* Let the child know that the namespace is ready now */
         if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
@@ -2249,6 +2249,44 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 return -EIO;
 
         return 1;
+}
+
+static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r, q;
+
+        if (unshare(CLONE_NEWPID) < 0)
+                return log_exec_debug_errno(c, p, errno, "Failed to unshare pid namespace: %m");
+
+        /* The first process created after unsharing a pid namespace becomes PID 1 in the pid namespace, so
+         * we have to fork after unsharing the pid namespace to become PID 1. The parent sends the child
+         * pidref to the manager and exits while the child process continues with the rest of exec_invoke()
+         * and finally executes the actual payload. */
+
+        r = pidref_safe_fork("(sd-pidfd-child)", /*flags=*/ 0, &pidref);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to fork child into new pid namespace: %m");
+
+        if (r > 0) {
+                /* In the parent process, we send the child pidref to the manager and exit. */
+
+                if (p->pidref_transport_fd >= 0) {
+                        q = send_one_fd_iov(
+                                        p->pidref_transport_fd,
+                                        pidref.fd,
+                                        &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
+                                        /*iovlen=*/ 1,
+                                        /*flags=*/ 0);
+                        if (q < 0)
+                                return log_exec_debug_errno(c, p, q, "Failed to send child pidref to manager: %m");
+                }
+
+                /* Our caller will make sure the "middle" process will exit ASAP. */
+        }
+
+        p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
+
+        return r;
 }
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
@@ -3507,7 +3545,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 16];
+        int dont_close[n_fds + 17];
 
         assert(params);
 
@@ -3545,6 +3583,9 @@ static int close_remaining_fds(
 
         if (params->handoff_timestamp_fd >= 0)
                 dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        if (params->pidref_transport_fd >= 0)
+                dont_close[n_dont_close++] = params->pidref_transport_fd;
 
         assert(n_dont_close <= ELEMENTSOF(dont_close));
 
@@ -4838,6 +4879,27 @@ int exec_invoke(
                                                     error_path ? ": " : "", strempty(error_path));
                 }
         }
+
+        if (context->private_pids) {
+                if (ns_type_supported(NAMESPACE_PID)) {
+                        r = setup_private_pids(context, params);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_exec_warning_errno(context, params, r,
+                                                       "PrivatePIDs=yes is configured, but pid namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                        }
+
+                        if (r > 0)
+                                /* If we're in the parent process, return immediately in order to exit ASAP.
+                                 * The rest of the setup will continue in the child process. */
+                                return 0;
+                } else
+                        log_exec_warning(context, params, "PrivatePIDs=yes is configured, but the kernel does not support pid namespaces, ignoring.");
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
         if (needs_sandboxing) {
                 r = apply_protect_hostname(context, params, exit_status);

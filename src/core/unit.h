@@ -640,6 +640,9 @@ typedef struct UnitVTable {
         /* Called whenever we learn a handoff timestamp */
         void (*notify_handoff_timestamp)(Unit *u, const struct ucred *ucred, const dual_timestamp *ts);
 
+        /* Called whenever we learn about a child process */
+        void (*notify_pidref)(Unit *u, PidRef *parent_pidref, PidRef *child_pidref);
+
         /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *new_owner);
 

@@ -1169,6 +1169,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("PrivateUsersEx", "s", property_get_private_users_ex, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateMounts", "b", bus_property_get_tristate, offsetof(ExecContext, private_mounts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateIPC", "b", bus_property_get_bool, offsetof(ExecContext, private_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivatePIDs", "b", bus_property_get_bool, offsetof(ExecContext, private_pids), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectSystem", "s", property_get_protect_system, offsetof(ExecContext, protect_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SameProcessGroup", "b", bus_property_get_bool, offsetof(ExecContext, same_pgrp), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1926,6 +1927,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "PrivateIPC"))
                 return bus_set_transient_bool(u, name, &c->private_ipc, message, flags, error);
+
+        if (streq(name, "PrivatePIDs"))
+                return bus_set_transient_bool(u, name, &c->private_pids, message, flags, error);
 
         if (streq(name, "NoNewPrivileges"))
                 return bus_set_transient_bool(u, name, &c->no_new_privileges, message, flags, error);
