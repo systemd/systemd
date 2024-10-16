@@ -462,6 +462,10 @@ static int dns_stub_finish_reply_packet(
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
+        /* Don't set the CD bit unless DO is on, too */
+        if (!edns0_do)
+                cd = false;
+
         /* Note that we allow the AD bit to be set even if client didn't signal DO, as per RFC 6840, section
          * 5.7 */
 
