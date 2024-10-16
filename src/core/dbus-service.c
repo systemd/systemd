@@ -168,7 +168,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 
         r = unit_can_live_mount(u, error);
         if (r < 0)
-                return r;
+                return log_unit_debug_errno(u, r, "Cannot schedule live mount operation: %s", bus_error_message(error, r));
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)

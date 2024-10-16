@@ -6396,24 +6396,20 @@ Condition *unit_find_failed_condition(Unit *u) {
 int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
         assert(u);
 
-        if (!UNIT_VTABLE(u)->live_mount) {
-                log_unit_debug(u, "Live mounting not supported for unit type '%s'", unit_type_to_string(u->type));
+        if (!UNIT_VTABLE(u)->live_mount)
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
-                                "Live mounting for unit '%s' cannot be scheduled: live mounting not supported for unit type '%s'",
-                                u->id,
-                                unit_type_to_string(u->type));
-        }
+                                "Live mounting not supported for unit type '%s' of unit '%s'.",
+                                unit_type_to_string(u->type),
+                                u->id);
 
-        if (u->load_state != UNIT_LOADED) {
-                log_unit_debug(u, "Unit not loaded");
+        if (u->load_state != UNIT_LOADED)
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_NO_SUCH_UNIT,
-                                "Live mounting for unit '%s' cannot be scheduled: unit not loaded",
+                                "Unit '%s' not loaded, cannot live mount.",
                                 u->id);
-        }
 
         if (!UNIT_VTABLE(u)->can_live_mount)
                 return 0;
