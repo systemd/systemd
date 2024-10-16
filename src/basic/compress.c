@@ -41,7 +41,7 @@ static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
-DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
+DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
@@ -93,6 +93,7 @@ static DLSYM_PROTOTYPE(lzma_easy_encoder) = NULL;
 static DLSYM_PROTOTYPE(lzma_end) = NULL;
 static DLSYM_PROTOTYPE(lzma_stream_buffer_encode) = NULL;
 static DLSYM_PROTOTYPE(lzma_stream_decoder) = NULL;
+static DLSYM_PROTOTYPE(lzma_lzma_preset) = NULL;
 
 /* We can't just do _cleanup_(sym_lzma_end) because a compiler bug makes
  * this fail with:
@@ -141,12 +142,13 @@ int dlopen_lzma(void) {
                         DLSYM_ARG(lzma_easy_encoder),
                         DLSYM_ARG(lzma_end),
                         DLSYM_ARG(lzma_stream_buffer_encode),
+                        DLSYM_ARG(lzma_lzma_preset),
                         DLSYM_ARG(lzma_stream_decoder));
 }
 #endif
 
 int compress_blob_xz(const void *src, uint64_t src_size,
-                     void *dst, size_t dst_alloc_size, size_t *dst_size) {
+                     void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
 
         assert(src);
         assert(src_size > 0);
@@ -155,12 +157,12 @@ int compress_blob_xz(const void *src, uint64_t src_size,
         assert(dst_size);
 
 #if HAVE_XZ
-        static const lzma_options_lzma opt = {
+        lzma_options_lzma opt = {
                 1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
                 LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4
         };
-        static const lzma_filter filters[] = {
-                { LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt },
+        const lzma_filter filters[] = {
+                { LZMA_FILTER_LZMA2, &opt },
                 { LZMA_VLI_UNKNOWN, NULL }
         };
         lzma_ret ret;
@@ -170,6 +172,12 @@ int compress_blob_xz(const void *src, uint64_t src_size,
         r = dlopen_lzma();
         if (r < 0)
                 return r;
+
+        if (level >= 0) {
+                r = sym_lzma_lzma_preset(&opt, (uint32_t) level);
+                if (r < 0)
+                        return r;
+        }
 
         /* Returns < 0 if we couldn't compress the data or the
          * compressed result is longer than the original */
@@ -209,7 +217,7 @@ int dlopen_lz4(void) {
                         DLSYM_ARG(LZ4F_freeCompressionContext),
                         DLSYM_ARG(LZ4F_freeDecompressionContext),
                         DLSYM_ARG(LZ4F_isError),
-                        DLSYM_ARG(LZ4_compress_default),
+                        DLSYM_ARG(LZ4_compress_HC),
                         DLSYM_ARG(LZ4_decompress_safe),
                         DLSYM_ARG(LZ4_decompress_safe_partial),
                         DLSYM_ARG(LZ4_versionNumber));
@@ -217,7 +225,7 @@ int dlopen_lz4(void) {
 #endif
 
 int compress_blob_lz4(const void *src, uint64_t src_size,
-                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
+                      void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
 
         assert(src);
         assert(src_size > 0);
@@ -237,7 +245,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = sym_LZ4_compress_default(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
+        r = sym_LZ4_compress_HC(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8, level);
         if (r <= 0)
                 return -ENOBUFS;
 
@@ -281,7 +289,7 @@ int dlopen_zstd(void) {
 
 int compress_blob_zstd(
                 const void *src, uint64_t src_size,
-                void *dst, size_t dst_alloc_size, size_t *dst_size) {
+                void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
 
         assert(src);
         assert(src_size > 0);
@@ -297,7 +305,10 @@ int compress_blob_zstd(
         if (r < 0)
                 return r;
 
-        k = sym_ZSTD_compress(dst, dst_alloc_size, src, src_size, 0);
+        if (level < 0)
+                level = 0;
+
+        k = sym_ZSTD_compress(dst, dst_alloc_size, src, src_size, level);
         if (sym_ZSTD_isError(k))
                 return zstd_ret_to_errno(k);
 
