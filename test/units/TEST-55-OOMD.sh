@@ -96,13 +96,16 @@ else
 fi
 
 test_basic() {
+    local cgroup_path="${1:?}"
+    shift
+
     systemctl "$@" start TEST-55-OOMD-testchill.service
     systemctl "$@" start TEST-55-OOMD-testbloat.service
 
     # Verify systemd-oomd is monitoring the expected units.
-    timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
-    oomctl | grep "/TEST-55-OOMD-workload.slice"
-    oomctl | grep "20.00%"
+    timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
+    assert_in 'Memory Pressure Limit: 20.00%' \
+              "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A7 "Path: $cgroup_path")"
 
     systemctl "$@" status TEST-55-OOMD-testchill.service
 
@@ -122,14 +125,15 @@ test_basic() {
 }
 
 testcase_basic_system() {
-    test_basic
+    test_basic /TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice
 }
 
 testcase_basic_user() {
     # Make sure we also work correctly on user units.
     loginctl enable-linger testuser
 
-    test_basic --machine "testuser@.host" --user
+    test_basic "/user.slice/user-$(id -u testuser).slice/user@$(id -u testuser).service/TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice" \
+               --machine "testuser@.host" --user
 
     loginctl disable-linger testuser
 }
