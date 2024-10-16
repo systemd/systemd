@@ -4,9 +4,6 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
-
 if ! command -v systemd-repart >/dev/null; then
     echo "no systemd-repart" >/skipped
     exit 77
