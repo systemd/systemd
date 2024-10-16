@@ -42,7 +42,7 @@ struct PidRef {
 #define PIDREF_NULL (const PidRef) { .fd = -EBADF }
 
 /* A special pidref value that we are using when a PID shall be automatically acquired from some surrounding
- * context, for example connection peer. Much like PIDREF_NULL it will be considerd unset by
+ * context, for example connection peer. Much like PIDREF_NULL it will be considered unset by
  * pidref_is_set().*/
 #define PIDREF_AUTOMATIC (const PidRef) { .pid = PID_AUTOMATIC, .fd = -EBADF }
 

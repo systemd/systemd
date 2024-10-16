@@ -231,7 +231,7 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
         } else
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is neither a numeric PID nor a PID object.", strna(name));
 
-        /* If SD_JSON_RELAX is set then we'll take a specified but zero field as request for "automic" PID derivation */
+        /* If SD_JSON_RELAX is set then we'll take a specified but zero field as request for "automatic" PID derivation */
         if ((flags & SD_JSON_RELAX) && data.pid == 0 && data.fd_id == 0 && sd_id128_is_null(data.boot_id)) {
                 pidref_done(p);
                 *p = PIDREF_AUTOMATIC;
