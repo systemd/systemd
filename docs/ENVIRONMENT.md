@@ -351,6 +351,13 @@ All tools:
   default is not appropriate for a given system. Defaults to `5`, accepts
   positive integers.
 
+* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the mount
+  units interval rate limit for parsing `/proc/self/mountinfo`. Similar to
+  `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit may be adjusted when
+  the default is not appropriate for a given system. The default value is 1 and the
+  default application time unit is second, and the time unit can be overriden as usual
+ by specifying it explicitly, with a reference to the systemd.time(7) man page.
+
 `systemd-remount-fs`:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
