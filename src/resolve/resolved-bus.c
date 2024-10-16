@@ -1752,7 +1752,7 @@ static int get_any_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error
 
 static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         int ifindex, r;
-        Link *l;
+        Link *l = NULL;  /* avoid false maybe-uninitialized warning */
 
         assert(m);
         assert(message);
@@ -1813,7 +1813,7 @@ static int bus_method_get_link(sd_bus_message *message, void *userdata, sd_bus_e
         _cleanup_free_ char *p = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r, ifindex;
-        Link *l;
+        Link *l = NULL;  /* avoid false maybe-uninitialized warning */
 
         assert(message);
 
