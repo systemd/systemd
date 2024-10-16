@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
