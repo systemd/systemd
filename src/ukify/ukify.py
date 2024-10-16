@@ -1478,7 +1478,7 @@ class SignToolAction(argparse.Action):
         elif values == 'pesign':
             setattr(namespace, 'signtool', PeSign)
         else:
-            raise ValueError(f"Unknon signtool '{values}' (this is unreachable)")
+            raise ValueError(f"Unknown signtool '{values}' (this is unreachable)")
 
 
 VERBS = ('build', 'genkey', 'inspect')
