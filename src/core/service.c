@@ -3088,6 +3088,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", service_state_to_string(s->state));
         (void) serialize_item(f, "result", service_result_to_string(s->result));
         (void) serialize_item(f, "reload-result", service_result_to_string(s->reload_result));
+        (void) serialize_item(f, "live-mount-result", service_result_to_string(s->live_mount_result));
 
         (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
         if (s->main_pid_known)
@@ -3316,7 +3317,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 state = service_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u, "Failed to parse state value: %s", value);
+                        log_unit_debug_errno(u, state, "Failed to parse state value: %s", value);
                 else
                         s->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -3324,7 +3325,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 f = service_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u, "Failed to parse result value: %s", value);
+                        log_unit_debug_errno(u, f, "Failed to parse result value: %s", value);
                 else if (f != SERVICE_SUCCESS)
                         s->result = f;
 
@@ -3333,9 +3334,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 f = service_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u, "Failed to parse reload result value: %s", value);
+                        log_unit_debug_errno(u, f, "Failed to parse reload result value: %s", value);
                 else if (f != SERVICE_SUCCESS)
                         s->reload_result = f;
+
+        } else if (streq(key, "live-mount-result")) {
+                ServiceResult f;
+
+                f = service_result_from_string(value);
+                if (f < 0)
+                        log_unit_debug_errno(u, f, "Failed to parse live mount result value: %s", value);
+                else if (f != SERVICE_SUCCESS)
+                        s->live_mount_result = f;
 
         } else if (streq(key, "control-pid")) {
 
