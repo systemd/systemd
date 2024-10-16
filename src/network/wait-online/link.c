@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
+
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "format-ifname.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 #include "link.h"
 #include "manager.h"
+#include "socket-netlink.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -65,6 +73,7 @@ Link *link_free(Link *l) {
         free(l->state);
         free(l->ifname);
         strv_free(l->altnames);
+        strv_free(l->dns_servers);
         return mfree(l);
 }
 
@@ -247,4 +256,55 @@ int link_update_monitor(Link *l) {
                 free_and_replace(l->state, state);
 
         return ret;
+}
+
+int link_check_dns_accessible(Link *l, AddressFamily *ret) {
+        AddressFamily accessible = ADDRESS_FAMILY_NO;
+        int r;
+
+        assert(l);
+        assert(ret);
+
+        STRV_FOREACH(d, l->dns_servers) {
+                _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *server = NULL;
+                union sockaddr_union sa;
+                union in_addr_union in_addr;
+                uint16_t port;
+                int ifindex, family;
+
+                r = in_addr_port_ifindex_name_from_string_auto(*d, &family, &in_addr, &port, &ifindex, &server);
+                if (r < 0) {
+                        log_link_debug_errno(l, r, "Invalid DNS server %s, ignoring: %m", *d);
+                        continue;
+                }
+
+                if (ifindex > 0 && ifindex != l->ifindex) {
+                        log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server %s, ignoring: %m", *d);
+                        continue;
+                }
+
+                fd = socket(family, SOCK_DGRAM, 0);
+                if (fd < 0)
+                        return r;
+
+                r = socket_bind_to_ifname(fd, l->ifname);
+                if (r < 0)
+                        return r;
+
+                r = sockaddr_set_in_addr(&sa, family, &in_addr, port > 0 ? port : 53);
+                if (r < 0)
+                        return r;
+
+                r = RET_NERRNO(connect(fd, &sa.sa, SOCKADDR_LEN(sa)));
+                if (r < 0)
+                        log_link_debug_errno(l, r, "Failed to connect to %s, ignoring: %m", *d);
+                else
+                        accessible |= family == AF_INET ? ADDRESS_FAMILY_IPV4 :
+                                      family == AF_INET6 ? ADDRESS_FAMILY_IPV6 : ADDRESS_FAMILY_NO;
+        }
+
+        *ret = accessible;
+
+        return 0;
 }

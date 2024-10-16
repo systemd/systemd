@@ -875,6 +875,7 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 dns_cache_flush(&m->unicast_scope->cache);
 
         (void) manager_send_changed(m, "CurrentDNSServer");
+        (void) manager_send_dns_configuration_changed(m);
 
         return s;
 }
