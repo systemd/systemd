@@ -321,6 +321,13 @@ testcase_mount_ratelimit() {
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
+mkdir -p /run/systemd/journald.conf.d
+cat >/run/systemd/journald.conf.d/99-ratelimit.conf <<EOF
+[Journal]
+RateLimitBurst=0
+EOF
+systemctl restart systemd-journald.service
+
 run_testcases
 
 touch /testok
