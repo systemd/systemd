@@ -64,6 +64,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_RELOAD]                     = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
         [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
         [SERVICE_STOP]                       = UNIT_DEACTIVATING,
         [SERVICE_STOP_WATCHDOG]              = UNIT_DEACTIVATING,
         [SERVICE_STOP_SIGTERM]               = UNIT_DEACTIVATING,
@@ -79,7 +80,6 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
-        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
@@ -95,6 +95,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_RELOAD]                     = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
         [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
+        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
         [SERVICE_STOP]                       = UNIT_DEACTIVATING,
         [SERVICE_STOP_WATCHDOG]              = UNIT_DEACTIVATING,
         [SERVICE_STOP_SIGTERM]               = UNIT_DEACTIVATING,
@@ -110,7 +111,6 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
         [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
         [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
-        [SERVICE_MOUNTING]                   = UNIT_REFRESHING,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -136,9 +136,10 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
                       SERVICE_CONDITION,
                       SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                       SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                      SERVICE_CLEANING, SERVICE_MOUNTING);
+                      SERVICE_CLEANING);
 }
 
 static void service_init(Unit *u) {
@@ -982,8 +983,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, service_state_to_string(s->state),
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
-                prefix, service_result_to_string(s->clean_result),
                 prefix, service_result_to_string(s->live_mount_result),
+                prefix, service_result_to_string(s->clean_result),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
@@ -1283,10 +1284,10 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                    SERVICE_MOUNTING,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART,
-                    SERVICE_MOUNTING,
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
@@ -1315,6 +1316,9 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_MOUNTING))
                 service_stop_watchdog(s);
 
+        if (state != SERVICE_MOUNTING) /* Just in case */
+                s->mount_request = sd_bus_message_unref(s->mount_request);
+
         if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(u->manager)) {
                 /* For the inactive states unit_notify() will trim the cgroup. But for exit we have to
                  * do that ourselves... */
@@ -1335,9 +1339,6 @@ static void service_set_state(Service *s, ServiceState state) {
                 if (start_only)
                         unit_destroy_runtime_data(u, &s->exec_context);
         }
-
-        if (state != SERVICE_MOUNTING) /* Just in case */
-                s->mount_request = sd_bus_message_unref(s->mount_request);
 
         if (old_state != state)
                 log_unit_debug(u, "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
@@ -5013,8 +5014,8 @@ static void service_reset_failed(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
-        s->clean_result = SERVICE_SUCCESS;
         s->live_mount_result = SERVICE_SUCCESS;
+        s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
 
         (void) unit_set_debug_invocation(u, /* enable= */ false);
