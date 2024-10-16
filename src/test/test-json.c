@@ -1372,8 +1372,8 @@ TEST(fd_info) {
         v = sd_json_variant_unref(v);
         fd = safe_close(fd);
 
-        if (access("/sys/class/net/lo/uevent", F_OK) >= 0) {
-                ASSERT_OK_ERRNO(fd = open("/sys/class/net/lo/uevent", O_CLOEXEC | O_PATH));
+        fd = open("/sys/class/net/lo/uevent", O_CLOEXEC | O_PATH);
+        if (fd >= 0) {
                 ASSERT_OK(json_variant_new_fd_info(&v, fd));
                 ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
                 v = sd_json_variant_unref(v);
@@ -1381,8 +1381,8 @@ TEST(fd_info) {
         }
 
         /* block device */
-        if (access("/dev/sda", F_OK) >= 0) {
-                ASSERT_OK_ERRNO(fd = open("/dev/sda", O_CLOEXEC | O_PATH));
+        fd = open("/dev/sda", O_CLOEXEC | O_PATH);
+        if (fd >= 0) {
                 ASSERT_OK(json_variant_new_fd_info(&v, fd));
                 ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL));
                 v = sd_json_variant_unref(v);
