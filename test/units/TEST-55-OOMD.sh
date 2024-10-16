@@ -19,8 +19,6 @@ if [[ -s /skipped ]]; then
     exit 77
 fi
 
-rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
-
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
     swapoff --all
@@ -73,6 +71,9 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
+# Check if the oomd.conf drop-in config is loaded.
+assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running with sanitizers, sd-executor might pull in quite a significant chunk of shared
     # libraries, which in turn causes a lot of pressure that can put us in the front when sd-oomd decides to
@@ -99,7 +100,6 @@ systemctl start TEST-55-OOMD-testbloat.service
 timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
 oomctl | grep "/TEST-55-OOMD-workload.slice"
 oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
 
 systemctl status TEST-55-OOMD-testchill.service
 
@@ -128,7 +128,6 @@ systemctl start --machine "testuser@.host" --user TEST-55-OOMD-testbloat.service
 timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
 oomctl | grep -E "/user.slice.*/TEST-55-OOMD-workload.slice"
 oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
 
 systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testchill.service
 
