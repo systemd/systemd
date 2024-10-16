@@ -5169,7 +5169,8 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
-static int service_live_mount(Unit *u,
+static int service_live_mount(
+                Unit *u,
                 const char *src,
                 const char *dst,
                 sd_bus_message *message,
@@ -5177,9 +5178,8 @@ static int service_live_mount(Unit *u,
                 const MountOptions *options,
                 sd_bus_error *error) {
 
-        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
         Service *s = ASSERT_PTR(SERVICE(u));
-        const char *propagate_directory;
+        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
         int r;
 
         assert(u);
@@ -5190,7 +5190,7 @@ static int service_live_mount(Unit *u,
         assert(!s->mount_request);
 
         if (s->state != SERVICE_RUNNING || !pidref_is_set(&s->main_pid)) {
-                log_unit_warning(u, "Service is not running, cannot live mount");
+                log_unit_warning(u, "Service is not running, cannot live mount.");
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_UNIT_INACTIVE,
@@ -5201,7 +5201,7 @@ static int service_live_mount(Unit *u,
         }
 
         if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dst)) {
-                log_unit_warning(u, "Refusing to live mount over credential mount '%s'", dst);
+                log_unit_warning(u, "Refusing to live mount over credential mount '%s'.", dst);
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
@@ -5212,7 +5212,7 @@ static int service_live_mount(Unit *u,
         }
 
         if (path_startswith_strv(dst, s->exec_context.inaccessible_paths)) {
-                log_unit_warning(u, "%s is not accessible to this unit, cannot live mount", dst);
+                log_unit_warning(u, "%s is not accessible to this unit, cannot live mount.", dst);
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
@@ -5229,18 +5229,11 @@ static int service_live_mount(Unit *u,
 
         r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
         if (r < 0) {
-                log_unit_warning_errno(u, r, "Failed to install timer: %m");
-                sd_bus_error_set_errnof(
-                                error,
-                                r,
-                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to install timer",
-                                src,
-                                dst,
-                                u->id);
+                log_unit_error_errno(u, r, "Failed to install timer: %m");
                 goto fail;
         }
 
-        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
+        const char *propagate_directory = strjoina("/run/systemd/propagate/", u->id);
 
         /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
          * directly, and instead fork a worker process. We record the D-Bus message, so that we can reply
@@ -5248,19 +5241,9 @@ static int service_live_mount(Unit *u,
          * resource is available (or the operation failed) once they receive the response. */
         r = unit_fork_helper_process(u, "(sd-mount-in-ns)", /* into_cgroup= */ false, &worker);
         if (r < 0) {
-                log_unit_warning_errno(
-                                u,
-                                r,
-                                "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
-                                src,
-                                dst);
-                sd_bus_error_set_errnof(
-                                error,
-                                r,
-                                "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: failed to fork process",
-                                src,
-                                dst,
-                                u->id);
+                log_unit_error_errno(u, r,
+                                     "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
+                                     src, dst);
                 goto fail;
         }
         if (r == 0) {
@@ -5281,26 +5264,18 @@ static int service_live_mount(Unit *u,
                                         src, dst,
                                         flags);
                 if (r < 0)
-                        log_unit_warning_errno(
-                                        u,
-                                        r,
-                                        "Failed to mount '%s' on '%s' in unit's namespace: %m",
-                                        src,
-                                        dst);
+                        log_unit_error_errno(u, r,
+                                             "Failed to mount '%s' on '%s' in unit's namespace: %m",
+                                             src, dst);
                 else
                         log_unit_debug(u, "Mounted '%s' on '%s' in unit's namespace", src, dst);
+
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         r = unit_watch_pidref(u, &worker, /* exclusive= */ true);
         if (r < 0) {
-                sd_bus_error_set_errnof(
-                                error,
-                                r,
-                                "Live mounting '%s' on '%s' for unit '%s' failed: failed to watch worker process",
-                                src,
-                                dst,
-                                u->id);
+                log_unit_error_errno(u, r, "Failed to watch live mount helper process: %m");
                 goto fail;
         }
 
