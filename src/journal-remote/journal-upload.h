@@ -7,7 +7,11 @@
 #include "sd-event.h"
 #include "sd-journal.h"
 
+#include "compress.h"
+#include "conf-parser.h"
 #include "time-util.h"
+
+CONFIG_PARSER_PROTOTYPE(config_parse_compression);
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */
@@ -53,6 +57,8 @@ typedef struct Uploader {
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
+        Compression compression;
+        int compression_level;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)

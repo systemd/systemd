@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -42,7 +43,7 @@
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define DEFAULT_PORT  19532
 
-static const char* arg_url = NULL;
+static const char *arg_url = NULL;
 static const char *arg_key = NULL;
 static const char *arg_cert = NULL;
 static const char *arg_trust = NULL;
@@ -58,6 +59,8 @@ static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
+static Compression arg_compression = COMPRESSION_NONE;
+static int arg_compression_level = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
@@ -118,6 +121,39 @@ static int check_cursor_updating(Uploader *u) {
                                        u->state_file);
         (void) unlink(temp_path);
 
+        return 0;
+}
+
+int config_parse_compression(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *compression = ASSERT_PTR(data);
+        if (isempty(rvalue)) {
+                *compression = COMPRESSION_NONE;
+                return 0;
+        }
+
+        _cleanup_free_ char *s = strdup(rvalue);
+        if (!s)
+                return log_oom();
+
+        Compression c = compression_from_string(s);
+        if (c < 0)
+                return log_syntax_parse_error(unit, filename, line, c, lvalue, rvalue);
+        if (!compression_supported(c))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compression=%s is not supported on a system", rvalue);
+
+        *compression = c;
         return 0;
 }
 
@@ -202,6 +238,22 @@ int start_upload(Uploader *u,
                 if (!l)
                         return log_oom();
                 h = l;
+
+                if (arg_compression != COMPRESSION_NONE) {
+                        _cleanup_free_ char *encoding = strdup(compression_to_string(arg_compression));
+                        if (!encoding)
+                                return log_oom();
+
+                        _cleanup_free_ char *header = NULL;
+                        header = strjoin("Content-Encoding: ", ascii_strlower(encoding));
+                        if (!header)
+                                return log_oom();
+
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
 
                 u->header = TAKE_PTR(h);
         }
@@ -292,8 +344,10 @@ int start_upload(Uploader *u,
 }
 
 static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+        int r;
         Uploader *u = ASSERT_PTR(userp);
         ssize_t n;
+        _cleanup_free_ char *compression_buffer = NULL;
 
         assert(nmemb < SSIZE_MAX / size);
 
@@ -302,10 +356,31 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
 
         assert(!size_multiply_overflow(size, nmemb));
 
-        n = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, n);
-        if (n > 0)
-                return n;
+        if (u->compression != COMPRESSION_NONE) {
+                compression_buffer = malloc_multiply(nmemb, size);
+                if (!compression_buffer) {
+                        log_oom();
+                        return CURL_READFUNC_ABORT;
+                }
+        }
+
+        n = read(u->input, compression_buffer ?: buf, size * nmemb);
+        log_debug("%s: allowed %zu, read %zd", __func__, size * nmemb, n);
+
+        if (n > 0) {
+                if (u->compression == COMPRESSION_NONE)
+                        return n;
+
+                size_t compressed_size;
+
+                r = compress_blob(u->compression, compression_buffer, n, buf, size * nmemb, &compressed_size, u->compression_level);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to compress %ld bytes using Compression=%s, CompressionLevel=%d): %m",
+                                        n, compression_to_string(u->compression), u->compression_level);
+                        return CURL_READFUNC_ABORT;
+                }
+                return compressed_size;
+        }
 
         u->uploading = false;
         if (n < 0) {
@@ -389,6 +464,8 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         *u = (Uploader) {
                 .input = -1,
+                .compression = arg_compression,
+                .compression_level = arg_compression_level,
         };
 
         host = STARTSWITH_SET(url, "http://", "https://");
@@ -496,6 +573,8 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Compression",            config_parse_compression,    0,                        &arg_compression          },
+                { "Upload",  "CompressionLevel",       config_parse_int,            0,                        &arg_compression_level    },
                 {}
         };
 
