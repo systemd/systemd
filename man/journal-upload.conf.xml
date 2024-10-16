@@ -131,6 +131,28 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>Specifies an additional HTTP header to be added to each request to a URL.
+        Takes a pair of header name and value separated with a colon(<literal>:</literal>),
+        e.g. <literal>Name:Value</literal>.
+        Header name can contain alphanumeric values, <literal>_</literal> and <literal>-</literal> symbols additionally.
+        This option may be specified more than once, in which case all listed headers will be set.
+        If the same header name is listed more than once, all its unique values will be concatenated with comma.
+        Setting <varname>Header=</varname> to empty string clears all previous assignments.
+        </para>
+
+        <para>Example:
+        <programlisting>Header=HeaderName: HeaderValue
+Header=HeaderName: NewValue
+Header=HeaderName: HeaderValue</programlisting>
+
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue, NewValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
