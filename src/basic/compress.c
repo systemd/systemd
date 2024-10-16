@@ -41,7 +41,7 @@ static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
-DLSYM_PROTOTYPE(LZ4_compress_fast) = NULL;
+DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
@@ -217,7 +217,7 @@ int dlopen_lz4(void) {
                         DLSYM_ARG(LZ4F_freeCompressionContext),
                         DLSYM_ARG(LZ4F_freeDecompressionContext),
                         DLSYM_ARG(LZ4F_isError),
-                        DLSYM_ARG(LZ4_compress_fast),
+                        DLSYM_ARG(LZ4_compress_HC),
                         DLSYM_ARG(LZ4_decompress_safe),
                         DLSYM_ARG(LZ4_decompress_safe_partial),
                         DLSYM_ARG(LZ4_versionNumber));
@@ -245,7 +245,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = sym_LZ4_compress_fast(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8, level);
+        r = sym_LZ4_compress_HC(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8, level);
         if (r <= 0)
                 return -ENOBUFS;
 
