@@ -324,7 +324,7 @@ struct ExecContext {
         bool protect_kernel_modules;
         bool protect_kernel_logs;
         bool protect_clock;
-        bool protect_control_groups;
+        ProtectControlGroups protect_control_groups;
         ProtectSystem protect_system;
         ProtectHome protect_home;
         bool protect_hostname;
