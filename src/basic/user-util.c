@@ -569,21 +569,14 @@ int getgroups_alloc(gid_t** gids) {
         return ngroups;
 }
 
-int get_home_dir(char **ret) {
+int get_home_dir_for_uid(uid_t u, char **ret) {
         _cleanup_free_ struct passwd *p = NULL;
         const char *e;
-        uid_t u;
         int r;
 
         assert(ret);
 
-        /* Take the user specified one */
-        e = secure_getenv("HOME");
-        if (e && path_is_valid(e) && path_is_absolute(e))
-                goto found;
-
         /* Hardcode home directory for root and nobody to avoid NSS */
-        u = getuid();
         if (u == 0) {
                 e = "/root";
                 goto found;
@@ -606,21 +599,24 @@ int get_home_dir(char **ret) {
         return path_simplify_alloc(e, ret);
 }
 
-int get_shell(char **ret) {
+int get_home_dir(char **ret) {
+        /* If there is a user specified one, use that */
+        const char *e = secure_getenv("HOME");
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                return path_simplify_alloc(e, ret);
+
+        /* Otherwise, look it up by uid */
+        return get_home_dir_for_uid(getuid(), ret);
+}
+
+int get_shell_for_uid(uid_t u, char **ret) {
         _cleanup_free_ struct passwd *p = NULL;
         const char *e;
-        uid_t u;
         int r;
 
         assert(ret);
 
-        /* Take the user specified one */
-        e = secure_getenv("SHELL");
-        if (e && path_is_valid(e) && path_is_absolute(e))
-                goto found;
-
         /* Hardcode shell for root and nobody to avoid NSS */
-        u = getuid();
         if (u == 0) {
                 e = default_root_shell(NULL);
                 goto found;
@@ -641,6 +637,16 @@ int get_shell(char **ret) {
 
  found:
         return path_simplify_alloc(e, ret);
+}
+
+int get_shell(char **ret) {
+        /* If there is a user specified one, use that */
+        const char *e = secure_getenv("SHELL");
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                return path_simplify_alloc(e, ret);
+
+        /* Otherwise, look it up by uid */
+        return get_shell_for_uid(getuid(), ret);
 }
 
 int fully_set_uid_gid(uid_t uid, gid_t gid, const gid_t supplementary_gids[], size_t n_supplementary_gids) {
