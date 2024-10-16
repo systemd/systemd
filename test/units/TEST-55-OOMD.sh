@@ -119,6 +119,11 @@ test_basic() {
     # testbloat should be killed and testchill should be fine
     if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
+
+    systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
+    systemctl "$@" stop TEST-55-OOMD-testbloat.service
+    systemctl "$@" stop TEST-55-OOMD-testchill.service
+    systemctl "$@" stop TEST-55-OOMD-workload.slice
 }
 
 testcase_basic_system() {
@@ -140,8 +145,6 @@ testcase_preference_avoid() {
         echo "cgroup does not support user xattrs, skipping test for ManagedOOMPreference=avoid"
         return 0
     fi
-
-    sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
     cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/99-managed-oom-preference.conf <<EOF
@@ -166,6 +169,13 @@ EOF
     if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
     if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+
+    systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
+    systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
+    systemctl stop TEST-55-OOMD-testbloat.service
+    systemctl stop TEST-55-OOMD-testmunch.service
+    systemctl stop TEST-55-OOMD-testchill.service
+    systemctl stop TEST-55-OOMD-workload.slice
 }
 
 run_testcases
