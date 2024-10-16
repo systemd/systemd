@@ -54,8 +54,10 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_CLEANING]           = UNIT_MAINTENANCE,
 };
 
+static int drain_libmount(Manager *m);
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int mount_dispatch_defer(sd_event_source *source, void *userdata);
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
@@ -1486,7 +1488,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        if (drain_libmount(u->manager) > 0)
+                (void) mount_process_proc_self_mountinfo(u->manager);
 
         pidref_done(&m->control_pid);
 
@@ -1900,6 +1903,7 @@ static void mount_shutdown(Manager *m) {
         assert(m);
 
         m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
+        m->mount_defer_event_source = sd_event_source_disable_unref(m->mount_defer_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
         m->mount_monitor = NULL;
@@ -2066,6 +2070,23 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                assert(!m->mount_defer_event_source);
+
+                r = sd_event_add_defer(m->event, &m->mount_defer_event_source, mount_dispatch_defer, m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add defer event source for processing /proc/self/mountinfo: %m");
+                        goto fail;
+                }
+
+                r = sd_event_source_set_priority(m->mount_defer_event_source, EVENT_PRIORITY_MOUNT_TABLE_DEFER);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to adjust priority of event source for processing /proc/self/mountinfo: %m");
+                        goto fail;
+                }
+
+                (void) sd_event_source_set_enabled(m->mount_defer_event_source, SD_EVENT_OFF);
+                (void) sd_event_source_set_description(m->mount_defer_event_source, "mount-monitor-dispatch-defer");
         }
 
         r = mount_load_proc_self_mountinfo(m, false);
@@ -2107,10 +2128,6 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         int r;
 
         assert(m);
-
-        r = drain_libmount(m);
-        if (r <= 0)
-                return r;
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
@@ -2214,12 +2231,39 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         return 0;
 }
 
-static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+static int mount_dispatch_defer(sd_event_source *s, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        assert(revents & EPOLLIN);
+        log_trace("Processing /proc/self/mountinfo by defer event source.");
 
-        return mount_process_proc_self_mountinfo(m);
+        (void) drain_libmount(m);
+        (void) mount_process_proc_self_mountinfo(m);
+        return 0;
+}
+
+static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(revents & EPOLLIN);
+        assert(m->mount_defer_event_source);
+
+        r = drain_libmount(m);
+        if (r <= 0)
+                return r;
+
+#if LOG_TRACE
+        if (sd_event_source_get_enabled(m->mount_defer_event_source, NULL) > 0)
+                log_trace("Defer event source for processing /proc/self/mountinfo is already enabled.");
+        else
+                log_trace("Enabling defer event source for processing /proc/self/mountinfo.");
+#endif
+
+        r = sd_event_source_set_enabled(m->mount_defer_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable event source for processing /proc/self/mountinfo: %m");
+
+        return 0;
 }
 
 static void mount_reset_failed(Unit *u) {
