@@ -3,8 +3,10 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
- . "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/util.sh
 
 systemd-analyze log-level debug
 
@@ -18,8 +20,6 @@ test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 if [[ -s /skipped ]]; then
     exit 77
 fi
-
-rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
 
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
@@ -73,6 +73,9 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
+# Check if the oomd.conf drop-in config is loaded.
+assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running with sanitizers, sd-executor might pull in quite a significant chunk of shared
     # libraries, which in turn causes a lot of pressure that can put us in the front when sd-oomd decides to
@@ -92,68 +95,71 @@ else
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
-systemctl start TEST-55-OOMD-testchill.service
-systemctl start TEST-55-OOMD-testbloat.service
+test_basic() {
+    local cgroup_path="${1:?}"
+    shift
 
-# Verify systemd-oomd is monitoring the expected units
-timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
-oomctl | grep "/TEST-55-OOMD-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
+    systemctl "$@" start TEST-55-OOMD-testchill.service
+    systemctl "$@" status TEST-55-OOMD-testchill.service
+    systemctl "$@" status TEST-55-OOMD-workload.slice
 
-systemctl status TEST-55-OOMD-testchill.service
+    # Verify systemd-oomd is monitoring the expected units.
+    timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
+    assert_in 'Memory Pressure Limit: 20.00%' \
+              "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A7 "Path: $cgroup_path")"
 
-# systemd-oomd watches for elevated pressure for 2 seconds before acting.
-# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-for _ in {0..59}; do
-    if ! systemctl status TEST-55-OOMD-testbloat.service; then
-        break
+    systemctl "$@" start TEST-55-OOMD-testbloat.service
+
+    # systemd-oomd watches for elevated pressure for 2 seconds before acting.
+    # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+    for _ in {0..59}; do
+        if ! systemctl "$@" status TEST-55-OOMD-testbloat.service; then
+            break
+        fi
+        oomctl
+        sleep 2
+    done
+
+    # testbloat should be killed and testchill should be fine
+    if systemctl "$@" status TEST-55-OOMD-testbloat.service; then
+        # Workaround for regression in kernel 6.12-rcX. See issue #32730.
+        if dmesg | grep -F 'psi: inconsistent task state!'; then
+            echo "testbloat.service is unexpectedly still alive, and inconsistency is reported by the kernel, ignoring."
+        else
+            exit 42;
+        fi
     fi
-    oomctl
-    sleep 2
-done
+    if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
-# testbloat should be killed and testchill should be fine
-if systemctl status TEST-55-OOMD-testbloat.service; then exit 42; fi
-if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+    systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
+    systemctl "$@" stop TEST-55-OOMD-testbloat.service
+    systemctl "$@" stop TEST-55-OOMD-testchill.service
+    systemctl "$@" stop TEST-55-OOMD-workload.slice
+}
 
-# Make sure we also work correctly on user units.
-loginctl enable-linger testuser
+testcase_basic_system() {
+    test_basic /TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice
+}
 
-systemctl start --machine "testuser@.host" --user TEST-55-OOMD-testchill.service
-systemctl start --machine "testuser@.host" --user TEST-55-OOMD-testbloat.service
+testcase_basic_user() {
+    # Make sure we also work correctly on user units.
+    loginctl enable-linger testuser
 
-# Verify systemd-oomd is monitoring the expected units
-# Try to avoid racing the oomctl output check by checking in a loop with a timeout
-timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-workload.slice"; do sleep 1; done'
-oomctl | grep -E "/user.slice.*/TEST-55-OOMD-workload.slice"
-oomctl | grep "20.00%"
-oomctl | grep "Default Memory Pressure Duration: 2s"
+    test_basic "/user.slice/user-$(id -u testuser).slice/user@$(id -u testuser).service/TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice" \
+               --machine "testuser@.host" --user
 
-systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testchill.service
+    loginctl disable-linger testuser
+}
 
-# systemd-oomd watches for elevated pressure for 2 seconds before acting.
-# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-for _ in {0..59}; do
-    if ! systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testbloat.service; then
-        break
+testcase_preference_avoid() {
+    # only run this portion of the test if we can set xattrs
+    if ! cgroupfs_supports_user_xattrs; then
+        echo "cgroup does not support user xattrs, skipping test for ManagedOOMPreference=avoid"
+        return 0
     fi
-    oomctl
-    sleep 2
-done
-
-# testbloat should be killed and testchill should be fine
-if systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testbloat.service; then exit 42; fi
-if ! systemctl --machine "testuser@.host" --user status TEST-55-OOMD-testchill.service; then exit 24; fi
-
-loginctl disable-linger testuser
-
-# only run this portion of the test if we can set xattrs
-if cgroupfs_supports_user_xattrs; then
-    sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
-    cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/override.conf <<EOF
+    cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/99-managed-oom-preference.conf <<EOF
 [Service]
 ManagedOOMPreference=avoid
 EOF
@@ -173,9 +179,25 @@ EOF
 
     # testmunch should be killed since testbloat had the avoid xattr on it
     if ! systemctl status TEST-55-OOMD-testbloat.service; then exit 25; fi
-    if systemctl status TEST-55-OOMD-testmunch.service; then exit 43; fi
+    if systemctl status TEST-55-OOMD-testmunch.service; then
+        # Workaround for regression in kernel 6.12-rcX. See issue #32730.
+        if dmesg | grep -F 'psi: inconsistent task state!'; then
+            echo "testmunch.service is unexpectedly still alive, and inconsistency is reported by the kernel, ignoring."
+        else
+            exit 43;
+        fi
+    fi
     if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
-fi
+
+    systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
+    systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
+    systemctl stop TEST-55-OOMD-testbloat.service
+    systemctl stop TEST-55-OOMD-testmunch.service
+    systemctl stop TEST-55-OOMD-testchill.service
+    systemctl stop TEST-55-OOMD-workload.slice
+}
+
+run_testcases
 
 systemd-analyze log-level info
 
