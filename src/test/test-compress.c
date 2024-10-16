@@ -242,7 +242,7 @@ static void test_lz4_decompress_partial(void) {
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
         huge[HUGE_SIZE - 1] = '\0';
 
-        r = sym_LZ4_compress_fast(huge, buf, HUGE_SIZE, buf_size, /* level = */ -1);
+        r = sym_LZ4_compress_HC(huge, buf, HUGE_SIZE, buf_size, /* level = */ 0);
         assert_se(r >= 0);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
