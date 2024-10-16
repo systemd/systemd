@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
@@ -59,7 +61,7 @@ check_dependencies() {
 
     # mount LOOP_0
     mount -t ext4 "${LOOP_0}p1" /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -68,7 +70,7 @@ check_dependencies() {
     assert_in "blockdev@${escaped_0}.target" "$after"
     assert_not_in "${escaped_1}.device" "$after"
     assert_not_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
@@ -79,7 +81,7 @@ check_dependencies() {
 
     # mount LOOP_1 (using fake _netdev option)
     mount -t ext4 -o _netdev "${LOOP_1}p1" /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
     assert_in "remote-fs-pre.target" "$after"
@@ -88,7 +90,7 @@ check_dependencies() {
     assert_not_in "blockdev@${escaped_0}.target" "$after"
     assert_in "${escaped_1}.device" "$after"
     assert_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
@@ -99,7 +101,7 @@ check_dependencies() {
 
     # mount tmpfs
     mount -t tmpfs tmpfs /tmp/deptest
-    sleep 1
+    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_in "local-fs-pre.target" "$after"
     assert_not_in "remote-fs-pre.target" "$after"
@@ -108,7 +110,7 @@ check_dependencies() {
     assert_not_in "blockdev@${escaped_0}.target" "$after"
     assert_not_in "${escaped_1}.device" "$after"
     assert_not_in "blockdev@${escaped_1}.target" "$after"
-    umount /tmp/deptest
+    systemctl stop tmp-deptest.mount
 
     if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
         after=$(systemctl show --property=After --value tmp-deptest.mount)
@@ -118,7 +120,9 @@ check_dependencies() {
     fi
 }
 
-test_dependencies() {
+testcase_dependencies() {
+    # test for issue #19983 and #23552.
+
     if systemd-detect-virt --quiet --container; then
         echo "Skipping test_dependencies in container"
         return
@@ -152,7 +156,9 @@ EOF
     check_dependencies
 }
 
-test_issue_20329() {
+testcase_issue_20329() {
+    # test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
+
     local tmpdir unit
     tmpdir="$(mktemp -d)"
     unit=$(systemd-escape --suffix mount --path "$tmpdir")
@@ -202,7 +208,9 @@ EOF
     }
 }
 
-test_issue_23796() {
+testcase_issue_23796() {
+    # test for reexecuting with background mount job
+
     local mount_path mount_mytmpfs since
 
     mount_path="$(command -v mount 2>/dev/null)"
@@ -244,77 +252,82 @@ EOF
     done
 }
 
+testcase_long_path() {
+    local long_path long_mnt ts
+
+    # make sure we can handle mounts at very long paths such that mount unit name must be hashed to fall within our unit name limit
+    long_path="$(printf "/$(printf "x%0.s" {1..255})%0.s" {1..7})"
+    long_mnt="$(systemd-escape --suffix=mount --path "$long_path")"
+
+    journalctl --sync
+    ts="$(date '+%H:%M:%S')"
+
+    mkdir -p "$long_path"
+    mount -t tmpfs tmpfs "$long_path"
+    systemctl daemon-reload
+
+    # check that unit is active(mounted)
+    systemctl --no-pager show -p SubState --value "$long_path" | grep -q mounted
+
+    # check that relevant part of journal doesn't contain any errors related to unit
+    [ "$(journalctl -b --since="$ts" --priority=err | grep -c "$long_mnt")" = "0" ]
+
+    # check that we can successfully stop the mount unit
+    systemctl stop "$long_path"
+    rm -rf "$long_path"
+}
+
+testcase_mount_ratelimit() {
+    local num_dirs=20
+    local ts i
+
+    # mount/unmount enough times to trigger the /proc/self/mountinfo parsing rate limiting
+
+    for ((i = 0; i < num_dirs; i++)); do
+        mkdir "/tmp/meow${i}"
+    done
+
+    # The following loop may produce many journal entries.
+    # Let's process all pending entries before testing.
+    journalctl --sync
+    ts="$(date '+%H:%M:%S')"
+
+    for ((i = 0; i < num_dirs; i++)); do
+        mount -t tmpfs tmpfs "/tmp/meow${i}"
+    done
+
+    systemctl daemon-reload
+    systemctl list-units -t mount tmp-meow* | grep -q tmp-meow
+
+    for ((i = 0; i < num_dirs; i++)); do
+        umount "/tmp/meow${i}"
+    done
+
+    # Figure out if we have entered the rate limit state.
+    # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
+    set +o pipefail
+    journalctl --sync
+    if timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
+        journalctl --sync
+        timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
+    fi
+    set -o pipefail
+
+    # Verify that the mount units are always cleaned up at the end.
+    # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
+    timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
+}
+
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
-NUM_DIRS=20
+mkdir -p /run/systemd/journald.conf.d
+cat >/run/systemd/journald.conf.d/99-ratelimit.conf <<EOF
+[Journal]
+RateLimitBurst=0
+EOF
+systemctl restart systemd-journald.service
 
-# make sure we can handle mounts at very long paths such that mount unit name must be hashed to fall within our unit name limit
-LONGPATH="$(printf "/$(printf "x%0.s" {1..255})%0.s" {1..7})"
-LONGMNT="$(systemd-escape --suffix=mount --path "$LONGPATH")"
-
-journalctl --sync
-TS="$(date '+%H:%M:%S')"
-
-mkdir -p "$LONGPATH"
-mount -t tmpfs tmpfs "$LONGPATH"
-systemctl daemon-reload
-
-# check that unit is active(mounted)
-systemctl --no-pager show -p SubState --value "$LONGPATH" | grep -q mounted
-
-# check that relevant part of journal doesn't contain any errors related to unit
-[ "$(journalctl -b --since="$TS" --priority=err | grep -c "$LONGMNT")" = "0" ]
-
-# check that we can successfully stop the mount unit
-systemctl stop "$LONGPATH"
-rm -rf "$LONGPATH"
-
-# mount/unmount enough times to trigger the /proc/self/mountinfo parsing rate limiting
-
-for ((i = 0; i < NUM_DIRS; i++)); do
-    mkdir "/tmp/meow${i}"
-done
-
-# The following loop may produce many journal entries.
-# Let's process all pending entries before testing.
-journalctl --sync
-TS="$(date '+%H:%M:%S')"
-
-for ((i = 0; i < NUM_DIRS; i++)); do
-    mount -t tmpfs tmpfs "/tmp/meow${i}"
-done
-
-systemctl daemon-reload
-systemctl list-units -t mount tmp-meow* | grep -q tmp-meow
-
-for ((i = 0; i < NUM_DIRS; i++)); do
-    umount "/tmp/meow${i}"
-done
-
-# Figure out if we have entered the rate limit state.
-# If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
-set +o pipefail
-journalctl --sync
-if timeout 2m journalctl -u init.scope --since="$TS" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
-    journalctl --sync
-    timeout 2m journalctl -u init.scope --since="$TS" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
-fi
-set -o pipefail
-
-# Verify that the mount units are always cleaned up at the end.
-# Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
-timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
-
-# test for issue #19983 and #23552.
-test_dependencies
-
-# test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
-test_issue_20329
-
-# test for reexecuting with background mount job
-test_issue_23796
-
-systemd-analyze log-level info
+run_testcases
 
 touch /testok
