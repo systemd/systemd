@@ -195,11 +195,9 @@ int config_parse_header(
                 return log_syntax(unit, LOG_WARNING, filename, line, r,
                                   "Failed to unescape headers: %s", rvalue);
 
-        if (!header_is_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid header, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (!header_is_valid(rvalue))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Invalid header, ignoring: %s", rvalue);
 
         r = strv_header_replace_consume(headers, TAKE_PTR(unescaped));
         if (r < 0)
