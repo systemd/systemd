@@ -1214,4 +1214,28 @@ testcase_unpriv_fuse() {
                   bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
 }
 
+testcase_nested_nspawn() {
+    local root lib_dir
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nested_nspawn.XXX)"
+    create_dummy_container "$root"
+    mkdir "$root/inner"
+    create_dummy_container "$root/inner"
+
+    # Ideally we should install systemd-nspawn and its .so dependencies
+    # into $root, but that is complicated. For now let's bind-mount
+    # /usr/bin and /usr/lib (or /usr/lib64) of the VM into the container.
+    if [ -e /usr/lib64 ]; then lib_dir=/usr/lib64; else lib_dir=/usr/lib; fi
+
+    systemd-nspawn \
+        --directory "$root" --ephemeral --pipe \
+        --bind-ro /usr/bin:/usr/bin --bind-ro "$lib_dir:$lib_dir" -- \
+        systemd-nspawn \
+        --directory inner --ephemeral --pipe \
+        --register false --keep-unit --link-journal no -- \
+        echo OK
+
+    rm -fr "$root"
+}
+
 run_testcases
