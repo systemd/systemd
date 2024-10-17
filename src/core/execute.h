@@ -156,6 +156,7 @@ typedef struct ExecDirectoryItem {
         char *path;
         char **symlinks;
         bool only_create;
+        bool idmapped;
 } ExecDirectoryItem;
 
 typedef struct ExecDirectory {
