@@ -266,6 +266,7 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "  -i --parent-ignore-filter         Trigger parent devices even if filtered out\n"
                "     --initialized-match            Trigger devices that are already initialized\n"
                "     --initialized-nomatch          Trigger devices that are not initialized yet\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
@@ -304,6 +305,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",         required_argument, NULL, 'y'                       },
                 { "name-match",            required_argument, NULL, ARG_NAME                  },
                 { "parent-match",          required_argument, NULL, 'b'                       },
+                { "parent-ignore",         no_argument,       NULL, 'i'
+      },
                 { "initialized-match",     no_argument,       NULL, ARG_INITIALIZED_MATCH     },
                 { "initialized-nomatch",   no_argument,       NULL, ARG_INITIALIZED_NOMATCH   },
                 { "settle",                no_argument,       NULL, 'w'                       },
@@ -341,7 +344,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVhi", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -428,6 +431,9 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+                case 'i':
+                        sd_device_enumerator_always_match_parent(e);
+                        break;
                 case 'w':
                         arg_settle = true;
                         break;

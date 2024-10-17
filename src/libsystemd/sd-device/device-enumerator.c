@@ -33,6 +33,7 @@ struct sd_device_enumerator {
         size_t n_devices, current_device_index;
         bool scan_uptodate;
         bool sorted;
+        bool match_always_trigger_parent;
 
         char **prioritized_subsystems;
         Set *match_subsystem;
@@ -270,6 +271,14 @@ _public_ int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enum
         enumerator->match_initialized = MATCH_INITIALIZED_ALL;
 
         enumerator->scan_uptodate = false;
+
+        return 1;
+}
+_public_ int sd_device_enumerator_always_match_parent(sd_device_enumerator *enumerator)
+{
+        assert_return(enumerator, -EINVAL);
+
+        enumerator->match_always_trigger_parent = true;
 
         return 1;
 }
@@ -745,7 +754,8 @@ static int enumerator_scan_dir_and_add_devices(
                 /* Also include all potentially matching parent devices in the enumeration. These are things
                  * like root busses — e.g. /sys/devices/pci0000:00/ or /sys/devices/pnp0/, which ar not
                  * linked from /sys/class/ or /sys/bus/, hence pick them up explicitly here. */
-                k = enumerator_add_parent_devices(enumerator, device, MATCH_ALL);
+                int might_ignore_sub_match = enumerator->match_always_trigger_parent ? MATCH_SUBSYSTEM : 0;
+                k = enumerator_add_parent_devices(enumerator, device, MATCH_ALL & (~might_ignore_sub_match));
                 if (k < 0)
                         r = k;
         }
@@ -842,6 +852,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
                         r = k;
                         continue;
                 }
+
         }
 
         return r;
