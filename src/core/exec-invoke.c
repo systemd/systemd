@@ -3033,6 +3033,30 @@ static int pick_versions(
         return 0;
 }
 
+static int apply_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
+        int r;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_exec_warning(context, params, "ProtectControlGroups=%s is configured, but the unified cgroups hierarchy is not set up, ignoring.",
+                                 protect_control_groups_to_string(context->protect_control_groups));
+                return 0;
+        }
+
+        if (ns_type_supported(NAMESPACE_CGROUP)) {
+                r = unshare(CLONE_NEWCGROUP);
+                if (r < 0)
+                        return r;
+        } else {
+                log_exec_warning(context, params, "ProtectControlGroups=%s is configured, but kernel does not support cgroup namespaces, ignoring.",
+                                 protect_control_groups_to_string(context->protect_control_groups));
+                return 0;
+        }
+        return 1;
+}
+
 static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
@@ -3040,6 +3064,7 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
+                bool needs_protect_control_groups,
                 char **error_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3082,7 +3107,7 @@ static int apply_mount_namespace(
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
-        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+        if (exec_is_cgroup_read_only(context) && needs_sandboxing && needs_protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
                 if (!read_write_paths_cleanup)
                         return -ENOMEM;
@@ -3226,7 +3251,7 @@ static int apply_mount_namespace(
                  * sandbox inside the mount namespace. */
                 .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
 
-                .protect_control_groups = needs_sandboxing && context->protect_control_groups,
+                .protect_control_groups = needs_sandboxing && needs_protect_control_groups ? context->protect_control_groups : false,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
@@ -3870,7 +3895,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
-               context->protect_control_groups ||
+               context->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                context->protect_clock ||
                context->protect_hostname ||
                !strv_isempty(context->read_write_paths) ||
@@ -4072,6 +4097,7 @@ int exec_invoke(
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
         bool keep_seccomp_privileges = false;
+        bool needs_protect_control_groups = true; /* Do we need to apply cgroup mount? */
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -4822,6 +4848,28 @@ int exec_invoke(
                         log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
+        if (needs_sandboxing && exec_needs_cgroup_namespace(context)) {
+                r = apply_cgroup_namespace(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up cgroup namespacing: %m");
+                } else if (r > 0) {
+                        /* Now that we're in our own cgroup namespace, the path to memory.pressure should be at
+                         * at the root of cgroup FS tree. */
+                        if (memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+                                memory_pressure_path = mfree(memory_pressure_path);
+                                r = cg_get_path("memory", "", "memory.pressure", &memory_pressure_path);
+                                if (r < 0) {
+                                        *exit_status = EXIT_MEMORY;
+                                        return log_oom();
+                                }
+                        }
+                } else
+                        /* cgroup namespace setup failed due to no unified hierarchy or no cgroup namespace kernel support
+                         * but we ignored and continued setting up unit. Ensure we don't mount a private cgroupfs. */
+                        needs_protect_control_groups = false;
+        }
+
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -4831,6 +4879,7 @@ int exec_invoke(
                                           runtime,
                                           memory_pressure_path,
                                           needs_sandboxing,
+                                          needs_protect_control_groups,
                                           &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
