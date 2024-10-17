@@ -391,10 +391,38 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
+static int json_build_local_addresses(const struct local_address *addresses, size_t n_addresses, sd_json_variant **ret) {
+        int r;
+
+        if (n_addresses == 0)
+                return 0;
+
+        assert(addresses);
+        assert(ret);
+
+        FOREACH_ARRAY(a, addresses, n_addresses) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                r = sd_json_buildo(
+                                &entry,
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ifindex", a->ifindex),
+                                SD_JSON_BUILD_PAIR_INTEGER("family", a->family),
+                                SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", &a->address.bytes, FAMILY_ADDRESS_SIZE(a->family)));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(ret, entry);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, bool more, AcquireMetadata am) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addr_array = NULL;
         _cleanup_strv_free_ char **os_release = NULL;
         uid_t shift = UID_INVALID;
-        int n, r;
+        int r, n = 0;
 
         assert(link);
         assert(m);
@@ -402,6 +430,22 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         if (should_acquire_metadata(am)) {
+                _cleanup_free_ struct local_address *addresses = NULL;
+                n = machine_get_addresses(m, &addresses);
+                if (n < 0 && am == ACQUIRE_METADATA_GRACEFUL)
+                        log_debug_errno(n, "Failed to get address (graceful mode), ignoring: %m");
+                else if (n == -ENONET)
+                        return sd_varlink_error(link, "io.systemd.Machine.NoPrivateNetworking", NULL);
+                else if (ERRNO_IS_NEG_NOT_SUPPORTED(n))
+                        return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+                else if (n < 0)
+                        return log_debug_errno(n, "Failed to get addresses: %m");
+                else {
+                        r = json_build_local_addresses(addresses, n, &addr_array);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = machine_get_os_release(m, &os_release);
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get OS release (graceful mode), ignoring: %m");
@@ -436,6 +480,7 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
+                        SD_JSON_BUILD_PAIR_CONDITION(n > 0, "addresses", SD_JSON_BUILD_VARIANT(addr_array)),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(os_release), "OSRelease", JSON_BUILD_STRV_ENV_PAIR(os_release)),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID));
         if (r < 0)
