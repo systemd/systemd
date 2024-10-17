@@ -210,6 +210,18 @@ bool exec_needs_ipc_namespace(const ExecContext *context) {
         return context->private_ipc || context->ipc_namespace_path;
 }
 
+bool exec_needs_cgroup_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->protect_control_groups == PROTECT_CONTROL_GROUPS_PRIVATE || context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT;
+}
+
+bool exec_is_cgroup_read_only(const ExecContext *context) {
+        assert(context);
+
+        return context->protect_control_groups == PROTECT_CONTROL_GROUPS_YES || context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT;
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,

@@ -3033,6 +3033,27 @@ static int pick_versions(
         return 0;
 }
 
+static bool can_apply_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
+        int r;
+
+        r = cg_all_unified();
+        if (r < 0) {
+                log_exec_warning_errno(context, params, r, "Failed to determine cgroup hierarchy version: %m");
+                return false;
+        } else if (r == 0) {
+                log_exec_warning(context, params, "ProtectControlGroups=%s is configured, but the unified cgroups hierarchy is not set up, ignoring.",
+                                 protect_control_groups_to_string(context->protect_control_groups));
+                return false;
+        }
+
+        if (!ns_type_supported(NAMESPACE_CGROUP)) {
+                log_exec_warning(context, params, "ProtectControlGroups=%s is configured, but kernel does not support cgroup namespaces, ignoring.",
+                                 protect_control_groups_to_string(context->protect_control_groups));
+                return false;
+        }
+        return true;
+}
+
 static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
@@ -3040,6 +3061,7 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
+                bool needs_protect_control_groups,
                 char **error_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3082,7 +3104,7 @@ static int apply_mount_namespace(
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
-        if (context->protect_control_groups != PROTECT_CONTROL_GROUPS_NO && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+        if (exec_is_cgroup_read_only(context) && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
                 if (!read_write_paths_cleanup)
                         return -ENOMEM;
@@ -3226,7 +3248,7 @@ static int apply_mount_namespace(
                  * sandbox inside the mount namespace. */
                 .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
 
-                .protect_control_groups = needs_sandboxing ? context->protect_control_groups : false,
+                .protect_control_groups = needs_sandboxing && needs_protect_control_groups ? context->protect_control_groups : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
@@ -4067,10 +4089,12 @@ int exec_invoke(
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool userns_set_up = false;
-        bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
-                needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
-                needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
-                needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
+        bool needs_sandboxing,                 /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
+                needs_setuid,                  /* Do we need to do the actual setresuid()/setresgid() calls? */
+                needs_mount_namespace,         /* Do we need to set up a mount namespace for this kernel? */
+                needs_ambient_hack,            /* Do we need to apply the ambient capabilities hack? */
+                needs_cgroup_namespace,        /* Do we need to use a cgroup namespace? */
+                needs_protect_control_groups;  /* Do we need to mount /sys/fs/cgroup? */
         bool keep_seccomp_privileges = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
@@ -4549,6 +4573,16 @@ int exec_invoke(
                 }
         }
 
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
+         * from it. */
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+
+        /* If cgroup namespace is configured via ProtectControlGroups=private or strict but we can't actually
+         * use cgroup namespace, either from not having unified hierarchy or kernel support, we ignore the
+         * setting and do not unshare the namespace or mount /sys/fs/cgroup. */
+        needs_cgroup_namespace = needs_sandboxing && exec_needs_cgroup_namespace(context);
+        needs_protect_control_groups = needs_cgroup_namespace ? can_apply_cgroup_namespace(context, params) : true;
+
         if (params->cgroup_path) {
                 /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
                  * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
@@ -4591,6 +4625,16 @@ int exec_invoke(
                                         log_exec_full_errno(context, params, r == -ENOENT || ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                                             "Failed to adjust ownership of '%s', ignoring: %m", memory_pressure_path);
                                         memory_pressure_path = mfree(memory_pressure_path);
+                                }
+                                /* First we use the current cgroup path to chmod and chown the memory pressure path, then pass the path relative
+                                 * to the cgroup namespace to environment variables and mounts. */
+                                if (memory_pressure_path && needs_cgroup_namespace && needs_protect_control_groups) {
+                                        memory_pressure_path = mfree(memory_pressure_path);
+                                        r = cg_get_path("memory", "", "memory.pressure", &memory_pressure_path);
+                                        if (r < 0) {
+                                                *exit_status = EXIT_MEMORY;
+                                                return log_oom();
+                                        }
                                 }
                         } else if (cgroup_context->memory_pressure_watch == CGROUP_PRESSURE_WATCH_OFF) {
                                 memory_pressure_path = strdup("/dev/null"); /* /dev/null is explicit indicator for turning of memory pressure watch */
@@ -4677,10 +4721,6 @@ int exec_invoke(
                 *exit_status = EXIT_KEYRING;
                 return log_exec_error_errno(context, params, r, "Failed to set up kernel keyring: %m");
         }
-
-        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
-         * from it. */
-        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
         /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked
          * for it, and the kernel doesn't actually support ambient caps. */
@@ -4822,6 +4862,14 @@ int exec_invoke(
                         log_exec_warning(context, params, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
+        if (needs_cgroup_namespace && needs_protect_control_groups) {
+                r = unshare(CLONE_NEWCGROUP);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up cgroup namespacing: %m");
+                }
+        }
+
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -4831,6 +4879,7 @@ int exec_invoke(
                                           runtime,
                                           memory_pressure_path,
                                           needs_sandboxing,
+                                          needs_protect_control_groups,
                                           &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
