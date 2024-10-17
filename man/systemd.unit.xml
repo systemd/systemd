@@ -601,7 +601,7 @@
         <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
         should identify the unit rather than describe it, despite the name. This string also shouldn't just
         repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
-        <literal>high-performance light-weight HTTP server</literal> (too generic) or
+        <literal>high-performance lightweight HTTP server</literal> (too generic) or
         <literal>Apache2</literal> (meaningless for people who do not know Apache, duplicates the unit
         name). <command>systemd</command> may use this string as a noun in status messages (<literal>Starting
         <replaceable>description</replaceable>...</literal>, <literal>Started

@@ -651,7 +651,7 @@ node /org/freedesktop/machine1/machine/rawhide {
       <para><varname>Leader</varname> is the PID of the leader process of the machine.</para>
 
       <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
-      based on virtualized hardware) or "container" (for light-weight userspace virtualization sharing the
+      based on virtualized hardware) or "container" (for lightweight userspace virtualization sharing the
       same kernel as the host).</para>
 
       <para><varname>RootDirectory</varname> is the root directory of the container if it is known and
