@@ -266,6 +266,7 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "     --include-parents              Trigger parent devices of found devices\n"
                "     --initialized-match            Trigger devices that are already initialized\n"
                "     --initialized-nomatch          Trigger devices that are not initialized yet\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
@@ -287,6 +288,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 ARG_PRIORITIZED_SUBSYSTEM,
                 ARG_INITIALIZED_MATCH,
                 ARG_INITIALIZED_NOMATCH,
+                ARG_INCLUDE_PARENTS,
         };
 
         static const struct option options[] = {
@@ -304,6 +306,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",         required_argument, NULL, 'y'                       },
                 { "name-match",            required_argument, NULL, ARG_NAME                  },
                 { "parent-match",          required_argument, NULL, 'b'                       },
+                { "include-parents",       no_argument,       NULL, ARG_INCLUDE_PARENTS       },
                 { "initialized-match",     no_argument,       NULL, ARG_INITIALIZED_MATCH     },
                 { "initialized-nomatch",   no_argument,       NULL, ARG_INITIALIZED_NOMATCH   },
                 { "settle",                no_argument,       NULL, 'w'                       },
@@ -428,6 +431,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+                case ARG_INCLUDE_PARENTS:
+                        r = sd_device_enumerator_add_all_parents(e);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to always include all parents: %m");
+                        break;
                 case 'w':
                         arg_settle = true;
                         break;
