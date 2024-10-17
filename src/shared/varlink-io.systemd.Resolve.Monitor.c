@@ -112,6 +112,21 @@ static SD_VARLINK_DEFINE_METHOD(
                 ResetStatistics,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSConfiguration,
+                SD_VARLINK_DEFINE_FIELD(interface, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(interfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(currentDNSServer, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(dnsServers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(searchDomains, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SubscribeDNSConfiguration,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The current global and per-interface DNS configurations"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(configuration, DNSConfiguration, SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,
                 "io.systemd.Resolve.Monitor",
@@ -129,4 +144,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_TransactionStatistics,
                 &vl_type_CacheStatistics,
                 &vl_type_DnssecStatistics,
-                &vl_type_ServerState);
+                &vl_type_ServerState,
+                &vl_type_DNSConfiguration,
+                &vl_method_SubscribeDNSConfiguration);

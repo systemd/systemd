@@ -23,6 +23,7 @@ struct Link {
         AddressFamily required_family;
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
+        char **dns_servers;
         char *state;
 };
 
@@ -30,5 +31,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname);
 Link *link_free(Link *l);
 int link_update_rtnl(Link *l, sd_netlink_message *m);
 int link_update_monitor(Link *l);
+
+int link_check_dns_accessible(Link *l, AddressFamily *ret_accessible);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);

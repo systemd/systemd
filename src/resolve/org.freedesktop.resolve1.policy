@@ -150,6 +150,17 @@
                 <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
         </action>
 
+        <action id="org.freedesktop.resolve1.subscribe-dns-configuration">
+                <description gettext-domain="systemd">Subscribe to DNS configuration</description>
+                <message gettext-domain="systemd">Authentication is required to subscribe to DNS configuration.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
+        </action>
+
         <action id="org.freedesktop.resolve1.dump-cache">
                 <description gettext-domain="systemd">Dump cache</description>
                 <message gettext-domain="systemd">Authentication is required to dump cache.</message>
