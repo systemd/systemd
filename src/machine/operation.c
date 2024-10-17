@@ -8,8 +8,38 @@
 #include "operation.h"
 #include "process-util.h"
 
+static int operation_done_internal(const siginfo_t *si, Operation *o, void *userdata) {
+        int r;
+
+        assert(si);
+        assert(o);
+
+        if (si->si_code != CLD_EXITED)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
+
+        if (si->si_status == EXIT_SUCCESS)
+                r = 0;
+        else {
+                ssize_t n = read(o->errno_fd, &r, sizeof(r));
+                if (n < 0)
+                        return log_debug_errno(errno, "Failed to read operation's errno: %m");
+                if (n != sizeof(r))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpectedly short message when reading operation's errno");
+        }
+
+        if (o->done)
+                /* A completion routine is set for this operation, call it. */
+                return o->done(o, r, userdata);
+
+        /* The default operation when done is to simply return an error on failure or an empty success
+         * message on success. */
+        if (r < 0)
+                log_debug_errno(r, "Operation failed: %m");
+
+        return r;
+}
+
 static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Operation *o = ASSERT_PTR(userdata);
         int r;
 
@@ -21,60 +51,42 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
 
         o->pid = 0;
 
-        if (si->si_code != CLD_EXITED) {
-                r = sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-                goto fail;
-        }
+        if (o->message) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-        if (si->si_status == EXIT_SUCCESS)
-                r = 0;
-        else if (read(o->errno_fd, &r, sizeof(r)) != sizeof(r)) { /* Try to acquire error code for failed operation */
-                r = sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Child failed.");
-                goto fail;
-        }
-
-        if (o->done) {
-                /* A completion routine is set for this operation, call it. */
-                r = o->done(o, r, &error);
+                r = operation_done_internal(si, o, &error);
                 if (r < 0) {
                         if (!sd_bus_error_is_set(&error))
                                 sd_bus_error_set_errno(&error, r);
 
-                        goto fail;
+                        r = sd_bus_reply_method_error(o->message, &error);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to reply to dbus message: %m");
+                } else {
+                        r = sd_bus_reply_method_return(o->message, NULL);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to reply to dbus message: %m");
                 }
-
-        } else {
-                /* The default operation when done is to simply return an error on failure or an empty success
-                 * message on success. */
-                if (r < 0) {
-                        sd_bus_error_set_errno(&error, r);
-                        goto fail;
-                }
-
-                r = sd_bus_reply_method_return(o->message, NULL);
+        } else if (o->link) {
+                r = operation_done_internal(si, o, /* userdata = */ NULL);
                 if (r < 0)
-                        log_error_errno(r, "Failed to reply to message: %m");
+                        (void) sd_varlink_error_errno(o->link, r);
+                else
+                        (void) sd_varlink_reply(o->link, NULL);
         }
-
-        operation_free(o);
-        return 0;
-
-fail:
-        r = sd_bus_reply_method_error(o->message, &error);
-        if (r < 0)
-                log_error_errno(r, "Failed to reply to message: %m");
 
         operation_free(o);
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret) {
+int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, sd_varlink *link, int errno_fd, Operation **ret) {
         Operation *o;
         int r;
 
         assert(manager);
         assert(child > 1);
-        assert(message);
+        assert(message || link);
+        assert(!(message && link));
         assert(errno_fd >= 0);
 
         o = new0(Operation, 1);
@@ -91,6 +103,7 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
 
         o->pid = child;
         o->message = sd_bus_message_ref(message);
+        o->link = sd_varlink_ref(link);
         o->errno_fd = errno_fd;
 
         LIST_PREPEND(operations, manager->operations, o);
@@ -125,6 +138,7 @@ Operation *operation_free(Operation *o) {
                 (void) sigkill_wait(o->pid);
 
         sd_bus_message_unref(o->message);
+        sd_varlink_unref(o->link);
 
         if (o->manager) {
                 LIST_REMOVE(operations, o->manager->operations, o);
