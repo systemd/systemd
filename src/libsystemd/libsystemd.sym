@@ -1056,3 +1056,8 @@ global:
         sd_device_monitor_get_timeout;
         sd_device_monitor_receive;
 } LIBSYSTEMD_256;
+
+LIBSYSTEMD_258 {
+global:
+        sd_device_enumerator_add_all_parents;
+} LIBSYSTEMD_257;
