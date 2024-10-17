@@ -26,7 +26,7 @@ struct DissectedPartition {
         bool rw:1;
         bool growfs:1;
         int partno;                 /* -1 if there was no partition and the images contains a file system directly */
-        Architecture architecture;  /* Intended architecture: either native, secondary or unset ARCHITECTURE_INVALID. */
+        Abi abi;                    /* Intended architecture: either native, secondary or unset ABI_INVALID. */
         sd_id128_t uuid;            /* Partition entry UUID as reported by the GPT */
         char *fstype;
         char *node;
@@ -44,7 +44,7 @@ struct DissectedPartition {
 #define DISSECTED_PARTITION_NULL                                        \
         ((DissectedPartition) {                                         \
                 .partno = -1,                                           \
-                .architecture = _ARCHITECTURE_INVALID,                  \
+                .abi = _ABI_INVALID,                                    \
                 .mount_node_fd = -EBADF,                                \
                 .fsmount_fd = -EBADF,                                   \
         })
@@ -175,7 +175,7 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
 
 int dissected_image_acquire_metadata(DissectedImage *m, int userns_fd, DissectImageFlags extra_flags);
 
-Architecture dissected_image_architecture(DissectedImage *m);
+Abi dissected_image_abi(DissectedImage *m);
 
 static inline bool dissected_image_is_bootable_os(DissectedImage *m) {
         return m && m->has_init_system > 0;
