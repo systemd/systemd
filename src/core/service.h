@@ -193,8 +193,8 @@ struct Service {
         /* If we shut down, remember why */
         ServiceResult result;
         ServiceResult reload_result;
-        ServiceResult clean_result;
         ServiceResult live_mount_result;
+        ServiceResult clean_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
