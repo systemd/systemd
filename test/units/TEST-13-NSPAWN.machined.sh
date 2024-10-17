@@ -302,6 +302,22 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep -q 'non-existent'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unregister '{"name": "registered-container"}'
 
+# test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
+create_dummy_container "/var/lib/machines/container-without-os-release"
+machinectl start "container-without-os-release"
+rm -f /var/lib/machines/container-without-os-release/etc/os-release /var/lib/machines/container-without-os-release/usr/lib/os-release
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "yes"}')
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "graceful"}'
+machinectl terminate "container-without-os-release"
+
+(ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'OSRelease'
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
+
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep '.host'
