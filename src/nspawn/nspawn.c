@@ -5267,7 +5267,7 @@ static int run_container(
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
-        fdset_close(fds);
+        fdset_close(fds, /* async= */ false);
 
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);

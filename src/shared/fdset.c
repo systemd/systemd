@@ -8,6 +8,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "async.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -51,7 +52,7 @@ int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
         return 0;
 }
 
-void fdset_close(FDSet *s) {
+void fdset_close(FDSet *s, bool async) {
         void *p;
 
         while ((p = set_steal_first(MAKE_SET(s)))) {
@@ -72,12 +73,21 @@ void fdset_close(FDSet *s) {
                         log_debug("Closing set fd %i (%s)", fd, strna(path));
                 }
 
-                (void) close(fd);
+                if (async)
+                        (void) asynchronous_close(fd);
+                else
+                        (void) close(fd);
         }
 }
 
 FDSet* fdset_free(FDSet *s) {
-        fdset_close(s);
+        fdset_close(s, /* async= */ false);
+        set_free(MAKE_SET(s));
+        return NULL;
+}
+
+FDSet* fdset_free_async(FDSet *s) {
+        fdset_close(s, /* async= */ true);
         set_free(MAKE_SET(s));
         return NULL;
 }
