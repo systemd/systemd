@@ -159,7 +159,7 @@ int bpf_restrict_ifaces_install(Unit *u) {
                 return 0;
 
         r = restrict_ifaces_install_impl(u);
-        fdset_close(crt->initial_restrict_ifaces_link_fds);
+        fdset_close(crt->initial_restrict_ifaces_link_fds, /* async= */ false);
         return r;
 }
 

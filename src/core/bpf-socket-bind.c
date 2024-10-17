@@ -229,7 +229,7 @@ int bpf_socket_bind_install(Unit *u) {
                 return 0;
 
         r = socket_bind_install_impl(u);
-        fdset_close(crt->initial_socket_bind_link_fds);
+        fdset_close(crt->initial_socket_bind_link_fds, /* async= */ false);
         return r;
 }
 
