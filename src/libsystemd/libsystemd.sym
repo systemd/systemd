@@ -842,4 +842,5 @@ global:
         sd_id128_get_invocation_app_specific;
         sd_journal_stream_fd_with_namespace;
         sd_event_source_get_inotify_path;
+        sd_device_enumerator_add_all_parents;
 } LIBSYSTEMD_255;

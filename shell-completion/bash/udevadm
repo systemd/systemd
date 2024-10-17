@@ -65,7 +65,7 @@ _udevadm() {
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
                        -g --tag-match -y --sysname-match --name-match -b --parent-match
-                       --prioritized-subsystem'
+                       --prioritized-subsystem --include-parents'
         [SETTLE]='-t --timeout -E --exit-if-exists'
         [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping
                               --load-credentials'
