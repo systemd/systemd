@@ -106,7 +106,7 @@ test_basic() {
     # Verify systemd-oomd is monitoring the expected units.
     timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
     assert_in 'Memory Pressure Limit: 20.00%' \
-              "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A7 "Path: $cgroup_path")"
+              "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A8 "Path: $cgroup_path")"
 
     systemctl "$@" start TEST-55-OOMD-testbloat.service
 
@@ -181,6 +181,86 @@ EOF
     systemctl stop TEST-55-OOMD-testmunch.service
     systemctl stop TEST-55-OOMD-testchill.service
     systemctl stop TEST-55-OOMD-workload.slice
+
+    # clean up overrides since test cases can be run in any order
+    # and overrides shouldn't affect other tests
+    rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
+    systemctl daemon-reload
+}
+
+testcase_duration_analyze() {
+    # Verify memory pressure duration is valid if >= 1 second
+    cat <<EOF >/tmp/TEST-55-OOMD-valid-duration.service
+[Service]
+ExecStart=echo hello
+ManagedOOMMemoryPressureDurationSec=1s
+EOF
+
+    # Verify memory pressure duration is invalid if < 1 second
+    cat <<EOF >/tmp/TEST-55-OOMD-invalid-duration.service
+[Service]
+ExecStart=echo hello
+ManagedOOMMemoryPressureDurationSec=0
+EOF
+
+    systemd-analyze --recursive-errors=no verify /tmp/TEST-55-OOMD-valid-duration.service
+    (! systemd-analyze --recursive-errors=no verify /tmp/TEST-55-OOMD-invalid-duration.service)
+
+    rm -f /tmp/TEST-55-OOMD-valid-duration.service
+    rm -f /tmp/TEST-55-OOMD-invalid-duration.service
+}
+
+testcase_duration_override() {
+    # Verify memory pressure duration can be overriden to non-zero values
+    mkdir -p /run/systemd/system/TEST-55-OOMD-testmunch.service.d/
+    cat >/run/systemd/system/TEST-55-OOMD-testmunch.service.d/99-duration-test.conf <<EOF
+[Service]
+ManagedOOMMemoryPressureDurationSec=3s
+ManagedOOMMemoryPressure=kill
+EOF
+
+    # Verify memory pressure duration will use default if set to empty
+    mkdir -p /run/systemd/system/TEST-55-OOMD-testchill.service.d/
+    cat >/run/systemd/system/TEST-55-OOMD-testchill.service.d/99-duration-test.conf <<EOF
+[Service]
+ManagedOOMMemoryPressureDurationSec=
+ManagedOOMMemoryPressure=kill
+EOF
+
+    systemctl daemon-reload
+    systemctl start TEST-55-OOMD-testmunch.service
+    systemctl start TEST-55-OOMD-testchill.service
+
+    timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testmunch.service"; do sleep 1; done'
+    oomctl | grep -A 2 "/TEST-55-OOMD-testmunch.service" | grep "Memory Pressure Duration: 3s"
+
+    timeout 1m bash -xec 'until oomctl | grep "/TEST-55-OOMD-testchill.service"; do sleep 1; done'
+    oomctl | grep -A 2 "/TEST-55-OOMD-testchill.service" | grep "Memory Pressure Duration: 2s"
+
+    [[ "$(systemctl show -P ManagedOOMMemoryPressureDurationUSec TEST-55-OOMD-testmunch.service)" == "3s" ]]
+    [[ "$(systemctl show -P ManagedOOMMemoryPressureDurationUSec TEST-55-OOMD-testchill.service)" == "[not set]" ]]
+
+    for _ in {0..59}; do
+        if ! systemctl status TEST-55-OOMD-testmunch.service; then
+            break
+        fi
+        oomctl
+        sleep 2
+    done
+
+    if systemctl status TEST-55-OOMD-testmunch.service; then exit 44; fi
+    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 23; fi
+
+    systemctl kill --signal=KILL TEST-55-OOMD-testmunch.service || :
+    systemctl stop TEST-55-OOMD-testmunch.service
+    systemctl stop TEST-55-OOMD-testchill.service
+    systemctl stop TEST-55-OOMD-workload.slice
+
+    # clean up overrides since test cases can be run in any order
+    # and overrides shouldn't affect other tests
+    rm -rf /run/systemd/system/TEST-55-OOMD-testmunch.service.d
+    rm -rf /run/systemd/system/TEST-55-OOMD-testchill.service.d
+    systemctl daemon-reload
 }
 
 run_testcases
