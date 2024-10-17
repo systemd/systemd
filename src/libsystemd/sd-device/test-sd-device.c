@@ -499,6 +499,37 @@ TEST(sd_device_enumerator_add_match_parent) {
         }
 }
 
+TEST(sd_device_enumerator_add_all_parents) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        /* See comments in TEST(sd_device_enumerator_devices). */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+
+        /*enable all_parents*/
+        assert_se(sd_device_enumerator_add_all_parents(e) >= 0);
+        /*filter in only a subsystem*/
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "tty", true) >= 0);
+
+        int not_filtered_parent_count = 0;
+        FOREACH_DEVICE(e, dev) {
+                const char *subsystem;
+                r = sd_device_get_subsystem(dev, &subsystem);
+                if (r < 0) {
+                        assert_se(r == -ENOENT);
+                        continue;
+                }
+                if(strcmp(subsystem,"tty"))
+                        not_filtered_parent_count++;
+        }
+        log_debug("found %d devices that would have been excluded without all_parents()",not_filtered_parent_count);
+        assert_se(not_filtered_parent_count > 0);
+}
+
 TEST(sd_device_get_child) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
