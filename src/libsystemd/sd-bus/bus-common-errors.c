@@ -85,6 +85,7 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_STUB_LOOP,                    ELOOP),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DNSSD_SERVICE,        ENOENT),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNSSD_SERVICE_EXISTS,         EEXIST),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_DELEGATE,             ENXIO),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_FORMERR,                  EBADMSG),
         SD_BUS_ERROR_MAP(BUS_ERROR_DNS_SERVFAIL,                 EHOSTDOWN),

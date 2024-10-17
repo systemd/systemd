@@ -781,7 +781,7 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
         }
 
         if (cfg->has_scope) {
-                ASSERT_OK(dns_scope_new(&env->manager, &env->scope, env->link, env->protocol, env->family));
+                ASSERT_OK(dns_scope_new(&env->manager, &env->scope, env->link ? DNS_SCOPE_LINK : DNS_SCOPE_GLOBAL, env->link, /* delegate= */ NULL, env->protocol, env->family));
                 ASSERT_NOT_NULL(env->scope);
 
                 env->server_addr.in.s_addr = htobe32(0x7f000001);
@@ -789,7 +789,7 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
                 env->server_port = 53;
 
                 ASSERT_OK(dns_server_new(&env->manager, &env->server, env->server_type,
-                                env->link, env->family, &env->server_addr, env->server_port,
+                                         env->link, /* delegate= */ NULL, env->family, &env->server_addr, env->server_port,
                                 env->ifindex, env->server_name, RESOLVE_CONFIG_SOURCE_DBUS));
 
                 ASSERT_NOT_NULL(env->server);
@@ -803,7 +803,7 @@ static void go_env_setup(GoEnvironment *env, GoConfig *cfg) {
 
         for (size_t i = 0 ; i < env->n_search_domains; i++) {
                 DnsSearchDomainType type = (env->link == NULL) ? DNS_SEARCH_DOMAIN_SYSTEM : DNS_SEARCH_DOMAIN_LINK;
-                ASSERT_OK(dns_search_domain_new(&env->manager, &env->search_domains[i], type, env->link, SEARCH_DOMAINS[i]));
+                ASSERT_OK(dns_search_domain_new(&env->manager, &env->search_domains[i], type, env->link, /* delegate= */ NULL, SEARCH_DOMAINS[i]));
                 ASSERT_NOT_NULL(env->search_domains[i]);
         }
 }

@@ -55,7 +55,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
+        return dns_server_new(m, /* ret= */ NULL, type, /* link= */ NULL, /* delegate= */ NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
@@ -100,7 +100,7 @@ static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
         if (r > 0)
                 dns_search_domain_move_back_and_unmark(d);
         else {
-                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
+                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, /* link= */ NULL, /* delegate= */ NULL, domain);
                 if (r < 0)
                         return r;
         }
