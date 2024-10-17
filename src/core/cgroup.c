@@ -194,6 +194,9 @@ void cgroup_context_init(CGroupContext *c) {
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
                 .moom_preference = MANAGED_OOM_PREFERENCE_NONE,
+                /* The default duration value in oomd.conf will be used when
+                 * moom_mem_pressure_duration_usec is set to infinity. */
+                .moom_mem_pressure_duration_usec = USEC_INFINITY,
 
                 .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
                 .memory_pressure_threshold_usec = USEC_INFINITY,
@@ -946,6 +949,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         if (c->memory_pressure_threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
                         prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
+
+        if (c->moom_mem_pressure_duration_usec != USEC_INFINITY)
+                fprintf(f, "%sManagedOOMMemoryPressureDurationSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->moom_mem_pressure_duration_usec, 1));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 /* strna() below should be redundant, for avoiding -Werror=format-overflow= error. See #30223. */
