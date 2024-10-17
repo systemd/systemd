@@ -598,16 +598,18 @@ static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_terminate_internal);
 }
 
-static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, bool read_metadata) {
+static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
         int r;
 
         assert(link);
         assert(image);
 
-        if (read_metadata && !image->metadata_valid) {
+        if (should_acquire_metadata(am) && !image->metadata_valid) {
                 r = image_read_metadata(image, &image_policy_container);
-                if (r < 0)
+                if (r < 0 && am != ACQUIRE_METADATA_GRACEFUL)
                         return log_debug_errno(r, "Failed to read image metadata: %m");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read image metadata (graceful mode), ignoring: %m");
         }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -628,7 +630,7 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
         if (r < 0)
                 return r;
 
-        if (image->metadata_valid) {
+        if (should_acquire_metadata(am) && image->metadata_valid) {
                 r = sd_json_variant_merge_objectbo(
                                 &v,
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("hostname", image->hostname),
@@ -648,13 +650,13 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
 static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct params {
                 const char *image_name;
-                bool acquire_metadata;
-        } p = {};
+                AcquireMetadata acquire_metadata;
+        } p = { .acquire_metadata = ACQUIRE_METADATA_NO };
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",            SD_JSON_VARIANT_STRING,    sd_json_dispatch_const_string, offsetof(struct params, image_name),        0 },
-                { "acquireMetadata", SD_JSON_VARIANT_BOOLEAN,   sd_json_dispatch_stdbool,      offsetof(struct params, acquire_metadata),  0 },
+                { "name",            SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,  offsetof(struct params, image_name),       0 },
+                { "acquireMetadata", SD_JSON_VARIANT_STRING, json_dispatch_acquire_metadata, offsetof(struct params, acquire_metadata), 0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
