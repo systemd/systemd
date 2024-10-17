@@ -2793,7 +2793,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 }
         }
 
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
 
         if (n_fds > 0) {
                 assert(fd_array);
