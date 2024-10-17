@@ -101,6 +101,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --sbat=PATH         Path to SBAT file                      %7$s .sbat\n"
                "     --pcrpkey=PATH      Path to public key for PCR signatures  %7$s .pcrpkey\n"
                "     --profile=PATH      Path to profile file                   %7$s .profile\n"
+               "     --hwids=PATH        Path to HWIDs file                     %7$s .hwids\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -144,8 +145,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SBAT,
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 ARG_PCRPKEY,
+                ARG_PROFILE,
                 _ARG_SECTION_LAST,
-                ARG_PROFILE = _ARG_SECTION_LAST,
+                ARG_HWIDS = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
@@ -172,6 +174,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sbat",               required_argument, NULL, ARG_SBAT               },
                 { "pcrpkey",            required_argument, NULL, ARG_PCRPKEY            },
                 { "profile",            required_argument, NULL, ARG_PROFILE            },
+                { "hwids",              required_argument, NULL, ARG_HWIDS              },
                 { "current",            no_argument,       NULL, 'c'                    },
                 { "bank",               required_argument, NULL, ARG_BANK               },
                 { "tpm2-device",        required_argument, NULL, ARG_TPM2_DEVICE        },
