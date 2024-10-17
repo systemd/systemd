@@ -499,6 +499,45 @@ TEST(sd_device_enumerator_add_match_parent) {
         }
 }
 
+TEST(sd_device_enumerator_add_all_parents) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        unsigned int devices_count_with_parents = 0;
+        unsigned int devices_count_without_parents = 0;
+
+        /* STEP 1: enumerate all block devices without all_parents() */
+        ASSERT_OK(sd_device_enumerator_new(&e) >= 0);
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e) >= 0);
+
+        /* filter in only a subsystem */
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
+
+        FOREACH_DEVICE(e, dev) {
+                const char *subsystem;
+                ASSERT_OK(sd_device_get_subsystem(dev, &subsystem) >= 0);
+                ASSERT_OK(device_in_subsystem(dev, "block") != 0);
+                devices_count_without_parents++;
+        }
+
+        log_debug("found %u devices",devices_count_without_parents);
+        ASSERT_OK(devices_count_without_parents > 0);
+
+        /* STEP 2: enumerate again with all_parents() */
+        ASSERT_OK(sd_device_enumerator_add_all_parents(e) >= 0);
+
+        unsigned int not_filtered_parent_count = 0;
+        FOREACH_DEVICE(e, dev) {
+                const char *subsystem;
+                ASSERT_OK(sd_device_get_subsystem(dev, &subsystem) >= 0);
+                if (!device_in_subsystem(dev, "block"))
+                        not_filtered_parent_count++;
+                devices_count_with_parents++;
+        }
+        log_debug("found %u devices out of %u that would have been excluded without all_parents()",not_filtered_parent_count,devices_count_with_parents);
+        ASSERT_OK(not_filtered_parent_count > 0);
+        ASSERT_OK(devices_count_with_parents > devices_count_without_parents);
+}
+
 TEST(sd_device_get_child) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
