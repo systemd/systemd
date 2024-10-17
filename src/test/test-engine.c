@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test1: (Trivial)\n");
-        r = manager_add_job(m, JOB_START, c, JOB_REPLACE, NULL, &err, &j);
+        r = manager_add_job(m, JOB_START, c, JOB_REPLACE, &err, &j);
         if (sd_bus_error_is_set(&err))
                 log_error("error: %s: %s", err.name, err.message);
         assert_se(r == 0);
@@ -119,15 +119,15 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
-        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, NULL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test3: (Cyclic Order, Fixable, Garbage Collector)\n");
-        assert_se(manager_add_job(m, JOB_START, e, JOB_REPLACE, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, e, JOB_REPLACE, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test4: (Identical transaction)\n");
-        assert_se(manager_add_job(m, JOB_START, e, JOB_FAIL, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, e, JOB_FAIL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load3:\n");
@@ -135,21 +135,21 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
-        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, NULL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_START, g, JOB_FAIL, NULL, &j) == -EDEADLK);
 
         printf("Test6: (Colliding transaction, replace)\n");
-        assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test7: (Unmergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, NULL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, NULL, &j) == -EDEADLK);
 
         printf("Test8: (Mergeable job type, fail)\n");
-        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test9: (Unmergeable job type, replace)\n");
-        assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load4:\n");
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
-        assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, NULL, &j) == 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load5:\n");
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test11: (Start/stop job ordering, execution cycle)\n");
-        assert_se(manager_add_job(m, JOB_START, i, JOB_FAIL, NULL, NULL, &j) == 0);
+        assert_se(manager_add_job(m, JOB_START, i, JOB_FAIL, NULL, &j) == 0);
         assert_se(unit_has_job_type(a, JOB_STOP));
         assert_se(unit_has_job_type(d, JOB_STOP));
         assert_se(unit_has_job_type(b, JOB_START));
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
         manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Test12: (Trivial cycle, Unfixable)\n");
-        assert_se(manager_add_job(m, JOB_START, a_conj, JOB_REPLACE, NULL, NULL, &j) == -EDEADLK);
+        assert_se(manager_add_job(m, JOB_START, a_conj, JOB_REPLACE, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));

@@ -2582,13 +2582,13 @@ static int do_queue_default_job(
 
         assert(target->load_state == UNIT_LOADED);
 
-        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &job);
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &job);
         if (r == -EPERM) {
                 log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
                 sd_bus_error_free(&error);
 
-                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &job);
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &job);
                 if (r < 0) {
                         *ret_error_message = "Failed to start default target";
                         return log_struct_errno(LOG_EMERG, r,

@@ -781,7 +781,7 @@ static void automount_enter_running(Automount *a) {
                 goto fail;
         }
 
-        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, /* ret = */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                 goto fail;
@@ -997,7 +997,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         goto fail;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, NULL, &error, NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, /* ret = */ NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue unmount job: %s", bus_error_message(&error, r));
                         goto fail;

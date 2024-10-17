@@ -156,17 +156,45 @@ assert_rc 3 systemctl --quiet is-active propagatestopto-and-pullin.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
 # Test restart mode direct
+
+UNIT_NAME="TEST-03-JOBS-restart-direct-counter.service"
+COUNTER_FILE="/tmp/test-03-restart-counter"
+
+cat >"/run/systemd/system/$UNIT_NAME" <<EOF
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-03-JOBS.units/counter.sh "$COUNTER_FILE"
+EOF
+
+systemctl edit --stdin --runtime \
+    succeeds-on-restart-restartdirect.target \
+    fails-on-restart-restartdirect.target \
+    succeeds-on-restart.target \
+    fails-on-restart.target <<EOF
+[Unit]
+Requires=$UNIT_NAME
+After=$UNIT_NAME
+EOF
+
+echo 0 >"$COUNTER_FILE"
 systemctl start succeeds-on-restart-restartdirect.target
 assert_rc 0 systemctl --quiet is-active succeeds-on-restart-restartdirect.target
+assert_eq "$(cat "$COUNTER_FILE")" "1"
 
+echo 0 >"$COUNTER_FILE"
 systemctl start fails-on-restart-restartdirect.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart-restartdirect.target
+assert_eq "$(cat "$COUNTER_FILE")" "1"
 
+echo 0 >"$COUNTER_FILE"
 systemctl start succeeds-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
+assert_eq "$(cat "$COUNTER_FILE")" "2"
 
+echo 0 >"$COUNTER_FILE"
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+assert_eq "$(cat "$COUNTER_FILE")" "2"
 
 # Test shortcutting auto restart
 
