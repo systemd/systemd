@@ -967,3 +967,11 @@ static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+
+static const char* const acquire_metadata_table[_ACQUIRE_METADATA_MAX] = {
+        [ACQUIRE_METADATA_NO]       = "no",
+        [ACQUIRE_METADATA_YES]      = "yes",
+        [ACQUIRE_METADATA_GRACEFUL] = "graceful"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(acquire_metadata, AcquireMetadata, ACQUIRE_METADATA_YES);

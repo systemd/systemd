@@ -432,6 +432,8 @@ static void machine_lookup_parameters_done(MachineLookupParameters *p) {
         pidref_done(&p->pidref);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_acquire_metadata, AcquireMetadata, acquire_metadata_from_string);
+
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineLookupParameters),
