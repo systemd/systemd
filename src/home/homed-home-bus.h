@@ -6,7 +6,6 @@
 #include "bus-object.h"
 #include "homed-home.h"
 
-int bus_home_client_is_trusted(Home *h, sd_bus_message *message);
 int bus_home_get_record_json(Home *h, sd_bus_message *message, char **ret, bool *ret_incomplete);
 
 int bus_home_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);

@@ -585,6 +585,22 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->service)
                 printf("     Service: %s\n", hr->service);
+
+        if (!strv_isempty(hr->self_modifiable_fields))
+                STRV_FOREACH(i, hr->self_modifiable_fields)
+                        printf(i == hr->self_modifiable_fields ?
+                               " Self Modify: %s\n" :
+                               "              %s\n", *i);
+        else if (!strv_isempty(hr->self_modifiable_blobs) || !strv_isempty(hr->self_modifiable_privileged))
+                printf(" Self Modify: %s(no fields)%s\n", ansi_grey(), ansi_normal());
+        STRV_FOREACH(i, hr->self_modifiable_blobs)
+                printf(i == hr->self_modifiable_blobs ?
+                       "      (Blobs) %s\n" :
+                       "              %s\n", *i);
+        STRV_FOREACH(i, hr->self_modifiable_privileged)
+                printf(i == hr->self_modifiable_privileged ?
+                       " (Privileged) %s\n" :
+                       "              %s\n", *i);
 }
 
 void group_record_show(GroupRecord *gr, bool show_full_user_info) {
