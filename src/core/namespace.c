@@ -66,6 +66,8 @@ typedef enum MountMode {
         MOUNT_PRIVATE_SYSFS,
         MOUNT_BIND_SYSFS,
         MOUNT_PROCFS,
+        MOUNT_PRIVATE_CGROUP2FS,
+        MOUNT_PRIVATE_CGROUP2FS_READ_ONLY,
         MOUNT_READ_ONLY,
         MOUNT_READ_WRITE,
         MOUNT_NOEXEC,
@@ -200,6 +202,21 @@ static const MountEntry protect_home_yes_table[] = {
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
+/* ProtectControlGroups=yes table */
+static const MountEntry protect_control_groups_yes_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_READ_ONLY,                   true  },
+};
+
+/* ProtectControlGroups=private table */
+static const MountEntry protect_control_groups_private_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS,           true  },
+};
+
+/* ProtectControlGroups=strict table */
+static const MountEntry protect_control_groups_strict_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS_READ_ONLY, true  },
+};
+
 /* ProtectSystem=yes table */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
@@ -237,30 +254,32 @@ static const MountEntry protect_hostname_table[] = {
 };
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
-        [MOUNT_INACCESSIBLE]          = "inaccessible",
-        [MOUNT_OVERLAY]               = "overlay",
-        [MOUNT_IMAGE]                 = "image",
-        [MOUNT_BIND]                  = "bind",
-        [MOUNT_BIND_RECURSIVE]        = "bind-recursive",
-        [MOUNT_PRIVATE_TMP]           = "private-tmp",
-        [MOUNT_PRIVATE_TMP_READ_ONLY] = "private-tmp-read-only",
-        [MOUNT_PRIVATE_DEV]           = "private-dev",
-        [MOUNT_BIND_DEV]              = "bind-dev",
-        [MOUNT_EMPTY_DIR]             = "empty-dir",
-        [MOUNT_PRIVATE_SYSFS]         = "private-sysfs",
-        [MOUNT_BIND_SYSFS]            = "bind-sysfs",
-        [MOUNT_PROCFS]                = "procfs",
-        [MOUNT_READ_ONLY]             = "read-only",
-        [MOUNT_READ_WRITE]            = "read-write",
-        [MOUNT_NOEXEC]                = "noexec",
-        [MOUNT_EXEC]                  = "exec",
-        [MOUNT_TMPFS]                 = "tmpfs",
-        [MOUNT_RUN]                   = "run",
-        [MOUNT_PRIVATE_TMPFS]         = "private-tmpfs",
-        [MOUNT_EXTENSION_DIRECTORY]   = "extension-directory",
-        [MOUNT_EXTENSION_IMAGE]       = "extension-image",
-        [MOUNT_MQUEUEFS]              = "mqueuefs",
-        [MOUNT_READ_WRITE_IMPLICIT]   = "read-write-implicit",
+        [MOUNT_INACCESSIBLE]                = "inaccessible",
+        [MOUNT_OVERLAY]                     = "overlay",
+        [MOUNT_IMAGE]                       = "image",
+        [MOUNT_BIND]                        = "bind",
+        [MOUNT_BIND_RECURSIVE]              = "bind-recursive",
+        [MOUNT_PRIVATE_TMP]                 = "private-tmp",
+        [MOUNT_PRIVATE_TMP_READ_ONLY]       = "private-tmp-read-only",
+        [MOUNT_PRIVATE_DEV]                 = "private-dev",
+        [MOUNT_BIND_DEV]                    = "bind-dev",
+        [MOUNT_EMPTY_DIR]                   = "empty-dir",
+        [MOUNT_PRIVATE_SYSFS]               = "private-sysfs",
+        [MOUNT_BIND_SYSFS]                  = "bind-sysfs",
+        [MOUNT_PROCFS]                      = "procfs",
+        [MOUNT_PRIVATE_CGROUP2FS]           = "private-cgroup2fs",
+        [MOUNT_PRIVATE_CGROUP2FS_READ_ONLY] = "private-cgroup2fs-read-only",
+        [MOUNT_READ_ONLY]                   = "read-only",
+        [MOUNT_READ_WRITE]                  = "read-write",
+        [MOUNT_NOEXEC]                      = "noexec",
+        [MOUNT_EXEC]                        = "exec",
+        [MOUNT_TMPFS]                       = "tmpfs",
+        [MOUNT_RUN]                         = "run",
+        [MOUNT_PRIVATE_TMPFS]               = "private-tmpfs",
+        [MOUNT_EXTENSION_DIRECTORY]         = "extension-directory",
+        [MOUNT_EXTENSION_IMAGE]             = "extension-image",
+        [MOUNT_MQUEUEFS]                    = "mqueuefs",
+        [MOUNT_READ_WRITE_IMPLICIT]         = "read-write-implicit",
 };
 
 /* Helper struct for naming simplicity and reusability */
@@ -315,13 +334,14 @@ static void mount_entry_consume_prefix(MountEntry *p, char *new_path) {
 static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
-        return p->read_only || IN_SET(p->mode, MOUNT_READ_ONLY, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_TMP_READ_ONLY);
+        return p->read_only || IN_SET(p->mode, MOUNT_READ_ONLY, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_TMP_READ_ONLY, MOUNT_PRIVATE_CGROUP2FS_READ_ONLY);
 }
 
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, MOUNT_NOEXEC, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_SYSFS, MOUNT_BIND_SYSFS, MOUNT_PROCFS);
+        return p->noexec || IN_SET(p->mode, MOUNT_NOEXEC, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_SYSFS, MOUNT_BIND_SYSFS, MOUNT_PROCFS,
+                                   MOUNT_PRIVATE_CGROUP2FS, MOUNT_PRIVATE_CGROUP2FS_READ_ONLY);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
@@ -722,6 +742,28 @@ static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t 
         }
 
         return 0;
+}
+
+static int append_protect_control_groups(MountList *ml, ProtectControlGroups protect_control_groups, bool ignore_protect) {
+        assert(ml);
+
+        switch (protect_control_groups) {
+
+        case PROTECT_CONTROL_GROUPS_NO:
+                return 0;
+
+        case PROTECT_CONTROL_GROUPS_YES:
+                return append_static_mounts(ml, protect_control_groups_yes_table, ELEMENTSOF(protect_control_groups_yes_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_PRIVATE:
+                return append_static_mounts(ml, protect_control_groups_private_table, ELEMENTSOF(protect_control_groups_private_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_STRICT:
+                return append_static_mounts(ml, protect_control_groups_strict_table, ELEMENTSOF(protect_control_groups_strict_table), ignore_protect);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int append_protect_home(MountList *ml, ProtectHome protect_home, bool ignore_protect) {
@@ -1315,6 +1357,12 @@ static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p
         return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
 }
 
+static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
+        assert(m);
+        assert(p);
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts = */ NULL, p->runtime_scope);
+}
+
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
 
@@ -1761,6 +1809,10 @@ static int apply_one_mount(
         case MOUNT_PROCFS:
                 return mount_procfs(m, p);
 
+        case MOUNT_PRIVATE_CGROUP2FS:
+        case MOUNT_PRIVATE_CGROUP2FS_READ_ONLY:
+                return mount_private_cgroup2fs(m, p);
+
         case MOUNT_RUN:
                 return mount_run(m);
 
@@ -1931,7 +1983,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
          */
 
         return p->mount_apivfs ||
-                p->protect_control_groups ||
+                p->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL;
@@ -2490,16 +2542,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         return r;
         }
 
-        if (p->protect_control_groups) {
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/sys/fs/cgroup",
-                        .mode = MOUNT_READ_ONLY,
-                };
-        }
+        r = append_protect_control_groups(&ml, p->protect_control_groups, false);
+        if (r < 0)
+                return r;
 
         r = append_protect_home(&ml, p->protect_home, p->ignore_protect_paths);
         if (r < 0)
@@ -3194,6 +3239,15 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
+
+static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
+        [PROTECT_CONTROL_GROUPS_NO]      = "no",
+        [PROTECT_CONTROL_GROUPS_YES]     = "yes",
+        [PROTECT_CONTROL_GROUPS_PRIVATE] = "private",
+        [PROTECT_CONTROL_GROUPS_STRICT]  = "strict",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
 
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT]  = "mnt",
