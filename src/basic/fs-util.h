@@ -54,6 +54,8 @@ int stat_warn_permissions(const char *path, const struct stat *st);
 #define access_nofollow(path, mode)                                             \
         RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
 
+int touch_fd(int fd, usec_t stamp);
+
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 
 static inline int touch(const char *path) {

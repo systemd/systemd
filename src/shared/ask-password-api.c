@@ -102,7 +102,11 @@ static int touch_ask_password_directory(AskPasswordFlags flags) {
         if (r <= 0)
                 return r;
 
-        r = touch(p);
+        _cleanup_close_ int fd = open_mkdir(p, O_CLOEXEC, 0755);
+        if (fd < 0)
+                return fd;
+
+        r = touch_fd(fd, USEC_INFINITY);
         if (r < 0)
                 return r;
 
