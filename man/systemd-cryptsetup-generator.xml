@@ -221,6 +221,63 @@
         <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>luks.link-volume-key=</varname></term>
+        <term><varname>rd.luks.link-volume-key=</varname></term>
+
+        <listitem><para>Specifies a kernel key type and a kernel keyring where
+        LUKS2 volume keys get linked during the device activation. This option
+        only supports the automatic flavor where key description of a linked
+        key is derived from LUKS device uuid upon activation (unlike
+        <literal>link-vokume-key</literal> parameter of
+        <option>luks.options</option> where also specific key description
+        may be added).</para>
+
+        <para>If this option is used, all units originating from either
+        <filename>/etc/crypttab</filename> or kernel command line will get
+        <literal>link-volume-key</literal> option added among LUKS parameters.
+        It will eventually replace original parameter specified either
+        in the file or on the kernel commandl line.</para>
+
+        <para>The key type and kernel keyring may be specified like follows (first
+        matching rule will apply):</para>
+
+        <para>The value<literal>auto</literal> will get all volume keys uploaded
+        in a <literal>user</literal> type keys linked in the user keyring
+        (<literal>@u</literal>).</para>
+
+        <para>The value<literal>auto-logon</literal> will get all volume keys uploaded
+        in a <literal>logon</literal> type keys linked in the user keyring
+        (<literal>@u</literal>).</para>
+
+        <para>If no <literal>::</literal> substring is specified, the value gets
+        interpreted as a target keyring description where volume keys
+        will be linked in <literal>user</literal> type keys. The prefix
+        <literal>%:</literal> or <literal>%keyring:</literal> may be ommited
+        from keyring descriptions.</para>
+
+        <para>If <literal>::</literal> substring is specified, the substring
+        in front of <literal>::</literal> gets interpreted as a keyring
+        description. The remaining string beyond <literal>::</literal> must
+        represent key type description. The prefix
+        <literal>%:</literal> or <literal>%keyring:</literal> may be ommited
+        from keyring descriptions.</para>
+
+        <para>See
+        <citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for more information on key descriptions (KEY IDENTIFIERS section).</para>
+
+        <para>Note that the linked volume keys are not cleaned up automatically when
+        devices are detached.</para>
+
+        <para><varname>rd.luks.link-volume-key=</varname> is honored only by initial
+        RAM disk (initrd) while <varname>luks.link-volume-key=</varname> is
+        honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
