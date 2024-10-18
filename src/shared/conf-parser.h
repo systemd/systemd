@@ -288,6 +288,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sec_def_unset);
 CONFIG_PARSER_PROTOTYPE(config_parse_nsec);
 CONFIG_PARSER_PROTOTYPE(config_parse_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_warn_compat);
+CONFIG_PARSER_PROTOTYPE(config_parse_compression);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_facility);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_level);
 CONFIG_PARSER_PROTOTYPE(config_parse_signal);
