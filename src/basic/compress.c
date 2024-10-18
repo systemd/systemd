@@ -109,10 +109,10 @@ static inline void lzma_end_wrapper(lzma_stream *ls) {
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
 static const char* const compression_table[_COMPRESSION_MAX] = {
-        [COMPRESSION_NONE] = "NONE",
-        [COMPRESSION_XZ]   = "XZ",
-        [COMPRESSION_LZ4]  = "LZ4",
-        [COMPRESSION_ZSTD] = "ZSTD",
+        [COMPRESSION_NONE] = "none",
+        [COMPRESSION_XZ]   = "xz",
+        [COMPRESSION_LZ4]  = "lz4",
+        [COMPRESSION_ZSTD] = "zstd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(compression, Compression);
