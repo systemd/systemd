@@ -97,6 +97,9 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         log_debug("Removing link %i/%s", l->ifindex, l->ifname);
                         link_remove_user(l);
                         link_free(l);
+
+                        /* Make sure DNS servers are dropped from written resolv.conf if their link goes away */
+                        manager_write_resolv_conf(m);
                 }
 
                 break;
