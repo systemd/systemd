@@ -358,15 +358,15 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         assert(sd_json_variant_is_object(json));
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
-                { "newest",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
-                { "available",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
-                { "installed",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
-                { "obsolete",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
-                { "protected",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
-                { "incomplete",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
-                { "changelog_urls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
-                { "contents",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(DescribeParams, contents_json), 0 },
+                { "version",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
+                { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
+                { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
+                { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
+                { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
+                { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
+                { "changelogUrls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
+                { "contents",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(DescribeParams, contents_json), 0 },
                 {},
         };
 
