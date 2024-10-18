@@ -1917,6 +1917,22 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       --pivot-root=/ostree/deploy/$OS/deploy/$CHECKSUM:/sysroot \
       --bind=+/sysroot/ostree/deploy/$OS/var:/var</programlisting>
     </example>
+
+    <example>
+      <title>Run a container within a container</title>
+
+      <para>We're assuming that the outer container is in <filename index="false">./outer</filename> and
+      the inner container in <filename index="false">./outer/inner</filename>. The inner
+      <command>systemd-nspawn</command> will not be able to reach D-Bus, so we are passing flags to disable
+      some of its functionality.</para>
+
+      <programlisting># systemd-nspawn \
+      --directory outer --ephemeral --console interactive -- \
+      systemd-nspawn \
+      --directory inner --ephemeral --console interactive \
+      --register false --keep-unit --link-journal no -- \
+      echo OK</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

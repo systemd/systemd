@@ -1214,4 +1214,21 @@ testcase_unpriv_fuse() {
                   bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
 }
 
+testcase_nested_nspawn() {
+    local root
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nested_nspawn.XXX)"
+    create_dummy_container "$root" /usr/share/TEST-13-NSPAWN-container-full-template
+    mkdir "$root/inner"
+    create_dummy_container "$root/inner"
+
+    systemd-nspawn \
+        --directory="$root" --ephemeral --pipe -- \
+        systemd-nspawn \
+        --directory=/inner --ephemeral --pipe \
+        --register=false --keep-unit --link-journal=no -- \
+        echo OK
+
+    rm -fr "$root"
+}
+
 run_testcases
