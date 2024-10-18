@@ -72,6 +72,8 @@ typedef enum PrivateUsers {
 typedef enum ProtectControlGroups {
         PROTECT_CONTROL_GROUPS_NO,
         PROTECT_CONTROL_GROUPS_YES,
+        PROTECT_CONTROL_GROUPS_PRIVATE,
+        PROTECT_CONTROL_GROUPS_STRICT,
         _PROTECT_CONTROL_GROUPS_MAX,
         _PROTECT_CONTROL_GROUPS_INVALID = -EINVAL,
 } ProtectControlGroups;
