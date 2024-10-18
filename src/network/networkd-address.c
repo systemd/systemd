@@ -25,8 +25,8 @@
 #include "strv.h"
 #include "strxcpyx.h"
 
-#define ADDRESSES_PER_LINK_MAX 2048U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
+#define ADDRESSES_PER_LINK_MAX 16384U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
