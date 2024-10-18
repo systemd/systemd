@@ -732,7 +732,7 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
-                                          SD_JSON_BUILD_PAIR_STRV("changelog_urls", changelog_urls),
+                                          SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
                                           SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
@@ -1083,7 +1083,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
                                           SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstream_urls", appstream_urls));
+                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
