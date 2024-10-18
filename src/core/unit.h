@@ -759,7 +759,7 @@ static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
 
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
-        static inline MixedCase* UPPERCASE(Unit *u) {                   \
+        static inline MixedCase* UPPERCASE(const Unit *u) {             \
                 if (_unlikely_(!u || u->type != UNIT_##UPPERCASE))      \
                         return NULL;                                    \
                                                                         \
