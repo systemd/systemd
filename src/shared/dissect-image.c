@@ -708,7 +708,9 @@ static int dissect_image(
          * Returns -ERFKILL if image doesn't match image policy
          * Returns -EBADR if verity data was provided externally for an image that has a GPT partition table (i.e. is not just a naked fs)
          * Returns -EPROTONOSUPPORT if DISSECT_IMAGE_ADD_PARTITION_DEVICES is set but the block device does not have partition logic enabled
-         * Returns -ENOMSG if we didn't find a single usable partition (and DISSECT_IMAGE_REFUSE_EMPTY is set) */
+         * Returns -ENOMSG if we didn't find a single usable partition (and DISSECT_IMAGE_REFUSE_EMPTY is set)
+         * Returns -EUCLEAN if some file system had an ambiguous file system superblock signature
+         */
 
         uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
@@ -1659,13 +1661,16 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
                                       name, strna(verity ? verity->data_path : NULL));
 
         case -ERFKILL:
-                return log_full_errno(log_level, r, "%s: image does not match image policy.", name);
+                return log_full_errno(log_level, r, "%s: Image does not match image policy.", name);
 
         case -ENOMSG:
-                return log_full_errno(log_level, r, "%s: no suitable partitions found.", name);
+                return log_full_errno(log_level, r, "%s: No suitable partitions found.", name);
+
+        case -EUCLEAN:
+                return log_full_errno(log_level, r, "%s: Partition with ambiguous file system superblock signature found.", name);
 
         default:
-                return log_full_errno(log_level, r, "%s: cannot dissect image: %m", name);
+                return log_full_errno(log_level, r, "%s: Cannot dissect image: %m", name);
         }
 }
 
