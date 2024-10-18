@@ -28,6 +28,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "sysupdate-feature.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
@@ -44,11 +45,15 @@ Transfer* transfer_free(Transfer *t) {
 
         t->temporary_path = rm_rf_subvolume_and_free(t->temporary_path);
 
-        free(t->definition_path);
+        free(t->id);
+
         free(t->min_version);
         strv_free(t->protected_versions);
         free(t->current_symlink);
         free(t->final_path);
+
+        strv_free(t->features);
+        strv_free(t->requisite_features);
 
         strv_free(t->changelog);
         strv_free(t->appstream);
@@ -92,12 +97,6 @@ Transfer* transfer_new(Context *ctx) {
 
         return t;
 }
-
-static const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
 
 static int config_parse_protect_version(
                 const char *unit,
@@ -466,11 +465,33 @@ static int config_parse_partition_flags(
         return 0;
 }
 
-int transfer_read_definition(Transfer *t, const char *path) {
-        int r;
-
+static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
         assert(t);
-        assert(path);
+
+        /* Requisite feature disabled -> transfer disabled */
+        STRV_FOREACH(id, t->requisite_features) {
+                Feature *f = hashmap_get(known_features, *id);
+                if (!f || !f->enabled) /* missing features are implicitly disabled */
+                        return false;
+        }
+
+        /* No features defined -> transfer implicitly enabled */
+        if (strv_isempty(t->features))
+                return true;
+
+        /* At least one feature enabled -> transfer enabled */
+        STRV_FOREACH(id, t->features) {
+                Feature *f = hashmap_get(known_features, *id);
+                if (f && f->enabled)
+                        return true;
+        }
+
+        /* All listed features disabled -> transfer disabled */
+        return false;
+}
+
+int transfer_read_definition(Transfer *t, const char *path, const char **dirs, Hashmap *known_features) {
+        assert(t);
 
         ConfigTableItem table[] = {
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
@@ -478,6 +499,8 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
                 { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
                 { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
+                { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
@@ -501,16 +524,38 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 {}
         };
 
-        r = config_parse(NULL, path, NULL,
-                         "Transfer\0"
-                         "Source\0"
-                         "Target\0",
-                         config_item_table_lookup, table,
-                         CONFIG_PARSE_WARN,
-                         t,
-                         NULL);
+        _cleanup_free_ char *filename = NULL;
+        char *e;
+        int r;
+
+        assert(path);
+        assert(dirs);
+
+        r = path_extract_filename(path, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+
+        r = config_parse_many(
+                        STRV_MAKE_CONST(path),
+                        dirs,
+                        strjoina(filename, ".d"),
+                        arg_root,
+                        "Transfer\0"
+                        "Source\0"
+                        "Target\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* stats_by_path= */ NULL,
+                        /* drop_in_files= */ NULL);
         if (r < 0)
                 return r;
+
+        e = ASSERT_PTR(endswith(filename, ".transfer") ?: endswith(filename, ".conf"));
+        *e = 0; /* Remove the file extension */
+        t->id = TAKE_PTR(filename);
+
+        t->enabled = transfer_decide_if_enabled(t, known_features);
 
         if (!RESOURCE_IS_SOURCE(t->source.type))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -704,6 +749,8 @@ int transfer_vacuum(
         assert(instances_max >= 1);
         if (instances_max == UINT64_MAX) /* Keep infinite instances? */
                 limit = UINT64_MAX;
+        else if (space == UINT64_MAX) /* forcibly delete all instances? */
+                limit = 0;
         else if (space > instances_max)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                        "Asked to delete more instances than total maximum allowed number of instances, refusing.");
@@ -713,7 +760,7 @@ int transfer_vacuum(
         else
                 limit = instances_max - space;
 
-        if (t->target.type == RESOURCE_PARTITION) {
+        if (t->target.type == RESOURCE_PARTITION && space != UINT64_MAX) {
                 uint64_t rm, remain;
 
                 /* If we are looking at a partition table, we also have to take into account how many
@@ -767,7 +814,11 @@ int transfer_vacuum(
 
                 assert(oldest->resource);
 
-                log_info("%s Removing old '%s' (%s).", special_glyph(SPECIAL_GLYPH_RECYCLING), oldest->path, resource_type_to_string(oldest->resource->type));
+                log_info("%s Removing %s '%s' (%s).",
+                         special_glyph(SPECIAL_GLYPH_RECYCLING),
+                         space == UINT64_MAX ? "disabled" : "old",
+                         oldest->path,
+                         resource_type_to_string(oldest->resource->type));
 
                 switch (t->target.type) {
 
