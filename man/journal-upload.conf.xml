@@ -61,6 +61,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Compression algorithm to be applied to logs data before sending.
+        Takes one of <literal>NONE</literal>, <literal>ZSTD</literal>, <literal>XZ</literal>, and <literal>LZ4</literal>.
+        Defaults to <literal>NONE</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specifies the compression level of data to be uploaded.
+        Takes an integer. Each algorithm has it's own range of valid compression levels.
+        This setting will be ignored if <literal>Compression=NONE</literal>.
+        Defaults to unset, and the default compression level of the specified algorithm will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
         <listitem><para>SSL key in PEM format.</para>
