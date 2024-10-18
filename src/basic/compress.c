@@ -167,7 +167,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
                 LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4
         };
         lzma_filter filters[] = {
-                { LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt },
+                { LZMA_FILTER_LZMA2, &opt },
                 { LZMA_VLI_UNKNOWN, NULL }
         };
         lzma_ret ret;
