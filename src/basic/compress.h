@@ -28,11 +28,11 @@ Compression compression_from_string(const char *compression);
 bool compression_supported(Compression c);
 
 int compress_blob_xz(const void *src, uint64_t src_size,
-                     void *dst, size_t dst_alloc_size, size_t *dst_size);
+                     void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 int compress_blob_lz4(const void *src, uint64_t src_size,
-                      void *dst, size_t dst_alloc_size, size_t *dst_size);
+                      void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 int compress_blob_zstd(const void *src, uint64_t src_size,
-                       void *dst, size_t dst_alloc_size, size_t *dst_size);
+                       void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 
 int decompress_blob_xz(const void *src, uint64_t src_size,
                        void **dst, size_t* dst_size, size_t dst_max);
@@ -90,15 +90,15 @@ int dlopen_lzma(void);
 static inline int compress_blob(
                 Compression compression,
                 const void *src, uint64_t src_size,
-                void *dst, size_t dst_alloc_size, size_t *dst_size) {
+                void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
 
         switch (compression) {
         case COMPRESSION_ZSTD:
-                return compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size);
+                return compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size, level);
         case COMPRESSION_LZ4:
-                return compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
+                return compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size, level);
         case COMPRESSION_XZ:
-                return compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
+                return compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size, level);
         default:
                 return -EOPNOTSUPP;
         }
