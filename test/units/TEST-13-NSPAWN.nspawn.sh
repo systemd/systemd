@@ -1005,7 +1005,7 @@ testcase_check_os_release() {
 
     # Might be needed to find libraries
     if [ -f "$base/etc/ld.so.cache" ]; then
-        common_opts+=("--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.cache")
+        common_opts+=(--bind-ro "--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.ca:"--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.cache")
     fi
 
     # Empty /etc/ & /usr/
@@ -1212,6 +1212,36 @@ testcase_unpriv_fuse() {
               -- \
               systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" \
                   bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
+}
+
+testcase_nested_nspawn() {
+    local root dirs_to_bind
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nested_nspawn.XXX)"
+    create_dummy_container "$root"
+    mkdir "$root/inner"
+    create_dummy_container "$root/inner"
+
+    # Ideally we should install systemd-nspawn and its .so dependencies
+    # into $root, but that is complicated. For now let's bind-mount
+    # /bin and /lib of the VM into the container.
+    dirs_to_bind=()
+    if [ -e /bin ]; then dirs_to_bind+=(--bind-ro /bin:/bin); fi
+    if [ -e /lib ]; then dirs_to_bind+=(--bind-ro /lib:/lib); fi
+    if [ -e /lib64 ]; then dirs_to_bind+=(--bind-ro /lib64:/lib64); fi
+    if [ -e /usr/bin ]; then dirs_to_bind+=(--bind-ro /usr/bin:/usr/bin); fi
+    if [ -e /usr/lib ]; then dirs_to_bind+=(--bind-ro /usr/lib:/usr/lib); fi
+    if [ -e /usr/lib64 ]; then dirs_to_bind+=(--bind-ro /usr/lib64:/usr/lib64); fi
+
+    systemd-nspawn \
+        --directory "$root" --ephemeral --pipe \
+        "${dirs_to_bind[@]}" -- \
+        systemd-nspawn \
+        --directory inner --ephemeral --pipe \
+        --register false --keep-unit --link-journal no -- \
+        echo OK
+
+    rm -fr "$root"
 }
 
 run_testcases
