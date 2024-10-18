@@ -611,7 +611,7 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   32-bit offsets. Enabled by default.
 
 * `$SYSTEMD_JOURNAL_COMPRESS` – Takes a boolean, or one of the compression
-  algorithms "XZ", "LZ4", and "ZSTD". If enabled, the default compression
+  algorithms "xz", "lz4", and "zstd". If enabled, the default compression
   algorithm set at compile time will be used when opening a new journal file.
   If disabled, the journal file compression will be disabled. Note that the
   compression mode of existing journal files are not changed. To make the

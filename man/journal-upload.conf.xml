@@ -61,6 +61,70 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BatchMaxBytes=</varname></term>
+
+        <listitem><para>Max payload size of journal entries batch in a single HTTP request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BatchMaxEntries=</varname></term>
+
+        <listitem><para>Max number of journal entries in a batch in a single HTTP request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BatchTimeoutSec=</varname></term>
+
+        <listitem><para>Max time in seconds to wait since previous request before sending data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Compression algorithm to be applied to logs data before sending.
+        Supported values are <literal>zstd</literal>, <literal>xz</literal>, <literal>lz4</literal>, <literal>none</literal>.
+        Defaults to <literal>none</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CompressionLevel=</varname></term>
+
+        <listitem><para>Specifies the compression level of data to be uploaded.
+        Each algorithm has it's own range of allowed integer values:  xz - [1 - 9], zstd - [1 - 22], lz4 - [1 - 9].
+        Defaults to -1, and the default compression level for each compression algorithm will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>HTTP header which should be added to each request to URL. Headers are expected to
+        be unquoted and it's expected to be no more than one header per each option.</para>
+
+        <para>Header name can contains alphanumeric values, "_" and "-" symbols additionally.</para>
+
+        <para>This option may be specified more than once, in which case all listed headers will be set. If
+        the same header name is listed twice, the later setting will override the earlier setting.
+        </para>
+
+        <para>Example:
+        <programlisting>Header=HeaderName: HeaderValue</programlisting>
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
         <listitem><para>SSL key in PEM format.</para>
