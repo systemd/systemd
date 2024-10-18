@@ -171,6 +171,10 @@ All tools:
   boot an OS tree without an os-release file (useful when trying to boot a
   container with empty `/etc/` and bind-mounted `/usr/`)
 
+* `$SYSTEMD_NSPAWN_CHECK_USR=0` — if set, do not fail when trying to run a
+  container with an OS tree without an `/usr` directory (useful when you are
+  going to bind-mount `/usr` later or are testing embedded images)
+
 * `$SYSTEMD_SUPPRESS_SYNC=1` — if set, all disk synchronization syscalls are
   blocked to the container payload (e.g. `sync()`, `fsync()`, `syncfs()`, …)
   and the `O_SYNC`/`O_DSYNC` flags are made unavailable to `open()` and

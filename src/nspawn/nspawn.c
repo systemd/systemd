@@ -6144,6 +6144,7 @@ static int run(int argc, char *argv[]) {
                         }
                 } else {
                         _cleanup_free_ char *p = NULL;
+                        int check_usr, is_usr_present;
 
                         if (arg_pivot_root_new)
                                 p = path_join(arg_directory, arg_pivot_root_new, "/usr/");
@@ -6154,7 +6155,16 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (access_nofollow(p, F_OK) < 0) {
+                        check_usr = getenv_bool("SYSTEMD_NSPAWN_CHECK_USR");
+                        if (check_usr < 0 && check_usr != -ENXIO) {
+                                r = log_error_errno(check_usr, "Failed to parse $SYSTEMD_NSPAWN_CHECK_USR: %m");
+                                goto finish;
+                        }
+
+                        is_usr_present = access_nofollow(p, F_OK) >= 0;
+                        if (is_usr_present == 0 && check_usr == 0)
+                                log_debug("Directory %s is missing a /usr directory, continuing anyway.", p);
+                        else if (is_usr_present == 0) {
                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                     "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
                                 goto finish;
