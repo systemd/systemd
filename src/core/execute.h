@@ -670,6 +670,35 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define log_exec_warning_errno(ec, ep, error, ...) log_exec_full_errno(ec, ep, LOG_WARNING, error, __VA_ARGS__)
 #define log_exec_error_errno(ec, ep, error, ...)   log_exec_full_errno(ec, ep, LOG_ERR, error, __VA_ARGS__)
 
+/* Macros for logging once to specified log leve, then debug afterwards. */
+#define log_once_exec_full(ec, ep, level, ...)                                    \
+        ({                                                                        \
+                if (ONCE)                                                         \
+                        log_exec_full(ec, ep, level, __VA_ARGS__);                \
+                else if (LOG_PRI(level) != LOG_DEBUG)                             \
+                        log_exec_debug(ec, ep, __VA_ARGS__);                      \
+        })
+
+#define log_once_exec_full_errno(ec, ep, level, error, ...)                       \
+        ({                                                                        \
+                if (ONCE)                                                         \
+                        log_exec_full_errno(ec, ep, level, error, __VA_ARGS__);   \
+                else if (LOG_PRI(level) != LOG_DEBUG)                             \
+                        log_exec_debug_errno(ec, ep, error, __VA_ARGS__);         \
+        })
+
+#define log_once_exec_debug(ec, ep, ...) log_once_exec_full(ec, ep, LOG_DEBUG, __VA_ARGS__)
+#define log_once_exec_info(ec, ep, ...) log_once_exec_full(ec, ep, LOG_INFO, __VA_ARGS__)
+#define log_once_exec_notice(ec, ep, ...) log_once_exec_full(ec, ep, LOG_NOTICE, __VA_ARGS__)
+#define log_once_exec_warning(ec, ep, ...) log_once_exec_full(ec, ep, LOG_WARNING, __VA_ARGS__)
+#define log_once_exec_error(ec, ep, ...) log_once_exec_full(ec, ep, LOG_ERR, __VA_ARGS__)
+
+#define log_once_exec_debug_errno(ec, ep, error, ...) log_once_exec_full_errno(ec, ep, LOG_DEBUG, error, __VA_ARGS__)
+#define log_once_exec_info_errno(ec, ep, error, ...) log_once_exec_full_errno(ec, ep, LOG_INFO, error, __VA_ARGS__)
+#define log_once_exec_notice_errno(ec, ep, error, ...) log_once_exec_full_errno(ec, ep, LOG_NOTICE, error, __VA_ARGS__)
+#define log_once_exec_warning_errno(ec, ep, error, ...) log_once_exec_full_errno(ec, ep, LOG_WARNING, error, __VA_ARGS__)
+#define log_once_exec_error_errno(ec, ep, error, ...) log_once_exec_full_errno(ec, ep, LOG_ERR, error, __VA_ARGS__)
+
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
 #define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
