@@ -157,9 +157,9 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
 
     # Copy os-release away, so that we can manipulate it and check that it is updated in the propagate
     # directory across soft reboots. Try to cover corner cases by truncating it.
-    mkdir -p /tmp/nextroot-lower/usr/lib
-    grep ID /etc/os-release >/tmp/nextroot-lower/usr/lib/os-release
-    echo MARKER=1 >>/tmp/nextroot-lower/usr/lib/os-release
+    mkdir -p /tmp/nextroot-lower/etc
+    grep ID /etc/os-release >/tmp/nextroot-lower/etc/os-release
+    echo MARKER=1 >>/tmp/nextroot-lower/etc/os-release
     cmp /etc/os-release /run/systemd/propagate/.os-release-stage/os-release
     (! grep -q MARKER=1 /etc/os-release)
 
