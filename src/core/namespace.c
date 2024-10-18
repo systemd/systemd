@@ -65,6 +65,7 @@ typedef enum MountMode {
         MOUNT_PRIVATE_SYSFS,
         MOUNT_BIND_SYSFS,
         MOUNT_PROCFS,
+        MOUNT_PRIVATE_CGROUP2FS,
         MOUNT_READ_ONLY,
         MOUNT_READ_WRITE,
         MOUNT_NOEXEC,
@@ -204,6 +205,16 @@ static const MountEntry protect_control_groups_yes_table[] = {
         { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
 };
 
+/* ProtectControlGroups=private table. */
+static const MountEntry protect_control_groups_private_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false, .nosuid = true, .noexec = true, .options_const = "nsdelegate", .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV  },
+};
+
+/* ProtectControlGroups=strict table */
+static const MountEntry protect_control_groups_strict_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true,  .nosuid = true, .noexec = true, .options_const = "nsdelegate", .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV  },
+};
+
 /* ProtectSystem=yes table */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
@@ -252,6 +263,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_EMPTY_DIR]             = "empty-dir",
         [MOUNT_PRIVATE_SYSFS]         = "private-sysfs",
         [MOUNT_BIND_SYSFS]            = "bind-sysfs",
+        [MOUNT_PRIVATE_CGROUP2FS]     = "private-cgroup2fs",
         [MOUNT_PROCFS]                = "procfs",
         [MOUNT_READ_ONLY]             = "read-only",
         [MOUNT_READ_WRITE]            = "read-write",
@@ -742,6 +754,12 @@ static int append_protect_control_groups(MountList *ml, ProtectControlGroups pro
 
         case PROTECT_CONTROL_GROUPS_YES:
                 return append_static_mounts(ml, protect_control_groups_yes_table, ELEMENTSOF(protect_control_groups_yes_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_PRIVATE:
+                return append_static_mounts(ml, protect_control_groups_private_table, ELEMENTSOF(protect_control_groups_private_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_STRICT:
+                return append_static_mounts(ml, protect_control_groups_strict_table, ELEMENTSOF(protect_control_groups_strict_table), ignore_protect);
 
         default:
                 assert_not_reached();
@@ -1339,6 +1357,36 @@ static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p
         return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
 }
 
+static bool check_recursiveprot_supported(void) {
+        int r;
+
+        r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
+        else if (r == 0)
+                log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
+
+        return r > 0;
+}
+
+static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
+        _cleanup_free_ char *opts = NULL;
+
+        assert(m);
+        assert(p);
+
+        if (check_recursiveprot_supported()) {
+                opts = strdup(strempty(mount_entry_options(m)));
+                if (!opts)
+                        return -ENOMEM;
+
+                if (!strextend_with_separator(&opts, ",", "memory_recursiveprot"))
+                        return -ENOMEM;
+        }
+
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", opts ?: mount_entry_options(m), p->runtime_scope);
+}
+
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
 
@@ -1783,6 +1831,9 @@ static int apply_one_mount(
 
         case MOUNT_PROCFS:
                 return mount_procfs(m, p);
+
+        case MOUNT_PRIVATE_CGROUP2FS:
+                return mount_private_cgroup2fs(m, p);
 
         case MOUNT_RUN:
                 return mount_run(m);
@@ -3212,6 +3263,8 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_S
 static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
         [PROTECT_CONTROL_GROUPS_NO]      = "no",
         [PROTECT_CONTROL_GROUPS_YES]     = "yes",
+        [PROTECT_CONTROL_GROUPS_PRIVATE] = "private",
+        [PROTECT_CONTROL_GROUPS_STRICT]  = "strict",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
