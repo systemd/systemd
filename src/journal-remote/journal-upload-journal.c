@@ -251,18 +251,32 @@ static void check_update_watchdog(Uploader *u) {
 
 static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
         Uploader *u = ASSERT_PTR(userp);
+        _cleanup_free_ char *compression_buffer = NULL;
         int r;
         sd_journal *j;
         size_t filled = 0;
+        size_t read_size = 0;
         ssize_t w;
 
         assert(nmemb <= SSIZE_MAX / size);
+
+        read_size = size * nmemb;
+        if (read_size > u->bytes_left)
+                read_size = u->bytes_left;
 
         check_update_watchdog(u);
 
         j = u->journal;
 
-        while (j && filled < size * nmemb) {
+        if (u->compression != COMPRESSION_NONE) {
+                compression_buffer = malloc(read_size);
+                if (!compression_buffer) {
+                        log_oom();
+                        return CURL_READFUNC_ABORT;
+                }
+        }
+
+        while (j && filled < read_size && u->uploading) {
                 if (u->entry_state == ENTRY_DONE) {
                         r = sd_journal_next(j);
                         if (r < 0) {
@@ -284,7 +298,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         u->entry_state = ENTRY_CURSOR;
                 }
 
-                w = write_entry((char*)buf + filled, size * nmemb - filled, u);
+                w = write_entry((compression_buffer ?: (char*) buf) + filled, read_size - filled, u);
                 if (w < 0)
                         return CURL_READFUNC_ABORT;
                 filled += w;
@@ -298,6 +312,21 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
 
                 log_debug("Entry %zu (%s) has been uploaded.",
                           u->entries_sent, u->current_cursor);
+
+                u->entries_left--;
+                if (u->entries_left <= 1)
+                        u->uploading = false;
+        }
+
+        if (filled > 0 && u->compression != COMPRESSION_NONE) {
+                size_t compressed_size = 0;
+                r = compress_blob(u->compression, compression_buffer, filled, buf, read_size, &compressed_size, u->compression_level);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to compress %zu bytes using Compression=%s, CompressionLevel=%d)",
+                                        filled, compression_to_string(u->compression), u->compression_level);
+                        return CURL_READFUNC_ABORT;
+                }
+                return compressed_size;
         }
 
         return filled;
