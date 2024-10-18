@@ -33,6 +33,8 @@ option('link-journalctl-shared', type: 'boolean',
        description : 'link journalctl against libsystemd-shared.so')
 option('link-boot-shared', type: 'boolean',
        description : 'link bootctl and systemd-bless-boot against libsystemd-shared.so')
+option('link-busctl-shared', type: 'boolean',
+       description : 'link busctl against libsystemd-shared.so')
 option('link-portabled-shared', type: 'boolean',
        description : 'link systemd-portabled and its helpers to libsystemd-shared.so')
 option('first-boot-full-preset', type: 'boolean', value: false,
