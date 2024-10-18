@@ -231,8 +231,8 @@ node /org/freedesktop/sysupdate1/target/host {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>changelog_urls</literal></term>
-          <listitem><para>A list of strings that contain user-presentable URLs to ChangeLogs associated with
+          <term><literal>changelogUrls</literal></term>
+          <listitem><para>A list of strings that contain user-presentable URLs to change logs associated with
           this version.</para></listitem>
         </varlistentry>
       </variablelist>
