@@ -1657,13 +1657,13 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
                                       name, strna(verity ? verity->data_path : NULL));
 
         case -ERFKILL:
-                return log_full_errno(log_level, r, "%s: image does not match image policy.", name);
+                return log_full_errno(log_level, r, "%s: Image does not match image policy.", name);
 
         case -ENOMSG:
-                return log_full_errno(log_level, r, "%s: no suitable partitions found.", name);
+                return log_full_errno(log_level, r, "%s: No suitable partitions found.", name);
 
         default:
-                return log_full_errno(log_level, r, "%s: cannot dissect image: %m", name);
+                return log_full_errno(log_level, r, "%s: Cannot dissect image: %m", name);
         }
 }
 
