@@ -16,6 +16,8 @@ systemd_resolved_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-cache.c',
+        'resolved-dns-delegate.c',
+        'resolved-dns-delegate-bus.c',
         'resolved-dns-query.c',
         'resolved-dns-scope.c',
         'resolved-dns-search-domain.c',
@@ -98,6 +100,12 @@ systemd_resolved_sources += custom_target(
         'resolved_dnssd_gperf.c',
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+systemd_resolved_sources += custom_target(
+        'resolved_dns_delegate_gperf.c',
+        input : 'resolved-dns-delegate-gperf.gperf',
+        output : 'resolved-dns-delegate-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 systemd_resolved_dependencies = [threads, libm] + [lib_openssl_or_gcrypt]
