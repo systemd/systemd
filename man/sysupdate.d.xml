@@ -23,21 +23,23 @@
 
   <refsynopsisdiv>
     <para><simplelist>
-      <member><filename>/etc/sysupdate.d/*.conf</filename></member>
-      <member><filename>/run/sysupdate.d/*.conf</filename></member>
-      <member><filename>/usr/local/lib/sysupdate.d/*.conf</filename></member>
-      <member><filename>/usr/lib/sysupdate.d/*.conf</filename></member>
+      <member><filename>/etc/sysupdate.d/*.transfer</filename></member>
+      <member><filename>/run/sysupdate.d/*.transfer</filename></member>
+      <member><filename>/usr/local/lib/sysupdate.d/*.transfer</filename></member>
+      <member><filename>/usr/lib/sysupdate.d/*.transfer</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sysupdate.d/*.conf</filename> files describe how specific resources on the local system
-    shall be updated from a remote source. Each such file defines one such transfer: typically a remote
-    HTTP/HTTPS resource as source; and a local file, directory or partition as target. This may be used as a
-    simple, automatic, atomic update mechanism for the OS itself, for containers, portable services or system
-    extension images — but in fact may be used to update any kind of file from a remote source.</para>
+    <para>These files describe how specific resources on the local system shall be updated from a remote
+    source.
+    Each such file defines one such transfer: typically a remote HTTP/HTTPS resource as source; and a local
+    file, directory or partition as target.
+    This may be used as a simple, automatic, atomic update mechanism for the OS itself, for containers,
+    portable services or system extension images — but in fact may be used to update any kind of file from a
+    remote source.</para>
 
     <para>The
     <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -48,14 +50,22 @@
     versions, in order to implement flexible update schemes, e.g. A/B updating (or a superset thereof,
     e.g. A/B/C, A/B/C/D, …).</para>
 
-    <para>Each <filename>*.conf</filename> file defines one transfer, i.e. describes one resource to
-    update. Typically, multiple of these files (i.e. multiple of such transfers) are defined together, and
+    <para>Each <filename>*.transfer</filename> file defines one transfer, i.e. describes one resource to
+    update.
+    Typically, multiple of these files (i.e. multiple of such transfers) are defined together, and
     are bound together by a common version identifier in order to update multiple resources at once on each
     update operation, for example to update a kernel, a root file system and a Verity partition in a single,
     combined, synchronized operation, so that only a combined update of all three together constitutes a
-    complete update.</para>
+    complete update.
+    We'll call such a collection of transfers a target.
+    <command>systemd-sysupdate</command> always operates on a single target.</para>
 
-    <para>Each <filename>*.conf</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
+    <para>Transfers may be grouped together into sets that can be individually enabled or disabled by the
+    system administrator, called "Optional Features":
+    <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Each <filename>*.transfer</filename> file contains three sections: [Transfer], [Source] and [Target].</para>
   </refsect1>
 
   <refsect1>
@@ -106,8 +116,8 @@
     <para>An update can only complete if the relevant URLs provide their resources for the same version,
     i.e. for the same value of <literal>@v</literal>.</para>
 
-    <para>The above may be translated into three <filename>*.conf</filename> files in
-    <filename>sysupdate.d/</filename>, one for each resource to transfer. The <filename>*.conf</filename>
+    <para>The above may be translated into three <filename>*.transfer</filename> files in
+    <filename>sysupdate.d/</filename>, one for each resource to transfer. The <filename>*.transfer</filename>
     files configure the type of download, and what place to write the download to (i.e. whether to a
     partition or a file in the file system). Most importantly these files contain the URL, partition name and
     filename patterns shown above that describe how these resources are called on the source and how they
@@ -130,11 +140,11 @@
       lists file names and their SHA256 hashes.</para></listitem>
     </itemizedlist>
 
-    <para>Transfers are done in the alphabetical order of the <filename>.conf</filename> file names they are
+    <para>Transfers are done in the alphabetical order of the <filename>.transfer</filename> file names they are
     defined in. First, the resource data is downloaded directly into a target file/directory/partition. Once
     this is completed for all defined transfers, in a second step the files/directories/partitions are
     renamed to their final names as defined by the target <varname>MatchPattern=</varname>, again in the
-    order the <filename>.conf</filename> transfer file names dictate. This step is not atomic, however it is
+    order the <filename>.transfer</filename> transfer file names dictate. This step is not atomic, however it is
     guaranteed to be executed strictly in order with suitable disk synchronization in place. Typically, when
     updating an OS one of the transfers defines the entry point when booting. Thus it is generally a good idea
     to order the resources via the transfer configuration file names so that the entry point is written
@@ -519,6 +529,39 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Features=</varname></term>
+
+        <listitem><para>A space-separated list of
+        <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        that this transfer belongs to, by name.
+        This option may be specified more than once, in which case the specified list of features is merged.
+        If the empty string is assigned to this option, the list is reset and all prior assignments will have
+        no effect.
+        For example: <literal>Features=foo bar</literal> specifies that the transfer belongs to
+        <literal>foo.feature</literal> and <literal>bar.feature</literal>.</para>
+
+        <para>If the list of features is empty, then this transfer is always used.
+        If this transfer belongs to more than one feature, then it will be used if <emphasis>any</emphasis>
+        one of the listed features is enabled.
+        A name that does not correspond to a defined feature will resolve to an implicit feature that is
+        always disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RequisiteFeatures=</varname></term>
+
+        <listitem><para>This is like <varname>Features=</varname>, except that <emphasis>all</emphasis>
+        features listed here must be enabled for this transfer to be enabled.
+        If both options are specified, then they both apply: the transfer will be enabled only if all
+        features specified here are enabled, and at least one feature listed in <varname>Features=</varname>
+        is enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -869,7 +912,7 @@
       partition, and a unified kernel image to update as one. This example is an extension of the example
       discussed earlier in this man page.</para>
 
-      <para><programlisting># /usr/lib/sysupdate.d/50-verity.conf
+      <para><programlisting># /usr/lib/sysupdate.d/50-verity.transfer
 [Transfer]
 ProtectVersion=%A
 
@@ -899,7 +942,7 @@ ReadOnly=1</programlisting></para>
       <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       suggests).</para>
 
-      <para><programlisting># /usr/lib/sysupdate.d/60-root.conf
+      <para><programlisting># /usr/lib/sysupdate.d/60-root.transfer
 [Transfer]
 ProtectVersion=%A
 
@@ -918,7 +961,7 @@ ReadOnly=1</programlisting></para>
 
       <para>The above defines a matching transfer definition for the root file system.</para>
 
-      <para><programlisting># /usr/lib/sysupdate.d/70-kernel.conf
+      <para><programlisting># /usr/lib/sysupdate.d/70-kernel.transfer
 [Transfer]
 ProtectVersion=%A
 
