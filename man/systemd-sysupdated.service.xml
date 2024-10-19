@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-sysupdated.service" conditional='ENABLE_SYSUPDATE'>
+<refentry id="systemd-sysupdated.service" conditional='ENABLE_SYSUPDATE ENABLE_SYSUPDATED'>
 
   <refentryinfo>
     <title>systemd-sysupdated.service</title>

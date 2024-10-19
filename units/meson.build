@@ -630,24 +630,24 @@ units = [
         },
         {
           'file' : 'systemd-sysupdate-reboot.service.in',
-          'conditions' : ['ENABLE_SYSUPDATE'],
+          'conditions' : ['ENABLE_SYSUPDATE', 'ENABLE_SYSUPDATE_UNITS'],
         },
         {
           'file' : 'systemd-sysupdate-reboot.timer',
-          'conditions' : ['ENABLE_SYSUPDATE'],
+          'conditions' : ['ENABLE_SYSUPDATE', 'ENABLE_SYSUPDATE_UNITS'],
         },
         {
           'file' : 'systemd-sysupdate.service.in',
-          'conditions' : ['ENABLE_SYSUPDATE'],
+          'conditions' : ['ENABLE_SYSUPDATE', 'ENABLE_SYSUPDATE_UNITS'],
         },
         {
           'file' : 'systemd-sysupdated.service.in',
-          'conditions' : ['ENABLE_SYSUPDATE'],
+          'conditions' : ['ENABLE_SYSUPDATE', 'ENABLE_SYSUPDATED'],
           'symlinks' : ['dbus-org.freedesktop.sysupdate1.service'],
         },
         {
           'file' : 'systemd-sysupdate.timer',
-          'conditions' : ['ENABLE_SYSUPDATE'],
+          'conditions' : ['ENABLE_SYSUPDATE', 'ENABLE_SYSUPDATE_UNITS'],
         },
         {
           'file' : 'systemd-sysusers.service',

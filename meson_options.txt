@@ -545,3 +545,7 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+
+option('sysupdate-mode', type: 'combo', value : 'default',
+       choices : ['default', 'units', 'sysupdated', 'both'],
+       description : 'whether to install systemd-sysupdated, plain unit files, or both (for packagers creating sub-packages)')
