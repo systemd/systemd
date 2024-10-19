@@ -221,7 +221,7 @@ static const MountEntry protect_system_full_table[] = {
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
-        { "/",                   MOUNT_READ_ONLY,          false },
+        { "/",                   MOUNT_READ_ONLY,           false },
         { "/proc",               MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
         { "/sys",                MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
         { "/dev",                MOUNT_READ_WRITE_IMPLICIT, false },      /* PrivateDevices= */
@@ -280,7 +280,7 @@ static const struct {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
-static const char *mount_entry_path(const MountEntry *p) {
+static const char* mount_entry_path(const MountEntry *p) {
         assert(p);
 
         /* Returns the path of this bind mount. If the malloc()-allocated ->path_buffer field is set we return that,
@@ -289,7 +289,7 @@ static const char *mount_entry_path(const MountEntry *p) {
         return p->path_malloc ?: p->path_const;
 }
 
-static const char *mount_entry_unprefixed_path(const MountEntry *p) {
+static const char* mount_entry_unprefixed_path(const MountEntry *p) {
         assert(p);
 
         /* Returns the unprefixed path (ie: before prefix_where_needed() ran), if any */
@@ -330,13 +330,13 @@ static bool mount_entry_exec(const MountEntry *p) {
         return p->exec || p->mode == MOUNT_EXEC;
 }
 
-static const char *mount_entry_source(const MountEntry *p) {
+static const char* mount_entry_source(const MountEntry *p) {
         assert(p);
 
         return p->source_malloc ?: p->source_const;
 }
 
-static const char *mount_entry_options(const MountEntry *p) {
+static const char* mount_entry_options(const MountEntry *p) {
         assert(p);
 
         return p->options_malloc ?: p->options_const;
@@ -363,7 +363,7 @@ static void mount_list_done(MountList *ml) {
         ml->n_mounts = 0;
 }
 
-static MountEntry *mount_list_extend(MountList *ml) {
+static MountEntry* mount_list_extend(MountList *ml) {
         assert(ml);
 
         if (!GREEDY_REALLOC0(ml->mounts, ml->n_mounts+1))
