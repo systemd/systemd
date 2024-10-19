@@ -1611,10 +1611,14 @@ conf.set10('ENABLE_SYSUPDATE', have)
 if have
         sysupdate_mode = get_option('sysupdate-mode')
         if sysupdate_mode == 'default'
-                sysupdate_mode = 'sysupdated'
-                # TODO: Should the default be both? Packagers will need to split
-                #       out sub-packages by default then. Maybe default should
-                #       cause a build failure instead, so you _have_ to pick one?
+                if conf.get('BUILD_MODE_DEVELOPER') == 1
+                        sysupdate_mode = 'sysupdated'
+                        # TODO: Should the default be both? Packagers will need to split
+                        #       out sub-packages by default then. Maybe default should
+                        #       cause a build failure instead, so you _have_ to pick one?
+                else
+                       sysupdate_mode = 'units'
+                endif
         endif
 
         conf.set10('ENABLE_SYSUPDATED', sysupdate_mode == 'sysupdated' or sysupdate_mode == 'both')
