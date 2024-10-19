@@ -693,11 +693,16 @@ static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t 
                 if (!me)
                         return log_oom_debug();
 
-                *me = (MountEntry) {
-                        .path_const = mount_entry_path(m),
-                        .mode = m->mode,
-                        .ignore = m->ignore || ignore_protect,
-                };
+                /* No dynamic values allowed. */
+                assert(m->path_const);
+                assert(!m->path_malloc);
+                assert(!m->unprefixed_path_malloc);
+                assert(!m->source_malloc);
+                assert(!m->options_malloc);
+                assert(!m->overlay_layers);
+
+                *me = *m;
+                me->ignore = me->ignore || ignore_protect;
         }
 
         return 0;
