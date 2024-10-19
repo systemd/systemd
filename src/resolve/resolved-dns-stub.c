@@ -462,10 +462,6 @@ static int dns_stub_finish_reply_packet(
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
-        /* Don't set the CD bit unless DO is on, too */
-        if (!edns0_do)
-                cd = false;
-
         /* Note that we allow the AD bit to be set even if client didn't signal DO, as per RFC 6840, section
          * 5.7 */
 
@@ -631,7 +627,7 @@ static int dns_stub_send_reply(
                         !!q->request_packet->opt,
                         edns0_do,
                         (DNS_PACKET_AD(q->request_packet) || DNS_PACKET_DO(q->request_packet)) && dns_query_fully_authenticated(q),
-                        DNS_PACKET_CD(q->request_packet),
+                        FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                         q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(q->request_packet) > 0 && !q->stub_listener_extra);
         if (r < 0)
@@ -997,6 +993,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   protocol_flags|
                                   SD_RESOLVED_NO_SEARCH|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
         if (r < 0) {
