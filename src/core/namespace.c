@@ -59,7 +59,6 @@ typedef enum MountMode {
         MOUNT_BIND,
         MOUNT_BIND_RECURSIVE,
         MOUNT_PRIVATE_TMP,
-        MOUNT_PRIVATE_TMP_READ_ONLY,
         MOUNT_PRIVATE_DEV,
         MOUNT_BIND_DEV,
         MOUNT_EMPTY_DIR,
@@ -243,7 +242,6 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_BIND]                  = "bind",
         [MOUNT_BIND_RECURSIVE]        = "bind-recursive",
         [MOUNT_PRIVATE_TMP]           = "private-tmp",
-        [MOUNT_PRIVATE_TMP_READ_ONLY] = "private-tmp-read-only",
         [MOUNT_PRIVATE_DEV]           = "private-dev",
         [MOUNT_BIND_DEV]              = "bind-dev",
         [MOUNT_EMPTY_DIR]             = "empty-dir",
@@ -315,7 +313,7 @@ static void mount_entry_consume_prefix(MountEntry *p, char *new_path) {
 static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
-        return p->read_only || IN_SET(p->mode, MOUNT_READ_ONLY, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_TMP_READ_ONLY);
+        return p->read_only || IN_SET(p->mode, MOUNT_READ_ONLY, MOUNT_INACCESSIBLE);
 }
 
 static bool mount_entry_noexec(const MountEntry *p) {
@@ -714,11 +712,16 @@ static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t 
                 if (!me)
                         return log_oom_debug();
 
-                *me = (MountEntry) {
-                        .path_const = mount_entry_path(m),
-                        .mode = m->mode,
-                        .ignore = m->ignore || ignore_protect,
-                };
+                /* No dynamic values allowed. */
+                assert(m->path_const);
+                assert(!m->path_malloc);
+                assert(!m->unprefixed_path_malloc);
+                assert(!m->source_malloc);
+                assert(!m->options_malloc);
+                assert(!m->overlay_layers);
+
+                *me = *m;
+                me->ignore = me->ignore || ignore_protect;
         }
 
         return 0;
@@ -1741,7 +1744,6 @@ static int apply_one_mount(
                 return mount_tmpfs(m);
 
         case MOUNT_PRIVATE_TMP:
-        case MOUNT_PRIVATE_TMP_READ_ONLY:
                 what = mount_entry_source(m);
                 make = true;
                 break;
@@ -2397,29 +2399,27 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
 
                 if (p->tmp_dir) {
-                        bool ro = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY);
-
                         MountEntry *me = mount_list_extend(&ml);
                         if (!me)
                                 return log_oom_debug();
 
                         *me = (MountEntry) {
                                 .path_const = "/tmp",
-                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .mode = MOUNT_PRIVATE_TMP,
+                                .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
                                 .source_const = p->tmp_dir,
                         };
                 }
 
                 if (p->var_tmp_dir) {
-                        bool ro = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY);
-
                         MountEntry *me = mount_list_extend(&ml);
                         if (!me)
                                 return log_oom_debug();
 
                         *me = (MountEntry) {
                                 .path_const = "/var/tmp",
-                                .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
+                                .mode = MOUNT_PRIVATE_TMP,
+                                .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
                                 .source_const = p->var_tmp_dir,
                         };
                 }
