@@ -1608,6 +1608,21 @@ have = get_option('sysupdate').require(
         conf.get('HAVE_LIBFDISK') == 1,
         error_message : 'fdisk and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
+if have
+        sysupdate_mode = get_option('sysupdate-mode')
+        if sysupdate_mode == 'default'
+                sysupdate_mode = 'sysupdated'
+                # TODO: Should the default be both? Packagers will need to split
+                #       out sub-packages by default then. Maybe default should
+                #       cause a build failure instead, so you _have_ to pick one?
+        endif
+
+        conf.set10('ENABLE_SYSUPDATED', sysupdate_mode == 'sysupdated' or sysupdate_mode == 'both')
+        conf.set10('ENABLE_SYSUPDATE_UNITS', sysupdate_mode == 'units' or sysupdate_mode == 'both')
+else
+        conf.set10('ENABLE_SYSUPDATED', false)
+        conf.set10('ENABLE_SYSUPDATE_UNITS', false)
+endif
 
 conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
