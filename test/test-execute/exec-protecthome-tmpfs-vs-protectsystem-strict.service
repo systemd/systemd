@@ -8,3 +8,11 @@ ProtectHome=tmpfs
 ProtectSystem=strict
 Type=oneshot
 ExecStart=sh -x -c 'test "$$(stat -fc %%T /home)" = "tmpfs"'
+ExecStart=sh -x -c '! touch /home/hoge'
+ExecStart=sh -x -c '! touch /run/user/hoge'
+ExecStart=sh -x -c '! touch /root/hoge'
+
+# Even if /home is read-only, the submount should be writable.
+TemporaryFileSystem=/home/foo
+ExecStart=sh -x -c 'test "$$(stat -fc %%T /home/foo)" = "tmpfs"'
+ExecStart=sh -x -c 'touch /home/foo/hoge'
