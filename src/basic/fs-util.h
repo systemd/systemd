@@ -112,8 +112,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
 int access_fd(int fd, int mode);
 
-void unlink_tempfilep(char (*p)[]);
-
 typedef enum UnlinkDeallocateFlags {
         UNLINK_REMOVEDIR = 1 << 0,
         UNLINK_ERASE     = 1 << 1,
