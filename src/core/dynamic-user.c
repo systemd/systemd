@@ -410,7 +410,7 @@ static int dynamic_user_realize(
                  * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
                  * take the lock, given that users can't be added there anyway in this case. */
                 r = etc_passwd_lock_fd = take_etc_passwd_lock(NULL);
-                if (r < 0 && r != -EROFS)
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(etc_passwd_lock_fd) && r != -EROFS)
                         return r;
 
                 /* First, let's parse this as numeric UID */
