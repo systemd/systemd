@@ -16,7 +16,7 @@ EOF
 # Reset the start-limit counters, as we're going to restart journald a couple of times
 systemctl reset-failed systemd-journald.service
 
-for c in NONE XZ LZ4 ZSTD; do
+for c in none xz lz4 zstd; do
     cat >/run/systemd/system/systemd-journald.service.d/compress.conf <<EOF
 [Service]
 Environment=SYSTEMD_JOURNAL_COMPRESS=${c}
@@ -32,7 +32,7 @@ EOF
 
     # $SYSTEMD_JOURNAL_COMPRESS= also works for journal-remote
     if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
-        for cc in NONE XZ LZ4 ZSTD; do
+        for cc in none xz lz4 zstd; do
             rm -f /tmp/foo.journal
             SYSTEMD_JOURNAL_COMPRESS="${cc}" /usr/lib/systemd/systemd-journal-remote --split-mode=none -o /tmp/foo.journal --getter="journalctl -b -o export -t $ID"
             SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /tmp/foo.journal 2>&1 | grep -q -F "compress=${cc}"
