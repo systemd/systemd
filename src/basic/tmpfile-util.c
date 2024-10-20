@@ -118,6 +118,17 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
         return 0;
 }
 
+void unlink_tempfilep(char (*p)[]) {
+        assert(p);
+
+        /* If the file is created with mkstemp(), it will (almost always) change the suffix.
+         * Treat this as a sign that the file was successfully created. We ignore both the rare case
+         * where the original suffix is used and unlink failures. */
+
+        if (!endswith(*p, ".XXXXXX"))
+                (void) unlink(*p);
+}
+
 static int tempfn_build(const char *p, const char *pre, const char *post, bool child, char **ret) {
         _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL, *result = NULL;
         size_t len_pre, len_post, len_add;
