@@ -5163,7 +5163,7 @@ static int run_container(
                  * really ours. */
 
                 etc_passwd_lock = take_etc_passwd_lock(NULL);
-                if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS)
+                if (etc_passwd_lock < 0 && !ERRNO_IS_NOT_SUPPORTED(etc_passwd_lock) && etc_passwd_lock != -EROFS)
                         return log_error_errno(etc_passwd_lock, "Failed to take /etc/passwd lock: %m");
         }
 

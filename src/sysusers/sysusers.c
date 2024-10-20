@@ -2310,7 +2310,7 @@ static int run(int argc, char *argv[]) {
 
         if (!arg_dry_run) {
                 lock = take_etc_passwd_lock(arg_root);
-                if (lock < 0)
+                if (lock < 0 && !ERRNO_IS_NOT_SUPPORTED(lock))
                         return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
         }
 
