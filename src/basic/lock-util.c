@@ -149,6 +149,11 @@ static int fcntl_lock(int fd, int operation, bool ofd) {
         if ((operation & LOCK_NB) && r == -EACCES)
                 r = -EAGAIN;
 
+        /* fcntl() returns EINVAL if the operation is not known to the kernel so let's treat that as a not
+         * supported error. */
+        if (r == -EINVAL)
+                r = -EOPNOTSUPP;
+
         return r;
 }
 
