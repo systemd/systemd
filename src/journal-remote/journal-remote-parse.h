@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "compress.h"
 #include "journal-importer.h"
 #include "journal-remote-write.h"
 
@@ -13,6 +14,7 @@ typedef struct RemoteSource {
 
         sd_event_source *event;
         sd_event_source *buffer_event;
+        Compression compression;
 } RemoteSource;
 
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
