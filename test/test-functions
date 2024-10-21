@@ -2255,8 +2255,6 @@ install_zoneinfo() {
     inst_any /usr/share/zoneinfo/Europe/Kyiv
     inst_any /usr/share/zoneinfo/Pacific/Auckland
     inst_any /usr/share/zoneinfo/Pacific/Honolulu
-    inst_any /usr/share/zoneinfo/CET
-    inst_any /usr/share/zoneinfo/EET
     inst_any /usr/share/zoneinfo/UTC
 }
 
