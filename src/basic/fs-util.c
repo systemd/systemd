@@ -371,9 +371,21 @@ int fd_warn_permissions(const char *path, int fd) {
         return stat_warn_permissions(path, &st);
 }
 
+int touch_fd(int fd, usec_t stamp) {
+        assert(fd >= 0);
+
+        if (stamp == USEC_INFINITY)
+                return futimens_opath(fd, /* ts= */ NULL);
+
+        struct timespec ts[2];
+        timespec_store(ts + 0, stamp);
+        ts[1] = ts[0];
+        return futimens_opath(fd, ts);
+}
+
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
-        int r, ret;
+        int ret;
 
         assert(path);
 
@@ -405,15 +417,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
          * something fchown(), fchmod(), futimensat() don't allow. */
         ret = fchmod_and_chown(fd, mode, uid, gid);
 
-        if (stamp != USEC_INFINITY) {
-                struct timespec ts;
-                timespec_store(&ts, stamp);
-
-                r = futimens_opath(fd, (const struct timespec[2]) { ts, ts });
-        } else
-                r = futimens_opath(fd, /* ts = */ NULL);
-
-        return RET_GATHER(ret, r);
+        return RET_GATHER(ret, touch_fd(fd, stamp));
 }
 
 int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative) {
