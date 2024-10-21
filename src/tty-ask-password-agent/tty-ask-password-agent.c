@@ -21,6 +21,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -95,32 +96,29 @@ static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
 
         struct stat st;
         if (lstat(path, &st) < 0) {
-                log_debug_errno(errno, "Failed to stat %s: %m", path);
+                log_debug_errno(errno, "Failed to stat TTY '%s', not restricting wall: %m", path);
                 return true;
         }
 
         if (!S_ISCHR(st.st_mode)) {
-                log_debug("%s is not a character device.", path);
+                log_debug("TTY '%s' is not a character device, not restricting wall.", path);
                 return true;
         }
 
-        /* We use named pipes to ensure that wall messages suggesting
-         * password entry are not printed over password prompts
-         * already shown. We use the fact here that opening a pipe in
-         * non-blocking mode for write-only will succeed only if
-         * there's some writer behind it. Using pipes has the
-         * advantage that the block will automatically go away if the
-         * process dies. */
+        /* We use named pipes to ensure that wall messages suggesting password entry are not printed over
+         * password prompts already shown. We use the fact here that opening a pipe in non-blocking mode for
+         * write-only will succeed only if there's some writer behind it. Using pipes has the advantage that
+         * the block will automatically go away if the process dies. */
 
         _cleanup_free_ char *p = NULL;
-        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0) {
+        if (asprintf(&p, "/run/systemd/ask-password-block/" DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(st.st_rdev)) < 0) {
                 log_oom_debug();
                 return true;
         }
 
         _cleanup_close_ int fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open the wall pipe: %m");
+                log_debug_errno(errno, "Failed to open the wall pipe for TTY '%s', not restricting wall: %m", path);
                 return 1;
         }
 
