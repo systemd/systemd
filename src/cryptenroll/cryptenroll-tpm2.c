@@ -78,8 +78,6 @@ static int search_policy_hash(
                                         j++;
                                 }
 
-                                assert(j == n_policy_hash);
-
                                 if (match) /* Found entry with the exact same set of hashes */
                                         return keyslot;
                         }
