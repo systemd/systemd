@@ -496,6 +496,8 @@ testcase_08_resolved() {
     grep -qF "15 mail.unsigned.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX unsigned.test
     grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
+    run dig @ns1.unsigned.test +noall +comments unsigned.test CNAME
+    grep -qF "status: NOERROR" "$RUN_OUT"
 
     : "--- ZONE: signed.test (static DNSSEC) ---"
     # Check the trust chain (with and without systemd-resolved in between
