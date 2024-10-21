@@ -78,6 +78,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("If non-null value of the read-only flag of the image"),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Remove,
+                VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS);
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchImage);
 static SD_VARLINK_DEFINE_ERROR(TooManyOperations);
 
@@ -92,6 +96,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Update,
                 SD_VARLINK_SYMBOL_COMMENT("Clone image"),
                 &vl_method_Clone,
+                SD_VARLINK_SYMBOL_COMMENT("Remove image"),
+                &vl_method_Remove,
                 SD_VARLINK_SYMBOL_COMMENT("No matching image exists"),
                 &vl_error_NoSuchImage,
                 SD_VARLINK_SYMBOL_COMMENT("Too many ongoing background operations"),
