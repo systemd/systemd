@@ -1186,7 +1186,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 if (FLAGS_SET(xopen_flags, XO_LABEL)) {
                         r = label_ops_post(dir_fd, path);
                         if (r < 0)
-                                return r;
+                                goto error;
                 }
 
                 open_flags &= ~(O_EXCL|O_CREAT);
@@ -1206,10 +1206,8 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                            -ENOTDIR))
                         return fd;
 
-                if (made_dir)
-                        (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
-
-                return fd;
+                r = fd;
+                goto error;
         }
 
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
