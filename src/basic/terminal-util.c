@@ -944,21 +944,33 @@ int fd_columns(int fd) {
         return ws.ws_col;
 }
 
+int getenv_columns(void) {
+        int r;
+
+        const char *e = getenv("COLUMNS");
+        if (!e)
+                return -ENXIO;
+
+        unsigned c;
+        r = safe_atou(e, &c);
+        if (r < 0)
+                return r;
+
+        if (c <= 0 || c > USHRT_MAX)
+                return -ERANGE;
+
+        return (int) c;
+}
+
 unsigned columns(void) {
-        const char *e;
-        int c;
 
         if (cached_columns > 0)
                 return cached_columns;
 
-        c = 0;
-        e = getenv("COLUMNS");
-        if (e)
-                (void) safe_atoi(e, &c);
-
-        if (c <= 0 || c > USHRT_MAX) {
+        int c = getenv_columns();
+        if (c < 0) {
                 c = fd_columns(STDOUT_FILENO);
-                if (c <= 0)
+                if (c < 0)
                         c = 80;
         }
 
