@@ -57,7 +57,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
                         manager->bus,
                         "org.freedesktop.machine1.manage-images",
                         (const char**) STRV_MAKE("image", image->name,
-                                                 "verb", "update_image"),
+                                                 "verb", "update"),
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
