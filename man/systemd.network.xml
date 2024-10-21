@@ -6252,13 +6252,19 @@ DHCP=ipv6
 #SubnetId=0
 #Announce=no
 
-# If the upstream network does not provides any Router Advertisement (RA) messages
-# or provides an RA with both Managed and Other-information bits unset, then
-# uncomment the lines below.
+# If the upstream network does not provides any Router Advertisement (RA) messages,
+# then uncomment the lines below to make the DHCPv6 client forcibly started in the
+# manageed mode.
 #[Network]
 #IPv6AcceptRA=no
 #[DHCPv6]
-#WithoutRA=solicit</programlisting>
+#WithoutRA=solicit
+
+# If the upstream network provides Router Advertisement (RA) messages with the
+# Managed bit unset, then uncomment the lines below to make the DHCPv6 client
+# forcibly started in the managed mode when an RA is received.
+#[IPv6AcceptRA]
+#DHCPv6Client=always</programlisting>
 
       <programlisting># /etc/systemd/network/55-dhcpv6-pd-downstream.network
 [Match]
