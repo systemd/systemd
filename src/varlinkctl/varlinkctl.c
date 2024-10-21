@@ -346,6 +346,21 @@ static int verb_info(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static size_t break_columns(void) {
+        int r;
+
+        /* Rebreak the interface data to the TTY width */
+        if (on_tty())
+                return columns();
+
+        /* if not connected to a tty, still allow the caller to control the columns via the usual env var */
+        r = getenv_columns();
+        if (r < 0)
+                return SIZE_MAX;
+
+        return r;
+}
+
 typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
@@ -448,7 +463,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                                 }
                         } else {
                                 pager_open(arg_pager_flags);
-                                r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, on_tty() ? columns() : SIZE_MAX);
+                                r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, break_columns());
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to format parsed interface description: %m");
                         }
@@ -705,7 +720,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, on_tty() ? columns() : SIZE_MAX);
+        r = sd_varlink_idl_dump(stdout, vi, SD_VARLINK_IDL_FORMAT_COLOR_AUTO, break_columns());
         if (r < 0)
                 return log_error_errno(r, "Failed to format parsed interface description: %m");
 

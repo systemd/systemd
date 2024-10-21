@@ -95,6 +95,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text);
 int lock_dev_console(void);
 int make_console_stdio(void);
 
+int getenv_columns(void);
 int fd_columns(int fd);
 unsigned columns(void);
 int fd_lines(int fd);
