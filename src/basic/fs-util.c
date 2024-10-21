@@ -1164,10 +1164,14 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
+        bool call_label_ops_post = false;
+
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
                 r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG);
                 if (r < 0)
                         return r;
+
+                call_label_ops_post = true;
         }
 
         if (FLAGS_SET(open_flags, O_DIRECTORY|O_CREAT)) {
@@ -1183,14 +1187,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 else
                         made_dir = true;
 
-                if (FLAGS_SET(xopen_flags, XO_LABEL)) {
-                        r = label_ops_post(dir_fd, path, made_dir);
-                        if (r < 0)
-                                goto error;
-                }
-
                 open_flags &= ~(O_EXCL|O_CREAT);
-                xopen_flags &= ~XO_LABEL;
         }
 
         fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
@@ -1199,8 +1196,10 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 goto error;
         }
 
-        if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_post(dir_fd, path, made_file || made_dir);
+        if (call_label_ops_post) {
+                call_label_ops_post = false;
+
+                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir);
                 if (r < 0)
                         goto error;
         }
@@ -1214,6 +1213,9 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         return TAKE_FD(fd);
 
 error:
+        if (call_label_ops_post)
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file);
+
         if (made_dir || made_file)
                 (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
 
