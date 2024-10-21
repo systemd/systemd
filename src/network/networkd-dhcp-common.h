@@ -5,6 +5,7 @@
 
 #include "conf-parser.h"
 #include "dhcp-duid-internal.h"
+#include "dns-resolver-internal.h"
 #include "in-addr-util.h"
 #include "set.h"
 #include "time-util.h"
