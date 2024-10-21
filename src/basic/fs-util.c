@@ -1195,17 +1195,6 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
         fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
         if (fd < 0) {
-                if (IN_SET(fd,
-                           /* We got ENOENT? then someone else immediately removed it after we
-                           * created it. In that case let's return immediately without unlinking
-                           * anything, because there simply isn't anything to unlink anymore. */
-                           -ENOENT,
-                           /* is a symlink? exists already → created by someone else, don't unlink */
-                           -ELOOP,
-                           /* not a directory? exists already → created by someone else, don't unlink */
-                           -ENOTDIR))
-                        return fd;
-
                 r = fd;
                 goto error;
         }
