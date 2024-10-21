@@ -174,7 +174,6 @@ systemd-analyze timestamp -- -1
 systemd-analyze timestamp yesterday now tomorrow
 systemd-analyze timestamp 'Fri 2012-11-23 23:02:15'
 systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 UTC'
-systemd-analyze timestamp 'Fri 2012-11-23 23:02:15 CET'
 for i in $(timedatectl list-timezones); do
     [[ -e "/usr/share/zoneinfo/$i" ]] || continue
     systemd-analyze timestamp "Fri 2012-11-23 23:02:15 $i"
