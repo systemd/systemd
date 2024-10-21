@@ -3071,16 +3071,6 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
 
         name = dns_resource_key_name(dns_transaction_key(t));
 
-        if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_DS, DNS_TYPE_CNAME, DNS_TYPE_DNAME)) {
-                /* We got a negative reply for this DS/CNAME/DNAME lookup? Check the parent in this case to
-                 * see if this answer should have been signed. */
-                r = dns_name_parent(&name);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return true;
-        }
-
         /* For all other RRs we check the DS on the same level to see
          * if it's signed. */
 
