@@ -64,7 +64,7 @@ static int mac_selinux_label_pre(int dir_fd, const char *path, mode_t mode) {
         return mac_selinux_create_file_prepare_at(dir_fd, path, mode);
 }
 
-static int mac_selinux_label_post(int dir_fd, const char *path) {
+static int mac_selinux_label_post(int dir_fd, const char *path, bool created) {
         mac_selinux_create_file_clear();
         return 0;
 }

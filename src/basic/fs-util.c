@@ -1184,7 +1184,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                         made_dir = true;
 
                 if (FLAGS_SET(xopen_flags, XO_LABEL)) {
-                        r = label_ops_post(dir_fd, path);
+                        r = label_ops_post(dir_fd, path, made_dir);
                         if (r < 0)
                                 goto error;
                 }
@@ -1211,7 +1211,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         }
 
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_post(dir_fd, path);
+                r = label_ops_post(dir_fd, path, made_file || made_dir);
                 if (r < 0)
                         goto error;
         }
