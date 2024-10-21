@@ -178,3 +178,81 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         errno_pipe_fd[0] = -EBADF;
         return 1;
 }
+
+int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        const char *image_name;
+        Image *image;
+        pid_t child;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (manager->n_operations >= OPERATIONS_MAX)
+                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &image_name);
+        if (r != 0)
+                return r;
+
+        if (!image_name_is_valid(image_name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        r = manager_acquire_image(manager, image_name, &image);
+        if (r == -ENOENT)
+                return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-images",
+                        (const char**) STRV_MAKE("image", image->name,
+                                                 "verb", "remove"),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to open pipe: %m");
+
+        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork: %m");
+        if (r == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                r = image_remove(image);
+                if (r < 0) {
+                        ssize_t n = write(errno_pipe_fd[1], &r, sizeof(r));
+                        if (n < 0)
+                                log_debug_errno(errno, "Failed to write operation's errno: %m");
+                        if (n != sizeof(r))
+                                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Sent unexpectedly short message");
+
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, child, link, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0) {
+                sigkill_wait(child);
+                return r;
+        }
+
+        errno_pipe_fd[0] = -EBADF;
+        return 1;
+}
