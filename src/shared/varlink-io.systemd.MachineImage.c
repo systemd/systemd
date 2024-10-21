@@ -60,15 +60,13 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
 static SD_VARLINK_DEFINE_METHOD(
                 Update,
-                SD_VARLINK_FIELD_COMMENT("The name of a image to update."),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS,
                 SD_VARLINK_FIELD_COMMENT("If non-null the new name of the image"),
                 SD_VARLINK_DEFINE_INPUT(newName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null value of the read-only flag of the image"),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null value of image quota limit"),
-                SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
+                SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Clone,
