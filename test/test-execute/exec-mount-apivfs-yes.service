@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for mount attributes for MountAPIVFS=yes
+
+[Service]
+Type=oneshot
+PrivateMounts=true
+MountAPIVFS=yes
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /proc --noheadings -o FSTYPE)" == proc ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /dev --noheadings -o FSTYPE)" == devtmpfs ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /sys --noheadings -o FSTYPE)" == sysfs ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /run --noheadings -o FSTYPE)" == tmpfs ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ rw ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ nosuid ]]'
+ExecStart=bash -x -c '[[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ nodev ]]'
