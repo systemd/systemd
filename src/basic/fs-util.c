@@ -1193,7 +1193,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 xopen_flags &= ~XO_LABEL;
         }
 
-        fd = RET_NERRNO(openat_report_new(dir_fd, path, open_flags, mode, &made_file));
+        fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
