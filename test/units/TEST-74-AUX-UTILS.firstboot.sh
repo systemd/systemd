@@ -132,7 +132,7 @@ systemd-firstboot --root="$ROOT" \
                   --locale=locale-overwrite \
                   --locale-messages=messages-overwrite \
                   --keymap=keymap-overwrite \
-                  --timezone=CET \
+                  --timezone=Europe/Berlin \
                   --hostname=hostname-overwrite \
                   --machine-id=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
                   --root-password-hashed="$ROOT_HASHED_PASSWORD2" \
@@ -153,7 +153,7 @@ systemd-firstboot --root="$ROOT" --force \
                   --locale=locale-overwrite \
                   --locale-messages=messages-overwrite \
                   --keymap=keymap-overwrite \
-                  --timezone=CET \
+                  --timezone=Europe/Berlin \
                   --hostname=hostname-overwrite \
                   --machine-id=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
                   --root-password-hashed="$ROOT_HASHED_PASSWORD2" \
@@ -162,7 +162,7 @@ systemd-firstboot --root="$ROOT" --force \
 grep -q "LANG=locale-overwrite" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=messages-overwrite" "$ROOT$LOCALE_PATH"
 grep -q "KEYMAP=keymap-overwrite" "$ROOT/etc/vconsole.conf"
-readlink "$ROOT/etc/localtime" | grep -q "/CET$"
+readlink "$ROOT/etc/localtime" | grep -q "/Europe/Berlin$"
 grep -q "hostname-overwrite" "$ROOT/etc/hostname"
 grep -q "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "$ROOT/etc/machine-id"
 grep -q "^root:x:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
