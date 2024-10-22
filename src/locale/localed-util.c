@@ -11,7 +11,6 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "kbd-util.h"
