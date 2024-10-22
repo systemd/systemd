@@ -104,6 +104,8 @@ int machine_openpt(Machine *m, int flags, char **ret_slave);
 int machine_open_terminal(Machine *m, const char *path, int mode);
 int machine_start_getty(Machine *m, const char *pty_name, sd_bus_error *error);
 int machine_start_shell(Machine *m, int slave, const char *pty_name, const char *user, const char *path, char **args, char **env, sd_bus_error *error);
+#define machine_default_shell_path() ("/bin/sh")
+char** machine_default_shell_args(const char *user);
 
 int machine_get_uid_shift(Machine *m, uid_t *ret);
 
