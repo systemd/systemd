@@ -114,6 +114,7 @@ typedef struct Network {
         /* DHCP Client Support */
         AddressFamily dhcp;
         struct in_addr dhcp_request_address;
+        bool dhcp_use_bootp;
         DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         uint32_t dhcp_iaid;

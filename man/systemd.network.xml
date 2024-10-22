@@ -2603,6 +2603,16 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>BOOTP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, the DHCPv4 client will be configured to communicate with BOOTP
+          servers, rather than with DHCP servers. Defaults to off.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
