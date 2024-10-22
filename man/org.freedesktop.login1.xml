@@ -1245,6 +1245,10 @@ node /org/freedesktop/login1/session/1 {
       readonly b IdleHint = ...;
       readonly t IdleSinceHint = ...;
       readonly t IdleSinceHintMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanIdle = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanLock = ...;
       readonly b LockedHint = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };
@@ -1348,6 +1352,10 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHint"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHintMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CanIdle"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CanLock"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LockedHint"/>
 
@@ -1538,6 +1546,10 @@ node /org/freedesktop/login1/session/1 {
 
       <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by the
       <function>SetLockedHint()</function> method described above.</para>
+
+      <para><varname>CanIdle</varname> indicates whether the session supports the idle hint
+      concept. Similarly, <varname>CanLock</varname> indicates whether the session supports the screen lock
+      concept.</para>
     </refsect2>
   </refsect1>
 
@@ -1619,10 +1631,9 @@ node /org/freedesktop/login1/session/1 {
       <function>CanSleep()</function>,
       <varname>SleepOperation</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
-      <para><varname>HandleSecureAttentionKey</varname>,
-      <function>SecureAttentionKey()</function>,
-      <varname>PreparingForShutdownWithMetadata</varname>, and
-      <varname>DesignatedMaintenanceTime</varname> were added in version 257.</para>
+      <para><varname>HandleSecureAttentionKey</varname>, <function>SecureAttentionKey()</function>,
+      <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
+      <varname>CanIdle</varname> and <varname>CanLock</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
