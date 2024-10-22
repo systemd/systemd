@@ -24,7 +24,6 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -395,7 +394,7 @@ static int context_write_data_local_rtc(Context *c) {
         if (r < 0)
                 return r;
 
-        return write_string_file_atomic_label("/etc/adjtime", w);
+        return write_string_file("/etc/adjtime", w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {

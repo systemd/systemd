@@ -6,20 +6,6 @@
 #include "fileio.h"
 #include "selinux-util.h"
 
-int write_string_file_full_label(int atfd, const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
-        int r;
-
-        r = mac_selinux_create_file_prepare_at(atfd, fn, S_IFREG);
-        if (r < 0)
-                return r;
-
-        r = write_string_file_full(atfd, fn, line, flags, ts);
-
-        mac_selinux_create_file_clear();
-
-        return r;
-}
-
 int create_shutdown_run_nologin_or_warn(void) {
         int r;
 
@@ -33,9 +19,10 @@ int create_shutdown_run_nologin_or_warn(void) {
          * 13 years later we stopped managing /etc/nologin, leaving it for the administrator to manage.
          */
 
-        r = write_string_file_atomic_label("/run/nologin",
-                                           "System is going down. Unprivileged users are not permitted to log in anymore. "
-                                           "For technical details, see pam_nologin(8).");
+        r = write_string_file("/run/nologin",
+                              "System is going down. Unprivileged users are not permitted to log in anymore. "
+                              "For technical details, see pam_nologin(8).",
+                              WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/nologin: %m");
 
