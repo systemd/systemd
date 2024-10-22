@@ -5299,7 +5299,7 @@ static int service_live_mount(Unit *u,
 
 fail:
         s->live_mount_result = SERVICE_FAILURE_RESOURCES;
-        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        service_enter_running(s, SERVICE_SUCCESS);
         return r;
 }
 
