@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "build.h"
+#include "compress.h"
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
@@ -152,7 +153,7 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata);
 
-static int request_meta(void **connection_cls, int fd, char *hostname) {
+static int request_meta(void **connection_cls, int fd, char *hostname, Compression compression) {
         RemoteSource *source;
         Writer *writer;
         int r;
@@ -174,6 +175,7 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
+        source->compression = compression;
         *connection_cls = source;
         return 0;
 }
@@ -210,10 +212,18 @@ static int process_http_upload(
                   __func__, connection, *upload_data_size);
 
         if (*upload_data_size) {
+                size_t buf_size;
+                _cleanup_free_ char* buf = NULL;
                 log_trace("Received %zu bytes", *upload_data_size);
 
+                if (source->compression != COMPRESSION_NONE) {
+                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, 0);
+                        if (r < 0)
+                                return mhd_respond_oom(connection);
+                }
+
                 r = journal_importer_push_data(&source->importer,
-                                               upload_data, *upload_data_size);
+                                               buf ?: upload_data, buf ? buf_size : *upload_data_size);
                 if (r < 0)
                         return mhd_respond_oom(connection);
 
@@ -269,6 +279,7 @@ static mhd_result request_handler(
         const char *header;
         int r, code, fd;
         _cleanup_free_ char *hostname = NULL;
+        Compression compression = COMPRESSION_NONE;
         bool chunked = false;
 
         assert(connection);
@@ -293,6 +304,15 @@ static mhd_result request_handler(
         if (!header || !streq(header, "application/vnd.fdo.journal"))
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
+
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+        if (header) {
+                Compression c = compression_lowercase_from_string(header);
+                if (c < 0)
+                        return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
+                                            "Unsupported Content-Encoding type: %s", header);
+                compression = c;
+        }
 
         header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
         if (header) {
@@ -352,7 +372,7 @@ static mhd_result request_handler(
 
         assert(hostname);
 
-        r = request_meta(connection_cls, fd, hostname);
+        r = request_meta(connection_cls, fd, hostname, compression);
         if (r == -ENOMEM)
                 return respond_oom(connection);
         else if (r < 0)
