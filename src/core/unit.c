@@ -29,7 +29,6 @@
 #include "exec-credential.h"
 #include "execute.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "id128-util.h"
@@ -4620,7 +4619,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
                         return r;
         }
 
-        r = write_string_file_atomic_label(q, wrapped);
+        r = write_string_file(q, wrapped, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return r;
 
