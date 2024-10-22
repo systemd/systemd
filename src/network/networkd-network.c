@@ -405,6 +405,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_broadcast = -1,
                 .dhcp_ipv6_only_mode = -1,
                 .dhcp_6rd_prefix_route_type = RTN_UNREACHABLE,
+                .dhcp_send_bootp = false,
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
