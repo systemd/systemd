@@ -1019,6 +1019,7 @@ static int remove_loader_variables(void) {
                        EFI_LOADER_VARIABLE(LoaderConfigTimeout),
                        EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot),
                        EFI_LOADER_VARIABLE(LoaderEntryDefault),
+                       EFI_LOADER_VARIABLE(LoaderEntryFallback),
                        EFI_LOADER_VARIABLE(LoaderEntryLastBooted),
                        EFI_LOADER_VARIABLE(LoaderEntryOneShot),
                        EFI_LOADER_VARIABLE(LoaderSystemToken)) {
