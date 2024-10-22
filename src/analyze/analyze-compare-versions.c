@@ -20,9 +20,10 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
          * functions try to handle invalid strings gracefully and it's still interesting to see what the
          * comparison result will be. */
         for (size_t i = 0; i < sizeof(v) / sizeof(v[0]); i++) {
-                log_warning("Version string %zu contains disallowed characters, they will be treated as separators: %s",
-                            i + 1,
-                            v[i]);
+                if (!version_is_valid_versionspec(v[i]))
+                        log_warning("Version string %zu contains disallowed characters, they will be treated as separators: %s",
+                                    i + 1,
+                                    v[i]);
         }
 
         if (argc == 3) {
