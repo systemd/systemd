@@ -238,6 +238,7 @@ class UkifyConfig:
     all: bool
     cmdline: Union[str, Path, None]
     devicetree: Path
+    devicetree_auto: list[Path]
     efi_arch: str
     initrd: list[Path]
     join_profiles: list[Path]
@@ -365,6 +366,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.ucode':   'binary',
     '.splash':  'binary',
     '.dtb':     'binary',
+    '.dtbauto': 'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -447,7 +449,7 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        if any(section.name == s.name for s in self.sections[start:]):
+        if any(section.name == s.name for s in self.sections[start:] if s.name != '.dtbauto'):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -704,7 +706,16 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
     # PCR measurement
 
     # First, pick up either the base sections or the profile specific sections we shall measure now
-    to_measure = {s.name: s for s in uki.sections[profile_start:] if s.measure}
+    unique_to_measure = {
+        s.name: s for s in uki.sections[profile_start:] if s.measure and s.name != '.dtbauto'
+    }
+
+    dtbauto_to_measure: list[Optional[Section]] = [
+        s for s in uki.sections[profile_start:] if s.measure and s.name == '.dtbauto'
+    ]
+
+    if len(dtbauto_to_measure) == 0:
+        dtbauto_to_measure = [None]
 
     # Then, if we're measuring a profile, lookup the missing sections from the base image.
     if profile_start != 0:
@@ -718,61 +729,72 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 continue
 
             # Check if this is a section we already covered above
-            if section.name in to_measure:
+            if section.name in unique_to_measure:
                 continue
 
-            to_measure[section.name] = section
+            unique_to_measure[section.name] = section
 
     if opts.measure:
-        pp_groups = opts.phase_path_groups or []
+        to_measure = unique_to_measure.copy()
 
-        cmd = [
-            measure_tool,
-            'calculate',
-            *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
-            *(f'--bank={bank}' for bank in banks),
-            # For measurement, the keys are not relevant, so we can lump all the phase paths
-            # into one call to systemd-measure calculate.
-            *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
-        ]
+        for dtbauto in dtbauto_to_measure:
+            if dtbauto is not None:
+                to_measure[dtbauto.name] = dtbauto
 
-        print('+', shell_join(cmd))
-        subprocess.check_call(cmd)
+            pp_groups = opts.phase_path_groups or []
+
+            cmd = [
+                measure_tool,
+                'calculate',
+                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--bank={bank}' for bank in banks),
+                # For measurement, the keys are not relevant, so we can lump all the phase paths
+                # into one call to systemd-measure calculate.
+                *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
+            ]
+
+            print('+', shell_join(cmd))
+            subprocess.check_call(cmd)
 
     # PCR signing
 
     if opts.pcr_private_keys:
         pcrsigs = []
+        to_measure = unique_to_measure.copy()
 
-        cmd = [
-            measure_tool,
-            'sign',
-            *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
-            *(f'--bank={bank}' for bank in banks),
-        ]
+        for dtbauto in dtbauto_to_measure:
+            if dtbauto is not None:
+                to_measure[dtbauto.name] = dtbauto
 
-        for priv_key, pub_key, group in key_path_groups(opts):
-            extra = [f'--private-key={priv_key}']
-            if opts.signing_engine is not None:
-                assert pub_key
-                extra += [f'--private-key-source=engine:{opts.signing_engine}']
-                extra += [f'--certificate={pub_key}']
-            elif opts.signing_provider is not None:
-                assert pub_key
-                extra += [f'--private-key-source=provider:{opts.signing_provider}']
-                extra += [f'--certificate={pub_key}']
-            elif pub_key:
-                extra += [f'--public-key={pub_key}']
+            cmd = [
+                measure_tool,
+                'sign',
+                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--bank={bank}' for bank in banks),
+            ]
 
-            if opts.certificate_provider is not None:
-                extra += [f'--certificate-source=provider:{opts.certificate_provider}']
+            for priv_key, pub_key, group in key_path_groups(opts):
+                extra = [f'--private-key={priv_key}']
+                if opts.signing_engine is not None:
+                    assert pub_key
+                    extra += [f'--private-key-source=engine:{opts.signing_engine}']
+                    extra += [f'--certificate={pub_key}']
+                elif opts.signing_provider is not None:
+                    assert pub_key
+                    extra += [f'--private-key-source=provider:{opts.signing_provider}']
+                    extra += [f'--certificate={pub_key}']
+                elif pub_key:
+                    extra += [f'--public-key={pub_key}']
 
-            extra += [f'--phase={phase_path}' for phase_path in group or ()]
+                if opts.certificate_provider is not None:
+                    extra += [f'--certificate-source=provider:{opts.certificate_provider}']
 
-            print('+', shell_join(cmd + extra))  # type: ignore
-            pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
-            pcrsig = json.loads(pcrsig)
-            pcrsigs += [pcrsig]
+                extra += [f'--phase={phase_path}' for phase_path in group or ()]
+
+                print('+', shell_join(cmd + extra))  # type: ignore
+                pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
+                pcrsig = json.loads(pcrsig)
+                pcrsigs += [pcrsig]
 
         combined = combine_signatures(pcrsigs)
         uki.add_section(Section.create('.pcrsig', combined))
@@ -903,7 +925,7 @@ def pe_add_sections(uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name:
+            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -1046,6 +1068,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.osrel',   opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
+        *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
@@ -1489,10 +1512,10 @@ class ConfigItem:
         else:
             conv = lambda s: s  # noqa: E731
 
-        # This is a bit ugly, but --initrd is the only option which is specified
+        # This is a bit ugly, but --initrd and --devicetree-auto are the only options
         # with multiple args on the command line and a space-separated list in the
         # config file.
-        if self.name == '--initrd':
+        if self.name in ['--initrd', '--devicetree-auto']:
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1604,6 +1627,16 @@ CONFIG_ITEMS = [
         type=Path,
         help='Device Tree file [.dtb section]',
         config_key='UKI/DeviceTree',
+    ),
+    ConfigItem(
+        '--devicetree-auto',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        help='DeviceTree file for automatic selection [.dtbauto section]',
+        default=[],
+        config_key='UKI/DeviceTreeAuto',
+        config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--uname',
