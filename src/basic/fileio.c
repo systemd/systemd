@@ -291,7 +291,7 @@ int write_string_file_full(
                 WriteStringFileFlags flags,
                 const struct timespec *ts) {
 
-        bool call_label_ops_post = false;
+        bool call_label_ops_post = false, made_file = false;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -329,21 +329,23 @@ int write_string_file_full(
         }
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = openat(dir_fd, fn, O_CLOEXEC|O_NOCTTY |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                    mode);
+        fd = openat_report_new(
+                        dir_fd, fn, O_CLOEXEC|O_NOCTTY |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                        mode,
+                        &made_file);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto fail;
         }
 
         if (call_label_ops_post) {
                 call_label_ops_post = false;
 
-                r = label_ops_post(fd, /* path= */ NULL, /* created= */ true);
+                r = label_ops_post(fd, /* path= */ NULL, made_file);
                 if (r < 0)
                         goto fail;
         }
@@ -363,7 +365,10 @@ int write_string_file_full(
 
 fail:
         if (call_label_ops_post)
-                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, /* created= */ true);
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, made_file);
+
+        if (made_file)
+                (void) unlinkat(dir_fd, fn, 0);
 
         if (!(flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE))
                 return r;
