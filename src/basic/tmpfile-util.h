@@ -18,6 +18,8 @@ static inline int fopen_temporary_child(const char *path, FILE **ret_file, char 
 int mkostemp_safe(char *pattern);
 int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
 
+void unlink_tempfilep(char (*p)[]);
+
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
 int tempfn_random(const char *p, const char *extra, char **ret);
 int tempfn_random_child(const char *p, const char *extra, char **ret);

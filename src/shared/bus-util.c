@@ -439,6 +439,7 @@ int bus_connect_transport(
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
+
                         r = sd_bus_default_system(&bus);
                         break;
 
@@ -515,8 +516,10 @@ int bus_connect_transport_systemd(
                          * private manager bus. To keep compat with existing code that was setting
                          * DBUS_SESSION_BUS_ADDRESS without setting XDG_RUNTIME_DIR, connect to the user
                          * session bus if DBUS_SESSION_BUS_ADDRESS is set and XDG_RUNTIME_DIR isn't. */
-                        if (r == -ENOMEDIUM && secure_getenv("DBUS_SESSION_BUS_ADDRESS"))
+                        if (r == -ENOMEDIUM && secure_getenv("DBUS_SESSION_BUS_ADDRESS")) {
+                                log_debug_errno(r, "$XDG_RUNTIME_DIR not set, unable to connect to private bus. Falling back to session bus.");
                                 r = sd_bus_default_user(ret_bus);
+                        }
 
                         return r;
 

@@ -12302,8 +12302,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>, and
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12339,8 +12340,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>, and
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12376,8 +12378,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>, and
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
