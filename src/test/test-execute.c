@@ -757,6 +757,10 @@ static int find_libraries(const char *exec, char ***ret) {
 #endif
 
 static void test_exec_mount_apivfs(Manager *m) {
+        test(m, "exec-mount-apivfs-yes.service",
+             MANAGER_IS_SYSTEM(m) || VIRTUALIZATION_IS_CONTAINER(detect_container()) ? 0 : EXIT_NAMESPACE,
+             CLD_EXITED);
+
 #if !HAS_FEATURE_ADDRESS_SANITIZER
         _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
         _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
