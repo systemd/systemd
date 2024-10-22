@@ -1098,6 +1098,9 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         assert(s);
 
+        if (!SESSION_CLASS_CAN_IDLE(s->class))
+                return false;
+
         /* Graphical sessions have an explicit idle hint */
         if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
                 if (t)
