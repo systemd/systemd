@@ -933,6 +933,36 @@ int machine_start_shell(
         return 0;
 }
 
+char** machine_default_shell_args(const char *user) {
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        assert(user);
+
+        args = new0(char*, 3 + 1);
+        if (!args)
+                return NULL;
+
+        args[0] = strdup("sh");
+        if (!args[0])
+                return NULL;
+
+        args[1] = strdup("-c");
+        if (!args[1])
+                return NULL;
+
+        r = asprintf(&args[2],
+                     "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
+                     "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
+                     user);
+        if (r < 0) {
+                args[2] = NULL;
+                return NULL;
+        }
+
+        return TAKE_PTR(args);
+}
+
 void machine_release_unit(Machine *m) {
         assert(m);
 
