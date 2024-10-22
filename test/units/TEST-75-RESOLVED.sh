@@ -1005,6 +1005,63 @@ testcase_12_resolvectl2() {
     restart_resolved
 }
 
+# Test io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+testcase_13_varlink_subscribe_dns_configuration() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        restart_resolved
+    }
+
+    trap cleanup RETURN
+
+    local unit
+    local tmpfile
+
+    unit="subscribe-dns-configuration-$(systemd-id128 new -u).service"
+    tmpfile=$(mktemp)
+
+    # Clear global and per-interface DNS before monitoring the configuration change.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS="
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+    resolvectl dns dns0 ""
+
+    # Start the call to io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+    systemd-run -u $unit -p "Type=exec" -p "StandardOutput=truncate:$tmpfile" \
+        varlinkctl call -E /run/systemd/resolve/io.systemd.Resolve.Monitor io.systemd.Resolve.Monitor.SubscribeDNSConfiguration '{}'
+
+    # Check that an initial reply was given with the current expected settings.
+    assert_in \
+        '{"global":{"servers":[],"domains":[]}}' \
+        "$(jq -cr --seq  '.configuration.[] | select(.interface == null) | {"global": {servers: .dnsServers, domains: .searchDomains}}' $tmpfile)"
+    assert_in \
+        '{"dns0":{"servers":[],"domains":[]}}' \
+        "$(jq -cr --seq  '.configuration.[] | select(.interface == "dns0") | {"dns0": {servers: .dnsServers, domains: .searchDomains}}' $tmpfile)"
+
+    # Test that changes in global DNS configuration are reflected.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS=8.8.8.8"
+        echo "Domains=lan"
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+    assert_in \
+        '{"global":{"servers":[[8,8,8,8]],"domains":["lan"]}}' \
+        "$(jq -cr --seq  '.configuration.[] | select(.interface == null) | {"global":{servers: [.dnsServers.[] | .address], domains: .searchDomains}}' $tmpfile)"
+
+    # Test that changes to per-interface DNS are reflected.
+    resolvectl dns dns0 8.8.4.4 1.1.1.1
+    assert_in \
+        '{"dns0":{"servers":[[8,8,4,4],[1,1,1,1]],"domains":[""]}}' \
+        "$(jq -cr --seq  '.configuration.[] | select(.interface == "dns0") | {"dns0":{servers: [.dnsServers.[] | .address], domains: .searchDomains}}' $tmpfile)"
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
