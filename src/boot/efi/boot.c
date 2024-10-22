@@ -20,6 +20,7 @@
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
+#include "recovery.h"
 #include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
@@ -98,6 +99,7 @@ typedef struct {
         bool auto_poweroff;
         bool auto_reboot;
         bool reboot_for_bitlocker;
+        bool fallback_firmware_failure;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
         bool use_saved_entry;
@@ -541,6 +543,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                  beep: %ls\n", yes_no(config->beep));
         printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("  fallback-firmware-failure: %ls\n", yes_no(config->fallback_firmware_failure));
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -1278,6 +1281,10 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         if (!parse_boolean(value, &config->reboot_for_bitlocker))
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
+                } else if (streq8(key, "fallback-firmware-failure")) {
+                        if (!parse_boolean(value, &config->fallback_firmware_failure))
+                                log_error("Error parsing 'fallback-firmware-failure' config option, ignoring: %s",
+                                          value);
 
                 } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
@@ -1784,6 +1791,10 @@ static size_t config_find_entry(Config *config, const char16_t *pattern) {
 
 static bool config_is_fallback_required(Config *config) {
         assert(config);
+
+        if (config->fallback_firmware_failure) {
+                return recovery_check_firmware_failure();
+        }
 
         return false;
 }
