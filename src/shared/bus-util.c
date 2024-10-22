@@ -496,6 +496,8 @@ int bus_connect_transport_systemd(
                 RuntimeScope runtime_scope,
                 sd_bus **ret_bus) {
 
+        int r;
+
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(ret_bus);
@@ -508,7 +510,15 @@ int bus_connect_transport_systemd(
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        return bus_connect_user_systemd(ret_bus);
+                        r = bus_connect_user_systemd(ret_bus);
+                        /* We used to always fall back to the user session bus if we couldn't connect to the
+                         * private manager bus. To keep compat with existing code that was setting
+                         * DBUS_SESSION_BUS_ADDRESS without setting XDG_RUNTIME_DIR, connect to the user
+                         * session bus if DBUS_SESSION_BUS_ADDRESS is set and XDG_RUNTIME_DIR isn't. */
+                        if (r == -ENOMEDIUM && secure_getenv("DBUS_SESSION_BUS_ADDRESS"))
+                                r = sd_bus_default_user(ret_bus);
+
+                        return r;
 
                 case RUNTIME_SCOPE_SYSTEM:
                         if (sd_booted() <= 0)
