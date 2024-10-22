@@ -359,25 +359,10 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         if (isempty(path)) {
-                path = "/bin/sh";
-
-                args = new0(char*, 3 + 1);
+                path = machine_default_shell_path();
+                args = machine_default_shell_args(user);
                 if (!args)
                         return -ENOMEM;
-                args[0] = strdup("sh");
-                if (!args[0])
-                        return -ENOMEM;
-                args[1] = strdup("-c");
-                if (!args[1])
-                        return -ENOMEM;
-                r = asprintf(&args[2],
-                             "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
-                             "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
-                             user);
-                if (r < 0) {
-                        args[2] = NULL;
-                        return -ENOMEM;
-                }
         } else {
                 if (!path_is_absolute(path))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
