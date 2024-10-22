@@ -72,32 +72,6 @@ static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
         lease->lifetime_t2 = t2;
 }
 
-static void dhcp6_client_set_information_refresh_time(sd_dhcp6_client *client, sd_dhcp6_lease *lease, usec_t irt) {
-        usec_t t1 = USEC_INFINITY, t2 = USEC_INFINITY, min_valid_lt = USEC_INFINITY;
-
-        if (lease->ia_pd) {
-                t1 = be32_sec_to_usec(lease->ia_pd->header.lifetime_t1, /* max_as_infinity = */ true);
-                t2 = be32_sec_to_usec(lease->ia_pd->header.lifetime_t2, /* max_as_infinity = */ true);
-
-                LIST_FOREACH(addresses, a, lease->ia_pd->addresses)
-                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity = */ true));
-
-                if (t2 == 0 || t2 > min_valid_lt) {
-                        /* If T2 is zero or longer than the minimum valid lifetime of the prefixes,
-                         * then adjust lifetime with it. */
-                        t1 = min_valid_lt / 2;
-                        t2 = min_valid_lt / 10 * 8;
-                }
-
-                /* Adjust the received information refresh time with T1. */
-                irt = MIN(irt, t1);
-        }
-
-        client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
-        log_dhcp6_client(client, "New information request will be refused in %s.",
-                         FORMAT_TIMESPAN(client->information_refresh_time_usec, USEC_PER_SEC));
-}
-
 #define DEFINE_GET_TIME_FUNCTIONS(name, val)                            \
         int sd_dhcp6_lease_get_##name(                                  \
                         sd_dhcp6_lease *lease,                          \
@@ -888,6 +862,11 @@ static int dhcp6_lease_parse_message(
                 case SD_DHCP6_OPTION_IA_PD: {
                         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
 
+                        if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
+                                log_dhcp6_client(client, "Ignoring IA PD option in information requesting mode.");
+                                break;
+                        }
+
                         r = dhcp6_option_parse_ia(client, client->ia_pd.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
                                 return log_oom_debug();
@@ -993,9 +972,12 @@ static int dhcp6_lease_parse_message(
                                               "The client ID in %s message does not match. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
-        if (client->state == DHCP6_STATE_INFORMATION_REQUEST)
-                dhcp6_client_set_information_refresh_time(client, lease, irt);
-        else {
+        if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
+                client->information_refresh_time_usec = MAX(irt, IRT_MINIMUM);
+                log_dhcp6_client(client, "New information request will be refused in %s.",
+                                 FORMAT_TIMESPAN(client->information_refresh_time_usec, USEC_PER_SEC));
+
+        } else {
                 r = dhcp6_lease_get_serverid(lease, NULL, NULL);
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
