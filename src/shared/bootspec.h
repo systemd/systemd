@@ -71,6 +71,7 @@ typedef struct BootConfig {
 
         char *entry_oneshot;
         char *entry_default;
+        char *entry_fallback;
         char *entry_selected;
 
         BootEntry *entries;
