@@ -2881,6 +2881,27 @@ size_t dns_packet_size_unfragmented(DnsPacket *p) {
         return LESS_BY(p->fragsize, udp_header_size(p->family));
 }
 
+static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
+        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
+        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
+        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
+        [DNS_SVC_PARAM_KEY_PORT]            = "port",
+        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
+        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
+        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
+        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
+        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
+};
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
+
+const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
+        const char *p = dns_svc_param_key_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
+}
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS]   = "SUCCESS",
         [DNS_RCODE_FORMERR]   = "FORMERR",
@@ -2953,27 +2974,6 @@ const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
                 return p;
 
         return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
-}
-
-static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
-        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
-        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
-        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
-        [DNS_SVC_PARAM_KEY_PORT]            = "port",
-        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
-        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
-        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
-        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
-        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
-};
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
-
-const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
-        const char *p = dns_svc_param_key_to_string(i);
-        if (p)
-                return p;
-
-        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
