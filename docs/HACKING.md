@@ -44,9 +44,37 @@ or:
 $ mkosi qemu
 ```
 
-By default, the tools from your host system are used to build the image. To have
-`mkosi` use the systemd tools from the `build/` directory, add the following to
-`mkosi.local.conf`:
+By default, the tools from your host system are used to build the image.
+Sometimes we start using mkosi features that rely on functionality in systemd
+tools that's not in an official release yet. In that case, you'll need to build
+systemd from source on the host and configure mkosi to use the tools from the
+systemd build directory.
+
+To do a local build, most distributions provide very simple and convenient ways
+to install most development packages necessary to build systemd:
+
+```sh
+# Fedora
+$ sudo dnf builddep systemd
+# Debian/Ubuntu
+$ sudo apt-get build-dep systemd
+# Arch
+$ sudo pacman -S devtools
+$ pkgctl repo clone --protocol=https systemd
+$ cd systemd
+$ makepkg -seoc
+```
+
+After installing the development packages, systemd can be built from source as follows:
+
+```sh
+$ meson setup build <options>
+$ ninja -C build
+$ meson test -C build
+```
+
+To have `mkosi` use the systemd tools from the `build/` directory, add the
+following to `mkosi.local.conf`:
 
 ```conf
 [Host]
@@ -96,29 +124,6 @@ $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
 ```
 
 And after that, head over to your repo on GitHub and click "Compare & pull request"
-
-If you want to do a local build without mkosi,
-most distributions also provide very simple and convenient ways to install most development packages necessary to build systemd:
-
-```sh
-# Fedora
-$ sudo dnf builddep systemd
-# Debian/Ubuntu
-$ sudo apt-get build-dep systemd
-# Arch
-$ sudo pacman -S devtools
-$ pkgctl repo clone --protocol=https systemd
-$ cd systemd
-$ makepkg -seoc
-```
-
-After installing the development packages, systemd can be built from source as follows:
-
-```sh
-$ meson setup build <options>
-$ ninja -C build
-$ meson test -C build
-```
 
 Happy hacking!
 
