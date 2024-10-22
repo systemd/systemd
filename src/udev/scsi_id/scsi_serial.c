@@ -557,7 +557,6 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
                                   char *unit_serial_number, char *wwn,
                                   char *wwn_vendor_extension, char *tgpt_group) {
         int retval;
-        unsigned id_ind, j;
         unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
         /* also pick up the page 80 serial number */
@@ -611,16 +610,14 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
          * Search for a match in the prioritized id_search_list - since WWN ids
          * come first we can pick up the WWN in check_fill_0x83_id().
          */
-        for (id_ind = 0;
-             id_ind < sizeof(id_search_list)/sizeof(id_search_list[0]);
-             id_ind++) {
+        FOREACH_ELEMENT(search_value, id_search_list) {
                 /*
                  * Examine each descriptor returned. There is normally only
                  * one or a small number of descriptors.
                  */
-                for (j = 4; j <= ((unsigned)page_83[2] << 8) + (unsigned)page_83[3] + 3; j += page_83[j + 3] + 4) {
+                for (unsigned j = 4; j <= ((unsigned)page_83[2] << 8) + (unsigned)page_83[3] + 3; j += page_83[j + 3] + 4) {
                         retval = check_fill_0x83_id(dev_scsi, page_83 + j,
-                                                    id_search_list + id_ind,
+                                                    search_value,
                                                     serial, serial_short, len,
                                                     wwn, wwn_vendor_extension,
                                                     tgpt_group);
