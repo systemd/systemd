@@ -238,6 +238,7 @@ class UkifyConfig:
     all: bool
     cmdline: Union[str, Path, None]
     devicetree: Path
+    devicetree_auto: list[Path]
     efi_arch: str
     initrd: list[Path]
     join_profiles: list[Path]
@@ -363,6 +364,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.ucode':   'binary',
     '.splash':  'binary',
     '.dtb':     'binary',
+    '.dtbauto': 'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -445,7 +447,7 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        if any(section.name == s.name for s in self.sections[start:]):
+        if any(section.name == s.name for s in self.sections[start:] if s.name != '.dtbauto'):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -849,7 +851,7 @@ def pe_add_sections(uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name:
+            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -997,6 +999,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.osrel',   opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
+        *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
@@ -1440,10 +1443,10 @@ class ConfigItem:
         else:
             conv = lambda s: s  # noqa: E731
 
-        # This is a bit ugly, but --initrd is the only option which is specified
+        # This is a bit ugly, but --initrd and --devicetree-auto are the only options
         # with multiple args on the command line and a space-separated list in the
         # config file.
-        if self.name == '--initrd':
+        if self.name in ['--initrd', '--devicetree-auto']:
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1553,6 +1556,16 @@ CONFIG_ITEMS = [
         type=Path,
         help='Device Tree file [.dtb section]',
         config_key='UKI/DeviceTree',
+    ),
+    ConfigItem(
+        '--devicetree-auto',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        help='Device Tree file for automatic selection [.dtbauto section]',
+        default=[],
+        config_key='UKI/DeviceTreeAuto',
+        config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--uname',
