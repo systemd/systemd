@@ -889,14 +889,11 @@ int session_send_lock_all(Manager *m, bool lock) {
         assert(m);
 
         HASHMAP_FOREACH(session, m->sessions) {
-                int k;
 
                 if (!SESSION_CLASS_CAN_LOCK(session->class))
                         continue;
 
-                k = session_send_lock(session, lock);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, session_send_lock(session, lock));
         }
 
         return r;
