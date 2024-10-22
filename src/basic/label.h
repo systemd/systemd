@@ -10,8 +10,7 @@ typedef struct LabelOps {
 } LabelOps;
 
 int label_ops_set(const LabelOps *label_ops);
+void label_ops_reset(void);
 
 int label_ops_pre(int dir_fd, const char *path, mode_t mode);
 int label_ops_post(int dir_fd, const char *path, bool created);
-
-void label_ops_reset(void);

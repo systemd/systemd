@@ -18,6 +18,10 @@ int label_ops_set(const LabelOps *ops) {
         return 0;
 }
 
+void label_ops_reset(void) {
+        label_ops = NULL;
+}
+
 int label_ops_pre(int dir_fd, const char *path, mode_t mode) {
         if (!label_ops || !label_ops->pre)
                 return 0;
@@ -30,8 +34,4 @@ int label_ops_post(int dir_fd, const char *path, bool created) {
                 return 0;
 
         return label_ops->post(dir_fd, path, created);
-}
-
-void label_ops_reset(void) {
-        label_ops = NULL;
 }
