@@ -539,8 +539,10 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
 
         /* No JSON mode explicitly configured? Then default to the same as -j */
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
-                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
+                arg_json_format_flags |= SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+        }
 
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
