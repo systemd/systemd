@@ -1077,7 +1077,6 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
 }
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
-        unsigned attempts = 7;
         int fd;
 
         /* Just like openat(), but adds one thing: optionally returns whether we created the file anew or if
@@ -1099,7 +1098,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 return fd;
         }
 
-        for (;;) {
+        for (unsigned attempts = 7;;) {
                 /* First, attempt to open without O_CREAT/O_EXCL, i.e. open existing file */
                 fd = openat(dirfd, pathname, flags & ~(O_CREAT | O_EXCL), mode);
                 if (fd >= 0) {
