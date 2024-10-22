@@ -4,10 +4,13 @@
 #include <stddef.h>
 
 #include "label.h"
+#include "macro.h"
 
 static const LabelOps *label_ops = NULL;
 
 int label_ops_set(const LabelOps *ops) {
+        assert(ops);
+
         if (label_ops)
                 return -EBUSY;
 
