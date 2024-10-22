@@ -356,7 +356,7 @@ static bool test_key(
                                  i * BITS_PER_LONG, yes_no(found));
         }
         /* If there are no keys in the lower block, check the higher blocks */
-        for (size_t block = 0; block < sizeof(high_key_blocks) / sizeof(struct range) && !found; block++)
+        for (size_t block = 0; block < ELEMENTSOF(high_key_blocks) && !found; block++)
                 for (unsigned i = high_key_blocks[block].start; i < high_key_blocks[block].end && !found; i++)
                         if (test_bit(i, bitmask_key)) {
                                 log_device_debug(dev, "test_key: Found key %x in high block", i);
