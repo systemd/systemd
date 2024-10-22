@@ -24,6 +24,7 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "smbios.h"
+#include "sysfail.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
@@ -91,6 +92,7 @@ typedef struct {
         char16_t *entry_default_efivar;
         char16_t *entry_oneshot;
         char16_t *entry_saved;
+        char16_t *entry_sysfail;
         bool editor;
         bool auto_entries;
         bool auto_firmware;
@@ -529,6 +531,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("     default (EFI var): %ls\n", config->entry_default_efivar);
         if (config->entry_oneshot)
                 printf("    default (one-shot): %ls\n", config->entry_oneshot);
+        if (config->entry_sysfail)
+                printf("     default (sysfail): %ls\n", config->entry_sysfail);
         if (config->entry_saved)
                 printf("           saved entry: %ls\n", config->entry_saved);
         printf("                editor: %ls\n", yes_no(config->editor));
@@ -1633,11 +1637,13 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderEntryOneShot", EFI_VARIABLE_NON_VOLATILE);
 
         (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", &config->entry_default_efivar);
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySysFail", &config->entry_sysfail);
 
         strtolower16(config->entry_default_config);
         strtolower16(config->entry_default_efivar);
         strtolower16(config->entry_oneshot);
         strtolower16(config->entry_saved);
+        strtolower16(config->entry_sysfail);
 
         config->use_saved_entry = streq16(config->entry_default_config, u"@saved");
         config->use_saved_entry_efivar = streq16(config->entry_default_efivar, u"@saved");
@@ -1776,10 +1782,33 @@ static size_t config_find_entry(Config *config, const char16_t *pattern) {
         return IDX_INVALID;
 }
 
+static bool config_sysfail_occured(Config *config) {
+        SysFailType sysfail_type;
+
+        assert(config);
+
+        sysfail_type = sysfail_check();
+        if (sysfail_type == SYSFAIL_NO_FAILURE)
+                return false;
+
+        /* Store reason string in LoaderSysFailReason EFI variable */
+        const char16_t *reason_str = sysfail_get_error_str(sysfail_type);
+        if (reason_str)
+                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderSysFailReason", reason_str, 0);
+
+        return true;
+}
+
 static void config_select_default_entry(Config *config) {
         size_t i;
 
         assert(config);
+
+        i = config_find_entry(config, config->entry_sysfail);
+        if (i != IDX_INVALID && config_sysfail_occured(config)) {
+                config->idx_default = i;
+                return;
+        }
 
         i = config_find_entry(config, config->entry_oneshot);
         if (i != IDX_INVALID) {
@@ -2648,6 +2677,7 @@ static void config_free(Config *config) {
         free(config->entry_default_efivar);
         free(config->entry_oneshot);
         free(config->entry_saved);
+        free(config->entry_sysfail);
 }
 
 static void config_write_entries_to_variable(Config *config) {
