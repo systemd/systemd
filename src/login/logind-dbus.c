@@ -29,8 +29,8 @@
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
+#include "fileio-label.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "logind-action.h"
@@ -1593,7 +1593,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *rule = NULL, *file = NULL;
+        _cleanup_free_ char *file = NULL;
         const char *id_for_seat;
         int r;
 
@@ -1614,11 +1614,10 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0)
-                return -ENOMEM;
-
-        (void) mkdir_p_label("/etc/udev/rules.d", 0755);
-        r = write_string_file_atomic_label(file, rule);
+        r = write_string_filef(
+                        file,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL,
+                        "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat);
         if (r < 0)
                 return r;
 
@@ -3286,11 +3285,9 @@ static int method_set_reboot_to_boot_loader_menu(
                         if (unlink("/run/systemd/reboot-to-boot-loader-menu") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-
-                        xsprintf(buf, "%" PRIu64, x); /* μs granularity */
-
-                        r = write_string_file_atomic_label("/run/systemd/reboot-to-boot-loader-menu", buf);
+                        r = write_string_filef("/run/systemd/reboot-to-boot-loader-menu",
+                                               WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                               "%" PRIu64, x); /* μs granularity */
                         if (r < 0)
                                 return r;
                 }
@@ -3479,7 +3476,7 @@ static int method_set_reboot_to_boot_loader_entry(
                         if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        r = write_string_file_atomic_label("/run/systemd/reboot-boot-to-loader-entry", v);
+                        r = write_string_file("/run/systemd/reboot-boot-to-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
                         if (r < 0)
                                 return r;
                 }

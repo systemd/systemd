@@ -12,7 +12,7 @@
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -87,7 +87,7 @@ int write_drop_in(
         if (r < 0)
                 return r;
 
-        return write_string_file_at_label(AT_FDCWD, p, data, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        return write_string_file(p, data, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
 }
 
 int write_drop_in_format(
