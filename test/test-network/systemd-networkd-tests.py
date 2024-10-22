@@ -1176,7 +1176,7 @@ class Utilities():
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
 
-    def wait_online(self, *links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5):
+    def wait_online(self, *links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5, bool_dns=False):
         """Wait for the links to reach the specified operstate and/or setup state.
 
         This is similar to wait_operstate() but can be used for multiple links,
@@ -1190,6 +1190,8 @@ class Utilities():
         Set 'bool_any' to True to wait for any (instead of all) of the given links.
         If this is set, no setup_state checks are done.
 
+        Set 'bool_dns' to True to wait for DNS servers to be accessible.
+
         Set 'ipv4' or 'ipv6' to True to wait for IPv4 address or IPv6 address, respectively, of each of the given links.
         This is applied only for the operational state 'degraded' or above.
 
@@ -1202,6 +1204,8 @@ class Utilities():
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate] + [f'--ignore={link}' for link in protected_links]
         if bool_any:
             args += ['--any']
+        if bool_dns:
+            args += ['--dns']
         if ipv4:
             args += ['--ipv4']
         if ipv6:
@@ -1612,6 +1616,124 @@ class WaitOnlineTests(unittest.TestCase, Utilities):
 
         self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
         self.wait_operstate('test1', 'degraded')
+
+    def do_test_wait_online_dns(
+        self,
+        global_dns='',
+        fallback_dns='',
+        expect_timeout=False,
+        network_dropin=None,
+    ):
+        global wait_online_env
+
+        if network_dropin is not None:
+            network_dropin_path = os.path.join(
+                network_unit_dir,
+                '25-dhcp-client-use-dns-ipv4.network.d/test.conf'
+            )
+            mkdir_p(os.path.dirname(network_dropin_path))
+            with open(network_dropin_path, 'w') as f:
+                f.write(network_dropin)
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-client-use-dns-ipv4.network',
+            '25-dhcp-server.network'
+        )
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+
+        # Unless given, clear global DNS configuration
+        resolved_dropin = '/run/systemd/resolved.conf.d/global-dns.conf'
+        mkdir_p(os.path.dirname(resolved_dropin))
+        with open(resolved_dropin, 'w') as f:
+            f.write((
+                '[Resolve]\n'
+                f'DNS={global_dns}\n'
+                f'FallbackDNS={fallback_dns}\n'
+            ))
+        self.addCleanup(os.remove, resolved_dropin)
+        check_output('systemctl reload systemd-resolved')
+
+        try:
+            wait_online_env_copy = wait_online_env.copy()
+
+            wait_online_env['SYSTEMD_LOG_LEVEL'] = 'debug'
+            wait_online_env['SYSTEMD_LOG_TARGET'] = 'console'
+
+            self.wait_online('veth99:routable', bool_dns=True)
+
+            if expect_timeout:
+                # The above should have thrown an exception.
+                self.fail(
+                    'Expected systemd-networkd-wait-online to time out'
+                )
+
+        except subprocess.CalledProcessError as e:
+            if expect_timeout:
+                self.assertRegex(
+                    e.output,
+                    f'veth99: No link-specific DNS server is accessible',
+                    f'Missing expected log message:\n{e.output}'
+                )
+            else:
+                self.fail(
+                    f'Command timed out:\n{e.output}'
+                )
+        finally:
+            wait_online_env = wait_online_env_copy
+
+    def test_wait_online_dns(self):
+        ''' test systemd-networkd-wait-online with --dns '''
+        self.do_test_wait_online_dns()
+
+    def test_wait_online_dns_global(self):
+        '''
+        test systemd-networkd-wait-online with --dns, expect pass due to global DNS
+        '''
+
+        # Set UseDNS=no, and allow global DNS to be used.
+        self.do_test_wait_online_dns(
+            global_dns='192.168.5.1',
+            network_dropin=(
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+
+    def test_wait_online_dns_expect_timeout(self):
+        ''' test systemd-networkd-wait-online with --dns, and expect timeout '''
+
+        # Explicitly set DNSDefaultRoute=yes, and require link-specific DNS to be used.
+        self.do_test_wait_online_dns(
+            expect_timeout=True,
+            network_dropin=(
+                '[Network]\n'
+                'DNSDefaultRoute=yes\n'
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+
+    def test_wait_online_dns_expect_timeout_global(self):
+        '''
+        test systemd-networkd-wait-online with --dns, and expect timeout
+        despite global DNS
+        '''
+
+        # Configure Domains=~., and expect timeout despite global DNS servers
+        # being available.
+        self.do_test_wait_online_dns(
+            expect_timeout=True,
+            global_dns='192.168.5.1',
+            network_dropin=(
+                '[Network]\n'
+                'Domains=~.\n'
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
