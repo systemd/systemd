@@ -147,8 +147,9 @@ static int parse_argv(int argc, char *argv[]) {
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 ARG_PCRPKEY,
                 ARG_PROFILE,
+                ARG_HWIDS,
                 _ARG_SECTION_LAST,
-                ARG_HWIDS = _ARG_SECTION_LAST,
+                ARG_DTBAUTO = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
@@ -171,6 +172,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ucode",              required_argument, NULL, ARG_UCODE              },
                 { "splash",             required_argument, NULL, ARG_SPLASH             },
                 { "dtb",                required_argument, NULL, ARG_DTB                },
+                { "dtbauto",            required_argument, NULL, ARG_DTBAUTO            },
                 { "uname",              required_argument, NULL, ARG_UNAME              },
                 { "sbat",               required_argument, NULL, ARG_SBAT               },
                 { "pcrpkey",            required_argument, NULL, ARG_PCRPKEY            },
@@ -195,7 +197,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         /* Make sure the arguments list and the section list, stays in sync */
-        // assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
+        assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
 
         while ((c = getopt_long(argc, argv, "hjc", options, NULL)) >= 0)
                 switch (c) {
