@@ -17,24 +17,17 @@ typedef struct ImageUpdateParameters {
 } ImageUpdateParameters;
 
 int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        struct params {
-                const char *image_name;
-                const char *new_name;
-                int read_only;
-                uint64_t limit;
-        };
-
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, image_name), SD_JSON_MANDATORY },
-                { "newName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, new_name),   0 },
-                { "readOnly", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(struct params, read_only),  0 },
-                { "limit",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(struct params, limit),      0 },
+                { "name",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(ImageUpdateParameters, name),      SD_JSON_MANDATORY },
+                { "newName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(ImageUpdateParameters, new_name),  0 },
+                { "readOnly", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(ImageUpdateParameters, read_only), 0 },
+                { "limit",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(ImageUpdateParameters, limit),     0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        struct params p = {
+        ImageUpdateParameters p ={
                 .read_only = -1,
                 .limit = UINT64_MAX,
         };
@@ -48,13 +41,13 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r != 0)
                 return r;
 
-        if (!image_name_is_valid(p.image_name))
+        if (!image_name_is_valid(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
 
         if (p.new_name && !image_name_is_valid(p.new_name))
                 return sd_varlink_error_invalid_parameter_name(link, "newName");
 
-        r = manager_acquire_image(manager, p.image_name, &image);
+        r = manager_acquire_image(manager, p.name, &image);
         if (r == -ENOENT)
                 return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
         if (r < 0)
