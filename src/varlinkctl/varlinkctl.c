@@ -194,9 +194,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        /* If more than one reply is expected, imply JSON-SEQ output */
+        /* If more than one reply is expected, imply JSON-SEQ output, and set SD_JSON_FORMAT_FLUSH */
         if (FLAGS_SET(arg_method_flags, SD_VARLINK_METHOD_MORE))
-                arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+                arg_json_format_flags |= SD_JSON_FORMAT_SEQ|SD_JSON_FORMAT_FLUSH;
 
         strv_sort_uniq(arg_graceful);
 
