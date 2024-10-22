@@ -267,6 +267,7 @@ libefi_sources = files(
         'measure.c',
         'part-discovery.c',
         'pe.c',
+        'recovery.c',
         'random-seed.c',
         'secure-boot.c',
         'shim.c',
