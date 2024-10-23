@@ -121,8 +121,8 @@ static int show_user(UserRecord *ur, Table *table) {
                                 TABLE_UID, ur->uid,
                                 TABLE_GID, user_record_gid(ur),
                                 TABLE_STRING, empty_to_null(ur->real_name),
-                                TABLE_STRING, user_record_home_directory(ur),
-                                TABLE_STRING, sh,
+                                TABLE_PATH, user_record_home_directory(ur),
+                                TABLE_PATH, sh,
                                 TABLE_SET_COLOR, shell_to_color(sh),
                                 TABLE_INT, 0);
                 if (r < 0)
