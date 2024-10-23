@@ -2401,6 +2401,69 @@ int suitable_blob_filename(const char *name) {
                name[0] != '.';
 }
 
+bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) {
+        assert(names || n_names == 0);
+
+        /* Checks if any of the user record strings in the names[] array matches any of the search strings in
+         * the matches** strv fuzzily. */
+
+        FOREACH_ARRAY(n, names, n_names) {
+                if (!*n)
+                        continue;
+
+                _cleanup_free_ char *lcn = strdup(*n);
+                if (!lcn)
+                        return -ENOMEM;
+
+                ascii_strlower(lcn);
+
+                STRV_FOREACH(i, matches) {
+                        _cleanup_free_ char *lc = strdup(*i);
+                        if (!lc)
+                                return -ENOMEM;
+
+                        ascii_strlower(lc);
+
+                        /* First do substring check */
+                        if (strstr(lcn, lc))
+                                return true;
+
+                        /* Then do some fuzzy string comparison */
+                        if (strlevenshtein(lcn, lc) < 3)
+                                return true;
+                }
+        }
+
+        return false;
+}
+
+int user_record_match(UserRecord *u, const UserDBMatch *match) {
+        assert(u);
+        assert(match);
+
+        if (u->uid < match->uid_min || u->uid > match->uid_max)
+                return false;
+
+        if (!FLAGS_SET(match->disposition_mask, UINT64_C(1) << user_record_disposition(u)))
+                return false;
+
+        if (!strv_isempty(match->fuzzy_names)) {
+
+                const char* names[] = {
+                        u->user_name,
+                        user_record_user_name_and_realm(u),
+                        u->real_name,
+                        u->email_address,
+                        u->cifs_user_name,
+                };
+
+                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names))
+                        return false;
+        }
+
+        return true;
+}
+
 static const char* const user_storage_table[_USER_STORAGE_MAX] = {
         [USER_CLASSIC]   = "classic",
         [USER_LUKS]      = "luks",

@@ -37,6 +37,10 @@ static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_chain = false;
+static uint64_t arg_disposition_mask = UINT64_MAX;
+static uid_t arg_uid_min = 0;
+static uid_t arg_uid_max = UID_INVALID-1;
+static bool arg_fuzzy = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
@@ -175,6 +179,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
         FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                if (!FLAGS_SET(arg_disposition_mask, UINT64_C(1) << i->disposition))
+                        continue;
 
                 if (!uid_range_covers(p, i->first, i->last - i->first + 1))
                         continue;
@@ -346,7 +353,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = argc > 1 && !arg_fuzzy ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
@@ -360,7 +367,13 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
 
-        if (argc > 1)
+        UserDBMatch match = {
+                .disposition_mask = arg_disposition_mask,
+                .uid_min = arg_uid_min,
+                .uid_max = arg_uid_max,
+        };
+
+        if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
                         uid_t uid;
@@ -377,8 +390,10 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 else
                                         log_error_errno(r, "Failed to find user %s: %m", *i);
 
-                                if (ret >= 0)
-                                        ret = r;
+                                RET_GATHER(ret, r);
+                        } else if (!user_record_match(ur, &match)) {
+                                log_error("User '%s' does not match filter.", *i);
+                                RET_GATHER(ret, -ENOEXEC);
                         } else {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -392,6 +407,8 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 }
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+
+                match.fuzzy_names = argc > 1 ? argv + 1 : NULL;
 
                 r = userdb_all(arg_userdb_flags, &iterator);
                 if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
@@ -411,6 +428,9 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                         return log_error_errno(r, "Selected user database service is not available for this request.");
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next user: %m");
+
+                                if (!user_record_match(ur, &match))
+                                        continue;
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -650,7 +670,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = argc > 1 && !arg_fuzzy ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "gid", "description", "order");
@@ -663,7 +683,13 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
 
-        if (argc > 1)
+        UserDBMatch match = {
+                .disposition_mask = arg_disposition_mask,
+                .gid_min = arg_uid_min,
+                .gid_max = arg_uid_max,
+        };
+
+        if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
                         gid_t gid;
@@ -680,8 +706,10 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 else
                                         log_error_errno(r, "Failed to find group %s: %m", *i);
 
-                                if (ret >= 0)
-                                        ret = r;
+                                RET_GATHER(ret, r);
+                        } else if (!group_record_match(gr, &match)) {
+                                log_error("Group '%s' does not match filter.", *i);
+                                RET_GATHER(ret, -ENOEXEC);
                         } else {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -695,6 +723,8 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 }
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+
+                match.fuzzy_names = argc > 1 ? argv + 1 : NULL;
 
                 r = groupdb_all(arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
@@ -714,6 +744,9 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                         return log_error_errno(r, "Selected group database service is not available for this request.");
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next group: %m");
+
+                                if (!group_record_match(gr, &match))
+                                        continue;
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -1090,6 +1123,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
                "     --json=pretty|short     JSON output mode\n"
                "     --chain                 Chain another command\n"
+               "     --uid-min=ID            Filter by minimum UID/GID (default 0)\n"
+               "     --uid-max=ID            Filter by maximum UID/GID (default 4294967294)\n"
+               "  -z --fuzzy                 Do a fuzzy name search\n"
+               "     --disposition=VALUE     Filter by disposition\n"
+               "  -I                         Equivalent to --disposition=intrinsic\n"
+               "  -S                         Equivalent to --disposition=system\n"
+               "  -R                         Equivalent to --disposition=regular\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1113,6 +1153,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MULTIPLEXER,
                 ARG_JSON,
                 ARG_CHAIN,
+                ARG_UID_MIN,
+                ARG_UID_MAX,
+                ARG_DISPOSITION,
         };
 
         static const struct option options[] = {
@@ -1129,6 +1172,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
                 { "json",         required_argument, NULL, ARG_JSON         },
                 { "chain",        no_argument,       NULL, ARG_CHAIN        },
+                { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
+                { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
+                { "fuzzy",        required_argument, NULL, 'z'              },
+                { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 {}
         };
 
@@ -1159,7 +1206,7 @@ static int parse_argv(int argc, char *argv[]) {
                 int c;
 
                 c = getopt_long(argc, argv,
-                                arg_chain ? "+hjs:N" : "hjs:N", /* When --chain was used disable parsing of further switches */
+                                arg_chain ? "+hjs:NISRz" : "hjs:NISRz", /* When --chain was used disable parsing of further switches */
                                 options, NULL);
                 if (c < 0)
                         break;
@@ -1275,6 +1322,55 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_chain = true;
                         break;
 
+                case ARG_DISPOSITION: {
+                        UserDisposition d = user_disposition_from_string(optarg);
+                        if (d < 0)
+                                return log_error_errno(d, "Unknown user disposition: %s", optarg);
+
+                        if (arg_disposition_mask == UINT64_MAX)
+                                arg_disposition_mask = 0;
+
+                        arg_disposition_mask |= UINT64_C(1) << d;
+                        break;
+                }
+
+                case 'I':
+                        if (arg_disposition_mask == UINT64_MAX)
+                                arg_disposition_mask = 0;
+
+                        arg_disposition_mask |= UINT64_C(1) << USER_INTRINSIC;
+                        break;
+
+                case 'S':
+                        if (arg_disposition_mask == UINT64_MAX)
+                                arg_disposition_mask = 0;
+
+                        arg_disposition_mask |= UINT64_C(1) << USER_SYSTEM;
+                        break;
+
+                case 'R':
+                        if (arg_disposition_mask == UINT64_MAX)
+                                arg_disposition_mask = 0;
+
+                        arg_disposition_mask |= UINT64_C(1) << USER_REGULAR;
+                        break;
+
+                case ARG_UID_MIN:
+                        r = parse_uid(optarg, &arg_uid_min);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --uid-min= value: %s", optarg);
+                        break;
+
+                case ARG_UID_MAX:
+                        r = parse_uid(optarg, &arg_uid_max);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
+                        break;
+
+                case 'z':
+                        arg_fuzzy = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1282,6 +1378,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        if (arg_uid_min > arg_uid_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Minimum UID/GID " UID_FMT " is above maximum UID/GID " UID_FMT ", refusing.", arg_uid_min, arg_uid_max);
+
+        /* If not mask was specified, use the all bits on mask */
+        if (arg_disposition_mask == UINT64_MAX)
+                arg_disposition_mask = USER_DISPOSITION_MASK_MAX;
 
         return 1;
 }
