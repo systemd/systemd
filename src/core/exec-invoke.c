@@ -4949,7 +4949,7 @@ int exec_invoke(
 #if ENABLE_SMACK
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
-                if (use_smack && context->smack_process_label) {
+                if (use_smack) {
                         r = setup_smack(params, context, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
