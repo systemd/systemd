@@ -530,7 +530,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 /* Our EFI stub measures VirtualSize bytes of the .linux section into PCR 11.
                                  * Notably, VirtualSize can be larger than the section's size on disk. In
                                  * that case the extra space is initialized with zeros, so the stub ends up
-                                 * measuring a bunch of zeros. To accomodate this, we have to measure the
+                                 * measuring a bunch of zeros. To accommodate this, we have to measure the
                                  * same number of zeros here. We opt to measure extra zeros here instead of
                                  * modifying the stub to only measure the number of bytes on disk as we want
                                  * newer ukify + systemd-measure to work with older versions of the stub and
