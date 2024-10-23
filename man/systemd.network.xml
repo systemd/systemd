@@ -6277,7 +6277,7 @@ DHCP=ipv6
 
 # If the upstream network does not provides any Router Advertisement (RA) messages,
 # then uncomment the lines below to make the DHCPv6 client forcibly started in the
-# manageed mode.
+# managed mode.
 #[Network]
 #IPv6AcceptRA=no
 #[DHCPv6]
