@@ -74,16 +74,15 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
         };
 
         uint8_t res[SHA256_DIGEST_SIZE];
-        for (size_t i = 0; i < sizeof(test_vectors)/sizeof(test_vectors[0]); i++) {
-
+        FOREACH_ELEMENT(vector, test_vectors) {
                 int rc = tpm2_util_pbkdf2_hmac_sha256(
-                                test_vectors[i].pass,
-                                test_vectors[i].passlen,
-                                test_vectors[i].salt,
-                                test_vectors[i].saltlen,
+                                vector->pass,
+                                vector->passlen,
+                                vector->salt,
+                                vector->saltlen,
                                 res);
                 assert_se(rc == 0);
-                assert_se(memcmp(test_vectors[i].expected, res, SHA256_DIGEST_SIZE) == 0);
+                assert_se(memcmp(vector->expected, res, SHA256_DIGEST_SIZE) == 0);
         }
 }
 

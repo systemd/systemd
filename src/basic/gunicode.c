@@ -6,6 +6,7 @@
  */
 
 #include "gunicode.h"
+#include "macro.h"
 
 #define unichar uint32_t
 
@@ -92,7 +93,7 @@ unichar_iswide (unichar c)
     {0x20000, 0x2FFFD}, {0x30000, 0x3FFFD},
   };
 
-  if (bsearch ((void *)(uintptr_t)c, wide, (sizeof (wide) / sizeof ((wide)[0])), sizeof wide[0],
+  if (bsearch ((void *)(uintptr_t)c, wide, ELEMENTSOF(wide), sizeof wide[0],
                interval_compare))
     return true;
 
