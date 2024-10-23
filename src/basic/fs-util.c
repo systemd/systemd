@@ -1077,65 +1077,50 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
 }
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
-        unsigned attempts = 7;
         int fd;
 
         /* Just like openat(), but adds one thing: optionally returns whether we created the file anew or if
          * it already existed before. This is only relevant if O_CREAT is set without O_EXCL, and thus will
-         * shortcut to openat() otherwise */
-
-        if (!ret_newly_created)
-                return RET_NERRNO(openat(dirfd, pathname, flags, mode));
+         * shortcut to openat() otherwise.
+         *
+         * Note that this routine is a bit more strict with symlinks than regular openat() is. If O_NOFOLLOW
+         * is not specified, then we'll follow the symlink when opening an existing file but we will *not*
+         * follow it when creating a new one (because that's a terrible UNIX misfeature and generally a
+         * security hole). */
 
         if (!FLAGS_SET(flags, O_CREAT) || FLAGS_SET(flags, O_EXCL)) {
                 fd = openat(dirfd, pathname, flags, mode);
                 if (fd < 0)
                         return -errno;
 
-                *ret_newly_created = FLAGS_SET(flags, O_CREAT);
+                if (ret_newly_created)
+                        *ret_newly_created = FLAGS_SET(flags, O_CREAT);
                 return fd;
         }
 
-        for (;;) {
+        for (unsigned attempts = 7;;) {
                 /* First, attempt to open without O_CREAT/O_EXCL, i.e. open existing file */
                 fd = openat(dirfd, pathname, flags & ~(O_CREAT | O_EXCL), mode);
                 if (fd >= 0) {
-                        *ret_newly_created = false;
+                        if (ret_newly_created)
+                                *ret_newly_created = false;
                         return fd;
                 }
                 if (errno != ENOENT)
                         return -errno;
 
-                /* So the file didn't exist yet, hence create it with O_CREAT/O_EXCL. */
-                fd = openat(dirfd, pathname, flags | O_CREAT | O_EXCL, mode);
+                /* So the file didn't exist yet, hence create it with O_CREAT/O_EXCL/O_NOFOLLOW. */
+                fd = openat(dirfd, pathname, flags | O_CREAT | O_EXCL | O_NOFOLLOW, mode);
                 if (fd >= 0) {
-                        *ret_newly_created = true;
+                        if (ret_newly_created)
+                                *ret_newly_created = true;
                         return fd;
                 }
                 if (errno != EEXIST)
                         return -errno;
 
-                /* Hmm, so now we got EEXIST? This can indicate two things. First, if the path points to a
-                 * dangling symlink, the first openat() will fail with ENOENT because the symlink is resolved
-                 * and the second openat() will fail with EEXIST because symlinks are not followed when
-                 * O_CREAT|O_EXCL is specified. Let's check for this explicitly and fall back to opening with
-                 * just O_CREAT and assume we're the ones that created the file. */
-
-                struct stat st;
-                if (fstatat(dirfd, pathname, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                        return -errno;
-
-                if (S_ISLNK(st.st_mode)) {
-                        fd = openat(dirfd, pathname, flags | O_CREAT, mode);
-                        if (fd < 0)
-                                return -errno;
-
-                        *ret_newly_created = true;
-                        return fd;
-                }
-
-                /* If we're not operating on a symlink, someone might have created the file between the first
-                 * and second call to openat(). Let's try again but with a limit so we don't spin forever. */
+                /* Hmm, so now we got EEXIST? Then someone might have created the file between the first and
+                 * second call to openat(). Let's try again but with a limit so we don't spin forever. */
 
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
                         return -EEXIST;
@@ -1164,10 +1149,14 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
+        bool call_label_ops_post = false;
+
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
                 r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG);
                 if (r < 0)
                         return r;
+
+                call_label_ops_post = true;
         }
 
         if (FLAGS_SET(open_flags, O_DIRECTORY|O_CREAT)) {
@@ -1183,37 +1172,19 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 else
                         made_dir = true;
 
-                if (FLAGS_SET(xopen_flags, XO_LABEL)) {
-                        r = label_ops_post(dir_fd, path);
-                        if (r < 0)
-                                return r;
-                }
-
                 open_flags &= ~(O_EXCL|O_CREAT);
-                xopen_flags &= ~XO_LABEL;
         }
 
-        fd = RET_NERRNO(openat_report_new(dir_fd, path, open_flags, mode, &made_file));
+        fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
         if (fd < 0) {
-                if (IN_SET(fd,
-                           /* We got ENOENT? then someone else immediately removed it after we
-                           * created it. In that case let's return immediately without unlinking
-                           * anything, because there simply isn't anything to unlink anymore. */
-                           -ENOENT,
-                           /* is a symlink? exists already → created by someone else, don't unlink */
-                           -ELOOP,
-                           /* not a directory? exists already → created by someone else, don't unlink */
-                           -ENOTDIR))
-                        return fd;
-
-                if (made_dir)
-                        (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
-
-                return fd;
+                r = fd;
+                goto error;
         }
 
-        if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_post(dir_fd, path);
+        if (call_label_ops_post) {
+                call_label_ops_post = false;
+
+                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir);
                 if (r < 0)
                         goto error;
         }
@@ -1227,6 +1198,9 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         return TAKE_FD(fd);
 
 error:
+        if (call_label_ops_post)
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file);
+
         if (made_dir || made_file)
                 (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
 

@@ -4,7 +4,6 @@
 #include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
