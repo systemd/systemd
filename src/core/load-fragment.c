@@ -135,6 +135,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_control_groups, protect_control_groups, ProtectControlGroups);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess);

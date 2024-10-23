@@ -1047,6 +1047,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectHome",
                               "PrivateTmpEx",
                               "PrivateUsersEx",
+                              "ProtectControlGroupsEx",
                               "SELinuxContext",
                               "RootImage",
                               "RootVerity",

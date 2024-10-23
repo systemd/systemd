@@ -1910,7 +1910,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-protect-control-groups", c->protect_control_groups);
+        r = serialize_item(f, "exec-context-protect-control-groups", protect_control_groups_to_string(c->protect_control_groups));
         if (r < 0)
                 return r;
 
@@ -2792,7 +2792,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->protect_clock = r;
                 } else if ((val = startswith(l, "exec-context-protect-control-groups="))) {
-                        r = parse_boolean(val);
+                        r = protect_control_groups_from_string(val);
                         if (r < 0)
                                 return r;
                         c->protect_control_groups = r;
