@@ -226,7 +226,7 @@ EOF
 }
 
 testcase_duration_override() {
-    # Verify memory pressure duration can be overriden to non-zero values
+    # Verify memory pressure duration can be overridden to non-zero values
     mkdir -p /run/systemd/system/TEST-55-OOMD-testmunch.service.d/
     cat >/run/systemd/system/TEST-55-OOMD-testmunch.service.d/99-duration-test.conf <<EOF
 [Service]
