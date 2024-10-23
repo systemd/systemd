@@ -222,7 +222,7 @@ void link_dns_settings_clear(Link *link) {
         link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
 }
 
-static void link_free_engines(Link *link) {
+void link_free_engines(Link *link) {
         if (!link)
                 return;
 
@@ -376,7 +376,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         bool keep_dhcp = may_keep_dhcp &&
                          link->network &&
                          !link->network->dhcp_send_decline && /* IPv4 ACD for the DHCPv4 address is running. */
-                         (link->manager->restarting ||
+                         (link->manager->state == MANAGER_RESTARTING ||
                           FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
         if (!keep_dhcp) {
@@ -1321,6 +1321,10 @@ int link_reconfigure_impl(Link *link, bool force) {
         int r;
 
         assert(link);
+        assert(link->manager);
+
+        if (link->manager->state != MANAGER_RUNNING)
+                return 0;
 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;

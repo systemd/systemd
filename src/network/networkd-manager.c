@@ -425,30 +425,73 @@ static int manager_connect_rtnl(Manager *m, int fd) {
 static int manager_post_handler(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
+        /* To release dynamic leases, we need to process queued remove requests before stopping networkd.
+         * This is especially important when KeepConfiguration=no. See issue #34837. */
         (void) manager_process_remove_requests(manager);
-        (void) manager_process_requests(manager);
-        (void) manager_clean_all(manager);
+
+        switch (manager->state) {
+        case MANAGER_RUNNING:
+                (void) manager_process_requests(manager);
+                (void) manager_clean_all(manager);
+                return 0;
+
+        case MANAGER_TERMINATING:
+        case MANAGER_RESTARTING:
+                if (!ordered_set_isempty(manager->remove_request_queue))
+                        return 0; /* There are some unissued remove requests. */
+
+                if (netlink_get_reply_callback_count(manager->rtnl) > 0 ||
+                    netlink_get_reply_callback_count(manager->genl) > 0 ||
+                    fw_ctx_get_reply_callback_count(manager->fw_ctx) > 0)
+                        return 0; /* There are some message calls waiting for their replies. */
+
+                manager->state = MANAGER_STOPPED;
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int manager_stop(Manager *manager, ManagerState state) {
+        assert(manager);
+        assert(IN_SET(state, MANAGER_TERMINATING, MANAGER_RESTARTING));
+
+        if (manager->state != MANAGER_RUNNING) {
+                log_debug("Already terminating or restarting systemd-networkd, refusing further operation request.");
+                return 0;
+        }
+
+        switch (state) {
+        case MANAGER_TERMINATING:
+                log_debug("Terminate operation initiated.");
+                break;
+        case MANAGER_RESTARTING:
+                log_debug("Restart operation initiated.");
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        manager->state = state;
+
+        Link *link;
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                (void) link_stop_engines(link, /* may_keep_dhcp = */ true);
+                link_free_engines(link);
+        }
+
         return 0;
 }
 
 static int signal_terminate_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        m->restarting = false;
-
-        log_debug("Terminate operation initiated.");
-
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return manager_stop(userdata, MANAGER_TERMINATING);
 }
 
 static int signal_restart_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-
-        m->restarting = true;
-
-        log_debug("Restart operation initiated.");
-
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return manager_stop(userdata, MANAGER_RESTARTING);
 }
 
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -614,15 +657,10 @@ int manager_new(Manager **ret, bool test_mode) {
 }
 
 Manager* manager_free(Manager *m) {
-        Link *link;
-
         if (!m)
                 return NULL;
 
         free(m->state_file);
-
-        HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_stop_engines(link, true);
 
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
