@@ -129,6 +129,8 @@ Deprecations and removals:
 
 Features:
 
+* port copy.c over to use LabelOps for all labelling.
+
 * port remaining getmntent() users over to libmount. There are subtle
   differences in the parsers (see #25371 for example), and it hence makes sense
   if we stick to one set of parsers on this, not mix both.
