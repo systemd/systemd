@@ -55,12 +55,21 @@ if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
         bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test ! -e $MARK"
     systemd-run --wait --pipe -p ProtectHome=read-only \
         bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test -e $MARK"
-    systemd-run --wait --pipe -p ProtectHome=tmpfs \
-        bash -xec "test -w /home; test -w /root; test -w /run/user; test ! -e $MARK"
+    systemd-run --wait --pipe -p ProtectHome=tmpfs -p TemporaryFileSystem=/home/foo \
+        bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test ! -e $MARK; test -w /home/foo"
     systemd-run --wait --pipe -p ProtectHome=no \
         bash -xec "test -w /home; test -w /root; test -w /run/user; test -e $MARK"
     rm -f "$MARK"
 fi
+
+systemd-run --wait --pipe -p PrivateMounts=true -p MountAPIVFS=yes \
+    bash -xec '[[ "$(findmnt --mountpoint /proc --noheadings -o FSTYPE)" == proc ]];
+               [[ "$$(findmnt --mountpoint /dev --noheadings -o FSTYPE)" =~ (devtmpfs|tmpfs) ]];
+               [[ "$$(findmnt --mountpoint /sys --noheadings -o FSTYPE)" =~ (sysfs|tmpfs) ]];
+               [[ "$$(findmnt --mountpoint /run --noheadings -o FSTYPE)" == tmpfs ]];
+               [[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ rw ]];
+               [[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ nosuid ]];
+               [[ "$$(findmnt --mountpoint /run --noheadings -o VFS-OPTIONS)" =~ nodev ]]'
 
 if proc_supports_option "hidepid=off"; then
     systemd-run --wait --pipe -p ProtectProc=noaccess -p User=testuser \
