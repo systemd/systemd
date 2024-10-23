@@ -104,37 +104,37 @@ int nss_passwd_to_user_record(
          * just a password instead of the whole account, but that's mostly pointless in times of
          * password-less authorization, hence let's not bother. */
 
-         SET_IF(hr->locked,
-                spwd && spwd->sp_expire >= 0,
-                spwd->sp_expire <= 1, -1);
+        SET_IF(hr->locked,
+               spwd && spwd->sp_expire >= 0,
+               spwd->sp_expire <= 1, -1);
 
-         SET_IF(hr->not_after_usec,
-                spwd && spwd->sp_expire > 1 && (uint64_t) spwd->sp_expire < (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_expire * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->not_after_usec,
+               spwd && spwd->sp_expire > 1 && (uint64_t) spwd->sp_expire < (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_expire * USEC_PER_DAY, UINT64_MAX);
 
-         SET_IF(hr->password_change_now,
-                spwd && spwd->sp_lstchg >= 0,
-                spwd->sp_lstchg == 0, -1);
+        SET_IF(hr->password_change_now,
+               spwd && spwd->sp_lstchg >= 0,
+               spwd->sp_lstchg == 0, -1);
 
-         SET_IF(hr->last_password_change_usec,
-                spwd && spwd->sp_lstchg > 0 && (uint64_t) spwd->sp_lstchg <= (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_lstchg * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->last_password_change_usec,
+               spwd && spwd->sp_lstchg > 0 && (uint64_t) spwd->sp_lstchg <= (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_lstchg * USEC_PER_DAY, UINT64_MAX);
 
-         SET_IF(hr->password_change_min_usec,
-                spwd && spwd->sp_min > 0 && (uint64_t) spwd->sp_min <= (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_min * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->password_change_min_usec,
+               spwd && spwd->sp_min > 0 && (uint64_t) spwd->sp_min <= (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_min * USEC_PER_DAY, UINT64_MAX);
 
-         SET_IF(hr->password_change_max_usec,
-                spwd && spwd->sp_max > 0 && (uint64_t) spwd->sp_max <= (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_max * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->password_change_max_usec,
+               spwd && spwd->sp_max > 0 && (uint64_t) spwd->sp_max <= (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_max * USEC_PER_DAY, UINT64_MAX);
 
-         SET_IF(hr->password_change_warn_usec,
-                spwd && spwd->sp_warn > 0 && (uint64_t) spwd->sp_warn <= (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_warn * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->password_change_warn_usec,
+               spwd && spwd->sp_warn > 0 && (uint64_t) spwd->sp_warn <= (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_warn * USEC_PER_DAY, UINT64_MAX);
 
-         SET_IF(hr->password_change_inactive_usec,
-                spwd && spwd->sp_inact > 0 && (uint64_t) spwd->sp_inact <= (UINT64_MAX-1)/USEC_PER_DAY,
-                spwd->sp_inact * USEC_PER_DAY, UINT64_MAX);
+        SET_IF(hr->password_change_inactive_usec,
+               spwd && spwd->sp_inact > 0 && (uint64_t) spwd->sp_inact <= (UINT64_MAX-1)/USEC_PER_DAY,
+               spwd->sp_inact * USEC_PER_DAY, UINT64_MAX);
 
         hr->json = sd_json_variant_unref(hr->json);
         r = sd_json_buildo(
