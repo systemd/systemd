@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "machine-varlink.h"
@@ -16,7 +17,9 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "varlink-util.h"
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_machine_class, MachineClass, machine_class_from_string);
@@ -376,4 +379,175 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return log_debug_errno(r, "Failed to send signal to machine: %m");
 
         return sd_varlink_reply(link, NULL);
+}
+
+typedef enum MachineOpenMode {
+        MACHINE_OPEN_MODE_TTY,
+        MACHINE_OPEN_MODE_LOGIN,
+        MACHINE_OPEN_MODE_SHELL,
+        _MACHINE_OPEN_MODE_MAX,
+        _MACHINE_OPEN_MODE_INVALID = -EINVAL,
+} MachineOpenMode;
+
+static const char* const machine_open_mode_table[_MACHINE_OPEN_MODE_MAX] = {
+        [MACHINE_OPEN_MODE_TTY]   = "tty",
+        [MACHINE_OPEN_MODE_LOGIN] = "login",
+        [MACHINE_OPEN_MODE_SHELL] = "shell",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_open_mode, MachineOpenMode);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_machine_open_mode, MachineOpenMode, machine_open_mode_from_string);
+
+typedef struct MachineOpenParameters {
+        const char *name;
+        PidRef pidref;
+        MachineOpenMode mode;
+        const char *user, *path;
+        char **args, **env;
+} MachineOpenParameters;
+
+static void machine_open_paramaters_done(MachineOpenParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+        strv_free(p->args);
+        strv_free(p->env);
+}
+
+inline static const char* machine_open_polkit_action(MachineClass class, MachineOpenMode mode) {
+        switch (mode) {
+                case MACHINE_OPEN_MODE_TTY:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty";
+                case MACHINE_OPEN_MODE_LOGIN:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-login"    : "org.freedesktop.machine1.login";
+                case MACHINE_OPEN_MODE_SHELL:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell"    : "org.freedesktop.machine1.shell";
+                default:
+                        assert_not_reached();
+        }
+}
+
+inline static const char** machine_open_polkit_details(const char *machine_name, const MachineOpenParameters *p) {
+        assert(machine_name);
+        assert(p);
+
+        switch (p->mode) {
+                case MACHINE_OPEN_MODE_TTY:
+                        return (const char**) STRV_MAKE("machine", machine_name);
+                case MACHINE_OPEN_MODE_LOGIN:
+                        return (const char**) STRV_MAKE("machine", machine_name, "verb", "login");
+                case MACHINE_OPEN_MODE_SHELL:
+                        /* TODO(ikruglov): is it acceptable? */
+                        /* here ENOMEM is possible, in this case 'command_line' will be empty */
+                        const char *cmd = strv_join(p->args, " ");
+                        return (const char**) STRV_MAKE(
+                                        "machine", machine_name,
+                                        "verb", "shell",
+                                        "user", p->user,
+                                        "program", p->path,
+                                        "command_line", cmd ?: "");
+                default:
+                        assert_not_reached();
+        }
+}
+
+int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                { "mode", SD_JSON_VARIANT_STRING, json_dispatch_machine_open_mode, offsetof(MachineOpenParameters, mode), 0 },
+                { "user", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(MachineOpenParameters, user), 0 },
+                { "path", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(MachineOpenParameters, path), 0 },
+                { "args", SD_JSON_VARIANT_STRING, sd_json_dispatch_strv,           offsetof(MachineOpenParameters, args), 0 },
+                { "env",  SD_JSON_VARIANT_STRING, sd_json_dispatch_strv,           offsetof(MachineOpenParameters, env),  0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_free_ char *pty_name = NULL;
+        _cleanup_close_ int master = -EBADF;
+        _cleanup_(machine_open_paramaters_done) MachineOpenParameters p = {
+                .pidref = PIDREF_NULL,
+                .mode = MACHINE_OPEN_MODE_TTY,
+        };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Machine *machine;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.mode == MACHINE_OPEN_MODE_SHELL) {
+                if (!isempty(p.user) && !valid_user_group_name(p.user, VALID_USER_RELAX))
+                        return sd_varlink_error_invalid_parameter_name(link, "user");
+                if (!isempty(p.path) && !path_is_absolute(p.path))
+                        return sd_varlink_error_invalid_parameter_name(link, "path");
+                // TODO(ikruglov): args validation?
+                if (!strv_isempty(p.env) && !strv_env_is_valid(p.env))
+                        return sd_varlink_error_invalid_parameter_name(link, "env");
+        }
+
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        machine_open_polkit_action(machine->class, p.mode),
+                        machine_open_polkit_details(machine->name, &p),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        master = machine_openpt(machine, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(master))
+                return sd_varlink_error(link, "io.systemd.Machine.NotAvailable", NULL);
+        if (master < 0)
+                return log_debug_errno(master, "Failed to open pseudo terminal: %m");
+
+        switch (p.mode) {
+                case MACHINE_OPEN_MODE_LOGIN:
+                        r = machine_start_getty(machine, pty_name, /* error = */ NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to start getty for machine '%s': %m", machine->name);
+
+                        break;
+
+                case MACHINE_OPEN_MODE_SHELL:
+                        _cleanup_close_ int slave = -EBADF;
+                        const char *user = isempty(p.user) ? "root" : p.user;
+                        const char *path = isempty(p.path) ? machine_default_shell_path() : p.path;
+                        _cleanup_strv_free_ char **args = isempty(p.path) ? machine_default_shell_args(user) :
+                                                          strv_isempty(p.args) ? strv_new(path) : TAKE_PTR(p.args);
+                        if (!args)
+                                return -ENOMEM;
+
+                        slave = machine_open_terminal(machine, pty_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (slave < 0)
+                                return log_debug_errno(slave, "Failed to open terminal: %m");
+
+                        r = machine_start_shell(machine, slave, pty_name, user, path, args, p.env, /* error = */ NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to start shell for machine '%s': %m", machine->name);
+
+                        break;
+
+                default:
+                        break;
+        }
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ptyFileDescriptor", master),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ptyPath", pty_name));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
 }
