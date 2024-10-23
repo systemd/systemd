@@ -23,6 +23,7 @@ struct Link {
         AddressFamily required_family;
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
+        AddressFamily dns_accessible_address_families;
         char *state;
 };
 

@@ -4,10 +4,15 @@
 #include <linux/if.h>
 #include <fnmatch.h>
 
+#include "sd-event.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
+#include "json-util.h"
 #include "link.h"
 #include "manager.h"
 #include "netlink-util.h"
+#include "set.h"
 #include "strv.h"
 #include "time-util.h"
 
@@ -131,6 +136,20 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
                 if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
                         return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                                     "No routable IPv6 address is configured.");
+        }
+
+        if (m->requires_dns) {
+                if (l->dns_accessible_address_families == ADDRESS_FAMILY_NO)
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No DNS server is accessible.");
+
+                if (needs_ipv4 && !FLAGS_SET(l->dns_accessible_address_families, ADDRESS_FAMILY_IPV4))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv4 DNS server is accessible.");
+
+                if (needs_ipv6 && !FLAGS_SET(l->dns_accessible_address_families, ADDRESS_FAMILY_IPV6))
+                        return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                    "No IPv6 DNS server is accessible.");
         }
 
         log_link_debug(l, "link is configured by networkd and online.");
@@ -381,13 +400,234 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+typedef struct DNSServer {
+        union in_addr_union addr;
+        int family;
+        uint16_t port;
+        int ifindex;
+        char *server_name;
+        bool accessible;
+} DNSServer;
+
+static DNSServer *dns_server_free(DNSServer *s) {
+        if (!s)
+                return NULL;
+
+        free(s->server_name);
+
+        return mfree(s);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(DNSServer*, dns_server_free);
+
+static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dns_server_dispatch_table[] = {
+                { "address",            SD_JSON_VARIANT_ARRAY,    json_dispatch_in_addr_union, offsetof(DNSServer, addr),        SD_JSON_MANDATORY },
+                { "addressFamily",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,       offsetof(DNSServer, family),      SD_JSON_MANDATORY },
+                { "port",               SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint16,     offsetof(DNSServer, port),        0                 },
+                { "interfaceSpecifier", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,       offsetof(DNSServer, ifindex),     0                 },
+                { "serverName",         SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,     offsetof(DNSServer, server_name), 0                 },
+                { "accessible",         SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,    offsetof(DNSServer, accessible),  SD_JSON_MANDATORY },
+                {},
+        };
+        DNSServer **ret = ASSERT_PTR(userdata);
+        _cleanup_(dns_server_freep) DNSServer *s = NULL;
+        int r;
+
+        s = new0(DNSServer, 1);
+        if (!s)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, dns_server_dispatch_table, flags, s);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+static int dispatch_dns_server_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Set **ret = ASSERT_PTR(userdata);
+        Set *dns_servers = set_new(NULL);
+        sd_json_variant *v = NULL;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_(dns_server_freep) DNSServer *s = NULL;
+
+                s = new0(DNSServer, 1);
+                if (!s)
+                        return log_oom();
+
+                r = dispatch_dns_server(name, v, flags, &s);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid DNSServer.");
+
+                r = set_put(dns_servers, TAKE_PTR(s));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        set_free_and_replace(*ret, dns_servers);
+
+        return 0;
+}
+
+typedef struct DNSConfiguration {
+        char *ifname;
+        int ifindex;
+        DNSServer *current_dns_server;
+        Set *dns_servers;
+        char **search_domains;
+} DNSConfiguration;
+
+static DNSConfiguration *dns_configuration_free(DNSConfiguration *c) {
+        if (!c)
+                return NULL;
+
+        dns_server_free(c->current_dns_server);
+        set_free_with_destructor(c->dns_servers, dns_server_free);
+        free(c->ifname);
+        strv_free(c->search_domains);
+
+        return mfree(c);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(DNSConfiguration*, dns_configuration_free);
+
+static int dispatch_dns_configuration(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dns_configuration_dispatch_table[] = {
+                { "interface",        SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(DNSConfiguration, ifname),             0 },
+                { "interfaceIndex",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,     offsetof(DNSConfiguration, ifindex),            0 },
+                { "currentDNSServer", SD_JSON_VARIANT_OBJECT,   dispatch_dns_server,       offsetof(DNSConfiguration, current_dns_server), 0 },
+                { "dnsServers",       SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array, offsetof(DNSConfiguration, dns_servers),        0 },
+                { "searchDomains",    SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,     offsetof(DNSConfiguration, search_domains),     0 },
+                {},
+
+        };
+        DNSConfiguration **ret = ASSERT_PTR(userdata);
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+        int r;
+
+        c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, dns_configuration_dispatch_table, flags, c);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+
+        return 0;
+}
+
+static int on_dns_configuration_event(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        sd_json_variant *configurations = NULL, *v = NULL;
+        int r;
+
+        assert(link);
+
+        if (error_id) {
+                log_warning("DNS configuration event error, ignoring: %s", error_id);
+                return 0;
+        }
+
+        configurations = sd_json_variant_by_key(parameters, "configuration");
+        if (!configurations || !sd_json_variant_is_array(configurations)) {
+                log_warning("DNS configuration JSON data does not have configuration key, ignoring.");
+                return 0;
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(v, configurations) {
+                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                DNSServer *s = NULL;
+                AddressFamily families = ADDRESS_FAMILY_NO;
+
+                r = dispatch_dns_configuration(NULL, v, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &c);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get DNS configuration JSON, ignoring: %m");
+                        continue;
+                }
+
+                SET_FOREACH(s, c->dns_servers) {
+                        if (s->accessible)
+                                families |= s->family == AF_INET ? ADDRESS_FAMILY_IPV4 :
+                                            s->family == AF_INET6 ? ADDRESS_FAMILY_IPV6 : ADDRESS_FAMILY_NO;
+
+                        if (FLAGS_SET(families, ADDRESS_FAMILY_YES))
+                                break;
+                }
+
+                if (c->ifindex > 0) {
+                        Link *l = hashmap_get(m->links_by_index, INT_TO_PTR(c->ifindex));
+                        if (l)
+                                l->dns_accessible_address_families = families;
+                } else
+                        /* Global DNS configuration */
+                        m->dns_accessible_address_families = families;
+        }
+
+        if (manager_configured(m))
+                sd_event_exit(m->event, 0);
+
+        return 0;
+}
+
+static int manager_dns_configuration_listen(Manager *m) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        assert(m);
+        assert(m->event);
+
+        if (!m->requires_dns)
+                return 0;
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to io.systemd.Resolve.Monitor: %m");
+
+        r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set varlink timeout: %m");
+
+        r = sd_varlink_attach_event(vl, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        (void) sd_varlink_set_userdata(vl, m);
+
+        r = sd_varlink_bind_reply(vl, on_dns_configuration_event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind varlink reply callback: %m");
+
+        r = sd_varlink_observebo(
+                        vl,
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration",
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", false));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue SubscribeDNSConfiguration: %m");
+
+        m->varlink_client = TAKE_PTR(vl);
+
+        return 0;
+}
+
 int manager_new(Manager **ret,
                 Hashmap *command_line_interfaces_by_name,
                 char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
                 AddressFamily required_family,
                 bool any,
-                usec_t timeout) {
+                usec_t timeout,
+                bool requires_dns) {
 
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -404,6 +644,8 @@ int manager_new(Manager **ret,
                 .required_operstate = required_operstate,
                 .required_family = required_family,
                 .any = any,
+                .requires_dns = requires_dns,
+                .dns_accessible_address_families = ADDRESS_FAMILY_NO,
         };
 
         r = sd_event_default(&m->event);
@@ -428,6 +670,10 @@ int manager_new(Manager **ret,
         if (r < 0)
                 return r;
 
+        r = manager_dns_configuration_listen(m);
+        if (r < 0)
+                return r;
+
         *ret = TAKE_PTR(m);
 
         return 0;
@@ -445,6 +691,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->rtnl_event_source);
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
+        sd_varlink_unref(m->varlink_client);
 
         return mfree(m);
 }
