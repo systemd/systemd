@@ -6533,6 +6533,25 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.check_nftset('network4', r'192\.168\.5\.0/24')
         self.check_nftset('ifindex', 'veth99')
 
+        # Check if DHCPv4 address and routes are removed on stop. For issue #34837.
+        stop_networkd(show_logs=False)
+        self.wait_address_dropped('veth99', f'inet {address2}/24', ipv='-4', timeout_sec=120)
+
+        print('## ip address show dev veth99 scope global')
+        output = check_output('ip address show dev veth99 scope global')
+        print(output)
+        self.assertNotIn(f'{address2}', output)
+
+        print('## ip route show table main dev veth99')
+        output = check_output('ip route show table main dev veth99')
+        print(output)
+        self.assertNotIn(f'{address2}', output)
+
+        print('## ip route show table 211 dev veth99')
+        output = check_output('ip route show table 211 dev veth99')
+        print(output)
+        self.assertNotIn(f'{address2}', output)
+
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
     def test_dhcp_client_ipv4_dbus_status(self):
