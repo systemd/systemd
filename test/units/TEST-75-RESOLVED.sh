@@ -934,6 +934,15 @@ testcase_11_nft() {
 
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/reload.conf
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN
+
     run resolvectl show-server-state
     grep -qF "10.0.0.1" "$RUN_OUT"
     grep -qF "Interface" "$RUN_OUT"
