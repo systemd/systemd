@@ -6286,6 +6286,8 @@ DHCP=ipv6
 # If the upstream network provides Router Advertisement (RA) messages with the
 # Managed bit unset, then uncomment the lines below to make the DHCPv6 client
 # forcibly started in the managed mode when an RA is received.
+#[DHCPv6]
+#UseAddress=no
 #[IPv6AcceptRA]
 #DHCPv6Client=always</programlisting>
 
