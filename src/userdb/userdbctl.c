@@ -68,6 +68,10 @@ static const char *user_disposition_to_color(UserDisposition d) {
         }
 }
 
+static const char *shell_to_color(const char *shell) {
+        return !shell || is_nologin_shell(shell) ? ansi_grey() : NULL;
+}
+
 static int show_user(UserRecord *ur, Table *table) {
         int r;
 
@@ -104,10 +108,9 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_TABLE: {
-                UserDisposition d;
-
                 assert(table);
-                d = user_record_disposition(ur);
+                UserDisposition d = user_record_disposition(ur);
+                const char *sh = user_record_shell(ur);
 
                 r = table_add_many(
                                 table,
@@ -119,7 +122,8 @@ static int show_user(UserRecord *ur, Table *table) {
                                 TABLE_GID, user_record_gid(ur),
                                 TABLE_STRING, empty_to_null(ur->real_name),
                                 TABLE_STRING, user_record_home_directory(ur),
-                                TABLE_STRING, user_record_shell(ur),
+                                TABLE_STRING, sh,
+                                TABLE_SET_COLOR, shell_to_color(sh),
                                 TABLE_INT, 0);
                 if (r < 0)
                         return table_log_add_error(r);
