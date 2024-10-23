@@ -41,6 +41,7 @@ static uint64_t arg_disposition_mask = UINT64_MAX;
 static uid_t arg_uid_min = 0;
 static uid_t arg_uid_max = UID_INVALID-1;
 static bool arg_fuzzy = false;
+static bool arg_boundaries = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
@@ -364,7 +365,9 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
                 table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 8);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
+                (void) table_hide_column_from_display(table, (size_t) 8);
+                if (!arg_boundaries)
+                        (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
         UserDBMatch match = {
@@ -452,20 +455,23 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
-                int boundary_lines, uid_map_lines;
+                int boundary_lines = 0, uid_map_lines = 0;
 
-                r = uid_range_load_userns(/* path = */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
+                if (arg_boundaries) {
+                        _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
 
-                boundary_lines = table_add_uid_boundaries(table, uid_range);
-                if (boundary_lines < 0)
-                        return boundary_lines;
+                        r = uid_range_load_userns(/* path = */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
-                uid_map_lines = table_add_uid_map(table, uid_range, add_unavailable_uid);
-                if (uid_map_lines < 0)
-                        return uid_map_lines;
+                        boundary_lines = table_add_uid_boundaries(table, uid_range);
+                        if (boundary_lines < 0)
+                                return boundary_lines;
+
+                        uid_map_lines = table_add_uid_map(table, uid_range, add_unavailable_uid);
+                        if (uid_map_lines < 0)
+                                return uid_map_lines;
+                }
 
                 if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
@@ -687,7 +693,9 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 5);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
+                (void) table_hide_column_from_display(table, (size_t) 5);
+                if (!arg_boundaries)
+                        (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
         UserDBMatch match = {
@@ -775,20 +783,22 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
-                int boundary_lines, gid_map_lines;
+                int boundary_lines = 0, gid_map_lines = 0;
 
-                r = uid_range_load_userns(/* path = */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
+                if (arg_boundaries) {
+                        _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
+                        r = uid_range_load_userns(/* path = */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
-                boundary_lines = table_add_gid_boundaries(table, gid_range);
-                if (boundary_lines < 0)
-                        return boundary_lines;
+                        boundary_lines = table_add_gid_boundaries(table, gid_range);
+                        if (boundary_lines < 0)
+                                return boundary_lines;
 
-                gid_map_lines = table_add_uid_map(table, gid_range, add_unavailable_gid);
-                if (gid_map_lines < 0)
-                        return gid_map_lines;
+                        gid_map_lines = table_add_uid_map(table, gid_range, add_unavailable_gid);
+                        if (gid_map_lines < 0)
+                                return gid_map_lines;
+                }
 
                 if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
@@ -1144,6 +1154,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -I                         Equivalent to --disposition=intrinsic\n"
                "  -S                         Equivalent to --disposition=system\n"
                "  -R                         Equivalent to --disposition=regular\n"
+               "     --boundaries=BOOL       Show/hide UID/GID range boundaries in output\n"
+               "  -B                         Equivalent to --boundaries=no\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1170,6 +1182,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UID_MIN,
                 ARG_UID_MAX,
                 ARG_DISPOSITION,
+                ARG_BOUNDARIES,
         };
 
         static const struct option options[] = {
@@ -1190,6 +1203,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
                 { "fuzzy",        required_argument, NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
+                { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
                 {}
         };
 
@@ -1220,7 +1234,7 @@ static int parse_argv(int argc, char *argv[]) {
                 int c;
 
                 c = getopt_long(argc, argv,
-                                arg_chain ? "+hjs:NISRz" : "hjs:NISRz", /* When --chain was used disable parsing of further switches */
+                                arg_chain ? "+hjs:NISRzB" : "hjs:NISRzB", /* When --chain was used disable parsing of further switches */
                                 options, NULL);
                 if (c < 0)
                         break;
@@ -1383,6 +1397,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'z':
                         arg_fuzzy = true;
+                        break;
+
+                case ARG_BOUNDARIES:
+                        r = parse_boolean_argument("boundaries", optarg, &arg_boundaries);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'B':
+                        arg_boundaries = false;
                         break;
 
                 case '?':
