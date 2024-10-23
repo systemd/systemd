@@ -1506,7 +1506,7 @@ int dns_packet_read_name(
         size_t after_rindex = 0, jump_barrier = p->rindex;
         _cleanup_free_ char *name = NULL;
         bool first = true;
-        size_t n = 0;
+        size_t n = 0, m = 0;
         int r;
 
         if (p->refuse_compression)
@@ -1535,14 +1535,21 @@ int dns_packet_read_name(
 
                         if (first)
                                 first = false;
-                        else
+                        else {
                                 name[n++] = '.';
+                                m++;
+                        }
 
                         r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
                         if (r < 0)
                                 return r;
 
                         n += r;
+                        m += c;
+
+                        if (m > DNS_HOSTNAME_MAX)
+                                return -EBADMSG;
+
                         continue;
                 } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
