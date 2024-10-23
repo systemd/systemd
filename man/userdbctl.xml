@@ -225,6 +225,24 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--boundaries=</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command,
+        controls whether to show relevant UID/GID range boundary information in the tabular output. Takes a
+        boolean. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-B</option></term>
+
+        <listitem><para>Shortcut for <option>--boundaries=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
