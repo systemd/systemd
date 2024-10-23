@@ -55,7 +55,9 @@ int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t
 int getgroups_alloc(gid_t** gids);
 
 int get_home_dir(char **ret);
+int get_home_dir_for_uid(uid_t u, char **ret);
 int get_shell(char **ret);
+int get_shell_for_uid(uid_t u, char **ret);
 
 int fully_set_uid_gid(uid_t uid, gid_t gid, const gid_t supplementary_gids[], size_t n_supplementary_gids);
 static inline int reset_uid_gid(void) {
