@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for RuntimeDirectory used by StandardOutput
+
+[Service]
+ExecStart=sh -c 'printf "hello\nhello\n"'
+Type=oneshot
+RuntimeDirectory=test-exec_runtimedirectory_standardoutput
+StandardOutput=file:/run/test-exec_runtimedirectory_standardoutput/test-exec-runtimedirectory_standardoutput-output

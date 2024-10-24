@@ -1128,6 +1128,11 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
+static void test_exec_runtimedirectory_stdoutput(Manager *m) {
+        (void) rm_rf("/run/test-exec_runtimedirectory_standardoutput", REMOVE_ROOT|REMOVE_PHYSICAL);
+        test(m, "exec-runtimedirectory-stdoutput.service", 0, CLD_EXITED);
+}
+
 static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
@@ -1359,6 +1364,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 entry(test_exec_readwritepaths),
                 entry(test_exec_restrictnamespaces),
                 entry(test_exec_runtimedirectory),
+                entry(test_exec_runtimedirectory_stdoutput),
                 entry(test_exec_specifier),
                 entry(test_exec_standardinput),
                 entry(test_exec_standardoutput),
