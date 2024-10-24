@@ -259,7 +259,7 @@ done
 
 ####################
 # varlinkctl tests #
-# ##################
+####################
 
 long_running_machine_start
 
@@ -403,7 +403,26 @@ grep -q "BAR" /tmp/none-existent-file
 
 # io.systemd.Machine.BindMount is covered by testcase_check_machinectl_bind() in nspawn tests
 
-# terminate machines
+# test io.systemd.Machine.CopyTo
+rm -f /tmp/foo /var/lib/machines/long-running/root/foo
+cp /etc/machine-id /tmp/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}'
+diff /tmp/foo /var/lib/machines/long-running/root/foo
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}') # FileExists
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
+
+echo "sample-test-output" > /tmp/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
+diff /tmp/foo /var/lib/machines/long-running/root/foo
+rm -f /tmp/foo /var/lib/machines/long-running/root/foo
+
+# test io.systemd.Machine.CopyFrom
+cp /etc/machine-id /var/lib/machines/long-running/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyFrom '{"name": "long-running", "source": "/foo"}'
+diff /var/lib/machines/long-running/foo /foo
+rm -f /var/lib/machines/long-running/root/foo /foo
+
+# Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
