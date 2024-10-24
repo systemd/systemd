@@ -5,4 +5,4 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-u systemd-resolve {{SYSTEMD_RESOLVE_UID}} "systemd Resolver"
+u! systemd-resolve {{SYSTEMD_RESOLVE_UID}} "systemd Resolver"
