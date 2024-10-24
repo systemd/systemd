@@ -341,7 +341,22 @@ assert_eq "$(echo "$output" | jq --seq .addresses[0].address[0] | tr -d \\036)" 
 assert_eq "$(echo "$output" | jq --seq .addresses[0].address[1] | tr -d \\036)" '0'
 assert_eq "$(echo "$output" | jq --seq .addresses[0].address[2] | tr -d \\036)" '2'
 assert_eq "$(echo "$output" | jq --seq .addresses[0].address[3] | tr -d \\036)" '1'
+# test for listing multiple machines.
+long_running_machine_start
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{}'
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "no"}'
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "graceful"}'
+# check if machined does not try to send anything after error message
+journalctl --sync
+TS="$(date '+%H:%M:%S')"
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "yes"}')
+journalctl --sync
+(! journalctl -u systemd-machined.service --since="$TS" --grep 'Connection busy')
+# terminate machines
 machinectl terminate "container-without-os-release"
+machinectl terminate "long-running"
+# wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
+timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 
 (ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
 (! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
