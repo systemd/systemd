@@ -93,9 +93,9 @@ r     -          lowest-highest</programlisting>
     field description, home directory, and login shell:</para>
 
     <programlisting>#Type Name     ID             GECOS                 Home directory Shell
-u     httpd    404            "HTTP User"
-u     _authd   /usr/bin/authd "Authorization user"
-u     postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
+u!    httpd    404            "HTTP User"
+u!    _authd   /usr/bin/authd "Authorization user"
+u!    postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
 g     input    -              -
 m     _authd   input
 u     root     0              "Superuser"           /root          /bin/zsh
@@ -118,6 +118,15 @@ r     -        500-900
           they not exist yet. The user's primary group will be set to the group
           bearing the same name unless the ID field specifies it. The account will be
           created disabled, so that logins are not allowed.</para>
+
+          <para>The line type <varname>u</varname> may be suffixed with an exclamation mark
+          (<literal>u!</literal>) in which case a fully locked account is created. This is typically
+          recommended, unless the specified user shall be accessible for login (which is the exception for
+          system users). Note the difference to lines without the exclamation mark: they result in an
+          unlocked account, however with a invalid password set – while those with the exclamation mark
+          result in <emphasis>both</emphasis> a locked account and an invalid password being set. This
+          difference matters when taking non-password forms of authentication into account, such as SSH or
+          similar.</para>
 
           <xi:include href="version-info.xml" xpointer="v215"/></listitem>
         </varlistentry>
