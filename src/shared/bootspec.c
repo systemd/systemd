@@ -1394,6 +1394,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\", ignoring: %m");
 
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryFallback), &config->entry_fallback);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryFallback\", ignoring: %m");
+
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
         if (r == -ENOMEM)
                 return log_oom();

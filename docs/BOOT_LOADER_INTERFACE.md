@@ -58,6 +58,11 @@ variables. All EFI variables use the vendor UUID
 * The EFI variable `LoaderEntryDefault` contains the default boot loader entry
   to use. It contains a NUL-terminated boot loader entry identifier.
 
+* The EFI variable `LoaderEntryFallback` contains the fallback boot loader entry
+  to use. Fallback boot entries can be used to ensure that a system starts even
+  if the default boot entry fails or other unexpected event happened (boot firmware
+  failure etc.). It contains a NUL-terminated boot loader entry identifier.
+
 * Similarly, the EFI variable `LoaderEntryOneShot` contains the default boot
   loader entry to use for a single following boot. It is set by the OS in order
   to request booting into a specific menu entry on the following boot. When set
