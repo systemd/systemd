@@ -39,10 +39,10 @@ cat >/var/lib/machines/long-running/sbin/init <<\EOF
 
 PID=0
 
-trap "touch /terminate; kill $PID" RTMIN+3
-trap "touch /poweroff" RTMIN+4
-trap "touch /reboot" INT
-trap "touch /trap" TRAP
+trap 'touch /terminate; kill 0' RTMIN+3
+trap 'touch /poweroff' RTMIN+4
+trap 'touch /reboot' INT
+trap 'touch /trap' TRAP
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
