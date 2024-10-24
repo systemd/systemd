@@ -106,7 +106,10 @@
       normal shutdown, reboot and maintenance mode. Finally, they have to be ordered after
       <constant>basic.target</constant> to ensure correct ordering on boot. Note that in case any new or
       custom units are used to isolate to, or that implement an equivalent shutdown functionality, they will
-      also have to be configured manually for correct ordering and conflicting. For example:</para>
+      also have to be configured manually for correct ordering and conflicting. In addition, to ensure the
+      service is disconnected from the rootfs resources (see next paragraph), it should run from a separate
+      image, but with the journal sockets mounted so that it is still allowed to log to the system journal.
+      For example:</para>
 
       <programlisting>[Unit]
 Description=My Surviving Service
@@ -118,7 +121,9 @@ Conflicts=reboot.target kexec.target poweroff.target halt.target rescue.target e
 Before=shutdown.target rescue.target emergency.target
 
 [Service]
-Type=oneshot
+RootImage=/var/lib/root.raw
+TemporaryFileSystem=/run
+BindReadOnlyPaths=/run/systemd/journal/socket /run/systemd/journal/stdout
 ExecStart=sleep infinity</programlisting>
       </listitem>
 
