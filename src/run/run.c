@@ -2413,7 +2413,19 @@ static int run(int argc, char* argv[]) {
 
                 if (strv_isempty(arg_cmdline))
                         t = strdup(arg_unit);
-                else
+                else if (startswith(arg_cmdline[0], "-")) {
+                        /* Drop the login shell marker from the command line when generating the description,
+                         * in order to minimize user confusion. */
+                        _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);
+                        if (!l)
+                                return log_oom();
+
+                        r = free_and_strdup_warn(l + 0, l[0] + 1);
+                        if (r < 0)
+                                return r;
+
+                        t = quote_command_line(l, SHELL_ESCAPE_EMPTY);
+                } else
                         t = quote_command_line(arg_cmdline, SHELL_ESCAPE_EMPTY);
                 if (!t)
                         return log_oom();
