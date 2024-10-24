@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "copy.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
@@ -824,4 +825,99 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 return log_debug_errno(r, "Failed to mount %s on %s in the namespace of machine '%s': %m", p.src, dest, machine->name);
 
         return sd_varlink_reply(link, NULL);
+}
+
+typedef struct MachineCopyParameters {
+        const char *name;
+        PidRef pidref;
+        char *src;
+        char *dest;
+        bool replace;
+} MachineCopyParameters;
+
+static void machine_copy_paramaters_done(MachineCopyParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+        free(p->src);
+        free(p->dest);
+}
+
+static int copy_done(Operation *operation, int ret, sd_bus_error *error) {
+        assert(operation);
+        assert(operation->link);
+
+        if (ERRNO_IS_PRIVILEGE(ret))
+                return sd_varlink_error(operation->link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(ret))
+                return sd_varlink_error(operation->link, "io.systemd.Machine.NotSupported", NULL);
+        if (ret < 0)
+                return sd_varlink_error_errno(operation->link, ret);
+
+        return sd_varlink_reply(operation->link, NULL);
+}
+
+int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool copy_from) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineCopyParameters),
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineCopyParameters, src),     SD_JSON_MANDATORY },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineCopyParameters, dest),    0                 },
+                { "replace",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineCopyParameters, replace), 0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        int r;
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(machine_copy_paramaters_done) MachineCopyParameters p = {
+                .pidref = PIDREF_NULL
+        };
+
+        assert(link);
+        assert(parameters);
+
+        if (manager->n_operations >= OPERATIONS_MAX)
+                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* There is no need for extra validation since json_dispatch_path() does path_is_valid() and path_is_absolute().*/
+        const char *dest = p.dest ?: p.src;
+        const char *container_path = copy_from ? p.src : dest;
+        const char *host_path = copy_from ? dest : p.src;
+        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
+        copy_flags |= p.replace ? COPY_REPLACE : 0;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "copy",
+                                                 "src", p.src,
+                                                 "dest", dest),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        Operation *op;
+        r = machine_copy_from_to(manager, machine, host_path, container_path, copy_from, copy_flags, &op);
+        if (r < 0)
+                return r;
+
+        operation_attach_varlink_reply(op, link);
+        op->done = copy_done;
+        return 1;
 }
