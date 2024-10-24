@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
+
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "format-ifname.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 #include "link.h"
 #include "manager.h"
+#include "socket-netlink.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -32,6 +40,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .ifname = TAKE_PTR(n),
                 .ifindex = ifindex,
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
+                .dns_accessible_address_families = ADDRESS_FAMILY_NO,
         };
 
         r = hashmap_ensure_put(&m->links_by_index, NULL, INT_TO_PTR(ifindex), l);
