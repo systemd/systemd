@@ -55,6 +55,7 @@ typedef enum SpecialGlyph {
         SPECIAL_GLYPH_YELLOW_CIRCLE,
         SPECIAL_GLYPH_BLUE_CIRCLE,
         SPECIAL_GLYPH_GREEN_CIRCLE,
+        SPECIAL_GLYPH_SUPERHERO,
         _SPECIAL_GLYPH_MAX,
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
