@@ -16,6 +16,7 @@ typedef struct MountImage MountImage;
 #include "fs-util.h"
 #include "macro.h"
 #include "namespace-util.h"
+#include "pidref.h"
 #include "runtime-scope.h"
 #include "string-util.h"
 
@@ -224,3 +225,8 @@ const char* namespace_type_to_string(NamespaceType t) _const_;
 NamespaceType namespace_type_from_string(const char *s) _pure_;
 
 bool ns_type_supported(NamespaceType type);
+
+int refresh_extensions_in_namespace(
+                const PidRef *target,
+                const char *hierarchy_env,
+                const NamespaceParameters *p);
