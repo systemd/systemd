@@ -104,7 +104,7 @@
         <option>hash=<replaceable>HASH</replaceable></option>, <option>fec-device=<replaceable>PATH</replaceable></option>,
         <option>fec-offset=<replaceable>BYTES</replaceable></option>, <option>fec-roots=<replaceable>NUM</replaceable></option> and
         <option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option>. See
-        <citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        <citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
         details.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
@@ -129,7 +129,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-      <member><citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
