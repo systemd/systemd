@@ -510,7 +510,6 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
                 .pidref = PIDREF_NULL,
-                .acquire_metadata = ACQUIRE_METADATA_NO,
         };
 
         Machine *machine;
@@ -644,7 +643,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         struct params {
                 const char *image_name;
                 AcquireMetadata acquire_metadata;
-        } p = { .acquire_metadata = ACQUIRE_METADATA_NO };
+        } p = {};
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
