@@ -1633,7 +1633,7 @@ node /org/freedesktop/login1/session/1 {
       <function>ListSessionsEx()</function> were added in version 256.</para>
       <para><varname>HandleSecureAttentionKey</varname>, <function>SecureAttentionKey()</function>,
       <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
-      <varname>CanIdle</varname> and <varname>CanLock</varname> were added in version 257.</para>
+      <varname>CanIdle</varname>, and <varname>CanLock</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
