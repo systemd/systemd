@@ -318,6 +318,17 @@ varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machin
 (! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
 
+# test io.systemd.Machine.Open
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "tty"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "login"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
+
+# TODO(ikruglov): how to really test other modes?
+rm -f /tmp/none-existent-file
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "env": ["FOO=BAR"]}'
+timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
+grep -q "BAR" /tmp/none-existent-file
+
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep '.host'
