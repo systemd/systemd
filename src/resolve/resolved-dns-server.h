@@ -9,6 +9,7 @@
 #include "time-util.h"
 
 typedef struct DnsScope DnsScope;
+typedef struct DnsDelegate DnsDelegate;
 typedef struct DnsServer DnsServer;
 typedef struct DnsStream DnsStream;
 typedef struct DnsPacket DnsPacket;
@@ -21,6 +22,7 @@ typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
+        DNS_SERVER_DELEGATE,
         _DNS_SERVER_TYPE_MAX,
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
@@ -58,6 +60,7 @@ struct DnsServer {
 
         DnsServerType type;
         Link *link;
+        DnsDelegate *delegate;
 
         int family;
         union in_addr_union address;
@@ -113,6 +116,7 @@ int dns_server_new(
                 DnsServer **ret,
                 DnsServerType type,
                 Link *link,
+                DnsDelegate *delegate,
                 int family,
                 const union in_addr_union *address,
                 uint16_t port,

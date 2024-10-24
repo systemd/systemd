@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
@@ -10,7 +11,8 @@ int dns_search_domain_new(
                 Manager *m,
                 DnsSearchDomain **ret,
                 DnsSearchDomainType type,
-                Link *l,
+                Link *link,
+                DnsDelegate *delegate,
                 const char *name) {
 
         _cleanup_free_ char *normalized = NULL;
@@ -18,15 +20,19 @@ int dns_search_domain_new(
         int r;
 
         assert(m);
-        assert((type == DNS_SEARCH_DOMAIN_LINK) == !!l);
+        assert((type == DNS_SEARCH_DOMAIN_LINK) == !!link);
+        assert((type == DNS_SEARCH_DOMAIN_DELEGATE) == !!delegate);
         assert(name);
 
         r = dns_name_normalize(name, 0, &normalized);
         if (r < 0)
                 return r;
 
-        if (l) {
-                if (l->n_search_domains >= LINK_SEARCH_DOMAINS_MAX)
+        if (link) {
+                if (link->n_search_domains >= LINK_SEARCH_DOMAINS_MAX)
+                        return -E2BIG;
+        } else if (delegate) {
+                if (delegate->n_search_domains >= DELEGATE_SEARCH_DOMAINS_MAX)
                         return -E2BIG;
         } else {
                 if (m->n_search_domains >= MANAGER_SEARCH_DOMAINS_MAX)
@@ -47,14 +53,20 @@ int dns_search_domain_new(
         switch (type) {
 
         case DNS_SEARCH_DOMAIN_LINK:
-                d->link = l;
-                LIST_APPEND(domains, l->search_domains, d);
-                l->n_search_domains++;
+                d->link = link;
+                LIST_APPEND(domains, link->search_domains, d);
+                link->n_search_domains++;
                 break;
 
         case DNS_SEARCH_DOMAIN_SYSTEM:
                 LIST_APPEND(domains, m->search_domains, d);
                 m->n_search_domains++;
+                break;
+
+        case DNS_SEARCH_DOMAIN_DELEGATE:
+                d->delegate = delegate;
+                LIST_APPEND(domains, delegate->search_domains, d);
+                delegate->n_search_domains++;
                 break;
 
         default:
@@ -99,6 +111,13 @@ void dns_search_domain_unlink(DnsSearchDomain *d) {
                 LIST_REMOVE(domains, d->manager->search_domains, d);
                 d->manager->n_search_domains--;
                 break;
+
+        case DNS_SEARCH_DOMAIN_DELEGATE:
+                assert(d->delegate);
+                assert(d->delegate->n_search_domains > 0);
+                LIST_REMOVE(domains, d->delegate->search_domains, d);
+                d->delegate->n_search_domains--;
+                break;
         }
 
         d->linked = false;
@@ -132,6 +151,13 @@ void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d) {
                 tail = LIST_FIND_TAIL(domains, d);
                 LIST_REMOVE(domains, d->manager->search_domains, d);
                 LIST_INSERT_AFTER(domains, d->manager->search_domains, tail, d);
+                break;
+
+        case DNS_SEARCH_DOMAIN_DELEGATE:
+                assert(d->delegate);
+                tail = LIST_FIND_TAIL(domains, d);
+                LIST_REMOVE(domains, d->delegate->search_domains, d);
+                LIST_INSERT_AFTER(domains, d->delegate->search_domains, tail, d);
                 break;
 
         default:
