@@ -421,6 +421,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
         assert(link);
         assert(m);
 
+        if (!sd_varlink_is_processing_method(link))
+                return 0;
+
         if (should_acquire_metadata(am)) {
                 _cleanup_free_ struct local_address *addresses = NULL;
 
@@ -595,6 +598,9 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
 
         assert(link);
         assert(image);
+
+        if (!sd_varlink_is_processing_method(link))
+                return 0;
 
         if (should_acquire_metadata(am) && !image->metadata_valid) {
                 r = image_read_metadata(image, &image_policy_container);
