@@ -591,6 +591,13 @@ static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_terminate_internal);
 }
 
+static int vl_method_copy_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_copy_internal(link, parameters, flags, userdata, /* copy_from = */ true);
+}
+static int vl_method_copy_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_copy_internal(link, parameters, flags, userdata, /* copy_from = */ false);
+}
+
 static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
         int r;
 
@@ -773,6 +780,8 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.Machine.Open",        vl_method_open,
                         "io.systemd.Machine.MapFrom",     vl_method_map_from,
                         "io.systemd.Machine.MapTo",       vl_method_map_to,
+                        "io.systemd.Machine.CopyFrom",    vl_method_copy_from,
+                        "io.systemd.Machine.CopyTo",      vl_method_copy_to,
                         "io.systemd.MachineImage.List",   vl_method_list_images,
                         "io.systemd.MachineImage.Update", vl_method_update_image,
                         "io.systemd.MachineImage.Clone",  vl_method_clone_image,
