@@ -462,6 +462,24 @@ int user_group_record_mangle(sd_json_variant *v, UserRecordLoadFlags load_flags,
 #define BLOB_DIR_MAX_SIZE (UINT64_C(64) * U64_MB)
 int suitable_blob_filename(const char *name);
 
+typedef struct UserDBMatch {
+        char **fuzzy_names;
+        uint64_t disposition_mask;
+        union {
+                uid_t uid_min;
+                gid_t gid_min;
+        };
+        union {
+                uid_t uid_max;
+                gid_t gid_max;
+        };
+} UserDBMatch;
+
+#define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+
+bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
+int user_record_match(UserRecord *u, const UserDBMatch *match);
+
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;
 
