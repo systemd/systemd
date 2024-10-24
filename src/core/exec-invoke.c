@@ -4382,6 +4382,15 @@ int exec_invoke(
                 }
         }
 
+        /* Setup ExecDirectories now, as they may be targeted by stdin/stdout */
+        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
+                if (r < 0)
+                        return log_exec_error_errno(context, params, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
+        }
+
         r = setup_input(context, params, socket_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
@@ -4600,14 +4609,6 @@ int exec_invoke(
                                 }
                         }
                 }
-        }
-
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
-
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
-                if (r < 0)
-                        return log_exec_error_errno(context, params, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
 
         r = exec_setup_credentials(context, params, params->unit_id, uid, gid);
