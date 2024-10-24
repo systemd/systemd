@@ -4041,7 +4041,7 @@ int exec_invoke(
         int r, ngids = 0;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
+        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
@@ -4270,8 +4270,23 @@ int exec_invoke(
                         username = runtime->dynamic_creds->user->name;
 
         } else {
-                if (context->user) {
-                        r = get_fixed_user(context->user, &username, &uid, &gid, &home, &shell);
+                const char *u;
+
+                if (context->user)
+                        u = context->user;
+                else if (context->pam_name) {
+                        /* If PAM is enabled but no user name is explicitly selected, then use our own one. */
+                        own_user = getusername_malloc();
+                        if (!own_user) {
+                                *exit_status = EXIT_USER;
+                                return log_exec_error_errno(context, params, r, "Failed to determine my own user ID: %m");
+                        }
+                        u = own_user;
+                } else
+                        u = NULL;
+
+                if (u) {
+                        r = get_fixed_user(u, &username, &uid, &gid, &home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_exec_error_errno(context, params, r, "Failed to determine user credentials: %m");
