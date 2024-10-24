@@ -12,8 +12,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-29 13:33+0000\n"
-"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"PO-Revision-Date: 2024-10-24 00:56+0000\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.7.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1158,7 +1158,7 @@ msgstr "Rensa gamla systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Autentisering krävs för att ränsa gamla systemuppdateringar."
+msgstr "Autentisering krävs för att rensa gamla systemuppdateringar."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
