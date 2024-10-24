@@ -1381,6 +1381,24 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
         assert(t < _UNIT_TYPE_MAX);
         assert(ret);
 
+        /* Preferable use our PID + pidfd ID as identifier, if available. It's a boot time unique identifier
+         * managed by the kernel. Unfortunately only new kernels support this, hence we keep a lot of
+         * fallback logic in place. */
+        PidRef self = PIDREF_NULL;
+        r = pidref_set_self(&self);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get my own PID: %m");
+
+        r = pidref_acquire_pidfd_id(&self);
+        if (r < 0)
+                log_debug_errno(r, "Failed to acquire pidfd ID of myself, ignoring: %m");
+        else {
+                if (asprintf(ret, "run-p" PID_FMT "-i%" PRIu64 ".%s", self.pid, self.fd_id, unit_type_to_string(t)) < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
         r = sd_bus_get_unique_name(bus, &unique);
         if (r < 0) {
                 sd_id128_t rnd;
