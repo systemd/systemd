@@ -998,6 +998,7 @@ global:
         sd_varlink_invoke;
         sd_varlink_invokeb;
         sd_varlink_is_idle;
+        sd_varlink_is_processing_method;
         sd_varlink_notify;
         sd_varlink_notifyb;
         sd_varlink_observe;

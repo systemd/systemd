@@ -1655,6 +1655,13 @@ _public_ int sd_varlink_is_idle(sd_varlink *v) {
         return IN_SET(v->state, VARLINK_DISCONNECTED, VARLINK_IDLE_CLIENT, VARLINK_IDLE_SERVER);
 }
 
+_public_ int sd_varlink_is_processing_method(sd_varlink *v) {
+        if (!v)
+                return false;
+
+        return IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_ONEWAY);
+}
+
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
 
         assert_return(v, -EINVAL);
