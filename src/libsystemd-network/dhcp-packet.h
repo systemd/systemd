@@ -6,6 +6,17 @@
 
 #include "dhcp-protocol.h"
 
+int bootp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint8_t type,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                size_t optlen,
+                size_t *optoffset);
+
 int dhcp_message_init(
                 DHCPMessage *message,
                 uint8_t op,

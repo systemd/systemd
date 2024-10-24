@@ -65,7 +65,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        r = sd_dhcp_client_new(&client, false);
+        r = sd_dhcp_client_new(&client, false, false);
         assert_se(r >= 0);
         assert_se(client);
 
