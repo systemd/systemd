@@ -1401,70 +1401,38 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
-        unsigned soft_reboots_count = 0;
-        const char *unique, *id;
-        char *p;
+static int make_unit_name(UnitType t, char **ret) {
         int r;
 
-        assert(bus);
         assert(t >= 0);
         assert(t < _UNIT_TYPE_MAX);
         assert(ret);
 
-        r = sd_bus_get_unique_name(bus, &unique);
+        /* Preferably use our PID + pidfd ID as identifier, if available. It's a boot time unique identifier
+         * managed by the kernel. Unfortunately only new kernels support this, hence we keep some fallback
+         * logic in place. */
+
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        r = pidref_set_self(&self);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get reference to my own process: %m");
+
+        r = pidref_acquire_pidfd_id(&self);
         if (r < 0) {
+                log_debug_errno(r, "Failed to acquire pidfd ID of myself, defaulting to randomized unit name: %m");
+
+                /* We couldn't get the pidfd id. In that case, just pick a random uuid as name */
                 sd_id128_t rnd;
-
-                /* We couldn't get the unique name, which is a pretty
-                 * common case if we are connected to systemd
-                 * directly. In that case, just pick a random uuid as
-                 * name */
-
                 r = sd_id128_randomize(&rnd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate random run unit name: %m");
 
-                if (asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t)) < 0)
-                        return log_oom();
+                r = asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t));
+        } else
+                r = asprintf(ret, "run-p" PID_FMT "-i%" PRIu64 ".%s", self.pid, self.fd_id, unit_type_to_string(t));
+        if (r < 0)
+                return log_oom();
 
-                return 0;
-        }
-
-        /* We managed to get the unique name, then let's use that to name our transient units. */
-
-        id = startswith(unique, ":1."); /* let' strip the usual prefix */
-        if (!id)
-                id = startswith(unique, ":"); /* the spec only requires things to start with a colon, hence
-                                               * let's add a generic fallback for that. */
-        if (!id)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unique name %s has unexpected format.",
-                                       unique);
-
-        /* The unique D-Bus names are actually unique per D-Bus instance, so on soft-reboot they will wrap
-         * and start over since the D-Bus broker is restarted. If there's a failed unit left behind that
-         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing. */
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_get_property_trivial(
-                                bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
-                if (r < 0)
-                        log_debug_errno(r,
-                                        "Failed to get SoftRebootsCount property, ignoring: %s",
-                                        bus_error_message(&error, r));
-        }
-
-        if (soft_reboots_count > 0) {
-                if (asprintf(&p, "run-u%s-s%u.%s", id, soft_reboots_count, unit_type_to_string(t)) < 0)
-                        return log_oom();
-        } else {
-                p = strjoin("run-u", id, ".", unit_type_to_string(t));
-                if (!p)
-                        return log_oom();
-        }
-
-        *ret = p;
         return 0;
 }
 
@@ -1874,7 +1842,7 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
         } else {
-                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                r = make_unit_name(UNIT_SERVICE, &service);
                 if (r < 0)
                         return r;
         }
@@ -2089,7 +2057,7 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle scope name: %m");
         } else {
-                r = make_unit_name(bus, UNIT_SCOPE, &scope);
+                r = make_unit_name(UNIT_SCOPE, &scope);
                 if (r < 0)
                         return r;
         }
@@ -2388,7 +2356,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                         break;
                 }
         } else {
-                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                r = make_unit_name(UNIT_SERVICE, &service);
                 if (r < 0)
                         return r;
 
