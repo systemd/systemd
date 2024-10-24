@@ -47,7 +47,7 @@ PACKAGES=(
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
-    # mold
+    mold
     mount
     net-tools
     python3-evdev
@@ -69,14 +69,6 @@ COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
 CRYPTOLIB="${CRYPTOLIB:?}"
 RELEASE="$(lsb_release -cs)"
-
-# mold-2.2.0+ fixes some bugs breaking bootloader builds.
-# TODO: Switch to distro mold with ubuntu-24.04
-if [[ "$LINKER" == mold ]]; then
-    wget https://github.com/rui314/mold/releases/download/v2.2.0/mold-2.2.0-x86_64-linux.tar.gz
-    echo "d66e0230c562c2ba0e0b789cc5034e0fa2369cc843d0154920de4269cd94afeb  mold-2.2.0-x86_64-linux.tar.gz" | sha256sum -c
-    sudo tar -xz -C /usr --strip-components=1 -f mold-2.2.0-x86_64-linux.tar.gz
-fi
 
 # Note: As we use postfixed clang/gcc binaries, we need to override $AR
 #       as well, otherwise meson falls back to ar from binutils which
