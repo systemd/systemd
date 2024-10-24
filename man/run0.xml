@@ -193,6 +193,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--pty</option></term>
+        <term><option>--pipe</option></term>
+
+        <listitem><para>Request allocation of a pseudo TTY for the <command>run0</command> session (in case
+        of <option>--pty</option>), or request passing the caller's STDIO file descriptors directly through
+        (in case of <option>--pipe</option>). If neither switch is specified, or if both switches are
+        specified, the mode will be picked automatically: if standard input, standard output and standard
+        error output are all connected to a TTY then a pseudo TTY is allocated, otherwise the relevant file
+        descriptors are passed through directly.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine=</option></term>
 
         <listitem>
