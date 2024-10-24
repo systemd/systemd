@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for StateDirectory used by StandardOutput
+
+[Service]
+ExecStart=sh -c 'printf "hello\nhello\n"'
+Type=oneshot
+DynamicUser=true
+StateDirectory=test-exec_statedirectory_standardoutput
+StandardOutput=file:/var/lib/test-exec_statedirectory_standardoutput/test-exec-statedirectory_standardoutput-output
