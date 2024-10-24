@@ -24,6 +24,7 @@ struct Link {
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
         char *state;
+        bool dns_default_route;
 };
 
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname);

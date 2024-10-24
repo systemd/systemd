@@ -246,5 +246,11 @@ int link_update_monitor(Link *l) {
         else
                 free_and_replace(l->state, state);
 
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get DNS default route, ignoring: %m");
+        else
+                l->dns_default_route = r > 0;
+
         return ret;
 }
