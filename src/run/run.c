@@ -2435,7 +2435,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 if (strv_isempty(arg_cmdline))
                         t = strdup(arg_unit);
@@ -2444,7 +2444,9 @@ static int run(int argc, char* argv[]) {
                 if (!t)
                         return log_oom();
 
-                free_and_replace(arg_description, t);
+                arg_description = strjoin("[", program_invocation_short_name, "] ", t);
+                if (!arg_description)
+                        return log_oom();
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
