@@ -304,11 +304,21 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unreg
 
 # test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
 create_dummy_container "/var/lib/machines/container-without-os-release"
+cat >>/var/lib/machines/container-without-os-release/sbin/init <<\EOF
+touch /ready
+sleep infinity
+EOF
 machinectl start "container-without-os-release"
+timeout 30 bash -c "until test -e /var/lib/machines/container-without-os-release/ready; do sleep .5; done"
 rm -f /var/lib/machines/container-without-os-release/etc/os-release /var/lib/machines/container-without-os-release/usr/lib/os-release
 (! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "yes"}')
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "graceful"}'
+# test for listing multiple machines.
+long_running_machine_start
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "graceful"}'
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "graceful"}')
 machinectl terminate "container-without-os-release"
+machinectl terminate "long-running"
 
 (ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
 (! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
