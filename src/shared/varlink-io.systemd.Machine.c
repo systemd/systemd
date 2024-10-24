@@ -95,12 +95,35 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Return the base UID/GID of the machine"),
                 SD_VARLINK_DEFINE_OUTPUT(UIDShift, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                CopyFrom,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("A source directory in the container"),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A destination directory in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the destination will be replaced"),
+                SD_VARLINK_DEFINE_INPUT(replace, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CopyTo,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("A source directory on the host"),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A destination directory in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the destination will be replaced"),
+                SD_VARLINK_DEFINE_INPUT(replace, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
+static SD_VARLINK_DEFINE_ERROR(NoSuchFile);
+static SD_VARLINK_DEFINE_ERROR(FileExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
 static SD_VARLINK_DEFINE_ERROR(NoOSReleaseInformation);
 static SD_VARLINK_DEFINE_ERROR(NoUIDShift);
 static SD_VARLINK_DEFINE_ERROR(NotAvailable);
+static SD_VARLINK_DEFINE_ERROR(NotSupported);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Machine,
@@ -121,9 +144,17 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Kill,
                 SD_VARLINK_SYMBOL_COMMENT("List running machines"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Copy files or directories from a container into the host"),
+                &vl_method_CopyFrom,
+                SD_VARLINK_SYMBOL_COMMENT("Copy files or directories from the host into a container"),
+                &vl_method_CopyTo,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
+                SD_VARLINK_SYMBOL_COMMENT("No such file"),
+                &vl_error_NoSuchFile,
+                SD_VARLINK_SYMBOL_COMMENT("File exists"),
+                &vl_error_FileExists,
                 SD_VARLINK_SYMBOL_COMMENT("Machine does not use private networking"),
                 &vl_error_NoPrivateNetworking,
                 SD_VARLINK_SYMBOL_COMMENT("Machine does not contain OS release information"),
@@ -131,4 +162,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Machine uses a complex UID/GID mapping, cannot determine shift"),
                 &vl_error_NoUIDShift,
                 SD_VARLINK_SYMBOL_COMMENT("Requested information is not available"),
-                &vl_error_NotAvailable);
+                &vl_error_NotAvailable,
+                SD_VARLINK_SYMBOL_COMMENT("Requested operation is not supported"),
+                &vl_error_NotSupported);
