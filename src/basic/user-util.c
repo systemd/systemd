@@ -884,6 +884,17 @@ bool valid_home(const char *p) {
         return true;
 }
 
+bool valid_shell(const char *p) {
+        /* We have the same requirements, so just piggy-back on the home check.
+         *
+         * Let's ignore /etc/shells because this is only applicable to real and not system users. It is also
+         * incompatible with the idea of empty /etc/. */
+        if (!valid_home(p))
+                return false;
+
+        return !endswith(p, "/"); /* one additional restriction: shells may not be dirs */
+}
+
 int maybe_setgroups(size_t size, const gid_t *list) {
         int r;
 
