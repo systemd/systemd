@@ -426,6 +426,13 @@ userdbctl -j --json=short | jq
 userdbctl --with-varlink=no
 
 userdbctl user
+userdbctl user -S
+userdbctl user -IS
+userdbctl user -R
+userdbctl user --disposition=regular --disposition=intrinsic
+userdbctl user kkkk -z
+userdbctl user --uid-min=100 --uid-max=100
+userdbctl user -B
 userdbctl user testuser
 userdbctl user root
 userdbctl user testuser root
@@ -448,6 +455,13 @@ userdbctl user --with-nss=no 2000000
 (! userdbctl user --with-dropin=no 2000000)
 
 userdbctl group
+userdbctl group -S
+userdbctl group -IS
+userdbctl group -R
+userdbctl group --disposition=regular --disposition=intrinsic
+userdbctl group kkkk -z
+userdbctl group --uid-min=100 --uid-max=100
+userdbctl group -B
 userdbctl group testuser
 userdbctl group root
 userdbctl group testuser root
