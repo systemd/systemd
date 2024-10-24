@@ -69,6 +69,7 @@ static inline void* xmemdup(const void *p, size_t l) {
 }
 
 #define xnew(type, n) ((type *) xmalloc_multiply((n), sizeof(type)))
+#define xnew0(type, n) ((type *) xcalloc_multiply((n), sizeof(type)))
 
 bool free_and_xstrdup16(char16_t **p, const char16_t *s);
 

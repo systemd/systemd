@@ -614,12 +614,13 @@ static EFI_STATUS load_addons(
                 if (err != EFI_SUCCESS ||
                     (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
                      !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
                      !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
                      !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))) {
                         if (err == EFI_SUCCESS)
                                 err = EFI_NOT_FOUND;
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb/.initrd/.ucode sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
@@ -647,7 +648,21 @@ static EFI_STATUS load_addons(
                         *cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
                 }
 
-                if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+                // FIXME: do we want to do something else here?
+                // This should behave exactly as .dtb/.dtbauto in the main UKI
+                if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO)) {
+                        *devicetree_addons = xrealloc(*devicetree_addons,
+                                                      *n_devicetree_addons * sizeof(NamedAddon),
+                                                      (*n_devicetree_addons + 1) * sizeof(NamedAddon));
+
+                        (*devicetree_addons)[(*n_devicetree_addons)++] = (NamedAddon) {
+                                .blob = {
+                                        .iov_base = xmemdup((const uint8_t*) loaded_addon->ImageBase + sections[UNIFIED_SECTION_DTBAUTO].memory_offset, sections[UNIFIED_SECTION_DTBAUTO].memory_size),
+                                        .iov_len = sections[UNIFIED_SECTION_DTBAUTO].memory_size,
+                                },
+                                .filename = xstrdup16(items[i]),
+                        };
+                } else if (devicetree_addons && PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
                         *devicetree_addons = xrealloc(*devicetree_addons,
                                                       *n_devicetree_addons * sizeof(NamedAddon),
                                                       (*n_devicetree_addons + 1) * sizeof(NamedAddon));
@@ -968,13 +983,20 @@ static void install_embedded_devicetree(
         assert(sections);
         assert(dt_state);
 
-        if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB))
+        const void *dtb = NULL;
+        size_t dtb_size = 0;
+
+        /* Use automatically selected DT if available, otherwise go for "normal" one */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO)) {
+                dtb = (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTBAUTO].memory_offset;
+                dtb_size = sections[UNIFIED_SECTION_DTBAUTO].memory_size;
+        } else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB)) {
+                dtb = (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset;
+                dtb_size = sections[UNIFIED_SECTION_DTB].memory_size;
+        } else
                 return;
 
-        err = devicetree_install_from_memory(
-                        dt_state,
-                        (const uint8_t*) loaded_image->ImageBase + sections[UNIFIED_SECTION_DTB].memory_offset,
-                        sections[UNIFIED_SECTION_DTB].memory_size);
+        err = devicetree_install_from_memory(dt_state, dtb, dtb_size);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading embedded devicetree, ignoring: %m");
 }

@@ -79,6 +79,20 @@
 
       <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
 
+      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. Stub will always try to find first matching one.
+      Matching process extracts first <varname>compatible</varname> string from <literal>.dtbauto</literal>
+      section and compares it with the first Devicetree's <varname>compatible</varname> string supplied by
+      the firmware in configuration tables. If firmware does not provide Devicetree, matching with
+      <varname>.hwids</varname>  section will be used instead. Stub will use SMBIOS data to calculate hardware
+      IDs of the machine (as per <ulink url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
+      then it will proceed to trying to find any of them in <literal>.hwids</literal> section and will use first
+      matching entry's <varname>compatible</varname>  as a search key among the <literal>.dtbauto</literal>
+      entries, in a similar fashion as the use of <varname>compatible</varname> string read from the firmware
+      provided Devicetree was described before. First matching <literal>.dtbauto</literal> section will be
+      loaded and will override <varname>.dtb</varname> if present.</para></listitem>
+
+      <listitem><para>A <literal>.hwids</literal> section with hardware IDs of the machines to match Devicetrees (refer to <literal>.dtbauto</literal> section description).</para></listitem>
+
       <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
       output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
       section.</para></listitem>
