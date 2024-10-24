@@ -8,7 +8,7 @@
 #include "operation.h"
 #include "process-util.h"
 
-static int operation_done_internal(const siginfo_t *si, Operation *o, sd_bus_error *error) {
+static int read_operation_errno(const siginfo_t *si, Operation *o) {
         int r;
 
         assert(si);
@@ -27,15 +27,6 @@ static int operation_done_internal(const siginfo_t *si, Operation *o, sd_bus_err
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpectedly short message when reading operation's errno");
         }
 
-        if (o->done)
-                /* A completion routine is set for this operation, call it. */
-                return o->done(o, r, error);
-
-        /* The default operation when done is to simply return an error on failure or an empty success
-         * message on success. */
-        if (r < 0)
-                log_debug_errno(r, "Operation failed: %m");
-
         return r;
 }
 
@@ -51,10 +42,18 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
 
         o->pid = 0;
 
+        r = read_operation_errno(se, o);
+        if (r < 0)
+                log_debug_errno(r, "Operation failed: %m");
+
+        /* If a completion routine (o->done) is set for this operation, call it. It sends a response, but can return an error in which case it expect us to reply.
+         * Otherwise, the default action is to simply return an error on failure or an empty success message on success. */
+
         if (o->message) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                if (o->done)
+                        r = o->done(o, r, &error);
 
-                r = operation_done_internal(si, o, &error);
                 if (r < 0) {
                         if (!sd_bus_error_is_set(&error))
                                 sd_bus_error_set_errno(&error, r);
@@ -62,16 +61,20 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                         r = sd_bus_reply_method_error(o->message, &error);
                         if (r < 0)
                                 log_error_errno(r, "Failed to reply to dbus message: %m");
-                } else {
+                } else if (!o->done) {
+                        /* when o->done set it's responsible for sending reply in a happy-path case */
                         r = sd_bus_reply_method_return(o->message, NULL);
                         if (r < 0)
                                 log_error_errno(r, "Failed to reply to dbus message: %m");
                 }
         } else if (o->link) {
-                r = operation_done_internal(si, o, /* error = */ NULL);
+                if (o->done)
+                        r = o->done(o, r, /* error = */ NULL);
+
                 if (r < 0)
                         (void) sd_varlink_error_errno(o->link, r);
-                else
+                else if (!o->done)
+                        /* when o->done set it's responsible for sending reply in a happy-path case */
                         (void) sd_varlink_reply(o->link, NULL);
         } else
                 assert_not_reached();
