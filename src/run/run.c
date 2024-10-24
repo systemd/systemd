@@ -85,6 +85,7 @@ static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static char *arg_shell_prompt_prefix = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -96,6 +97,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -194,6 +196,7 @@ static int help_sudo_mode(void) {
                "     --background=COLOR           Set ANSI color for background\n"
                "     --pty                        Request allocation of a pseudo TTY for stdio\n"
                "     --pipe                       Request direct pipe for stdio\n"
+               "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -778,29 +781,31 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_BACKGROUND,
                 ARG_PTY,
                 ARG_PIPE,
+                ARG_SHELL_PROMPT_PREFIX,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
          * though (but limit the extension to long options). */
 
         static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, 'V'                    },
-                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
-                { "machine",            required_argument, NULL, ARG_MACHINE            },
-                { "unit",               required_argument, NULL, ARG_UNIT               },
-                { "property",           required_argument, NULL, ARG_PROPERTY           },
-                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
-                { "slice",              required_argument, NULL, ARG_SLICE              },
-                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
-                { "user",               required_argument, NULL, 'u'                    },
-                { "group",              required_argument, NULL, 'g'                    },
-                { "nice",               required_argument, NULL, ARG_NICE               },
-                { "chdir",              required_argument, NULL, 'D'                    },
-                { "setenv",             required_argument, NULL, ARG_SETENV             },
-                { "background",         required_argument, NULL, ARG_BACKGROUND         },
-                { "pty",                no_argument,       NULL, ARG_PTY                },
-                { "pipe",               no_argument,       NULL, ARG_PIPE               },
+                { "help",                no_argument,       NULL, 'h'                     },
+                { "version",             no_argument,       NULL, 'V'                     },
+                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
+                { "machine",             required_argument, NULL, ARG_MACHINE             },
+                { "unit",                required_argument, NULL, ARG_UNIT                },
+                { "property",            required_argument, NULL, ARG_PROPERTY            },
+                { "description",         required_argument, NULL, ARG_DESCRIPTION         },
+                { "slice",               required_argument, NULL, ARG_SLICE               },
+                { "slice-inherit",       no_argument,       NULL, ARG_SLICE_INHERIT       },
+                { "user",                required_argument, NULL, 'u'                     },
+                { "group",               required_argument, NULL, 'g'                     },
+                { "nice",                required_argument, NULL, ARG_NICE                },
+                { "chdir",               required_argument, NULL, 'D'                     },
+                { "setenv",              required_argument, NULL, ARG_SETENV              },
+                { "background",          required_argument, NULL, ARG_BACKGROUND          },
+                { "pty",                 no_argument,       NULL, ARG_PTY                 },
+                { "pipe",                no_argument,       NULL, ARG_PIPE                },
+                { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 {},
         };
 
@@ -905,6 +910,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_DIRECT;
+                        break;
+
+                case ARG_SHELL_PROMPT_PREFIX:
+                        r = free_and_strdup_warn(&arg_shell_prompt_prefix, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -1017,6 +1028,25 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 r = terminal_tint_color(hue, &arg_background);
                 if (r < 0)
                         log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
+        }
+
+        if (!arg_shell_prompt_prefix) {
+                const char *e = secure_getenv("SYSTEMD_RUN_SHELL_PROMPT_PREFIX");
+                if (e) {
+                        arg_shell_prompt_prefix = strdup(e);
+                        if (!arg_shell_prompt_prefix)
+                                return log_oom();
+                } else if (emoji_enabled()) {
+                        arg_shell_prompt_prefix = strjoin(special_glyph(SPECIAL_GLYPH_SUPERHERO), " ");
+                        if (!arg_shell_prompt_prefix)
+                                return log_oom();
+                }
+        }
+
+        if (!isempty(arg_shell_prompt_prefix)) {
+                r = strv_env_assign(&arg_environment, "SHELL_PROMPT_PREFIX", arg_shell_prompt_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $SHELL_PROMPT_PREFIX environment variable: %m");
         }
 
         return 1;
