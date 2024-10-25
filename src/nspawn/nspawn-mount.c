@@ -635,33 +635,33 @@ int mount_all(const char *dest,
         bool privileged = FLAGS_SET(mount_settings, MOUNT_PRIVILEGED);
         int r;
 
-        for (size_t k = 0; k < ELEMENTSOF(mount_table); k++) {
+        FOREACH_ELEMENT(m, mount_table) {
                 _cleanup_free_ char *where = NULL, *options = NULL, *prefixed = NULL;
-                bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
+                bool fatal = FLAGS_SET(m->mount_settings, MOUNT_FATAL);
                 const char *o;
 
                 /* If we are not privileged but the entry is marked as privileged and to be mounted outside the user namespace, then skip it */
-                if (!privileged && FLAGS_SET(mount_table[k].mount_settings, MOUNT_PRIVILEGED) && !FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
+                if (!privileged && FLAGS_SET(m->mount_settings, MOUNT_PRIVILEGED) && !FLAGS_SET(m->mount_settings, MOUNT_IN_USERNS))
                         continue;
 
-                if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
+                if (in_userns != FLAGS_SET(m->mount_settings, MOUNT_IN_USERNS))
                         continue;
 
-                if (!netns && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_NETNS))
+                if (!netns && FLAGS_SET(m->mount_settings, MOUNT_APPLY_APIVFS_NETNS))
                         continue;
 
-                if (!ro && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_RO))
+                if (!ro && FLAGS_SET(m->mount_settings, MOUNT_APPLY_APIVFS_RO))
                         continue;
 
-                if (!tmpfs_tmp && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_TMPFS_TMP))
+                if (!tmpfs_tmp && FLAGS_SET(m->mount_settings, MOUNT_APPLY_TMPFS_TMP))
                         continue;
 
-                r = chase(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
+                r = chase(m->where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), mount_table[k].where);
+                        return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), m->where);
 
                 /* Skip this entry if it is not a remount. */
-                if (mount_table[k].what) {
+                if (m->what) {
                         r = path_is_mount_point(where);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
@@ -669,10 +669,10 @@ int mount_all(const char *dest,
                                 continue;
                 }
 
-                if ((mount_table[k].mount_settings & (MOUNT_MKDIR|MOUNT_TOUCH)) != 0) {
+                if ((m->mount_settings & (MOUNT_MKDIR|MOUNT_TOUCH)) != 0) {
                         uid_t u = (use_userns && !in_userns) ? uid_shift : UID_INVALID;
 
-                        if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH))
+                        if (FLAGS_SET(m->mount_settings, MOUNT_TOUCH))
                                 r = mkdir_parents_safe(dest, where, 0755, u, u, 0);
                         else
                                 r = mkdir_p_safe(dest, where, 0755, u, u, 0);
@@ -689,7 +689,7 @@ int mount_all(const char *dest,
                         }
                 }
 
-                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH)) {
+                if (FLAGS_SET(m->mount_settings, MOUNT_TOUCH)) {
                         r = touch(where);
                         if (r < 0 && r != -EEXIST) {
                                 if (fatal && r != -EROFS)
@@ -701,8 +701,8 @@ int mount_all(const char *dest,
                         }
                 }
 
-                o = mount_table[k].options;
-                if (streq_ptr(mount_table[k].type, "tmpfs")) {
+                o = m->options;
+                if (streq_ptr(m->type, "tmpfs")) {
                         r = tmpfs_patch_options(o, in_userns ? 0 : uid_shift, selinux_apifs_context, &options);
                         if (r < 0)
                                 return log_oom();
@@ -710,24 +710,24 @@ int mount_all(const char *dest,
                                 o = options;
                 }
 
-                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_PREFIX_ROOT)) {
+                if (FLAGS_SET(m->mount_settings, MOUNT_PREFIX_ROOT)) {
                         /* Optionally prefix the mount source with the root dir. This is useful in bind
                          * mounts to be created within the container image before we transition into it. Note
                          * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not necessary
                          * for those. */
-                        r = chase(mount_table[k].what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
+                        r = chase(m->what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), mount_table[k].what);
+                                return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), m->what);
                 }
 
                 r = mount_verbose_full(
                                 fatal ? LOG_ERR : LOG_DEBUG,
-                                prefixed ?: mount_table[k].what,
+                                prefixed ?: m->what,
                                 where,
-                                mount_table[k].type,
-                                mount_table[k].flags,
+                                m->type,
+                                m->flags,
                                 o,
-                                FLAGS_SET(mount_table[k].mount_settings, MOUNT_FOLLOW_SYMLINKS));
+                                FLAGS_SET(m->mount_settings, MOUNT_FOLLOW_SYMLINKS));
                 if (r < 0 && fatal)
                         return r;
         }

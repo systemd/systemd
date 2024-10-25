@@ -295,8 +295,8 @@ static bool test_pointers(
                 size_t num_well_known_keys = 0;
 
                 if (has_keys)
-                        for (size_t i = 0; i < ELEMENTSOF(well_known_keyboard_keys); i++)
-                                if (test_bit(well_known_keyboard_keys[i], bitmask_key))
+                        FOREACH_ELEMENT(key, well_known_keyboard_keys)
+                                if (test_bit(*key, bitmask_key))
                                         num_well_known_keys++;
 
                 if (num_well_known_keys >= 4 || num_joystick_buttons + num_joystick_axes < 2) {
