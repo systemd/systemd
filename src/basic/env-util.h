@@ -34,14 +34,14 @@ int replace_env_argv(char **argv, char **env, char ***ret, char ***ret_unset_var
 
 bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
-char **strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
 
 bool strv_env_name_is_valid(char **l);
 bool strv_env_name_or_assignment_is_valid(char **l);
 
 char** _strv_env_merge(char **first, ...);
 #define strv_env_merge(first, ...) _strv_env_merge(first, __VA_ARGS__, POINTER_MAX)
-char **strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
+char** strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
 
 char** strv_env_unset(char **l, const char *p); /* In place ... */
 char** strv_env_unset_many_internal(char **l, ...) _sentinel_;
