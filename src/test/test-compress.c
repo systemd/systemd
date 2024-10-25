@@ -33,7 +33,7 @@
 #define HUGE_SIZE (4096*1024)
 
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, size_t dst_alloc_size, size_t *dst_size);
+                              void *dst, size_t dst_alloc_size, size_t *dst_size, int level);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
                                 void **dst,
                                 size_t* dst_size, size_t dst_max);
@@ -62,7 +62,7 @@ _unused_ static void test_compress_decompress(
         log_info("/* testing %s %s blob compression/decompression */",
                  compression, data);
 
-        r = compress(data, data_len, compressed, sizeof(compressed), &csize);
+        r = compress(data, data_len, compressed, sizeof(compressed), &csize, /* level = */ -1);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
@@ -111,14 +111,14 @@ _unused_ static void test_decompress_startswith(const char *compression,
 
         compressed = compressed1 = malloc(BUFSIZE_1);
         assert_se(compressed1);
-        r = compress(data, data_len, compressed, BUFSIZE_1, &csize);
+        r = compress(data, data_len, compressed, BUFSIZE_1, &csize, /* level = */ -1);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
                 assert_se(may_fail);
 
                 compressed = compressed2 = malloc(BUFSIZE_2);
                 assert_se(compressed2);
-                r = compress(data, data_len, compressed, BUFSIZE_2, &csize);
+                r = compress(data, data_len, compressed, BUFSIZE_2, &csize, /* level = */ -1);
         }
         assert_se(r >= 0);
 
@@ -150,7 +150,7 @@ _unused_ static void test_decompress_startswith_short(const char *compression,
 
         log_info("/* %s with %s */", __func__, compression);
 
-        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize);
+        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize, /* level = */ -1);
         assert_se(r >= 0);
 
         for (size_t i = 1; i < strlen(TEXT); i++) {
@@ -292,25 +292,25 @@ int main(int argc, char *argv[]) {
         random_bytes(data + 7, sizeof(data) - 7);
 
 #if HAVE_XZ
-        test_compress_decompress("XZ", compress_blob_xz, decompress_blob_xz,
+        test_compress_decompress("xz", compress_blob_xz, decompress_blob_xz,
                                  text, sizeof(text), false);
-        test_compress_decompress("XZ", compress_blob_xz, decompress_blob_xz,
+        test_compress_decompress("xz", compress_blob_xz, decompress_blob_xz,
                                  data, sizeof(data), true);
 
-        test_decompress_startswith("XZ",
+        test_decompress_startswith("xz",
                                    compress_blob_xz, decompress_startswith_xz,
                                    text, sizeof(text), false);
-        test_decompress_startswith("XZ",
+        test_decompress_startswith("xz",
                                    compress_blob_xz, decompress_startswith_xz,
                                    data, sizeof(data), true);
-        test_decompress_startswith("XZ",
+        test_decompress_startswith("xz",
                                    compress_blob_xz, decompress_startswith_xz,
                                    huge, HUGE_SIZE, true);
 
-        test_compress_stream("XZ", "xzcat",
+        test_compress_stream("xz", "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
 
-        test_decompress_startswith_short("XZ", compress_blob_xz, decompress_startswith_xz);
+        test_decompress_startswith_short("xz", compress_blob_xz, decompress_startswith_xz);
 
 #else
         log_info("/* XZ test skipped */");
@@ -318,27 +318,27 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_LZ4
         if (dlopen_lz4() >= 0) {
-                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
+                test_compress_decompress("lz4", compress_blob_lz4, decompress_blob_lz4,
                                          text, sizeof(text), false);
-                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
+                test_compress_decompress("lz4", compress_blob_lz4, decompress_blob_lz4,
                                          data, sizeof(data), true);
 
-                test_decompress_startswith("LZ4",
+                test_decompress_startswith("lz4",
                                            compress_blob_lz4, decompress_startswith_lz4,
                                            text, sizeof(text), false);
-                test_decompress_startswith("LZ4",
+                test_decompress_startswith("lz4",
                                            compress_blob_lz4, decompress_startswith_lz4,
                                            data, sizeof(data), true);
-                test_decompress_startswith("LZ4",
+                test_decompress_startswith("lz4",
                                            compress_blob_lz4, decompress_startswith_lz4,
                                            huge, HUGE_SIZE, true);
 
-                test_compress_stream("LZ4", "lz4cat",
+                test_compress_stream("lz4", "lz4cat",
                                      compress_stream_lz4, decompress_stream_lz4, srcfile);
 
                 test_lz4_decompress_partial();
 
-                test_decompress_startswith_short("LZ4", compress_blob_lz4, decompress_startswith_lz4);
+                test_decompress_startswith_short("lz4", compress_blob_lz4, decompress_startswith_lz4);
         } else
                 log_error("/* Can't load liblz4 */");
 #else
@@ -346,25 +346,25 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_ZSTD
-        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+        test_compress_decompress("zstd", compress_blob_zstd, decompress_blob_zstd,
                                  text, sizeof(text), false);
-        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+        test_compress_decompress("zstd", compress_blob_zstd, decompress_blob_zstd,
                                  data, sizeof(data), true);
 
-        test_decompress_startswith("ZSTD",
+        test_decompress_startswith("zstd",
                                    compress_blob_zstd, decompress_startswith_zstd,
                                    text, sizeof(text), false);
-        test_decompress_startswith("ZSTD",
+        test_decompress_startswith("zstd",
                                    compress_blob_zstd, decompress_startswith_zstd,
                                    data, sizeof(data), true);
-        test_decompress_startswith("ZSTD",
+        test_decompress_startswith("zstd",
                                    compress_blob_zstd, decompress_startswith_zstd,
                                    huge, HUGE_SIZE, true);
 
-        test_compress_stream("ZSTD", "zstdcat",
+        test_compress_stream("zstd", "zstdcat",
                              compress_stream_zstd, decompress_stream_zstd, srcfile);
 
-        test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
+        test_decompress_startswith_short("zstd", compress_blob_zstd, decompress_startswith_zstd);
 #else
         log_info("/* ZSTD test skipped */");
 #endif
