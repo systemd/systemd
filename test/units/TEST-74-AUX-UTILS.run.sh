@@ -261,4 +261,14 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     assert_eq "$(run0 -D / pwd)" "/"
     assert_eq "$(run0 --user=testuser pwd)" "/home/testuser"
     assert_eq "$(run0 -D / --user=testuser pwd)" "/"
+
+    # Verify that all combinations of --pty/--pipe come to the sam results
+    assert_eq "$(run0 echo -n foo)" "foo"
+    assert_eq "$(run0 --pty echo -n foo)" "foo"
+    assert_eq "$(run0 --pipe echo -n foo)" "foo"
+    assert_eq "$(run0 --pipe --pty echo -n foo)" "foo"
+
+    # Validate that we when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
+    assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
+    assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
 fi
