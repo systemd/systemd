@@ -892,14 +892,14 @@ TEST(read_line4) {
 
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(eof_endings); i++) {
+        FOREACH_ELEMENT(ending, eof_endings) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *s = NULL;
 
-                assert_se(f = fmemopen_unlocked((void*) eof_endings[i].string, eof_endings[i].length, "r"));
+                assert_se(f = fmemopen_unlocked((void*) ending->string, ending->length, "r"));
 
                 r = read_line(f, SIZE_MAX, &s);
-                assert_se((size_t) r == eof_endings[i].length);
+                assert_se((size_t) r == ending->length);
                 ASSERT_STREQ(s, "foo");
 
                 assert_se(read_line(f, SIZE_MAX, NULL) == 0); /* Ensure we hit EOF */
