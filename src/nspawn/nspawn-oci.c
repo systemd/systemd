@@ -1582,11 +1582,9 @@ static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
                  * here */
         };
 
-        size_t i;
-
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (streq_ptr(name, table[i].name)) {
-                        *ret = table[i].action;
+        FOREACH_ELEMENT(i, table)
+                if (streq_ptr(name, i->name)) {
+                        *ret = i->action;
                         return 0;
                 }
 
@@ -1630,11 +1628,9 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ARCH_X86_64",      SCMP_ARCH_X86_64      },
         };
 
-        size_t i;
-
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (streq_ptr(table[i].name, name)) {
-                        *ret = table[i].arch;
+        FOREACH_ELEMENT(i, table)
+                if (streq_ptr(i->name, name)) {
+                        *ret = i->arch;
                         return 0;
                 }
 
@@ -1656,11 +1652,9 @@ static int oci_seccomp_compare_from_string(const char *name, enum scmp_compare *
                 { "SCMP_CMP_MASKED_EQ", SCMP_CMP_MASKED_EQ },
         };
 
-        size_t i;
-
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (streq_ptr(table[i].name, name)) {
-                        *ret = table[i].op;
+        FOREACH_ELEMENT(i, table)
+                if (streq_ptr(i->name, name)) {
+                        *ret = i->op;
                         return 0;
                 }
 
