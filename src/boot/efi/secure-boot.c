@@ -136,14 +136,14 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         };
 
         /* Make sure all keys files exist before we start enrolling them by loading them from the disk first. */
-        for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++) {
-                err = file_read(dir, sb_vars[i].filename, 0, 0, &sb_vars[i].buffer, &sb_vars[i].size);
-                if (err != EFI_SUCCESS && sb_vars[i].required) {
-                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_vars[i].filename);
+        FOREACH_ELEMENT(sb_var, sb_vars) {
+                err = file_read(dir, sb_var->filename, 0, 0, &sb_var->buffer, &sb_var->size);
+                if (err != EFI_SUCCESS && sb_var->required) {
+                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_var->filename);
                         goto out_deallocate;
                 }
-                if (streq16(sb_vars[i].name, u"PK") && sb_vars[i].size > 20) {
-                        assert(sb_vars[i].buffer);
+                if (streq16(sb_var->name, u"PK") && sb_var->size > 20) {
+                        assert(sb_var->buffer);
                         /*
                          * The buffer should be EFI_TIME (16 bytes), followed by
                          * EFI_VARIABLE_AUTHENTICATION_2 header.  First header field is the size.  If the
@@ -151,7 +151,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                          * bytes), leaving no space for an actual signature, we can conclude that no
                          * signature is present.
                          */
-                        uint32_t *sigsize = (uint32_t*)(sb_vars[i].buffer + 16);
+                        uint32_t *sigsize = (uint32_t*)(sb_var->buffer + 16);
                         if (*sigsize <= 24) {
                                 printf("PK is not signed (need custom mode).\n");
                                 need_custom_mode = true;
@@ -168,19 +168,19 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 printf("Custom mode enabled.\n");
         }
 
-        for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++) {
+        FOREACH_ELEMENT(sb_var, sb_vars) {
                 uint32_t sb_vars_opts =
                         EFI_VARIABLE_NON_VOLATILE |
                         EFI_VARIABLE_BOOTSERVICE_ACCESS |
                         EFI_VARIABLE_RUNTIME_ACCESS |
                         EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
-                if (!sb_vars[i].buffer)
+                if (!sb_var->buffer)
                         continue;
 
-                err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
+                err = efivar_set_raw(&sb_var->vendor, sb_var->name, sb_var->buffer, sb_var->size, sb_vars_opts);
                 if (err != EFI_SUCCESS) {
-                        log_error_status(err, "Failed to write %ls secure boot variable: %m", sb_vars[i].name);
+                        log_error_status(err, "Failed to write %ls secure boot variable: %m", sb_var->name);
                         goto out_deallocate;
                 }
         }
@@ -193,8 +193,8 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         assert_not_reached();
 
 out_deallocate:
-        for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++)
-                free(sb_vars[i].buffer);
+        FOREACH_ELEMENT(sb_var, sb_vars)
+                free(sb_var->buffer);
 
         return err;
 }

@@ -4858,13 +4858,13 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
 static void event_log_delays(sd_event *e) {
         char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1], *p;
-        size_t l, i;
+        size_t l;
 
         p = b;
         l = sizeof(b);
-        for (i = 0; i < ELEMENTSOF(e->delays); i++) {
-                l = strpcpyf(&p, l, "%u ", e->delays[i]);
-                e->delays[i] = 0;
+        FOREACH_ELEMENT(delay, e->delays) {
+                l = strpcpyf(&p, l, "%u ", *delay);
+                *delay = 0;
         }
         log_debug("Event loop iterations: %s", b);
 }
