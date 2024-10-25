@@ -171,6 +171,10 @@ static int help_sudo_mode(void) {
         if (r < 0)
                 return log_oom();
 
+        /* NB: Let's not go overboard with short options: we try to keep a modicum of compatibility with
+         * sudo's short switches, hence please do not introduce new short switches unless they have a roughly
+         * equivalent purpose on sudo. Use long options for everything private to run0. */
+
         printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
                "\n%sElevate privileges interactively.%s\n\n"
                "  -h --help                       Show this help\n"
@@ -188,6 +192,8 @@ static int help_sudo_mode(void) {
                "  -D --chdir=PATH                 Set working directory\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
+               "     --pty                        Request allocation of a pseudo TTY for stdio\n"
+               "     --pipe                       Request direct pipe for stdio\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -674,7 +680,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
-                arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
+                arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ?
                         ARG_STDIO_PTY :
                         ARG_STDIO_DIRECT;
 
@@ -770,6 +776,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_NICE,
                 ARG_SETENV,
                 ARG_BACKGROUND,
+                ARG_PTY,
+                ARG_PIPE,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -791,6 +799,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "chdir",              required_argument, NULL, 'D'                    },
                 { "setenv",             required_argument, NULL, ARG_SETENV             },
                 { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "pty",                no_argument,       NULL, ARG_PTY                },
+                { "pipe",               no_argument,       NULL, ARG_PIPE               },
                 {},
         };
 
@@ -883,6 +893,20 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_PTY:
+                        if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
+                                arg_stdio = ARG_STDIO_AUTO;
+                        else
+                                arg_stdio = ARG_STDIO_PTY;
+                        break;
+
+                case ARG_PIPE:
+                        if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty is already used, upgrade to auto mode */
+                                arg_stdio = ARG_STDIO_AUTO;
+                        else
+                                arg_stdio = ARG_STDIO_DIRECT;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -913,7 +937,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_wait = true;
         arg_aggressive_gc = true;
 
-        arg_stdio = isatty_safe(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        if (IN_SET(arg_stdio, ARG_STDIO_NONE, ARG_STDIO_AUTO))
+                arg_stdio = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) && isatty_safe(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+
         arg_expand_environment = false;
         arg_send_sighup = true;
 
@@ -1181,7 +1207,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                send_term = isatty_safe(STDIN_FILENO) || isatty(STDOUT_FILENO) || isatty(STDERR_FILENO);
+                send_term = isatty_safe(STDIN_FILENO) || isatty_safe(STDOUT_FILENO) || isatty_safe(STDERR_FILENO);
         }
 
         if (send_term) {
