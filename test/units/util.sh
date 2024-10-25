@@ -39,6 +39,15 @@ assert_eq() {(
     fi
 )}
 
+assert_neq() {(
+    set +ex
+
+    if [[ "${1?}" = "${2?}" ]]; then
+        echo "FAIL: not expected: '$2' actual: '$1'" >&2
+        exit 1
+    fi
+)}
+
 assert_le() {(
     set +ex
 
