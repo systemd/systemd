@@ -272,3 +272,6 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
 fi
+
+# Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
+assert_rc "37" systemd-run --unit=disconnecttest --wait --pipe --user -M testuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'

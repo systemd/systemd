@@ -22,6 +22,7 @@
 #include "chase.h"
 #include "env-util.h"
 #include "escape.h"
+#include "event-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -1438,11 +1439,40 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
         return 0;
 }
 
+static int connect_bus(sd_bus **ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(ret);
+
+        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the
+         * limited direct connection */
+        if (arg_wait ||
+            arg_stdio != ARG_STDIO_NONE ||
+            (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)))
+                r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
+        else
+                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
+        if (r < 0)
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
 typedef struct RunContext {
-        sd_bus *bus;
         sd_event *event;
         PTYForward *forward;
-        sd_bus_slot *match;
+        char *service;
+        char *bus_path;
+
+        /* Bus objects */
+        sd_bus *bus;
+        sd_bus_slot *match_properties_changed;
+        sd_bus_slot *match_disconnected;
+        sd_event_source *retry_timer;
 
         /* Current state of the unit */
         char *active_state;
@@ -1463,16 +1493,72 @@ typedef struct RunContext {
         uint32_t exit_status;
 } RunContext;
 
-static void run_context_free(RunContext *c) {
+static int run_context_update(RunContext *c);
+static int run_context_attach_bus(RunContext *c, sd_bus *bus);
+static void run_context_detach_bus(RunContext *c);
+static int run_context_reconnect(RunContext *c);
+
+static void run_context_done(RunContext *c) {
         assert(c);
 
+        run_context_detach_bus(c);
+
+        c->retry_timer = sd_event_source_disable_unref(c->retry_timer);
         c->forward = pty_forward_free(c->forward);
-        c->match = sd_bus_slot_unref(c->match);
-        c->bus = sd_bus_unref(c->bus);
         c->event = sd_event_unref(c->event);
 
         free(c->active_state);
         free(c->result);
+        free(c->bus_path);
+        free(c->service);
+}
+
+static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        RunContext *c = ASSERT_PTR(userdata);
+
+        c->retry_timer = sd_event_source_disable_unref(c->retry_timer);
+
+        return run_context_reconnect(c);
+}
+
+static int run_context_reconnect(RunContext *c) {
+        int r;
+
+        assert(c);
+
+        run_context_detach_bus(c);
+
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        r = connect_bus(&bus);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to reconnect, retrying in 2s: %m");
+
+                r = event_reset_time_relative(
+                                c->event,
+                                &c->retry_timer,
+                                CLOCK_MONOTONIC,
+                                2 * USEC_PER_SEC, /* accuracy= */ 0,
+                                on_retry_timer, c,
+                                SD_EVENT_PRIORITY_NORMAL,
+                                "retry-timeout",
+                                /* force_reset= */ false);
+                if (r < 0) {
+                        (void) sd_event_exit(c->event, EXIT_FAILURE);
+                        return log_error_errno(r, "Failed to install retry timer: %m");
+                }
+
+                return 0;
+        }
+
+        r = run_context_attach_bus(c, bus);
+        if (r < 0) {
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                return r;
+        }
+
+        log_info("Reconnected to bus.");
+
+        return run_context_update(c);
 }
 
 static void run_context_check_done(RunContext *c) {
@@ -1480,16 +1566,13 @@ static void run_context_check_done(RunContext *c) {
 
         assert(c);
 
-        if (c->match)
-                done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
-        else
-                done = true;
+        done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
 
         if (c->forward && !pty_forward_is_done(c->forward) && done) /* If the service is gone, it's time to drain the output */
                 done = pty_forward_drain(c->forward);
 
         if (done)
-                sd_event_exit(c->event, EXIT_SUCCESS);
+                (void) sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
 static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -1506,7 +1589,7 @@ static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
         return 0;
 }
 
-static int run_context_update(RunContext *c, const char *path) {
+static int run_context_update(RunContext *c) {
 
         static const struct bus_properties_map map[] = {
                 { "ActiveState",                     "s",    NULL,    offsetof(RunContext, active_state)        },
@@ -1529,16 +1612,35 @@ static int run_context_update(RunContext *c, const char *path) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = bus_map_all_properties(c->bus,
-                                   "org.freedesktop.systemd1",
-                                   path,
-                                   map,
-                                   BUS_MAP_STRDUP,
-                                   &error,
-                                   NULL,
-                                   c);
+        assert(c);
+        assert(c->bus);
+
+        r = bus_map_all_properties(
+                        c->bus,
+                        "org.freedesktop.systemd1",
+                        c->bus_path,
+                        map,
+                        BUS_MAP_STRDUP,
+                        &error,
+                        NULL,
+                        c);
         if (r < 0) {
-                sd_event_exit(c->event, EXIT_FAILURE);
+                /* If this is a connection error, then try to reconnect. This might be because the service
+                 * manager is being restarted. Handle this gracefully. */
+                if (sd_bus_error_has_names(
+                                    &error,
+                                    SD_BUS_ERROR_NO_REPLY,
+                                    SD_BUS_ERROR_DISCONNECTED,
+                                    SD_BUS_ERROR_TIMED_OUT,
+                                    SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                    SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+
+                        log_info("Bus call failed due to connection problems. Trying to reconnect...");
+                        /* Not propagating error, because we handled it already, by reconnecting. */
+                        return run_context_reconnect(c);
+                }
+
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
         }
 
@@ -1547,11 +1649,67 @@ static int run_context_update(RunContext *c, const char *path) {
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        RunContext *c = ASSERT_PTR(userdata);
+        return run_context_update(ASSERT_PTR(userdata));
+}
 
-        assert(m);
+static int on_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        /* If our connection gets terminated, then try to reconnect. This might be because the service
+         * manager is being restarted. Handle this gracefully. */
+        log_info("Got disconnected from bus connection. Trying to reconnect...");
+        return run_context_reconnect(ASSERT_PTR(userdata));
+}
 
-        return run_context_update(c, sd_bus_message_get_path(m));
+static int run_context_attach_bus(RunContext *c, sd_bus *bus) {
+        int r;
+
+        assert(c);
+        assert(bus);
+
+        assert(!c->bus);
+        assert(!c->match_properties_changed);
+        assert(!c->match_disconnected);
+
+        c->bus = sd_bus_ref(bus);
+
+        r = sd_bus_match_signal_async(
+                        c->bus,
+                        &c->match_properties_changed,
+                        "org.freedesktop.systemd1",
+                        c->bus_path,
+                        "org.freedesktop.DBus.Properties",
+                        "PropertiesChanged",
+                        on_properties_changed, NULL, c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request PropertiesChanged signal match: %m");
+
+        r = sd_bus_match_signal_async(
+                        bus,
+                        &c->match_disconnected,
+                        "org.freedesktop.DBus.Local",
+                        /* path= */ NULL,
+                        "org.freedesktop.DBus.Local",
+                        "Disconnected",
+                        on_disconnected, NULL, c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request Disconnected signal match: %m");
+
+        r = sd_bus_attach_event(c->bus, c->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
+
+        return 0;
+}
+
+static void run_context_detach_bus(RunContext *c) {
+        assert(c);
+
+        if (c->bus) {
+                (void) sd_bus_detach_event(c->bus);
+                c->bus = sd_bus_unref(c->bus);
+        }
+
+        c->match_properties_changed = sd_bus_slot_unref(c->match_properties_changed);
+        c->match_disconnected = sd_bus_slot_unref(c->match_disconnected);
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -1567,7 +1725,7 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
                 /* If --wait is specified, we'll only exit the pty forwarding, but will continue to wait
                  * for the service to end. If the user hits ^C we'll exit too. */
         } else if (rcode < 0) {
-                sd_event_exit(c->event, EXIT_FAILURE);
+                (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }
 
@@ -1886,7 +2044,7 @@ static int start_transient_service(sd_bus *bus) {
         }
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
-                _cleanup_(run_context_free) RunContext c = {
+                _cleanup_(run_context_done) RunContext c = {
                         .cpu_usage_nsec = NSEC_INFINITY,
                         .memory_peak = UINT64_MAX,
                         .memory_swap_peak = UINT64_MAX,
@@ -1897,13 +2055,18 @@ static int start_transient_service(sd_bus *bus) {
                         .inactive_exit_usec = USEC_INFINITY,
                         .inactive_enter_usec = USEC_INFINITY,
                 };
-                _cleanup_free_ char *path = NULL;
-
-                c.bus = sd_bus_ref(bus);
 
                 r = sd_event_default(&c.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get event loop: %m");
+
+                c.service = strdup(service);
+                if (!c.service)
+                        return log_oom();
+
+                c.bus_path = unit_dbus_path_from_name(service);
+                if (!c.bus_path)
+                        return log_oom();
 
                 if (master >= 0) {
                         (void) sd_event_set_signal_exit(c.event, true);
@@ -1926,26 +2089,11 @@ static int start_transient_service(sd_bus *bus) {
                         set_window_title(c.forward);
                 }
 
-                path = unit_dbus_path_from_name(service);
-                if (!path)
-                        return log_oom();
-
-                r = sd_bus_match_signal_async(
-                                bus,
-                                &c.match,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.DBus.Properties",
-                                "PropertiesChanged",
-                                on_properties_changed, NULL, &c);
+                r = run_context_attach_bus(&c, bus);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to request properties changed signal match: %m");
+                        return r;
 
-                r = sd_bus_attach_event(bus, c.event, SD_EVENT_PRIORITY_NORMAL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
-
-                r = run_context_update(&c, path);
+                r = run_context_update(&c);
                 if (r < 0)
                         return r;
 
@@ -2461,18 +2609,9 @@ static int run(int argc, char* argv[]) {
                                     " Use --expand-environment=yes/no to explicitly control it as needed.");
         }
 
-        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the
-         * limited direct connection */
-        if (arg_wait ||
-            arg_stdio != ARG_STDIO_NONE ||
-            (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)))
-                r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
-        else
-                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
+        r = connect_bus(&bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+                return r;
 
         if (arg_scope)
                 return start_transient_scope(bus);
