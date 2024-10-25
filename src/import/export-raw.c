@@ -9,9 +9,11 @@
 #include "copy.h"
 #include "export-raw.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "missing_fcntl.h"
+#include "pretty-print.h"
 #include "ratelimit.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -106,6 +108,7 @@ int raw_export_new(
 }
 
 static void raw_export_report_progress(RawExport *e) {
+        _cleanup_free_ char *s = NULL;
         unsigned percent;
         assert(e);
 
@@ -121,7 +124,14 @@ static void raw_export_report_progress(RawExport *e) {
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
-        log_info("Exported %u%%.", percent);
+
+        if (asprintf(&s, "%s %s/%s",
+                     special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                     FORMAT_BYTES(e->written_uncompressed),
+                     FORMAT_BYTES(e->st.st_size)) < 0)
+                return;
+
+        draw_progress_bar(s, percent);
 
         e->last_percent = percent;
 }
