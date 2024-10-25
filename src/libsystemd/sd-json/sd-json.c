@@ -4533,7 +4533,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_STRV_NON_EMPTY: {
+                case _JSON_BUILD_PAIR_STRV_NON_EMPTY:
+                case _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY: {
                         const char *n;
                         char **l;
 
@@ -4546,11 +4547,19 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
+                                _cleanup_strv_free_ char **el = NULL;
+
+                                if (command == _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY) {
+                                        r = strv_env_get_merged(l, &el);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_array_strv(&add_more, l);
+                                r = sd_json_variant_new_array_strv(&add_more, el ?: l);
                                 if (r < 0)
                                         goto finish;
                         }
