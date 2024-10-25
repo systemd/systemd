@@ -166,7 +166,9 @@ static void plot_tooltip(const UnitTimes *ut) {
         assert(ut->name);
 
         svg("%s:\n", ut->name);
-
+        svg("Activating: %"PRI_USEC".%.3"PRI_USEC"\n", ut->activating / USEC_PER_SEC, ut->activating % USEC_PER_SEC);
+        svg("Activated: %"PRI_USEC".%.3"PRI_USEC"\n", ut->activated / USEC_PER_SEC, ut->activated % USEC_PER_SEC);
+        
         UnitDependency i;
         FOREACH_ARGUMENT(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
                 if (!strv_isempty(ut->deps[i])) {
