@@ -235,12 +235,12 @@ static void strip_localhost(EtcHosts *hosts) {
          * This way our regular synthesizing can take over, but only if it would result in the exact same
          * mappings.  */
 
-        for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
+        FOREACH_ELEMENT(local_in_addr, local_in_addrs) {
                 bool all_localhost, all_local_address;
                 EtcHostsItemByAddress *item;
                 const char *name;
 
-                item = hashmap_get(hosts->by_address, local_in_addrs + j);
+                item = hashmap_get(hosts->by_address, local_in_addr);
                 if (!item)
                         continue;
 
@@ -284,7 +284,7 @@ static void strip_localhost(EtcHosts *hosts) {
                 SET_FOREACH(name, item->names)
                         etc_hosts_item_by_name_free(hashmap_remove(hosts->by_name, name));
 
-                assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
+                assert_se(hashmap_remove(hosts->by_address, local_in_addr) == item);
                 etc_hosts_item_by_address_free(item);
         }
 }

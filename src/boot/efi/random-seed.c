@@ -108,8 +108,8 @@ static void validate_sha256(void) {
                     0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1 }},
         };
 
-        for (size_t i = 0; i < ELEMENTSOF(array); i++)
-                assert(memcmp(SHA256_DIRECT(array[i].string, strlen8(array[i].string)), array[i].hash, HASH_VALUE_SIZE) == 0);
+        FOREACH_ELEMENT(i, array)
+                assert(memcmp(SHA256_DIRECT(i->string, strlen8(i->string)), i->hash, HASH_VALUE_SIZE) == 0);
 #endif
 }
 
