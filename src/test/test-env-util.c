@@ -581,4 +581,15 @@ TEST(getenv_path_list) {
         assert_se(unsetenv("TEST_GETENV_PATH_LIST") >= 0);
 }
 
+TEST(strv_env_get_merged) {
+        char **l = STRV_MAKE("ONE", "1", "TWO", "2", "THREE", "3", "FOUR", "4", "FIVE", "5"),
+                **expected = STRV_MAKE("ONE=1", "TWO=2", "THREE=3", "FOUR=4", "FIVE=5");
+        _cleanup_strv_free_ char **m = NULL;
+
+        ASSERT_OK(strv_env_get_merged(NULL, &m));
+        ASSERT_NULL(m);
+        ASSERT_OK(strv_env_get_merged(l, &m));
+        ASSERT_TRUE(strv_equal(m, expected));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
