@@ -688,7 +688,7 @@ static const struct hash_ops crippled_hashmap_ops = {
 
 TEST(hashmap_many) {
         Hashmap *h;
-        unsigned i, j;
+        unsigned i;
         void *v, *k;
         bool slow = slow_tests_enabled();
         const struct {
@@ -702,24 +702,24 @@ TEST(hashmap_many) {
 
         log_info("/* %s (%s) */", __func__, slow ? "slow" : "fast");
 
-        for (j = 0; j < ELEMENTSOF(tests); j++) {
+        FOREACH_ELEMENT(test, tests) {
                 usec_t ts = now(CLOCK_MONOTONIC), n;
 
-                assert_se(h = hashmap_new(tests[j].ops));
+                assert_se(h = hashmap_new(test->ops));
 
-                for (i = 1; i < tests[j].n_entries*3; i+=3) {
+                for (i = 1; i < test->n_entries*3; i+=3) {
                         assert_se(hashmap_put(h, UINT_TO_PTR(i), UINT_TO_PTR(i)) >= 0);
                         assert_se(PTR_TO_UINT(hashmap_get(h, UINT_TO_PTR(i))) == i);
                 }
 
-                for (i = 1; i < tests[j].n_entries*3; i++)
+                for (i = 1; i < test->n_entries*3; i++)
                         assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
 
                 log_info("%s %u <= %u * 0.8 = %g",
-                         tests[j].title, hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
+                         test->title, hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
 
                 assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.8);
-                assert_se(hashmap_size(h) == tests[j].n_entries);
+                assert_se(hashmap_size(h) == test->n_entries);
 
                 while (!hashmap_isempty(h)) {
                         k = hashmap_first_key(h);
@@ -754,9 +754,9 @@ TEST(hashmap_free) {
 
         log_info("/* %s (%s, %u entries) */", __func__, slow ? "slow" : "fast", n_entries);
 
-        for (unsigned j = 0; j < ELEMENTSOF(tests); j++) {
+        FOREACH_ELEMENT(test, tests) {
                 ts = now(CLOCK_MONOTONIC);
-                assert_se(h = hashmap_new(tests[j].ops));
+                assert_se(h = hashmap_new(test->ops));
 
                 custom_counter = 0;
                 for (unsigned i = 0; i < n_entries; i++) {
@@ -774,9 +774,9 @@ TEST(hashmap_free) {
                 hashmap_free(h);
 
                 n = now(CLOCK_MONOTONIC);
-                log_info("%s test took %s", tests[j].title, FORMAT_TIMESPAN(n - ts, 0));
+                log_info("%s test took %s", test->title, FORMAT_TIMESPAN(n - ts, 0));
 
-                assert_se(custom_counter == tests[j].expect_counter);
+                assert_se(custom_counter == test->expect_counter);
         }
 }
 
