@@ -85,6 +85,7 @@ static char *arg_exec_path = NULL;
 static bool arg_ignore_failure = false;
 static char *arg_background = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static char *arg_shell_prompt_prefix = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -96,6 +97,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -188,6 +190,7 @@ static int help_sudo_mode(void) {
                "  -D --chdir=PATH                 Set working directory\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
                "     --background=COLOR           Set ANSI color for background\n"
+               "     --shell-prompt-prefix=PREFIX Set $SHELL_PROMPT_PREFIX\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -770,27 +773,29 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_NICE,
                 ARG_SETENV,
                 ARG_BACKGROUND,
+                ARG_SHELL_PROMPT_PREFIX,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
          * though (but limit the extension to long options). */
 
         static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, 'V'                    },
-                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
-                { "machine",            required_argument, NULL, ARG_MACHINE            },
-                { "unit",               required_argument, NULL, ARG_UNIT               },
-                { "property",           required_argument, NULL, ARG_PROPERTY           },
-                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
-                { "slice",              required_argument, NULL, ARG_SLICE              },
-                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
-                { "user",               required_argument, NULL, 'u'                    },
-                { "group",              required_argument, NULL, 'g'                    },
-                { "nice",               required_argument, NULL, ARG_NICE               },
-                { "chdir",              required_argument, NULL, 'D'                    },
-                { "setenv",             required_argument, NULL, ARG_SETENV             },
-                { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                { "help",                no_argument,       NULL, 'h'                     },
+                { "version",             no_argument,       NULL, 'V'                     },
+                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
+                { "machine",             required_argument, NULL, ARG_MACHINE             },
+                { "unit",                required_argument, NULL, ARG_UNIT                },
+                { "property",            required_argument, NULL, ARG_PROPERTY            },
+                { "description",         required_argument, NULL, ARG_DESCRIPTION         },
+                { "slice",               required_argument, NULL, ARG_SLICE               },
+                { "slice-inherit",       no_argument,       NULL, ARG_SLICE_INHERIT       },
+                { "user",                required_argument, NULL, 'u'                     },
+                { "group",               required_argument, NULL, 'g'                     },
+                { "nice",                required_argument, NULL, ARG_NICE                },
+                { "chdir",               required_argument, NULL, 'D'                     },
+                { "setenv",              required_argument, NULL, ARG_SETENV              },
+                { "background",          required_argument, NULL, ARG_BACKGROUND          },
+                { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 {},
         };
 
@@ -881,6 +886,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_SHELL_PROMPT_PREFIX:
+                        r = free_and_strdup_warn(&arg_shell_prompt_prefix, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -991,6 +1002,25 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 r = terminal_tint_color(hue, &arg_background);
                 if (r < 0)
                         log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
+        }
+
+        if (!arg_shell_prompt_prefix) {
+                const char *e = secure_getenv("SYSTEMD_RUN_SHELL_PROMPT_PREFIX");
+                if (e) {
+                        arg_shell_prompt_prefix = strdup(e);
+                        if (!arg_shell_prompt_prefix)
+                                return log_oom();
+                } else if (emoji_enabled()) {
+                        arg_shell_prompt_prefix = strjoin(special_glyph(SPECIAL_GLYPH_SUPERHERO), " ");
+                        if (!arg_shell_prompt_prefix)
+                                return log_oom();
+                }
+        }
+
+        if (!isempty(arg_shell_prompt_prefix)) {
+                r = strv_env_assign(&arg_environment, "SHELL_PROMPT_PREFIX", arg_shell_prompt_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $SHELL_PROMPT_PREFIX environment variable: %m");
         }
 
         return 1;
@@ -1345,70 +1375,38 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
-        unsigned soft_reboots_count = 0;
-        const char *unique, *id;
-        char *p;
+static int make_unit_name(UnitType t, char **ret) {
         int r;
 
-        assert(bus);
         assert(t >= 0);
         assert(t < _UNIT_TYPE_MAX);
         assert(ret);
 
-        r = sd_bus_get_unique_name(bus, &unique);
+        /* Preferable use our PID + pidfd ID as identifier, if available. It's a boot time unique identifier
+         * managed by the kernel. Unfortunately only new kernels support this, hence we keep some fallback
+         * logic in place. */
+
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        r = pidref_set_self(&self);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get reference to my own process: %m");
+
+        r = pidref_acquire_pidfd_id(&self);
         if (r < 0) {
+                log_debug_errno(r, "Failed to acquire pidfd ID of myself, defaulting to randomized unit name: %m");
+
+                /* We couldn't get the the pidfd id. In that case, just pick a random uuid as name */
                 sd_id128_t rnd;
-
-                /* We couldn't get the unique name, which is a pretty
-                 * common case if we are connected to systemd
-                 * directly. In that case, just pick a random uuid as
-                 * name */
-
                 r = sd_id128_randomize(&rnd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate random run unit name: %m");
 
-                if (asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t)) < 0)
-                        return log_oom();
+                r = asprintf(ret, "run-r" SD_ID128_FORMAT_STR ".%s", SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t));
+        } else
+                r = asprintf(ret, "run-p" PID_FMT "-i%" PRIu64 ".%s", self.pid, self.fd_id, unit_type_to_string(t));
+        if (r < 0)
+                return log_oom();
 
-                return 0;
-        }
-
-        /* We managed to get the unique name, then let's use that to name our transient units. */
-
-        id = startswith(unique, ":1."); /* let' strip the usual prefix */
-        if (!id)
-                id = startswith(unique, ":"); /* the spec only requires things to start with a colon, hence
-                                               * let's add a generic fallback for that. */
-        if (!id)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unique name %s has unexpected format.",
-                                       unique);
-
-        /* The unique D-Bus names are actually unique per D-Bus instance, so on soft-reboot they will wrap
-         * and start over since the D-Bus broker is restarted. If there's a failed unit left behind that
-         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing. */
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_get_property_trivial(
-                                bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
-                if (r < 0)
-                        log_debug_errno(r,
-                                        "Failed to get SoftRebootsCount property, ignoring: %s",
-                                        bus_error_message(&error, r));
-        }
-
-        if (soft_reboots_count > 0) {
-                if (asprintf(&p, "run-u%s-s%u.%s", id, soft_reboots_count, unit_type_to_string(t)) < 0)
-                        return log_oom();
-        } else {
-                p = strjoin("run-u", id, ".", unit_type_to_string(t));
-                if (!p)
-                        return log_oom();
-        }
-
-        *ret = p;
         return 0;
 }
 
@@ -1818,7 +1816,7 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
         } else {
-                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                r = make_unit_name(UNIT_SERVICE, &service);
                 if (r < 0)
                         return r;
         }
@@ -2033,7 +2031,7 @@ static int start_transient_scope(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle scope name: %m");
         } else {
-                r = make_unit_name(bus, UNIT_SCOPE, &scope);
+                r = make_unit_name(UNIT_SCOPE, &scope);
                 if (r < 0)
                         return r;
         }
@@ -2332,7 +2330,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                         break;
                 }
         } else {
-                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                r = make_unit_name(UNIT_SERVICE, &service);
                 if (r < 0)
                         return r;
 
@@ -2415,12 +2413,26 @@ static int run(int argc, char* argv[]) {
 
                 if (strv_isempty(arg_cmdline))
                         t = strdup(arg_unit);
-                else
+                else if (startswith(arg_cmdline[0], "-")) {
+                        /* Drop the login shell marker from the command line when generating the description,
+                         * in order to minimize user confusion. */
+                        _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);
+                        if (!l)
+                                return log_oom();
+
+                        r = free_and_strdup_warn(l + 0, l[0] + 1);
+                        if (r < 0)
+                                return r;
+
+                        t = quote_command_line(l, SHELL_ESCAPE_EMPTY);
+                } else
                         t = quote_command_line(arg_cmdline, SHELL_ESCAPE_EMPTY);
                 if (!t)
                         return log_oom();
 
-                free_and_replace(arg_description, t);
+                arg_description = strjoin("[", program_invocation_short_name, "] ", t);
+                if (!arg_description)
+                        return log_oom();
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
