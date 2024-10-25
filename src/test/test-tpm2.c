@@ -181,11 +181,11 @@ static void _test_pcr_selection_mask_hash(uint32_t mask, TPMI_ALG_HASH hash) {
 TEST(tpms_pcr_selection_mask_and_hash) {
         TPMI_ALG_HASH HASH_ALGS[] = { TPM2_ALG_SHA1, TPM2_ALG_SHA256, };
 
-        FOREACH_ELEMENT(HASH, HASH_ALGS)
+        FOREACH_ELEMENT(hash, HASH_ALGS)
                 for (uint32_t m2 = 0; m2 <= 0xffffff; m2 += 0x50000)
                         for (uint32_t m1 = 0; m1 <= 0xffff; m1 += 0x500)
                                 for (uint32_t m0 = 0; m0 <= 0xff; m0 += 0x5)
-                                        _test_pcr_selection_mask_hash(m0 | m1 | m2, *HASH);
+                                        _test_pcr_selection_mask_hash(m0 | m1 | m2, *hash);
 }
 
 static void _test_tpms_sw(

@@ -136,18 +136,18 @@ static int add_syscall_filters(
         _cleanup_strv_free_ char **added = NULL;
         int r;
 
-        FOREACH_ELEMENT(syscall, allow_list) {
-                if (syscall->capability != 0 && (cap_list_retain & (1ULL << syscall->capability)) == 0)
+        FOREACH_ELEMENT(i, allow_list) {
+                if (i->capability != 0 && (cap_list_retain & (1ULL << i->capability)) == 0)
                         continue;
 
                 r = seccomp_add_syscall_filter_item(ctx,
-                                                    syscall->name,
+                                                    i->name,
                                                     SCMP_ACT_ALLOW,
                                                     syscall_deny_list,
                                                     false,
                                                     &added);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", syscall->name);
+                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", i->name);
         }
 
         STRV_FOREACH(p, syscall_allow_list) {

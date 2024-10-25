@@ -1376,23 +1376,23 @@ int manager_dns_stub_start(Manager *m) {
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
                           "UDP/TCP");
 
-                FOREACH_ELEMENT(socket, stub_sockets) {
+                FOREACH_ELEMENT(s, stub_sockets) {
                         union in_addr_union a = {
-                                .in.s_addr = htobe32(socket->addr),
+                                .in.s_addr = htobe32(s->addr),
                         };
 
-                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP && socket->socket_type == SOCK_STREAM)
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP && s->socket_type == SOCK_STREAM)
                                 continue;
-                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP && socket->socket_type == SOCK_DGRAM)
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP && s->socket_type == SOCK_DGRAM)
                                 continue;
 
-                        r = manager_dns_stub_fd(m, AF_INET, &a, socket->socket_type);
+                        r = manager_dns_stub_fd(m, AF_INET, &a, s->socket_type);
                         if (r < 0) {
                                 _cleanup_free_ char *busy_socket = NULL;
 
                                 if (asprintf(&busy_socket,
                                              "%s socket " IPV4_ADDRESS_FMT_STR ":53",
-                                             socket->socket_type == SOCK_DGRAM ? "UDP" : "TCP",
+                                             s->socket_type == SOCK_DGRAM ? "UDP" : "TCP",
                                              IPV4_ADDRESS_FMT_VAL(a.in)) < 0)
                                         return log_oom();
 

@@ -80,10 +80,10 @@ TEST(free_and_strndup) {
         _cleanup_free_ char *t = NULL;
         const char *prev_expected = t;
 
-        FOREACH_ELEMENT(test_case, cases) {
+        FOREACH_ELEMENT(c, cases) {
                 test_free_and_strndup_one(&t,
-                                          test_case->src, test_case->len, test_case->expected,
-                                          !streq_ptr(test_case->expected, prev_expected));
+                                          c->src, c->len, c->expected,
+                                          !streq_ptr(c->expected, prev_expected));
                 prev_expected = t;
         }
 }

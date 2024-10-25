@@ -3289,14 +3289,14 @@ static int patch_sysctl(void) {
         STRV_FOREACH_PAIR(k, v, arg_sysctl) {
                 bool good = false;
 
-                FOREACH_ELEMENT(sysctl, safe_sysctl) {
-                        if (!FLAGS_SET(flags, sysctl->clone_flags))
+                FOREACH_ELEMENT(i, safe_sysctl) {
+                        if (!FLAGS_SET(flags, i->clone_flags))
                                 continue;
 
-                        if (sysctl->prefix)
-                                good = startswith(*k, sysctl->key);
+                        if (i->prefix)
+                                good = startswith(*k, i->key);
                         else
-                                good = streq(*k, sysctl->key);
+                                good = streq(*k, i->key);
 
                         if (good)
                                 break;
