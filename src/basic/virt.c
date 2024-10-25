@@ -83,10 +83,10 @@ static Virtualization detect_vm_cpuid(void) {
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
-                for (size_t i = 0; i < ELEMENTSOF(vm_table); i++)
+                FOREACH_ELEMENT(vm, vm_table)
                         if (memcmp_nn(sig.text, sizeof(sig.text),
-                                      vm_table[i].sig, sizeof(vm_table[i].sig)) == 0)
-                                return vm_table[i].id;
+                                      vm->sig, sizeof(vm->sig)) == 0)
+                                return vm->id;
 
                 log_debug("Unknown virtualization with CPUID=%s. Add to vm_table[]?", sig.text);
                 return VIRTUALIZATION_VM_OTHER;
@@ -202,10 +202,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
                         return r;
                 }
 
-                for (size_t i = 0; i < ELEMENTSOF(dmi_vendor_table); i++)
-                        if (startswith(s, dmi_vendor_table[i].vendor)) {
+                FOREACH_ELEMENT(dmi_vendor, dmi_vendor_table)
+                        if (startswith(s, dmi_vendor->vendor)) {
                                 log_debug("Virtualization %s found in DMI (%s)", s, *vendor);
-                                return dmi_vendor_table[i].id;
+                                return dmi_vendor->id;
                         }
         }
         log_debug("No virtualization found in DMI vendor table.");
@@ -658,14 +658,14 @@ static Virtualization detect_container_files(void) {
                 { "/.dockerenv",        VIRTUALIZATION_DOCKER },
         };
 
-        for (size_t i = 0; i < ELEMENTSOF(container_file_table); i++) {
-                if (access(container_file_table[i].file_path, F_OK) >= 0)
-                        return container_file_table[i].id;
+        FOREACH_ELEMENT(file, container_file_table) {
+                if (access(file->file_path, F_OK) >= 0)
+                        return file->id;
 
                 if (errno != ENOENT)
                         log_debug_errno(errno,
                                         "Checking if %s exists failed, ignoring: %m",
-                                        container_file_table[i].file_path);
+                                        file->file_path);
         }
 
         return VIRTUALIZATION_NONE;
