@@ -556,7 +556,7 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
         /* The result of this function can be parsed with parse_sec */
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
+        FOREACH_ELEMENT(i, table) {
                 int k = 0;
                 size_t n;
                 bool done = false;
@@ -568,20 +568,20 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 if (t < accuracy && something)
                         break;
 
-                if (t < table[i].usec)
+                if (t < i->usec)
                         continue;
 
                 if (l <= 1)
                         break;
 
-                a = t / table[i].usec;
-                b = t % table[i].usec;
+                a = t / i->usec;
+                b = t % i->usec;
 
                 /* Let's see if we should shows this in dot notation */
                 if (t < USEC_PER_MINUTE && b > 0) {
                         signed char j = 0;
 
-                        for (usec_t cc = table[i].usec; cc > 1; cc /= 10)
+                        for (usec_t cc = i->usec; cc > 1; cc /= 10)
                                 j++;
 
                         for (usec_t cc = accuracy; cc > 1; cc /= 10) {
@@ -596,7 +596,7 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                                              a,
                                              j,
                                              b,
-                                             table[i].suffix);
+                                             i->suffix);
 
                                 t = 0;
                                 done = true;
@@ -609,7 +609,7 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                                      "%s"USEC_FMT"%s",
                                      p > buf ? " " : "",
                                      a,
-                                     table[i].suffix);
+                                     i->suffix);
 
                         t = b;
                 }
@@ -795,12 +795,12 @@ static int parse_timestamp_impl(
                 goto from_tm;
         }
 
-        for (size_t i = 0; i < ELEMENTSOF(day_nr); i++) {
-                k = startswith_no_case(t, day_nr[i].name);
+        FOREACH_ELEMENT(day, day_nr) {
+                k = startswith_no_case(t, day->name);
                 if (!k || *k != ' ')
                         continue;
 
-                weekday = day_nr[i].nr;
+                weekday = day->nr;
                 t = k + 1;
                 break;
         }
@@ -1122,12 +1122,12 @@ static const char* extract_multiplier(const char *p, usec_t *ret) {
         assert(p);
         assert(ret);
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
+        FOREACH_ELEMENT(i, table) {
                 char *e;
 
-                e = startswith(p, table[i].suffix);
+                e = startswith(p, i->suffix);
                 if (e) {
-                        *ret = table[i].usec;
+                        *ret = i->usec;
                         return e;
                 }
         }
@@ -1300,17 +1300,16 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *ret) {
                 { "ns",      1ULL            },
                 { "",        1ULL            }, /* default is nsec */
         };
-        size_t i;
 
         assert(p);
         assert(ret);
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        FOREACH_ELEMENT(i, table) {
                 char *e;
 
-                e = startswith(p, table[i].suffix);
+                e = startswith(p, i->suffix);
                 if (e) {
-                        *ret = table[i].nsec;
+                        *ret = i->nsec;
                         return e;
                 }
         }

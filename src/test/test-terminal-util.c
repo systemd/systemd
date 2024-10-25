@@ -126,8 +126,8 @@ static const Color colors[] = {
 };
 
 TEST(colors) {
-        for (size_t i = 0; i < ELEMENTSOF(colors); i++)
-                printf("<%s%s%s>\n", colors[i].func(), colors[i].name, ansi_normal());
+        FOREACH_ELEMENT(color, colors)
+                printf("<%s%s%s>\n", colors->func(), color->name, ansi_normal());
 }
 
 TEST(text) {
