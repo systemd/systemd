@@ -1564,8 +1564,8 @@ static int parse_attribute_from_arg(Item *item) {
         for (; p && *p ; p++) {
                 unsigned i, v;
 
-                for (i = 0; i < ELEMENTSOF(attributes); i++)
-                        if (*p == attributes[i].character)
+                FOREACH_ELEMENT(attr, attributes)
+                        if (*p == attr->character)
                                 break;
 
                 if (i >= ELEMENTSOF(attributes))

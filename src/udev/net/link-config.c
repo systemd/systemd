@@ -267,8 +267,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .sr_iov_num_vfs = UINT32_MAX,
         };
 
-        for (i = 0; i < ELEMENTSOF(config->features); i++)
-                config->features[i] = -1;
+        FOREACH_ELEMENT(feature, config->features)
+                feature[i] = -1;
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(

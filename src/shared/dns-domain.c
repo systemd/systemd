@@ -760,7 +760,7 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
         if (r > 0) {
                 uint8_t a[4];
 
-                for (size_t i = 0; i < ELEMENTSOF(a); i++) {
+                FOREACH_ELEMENT(i, a) {
                         char label[DNS_LABEL_MAX+1];
 
                         r = dns_label_unescape(&p, label, sizeof label, 0);
@@ -771,7 +771,7 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                         if (r > 3)
                                 return -EINVAL;
 
-                        r = safe_atou8(label, &a[i]);
+                        r = safe_atou8(label, i);
                         if (r < 0)
                                 return r;
                 }
