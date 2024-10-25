@@ -46,11 +46,11 @@ TEST(set_free_with_hash_ops) {
 
         assert_se(m = ordered_set_new(&item_hash_ops));
 
-        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(ordered_set_put(m, items + i) == 1);
+        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
+                assert_se(ordered_set_put(m, item) == 1);
 
-        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(ordered_set_put(m, items + i) == 0);  /* We get 0 here, because we use trivial hash
+        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
+                assert_se(ordered_set_put(m, item) == 0);  /* We get 0 here, because we use trivial hash
                                                                  * ops. Also see below... */
 
         m = ordered_set_free(m);
