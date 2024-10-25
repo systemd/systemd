@@ -61,6 +61,7 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_tmp_ex, "s", PrivateTmp, private_tmp_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_users_ex, "s", PrivateUsers, private_users_to_string);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_protect_control_groups_ex, "s", ProtectControlGroups, protect_control_groups_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
 static BUS_DEFINE_PROPERTY_GET(property_get_cpu_affinity_from_numa, "b", ExecContext, exec_context_get_cpu_affinity_from_numa);
@@ -1043,6 +1044,21 @@ static int property_get_private_users(
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
+static int property_get_protect_control_groups(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ProtectControlGroups *p = ASSERT_PTR(userdata);
+        int b = *p != PROTECT_CONTROL_GROUPS_NO;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1163,7 +1179,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelModules", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelLogs", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_logs), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectControlGroups", "b", property_get_protect_control_groups, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectControlGroupsEx", "s", property_get_protect_control_groups_ex, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", property_get_private_users, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsersEx", "s", property_get_private_users_ex, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1909,6 +1926,42 @@ int bus_exec_context_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "ProtectControlGroups")) {
+                int v;
+
+                r = sd_bus_message_read(message, "b", &v);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_control_groups = v ? PROTECT_CONTROL_GROUPS_YES : PROTECT_CONTROL_GROUPS_NO;
+                        (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "ProtectControlGroupsEx")) {
+                const char *s;
+                ProtectControlGroups t;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                t = protect_control_groups_from_string(s);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_control_groups = t;
+                        (void) unit_write_settingf(u, flags, name, "ProtectControlGroups=%s",
+                                                   protect_control_groups_to_string(c->protect_control_groups));
+                }
+
+                return 1;
+        }
+
         if (streq(name, "PrivateDevices"))
                 return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
 
@@ -1959,9 +2012,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "ProtectClock"))
                 return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
-
-        if (streq(name, "ProtectControlGroups"))
-                return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
         if (streq(name, "CPUSchedulingResetOnFork"))
                 return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);
