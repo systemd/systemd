@@ -176,13 +176,13 @@ static int automount_verify(Automount *a) {
         if (!unit_has_name(UNIT(a), e))
                 return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Where= setting doesn't match unit name. Refusing.");
 
-        for (size_t i = 0; i < ELEMENTSOF(reserved_options); i++)
-                if (fstab_test_option(a->extra_options, reserved_options[i]))
+        FOREACH_ELEMENT(reserved_option, reserved_options)
+                if (fstab_test_option(a->extra_options, *reserved_option))
                         return log_unit_error_errno(
                                 UNIT(a),
                                 SYNTHETIC_ERRNO(ENOEXEC),
                                 "ExtraOptions= setting may not contain reserved option %s.",
-                                reserved_options[i]);
+                                *reserved_option);
 
         return 0;
 }
