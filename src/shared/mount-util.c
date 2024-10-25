@@ -665,11 +665,11 @@ int mount_flags_to_string(unsigned long flags, char **ret) {
 
         assert(ret);
 
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (flags & map[i].flag) {
-                        if (!strextend_with_separator(&str, "|", map[i].name))
+        FOREACH_ELEMENT(entry, map)
+                if (flags & entry->flag) {
+                        if (!strextend_with_separator(&str, "|", entry->name))
                                 return -ENOMEM;
-                        flags &= ~map[i].flag;
+                        flags &= ~entry->flag;
                 }
 
         if (!str || flags != 0)
