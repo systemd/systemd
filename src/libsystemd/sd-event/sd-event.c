@@ -5255,6 +5255,9 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
         int r;
 
         assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(!event_origin_changed(e), -ECHILD);
 
         if (b) {
                 /* We want to maintain pointers to these event sources, so that we can destroy them when told
@@ -5266,7 +5269,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                         if (r < 0)
                                 return r;
 
-                        assert(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
                         change = true;
                 }
 
@@ -5274,26 +5277,26 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                         r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
                         if (r < 0) {
                                 if (change) {
-                                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                                        assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
                                         e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
                                 }
 
                                 return r;
                         }
 
-                        assert(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
                         change = true;
                 }
 
         } else {
                 if (e->sigint_event_source) {
-                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
                         e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
                         change = true;
                 }
 
                 if (e->sigterm_event_source) {
-                        assert(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
                         e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
                         change = true;
                 }
