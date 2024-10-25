@@ -470,11 +470,11 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", JSON_BUILD_PIDREF(&m->leader)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
-                        SD_JSON_BUILD_PAIR_CONDITION(m->vsock_cid != VMADDR_CID_ANY, "vSockCid", SD_JSON_BUILD_UNSIGNED(m->vsock_cid)),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("vSockCid", m->vsock_cid, VMADDR_CID_ANY),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("addresses", addr_array),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(os_release), "OSRelease", JSON_BUILD_STRV_ENV_PAIR(os_release)),
+                        JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("OSRelease", os_release),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID));
         if (r < 0)
                 return r;
@@ -627,8 +627,8 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
                                 &v,
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("hostname", image->hostname),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(image->machine_id), "machineId", SD_JSON_BUILD_ID128(image->machine_id)),
-                                SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(image->machine_info), "machineInfo", JSON_BUILD_STRV_ENV_PAIR(image->machine_info)),
-                                SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(image->os_release), "OSRelease", JSON_BUILD_STRV_ENV_PAIR(image->os_release)));
+                                JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("machineInfo", image->machine_info),
+                                JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("OSRelease", image->os_release));
                 if (r < 0)
                         return r;
         }
