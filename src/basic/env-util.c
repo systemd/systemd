@@ -266,7 +266,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
         return *t == '=';
 }
 
-char **strv_env_delete(char **x, size_t n_lists, ...) {
+char** strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
         _cleanup_strv_free_ char **t = NULL;
         va_list ap;
@@ -564,7 +564,7 @@ char* strv_env_pairs_get(char **l, const char *name) {
         return result;
 }
 
-char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
+char** strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         int k = 0;
 
         STRV_FOREACH(p, e) {
