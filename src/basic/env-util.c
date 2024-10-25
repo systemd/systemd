@@ -564,6 +564,29 @@ char* strv_env_pairs_get(char **l, const char *name) {
         return result;
 }
 
+int strv_env_get_merged(char **l, char ***ret) {
+        _cleanup_strv_free_ char **v = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        STRV_FOREACH_PAIR(key, value, l) {
+                char *s = NULL;
+
+                s = strjoin(*key, "=", *value);
+                if (!s)
+                        return -ENOMEM;
+
+                r = strv_consume_with_size(&v, &n, s);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 char** strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         int k = 0;
 
