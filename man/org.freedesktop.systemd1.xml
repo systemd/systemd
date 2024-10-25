@@ -3251,6 +3251,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -3867,8 +3869,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProtectKernelModules is not documented!-->
 
     <!--property ProtectKernelLogs is not documented!-->
-
-    <!--property ProtectControlGroups is not documented!-->
 
     <!--property PrivateNetwork is not documented!-->
 
@@ -4572,6 +4572,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateUsers"/>
@@ -4858,6 +4860,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Note the time unit is expressed in <literal>μs</literal>.</para>
+
+      <para><varname>ProtectControlGroupsEx</varname> implement the destination parameter of the
+      unit file setting <varname>ProtectControlGroups=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Unlike boolean <varname>ProtectControlGroups</varname>, <varname>ProtectControlGroupsEx</varname>
+      is a string type.</para>
     </refsect2>
   </refsect1>
 
@@ -5414,6 +5422,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly b ProtectKernelLogs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6043,8 +6053,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProtectKernelModules is not documented!-->
 
     <!--property ProtectKernelLogs is not documented!-->
-
-    <!--property ProtectControlGroups is not documented!-->
 
     <!--property PrivateNetwork is not documented!-->
 
@@ -6719,6 +6727,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectKernelLogs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
@@ -7416,6 +7426,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -7970,8 +7982,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProtectKernelModules is not documented!-->
 
     <!--property ProtectKernelLogs is not documented!-->
-
-    <!--property ProtectControlGroups is not documented!-->
 
     <!--property PrivateNetwork is not documented!-->
 
@@ -8558,6 +8568,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectKernelLogs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
@@ -9384,6 +9396,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -9924,8 +9938,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProtectKernelModules is not documented!-->
 
     <!--property ProtectKernelLogs is not documented!-->
-
-    <!--property ProtectControlGroups is not documented!-->
 
     <!--property PrivateNetwork is not documented!-->
 
@@ -10498,6 +10510,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectKernelLogs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
@@ -12262,7 +12276,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ImportCredentialEx</varname>,
       <varname>ExtraFileDescriptorNames</varname>,
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
-      <varname>BindLogSockets</varname>, and
+      <varname>BindLogSockets</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivateUsersEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
@@ -12303,8 +12318,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
-      <varname>PrivateUsersEx</varname>, and
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
+      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12341,8 +12357,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
-      <varname>PrivateUsersEx</varname>, and
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
+      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12379,8 +12396,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
       <varname>BindLogSockets</varname>,
-      <varname>PrivateUsersEx</varname>, and
-      <varname>ManagedOOMMemoryPressureDurationUSec</varname> were added in version 257.</para>
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>, and
+      <varname>ProtectControlGroupsEx</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>

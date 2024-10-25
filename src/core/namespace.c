@@ -65,6 +65,7 @@ typedef enum MountMode {
         MOUNT_PRIVATE_SYSFS,
         MOUNT_BIND_SYSFS,
         MOUNT_PROCFS,
+        MOUNT_PRIVATE_CGROUP2FS,
         MOUNT_READ_ONLY,
         MOUNT_READ_WRITE,
         MOUNT_NOEXEC,
@@ -199,6 +200,22 @@ static const MountEntry protect_home_yes_table[] = {
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
+/* ProtectControlGroups=yes table */
+static const MountEntry protect_control_groups_yes_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
+};
+
+/* ProtectControlGroups=private table. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
+ * flags is not set here. nsdelegate has been supported since kernels >= 4.13 so it is safe to use. */
+static const MountEntry protect_control_groups_private_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false, .nosuid = true, .noexec = true, .options_const = "nsdelegate"  },
+};
+
+/* ProtectControlGroups=strict table */
+static const MountEntry protect_control_groups_strict_table[] = {
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true,  .nosuid = true, .noexec = true, .options_const = "nsdelegate"  },
+};
+
 /* ProtectSystem=yes table */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
@@ -247,6 +264,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_EMPTY_DIR]             = "empty-dir",
         [MOUNT_PRIVATE_SYSFS]         = "private-sysfs",
         [MOUNT_BIND_SYSFS]            = "bind-sysfs",
+        [MOUNT_PRIVATE_CGROUP2FS]     = "private-cgroup2fs",
         [MOUNT_PROCFS]                = "procfs",
         [MOUNT_READ_ONLY]             = "read-only",
         [MOUNT_READ_WRITE]            = "read-write",
@@ -725,6 +743,28 @@ static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t 
         }
 
         return 0;
+}
+
+static int append_protect_control_groups(MountList *ml, ProtectControlGroups protect_control_groups, bool ignore_protect) {
+        assert(ml);
+
+        switch (protect_control_groups) {
+
+        case PROTECT_CONTROL_GROUPS_NO:
+                return 0;
+
+        case PROTECT_CONTROL_GROUPS_YES:
+                return append_static_mounts(ml, protect_control_groups_yes_table, ELEMENTSOF(protect_control_groups_yes_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_PRIVATE:
+                return append_static_mounts(ml, protect_control_groups_private_table, ELEMENTSOF(protect_control_groups_private_table), ignore_protect);
+
+        case PROTECT_CONTROL_GROUPS_STRICT:
+                return append_static_mounts(ml, protect_control_groups_strict_table, ELEMENTSOF(protect_control_groups_strict_table), ignore_protect);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int append_protect_home(MountList *ml, ProtectHome protect_home, bool ignore_protect) {
@@ -1269,10 +1309,13 @@ static int mount_private_apivfs(
 
         r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
         if (r == -EINVAL && opts)
-                /* If this failed with EINVAL then this likely means the textual hidepid= stuff for procfs is
-                 * not supported by the kernel, and thus the per-instance hidepid= neither, which means we
-                 * really don't want to use it, since it would affect our host's /proc mount. Hence let's
-                 * gracefully fallback to a classic, unrestricted version. */
+                /* If this failed with EINVAL then this likely means either:
+                 * 1. the textual hidepid= stuff for procfs is not supported by the kernel, and thus the
+                 *    per-instance hidepid= neither, which means we really don't want to use it, since it
+                 *    would affect our host's /proc mount.
+                 * 2. memory_recursiveprot= for cgroup2 is not supported by the kernel.
+                 *
+                 * Hence let's gracefully fallback to a classic, unrestricted version. */
                 r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
@@ -1316,6 +1359,37 @@ static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p
         assert(m);
         assert(p);
         return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
+}
+
+static bool check_recursiveprot_supported(void) {
+        int r;
+
+        /* memory_recursiveprot is only supported for kernels >= 5.7. */
+        r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
+        else if (r == 0)
+                log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
+
+        return r > 0;
+}
+
+static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
+        _cleanup_free_ char *opts = NULL;
+
+        assert(m);
+        assert(p);
+
+        if (check_recursiveprot_supported()) {
+                opts = strdup(strempty(mount_entry_options(m)));
+                if (!opts)
+                        return -ENOMEM;
+
+                if (!strextend_with_separator(&opts, ",", "memory_recursiveprot"))
+                        return -ENOMEM;
+        }
+
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", opts ?: mount_entry_options(m), p->runtime_scope);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1763,6 +1837,9 @@ static int apply_one_mount(
         case MOUNT_PROCFS:
                 return mount_procfs(m, p);
 
+        case MOUNT_PRIVATE_CGROUP2FS:
+                return mount_private_cgroup2fs(m, p);
+
         case MOUNT_RUN:
                 return mount_run(m);
 
@@ -1933,7 +2010,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
          */
 
         return p->mount_apivfs ||
-                p->protect_control_groups ||
+                p->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL;
@@ -2490,16 +2567,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         return r;
         }
 
-        if (p->protect_control_groups) {
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/sys/fs/cgroup",
-                        .mode = MOUNT_READ_ONLY,
-                };
-        }
+        r = append_protect_control_groups(&ml, p->protect_control_groups, false);
+        if (r < 0)
+                return r;
 
         r = append_protect_home(&ml, p->protect_home, p->ignore_protect_paths);
         if (r < 0)
@@ -3194,6 +3264,15 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
+
+static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
+        [PROTECT_CONTROL_GROUPS_NO]      = "no",
+        [PROTECT_CONTROL_GROUPS_YES]     = "yes",
+        [PROTECT_CONTROL_GROUPS_PRIVATE] = "private",
+        [PROTECT_CONTROL_GROUPS_STRICT]  = "strict",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
 
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT]  = "mnt",
