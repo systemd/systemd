@@ -20,6 +20,7 @@
 #include "machine-pool.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"
@@ -131,6 +132,7 @@ int tar_import_new(
 }
 
 static void tar_import_report_progress(TarImport *i) {
+        _cleanup_free_ char *s = NULL;
         unsigned percent;
         assert(i);
 
@@ -150,7 +152,14 @@ static void tar_import_report_progress(TarImport *i) {
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
-        log_info("Imported %u%%.", percent);
+
+        if (asprintf(&s, "%s %s/%s",
+                     special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                     FORMAT_BYTES(i->written_compressed),
+                     FORMAT_BYTES(i->input_stat.st_size)) < 0)
+                return;
+
+        draw_progress_bar(s, percent);
 
         i->last_percent = percent;
 }
