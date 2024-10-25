@@ -129,6 +129,11 @@ Deprecations and removals:
 
 Features:
 
+* $LISTEN_PID, $MAINPID and $SYSTEMD_EXECPID env vars that the service manager
+  sets should be augmented with $LISTEN_PIDFDID, $MAINPIDFDID and
+  $SYSTEMD_EXECPIDFD (and similar for other env vars we might send). Also,
+  MAINPID= in sd_notify() should be augmented with MAINPIDFDID=, and so on.
+
 * port copy.c over to use LabelOps for all labelling.
 
 * port remaining getmntent() users over to libmount. There are subtle
