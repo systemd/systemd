@@ -262,3 +262,10 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     assert_eq "$(run0 --user=testuser pwd)" "/home/testuser"
     assert_eq "$(run0 -D / --user=testuser pwd)" "/"
 fi
+
+# Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
+useradd disconnecttestuser
+set +e
+systemd-run --unit=disconnecttest --wait --pipe --user -M disconnecttestuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'
+assert_eq "$?" "37"
+set -e
