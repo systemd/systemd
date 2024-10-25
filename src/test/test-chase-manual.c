@@ -46,8 +46,8 @@ static int parse_argv(int argc, char *argv[]) {
                                "  %s [OPTION...] path...\n"
                                "Options:\n"
                                , argv[0]);
-                        for (size_t i = 0; i < ELEMENTSOF(options) - 1; i++)
-                                printf("  --%s\n", options[i].name);
+                        FOREACH_ARRAY(option, options, ELEMENTSOF(options) - 1)
+                                printf("  --%s\n", option->name);
                         return 0;
 
                 case ARG_ROOT:
