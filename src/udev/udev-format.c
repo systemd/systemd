@@ -58,16 +58,16 @@ static const struct subst_map_entry map[] = {
 };
 
 static const char *format_type_to_string(FormatSubstitutionType t) {
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (map[i].type == t)
-                        return map[i].name;
+        FOREACH_ELEMENT(entry, map)
+                if (entry->type == t)
+                        return entry->name;
         return NULL;
 }
 
 static char format_type_to_char(FormatSubstitutionType t) {
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (map[i].type == t)
-                        return map[i].fmt;
+        FOREACH_ELEMENT(entry, map)
+                if (entry->type == t)
+                        return entry->fmt;
         return '\0';
 }
 
@@ -86,8 +86,8 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                         *str = p;
                         return 0;
                 }
-                for (i = 0; i < ELEMENTSOF(map); i++)
-                        if ((q = startswith(p, map[i].name)))
+                FOREACH_ELEMENT(entry, map)
+                        if ((q = startswith(p, entry->name)))
                                 break;
         } else if (*p == '%') {
                 p++;
@@ -96,8 +96,8 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                         return 0;
                 }
 
-                for (i = 0; i < ELEMENTSOF(map); i++)
-                        if (*p == map[i].fmt) {
+                FOREACH_ELEMENT(entry, map)
+                        if (*p == entry->fmt) {
                                 q = p + 1;
                                 break;
                         }
