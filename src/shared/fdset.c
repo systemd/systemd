@@ -22,7 +22,7 @@
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
 
-FDSet *fdset_new(void) {
+FDSet* fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
@@ -52,12 +52,20 @@ int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
         return 0;
 }
 
-void fdset_close(FDSet *s, bool async) {
+int fdset_steal_first(FDSet *fds) {
         void *p;
 
-        while ((p = set_steal_first(MAKE_SET(s)))) {
-                int fd = PTR_TO_FD(p);
+        p = set_steal_first(MAKE_SET(fds));
+        if (!p)
+                return -ENOENT;
 
+        return PTR_TO_FD(p);
+}
+
+void fdset_close(FDSet *fds, bool async) {
+        int fd;
+
+        while ((fd = fdset_steal_first(fds)) >= 0) {
                 /* Valgrind's fd might have ended up in this set here, due to fdset_new_fill(). We'll ignore
                  * all failures here, so that the EBADFD that valgrind will return us on close() doesn't
                  * influence us */
@@ -144,7 +152,7 @@ bool fdset_contains(FDSet *s, int fd) {
                 return false;
         }
 
-        return !!set_get(MAKE_SET(s), FD_TO_PTR(fd));
+        return set_contains(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
 int fdset_remove(FDSet *s, int fd) {
@@ -230,13 +238,13 @@ int fdset_new_fill(
 }
 
 int fdset_cloexec(FDSet *fds, bool b) {
-        void *p;
         int r;
 
         assert(fds);
 
-        SET_FOREACH(p, MAKE_SET(fds)) {
-                r = fd_cloexec(PTR_TO_FD(p), b);
+        int fd;
+        FDSET_FOREACH(fd, fds) {
+                r = fd_cloexec(fd, b);
                 if (r < 0)
                         return r;
         }
@@ -269,7 +277,6 @@ int fdset_new_listen_fds(FDSet **ret, bool unset) {
 
 int fdset_to_array(FDSet *fds, int **ret) {
         unsigned j = 0, m;
-        void *e;
         int *a;
 
         assert(ret);
@@ -286,8 +293,9 @@ int fdset_to_array(FDSet *fds, int **ret) {
         if (!a)
                 return -ENOMEM;
 
-        SET_FOREACH(e, MAKE_SET(fds))
-                a[j++] = PTR_TO_FD(e);
+        int fd;
+        FDSET_FOREACH(fd, fds)
+                a[j++] = fd;
 
         assert(j == m);
 
@@ -318,16 +326,6 @@ int fdset_iterate(FDSet *s, Iterator *i) {
         void *p;
 
         if (!set_iterate(MAKE_SET(s), i, &p))
-                return -ENOENT;
-
-        return PTR_TO_FD(p);
-}
-
-int fdset_steal_first(FDSet *fds) {
-        void *p;
-
-        p = set_steal_first(MAKE_SET(fds));
-        if (!p)
                 return -ENOENT;
 
         return PTR_TO_FD(p);
