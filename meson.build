@@ -506,6 +506,8 @@ add_project_arguments(
                 basic_disabled_warnings,
                 possible_common_cc_flags
         ),
+        '-Wall',
+        '-Wextra',
         language : 'c')
 
 add_project_link_arguments(
