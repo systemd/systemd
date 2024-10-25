@@ -60,6 +60,7 @@ static inline char* strv_env_get(char * const *x, const char *n) {
 }
 
 char* strv_env_pairs_get(char **l, const char *name) _pure_;
+int strv_env_get_merged(char **l, char ***ret);
 
 int getenv_bool(const char *p);
 int secure_getenv_bool(const char *p);
