@@ -76,10 +76,10 @@ static int fake_filesystems(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++) {
-                r = mount_nofollow_verbose(fakefss[i].ignore_mount_error ? LOG_NOTICE : LOG_ERR,
-                                           fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
-                if (r < 0 && !fakefss[i].ignore_mount_error)
+        FOREACH_ELEMENT(fakefs, fakefss) {
+                r = mount_nofollow_verbose(fakefs->ignore_mount_error ? LOG_NOTICE : LOG_ERR,
+                                           fakefs->src, fakefs->target, NULL, MS_BIND, NULL);
+                if (r < 0 && !fakefs->ignore_mount_error)
                         return r;
         }
 

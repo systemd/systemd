@@ -1483,34 +1483,34 @@ int user_group_record_mangle(
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
         /* Check if we have the special sections and if they match our flags set */
-        for (size_t i = 0; i < ELEMENTSOF(mask_field); i++) {
+        FOREACH_ELEMENT(i, mask_field) {
                 sd_json_variant *e, *k;
 
-                if (FLAGS_SET(USER_RECORD_STRIP_MASK(load_flags), mask_field[i].mask)) {
+                if (FLAGS_SET(USER_RECORD_STRIP_MASK(load_flags), i->mask)) {
                         if (!w)
                                 w = sd_json_variant_ref(v);
 
-                        r = sd_json_variant_filter(&w, STRV_MAKE(mask_field[i].name));
+                        r = sd_json_variant_filter(&w, STRV_MAKE(i->name));
                         if (r < 0)
                                 return json_log(w, json_flags, r, "Failed to remove field from variant: %m");
 
                         continue;
                 }
 
-                e = sd_json_variant_by_key_full(v, mask_field[i].name, &k);
+                e = sd_json_variant_by_key_full(v, i->name, &k);
                 if (e) {
-                        if (!FLAGS_SET(USER_RECORD_ALLOW_MASK(load_flags), mask_field[i].mask))
-                                return json_log(e, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record contains '%s' field, which is not allowed.", mask_field[i].name);
+                        if (!FLAGS_SET(USER_RECORD_ALLOW_MASK(load_flags), i->mask))
+                                return json_log(e, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record contains '%s' field, which is not allowed.", i->name);
 
                         if (FLAGS_SET(load_flags, USER_RECORD_STRIP_REGULAR)) {
                                 array[n_retain++] = k;
                                 array[n_retain++] = e;
                         }
 
-                        m |= mask_field[i].mask;
+                        m |= i->mask;
                 } else {
-                        if (FLAGS_SET(USER_RECORD_REQUIRE_MASK(load_flags), mask_field[i].mask))
-                                return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record lacks '%s' field, which is required.", mask_field[i].name);
+                        if (FLAGS_SET(USER_RECORD_REQUIRE_MASK(load_flags), i->mask))
+                                return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record lacks '%s' field, which is required.", i->name);
                 }
         }
 
@@ -1530,8 +1530,8 @@ int user_group_record_mangle(
 
                         assert_se(f = sd_json_variant_string(sd_json_variant_by_index(v, i)));
 
-                        for (size_t j = 0; j < ELEMENTSOF(mask_field); j++)
-                                if (streq(f, mask_field[j].name)) { /* already covered in the loop above */
+                        FOREACH_ELEMENT(j, mask_field)
+                                if (streq(f, j->name)) { /* already covered in the loop above */
                                         special = true;
                                         continue;
                                 }

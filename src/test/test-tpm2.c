@@ -152,8 +152,8 @@ static void _test_pcr_selection_mask_hash(uint32_t mask, TPMI_ALG_HASH hash) {
         uint32_t test_masks[] = {
                 0x0, 0x1, 0x100, 0x10000, 0xf0f0f0, 0xaaaaaa, 0xffffff,
         };
-        for (unsigned i = 0; i < ELEMENTSOF(test_masks); i++) {
-                uint32_t test_mask = test_masks[i];
+        FOREACH_ELEMENT(i, test_masks) {
+                uint32_t test_mask = *i;
 
                 TPMS_PCR_SELECTION a = POISON_TPMS, b = POISON_TPMS, test_s = POISON_TPMS;
                 tpm2_tpms_pcr_selection_from_mask(test_mask, hash, &test_s);
@@ -181,11 +181,11 @@ static void _test_pcr_selection_mask_hash(uint32_t mask, TPMI_ALG_HASH hash) {
 TEST(tpms_pcr_selection_mask_and_hash) {
         TPMI_ALG_HASH HASH_ALGS[] = { TPM2_ALG_SHA1, TPM2_ALG_SHA256, };
 
-        for (unsigned i = 0; i < ELEMENTSOF(HASH_ALGS); i++)
+        FOREACH_ELEMENT(hash, HASH_ALGS)
                 for (uint32_t m2 = 0; m2 <= 0xffffff; m2 += 0x50000)
                         for (uint32_t m1 = 0; m1 <= 0xffff; m1 += 0x500)
                                 for (uint32_t m0 = 0; m0 <= 0xff; m0 += 0x5)
-                                        _test_pcr_selection_mask_hash(m0 | m1 | m2, HASH_ALGS[i]);
+                                        _test_pcr_selection_mask_hash(m0 | m1 | m2, *hash);
 }
 
 static void _test_tpms_sw(
@@ -1191,11 +1191,9 @@ static int check_calculate_seal(Tpm2Context *c) {
         calculate_seal_and_unseal(c, TPM2_SRK_HANDLE, srk_public);
 
         TPMI_ALG_ASYM test_algs[] = { TPM2_ALG_RSA, TPM2_ALG_ECC, };
-        for (unsigned i = 0; i < ELEMENTSOF(test_algs); i++) {
-                TPMI_ALG_ASYM alg = test_algs[i];
-
+        FOREACH_ELEMENT(alg, test_algs) {
                 TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
-                assert_se(tpm2_get_srk_template(alg, &template.publicArea) >= 0);
+                assert_se(tpm2_get_srk_template(*alg, &template.publicArea) >= 0);
 
                 _cleanup_free_ TPM2B_PUBLIC *public = NULL;
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
