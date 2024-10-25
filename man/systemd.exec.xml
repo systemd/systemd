@@ -2117,14 +2117,22 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectControlGroups=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, the Linux Control Groups (<citerefentry
-        project='man-pages'><refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
+        <listitem><para>Takes a boolean argument or the special values <literal>private</literal> or
+        <literal>strict</literal>. If true, the Linux Control Groups (<citerefentry project='man-pages'>
+        <refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
         accessible through <filename>/sys/fs/cgroup/</filename> will be made read-only to all processes of the
-        unit. Except for container managers no services should require write access to the control groups hierarchies;
-        it is hence recommended to turn this on for most services. For this setting the same restrictions regarding
-        mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
-        above. Defaults to off. If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname>
-        is implied.</para>
+        unit. If set to <literal>private</literal>, the unit will run in a cgroup namespace with a private
+        writable mount of <filename>/sys/fs/cgroup/</filename>. If set to <literal>strict</literal>, the unit
+        will run in a cgroup namespace with a private read-only mount of <filename>/sys/fs/cgroup/</filename>.
+        Note <literal>private</literal> and <literal>strict</literal> are downgraded to false and true
+        respectively unless the system is using the unified control group hierarchy and the kernel supports
+        cgroup namespaces.</para>
+
+        <para>Except for container managers no services should require write access to the control groups hierarchies;
+        it is hence recommended to set <varname>ProtectControlGroups=</varname> to true or <literal>strict</literal>
+        on for most services. For this setting the same restrictions regarding mount propagation and privileges apply
+        as for <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.
+        If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname> is implied.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
