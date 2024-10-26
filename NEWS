@@ -1851,14 +1851,6 @@ CHANGES WITH 255:
         * The ExtensionImages= and ExtensionDirectories= options now support
           confexts images/directories.
 
-        * A new option NFTSet= provides a method for integrating dynamic cgroup
-          IDs into firewall rules with NFT sets. The benefit of using this
-          setting is to be able to use control group as a selector in firewall
-          rules easily and this in turn allows more fine grained filtering.
-          Also, NFT rules for cgroup matching use numeric cgroup IDs, which
-          change every time a service is restarted, making them hard to use in
-          systemd environment.
-
         * A new option CoredumpReceive= can be set for service and scope units,
           together with Delegate=yes, to make systemd-coredump on the host
           forward core files from processes crashing inside the delegated
@@ -2203,9 +2195,8 @@ CHANGES WITH 255:
         * The kernel and OS versions will no longer be checked on resume from
           hibernation.
 
-        * Hibernation into swap files backed by btrfs are now
-          supported. (Previously this was supported only for other file
-          systems.)
+        * Hibernation into swap files backed by btrfs is now supported.
+          (Previously this was supported only for other file systems.)
 
         Other:
 
@@ -6739,11 +6730,10 @@ CHANGES WITH 248:
           capabilities passed to the container payload.
 
         * systemd-nspawn gained the ability to configure the firewall using the
-          nftables subsystem (in addition to the existing iptables
-          support). Similarly, systemd-networkd's IPMasquerade= option now
-          supports nftables as back-end, too. In both cases NAT on IPv6 is now
-          supported too, in addition to IPv4 (the iptables back-end still is
-          IPv4-only).
+          nftables subsystem (in addition to the existing iptables support).
+          Similarly, systemd-networkd's IPMasquerade= option now supports
+          nftables as back-end, too. In both cases NAT on IPv6 is now supported
+          too, in addition to IPv4 (the iptables back-end still is IPv4-only).
 
           "IPMasquerade=yes", which was the same as "IPMasquerade=ipv4" before,
           retains its meaning, but has been deprecated. Please switch to either
