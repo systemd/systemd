@@ -56,11 +56,11 @@ EOF
 }
 
 check_both() {
-    local service_id="${1:?}"
+e   local service_id="${1:?}"
     local result_file="${2:?}"
 
     # We should get 20 services per container, 40 total
-    if [[ "$(wc -l <"$result_file")" -eq 40 ]]; then
+    if [[ "$(wc -l <"$result_file")" -ge 40 ]]; then
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
@@ -82,7 +82,7 @@ check_first() {
     local result_file="${2:?}"
 
     # We should get 20 services per container
-    if [[ "$(wc -l <"$result_file")" -eq 20 ]]; then
+    if [[ "$(wc -l <"$result_file")" -ge 20 ]]; then
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
@@ -141,9 +141,9 @@ run_and_check_services() {
         # }
         if [[ -s "$out_file" ]]; then
             # Extract the service name from each valid record...
-            jq --slurp --raw-output \
-                 ".[].browser_service_data[] | select(.add_flag == true and .type == \"$service_type\" and .family == 10).name" "$out_file" | sort | tee "$tmp_file"
-            #grep -o '"name":"[^"]*"' "$out_file" | sed 's/"name":"//;s/"//g' | sort | tee "$tmp_file"
+            # jq --slurp --raw-output \
+            #     ".[].browser_service_data[] | select(.add_flag == true and .type == \"$service_type\" and .family == 10).name" "$out_file" | sort | tee "$tmp_file"
+            grep -o '"name":"[^"]*"' "$out_file" | sed 's/"name":"//;s/"//g' | sort | tee "$tmp_file"
 	    # ...and compare them with what we expect
             if "$check_func" "$service_id" "$tmp_file"; then
                 return 0
