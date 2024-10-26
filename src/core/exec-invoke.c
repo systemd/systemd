@@ -3040,7 +3040,7 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
-                char **error_path) {
+                char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
@@ -3249,7 +3249,7 @@ static int apply_mount_namespace(
                 .proc_subset = needs_sandboxing ? context->proc_subset : false,
         };
 
-        r = setup_namespace(&parameters, error_path);
+        r = setup_namespace(&parameters, reterr_path);
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
          * that with a special, recognizable error ENOANO. In this case, silently proceed, but only if exclusively
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
