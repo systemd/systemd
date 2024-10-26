@@ -47699,6 +47699,9 @@ usb:v0FD9p006C*
 usb:v0FD9p006D*
  ID_MODEL_FROM_DATABASE=Stream Deck original V2
 
+usb:v0FD9p009A*
+ ID_MODEL_FROM_DATABASE=Stream Deck Neo
+
 usb:v0FDA*
  ID_VENDOR_FROM_DATABASE=Quantec Networks GmbH
 
