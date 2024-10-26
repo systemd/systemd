@@ -1611,20 +1611,19 @@ DeviceAllow=/dev/loop-control
       <varlistentry>
         <term><varname>MemoryPressureWatch=</varname></term>
 
-        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes one of
-        <literal>off</literal>, <literal>on</literal>, <literal>auto</literal> or <literal>skip</literal>. If
-        <literal>off</literal> tells the service not to watch for memory pressure events, by setting the
-        <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable to the literal string
-        <filename>/dev/null</filename>. If <literal>on</literal> tells the service to watch for memory
-        pressure events. This enables memory accounting for the service, and ensures the
-        <filename>memory.pressure</filename> cgroup attribute file is accessible for reading and writing by the
-        service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable for
-        processes invoked by the unit to the file system path to this file. The threshold information
-        configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in the
-        <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal> value
-        is set the protocol is enabled if memory accounting is anyway enabled for the unit, and disabled
-        otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and the two
-        environment variables are not set.</para>
+        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes a boolean or one of
+        <literal>auto</literal> and <literal>skip</literal>. If <literal>no</literal>, tells the service not
+        to watch for memory pressure events, by setting the <varname>$MEMORY_PRESSURE_WATCH</varname>
+        environment variable to the literal string <filename>/dev/null</filename>. If <literal>yes</literal>,
+        tells the service to watch for memory pressure events. This enables memory accounting for the
+        service, and ensures the <filename>memory.pressure</filename> cgroup attribute file is accessible for
+        reading and writing by the service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname>
+        environment variable for processes invoked by the unit to the file system path to this file. The
+        threshold information configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in
+        the <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal>
+        value is set the protocol is enabled if memory accounting is anyway enabled for the unit, and
+        disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
+        the two environment variables are not set.</para>
 
         <para>Note that services are free to use the two environment variables, but it's unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and

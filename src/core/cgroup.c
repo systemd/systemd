@@ -5614,13 +5614,13 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
-        [CGROUP_PRESSURE_WATCH_OFF]  = "off",
+        [CGROUP_PRESSURE_WATCH_NO]   = "no",
+        [CGROUP_PRESSURE_WATCH_YES]  = "yes",
         [CGROUP_PRESSURE_WATCH_AUTO] = "auto",
-        [CGROUP_PRESSURE_WATCH_ON]   = "on",
         [CGROUP_PRESSURE_WATCH_SKIP] = "skip",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, CGROUP_PRESSURE_WATCH_ON);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, CGROUP_PRESSURE_WATCH_YES);
 
 static const char* const cgroup_ip_accounting_metric_table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
