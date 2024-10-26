@@ -51,6 +51,7 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
                          --resolv-conf=replace-stub \
                          --network-zone=$CONTAINER_ZONE \
                          --overlay=/etc:/var/lib/machines/$container/etc::/etc
+                         --hostname=$container
 EOF
 }
 
@@ -218,6 +219,8 @@ for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
     mkdir -p "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
     cp /run/systemd/resolved.conf.d/99-mdns-llmnr.conf "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
+    touch "/var/lib/machines/$container/etc/hostname"
+    cat "/var/lib/machines/$container/etc/hostname"
     systemctl daemon-reload
     machinectl start "$container"
     # Wait for the system bus to start...
