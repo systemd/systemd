@@ -4607,7 +4607,7 @@ int exec_invoke(
                                                             "Failed to adjust ownership of '%s', ignoring: %m", memory_pressure_path);
                                         memory_pressure_path = mfree(memory_pressure_path);
                                 }
-                        } else if (cgroup_context->memory_pressure_watch == CGROUP_PRESSURE_WATCH_OFF) {
+                        } else if (cgroup_context->memory_pressure_watch == CGROUP_PRESSURE_WATCH_NO) {
                                 memory_pressure_path = strdup("/dev/null"); /* /dev/null is explicit indicator for turning of memory pressure watch */
                                 if (!memory_pressure_path) {
                                         *exit_status = EXIT_MEMORY;
