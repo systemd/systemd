@@ -21,14 +21,14 @@ create_container() {
     #
     # Since we also need the various test suite related dropins from the host's /etc,
     # we'll overlay our customizations on top of that
-    mkdir -p "/run/lib/machines/$container/etc/systemd/dnssd"
+    mkdir -p "/var/lib/machines/$container/etc/systemd/dnssd"
     # Create 20 test services for each service type (_testServiceX._udp) and number them sequentially,
     # i.e. create services 0-19 for _testService0._udp, services 20-39 for _testService1._udp, and so on
     for stype in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
         for sid in $(seq 0 $((SERVICE_COUNT - 1))); do
             svc=$((stype * SERVICE_COUNT + sid))
 
-            cat >"/run/lib/machines/$container/etc/systemd/dnssd/test-service-$container-$svc.dnssd" <<EOF
+            cat >"/var/lib/machines/$container/etc/systemd/dnssd/test-service-$container-$svc.dnssd" <<EOF
 [Service]
 Name=Test Service $svc on %H
 Type=_testService$stype._udp
@@ -50,7 +50,7 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
                          --inaccessible=/etc/hostname \
                          --resolv-conf=replace-stub \
                          --network-zone=$CONTAINER_ZONE \
-                         --overlay=/etc:/run/lib/machines/$container/etc::/etc
+                         --overlay=/etc:/var/lib/machines/$container/etc::/etc
 EOF
 }
 
@@ -216,8 +216,8 @@ ln -svrf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
-    mkdir -p "/run/lib/machines/$container/etc/systemd/resolved.conf.d/"
-    cp /run/systemd/resolved.conf.d/99-mdns-llmnr.conf "/run/lib/machines/$container/etc/systemd/resolved.conf.d/"
+    mkdir -p "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
+    cp /run/systemd/resolved.conf.d/99-mdns-llmnr.conf "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
     systemctl daemon-reload
     machinectl start "$container"
     # Wait for the system bus to start...
