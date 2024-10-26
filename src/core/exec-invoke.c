@@ -2845,7 +2845,8 @@ static int setup_ephemeral(
                 const ExecContext *context,
                 ExecRuntime *runtime,
                 char **root_image,            /* both input and output! modified if ephemeral logic enabled */
-                char **root_directory) {      /* ditto */
+                char **root_directory,        /* ditto */
+                char **error_path) {
 
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *new_root = NULL;
@@ -2886,9 +2887,11 @@ static int setup_ephemeral(
 
                 fd = copy_file(*root_image, new_root, O_EXCL, 0600,
                                COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
-                if (fd < 0)
+                if (fd < 0) {
+                        *error_path = strdup(*root_image);
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
                                                *root_image, new_root);
+                }
         } else {
                 assert(*root_directory);
 
@@ -2901,9 +2904,11 @@ static int setup_ephemeral(
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
                                 BTRFS_SNAPSHOT_RECURSIVE |
                                 BTRFS_SNAPSHOT_LOCK_BSD);
-                if (fd < 0)
+                if (fd < 0) {
+                        *error_path = strdup(*root_directory);
                         return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
                                                *root_directory, new_root);
+                }
         }
 
         r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
@@ -2980,7 +2985,8 @@ static int pick_versions(
                 const ExecContext *context,
                 const ExecParameters *params,
                 char **ret_root_image,
-                char **ret_root_directory) {
+                char **ret_root_directory,
+                char **error_path) {
 
         int r;
 
@@ -2998,11 +3004,15 @@ static int pick_versions(
                               &pick_filter_image_raw,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
-                if (r < 0)
+                if (r < 0) {
+                        *error_path = strdup(context->root_image);
                         return r;
+                }
 
-                if (!result.path)
+                if (!result.path) {
+                        *error_path = strdup(context->root_image);
                         return log_exec_debug_errno(context, params, SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_image);
+                }
 
                 *ret_root_image = TAKE_PTR(result.path);
                 *ret_root_directory = NULL;
@@ -3018,11 +3028,15 @@ static int pick_versions(
                               &pick_filter_image_dir,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
-                if (r < 0)
+                if (r < 0) {
+                        *error_path = strdup(context->root_directory);
                         return r;
+                }
 
-                if (!result.path)
+                if (!result.path) {
+                        *error_path = strdup(context->root_directory);
                         return log_exec_debug_errno(context, params, SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_directory);
+                }
 
                 *ret_root_image = NULL;
                 *ret_root_directory = TAKE_PTR(result.path);
@@ -3063,7 +3077,8 @@ static int apply_mount_namespace(
                                 context,
                                 params,
                                 &root_image,
-                                &root_dir);
+                                &root_dir,
+                                error_path);
                 if (r < 0)
                         return r;
 
@@ -3071,7 +3086,8 @@ static int apply_mount_namespace(
                                 context,
                                 runtime,
                                 &root_image,
-                                &root_dir);
+                                &root_dir,
+                                error_path);
                 if (r < 0)
                         return r;
         }
