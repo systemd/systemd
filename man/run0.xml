@@ -288,7 +288,7 @@
 
       <varlistentry>
         <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
-        <listitem><para>By default set to the superhero emoji (if supported), but may be overriden with the
+        <listitem><para>By default set to the superhero emoji (if supported), but may be overridden with the
         <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable (see below), or the
         <option>--shell-prompt-prefix=</option> switch (see above).</para>
 
