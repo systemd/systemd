@@ -1990,7 +1990,7 @@ static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
         return 0;
 }
 
-static void mount_entry_path_debug_string(const char *root, MountEntry *m, char **error_path) {
+static void mount_entry_path_debug_string(const char *root, MountEntry *m, char **ret_path) {
         assert(m);
 
         /* Create a string suitable for debugging logs, stripping for example the local working directory.
@@ -2003,23 +2003,23 @@ static void mount_entry_path_debug_string(const char *root, MountEntry *m, char 
          *
          * Note that this is an error path, so no OOM check is done on purpose. */
 
-        if (!error_path)
+        if (!ret_path)
                 return;
 
         if (!mount_entry_path(m)) {
-                *error_path = NULL;
+                *ret_path = NULL;
                 return;
         }
 
         if (root) {
                 const char *e = startswith(mount_entry_path(m), root);
                 if (e) {
-                        *error_path = strdup(e);
+                        *ret_path = strdup(e);
                         return;
                 }
         }
 
-        *error_path = strdup(mount_entry_path(m));
+        *ret_path = strdup(mount_entry_path(m));
         return;
 }
 
@@ -2027,7 +2027,7 @@ static int apply_mounts(
                 MountList *ml,
                 const char *root,
                 const NamespaceParameters *p,
-                char **error_path) {
+                char **reterr_path) {
 
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         _cleanup_free_ char **deny_list = NULL;
@@ -2046,8 +2046,8 @@ static int apply_mounts(
         if (!proc_self_mountinfo) {
                 r = -errno;
 
-                if (error_path)
-                        *error_path = strdup("/proc/self/mountinfo");
+                if (reterr_path)
+                        *reterr_path = strdup("/proc/self/mountinfo");
 
                 return log_debug_errno(r, "Failed to open /proc/self/mountinfo: %m");
         }
@@ -2067,7 +2067,7 @@ static int apply_mounts(
                          * /tmp and /var/tmp. */
                         r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY, MOUNT_PRIVATE_TMPFS) ? root : NULL, m);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, error_path);
+                                mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
                         }
                         if (r == 0) {
@@ -2082,7 +2082,7 @@ static int apply_mounts(
                         /* Returns 1 if the mount should be post-processed, 0 otherwise */
                         r = apply_one_mount(root, m, p);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, error_path);
+                                mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
                         }
                         m->state = r == 0 ? MOUNT_SKIPPED : MOUNT_APPLIED;
@@ -2114,7 +2114,7 @@ static int apply_mounts(
         FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                 r = make_read_only(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        mount_entry_path_debug_string(root, m, error_path);
+                        mount_entry_path_debug_string(root, m, reterr_path);
                         return r;
                 }
         }
@@ -2128,7 +2128,7 @@ static int apply_mounts(
         FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                 r = make_noexec(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        mount_entry_path_debug_string(root, m, error_path);
+                        mount_entry_path_debug_string(root, m, reterr_path);
                         return r;
                 }
         }
@@ -2138,7 +2138,7 @@ static int apply_mounts(
                 FOREACH_ARRAY(m, ml->mounts, ml->n_mounts) {
                         r = make_nosuid(m, proc_self_mountinfo);
                         if (r < 0) {
-                                mount_entry_path_debug_string(root, m, error_path);
+                                mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
                         }
                 }
@@ -2195,7 +2195,7 @@ static bool home_read_only(
         return false;
 }
 
-int setup_namespace(const NamespaceParameters *p, char **error_path) {
+int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -2747,7 +2747,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(&ml, root, p, error_path);
+        r = apply_mounts(&ml, root, p, reterr_path);
         if (r < 0)
                 return r;
 
