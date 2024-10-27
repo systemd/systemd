@@ -274,18 +274,17 @@ void netdev_drop(NetDev *netdev) {
         netdev_detach(netdev);
 }
 
-int netdev_attach_name(NetDev *netdev, const char *name) {
+static int netdev_attach_name_full(NetDev *netdev, const char *name, Hashmap **netdevs) {
         int r;
 
         assert(netdev);
-        assert(netdev->manager);
         assert(name);
 
-        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, name, netdev);
+        r = hashmap_ensure_put(netdevs, &string_hash_ops, name, netdev);
         if (r == -ENOMEM)
                 return log_oom();
         if (r == -EEXIST) {
-                NetDev *n = hashmap_get(netdev->manager->netdevs, name);
+                NetDev *n = hashmap_get(*netdevs, name);
 
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
@@ -298,6 +297,13 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         assert(r > 0);
 
         return 0;
+}
+
+int netdev_attach_name(NetDev *netdev, const char *name) {
+        assert(netdev);
+        assert(netdev->manager);
+
+        return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
 static int netdev_attach(NetDev *netdev) {
