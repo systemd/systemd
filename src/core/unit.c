@@ -2217,16 +2217,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2238,7 +2238,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
@@ -2269,7 +2269,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
                 if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
 
-                r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, job_mode, &error, /* ret = */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue %s%s job, ignoring: %s",
                                                dependency_name, other->id, bus_error_message(&error, r));

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+OnFailure=restart-on-failure.service
+
+[Service]
+ExecStart=/bin/sleep infinity
+Restart=on-failure
+RestartMode=direct

@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+Type=oneshot
+ExecStart=touch /tmp/test-03-restart-failure-flag
