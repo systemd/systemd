@@ -103,6 +103,7 @@ static int netdev_create_tuntap(NetDev *netdev) {
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
         t = TUNTAP(netdev);
         assert(t);
 

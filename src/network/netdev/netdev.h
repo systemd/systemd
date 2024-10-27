@@ -118,6 +118,7 @@ typedef struct NetDev {
 
         char *filename;
         char **dropins;
+        Hashmap *stats_by_path;
 
         LIST_HEAD(Condition, conditions);
 
@@ -211,14 +212,15 @@ NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex);
 
-int netdev_load(Manager *manager, bool reload);
-int netdev_load_one(Manager *manager, const char *filename);
+int netdev_load(Manager *manager);
+int netdev_reload(Manager *manager);
+int netdev_load_one(Manager *manager, const char *filename, NetDev **ret);
 void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
 int netdev_enter_ready(NetDev *netdev);
 
-NetDev *netdev_unref(NetDev *netdev);
-NetDev *netdev_ref(NetDev *netdev);
+NetDev* netdev_unref(NetDev *netdev);
+NetDev* netdev_ref(NetDev *netdev);
 DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 

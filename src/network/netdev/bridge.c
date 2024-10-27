@@ -159,6 +159,9 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link) {
 
         assert(netdev);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
