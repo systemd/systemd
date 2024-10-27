@@ -224,6 +224,7 @@ static int netdev_macsec_create_message(NetDev *netdev, int command, sd_netlink_
 
         assert(netdev);
         assert(netdev->ifindex > 0);
+        assert(netdev->manager);
 
         r = sd_genl_message_new(netdev->manager->genl, MACSEC_GENL_NAME, command, &m);
         if (r < 0)
@@ -334,6 +335,9 @@ static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAs
         assert(netdev);
         assert(a);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_RXSA, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -406,6 +410,9 @@ static int netdev_macsec_configure_receive_channel(NetDev *netdev, ReceiveChanne
         assert(netdev);
         assert(c);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_RXSC, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -453,6 +460,9 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
 
         assert(netdev);
         assert(a);
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_TXSA, &m);
         if (r < 0)
