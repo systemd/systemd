@@ -50,13 +50,13 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
                          --inaccessible=/etc/hostname \
                          --resolv-conf=replace-stub \
                          --network-zone=$CONTAINER_ZONE \
-                         --overlay=/etc:/var/lib/machines/$container/etc::/etc
+                         --overlay=/etc:/var/lib/machines/$container/etc::/etc \
                          --hostname=$container
 EOF
 }
 
 check_both() {
-e   local service_id="${1:?}"
+    local service_id="${1:?}"
     local result_file="${2:?}"
 
     # We should get 20 services per container, 40 total
@@ -111,17 +111,27 @@ run_and_check_services() {
     local i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    out2_file="$(mktemp)"
+    out3_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
     parameters="{ \"domainName\": \"$service_type.local\", \"name\": \"\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
         varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.StartBrowse "$parameters"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+
+    sleep 5
+    systemd-run --unit="resolve-status.service" --service-type=exec -p StandardOutput="file:$out2_file" -p StandardError="file:$out3_file" resolvectl show-cache --interface ${BRIDGE_INDEX}
+    trap "trap - RETURN; systemctl stop resolve-status.service" RETURN
+    cat "$out2_file"
+    cat "$out3_file"
     trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    cat "$out_file"
 
     for _ in {0..14}; do
         # The response format, for reference (it's JSON-SEQ):
@@ -154,6 +164,7 @@ run_and_check_services() {
     done
 
     cat "$out_file"
+    cat "$error_file"
     return 1
 }
 
@@ -211,9 +222,22 @@ MulticastDNS=yes
 LLMNR=yes
 EOF
 
+cat >/etc/resolv.conf <<EOF
+[Resolve]
+MulticastDNS=yes
+LLMNR=yes
+EOF
+
+mkdir -p /etc/systemd/
+cat >/etc/systemd/resolv.conf <<EOF
+[Resolve]
+MulticastDNS=yes
+LLMNR=yes
+EOF
+
 systemctl unmask systemd-resolved.service systemd-networkd.{service,socket}
 systemctl enable --now systemd-resolved.service systemd-networkd.{socket,service}
-ln -svrf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+#ln -svrf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
