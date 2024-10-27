@@ -50,13 +50,13 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
                          --inaccessible=/etc/hostname \
                          --resolv-conf=replace-stub \
                          --network-zone=$CONTAINER_ZONE \
-                         --overlay=/etc:/var/lib/machines/$container/etc::/etc
+                         --overlay=/etc:/var/lib/machines/$container/etc::/etc \
                          --hostname=$container
 EOF
 }
 
 check_both() {
-e   local service_id="${1:?}"
+    local service_id="${1:?}"
     local result_file="${2:?}"
 
     # We should get 20 services per container, 40 total
@@ -111,16 +111,20 @@ run_and_check_services() {
     local i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    out2_file="$(mktemp)"
+    out3_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
     parameters="{ \"domainName\": \"$service_type.local\", \"name\": \"\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
         varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.StartBrowse "$parameters"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+
     trap "trap - RETURN; systemctl stop $unit_name" RETURN
 
     for _ in {0..14}; do
@@ -154,6 +158,7 @@ run_and_check_services() {
     done
 
     cat "$out_file"
+    cat "$error_file"
     return 1
 }
 
@@ -213,7 +218,9 @@ EOF
 
 systemctl unmask systemd-resolved.service systemd-networkd.{service,socket}
 systemctl enable --now systemd-resolved.service systemd-networkd.{socket,service}
-ln -svrf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+ln -svrf /run/systemd/resolved.conf.d/99-mdns-llmnr.conf /etc/resolv.conf
+systemctl reload systemd-resolved.service systemd-networkd.{socket,service}
+resolvectl status
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
@@ -238,6 +245,7 @@ for container in "$CONTAINER_1" "$CONTAINER_2"; do
     [[ "$(systemd-run -M "$container" --wait --pipe -- resolvectl mdns host0)" =~ :\ yes$ ]]
     [[ "$(systemd-run -M "$container" --wait --pipe -- resolvectl llmnr host0)" =~ :\ yes$ ]]
 done
+resolvectl status
 
 BRIDGE_INDEX="$(<"/sys/class/net/vz-$CONTAINER_ZONE/ifindex")"
 machinectl list
