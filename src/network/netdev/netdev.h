@@ -217,8 +217,8 @@ void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
 int netdev_enter_ready(NetDev *netdev);
 
-NetDev *netdev_unref(NetDev *netdev);
-NetDev *netdev_ref(NetDev *netdev);
+NetDev* netdev_unref(NetDev *netdev);
+NetDev* netdev_ref(NetDev *netdev);
 DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
