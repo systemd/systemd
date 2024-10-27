@@ -34,6 +34,7 @@
 #include "networkd-sriov.h"
 #include "parse-util.h"
 #include "path-lookup.h"
+#include "path-util.h"
 #include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"
@@ -342,9 +343,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (!fname)
                 return log_oom();
 
-        name = strdup(basename(filename));
-        if (!name)
-                return log_oom();
+        r = path_extract_filename(filename, &name);
+        if (r < 0)
+                return log_warning_errno(r, "Couldn't determine basename for \"%s\": %m", filename);
 
         d = strrchr(name, '.');
         if (!d)
