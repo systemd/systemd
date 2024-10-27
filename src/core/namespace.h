@@ -172,7 +172,7 @@ struct NamespaceParameters {
         PrivateTmp private_tmp;
 };
 
-int setup_namespace(const NamespaceParameters *p, char **error_path);
+int setup_namespace(const NamespaceParameters *p, char **reterr_path);
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"
 
