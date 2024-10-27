@@ -612,8 +612,6 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
 
         assert(manager);
 
-        ordered_hashmap_clear_with_destructor(*networks, network_unref);
-
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
