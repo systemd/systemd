@@ -211,7 +211,7 @@ NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex);
 
-int netdev_load(Manager *manager, bool reload);
+int netdev_load(Manager *manager);
 int netdev_load_one(Manager *manager, const char *filename);
 void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
