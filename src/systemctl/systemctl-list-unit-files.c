@@ -3,6 +3,7 @@
 #include "ansi-color.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "path-util.h"
 #include "sort-util.h"
 #include "systemctl-list-unit-files.h"
 #include "systemctl-util.h"
@@ -10,26 +11,41 @@
 #include "terminal-util.h"
 
 static int compare_unit_file_list(const UnitFileList *a, const UnitFileList *b) {
-        const char *d1, *d2;
+        const char *d1, *d2, *a_id = NULL, *b_id = NULL;
+        int r, u, v;
 
         d1 = strrchr(a->path, '.');
         d2 = strrchr(b->path, '.');
 
         if (d1 && d2) {
-                int r;
-
                 r = strcasecmp(d1, d2);
                 if (r != 0)
                         return r;
         }
 
-        return strcasecmp(basename(a->path), basename(b->path));
+        u = path_find_last_component(a->path, /* accept_dot_dot= */ false, /* next= */ NULL, &a_id);
+        v = path_find_last_component(b->path, /* accept_dot_dot= */ false, /* next= */ NULL, &b_id);
+
+        if (u < 0 || v < 0) {
+                r = CMP(u, v); /* If paths are invalid, compare error codes instead. */
+                if (r != 0)
+                        return r;
+                return strcmp(a->path, b->path); /* If it's the same error, compare strings as a last resort. */
+        }
+
+        return ascii_strcasecmp_nn(a_id, u, b_id, v);
 }
 
-static bool output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
+static int output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
+        int r;
+        _cleanup_free_ char *unit_filename = NULL;
         assert(u);
 
-        if (!strv_fnmatch_or_empty(patterns, basename(u->path), FNM_NOESCAPE))
+        r = path_extract_filename(u->path, &unit_filename);
+        if (r < 0)
+                return r;
+
+        if (!strv_fnmatch_or_empty(patterns, unit_filename, FNM_NOESCAPE))
                 return false;
 
         if (!strv_isempty(arg_types)) {
@@ -81,7 +97,8 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         FOREACH_ARRAY(u, units, c) {
-                const char *on_underline = NULL, *on_unit_color = NULL, *id;
+                const char *on_underline = NULL, *on_unit_color = NULL;
+                _cleanup_free_ char *id = NULL;
                 bool underline;
 
                 underline = u + 1 < units + c &&
@@ -103,10 +120,8 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                 else
                         on_unit_color = on_underline;
 
-                id = basename(u->path);
-
                 r = table_add_many(table,
-                                   TABLE_STRING, id,
+                                   TABLE_PATH_BASENAME, u->path,
                                    TABLE_SET_BOTH_COLORS, strempty(on_underline),
                                    TABLE_STRING, unit_file_state_to_string(u->state),
                                    TABLE_SET_BOTH_COLORS, strempty(on_unit_color));
@@ -163,7 +178,10 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
 
                 UnitFileList *u;
                 HASHMAP_FOREACH(u, h) {
-                        if (!output_show_unit_file(u, NULL, NULL))
+                        r = output_show_unit_file(u, /* states= */ NULL, /* patterns= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether to output unit file entry: %m");
+                        if (!r)
                                 continue;
 
                         units[c++] = *u;
@@ -234,9 +252,12 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                                 .state = unit_file_state_from_string(state),
                         };
 
-                        if (output_show_unit_file(&units[c],
+                        r = output_show_unit_file(&units[c],
                             fallback ? arg_states : NULL,
-                            fallback ? strv_skip(argv, 1) : NULL))
+                            fallback ? strv_skip(argv, 1) : NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether to output unit file entry: %m");
+                        if (r > 0)
                                 c++;
                 }
                 if (r < 0)
