@@ -885,13 +885,14 @@ static int netdev_request_to_create(NetDev *netdev) {
         return 0;
 }
 
-int netdev_load_one(Manager *manager, const char *filename) {
+int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         const char *dropin_dirname;
         int r;
 
         assert(manager);
         assert(filename);
+        assert(ret);
 
         r = null_or_empty_path(filename);
         if (r < 0)
@@ -970,17 +971,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        r = netdev_attach(netdev);
-        if (r < 0)
-                return r;
-
         log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
 
-        r = netdev_request_to_create(netdev);
-        if (r < 0)
-                return r; /* netdev_request_to_create() logs internally. */
-
-        TAKE_PTR(netdev);
+        *ret = TAKE_PTR(netdev);
         return 0;
 }
 
@@ -994,8 +987,20 @@ int netdev_load(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH(f, files)
-                (void) netdev_load_one(manager, *f);
+        STRV_FOREACH(f, files) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+
+                if (netdev_load_one(manager, *f, &netdev) < 0)
+                        continue;
+
+                if (netdev_attach(netdev) < 0)
+                        continue;
+
+                if (netdev_request_to_create(netdev) < 0)
+                        continue;
+
+                TAKE_PTR(netdev);
+        }
 
         return 0;
 }
