@@ -234,6 +234,9 @@ static int wireguard_set_interface(NetDev *netdev) {
         Wireguard *w = WIREGUARD(netdev);
         int r;
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         for (WireguardPeer *peer_start = w->peers; peer_start || !sent_once; ) {
                 uint16_t i = 0;
 
@@ -398,6 +401,9 @@ static int peer_resolve_endpoint(WireguardPeer *peer) {
         assert(peer->wireguard);
 
         netdev = NETDEV(peer->wireguard);
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         if (!peer->endpoint_host || !peer->endpoint_port)
                 /* Not necessary to resolve the endpoint. */

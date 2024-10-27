@@ -94,6 +94,8 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
 
 static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
         assert(local_address);
+        assert(netdev);
+        assert(netdev->manager);
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t encap_type;
@@ -188,6 +190,7 @@ static int netdev_l2tp_create_message_session(NetDev *netdev, L2tpSession *sessi
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
         assert(session);
         assert(session->tunnel);
 
@@ -385,6 +388,11 @@ static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *n = NULL;
         int r;
 
+        assert(netdev);
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_l2tp_create_message_session(netdev, session, &n);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -428,6 +436,9 @@ static int l2tp_create_tunnel(NetDev *netdev) {
         union in_addr_union local_address;
         L2tpTunnel *t = L2TP(netdev);
         int r;
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         r = l2tp_get_local_address(netdev, &local_address);
         if (r < 0)
