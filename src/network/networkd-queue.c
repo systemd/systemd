@@ -193,6 +193,7 @@ int netdev_queue_request(
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
 
         r = request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
                         netdev, (mfree_func_t) netdev_unref,
