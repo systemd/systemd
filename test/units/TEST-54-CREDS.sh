@@ -23,6 +23,45 @@ run_with_cred_compare() (
     diff "$log_file" <(echo -ne "$exp")
 )
 
+test_mount_with_credentials() {
+    local tmpdir credfile unit
+    tmpdir="/tmp/test-54-mount"
+    credfile="/tmp/mount-cred"
+    unit=$(systemd-escape --suffix mount --path "$tmpdir")
+
+    mkdir -p "$tmpdir"
+    echo foo >"$credfile"
+
+    # Set up test mount unit
+    cat >/run/systemd/system/"$unit" <<EOF
+[Mount]
+What=tmpfs
+Where=$tmpdir
+Type=tmpfs
+LoadCredential=loadcred:$credfile
+SetCredential=setcred:bar
+EOF
+
+    # Start unit
+    systemctl daemon-reload
+    systemctl start "$unit"
+
+    # Verify mount succeeded
+    [[ "$(systemctl show --property SubState --value "$unit")" = "mounted" ]] || {
+        echo >&2 "Test mount \"$unit\" unit isn't mounted"
+        return 1
+    }
+    mountpoint -q "$tmpdir"
+
+    # Verify unit credentials file is not present
+    [[ ! -e /run/credentials/"$unit" ]]
+
+    # Stop unit and delete files
+    systemctl stop "$unit"
+    rm -f /run/systemd/system/"$unit" "$credfile"
+    rm -rf "$tmpdir"
+}
+
 # Sanity checks
 #
 # Create a dummy "full" disk (similar to /dev/full) to check out-of-space
@@ -473,6 +512,9 @@ systemd-creds encrypt --user /tmp/usertest.data /tmp/usertest.creds --name=mytes
 # Make sure we actually can decode this in user context
 systemctl start user@0.service
 XDG_RUNTIME_DIR=/run/user/0 systemd-run --pipe --user --unit=waldi.service -p LoadCredentialEncrypted=mytest:/tmp/usertest.creds cat /run/user/0/credentials/waldi.service/mytest | cmp /tmp/usertest.data
+
+# Test mount unit with credentials
+test_mount_with_credentials
 
 systemd-analyze log-level info
 
