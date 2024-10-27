@@ -118,6 +118,25 @@ static int network_resolve_stacked_netdevs(Network *network) {
         return 0;
 }
 
+int network_resolve_netdevs(Network *network) {
+        assert(network);
+
+        network->batadv = netdev_unref(network->batadv);
+        (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
+
+        network->bond = netdev_unref(network->batadv);
+        (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
+
+        network->bridge = netdev_unref(network->bridge);
+        (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
+
+        network->vrf = netdev_unref(network->vrf);
+        (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
+
+        hashmap_clear_with_destructor(network->stacked_netdevs, netdev_unref);
+        return network_resolve_stacked_netdevs(network);
+}
+
 int network_verify(Network *network) {
         int r;
 
@@ -157,20 +176,9 @@ int network_verify(Network *network) {
                 network->vrf_name = mfree(network->vrf_name);
         }
 
-        (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
-        (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
-        (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
-        (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
-        r = network_resolve_stacked_netdevs(network);
+        r = network_resolve_netdevs(network);
         if (r < 0)
                 return r;
-
-        /* Free unnecessary entries. */
-        network->batadv_name = mfree(network->batadv_name);
-        network->bond_name = mfree(network->bond_name);
-        network->bridge_name = mfree(network->bridge_name);
-        network->vrf_name = mfree(network->vrf_name);
-        network->stacked_netdev_names = hashmap_free_free_key(network->stacked_netdev_names);
 
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
@@ -603,8 +611,6 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         int r;
 
         assert(manager);
-
-        ordered_hashmap_clear_with_destructor(*networks, network_unref);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
