@@ -423,6 +423,7 @@ int network_load(Manager *manager, OrderedHashmap **networks);
 int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
+int network_resolve_netdevs(Network *network);
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
 
