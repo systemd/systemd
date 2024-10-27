@@ -598,21 +598,22 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         return 0;
 }
 
-int network_load(Manager *manager, OrderedHashmap **networks) {
+int network_load(Manager *manager, OrderedHashmap **ret) {
         _cleanup_strv_free_ char **files = NULL;
+        OrderedHashmap *networks = NULL;
         int r;
 
         assert(manager);
-
-        ordered_hashmap_clear_with_destructor(*networks, network_unref);
+        assert(ret);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
         STRV_FOREACH(f, files)
-                (void) network_load_one(manager, networks, *f);
+                (void) network_load_one(manager, &networks, *f);
 
+        *ret = TAKE_PTR(networks);
         return 0;
 }
 

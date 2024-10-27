@@ -419,7 +419,7 @@ Network *network_ref(Network *network);
 Network *network_unref(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
-int network_load(Manager *manager, OrderedHashmap **networks);
+int network_load(Manager *manager, OrderedHashmap **ret);
 int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);

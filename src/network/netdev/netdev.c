@@ -1014,14 +1014,11 @@ int netdev_load_one(Manager *manager, const char *filename) {
         return 0;
 }
 
-int netdev_load(Manager *manager, bool reload) {
+int netdev_load(Manager *manager) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
         assert(manager);
-
-        if (!reload)
-                hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
