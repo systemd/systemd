@@ -241,6 +241,7 @@ static NetDev* netdev_free(NetDev *netdev) {
         condition_free_list(netdev->conditions);
         free(netdev->filename);
         strv_free(netdev->dropins);
+        hashmap_free(netdev->stats_by_path);
         free(netdev->description);
         free(netdev->ifname);
 
@@ -968,7 +969,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         netdev,
-                        NULL,
+                        &netdev->stats_by_path,
                         &netdev->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
@@ -1014,6 +1015,81 @@ int netdev_load(Manager *manager) {
 
                 TAKE_PTR(netdev);
         }
+
+        return 0;
+}
+
+int netdev_reload(Manager *manager) {
+        _cleanup_hashmap_free_ Hashmap *new_netdevs = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        assert(manager);
+
+        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate netdev files: %m");
+
+        STRV_FOREACH(f, files) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+                NetDev *old;
+
+                if (netdev_load_one(manager, *f, &netdev) < 0)
+                        continue;
+
+                if (netdev_get(manager, netdev->ifname, &old) < 0) {
+                        log_netdev_debug(netdev, "Found new .netdev file: %s", netdev->filename);
+
+                        if (netdev_attach_name_full(netdev, netdev->ifname, &new_netdevs) >= 0)
+                                TAKE_PTR(netdev);
+
+                        continue;
+                }
+
+                if (!stats_by_path_equal(netdev->stats_by_path, old->stats_by_path)) {
+                        log_netdev_debug(netdev, "Found updated .netdev file: %s", netdev->filename);
+
+                        /* Copy ifindex. */
+                        netdev->ifindex = old->ifindex;
+
+                        if (netdev_attach_name_full(netdev, netdev->ifname, &new_netdevs) >= 0)
+                                TAKE_PTR(netdev);
+
+                        continue;
+                }
+
+                /* Keep the original object, and drop the new one. */
+                if (netdev_attach_name_full(old, old->ifname, &new_netdevs) >= 0)
+                        netdev_ref(old);
+        }
+
+        /* Detach old NetDev objects from Manager.
+         * Note, the same object may be registered with multiple names, and netdev_detach() may drop multiple
+         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+        for (NetDev *n; (n = hashmap_first(manager->netdevs)); )
+                netdev_detach(n);
+
+        /* Attach new NetDev objects to Manager. */
+        for (;;) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = hashmap_steal_first(new_netdevs);
+                if (!netdev)
+                        break;
+
+                netdev->manager = manager;
+                if (netdev_attach(netdev) < 0)
+                        continue;
+
+                /* Create a new netdev or update existing netdev, */
+                if (netdev_request_to_create(netdev) < 0)
+                        continue;
+
+                TAKE_PTR(netdev);
+        }
+
+        /* Reassign NetDev objects to Link object. */
+        Link *link;
+        HASHMAP_FOREACH(link, manager->links_by_index)
+                link_assign_netdev(link);
 
         return 0;
 }
