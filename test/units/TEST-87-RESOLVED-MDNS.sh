@@ -219,7 +219,7 @@ EOF
 systemctl unmask systemd-resolved.service systemd-networkd.{service,socket}
 systemctl enable --now systemd-resolved.service systemd-networkd.{socket,service}
 ln -svrf /run/systemd/resolved.conf.d/99-mdns-llmnr.conf /etc/resolv.conf
-systemctl reload systemd-resolved.service systemd-networkd.{socket,service}
+systemctl reload systemd-resolved.service systemd-networkd.service
 resolvectl status
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
