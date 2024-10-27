@@ -1150,7 +1150,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         (void) notify_reloading();
 
-        r = netdev_load(m);
+        r = netdev_reload(m);
         if (r < 0)
                 goto finish;
 
