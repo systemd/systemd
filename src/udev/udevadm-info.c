@@ -274,6 +274,8 @@ static int print_device_chain_in_json(sd_device *device) {
 
         assert(device);
 
+        arg_json_format_flags |=SD_JSON_FORMAT_SEQ;
+
         r = print_all_attributes_in_json(device, /* is_parent = */ false);
         if (r < 0)
                 return r;
