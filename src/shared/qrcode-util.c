@@ -172,6 +172,8 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned in
         fflush(output);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(QRcode*, sym_QRcode_free, NULL);
+
 int print_qrcode_full(
                 FILE *out,
                 const char *header,
@@ -182,7 +184,6 @@ int print_qrcode_full(
                 unsigned tty_height,
                 bool check_tty) {
 
-        QRcode* qr;
         int r;
 
         /* If this is not a UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
@@ -196,7 +197,8 @@ int print_qrcode_full(
         if (r < 0)
                 return r;
 
-        qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
+        _cleanup_(sym_QRcode_freep) QRcode *qr =
+                sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return log_oom_debug();
 
@@ -230,7 +232,6 @@ int print_qrcode_full(
         write_qrcode(out, qr, row, column);
         fputc('\n', out);
 
-        sym_QRcode_free(qr);
         return 0;
 }
 #endif
