@@ -2455,9 +2455,9 @@ static int help(void) {
 
         pager_open(arg_pager_flags);
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sIntrospect the D-Bus IPC bus.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sIntrospect the D-Bus IPC bus.%6$s\n"
+               "\n%3$sCommands%4$s:\n"
                "  list                     List bus names\n"
                "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
                "  monitor [SERVICE...]     Show bus traffic\n"
@@ -2475,7 +2475,7 @@ static int help(void) {
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
                "                           Set property value\n"
                "  help                     Show this help\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -2510,11 +2510,13 @@ static int help(void) {
                "  -N --limit-messages=NUMBER\n"
                "                           Exit after receiving a number of matches while\n"
                "                           monitoring\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
