@@ -40,12 +40,23 @@ CHANGES WITH 257 in spe:
           filesystem. $SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=0 can be used to override
           this behavior.
 
+        * /dev/disk/by-id/nvme-* block device symlinks without an NVMe
+          namespace identifier are now fixed to namespace 1 of the device. If
+          no namespace 1 exists for a device no such symlink is
+          created. Previously, these symlinks would point to an unspecified
+          namespace, and thus not be strictly stable references to
+          multi-namespace NVMe devices. These un-namespaced symlinks are mostly
+          obsolete, users and applications should always use the ones with
+          encoded namespace information instead. This change should not affect
+          too many systems, because most NVMe devices only know a namespace 1
+          by default.
+
        Announcements of Future Feature Removals:
 
-        * D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() becomes
+        * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
           deprecated because accounting data and such cannot be reasonably
-          migrated between cgroups. It might be fully removed in a future release
-          (reach out if you have use cases).
+          migrated between cgroups. It is likely to be fully removed in a
+          future release (reach out if you have use cases).
 
         * The recommended kernel baseline version has been bumped to v5.4
           (released in 2019). Expect limited testing on older kernel versions,
@@ -72,9 +83,9 @@ CHANGES WITH 257 in spe:
           release v258. To maintain compatibility with X11 applications that
           rely on the old function key code mappings, this mangling has now
           been moved to the relevant X11 keyboard driver modules instead. Thus,
-          in order to ensure these keys continue to work as before make sure to
-          update the xf86-input-evdev and xf86-input-libinput packages to the
-          newest version before updating systemd to v258.
+          in order to ensure these keys continue to work as before, make sure
+          to update the xf86-input-evdev and xf86-input-libinput packages to
+          the newest version before updating systemd to v258.
 
         * Support for the SystemdOptions EFI variable is deprecated.
           'bootctl systemd-efi-options' will emit a warning when used. It seems
@@ -89,67 +100,75 @@ CHANGES WITH 257 in spe:
 
         libsystemd:
 
-        * New sd-json component is now available as part of libsystemd. The
-          goal of the library is to allow structures to be conveniently
-          created in C code and serialized to JSON, and for JSON to
-          conveniently deserialized into in-memory structures, using callbacks
-          to handle specific keys. Various data types like integers, floats,
-          booleans, strings, UUIDs, hex-encoded strings, and arrays are
-          supported natively.
+        * systemd's JSON API is now available as public interface of libsystemd
+          under the name "sd-json". The purpose of the library is to allow
+          structures to be conveniently created in C code and serialized to
+          JSON, and for JSON to be conveniently deserialized into in-memory
+          structures, using callbacks to handle specific keys. Various data
+          types like integers, floats, booleans, strings, UUIDs, base64-encoded
+          and hex-encoded binary data, and arrays are supported natively. The
+          library has been part of systemd for a while as internal component,
+          and now being made publically available, too. On major user of
+          sd-json is the JSON interface sd-varlink (see below). Note that
+          documentation on sd-json is very much incomplete for now, but the
+          systemd codebase should provide plenty code real-life code examples.
 
-        Service and system management:
+        * libsystemd's Varlink IPC API is now available as part of libsystemd
+          under the name "sd-varlink". This library is a C implementation of
+          the Varlink IPC system (https://varlink.org/) that has been adopted
+          by systemd for various interfaces. It relies on the sd-json JSON
+          component, see above. Note that documentation on sd-varlink is very
+          much incomplete for now, but the systemd codebase should provide
+          plenty code real-life code examples.
 
-        * Environment variable $REMOTE_ADDR is now set when using socket
-          activation for AF_UNIX sockets.
+        * sd-bus gained a new call sd_bus_pending_method_calls() which returns
+          the number of currently open asynchronous method calls initiated on
+          this connection towards peers.
 
-        * Multipath TCP (MPTCP) is now supported as a socket protocol.
+        * sd-device gained a new call sd_device_monitor_is_running() that
+          returns whener the specified monitor object is already running. It
+          also gained sd_device_monitor_get_fd(),
+          sd_device_monitor_get_events(), sd_device_monitor_get_timeout() and
+          sd_device_monitor_receive() to permit sd-device to run on a foreign
+          event loop implementation. It also gained
+          sd_device_get_driver_subsystem() which returns the subsystem of
+          driver objects. The new sd_device_get_device_id() call returns a
+          short string identifying the device record.
 
-        * New crypttab options fido2-pin=, fido2-up=, fido2-uv= can be used to
-          enable/disable the PIN query, User Presence check, and User
-          Verification.
+        System and Service Management:
 
-        * New crypttab option password-cache=yes|no|read-only can be used to
-          customize password caching.
+        * The environment variable $REMOTE_ADDR is now set when using
+          per-connection socket activation for AF_UNIX stream sockets. It
+          contains the AF_UNIX peer address of the connection. (Previously the
+          environment variable was only set for IP sockets.)
 
-        * New fstab option x-systemd.wants= creates "Wants" dependencies.
+        * Multipath TCP (MPTCP) is now supported as a socket protocol for
+          .socket units.
+
+        * New /etc/fstab option x-systemd.wants= creates "Wants" dependencies.
           (This is similar to the previously available x-systemd.requires=.)
 
         * The initialization of the system clock during boot and updates has
-          been simplified: either pid1 or systemd-timesyncd will pick the
-          latest time as indicated by the compiled-in epoch,
+          been simplified: both PID 1 or systemd-timesyncd will pick the latest
+          minimum time as indicated by the compiled-in epoch,
           /usr/lib/clock-epoch, and /var/lib/systemd/timesync/clock. See
           systemd(1) for an detailed updated description.
 
-        * Ctrl-Alt-Delete is re-enabled during late shutdown, so that the user
-          can still initiate a reboot if the system freezes.
+        * The kernel's Ctrl-Alt-Delete handling is re-enabled during late
+          shutdown, so that the user may use it to initiate a reboot if the
+          system freezes otherwise.
 
-        * Unit option PrivateUsers=identity can be used to request a user
-          namespace with an identity mapping for the first 65536 UIDs/GIDs.
-          This is analogous to the systemd-nspawn's --private-users=identity.
+        * The new unit option PrivateUsers=identity can be used to request a
+          user namespace with an identity mapping for the first 65536
+          UIDs/GIDs.  This is analogous to the systemd-nspawn's
+          --private-users=identity.
 
-        * Unit option PrivateTmp=disconnected can be used to specify that a
-          separate tmpfs instance should be used for /tmp/ and /var/tmp/ for
-          the unit.
-
-        * A new sleep.conf HibernateOnACPower= option has been added, which
-          when disabled would suppress hibernation in suspend-then-hibernate
-          mode until the system is disconnected from a power source.
-
-        * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
-          logged-in users access to the hardware. This is necessary to support
-          IPMI cameras with libcamera.
-
-        * New RELEASE_TYPE= and EXPERIMENT= fields are documented for the
-          os-release file. For example, "RELEASE_TYPE=development|stable|lts"
-          can be used to indicate various stages of the release life cycle,
-          and "RELEASE_TYPE=experimental" can indicate experimental builds,
-          with the EXPERIMENT= field providing a human-readable description of
-          the nature of the experiment.
+        * The new unit option PrivateTmp=disconnected can be used to specify
+          that a separate tmpfs instance should be used for /tmp/ and /var/tmp/
+          for the unit.
 
         * The manager (and various other tools too) use pidfds in more places
           to refer to processes.
-
-        * A bunch of patches to ease building against musl have been merged.
 
         * A build option -D link-executor-shared=false can be used to build
           the systemd-executor binary (added in the previous release) in a way
@@ -162,6 +181,82 @@ CHANGES WITH 257 in spe:
           been removed and the pinned executor binary will just fail to
           execute.
 
+        * The systemd.machine_id= kernel command line parameter interpreted by
+          PID 1 now supports an additional special value: if "firmware" is
+          specified the machine ID is initialized from the SMBIOS/Devicetree
+          system UUID. (Previously this was already done in VM environments,
+          this extends the concept to any system, but only on explicit request
+          via this option.)
+
+        * The ImportCredential= setting in service unit files now permits
+          renaming credentials imported.
+
+        * The RestartMode= gained a new "debug" setting. If specified and the
+          service fails so that it shall be restarted it is invoked in
+          "debugging mode". Debugging mode means that the $DEBUG_INVOCATION
+          environment variable will be set to "1" for the new
+          invocation. Moreover, any setting LogLevelMax= will be temporarily
+          changed to "debug" for the next invocation. This mode is useful to
+          repeat invocation of tools if they fail but with additional logging
+          or testing routines turned on.
+
+        * A new service setting BindLogSockets= has been added that
+          controls whether the AF_UNIX sockets required for logging shall be
+          bind mounted to the mount sandbox allocated for the service.
+
+        * PID 1 will now optionally load a policy for the new Linux IPE LSM at
+          boot.
+
+        * Transient services (like those started with systemd-run) may now
+          receive additional, arbitrary file descriptors to pass to executed
+          service processes on activation using the new ExtraFileDescriptor=
+          unit property.
+
+        * Calendar .timer units gained a new boolean DeferReactivation=
+          option. If enabled and the repetitive calendar timer elapses again
+          while the service the timer activates is still running, immediate
+          reactivation once it finishes is skipped, and the timer has to elapse
+          again before the service is reactivated.
+
+        * Generator processes invoked by the service manager will now receive a
+          new environment variable $SYSTEMD_SOFT_REBOOTS_COUNT that indicates
+          how many times the system has been soft-rebooted since the kernel
+          initialized.
+
+        * A new service property ManagedOOMMemoryPressureDurationSec= has been
+          added that complements the existing
+          ManagedOOMMemoryPressureDurationLimit= and specifes the PSI
+          measurement interval for the specific unit.
+
+        systemd-udevd:
+
+        * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
+          logged-in users access to the hardware. This is necessary to support
+          IPMI cameras with libcamera.
+
+        * Serial port devices will no longer show up as systemd units, unless
+          they have an IO port or memory assigned to them. This means that only
+          serial ports that actually exist should show up as .device units now.
+
+        * mtd devices (i.e. certain kinds of flash memory devices) will now
+          show up as .device units in systemd.
+
+        * The firmware_node/sun sysfs attribute will now be used (if available)
+          for naming slot-based network interfaces,
+          i.e. ID_NET_NAME_SLOT. Moreover the interface aliases specified in
+          Devicetree are now searched for both on the interfaces parent device
+          (as before) and the device itself (new).
+
+        * Various USB hardware wallets have are now recognized by udev via a
+          .hwdb file, and get the ID_HARDWARE_WALLET= property set, which
+          enables "uaccess" for them, i.e. direct unprivileged access.
+
+        * udevadm info will now output the device ID string in lines prefixed
+          with "J:", and the driver subsystem in lines prefixed with "B:".
+
+        * udev rules files now support case-insensitive attribute matching
+          (e.g. ATTR{foo}==i"abcd")
+
         systemd-logind:
 
         * New DesignatedMaintenanceTime= configuration option allows
@@ -172,18 +267,35 @@ CHANGES WITH 257 in spe:
           request by the user for the system to display a secure login dialog.
           The handling of SAK can be suppressed in logind configuration.
 
+        * logind now supports handing off session-managed access to hidraw
+          devices via its D-Bus APIs, the same way it already supports that for
+          DRM and evdev input devices. This permits unprivileged clients to get
+          hidraw fds for a device, that are automatically suspended when the
+          session switches away.
+
+        * systemd-logind now exposes two D-Bus properties CanLock and CanIdle
+          for all sessions that indicate whether the session's class supports
+          screen locking and idle detection.
+
+        * systemd-inhibit now allows interactive polkit authorization. It
+          gained a --no-ask-password option to suppress it.
+
         systemd-machined:
 
         * Unprivileged clients are now allowed to register VMs and containers.
           Machines started via the systemd-vmspawn@.service unit will now be
           registered with systemd-machined.
 
+        * systemd-machined gained a pretty complete set of Varlink interfaces
+          to its functionality as alternative to the existing D-Bus interface.
+
         systemd-resolved:
 
         * resolvconf command now supports '-p' switch. If specified, the
-          interface will not be used as the default route.
+          interface will not be used as the default route for domain name
+          lookups.
 
-        * resolvectl now allows interactive polkit authorization. It gained a
+        * resolvectl now enables interactive polkit authorization. It gained a
           --no-ask-password option to suppress it.
 
         systemd-networkd and networkctl:
@@ -201,21 +313,66 @@ CHANGES WITH 257 in spe:
         * networkctl gained a --no-ask-password option to suppress interactive
           polkit authorization.
 
+        * "mac" has been added to the default AlternativeNamesPolicy= setting
+          for network links (via 99-default.link). This means "enx*" interface
+          names will now be added to the list of alternative interface names by
+          default for all interfaces that have a MAC address assigned to them
+          by hardware.
+
+        * networkd .netdev bridge devices gained a new setting FDBMaxLearned=
+          for setting a limit on the number of dynamically learned FDB entries.
+
+        * networkd .network files for bridge devices now support Layer 2 (in
+          addition to the pre-existing Layer 3) MDB entries, via
+          MulticastGroupAddress=.
+
+        * systemd-networkd will now log when per-network sysctls belonging to
+          network interfaces managed by it are changed outside of networkd,
+          thus highlighting conflict of ownership/management of these knobs.
+
+        * systemd-networkd will now make RFC9463 DNR fields available to
+          systemd-resolved, for automatic DoT configuration, and similar.
+
         systemd-boot, systemd-stub, and related tools:
 
         * The EFI stub now supports loading of .ucode sections with microcode
-          from addons.
+          from PE add-on files. It now also supports loading .initrd sections
+          from PE add-on files.
 
         * A new .profile PE section type is now documented and supported in
           systemd-measure, ukify, systemd-stub and systemd-boot. Those new
           sections allow multiple "profiles" to be stored together in the UKI,
           with .profile sections creating groupings of sections in the UKI,
           allowing some sections to be shared and other sections like .cmdline
-          or .initrd unique to the profile.
+          or .initrd unique to the profile. This may be used to provide a
+          single UKI that synthesizes multiple menu items in the boot menu (for
+          example, a regular one to boot, plus a debugging one, or a factory
+          reset one, and so on – which only differ in kernel command line, but
+          nothing else).
 
         * ukify gained an --extend switch to import an existing UKI to
           be extended, and a --measure-base= switch to support measurement
           of multi-profile UKIs.
+
+        * systemd-boot's menu will now react to volume up/down rocker presses
+          the same way as to arrow up/down presses: they move the menu item up
+          or down. This is useful on device form factors that have only a
+          volume rocker but no arrow keys (e.g. phones).
+
+        * systemd-stub will report the partition UUID and image identifier its
+          UKI executable is placed on separately from the data systemd-boot
+          provides about where to find its own executable. This is useful when
+          systemd-boot and UKIs are placed on distinct partitions (i.e. ESP and
+          XBOOTLDR).
+
+        * bootctl --print-loader-path and --print-stub-path that output the
+          path to the boot loader or UKI used for the current boot.
+
+        * bootctl kernel-identify now supports identifying EFI add-ons.
+
+        * bootctl gained a --random-seed=yes|no option to control provisioning
+          of the random seed file in ESP. (This is useful when producing an
+          image that will be used multiple times.)
 
         The journal:
 
@@ -226,8 +383,10 @@ CHANGES WITH 257 in spe:
 
         systemd-sysupdate and related tools:
 
-        * systemd-sysupdate can be run as system service, allowing
-          unprivileged clients to update the system via D-Bus calls.
+        * systemd-sysupdated has been added as system service, allowing
+          unprivileged clients to update the system via D-Bus calls. Note that
+          for now the systemd-sysupdated API is considered experimental, and is
+          not considered stable yet.
 
           A new updatectl command-line tool can be used to control the
           service.
@@ -240,43 +399,37 @@ CHANGES WITH 257 in spe:
           directory to which transfer sources configured with
           PathRelativeTo=explicit will be interpreted.
 
-        Miscellaneous:
+        * systemd-sysupdate now reports download progress via sd_notify().
 
-        * systemctl now supports the --now option with the 'reenable' verb.
+        * systemd-sysupdate now supports output in JSON mode for all commands.
 
-        * systemd-analyze will now show the SMBIOS #11 vendor strings set for
-          the machine with a new 'smbios11' verb.
+        * systemd-sysupdate definitions may now carry references to ChangeLog
+          and AppStream metadata.
 
-        * systemd-analyze gained a new --instance= option that can be used to
-          provide an instance name to analyze multiple templates instantiated
-          with the same instance name.
+        * Transfer definitions for systemd-sysupdate are supposed to carry the
+          ".transfer" suffix now, changing from ".conf". The latter is
+          supported for compatibility too, but it's recommended to rename all
+          files reflecting this suffix change.
+
+        * systemd-sysupdate now supports a new ".feature" files that may be
+          used in conjuntion with ".transfer" files to group them together, and
+          allow them to be turned off or on, individually per group.
+
+        TPM & systemd-cryptsetup:
 
         * The 'tpm2' verb which lists usable TPM2 devices has been moved from
           systemd-creds to systemd-analyze.
 
-        * varlinkctl gained a new verb 'list-methods' to show a list of
-          methods implemented by a service.
+        * systemd-tpm2-setup will gracefully handle TPMs that have a PIN set on
+          the TPM, and not automatically set up a Storage Root Key (SRK) in
+          that case.
 
-        * varlinkctl gained a --quiet/-q option to suppress method call
-          replies.
+        * New crypttab option password-cache=yes|no|read-only can be used to
+          customize password caching.
 
-        * varlinkctl gained a --graceful= option to suppress specified Varlink
-          errors.
-
-        * varlinkctl gained a --timeout= option to limit how long the
-          invocation can take.
-
-        * varlinkctl allows remote invocations over ssh, via the new
-          "ssh-exec:" address specification. It'll make an ssh connection,
-          start the specified executable on the remote, and communicate with
-          the remote process using the Varlink protocol.
-
-          "ssh:" address specification has been renamed to "ssh-unix:".
-          (The old syntax is still supported for backwards compatibility.)
-
-        * bootctl gained a --random-seed=yes|no option to control provisioning
-          of the random seed file in ESP. (This is useful when producing an
-          image that will be used multiple times.)
+        * New crypttab options fido2-pin=, fido2-up=, fido2-uv= can be used to
+          enable/disable the PIN query, User Presence check, and User
+          Verification.
 
         * systemd-cryptenroll gained new options --fido2-salt-file= and
           --fido2-parameters-in-header= to simplify manual enrollment of FIDO2
@@ -286,40 +439,195 @@ CHANGES WITH 257 in spe:
           new --list-devices option to list appropriate candidate block
           devices.
 
-        * systemd-repart's CopyBlocks= directive can now use a char device as
-          source (in addition to previously supported regular files and block
-          devices).
+        * systemd-cryptenroll/systemd-cryptsetup now support combined signed
+          PCR policies and local systemd-pcrlock policies for unlocking a
+          disk. Or in other words, it's now possible to bind unlocking of a
+          local disk to a specific OS vendor *and* a locally managed set of
+          measurements describing the local system.
 
-        * systemd-repart gained a new Compression= and CompressionLevel=
-          settings to enable internal compression in filesystems created
-          offline.
+        varlinkctl:
+
+        * varlinkctl gained a new verb 'list-methods' to show a list of
+          methods implemented by a service.
+
+        * varlinkctl gained a --quiet/-q option to suppress method call
+          replies.
+
+        * varlinkctl gained a --graceful= option to suppress specific Varlink
+          errors, and treat them as success.
+
+        * varlinkctl gained a --timeout= option to limit how long the
+          invocation can take.
+
+        * varlinkctl allows remote invocations over ssh, via the new
+          "ssh-exec:" address specification. It'll make an ssh connection,
+          start the specified executable on the remote side, and communicate
+          with the remote process using the Varlink protocol.
+
+          "ssh:" address specification has been renamed to "ssh-unix:"
+          (reflecting the fact it is used to connect to a remote AF_UNIX socket
+          via SSH). The old syntax is still supported for backwards
+          compatibility.
+
+        * varlinkctl's 'introspect' verb no longer requires specification of an
+          interface name. If none is specified all interfaces exposed by the
+          service are shown. Moreover, more than one interface name may be
+          specified now, in which case all specified ones are displayed.
+
+        systemd-repart:
+
+        * systemd-repart's CopyBlocks= directive can now use a character device
+          as source (in addition to previously supported regular files and
+          block devices). This is useful for initializing a partition from
+          /dev/urandom or similar.
+
+        * systemd-repart gained new Compression= and CompressionLevel= settings
+          to enable internal compression in filesystems created offline.
 
         * systemd-repart understands a new MakeSymlinks= option to create one
           or more symlinks (each specified as a symlink name and target).
 
-        * systemd-mount can now output JSON with a new --json= switch.
+        * systemd-repart gained a new SupplementFor= setting that allows
+          allocating a partition only if some other existing partition cannot
+          be adjusted to match the constraints defined for it. This is useful
+          to generate an XBOOTLDR partition if and only if an ESP already
+          exists that is too small for the required constraints.
+
+        * The default size of verity hash partitions is now automatically
+          derived from SizeMaxBytes= of the data partition it is protecting.
+
+        systemd-ssh-proxy:
+
+        * systemd-ssh-proxy now also supports the "VSOCK MUX" protocol used by
+          CloudHypervisor/Firecracker to expose AF_VSOCK sockets of the VM on
+          the host. Or in other words: it's now possible to directly connect to
+          ssh via AF_VSOCK from hosts to VMs of these two hypervisors
+          (previously this was only supported for hypervisors which expose
+          AF_VSOCK on the host as AF_VSOCK, such as qemu).
+
+        * systemd-ssh-proxy can now reference local VMs by their name: connect
+          to any local VM "foobar" registered with machined via "ssh
+          machine/foobar" using the AF_VSOCK protocol.
+
+        systemd-analyze:
+
+        * systemd-analyze will now show the SMBIOS #11 vendor strings set for
+          the machine with a new 'smbios11' verb.
+
+        * systemd-analyze gained a new --instance= option that can be used to
+          provide an instance name to analyze multiple templates instantiated
+          with the same instance name.
+
+        * systemd-analyze's "capability" verb now gained a new --mask
+          parameter. If specified a numeric capbality mask can be specified
+          which is decoded for its contained capabilities.
+
+        * systemd-analyze's "plot" verb gained two new settings: --scale-svg=
+          allows the X axis of the split to be stritched by a factor. If
+          --detailed is specified activation timestamps are shown in the plot.
+
+        busctl:
+
+        * 'busctl monitor' gained new options --limit-messages= and --timeout=
+          to set the number of matches or limit the runtime of the command.
+          This is intended to be used in scripts.
+
+        * busctl now supports doing method calls with embedded unix file
+          descriptors.
+
+        * busctl acquired a new "wait" command to wait for a specific signal to
+          arrive.
+
+        systemd-nspawn:
+
+        * systemd-nspawn --bind-user= will now propagate the bound user's SSH
+          public key (if included in the user record) into the container,
+          ensuring that any such bound user is directly accessible via ssh.
+
+        * systemd-nspawn now supports unprivileged FUSE inside containers.
+
+        Miscellaneous:
+
+        * systemctl now supports the --now option with the 'reenable' verb.
+
+        * systemd-mount can now output JSON with a new --json= switch, for use
+          with --list-devices. It also shows the "diskseq" property in the
+          block device list.
 
         * A new generator sytemd-import-generator has been added to
-          synthetisize image download jobs. This provides functionality
-          similar to importctl, but configured via the kernel command line and
-          system credentials.
+          synthetisize image download jobs. This provides functionality similar
+          to importctl, but configured via the kernel command line and system
+          credentials. It may be used to automatically download sysext,
+          confext, portable service, nspawn container or vmspawn VM images at
+          boot.
 
-        * systemd-inhibit now allows interactive polkit authorization. It
-          gained a --no-ask-password option to suppress it.
+        * systemd-importd now provides a Varlink IPC interface, in addition to
+          its existing D-Bus IPC interface.
 
         * systemd-id128 gained a new 'var-partition-uuid' verb to calculate
           the DPS UUID for /var/ keyed by the local machine-id.
 
-        * locatectl gained a -l/--full option to show output without
+        * localectl gained a -l/--full option to show output without
           ellipsization.
 
-        * 'busctl monitor' gained new options --num-matches= and --timeout=
-          to set the number of matches or limit the runtime of the command.
-          This is intended to be used in scripts.
-
-        * systemd-run can output some data as  JSON via the new --json= option.
+        * systemd-run can output some data as JSON via the new --json= option.
 
         * timedatectl now supports interactive polkit authorization.
+
+        * systemd-tmpfiles --purge switch now requires specification of at
+          least one tmpfiles.d/ drop-in file.
+
+        * The new Linux mseal(), listmount(), statmount() syscalls have been
+          added to relevant system call groups.
+
+        * The systemd-ask-password concept has been extended with a per-user
+          concept, i.e. user programs may now ask for passwords via the same
+          mechanism and the previously system-wide only mechanism.
+
+        * userdbctl gained a pair of switches --uid-min= and --uid-max= to
+          filter the UID/GID range of the listed users or groups. It also
+          gained a new switch --disposition= to filter them by disposition
+          (i.e. show only system users or only regular users, and so on). It
+          also gained a new switch --fuzzy that permits a "fuzzy" search for a
+          user, i.e. doing a substring and string distance search, and looking
+          into the real name field of the user and other similar fields. It
+          gained a new switch --boundaries=no for disabling display of the
+          UID/GID range boundaries in its output.
+
+        * A new set of system/service credentials are added:
+          shell.prompt.prefix, shell.prompt.suffix and shell.welcome. At login
+          time these are propagated into the $SHELL_PROMPT_PREFIX,
+          $SHELL_PROMPT_SUFFIX, $SHELL_PROMPT_WELCOME environment
+          variables. These in turn are included in the shell prompt of
+          interactive shells and shown at login time, via
+          /etc/profile.d/70-systemd-shell-extra.sh. This functionality is
+          useful to visually highlight the fact a specific shell prompt
+          originates from a specific system, execution context or tool. These
+          credentials and environment variables are supposed to be generically
+          useful within and outside of the immediate systemd context.
+
+        * run0 gained a new pair of settings --pty and --pipe that control
+          whether to invoke the specified binary on a freshly allocated pseudo
+          TTY, or whether to pass the client's STDIN/STDOUT/STDERR through
+          directly. run0 also gained a new switch --shell-prompt-prefix= that
+          permits passing in a string to display on each shell prompt as
+          prefix. If not specified otherwise this will show a superman emoji
+          (🦸), in order to visually communicate the temporarily elevated
+          privileges a run0 session provides. This makes use of the
+          $SHELL_PROMPT_PREFIX environment variables mentioned above.
+
+        * New RELEASE_TYPE=, EXPERIMENT=, EXPERIMENT_URL= fields have been
+          defined for the /etc/os-release file. For example,
+          "RELEASE_TYPE=development|stable|lts" can be used to indicate various
+          stages of the release life cycle, and "RELEASE_TYPE=experimental" can
+          indicate experimental builds, with the EXPERIMENT= field providing a
+          human-readable description of the nature of the experiment.
+
+        * A new sleep.conf HibernateOnACPower= option has been added, which
+          when disabled will suppress hibernation in suspend-then-hibernate
+          mode until the system is disconnected from a power source.
+
+        * A bunch of patches to ease building against musl have been merged.
 
         — <place>, <date>
 
