@@ -1331,7 +1331,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
-        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                 log_info("Monitoring bus message stream.");
 
         (void) sd_notify(/* unset_environment=false */ false, "READY=1");
@@ -1365,13 +1365,13 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         fflush(stdout);
 
                         if (arg_num_matches != UINT64_MAX && --arg_num_matches == 0) {
-                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                         log_info("Received requested number of matching messages, exiting.");
                                 return 0;
                         }
 
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
-                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                         log_info("Connection terminated, exiting.");
                                 return 0;
                         }
@@ -1384,7 +1384,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 
                 r = sd_bus_wait(bus, arg_timeout > 0 ? arg_timeout : UINT64_MAX);
                 if (r == 0 && arg_timeout > 0) {
-                        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                 log_info("Timed out waiting for messages, exiting.");
                         return 0;
                 }
@@ -1394,7 +1394,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, (arg_json_format_flags & SD_JSON_FORMAT_OFF) ? message_dump : message_json);
+        return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -2146,7 +2146,7 @@ static int call(int argc, char **argv, void *userdata) {
         if (r > 0 || arg_quiet)
                 return 0;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
@@ -2256,7 +2256,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))

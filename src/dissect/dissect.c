@@ -877,7 +877,7 @@ static int action_dissect(
         if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 printf(" File Name: %s%s%s\n",
                        ansi_highlight(), bn, ansi_normal());
 
@@ -907,7 +907,7 @@ static int action_dissect(
                 log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
-        else if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+        else if (!sd_json_format_enabled(arg_json_format_flags)) {
 
                 if (m->image_name && !streq(m->image_name, bn))
                         printf("Image Name: %s\n", m->image_name);
@@ -1017,7 +1017,7 @@ static int action_dissect(
 
         /* Hide the device path if this is a loopback device that is not relinquished, since that means the
          * device node is not going to be useful the instant our command exits */
-        if ((!d || d->created) && (arg_json_format_flags & SD_JSON_FORMAT_OFF))
+        if ((!d || d->created) && !sd_json_format_enabled(arg_json_format_flags))
                 table_hide_column_from_display(t, 8);
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
@@ -1080,7 +1080,7 @@ static int action_dissect(
                         return table_log_add_error(r);
         }
 
-        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 (void) table_set_header(t, arg_legend);
 
                 r = table_print(t, NULL);
@@ -1856,7 +1856,7 @@ static int action_discover(void) {
                         return log_error_errno(r, "Failed to discover images: %m");
         }
 
-        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+        if (hashmap_isempty(images) && !sd_json_format_enabled(arg_json_format_flags)) {
                 log_info("No images found.");
                 return 0;
         }

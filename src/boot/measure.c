@@ -748,7 +748,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                         return r;
 
                 for (size_t i = 0; i < n; i++) {
-                        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+                        if (!sd_json_format_enabled(arg_json_format_flags)) {
                                 _cleanup_free_ char *hd = NULL;
 
                                 if (i == 0) {
@@ -789,7 +789,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                 pcr_states_restore(pcr_states, n);
         }
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
@@ -1106,7 +1106,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
-                if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_free_ char *f = NULL;
 
                         f = hexmem(h, l);
@@ -1150,7 +1150,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
 

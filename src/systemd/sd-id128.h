@@ -117,24 +117,24 @@ int sd_id128_get_invocation_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_MAKE_UUID_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
         #a #b #c #d "-" #e #f "-" #g #h "-" #i #j "-" #k #l #m #n #o #p
 
-_sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
+_sd_const_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return a.qwords[0] == b.qwords[0] && a.qwords[1] == b.qwords[1];
 }
 
 int sd_id128_string_equal(const char *s, sd_id128_t id);
 
-_sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
+_sd_const_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
 }
 
-_sd_pure_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
+_sd_const_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
         return a.qwords[0] == UINT64_C(0xFFFFFFFFFFFFFFFF) && a.qwords[1] == UINT64_C(0xFFFFFFFFFFFFFFFF);
 }
 
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
 #define SD_ID128_ALLF ((const sd_id128_t) { .qwords = { UINT64_C(0xFFFFFFFFFFFFFFFF), UINT64_C(0xFFFFFFFFFFFFFFFF) }})
 
-_sd_pure_ static __inline__ int sd_id128_in_setv(sd_id128_t a, va_list ap) {
+_sd_const_ static __inline__ int sd_id128_in_setv(sd_id128_t a, va_list ap) {
         for (;;) {
                 sd_id128_t b = va_arg(ap, sd_id128_t);
 
@@ -146,7 +146,7 @@ _sd_pure_ static __inline__ int sd_id128_in_setv(sd_id128_t a, va_list ap) {
         }
 }
 
-_sd_pure_ static __inline__ int sd_id128_in_set_sentinel(sd_id128_t a, ...) {
+_sd_const_ static __inline__ int sd_id128_in_set_sentinel(sd_id128_t a, ...) {
         va_list ap;
         int r;
 
