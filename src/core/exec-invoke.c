@@ -2452,7 +2452,7 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        if (!i->only_create) {
+                        if (!FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE)) {
                                 /* And link it up from the original place.
                                  * Notes
                                  * 1) If a mount namespace is going to be used, then this symlink remains on
@@ -2643,7 +2643,7 @@ static int compile_bind_mounts(
                         continue;
 
                 FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items)
-                        n += !i->only_create;
+                        n += !FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE) || FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY);
         }
 
         if (n <= 0) {
@@ -2691,8 +2691,10 @@ static int compile_bind_mounts(
                         _cleanup_free_ char *s = NULL, *d = NULL;
 
                         /* When one of the parent directories is in the list, we cannot create the symlink
-                         * for the child directory. See also the comments in setup_exec_directory(). */
-                        if (i->only_create)
+                         * for the child directory. See also the comments in setup_exec_directory().
+                         * But if it needs to be read only, then we have to create a bind mount anyway to
+                         * make it so. */
+                        if (FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE) && !FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY))
                                 continue;
 
                         if (exec_directory_is_private(context, t))
@@ -2718,6 +2720,7 @@ static int compile_bind_mounts(
                                 .destination = TAKE_PTR(d),
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
+                                .read_only = FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY),
                         };
                 }
         }
@@ -2766,7 +2769,7 @@ static int compile_symlinks(
 
                         if (!exec_directory_is_private(context, dt) ||
                             exec_context_with_rootfs(context) ||
-                            i->only_create)
+                            FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))
                                 continue;
 
                         private_path = path_join(params->prefix[dt], "private", i->path);

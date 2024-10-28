@@ -15,6 +15,7 @@ typedef struct Manager Manager;
 #include <stdio.h>
 #include <sys/capability.h>
 
+#include "bus-unit-util.h"
 #include "cgroup-util.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
@@ -161,7 +162,7 @@ static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
 typedef struct ExecDirectoryItem {
         char *path;
         char **symlinks;
-        bool only_create;
+        ExecDirectoryFlags flags;
 } ExecDirectoryItem;
 
 typedef struct ExecDirectory {
@@ -585,7 +586,7 @@ void exec_params_deep_clear(ExecParameters *p);
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
 void exec_directory_done(ExecDirectory *d);
-int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
+int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, ExecDirectoryFlags flags);
 void exec_directory_sort(ExecDirectory *d);
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type);
 
