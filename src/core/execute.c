@@ -210,6 +210,50 @@ bool exec_needs_ipc_namespace(const ExecContext *context) {
         return context->private_ipc || context->ipc_namespace_path;
 }
 
+static bool can_apply_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
+        return cg_all_unified() > 0 && ns_type_supported(NAMESPACE_CGROUP);
+}
+
+static bool needs_cgroup_namespace(ProtectControlGroups i) {
+        return IN_SET(i, PROTECT_CONTROL_GROUPS_PRIVATE, PROTECT_CONTROL_GROUPS_STRICT);
+}
+
+ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params) {
+        assert(context);
+
+        /* If cgroup namespace is configured via ProtectControlGroups=private or strict but we can't actually
+         * use cgroup namespace, either from not having unified hierarchy or kernel support, we ignore the
+         * setting and do not unshare the namespace. ProtectControlGroups=private and strict get downgraded
+         * to no and yes respectively. This ensures that strict always gets a read-only mount of /sys/fs/cgroup.
+         *
+         * TODO: Remove fallback once cgroupv1 support is removed in v258. */
+        if (needs_cgroup_namespace(context->protect_control_groups) && !can_apply_cgroup_namespace(context, params)) {
+                if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_PRIVATE)
+                        return PROTECT_CONTROL_GROUPS_NO;
+                if (context->protect_control_groups == PROTECT_CONTROL_GROUPS_STRICT)
+                        return PROTECT_CONTROL_GROUPS_YES;
+        }
+        return context->protect_control_groups;
+}
+
+bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params) {
+        assert(context);
+
+        return needs_cgroup_namespace(exec_get_protect_control_groups(context, params));
+}
+
+bool exec_needs_cgroup_mount(const ExecContext *context, const ExecParameters *params) {
+        assert(context);
+
+        return exec_get_protect_control_groups(context, params) != PROTECT_CONTROL_GROUPS_NO;
+}
+
+bool exec_is_cgroup_mount_read_only(const ExecContext *context, const ExecParameters *params) {
+        assert(context);
+
+        return IN_SET(exec_get_protect_control_groups(context, params), PROTECT_CONTROL_GROUPS_YES, PROTECT_CONTROL_GROUPS_STRICT);
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -259,7 +303,7 @@ bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_kernel_logs ||
-            context->protect_control_groups ||
+            exec_needs_cgroup_mount(context, params) ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
             exec_needs_ipc_namespace(context))
@@ -1000,7 +1044,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_kernel_logs),
                 prefix, yes_no(c->protect_clock),
-                prefix, yes_no(c->protect_control_groups),
+                prefix, protect_control_groups_to_string(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, private_users_to_string(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
