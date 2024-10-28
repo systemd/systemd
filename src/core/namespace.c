@@ -113,6 +113,9 @@ typedef struct MountEntry {
         LIST_HEAD(MountOptions, image_options_const);
         char **overlay_layers;
         VeritySettings verity;
+        bool idmapped;
+        uid_t uid;
+        gid_t gid;
 } MountEntry;
 
 typedef struct MountList {
@@ -467,6 +470,9 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
                         .flags = b->nodev ? MS_NODEV : 0,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
+                        .idmapped = b->idmapped,
+                        .uid = b->uid,
+                        .gid = b->gid,
                 };
         }
 
@@ -1892,6 +1898,49 @@ static int apply_one_mount(
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
+
+        /* Take care of id-mapped mounts */
+        if (m->idmapped && uid_is_valid(m->uid) && gid_is_valid(m->gid)) {
+                _cleanup_close_ int userns_fd = -EBADF;
+                _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+
+                log_debug("Setting an id-mapped mount on %s", mount_entry_path(m));
+
+                /* Do mapping from nobody (in setup_exec_directory()) -> this uid */
+                r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, (uid_t)m->uid, 1u);
+                if (r < 0)
+                        return log_oom();
+
+                /* Consider StateDirectory=xxx aaa xxx:aaa/222
+                 * To allow for later symlink creation (by root) in create_symlinks_from_tuples(), map root as well. */
+                if (m->uid != (uid_t)0) {
+                        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", (uid_t)0, (uid_t)0, 1u);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, (gid_t)m->gid, 1u);
+                if (r < 0)
+                        return log_oom();
+
+                if (m->gid != (gid_t)0) {
+                        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", (gid_t)0, (gid_t)0, 1u);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                userns_fd = userns_acquire(uid_map, gid_map);
+                if (userns_fd < 0)
+                        return log_error_errno(userns_fd, "Failed to allocate user namespace: %m");
+
+                /* Drop SUID, add NOEXEC for the mount to avoid root exploits */
+                r = remount_idmap_fd(STRV_MAKE(mount_entry_path(m)), userns_fd, MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create an id-mapped mount: %m");
+
+                log_debug("ID-mapped mount created successfully for %s from %u to %u", mount_entry_path(m), UID_NOBODY, m->uid);
+        }
+
         return 1;
 }
 
