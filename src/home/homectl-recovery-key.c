@@ -159,7 +159,7 @@ int identity_add_recovery_key(JsonVariant **v) {
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        (void) print_qrcode(stderr, "You may optionally scan the recovery key off screen", password);
+        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
 
         return 0;
 }
