@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -981,11 +982,18 @@ static int property_get_exec_dir_symlink(
                 return r;
 
         FOREACH_ARRAY(i, d->items, d->n_items)
-                STRV_FOREACH(dst, i->symlinks) {
-                        r = sd_bus_message_append(reply, "(sst)", i->path, *dst, UINT64_C(0) /* flags, unused for now */);
+                if (strv_isempty(i->symlinks)) {
+                        /* The old exec directory properties cannot represent flags, so list them here with no
+                         * destination */
+                        r = sd_bus_message_append(reply, "(sst)", i->path, "", (uint64_t) (i->flags & _EXEC_DIRECTORY_FLAGS_PUBLIC));
                         if (r < 0)
                                 return r;
-                }
+                } else
+                        STRV_FOREACH(dst, i->symlinks) {
+                                r = sd_bus_message_append(reply, "(sst)", i->path, *dst, (uint64_t) (i->flags & _EXEC_DIRECTORY_FLAGS_PUBLIC));
+                                if (r < 0)
+                                        return r;
+                        }
 
         return sd_bus_message_close_container(reply);
 }
@@ -3444,7 +3452,7 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
-                                        r = exec_directory_add(d, *source, NULL);
+                                        r = exec_directory_add(d, *source, /* symlink= */ NULL, /* flags= */ 0);
                                         if (r < 0)
                                                 return log_oom();
                                 }
@@ -3862,7 +3870,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
                 char *source, *destination;
                 ExecDirectory *directory;
-                uint64_t symlink_flags; /* No flags for now, reserved for future uses. */
+                uint64_t symlink_flags;
                 ExecDirectoryType i;
 
                 assert_se((i = exec_directory_type_symlink_from_string(name)) >= 0);
@@ -3873,40 +3881,50 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(sst)", &source, &destination, &symlink_flags)) > 0) {
+                        if ((symlink_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
                         if (!path_is_valid(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid.", source);
                         if (path_is_absolute(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
                         if (!path_is_normalized(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
-                        if (!path_is_valid(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
-                        if (path_is_absolute(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
-                        if (!path_is_normalized(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
-                        if (symlink_flags != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+                        if (isempty(destination))
+                                destination = NULL;
+                        else {
+                                if (!path_is_valid(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
+                                if (path_is_absolute(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
+                                if (!path_is_normalized(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+                        }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *destination_escaped = NULL, *source_escaped = NULL;
 
-                                r = exec_directory_add(directory, source, destination);
+                                r = exec_directory_add(directory, source, destination, symlink_flags);
                                 if (r < 0)
                                         return r;
 
                                 /* Need to store them in the unit with the escapes, so that they can be parsed again */
                                 source_escaped = xescape(source, ":");
-                                destination_escaped = xescape(destination, ":");
-                                if (!source_escaped || !destination_escaped)
+                                if (!source_escaped)
                                         return -ENOMEM;
+                                if (destination) {
+                                        destination_escaped = xescape(destination, ":");
+                                        if (!destination_escaped)
+                                                return -ENOMEM;
+                                }
 
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, exec_directory_type_to_string(i),
-                                                "%s=%s:%s",
+                                                "%s=%s%s%s%s",
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
-                                                destination_escaped);
+                                                destination_escaped || FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":" : "",
+                                                destination_escaped,
+                                                FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
                         }
                 }
                 if (r < 0)
