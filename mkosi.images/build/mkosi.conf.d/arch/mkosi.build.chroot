@@ -68,6 +68,11 @@ sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
     --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.pkg.tar
+)
+
 # We get around makepkg's root check by setting EUID to something else.
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 # shellcheck disable=SC2046
@@ -82,14 +87,8 @@ env --chdir="pkg/$PKG_SUBDIR" \
     _systemd_UPSTREAM=1 \
     _systemd_QUIET=$( ((MESON_VERBOSE)); echo $? ) \
     BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
-    PKGDEST="$OUTPUTDIR" \
+    PKGDEST="$BUILDDIR" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
 
-(
-    shopt -s nullglob
-    rm -f "$BUILDDIR"/*.pkg.tar
-)
-
-cp "$OUTPUTDIR"/*.pkg.tar "$PACKAGEDIR"
-cp "$OUTPUTDIR"/*.pkg.tar "$BUILDDIR"
+cp "$BUILDDIR"/*.pkg.tar "$PACKAGEDIR"
