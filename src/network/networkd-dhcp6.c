@@ -122,6 +122,10 @@ int dhcp6_check_ready(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_DHCP6);
+        if (r < 0)
+                return r;
+
         link_check_ready(link);
         return 0;
 }
