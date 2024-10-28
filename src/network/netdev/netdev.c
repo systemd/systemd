@@ -413,6 +413,17 @@ int netdev_enter_ready(NetDev *netdev) {
         return 0;
 }
 
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type) {
+        assert(netdev);
+        assert(type < _NETDEV_LOCAL_ADDRESS_TYPE_MAX);
+
+        if (type < 0)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->needs_reconfigure &&
+                NETDEV_VTABLE(netdev)->needs_reconfigure(netdev, type);
+}
+
 /* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
