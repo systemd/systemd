@@ -28,7 +28,7 @@ foreach testcase : [
         integration_tests += [
                 integration_test_template + {
                         'name' : '@0@-@1@'.format(name, testcase),
-                        # Make sure the service is still named TEST-64-UDEV-STORAGE.service.
+                        # Make sure the service is still named TEST-64-STORAGE.service.
                         'unit' : unit,
                         'cmdline' : integration_test_template['cmdline'] + [
                                 'systemd.setenv=TEST_FUNCTION_NAME=testcase_@0@'.format(testcase)
