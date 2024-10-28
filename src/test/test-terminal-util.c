@@ -22,6 +22,10 @@
         "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
         "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
+TEST(colors_enabled) {
+        log_info("colors_enabled: %s", yes_no(colors_enabled()));
+}
+
 TEST(default_term_for_tty) {
         puts(default_term_for_tty("/dev/tty23"));
         puts(default_term_for_tty("/dev/ttyS23"));
