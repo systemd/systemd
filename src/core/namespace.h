@@ -87,6 +87,9 @@ struct BindMount {
         bool noexec;
         bool recursive;
         bool ignore_enoent;
+        bool idmapped;
+        uid_t uid;
+        gid_t gid;
 };
 
 struct TemporaryFileSystem {
