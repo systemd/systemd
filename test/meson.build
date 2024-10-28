@@ -452,7 +452,7 @@ foreach integration_test : integration_tests
                 args : integration_test_args,
                 timeout : integration_test['timeout'],
                 priority : integration_test['priority'],
-                suite : 'integration-tests',
+                suite : 'integration',
         )
 endforeach
 
