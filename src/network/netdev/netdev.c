@@ -611,6 +611,15 @@ finalize:
         return 0;
 }
 
+static bool netdev_can_set_mtu(NetDev *netdev) {
+        assert(netdev);
+
+        if (!NETDEV_VTABLE(netdev)->can_set_mtu)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->can_set_mtu(netdev);
+}
+
 static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
         int r;
 
@@ -630,7 +639,7 @@ static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message 
                         return r;
         }
 
-        if (netdev->mtu != 0) {
+        if (netdev->mtu != 0 && netdev_can_set_mtu(netdev)) {
                 r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
                         return r;

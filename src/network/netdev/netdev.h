@@ -179,6 +179,9 @@ typedef struct NetDevVTable {
         /* get ifindex of the netdev. */
         int (*get_ifindex)(NetDev *netdev, const char *name);
 
+        /* provides if MTU can be set. If this is not set, assumed to be yes. */
+        bool (*can_set_mtu)(NetDev *netdev);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
