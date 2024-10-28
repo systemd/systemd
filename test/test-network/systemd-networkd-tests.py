@@ -1711,11 +1711,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_link_attr('bond97', 'bonding', 'arp_missed_max',    '10')
         self.check_link_attr('bond97', 'bonding', 'peer_notif_delay', '300000')
 
-    def test_vlan(self):
-        copy_network_unit('21-vlan.netdev', '11-dummy.netdev',
-                          '21-vlan.network', '21-vlan-test1.network')
-        start_networkd()
-
+    def check_vlan(self, id, flags):
         self.wait_online('test1:degraded', 'vlan99:routable')
         self.networkctl_check_unit('vlan99', '21-vlan', '21-vlan')
         self.networkctl_check_unit('test1', '11-dummy', '21-vlan-test1')
@@ -1727,11 +1723,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show vlan99')
         print(output)
         self.assertIn(' mtu 2000 ', output)
-        self.assertIn('REORDER_HDR', output)
-        self.assertIn('LOOSE_BINDING', output)
-        self.assertIn('GVRP', output)
-        self.assertIn('MVRP', output)
-        self.assertIn(' id 99 ', output)
+        if flags:
+            self.assertIn('REORDER_HDR', output)
+            self.assertIn('LOOSE_BINDING', output)
+            self.assertIn('GVRP', output)
+            self.assertIn('MVRP', output)
+        else:
+            self.assertNotIn('REORDER_HDR', output)
+            self.assertNotIn('LOOSE_BINDING', output)
+            self.assertNotIn('GVRP', output)
+            self.assertNotIn('MVRP', output)
+        self.assertIn(f' id {id} ', output)
         self.assertIn('ingress-qos-map { 4:100 7:13 }', output)
         self.assertIn('egress-qos-map { 0:1 1:3 6:6 7:7 10:3 }', output)
 
@@ -1743,6 +1745,32 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev vlan99')
         print(output)
         self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
+
+    def test_vlan(self):
+        copy_network_unit('21-vlan.netdev', '11-dummy.netdev',
+                          '21-vlan.network', '21-vlan-test1.network')
+        start_networkd()
+        self.check_vlan(id=99, flags=True)
+
+        # Test for reloading .netdev file. See issue #34907.
+        with open(os.path.join(network_unit_dir, '21-vlan.netdev.d/override.conf'), mode='a', encoding='utf-8') as f:
+            f.write('[VLAN]\nId=42\n')
+
+        # VLAN ID cannot be changed, so we need to remove the existing netdev.
+        check_output("ip link del vlan99")
+        networkctl_reload()
+        self.check_vlan(id=42, flags=True)
+
+        with open(os.path.join(network_unit_dir, '21-vlan.netdev.d/override.conf'), mode='a', encoding='utf-8') as f:
+            f.write('[VLAN]\n'
+                    'GVRP=no\n'
+                    'MVRP=no\n'
+                    'LooseBinding=no\n'
+                    'ReorderHeader=no\n')
+
+        # flags can be changed, hence it is not necessary to remove the existing netdev.
+        networkctl_reload()
+        self.check_vlan(id=42, flags=False)
 
     def test_vlan_on_bond(self):
         # For issue #24377 (https://github.com/systemd/systemd/issues/24377),
@@ -6625,7 +6653,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfKernelReturnsInvalidFlags()
     def test_dhcp_client_ipv4_only(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network',
+                          '25-sit-dhcp4.netdev', '25-sit-dhcp4.network')
 
         self.setup_nftset('addr4', 'ipv4_addr')
         self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
@@ -6638,7 +6667,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
-        self.wait_online('veth99:routable', 'veth-peer:routable')
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'sit-dhcp4:carrier')
         self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         print('## ip address show dev veth99 scope global')
@@ -6710,6 +6739,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertEqual(i['ConfigSource'], 'DHCPv4')
             a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
             self.assertEqual('192.168.5.1', a)
+
+        print('## tunnel')
+        output = check_output('ip -d link show sit-dhcp4')
+        print(output)
+        self.assertRegex(output, fr'sit (ip6ip )?remote any local {address1} dev veth99')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
@@ -6805,6 +6839,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertEqual(i['ConfigSource'], 'DHCPv4')
             a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
             self.assertEqual('192.168.5.1', a)
+
+        print('## tunnel')
+        output = check_output('ip -d link show sit-dhcp4')
+        print(output)
+        self.assertRegex(output, fr'sit (ip6ip )?remote any local {address2} dev veth99')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()

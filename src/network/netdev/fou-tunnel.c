@@ -89,6 +89,7 @@ static int netdev_create_fou_tunnel_message(NetDev *netdev, sd_netlink_message *
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
 
         r = sd_genl_message_new(netdev->manager->genl, FOU_GENL_NAME, FOU_CMD_ADD, &m);
         if (r < 0)
@@ -127,6 +128,9 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         int r;
 
         assert(FOU(netdev));
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         r = netdev_create_fou_tunnel_message(netdev, &m);
         if (r < 0)
