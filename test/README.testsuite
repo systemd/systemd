@@ -52,7 +52,7 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi.loca
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build --no-rebuild --suite integration --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
