@@ -89,7 +89,7 @@ journalctl --sync
 SYSTEMD_COLORS=256 /usr/lib/systemd/systemd-bsod &
 PID=$!
 vcs_dump_and_check "Root emergency message"
-grep -aq "Scan the QR code" /tmp/console.dump
+grep -aq "Scan the error message" /tmp/console.dump
 # TODO: check if systemd-bsod exits on a key press (didn't figure this one out yet)
 kill $PID
 timeout 10 bash -c "while kill -0 $PID; do sleep .5; done"
