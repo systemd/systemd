@@ -20,10 +20,6 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
         assert(link->network);
         assert(m);
 
-        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return r;
-
         r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
         if (r < 0)
                 return r;
