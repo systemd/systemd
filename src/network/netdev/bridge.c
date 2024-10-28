@@ -163,10 +163,6 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
 
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink message flags: %m");
-
         r = netdev_bridge_post_create_message(netdev, req);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
