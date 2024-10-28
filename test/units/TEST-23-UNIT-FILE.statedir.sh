@@ -56,5 +56,8 @@ test "$(readlink "$HOME"/.local/state/foo)" = ../../.config/foo
 # Check that this will work safely a second time
 systemd-run --user -p StateDirectory=foo -p ConfigurationDirectory=foo --wait /bin/true
 
+( ! systemd-run --user -p StateDirectory=foo:ro --wait sh -c "echo foo > $HOME/.local/state/foo/bar")
+( ! test -f "$HOME"/.local/state/foo/bar)
+
 rm "$HOME"/.local/state/foo
 rmdir "$HOME"/.config/foo
