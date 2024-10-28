@@ -1370,7 +1370,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (arg_json_format_flags & SD_JSON_FORMAT_OFF) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_add_many(t,
                                    TABLE_FIELD, "Plugin Arguments",
                                    TABLE_STRV, strv_skip(c->argv, 1));
