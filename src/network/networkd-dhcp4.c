@@ -326,6 +326,10 @@ int dhcp4_check_ready(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_DHCP4);
+        if (r < 0)
+                return r;
+
         r = sd_ipv4ll_stop(link->ipv4ll);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to drop IPv4 link-local address: %m");
