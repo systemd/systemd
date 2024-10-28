@@ -86,14 +86,31 @@ int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
         return 0;
 }
 
-static int dhcp4_pd_create_6rd_tunnel_message(
-                Link *link,
-                sd_netlink_message *m,
-                const struct in_addr *ipv4address,
-                uint8_t ipv4masklen,
-                const struct in6_addr *sixrd_prefix,
-                uint8_t sixrd_prefixlen) {
+int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        uint8_t ipv4masklen, sixrd_prefixlen;
+        struct in_addr ipv4address;
+        struct in6_addr sixrd_prefix;
         int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(link->dhcp_lease);
+        assert(link->dhcp4_6rd_tunnel_name);
+        assert(callback);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return r;
 
         r = sd_netlink_message_append_string(m, IFLA_IFNAME, link->dhcp4_6rd_tunnel_name);
         if (r < 0)
@@ -107,7 +124,7 @@ static int dhcp4_pd_create_6rd_tunnel_message(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, ipv4address);
+        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &ipv4address);
         if (r < 0)
                 return r;
 
@@ -115,7 +132,7 @@ static int dhcp4_pd_create_6rd_tunnel_message(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, sixrd_prefix);
+        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &sixrd_prefix);
         if (r < 0)
                 return r;
 
@@ -123,7 +140,7 @@ static int dhcp4_pd_create_6rd_tunnel_message(
         if (r < 0)
                 return r;
 
-        struct in_addr relay_prefix = *ipv4address;
+        struct in_addr relay_prefix = ipv4address;
         (void) in4_addr_mask(&relay_prefix, ipv4masklen);
         r = sd_netlink_message_append_u32(m, IFLA_IPTUN_6RD_RELAY_PREFIX, relay_prefix.s_addr);
         if (r < 0)
@@ -141,45 +158,10 @@ static int dhcp4_pd_create_6rd_tunnel_message(
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        uint8_t ipv4masklen, sixrd_prefixlen;
-        struct in_addr ipv4address;
-        struct in6_addr sixrd_prefix;
-        int r;
-
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->dhcp_lease);
-        assert(link->dhcp4_6rd_tunnel_name);
-        assert(callback);
-
-        r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get DHCPv4 address: %m");
-
-        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get 6rd option: %m");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to create netlink message: %m");
-
-        r = dhcp4_pd_create_6rd_tunnel_message(link, m,
-                                               &ipv4address, ipv4masklen,
-                                               &sixrd_prefix, sixrd_prefixlen);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to fill netlink message: %m");
-
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
+                return r;
 
         link_ref(link);
 

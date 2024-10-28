@@ -1030,7 +1030,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, NULL) < 0) {
                 r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(uplink, r, "Failed to create 6rd SIT tunnel: %m");
         }
 
         /* Then, assign subnet prefixes to downstream interfaces. */
