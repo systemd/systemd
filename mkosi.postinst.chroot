@@ -3,6 +3,8 @@
 set -e
 set -o nounset
 
+cp "$BUILDDIR"/*.{rpm,deb,pkg.tar} "$BUILDDIR"/systemd.raw "$OUTPUTDIR"
+
 useradd \
     --uid 4711 \
     --user-group \
