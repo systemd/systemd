@@ -1561,12 +1561,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>
-        and <varname>LogsDirectory=</varname>  optionally support a second parameter, separated by <literal>:</literal>.
-        The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
-        The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
-        options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
-        using the same first parameter, but a different second parameter.</para>
+        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname>  optionally support two
+        more parameters, separated by <literal>:</literal>. The second parameter will be interpreted as a
+        destination path that will be created as a symlink to the directory. The symlinks will be created
+        after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname> options have been
+        set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by using
+        the same first parameter, but a different second parameter. The third parameter is a flags field,
+        and since v257 can take a value of <constant>ro</constant> to make the directory read only for the
+        service. If only two paramters are passed, and the second one is <constant>ro</constant>, it will be
+        interpreted as a read only flag.</para>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs

@@ -7,6 +7,14 @@
 #include "pidref.h"
 #include "unit-def.h"
 
+typedef enum ExecDirectoryFlags {
+        EXEC_DIRECTORY_READ_ONLY   = 1 << 0, /* Public API via DBUS, do not change */
+        EXEC_DIRECTORY_ONLY_CREATE = 1 << 1,
+        _EXEC_DIRECTORY_PUBLIC     = EXEC_DIRECTORY_READ_ONLY,
+        _EXEC_DIRECTORY_MAX,
+        _EXEC_DIRECTORY_INVALID    = -EINVAL,
+} ExecDirectoryFlags;
+
 typedef struct UnitInfo {
         const char *machine;
         const char *id;

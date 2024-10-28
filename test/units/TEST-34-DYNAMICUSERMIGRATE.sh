@@ -23,6 +23,8 @@ test_directory() {
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}=zzz:xxx zzz:xxx2" -p TemporaryFileSystem="${path}" bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www:ro" test -d "${path}"/www
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -47,6 +49,8 @@ test_directory() {
                 -p TemporaryFileSystem="${path}" -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www:ro" test -d "${path}"/www
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -L "${path}"/zzz
     test -d "${path}"/private/zzz
@@ -70,6 +74,8 @@ test_directory() {
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}=zzz:xxx zzz:xxx2" -p TemporaryFileSystem="${path}" bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www:ro" test -d "${path}"/www
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -84,6 +90,8 @@ test_directory() {
 
     test -f "${path}"/zzz/test
     test ! -e "${path}"/zzz/test-missing
+    test -d "${path}"/www
+    test ! -e "${path}"/www/test-missing
 
     # Exercise the unit parsing paths too
     cat >/run/systemd/system/testservice-34.service <<EOF
@@ -91,10 +99,12 @@ test_directory() {
 Type=oneshot
 TemporaryFileSystem=${path}
 RuntimeDirectoryPreserve=yes
-${directory}=zzz:x\:yz zzz:x\:yz2
+${directory}=zzz:x\:yz zzz:x\:yz2 www:ro
 ExecStart=test -f ${path}/x:yz2/test
 ExecStart=test -f ${path}/x:yz/test
 ExecStart=test -f ${path}/zzz/test
+ExecStart=test -d ${path}/www
+ExecStart=sh -c "! test -w ${path}/www"
 EOF
     systemctl daemon-reload
     systemctl start --wait testservice-34.service
