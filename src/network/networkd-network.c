@@ -617,6 +617,28 @@ int network_load(Manager *manager, OrderedHashmap **ret) {
         return 0;
 }
 
+static bool network_netdev_equal(Network *a, Network *b) {
+        assert(a);
+        assert(b);
+
+        if (a->batadv != b->batadv ||
+            a->bridge != b->bridge ||
+            a->bond != b->bond ||
+            a->vrf != b->vrf ||
+            a->xfrm != b->xfrm)
+                return false;
+
+        if (hashmap_size(a->stacked_netdevs) != hashmap_size(b->stacked_netdevs))
+                return false;
+
+        NetDev *n;
+        HASHMAP_FOREACH(n, a->stacked_netdevs)
+                if (hashmap_get(b->stacked_netdevs, n->ifname) != n)
+                        return false;
+
+        return true;
+}
+
 int network_reload(Manager *manager) {
         OrderedHashmap *new_networks = NULL;
         Network *n, *old;
@@ -631,15 +653,21 @@ int network_reload(Manager *manager) {
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
                 if (r < 0) {
-                        log_debug("Found new .network file: %s", n->filename);
+                        log_debug("%s: Found new .network file.", n->filename);
                         continue;
                 }
 
                 if (!stats_by_path_equal(n->stats_by_path, old->stats_by_path)) {
-                        log_debug("Found updated .network file: %s", n->filename);
+                        log_debug("%s: Found updated .network file.", n->filename);
                         continue;
                 }
 
+                if (!network_netdev_equal(n, old)) {
+                        log_debug("%s: Detected update of referenced .netdev file(s).", n->filename);
+                        continue;
+                }
+
+                /* Nothing updated, use the existing Network object, and drop the new one. */
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
                         goto failure;
