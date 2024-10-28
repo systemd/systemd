@@ -7,6 +7,7 @@
 #include "export-tar.h"
 #include "fd-util.h"
 #include "import-common.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"
 #include "string-util.h"
@@ -132,7 +133,19 @@ static void tar_export_report_progress(TarExport *e) {
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
-        log_info("Exported %u%%.", percent);
+
+        if (isatty_safe(stderr)) {
+                _cleanup_free_ char *s = NULL;
+
+                if (asprintf(&s, "%s %s/%s",
+                             special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                             FORMAT_BYTES(e->written_uncompressed),
+                             FORMAT_BYTES(e->quota_referenced)) < 0)
+                        return;
+
+                draw_progress_bar(s, percent);
+        } else
+                log_info("Exported %u%%.", percent);
 
         e->last_percent = percent;
 }
