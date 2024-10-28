@@ -3217,6 +3217,8 @@ int refresh_extensions_in_namespace(
                         p->extension_directories);
         if (r < 0)
                 return r;
+
+        sort_and_drop_unused_mounts(&ml, overlay_prefix);
         if (ml.n_mounts == 0)
                 return 0;
 
