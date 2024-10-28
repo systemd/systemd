@@ -3,6 +3,8 @@
 set -e
 set -o nounset
 
+find "$BUILDDIR" \( -name "*.rpm" -o -name "*.deb" -o -name "*.pkg.tar" -o -name systemd.raw \) -exec cp -t "$OUTPUTDIR" {} \;
+
 useradd \
     --uid 4711 \
     --user-group \

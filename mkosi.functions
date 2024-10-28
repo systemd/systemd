@@ -52,6 +52,4 @@ EOF
         --copy-source="$1" \
         --pretty=no \
         "$BUILDDIR"/systemd.raw
-
-    cp "$BUILDDIR"/systemd.raw "$OUTPUTDIR"
 }
