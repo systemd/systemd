@@ -113,7 +113,7 @@
       <funcprototype>
         <funcdef>int <function>sd_device_get_device_id</function></funcdef>
         <paramdef>sd_device *<parameter>device</parameter></paramdef>
-        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
