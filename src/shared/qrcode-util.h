@@ -19,7 +19,7 @@ int print_qrcode_full(
                 unsigned tty_height,
                 bool check_tty);
 #else
-int print_qrcode_full(
+static inline int print_qrcode_full(
                 FILE *out,
                 const char *header,
                 const char *string,

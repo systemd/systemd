@@ -199,9 +199,7 @@ int action_setup_keys(void) {
         if (!url)
                 return log_oom();
 
-        (void) print_qrcode(stderr,
-                            "To transfer the verification key to your phone scan the QR code below",
-                            url);
+        (void) print_qrcode(stderr, "Scan the verification key to transfer it to another device", url);
 #endif
 
         return 0;
