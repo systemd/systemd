@@ -2717,6 +2717,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEOUT:
+                        if (isempty(optarg)) {
+                                arg_timeout = 0; /* Reset to default */
+                                break;
+                        }
+
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
@@ -2751,6 +2756,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
+                        if (isempty(optarg)) {
+                                arg_limit_messages = UINT64_MAX; /* Reset to default */
+                                break;
+                        }
+
                         r = safe_atou64(optarg, &arg_limit_messages);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", optarg);
