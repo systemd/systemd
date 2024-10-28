@@ -252,7 +252,7 @@ done
 
 ####################
 # varlinkctl tests #
-# ##################
+####################
 
 long_running_machine_start
 
@@ -317,6 +317,22 @@ varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machin
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'OSRelease'
 (! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
 varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
+
+# test io.systemd.Machine.CopyTo
+long_running_machine_start
+echo "sample-test-output" > /tmp/file-to-copy
+rm -f /var/lib/machines/long-running/file-to-copy
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/file-to-copy", "destination": "/file-to-copy"}'
+diff /tmp/file-to-copy /var/lib/machines/long-running/file-to-copy
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/file-to-copy", "destination": "/file-to-copy"}')
+echo "sample-test-output-another" > /tmp/file-to-copy
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/file-to-copy", "destination": "/file-to-copy", "replace": true}'
+diff /tmp/file-to-copy /var/lib/machines/long-running/file-to-copy
+
+# test io.systemd.Machine.CopyFrom
+rm -f /tmp/file-to-copy
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyFrom '{"name": "long-running", "source": "/file-to-copy", "destination": "/tmp/file-to-copy"}'
+diff /var/lib/machines/long-running/file-to-copy /tmp/file-to-copy
 
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'

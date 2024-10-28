@@ -24,3 +24,10 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
 int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool copy_from);
+inline static int vl_method_copy_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_copy_internal(link, parameters, flags, userdata, /* copy_from = */ true);
+}
+inline static int vl_method_copy_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_copy_internal(link, parameters, flags, userdata, /* copy_from = */ false);
+}
