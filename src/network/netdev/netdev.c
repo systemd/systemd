@@ -1094,6 +1094,17 @@ int netdev_reload(Manager *manager) {
         return 0;
 }
 
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type) {
+        assert(netdev);
+        assert(type < _NETDEV_LOCAL_ADDRESS_TYPE_MAX);
+
+        if (type < 0)
+                return true;
+
+        return !NETDEV_VTABLE(netdev)->needs_reconfigure ||
+                NETDEV_VTABLE(netdev)->needs_reconfigure(netdev, type);
+}
+
 int config_parse_netdev_kind(
                 const char *unit,
                 const char *filename,
