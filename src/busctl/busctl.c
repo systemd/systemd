@@ -1268,6 +1268,9 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return r;
 
+        usec_t end = arg_timeout > 0 ?
+                usec_add(now(CLOCK_MONOTONIC), arg_timeout) : USEC_INFINITY;
+
         /* upgrade connection; it's not used for anything else after this call */
         r = sd_bus_message_new_method_call(bus,
                                            &message,
@@ -1382,8 +1385,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, arg_timeout > 0 ? arg_timeout : UINT64_MAX);
-                if (r == 0 && arg_timeout > 0) {
+                r = sd_bus_wait(bus, arg_timeout > 0 ? usec_sub_unsigned(end, now(CLOCK_MONOTONIC)) : UINT64_MAX);
+                if (r == 0 && arg_timeout > 0 && now(CLOCK_MONOTONIC) >= end) {
                         if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                 log_info("Timed out waiting for messages, exiting.");
                         return 0;
