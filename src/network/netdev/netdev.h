@@ -8,6 +8,7 @@
 #include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
+#include "netdev-util.h"
 #include "networkd-link.h"
 #include "time-util.h"
 
@@ -180,6 +181,9 @@ typedef struct NetDevVTable {
         /* get ifindex of the netdev. */
         int (*get_ifindex)(NetDev *netdev, const char *name);
 
+        /* get ifindex of the netdev. */
+        bool (*needs_reconfigure)(NetDev *netdev, NetDevLocalAddressType type);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
@@ -231,6 +235,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char* netdev_kind_to_string(NetDevKind d) _const_;

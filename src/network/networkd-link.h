@@ -19,6 +19,7 @@
 
 #include "ether-addr-util.h"
 #include "log-link.h"
+#include "netdev.h"
 #include "netif-util.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
@@ -255,6 +256,8 @@ int link_stop_engines(Link *link, bool may_keep_dhcp);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
+
+int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
 int link_reconfigure_impl(Link *link, bool force);
 int link_reconfigure(Link *link, bool force);

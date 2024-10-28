@@ -402,6 +402,14 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static bool vxlan_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type) {
+        assert(type >= 0 && type < _NETDEV_LOCAL_ADDRESS_TYPE_MAX);
+
+        VxLan *v = VXLAN(netdev);
+
+        return v->local_type == type;
+}
+
 static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
         VxLan *v = VXLAN(netdev);
 
@@ -431,6 +439,7 @@ const NetDevVTable vxlan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_vxlan_is_ready_to_create,
         .config_verify = netdev_vxlan_verify,
+        .needs_reconfigure = vxlan_needs_reconfigure,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
