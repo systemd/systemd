@@ -2024,6 +2024,13 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                                 path = socket_address_get_path(&p->address);
                         else if (p->type == SOCKET_FIFO)
                                 path = p->path;
+                        else if (p->type == SOCKET_MQUEUE) {
+                                /* Use fchown on the fd since /dev/mqueue might not be mounted. */
+                                if (fchown(p->fd, uid, gid) < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to fchown(): %m");
+                                        _exit(EXIT_CHOWN);
+                                }
+                        }
 
                         if (!path)
                                 continue;
