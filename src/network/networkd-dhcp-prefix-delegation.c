@@ -1010,28 +1010,10 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return r;
 
-        /* Generate 6rd SIT tunnel device name. */
-        r = dhcp4_pd_create_6rd_tunnel_name(uplink, &tunnel_name);
+        /* Create or update 6rd SIT tunnel device. */
+        r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
         if (r < 0)
-                return r;
-
-        /* Remove old tunnel device if exists. */
-        if (!streq_ptr(uplink->dhcp4_6rd_tunnel_name, tunnel_name)) {
-                Link *old_tunnel;
-
-                if (uplink->dhcp4_6rd_tunnel_name &&
-                    link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, &old_tunnel) >= 0)
-                        (void) link_remove(old_tunnel);
-
-                free_and_replace(uplink->dhcp4_6rd_tunnel_name, tunnel_name);
-        }
-
-        /* Create 6rd SIT tunnel device if it does not exist yet. */
-        if (link_get_by_name(uplink->manager, uplink->dhcp4_6rd_tunnel_name, NULL) < 0) {
-                r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
-                if (r < 0)
-                        return log_link_warning_errno(uplink, r, "Failed to create 6rd SIT tunnel: %m");
-        }
+                return log_link_warning_errno(uplink, r, "Failed to create or update 6rd SIT tunnel: %m");
 
         /* Then, assign subnet prefixes to downstream interfaces. */
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
