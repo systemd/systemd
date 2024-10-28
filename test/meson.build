@@ -355,7 +355,7 @@ foreach dirname : [
         'TEST-60-MOUNT-RATELIMIT',
         'TEST-62-RESTRICT-IFACES',
         'TEST-63-PATH',
-        'TEST-64-UDEV-STORAGE',
+        'TEST-64-STORAGE',
         'TEST-65-ANALYZE',
         'TEST-66-DEVICE-ISOLATION',
         'TEST-67-INTEGRITY',
