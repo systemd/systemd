@@ -8,6 +8,7 @@
 #include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
+#include "netdev-util.h"
 #include "networkd-link.h"
 #include "time-util.h"
 
@@ -183,6 +184,10 @@ typedef struct NetDevVTable {
         /* provides if MTU can be set. If this is not set, assumed to be yes. */
         bool (*can_set_mtu)(NetDev *netdev);
 
+        /* provides if the netdev needs to be reconfigured when a specified type of address on the underlying
+         * interface is updated. */
+        bool (*needs_reconfigure)(NetDev *netdev, NetDevLocalAddressType type);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
@@ -234,6 +239,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char* netdev_kind_to_string(NetDevKind d) _const_;
