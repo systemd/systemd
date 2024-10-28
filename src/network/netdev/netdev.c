@@ -724,7 +724,7 @@ static int independent_netdev_create(NetDev *netdev) {
                 return 0;
         }
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return r;
 
@@ -753,7 +753,7 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         assert(link);
         assert(req);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return r;
 
@@ -797,9 +797,6 @@ static bool link_is_ready_to_create_stacked_netdev(Link *link) {
 
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
-
-        if (netdev->state != NETDEV_STATE_LOADING)
-                return false;
 
         if (link && !link_is_ready_to_create_stacked_netdev(link))
                 return false;
@@ -862,9 +859,6 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         if (!netdev_is_stacked(netdev))
                 return -EINVAL;
 
-        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
-                return 0; /* Already created. */
-
         if (!netdev_is_managed(netdev))
                 return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
@@ -920,6 +914,9 @@ static int netdev_request_to_create(NetDev *netdev) {
 
         if (!netdev_is_managed(netdev))
                 return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
+        if (netdev->state != NETDEV_STATE_LOADING)
+                return 0; /* Already configured (at least tried previously). Not necessary to reconfigure. */
 
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r < 0)
