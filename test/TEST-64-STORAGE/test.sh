@@ -257,7 +257,7 @@ testcase_nvme_subsystem() {
 }
 
 # Test for issue https://github.com/systemd/systemd/issues/20212
-testcase_virtio_scsi_identically_named_partitions() {
+testcase_identically_named_partitions() {
 
     if ! "${QEMU_BIN:?}" -device help | grep 'name "virtio-scsi-pci"'; then
         echo "virtio-scsi-pci device driver is not available, skipping test..."
@@ -308,7 +308,7 @@ testcase_virtio_scsi_identically_named_partitions() {
     rm -f "${TESTDIR:?}"/namedpart*.img
 }
 
-testcase_multipath_basic_failover() {
+testcase_multipath_failover() {
     if ! _host_has_feature "multipath"; then
         echo "Missing multipath tools, skipping the test..."
         return 77

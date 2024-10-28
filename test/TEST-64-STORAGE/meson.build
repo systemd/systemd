@@ -18,12 +18,12 @@ foreach testcase : [
         'lvm_basic',
         'mdadm_basic',
         'mdadm_lvm',
-        'multipath_basic_failover',
+        'multipath_failover',
         'nvme_basic',
         'nvme_subsystem',
         'simultaneous_events',
         'virtio_scsi_basic',
-        'virtio_scsi_identically_named_partitions',
+        'identically_named_partitions',
 ]
         integration_tests += [
                 integration_test_template + {
