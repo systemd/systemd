@@ -2141,6 +2141,8 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 updated = true;
         }
 
+        RET_GATHER(ret, link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_SLAAC));
+
         if (updated)
                 link_dirty(link);
 

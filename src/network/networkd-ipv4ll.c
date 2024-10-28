@@ -109,6 +109,10 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         log_link_debug(link, "IPv4 link-local claim "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_IPV4LL);
+        if (r < 0)
+                return r;
+
         return link_request_address(link, address, NULL, ipv4ll_address_handler, NULL);
 }
 
