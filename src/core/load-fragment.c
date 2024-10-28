@@ -4698,9 +4698,9 @@ int config_parse_exec_directories(
                 if (r == 0)
                         return 0;
 
-                _cleanup_free_ char *src = NULL, *dest = NULL;
+                _cleanup_free_ char *src = NULL, *dest = NULL, *flags = NULL;
                 const char *q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS, &src, &dest, &flags);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0) {
@@ -4727,20 +4727,20 @@ int config_parse_exec_directories(
                         continue;
                 }
 
+                if ((!isempty(dest) || !isempty(flags)) && streq(lvalue, "ConfigurationDirectory")) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Additional parameter is not supported for ConfigurationDirectory, ignoring: %s", tuple);
+                        continue;
+                }
+
                 /* For State and Runtime directories we support an optional destination parameter, which
                  * will be used to create a symlink to the source. */
                 _cleanup_free_ char *dresolved = NULL;
                 if (!isempty(dest)) {
-                        if (streq(lvalue, "ConfigurationDirectory")) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "Destination parameter is not supported for ConfigurationDirectory, ignoring: %s", tuple);
-                                continue;
-                        }
-
                         r = unit_path_printf(u, dest, &dresolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                                        "Failed to resolve unit specifiers in \"%s\", ignoring: %m", dest);
+                                           "Failed to resolve unit specifiers in \"%s\", ignoring: %m", dest);
                                 continue;
                         }
 
@@ -4749,7 +4749,18 @@ int config_parse_exec_directories(
                                 continue;
                 }
 
-                r = exec_directory_add(ed, sresolved, dresolved);
+                ExecDirectoryFlags exec_directory_flags = 0;
+                if (!isempty(flags)) {
+                        if (exec_directory_flags_from_string(flags) != EXEC_DIRECTORY_READ_ONLY) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Invalid flags for %s=, ignoring: %s", lvalue, flags);
+                                continue;
+                        }
+
+                        exec_directory_flags |= EXEC_DIRECTORY_READ_ONLY;
+                }
+
+                r = exec_directory_add(ed, sresolved, dresolved, exec_directory_flags);
                 if (r < 0)
                         return log_oom();
         }

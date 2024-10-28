@@ -1998,7 +1998,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         if (!strextend(&value, " ", path_escaped))
                                 return log_oom_debug();
 
-                        if (!strextend(&value, ":", yes_no(i->only_create)))
+                        if (!strextend(&value, ":", yes_no(FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))))
+                                return log_oom_debug();
+
+                        if (!strextend(&value, ":", yes_no(FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY))))
                                 return log_oom_debug();
 
                         STRV_FOREACH(d, i->symlinks) {
@@ -2893,7 +2896,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
 
                         for (;;) {
-                                _cleanup_free_ char *tuple = NULL, *path = NULL, *only_create = NULL;
+                                _cleanup_free_ char *tuple = NULL, *path = NULL, *only_create = NULL, *read_only = NULL;
+                                ExecDirectoryFlags exec_directory_flags = 0;
                                 const char *p;
 
                                 /* Use EXTRACT_UNESCAPE_RELAX here, as we unescape the colons in subsequent calls */
@@ -2904,20 +2908,27 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                         break;
 
                                 p = tuple;
-                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create);
+                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create, &read_only);
                                 if (r < 0)
                                         return r;
                                 if (r < 2)
                                         continue;
 
-                                r = exec_directory_add(&c->directories[dt], path, NULL);
-                                if (r < 0)
-                                        return r;
-
                                 r = parse_boolean(only_create);
                                 if (r < 0)
                                         return r;
-                                c->directories[dt].items[c->directories[dt].n_items - 1].only_create = r;
+                                if (r > 0)
+                                        exec_directory_flags |= EXEC_DIRECTORY_ONLY_CREATE;
+
+                                r = parse_boolean(read_only);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        exec_directory_flags |= EXEC_DIRECTORY_READ_ONLY;
+
+                                r = exec_directory_add(&c->directories[dt], path, /* symlink= */ NULL, exec_directory_flags);
+                                if (r < 0)
+                                        return r;
 
                                 if (isempty(p))
                                         continue;
