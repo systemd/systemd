@@ -34,7 +34,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode);
 
 #define HASH_KEY SD_ID128_MAKE(74,c4,de,12,f3,d9,41,34,bb,3d,c1,a4,42,93,50,87)
 
-int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
+static int dhcp4_pd_create_6rd_tunnel_name(Link *link) {
         _cleanup_free_ char *ifname_alloc = NULL;
         uint8_t ipv4masklen, sixrd_prefixlen, *buf, *p;
         struct in_addr ipv4address;
@@ -47,13 +47,16 @@ int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
         assert(link);
         assert(link->dhcp_lease);
 
+        if (link->dhcp4_6rd_tunnel_name)
+                return 0; /* Already set. Do not change even if the 6rd option is changed. */
+
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get DHCPv4 address: %m");
+                return r;
 
         r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get 6rd option: %m");
+                return r;
 
         sz = sizeof(uint8_t) * 2 + sizeof(struct in6_addr) + sizeof(struct in_addr);
         buf = newa(uint8_t, sz);
@@ -80,9 +83,9 @@ int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret) {
 
         ifname_alloc = strdup(ifname);
         if (!ifname_alloc)
-                return log_oom_debug();
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(ifname_alloc);
+        link->dhcp4_6rd_tunnel_name = TAKE_PTR(ifname_alloc);
         return 0;
 }
 
@@ -91,13 +94,13 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
         uint8_t ipv4masklen, sixrd_prefixlen;
         struct in_addr ipv4address;
         struct in6_addr sixrd_prefix;
+        Link *sit = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->dhcp_lease);
-        assert(link->dhcp4_6rd_tunnel_name);
         assert(callback);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &ipv4address);
@@ -108,7 +111,13 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, 0);
+        r = dhcp4_pd_create_6rd_tunnel_name(link);
+        if (r < 0)
+                return r;
+
+        (void) link_get_by_name(link->manager, link->dhcp4_6rd_tunnel_name, &sit);
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, sit ? sit->ifindex : 0);
         if (r < 0)
                 return r;
 
@@ -164,7 +173,6 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
                 return r;
 
         link_ref(link);
-
         return 0;
 }
 
