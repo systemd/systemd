@@ -172,7 +172,16 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned in
         fflush(output);
 }
 
-int print_qrcode_full(FILE *out, const char *header, const char *string, unsigned row, unsigned column, unsigned tty_width, unsigned tty_height) {
+int print_qrcode_full(
+                FILE *out,
+                const char *header,
+                const char *string,
+                unsigned row,
+                unsigned column,
+                unsigned tty_width,
+                unsigned tty_height,
+                bool check_tty) {
+
         QRcode* qr;
         int r;
 
@@ -180,7 +189,7 @@ int print_qrcode_full(FILE *out, const char *header, const char *string, unsigne
          * codes */
         if (!is_locale_utf8())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not an UTF-8 system, cannot print qrcode");
-        if (!colors_enabled())
+        if (check_tty && !colors_enabled())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Colors are disabled, cannot print qrcode");
 
         r = dlopen_qrencode();

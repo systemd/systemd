@@ -213,7 +213,9 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
+        r = print_qrcode_full(stream, "Scan the QR code",
+                              message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row,
+                              /* check_tty= */ false);
         if (r < 0)
                 log_warning_errno(r, "QR code could not be printed, ignoring: %m");
 
