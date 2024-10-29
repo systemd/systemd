@@ -461,7 +461,7 @@ bool shall_tint_background(void) {
         return cache != 0;
 }
 
-void draw_progress_bar_impl(const char *prefix, double percentage) {
+void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
         fputc('\r', stderr);
         if (prefix) {
                 fputs(prefix, stderr);
@@ -522,10 +522,9 @@ void draw_progress_bar_impl(const char *prefix, double percentage) {
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
-
 }
 
-void clear_progress_bar_impl(const char *prefix) {
+void clear_progress_bar_unbuffered(const char *prefix) {
         fputc('\r', stderr);
 
         if (terminal_is_dumb())
@@ -546,10 +545,26 @@ void draw_progress_bar(const char *prefix, double percentage) {
          * unbuffered by default. Let's temporarily turn on full buffering, so that this is passed to the tty
          * as a single buffer, to make things more efficient. */
         WITH_BUFFERED_STDERR;
-        draw_progress_bar_impl(prefix, percentage);
+        draw_progress_bar_unbuffered(prefix, percentage);
+}
+
+int draw_progress_barf(double percentage, const char *prefixf, ...) {
+        _cleanup_free_ char *s = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, prefixf);
+        r = vasprintf(&s, prefixf, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        draw_progress_bar(s, percentage);
+        return 0;
 }
 
 void clear_progress_bar(const char *prefix) {
         WITH_BUFFERED_STDERR;
-        clear_progress_bar_impl(prefix);
+        clear_progress_bar_unbuffered(prefix);
 }
