@@ -291,10 +291,33 @@
       <varlistentry>
         <term>MAINPID=…</term>
 
-        <listitem><para>The main process ID (PID) of the service, in case the service manager did not fork
-        off the process itself. Example: <literal>MAINPID=4711</literal>.</para>
+        <listitem><para>Change the main process ID (PID) of the service. This is especially useful in the case
+        where the real main process isn't directly forked off by the service manager.
+        Example: <literal>MAINPID=4711</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>MAINPIDFDID=…</term>
+
+        <listitem><para>The pidfd inode number of the new main process of the service specified through
+        <varname>MAINPID=</varname>. This information can be acquired through
+        <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        on the pidfd and is used to identify the process in a race-free fashion. Alternatively,
+        a pidfd can be sent directly to the service manager (see <varname>MAINPIDFD=1</varname> below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>MAINPIDFD=1</term>
+
+        <listitem><para>Similar to <varname>MAINPID=</varname> with <varname>MAINPIDFDID=</varname>, but
+        the process is referenced directly by the pidfd passed to the service manager. This is useful
+        if pidfd id is not supported on the system. Exactly one fd is expected for this notification.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
