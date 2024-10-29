@@ -895,6 +895,9 @@ static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
+        /* Assume the label inherited from systemd as the fallback */
+        exec_params.fallback_smack_process_label = NULL;
+
         r = exec_spawn(UNIT(m),
                        c,
                        &m->exec_context,
