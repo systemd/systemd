@@ -252,4 +252,5 @@ resolvectl status
 # Run the actual test cases (functions prefixed by testcase_)
 run_testcases
 
-touch /testok
+return 1
+#touch /testok
