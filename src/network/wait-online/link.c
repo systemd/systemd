@@ -3,6 +3,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
 #include "link.h"
@@ -61,6 +62,8 @@ Link *link_free(Link *l) {
                 STRV_FOREACH(n, l->altnames)
                         hashmap_remove(l->manager->links_by_name, *n);
         }
+
+        dns_configuration_free(l->dns_configuration);
 
         free(l->state);
         free(l->ifname);
@@ -245,6 +248,12 @@ int link_update_monitor(Link *l) {
                 ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
         else
                 free_and_replace(l->state, state);
+
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get DNS default route, ignoring: %m");
+        else
+                l->dns_default_route = r > 0;
 
         return ret;
 }
