@@ -806,12 +806,7 @@ TEST(packet_query_single_long_domain) {
                         0x10, 'n', 'i', 't', 'r', 'o', 's', 'y', 'l', 's', 'u', 'l', 'f', 'u', 'r', 'i', 'c',
                         0x10, 'o', 'b', 'j', 'e', 'c', 't', 'l', 'e', 's', 's', 'n', 'e', 's', 's', 'e', 's',
                         0x10, 'p', 'a', 'r', 't', 'r', 'i', 'd', 'g', 'e', 'b', 'e', 'r', 'r', 'i', 'e', 's',
-                        0x10, 'r', 'e', 'a', 's', 'o', 'n', 'l', 'e', 's', 's', 'n', 'e', 's', 's', 'e', 's',
-                        0x10, 's', 'e', 'm', 'i', 'p', 'a', 't', 'h', 'o', 'l', 'o', 'g', 'i', 'c', 'a', 'l',
-                        0x10, 't', 'o', 'm', 'f', 'o', 'o', 'l', 'i', 's', 'h', 'n', 'e', 's', 's', 'e', 's',
-                        0x10, 'u', 'n', 'd', 'e', 'r', 'c', 'a', 'p', 'i', 't', 'a', 'l', 'i', 'z', 'e', 'd',
-                        0x10, 'v', 'e', 'c', 't', 'o', 'r', 'c', 'a', 'r', 'd', 'i', 'o', 'g', 'r', 'a', 'm',
-                        0x10, 'w', 'e', 'a', 't', 'h', 'e', 'r', 'p', 'r', 'o', 'o', 'f', 'n', 'e', 's', 's',
+                        0x0F, 'r', 'e', 'a', 's', 'o', 'n', 'l', 'e', 's', 's', 'n', 'e', 's', 's', 'e',
                         0x00,
         /* A */         0x00, 0x01,
         /* IN */        0x00, 0x01
@@ -823,12 +818,12 @@ TEST(packet_query_single_long_domain) {
         ASSERT_EQ(dns_question_size(packet->question), 1u);
         ASSERT_EQ(dns_answer_size(packet->answer), 0u);
 
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A,
-                "absorptivenesses.calligraphically.deacidifications.ecophysiological."
-                "falsifiabilities.heterochromatism.icositetrahedron.journalistically."
-                "kinaesthetically.lactovegetarians.misinterpretable.nitrosylsulfuric."
-                "objectlessnesses.partridgeberries.reasonlessnesses.semipathological."
-                "tomfoolishnesses.undercapitalized.vectorcardiogram.weatherproofness");
+        key = dns_resource_key_new(
+                        DNS_CLASS_IN, DNS_TYPE_A,
+                        "absorptivenesses.calligraphically.deacidifications.ecophysiological."
+                        "falsifiabilities.heterochromatism.icositetrahedron.journalistically."
+                        "kinaesthetically.lactovegetarians.misinterpretable.nitrosylsulfuric."
+                        "objectlessnesses.partridgeberries.reasonlessnesse");
 
         ASSERT_NOT_NULL(key);
         ASSERT_TRUE(dns_question_contains_key(packet->question, key));
@@ -4775,6 +4770,80 @@ TEST(format_dns_svc_param_key) {
 
         str = FORMAT_DNS_SVC_PARAM_KEY(DNS_SVC_PARAM_KEY_OHTTP);
         ASSERT_STREQ(str, "ohttp");
+}
+
+TEST(overlong_domain) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+
+        const uint8_t data[] = {
+                0x00, 0x42,     0x00, 0x00,
+                0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                0x00,
+                0x00, DNS_TYPE_A,
+                0x00, DNS_CLASS_IN,
+        };
+
+        ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
+        ASSERT_OK(dns_packet_validate_query(packet));
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        ASSERT_ERROR(dns_packet_read_key(packet, &key, NULL, NULL), EBADMSG);
+
+        const uint8_t data2[] = {
+                0x00, 0x42,     0x00, 0x00,
+                0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                62, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1',
+                0x00,
+                0x00, DNS_TYPE_A,
+                0x00, DNS_CLASS_IN,
+        };
+
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+        ASSERT_OK(dns_packet_append_blob(packet, data2, sizeof(data2), NULL));
+        ASSERT_OK(dns_packet_validate_query(packet));
+        ASSERT_ERROR(dns_packet_read_key(packet, &key, NULL, NULL), EBADMSG);
+
+        const uint8_t data3[] = {
+                0x00, 0x42,     0x00, 0x00,
+                0x00, 0x01,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00,
+
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                63, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2',
+                61, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+                0x00,
+                0x00, DNS_TYPE_A,
+                0x00, DNS_CLASS_IN,
+        };
+
+        packet = dns_packet_unref(packet);
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+        dns_packet_truncate(packet, 0);
+        ASSERT_OK(dns_packet_append_blob(packet, data3, sizeof(data3), NULL));
+        ASSERT_OK(dns_packet_validate_query(packet));
+        ASSERT_OK(dns_packet_read_key(packet, &key, NULL, NULL));
+
+        ASSERT_STREQ(dns_resource_key_name(key),
+                     "012345678901234567890123456789012345678901234567890123456789012."
+                     "012345678901234567890123456789012345678901234567890123456789012."
+                     "012345678901234567890123456789012345678901234567890123456789012."
+                     "0123456789012345678901234567890123456789012345678901234567890");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
