@@ -1551,7 +1551,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = deserialize_dnr(&lease->dnr, dnr);
                 if (r < 0)
                         log_debug_errno(r, "Failed to deserialize DNR servers %s, ignoring: %m", dnr);
-                lease->n_dnr = r;
+                else
+                        lease->n_dnr = r;
         }
 
         if (ntp) {
