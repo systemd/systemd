@@ -628,6 +628,8 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
                 r = lease_parse_dns_name(option + offset, ilen, &res.auth_name);
                 if (r < 0)
                         return r;
+                if (!dns_name_is_valid_ldh(res.auth_name))
+                        return -EBADMSG;
                 if (dns_name_is_root(res.auth_name))
                         return -EBADMSG;
                 offset += ilen;

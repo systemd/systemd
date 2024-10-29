@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dns-domain.h"
 #include "network-common.h"
 #include "sort-util.h"
 #include "strv.h"
@@ -465,6 +466,8 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
         r = dhcp6_option_parse_domainname(optval + offset, ilen, &res.auth_name);
         if (r < 0)
                 return r;
+        if (!dns_name_is_valid_ldh(res.auth_name))
+                return -EBADMSG;
         offset += ilen;
 
         /* RFC9463 § 3.1.6: adn only mode */
