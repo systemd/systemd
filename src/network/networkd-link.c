@@ -640,15 +640,23 @@ static int link_request_static_configs(Link *link) {
         return 0;
 }
 
-static int link_request_stacked_netdevs(Link *link) {
+int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type) {
         NetDev *netdev;
         int r;
 
         assert(link);
 
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        assert(link->network);
+
         link->stacked_netdevs_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
+                if (!netdev_needs_reconfigure(netdev, type))
+                        continue;
+
                 r = link_request_stacked_netdev(link, netdev);
                 if (r < 0)
                         return r;
@@ -773,6 +781,10 @@ int link_ipv6ll_gained(Link *link) {
                 return 0;
 
         r = link_acquire_dynamic_ipv6_conf(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_IPV6LL);
         if (r < 0)
                 return r;
 
@@ -1188,7 +1200,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_stacked_netdevs(link);
+        r = link_request_stacked_netdevs(link, _NETDEV_LOCAL_ADDRESS_TYPE_INVALID);
         if (r < 0)
                 return r;
 

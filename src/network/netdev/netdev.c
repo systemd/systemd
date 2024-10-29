@@ -33,6 +33,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-state-file.h"
 #include "networkd-sriov.h"
 #include "nlmon.h"
 #include "path-lookup.h"
@@ -241,6 +242,7 @@ static NetDev* netdev_free(NetDev *netdev) {
         condition_free_list(netdev->conditions);
         free(netdev->filename);
         strv_free(netdev->dropins);
+        hashmap_free(netdev->stats_by_path);
         free(netdev->description);
         free(netdev->ifname);
 
@@ -273,18 +275,17 @@ void netdev_drop(NetDev *netdev) {
         netdev_detach(netdev);
 }
 
-int netdev_attach_name(NetDev *netdev, const char *name) {
+static int netdev_attach_name_full(NetDev *netdev, const char *name, Hashmap **netdevs) {
         int r;
 
         assert(netdev);
-        assert(netdev->manager);
         assert(name);
 
-        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, name, netdev);
+        r = hashmap_ensure_put(netdevs, &string_hash_ops, name, netdev);
         if (r == -ENOMEM)
                 return log_oom();
         if (r == -EEXIST) {
-                NetDev *n = hashmap_get(netdev->manager->netdevs, name);
+                NetDev *n = hashmap_get(*netdevs, name);
 
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
@@ -297,6 +298,13 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         assert(r > 0);
 
         return 0;
+}
+
+int netdev_attach_name(NetDev *netdev, const char *name) {
+        assert(netdev);
+        assert(netdev->manager);
+
+        return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
 static int netdev_attach(NetDev *netdev) {
@@ -345,16 +353,16 @@ void link_assign_netdev(Link *link) {
         old = TAKE_PTR(link->netdev);
 
         if (netdev_get(link->manager, link->ifname, &netdev) < 0)
-                return;
+                goto not_found;
 
         int ifindex = NETDEV_VTABLE(netdev)->get_ifindex ?
                 NETDEV_VTABLE(netdev)->get_ifindex(netdev, link->ifname) :
                 netdev->ifindex;
         if (ifindex != link->ifindex)
-                return;
+                goto not_found;
 
         if (NETDEV_VTABLE(netdev)->iftype != link->iftype)
-                return;
+                goto not_found;
 
         if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
                 const char *kind;
@@ -365,13 +373,23 @@ void link_assign_netdev(Link *link) {
                         kind = netdev_kind_to_string(netdev->kind);
 
                 if (!streq_ptr(kind, link->kind))
-                        return;
+                        goto not_found;
         }
 
         link->netdev = netdev_ref(netdev);
 
-        if (netdev != old)
-                log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+        if (netdev == old)
+                return; /* The same NetDev found. */
+
+        log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+        link_dirty(link);
+        return;
+
+not_found:
+
+        if (old)
+                /* Previously assigned NetDev is detached from Manager? Update the state file. */
+                link_dirty(link);
 }
 
 void netdev_enter_failed(NetDev *netdev) {
@@ -605,6 +623,31 @@ finalize:
         return 0;
 }
 
+static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        assert(netdev);
+        assert(hw_addr);
+
+        if (hw_addr->length <= 0)
+                return false;
+
+        if (!NETDEV_VTABLE(netdev)->can_set_mac)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+}
+
+static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
+        assert(netdev);
+
+        if (mtu <= 0)
+                return false;
+
+        if (!NETDEV_VTABLE(netdev)->can_set_mtu)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->can_set_mtu(netdev, mtu);
+}
+
 static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
         int r;
 
@@ -617,14 +660,14 @@ static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message 
         if (r < 0)
                 return r;
 
-        if (hw_addr.length > 0) {
+        if (netdev_can_set_mac(netdev, &hw_addr)) {
                 log_netdev_debug(netdev, "Using MAC address: %s", HW_ADDR_TO_STR(&hw_addr));
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
                 if (r < 0)
                         return r;
         }
 
-        if (netdev->mtu != 0) {
+        if (netdev_can_set_mtu(netdev, netdev->mtu)) {
                 r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
                         return r;
@@ -670,6 +713,7 @@ static int independent_netdev_create(NetDev *netdev) {
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
 
         /* create netdev */
         if (NETDEV_VTABLE(netdev)->create) {
@@ -681,7 +725,7 @@ static int independent_netdev_create(NetDev *netdev) {
                 return 0;
         }
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return r;
 
@@ -710,7 +754,7 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         assert(link);
         assert(req);
 
-        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return r;
 
@@ -755,9 +799,6 @@ static bool link_is_ready_to_create_stacked_netdev(Link *link) {
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
 
-        if (netdev->state != NETDEV_STATE_LOADING)
-                return false;
-
         if (link && !link_is_ready_to_create_stacked_netdev(link))
                 return false;
 
@@ -773,6 +814,9 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
 
         assert(req);
         assert(link);
+
+        if (!netdev_is_managed(netdev))
+                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
 
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
@@ -816,8 +860,8 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         if (!netdev_is_stacked(netdev))
                 return -EINVAL;
 
-        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
-                return 0; /* Already created. */
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         link->stacked_netdevs_created = false;
         r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
@@ -843,6 +887,9 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
 
         assert(!link);
 
+        if (!netdev_is_managed(netdev))
+                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)
                 return r;
@@ -866,6 +913,12 @@ static int netdev_request_to_create(NetDev *netdev) {
         if (netdev_is_stacked(netdev))
                 return 0;
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
+        if (netdev->state != NETDEV_STATE_LOADING)
+                return 0;
+
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r < 0)
                 return r;
@@ -885,21 +938,20 @@ static int netdev_request_to_create(NetDev *netdev) {
         return 0;
 }
 
-int netdev_load_one(Manager *manager, const char *filename) {
+int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         const char *dropin_dirname;
         int r;
 
         assert(manager);
         assert(filename);
+        assert(ret);
 
         r = null_or_empty_path(filename);
         if (r < 0)
                 return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
-        if (r > 0) {
-                log_debug("Skipping empty file: %s", filename);
-                return 0;
-        }
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Skipping empty file: %s", filename);
 
         netdev_raw = new(NetDev, 1);
         if (!netdev_raw)
@@ -924,10 +976,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r; /* config_parse_many() logs internally. */
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(netdev_raw->conditions, environ, NULL, NULL, NULL)) {
-                log_debug("%s: Conditions in the file do not match the system environment, skipping.", filename);
-                return 0;
-        }
+        if (!condition_test_list(netdev_raw->conditions, environ, NULL, NULL, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "%s: Conditions in the file do not match the system environment, skipping.", filename);
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "NetDev has no Kind= configured in \"%s\", ignoring.", filename);
@@ -954,7 +1004,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         netdev,
-                        NULL,
+                        &netdev->stats_by_path,
                         &netdev->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
@@ -970,37 +1020,124 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->filename)
                 return log_oom();
 
-        r = netdev_attach(netdev);
-        if (r < 0)
-                return r;
-
         log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
 
-        r = netdev_request_to_create(netdev);
-        if (r < 0)
-                return r; /* netdev_request_to_create() logs internally. */
-
-        TAKE_PTR(netdev);
+        *ret = TAKE_PTR(netdev);
         return 0;
 }
 
-int netdev_load(Manager *manager, bool reload) {
+int netdev_load(Manager *manager) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
         assert(manager);
 
-        if (!reload)
-                hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
+        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate netdev files: %m");
+
+        STRV_FOREACH(f, files) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+
+                if (netdev_load_one(manager, *f, &netdev) < 0)
+                        continue;
+
+                if (netdev_attach(netdev) < 0)
+                        continue;
+
+                if (netdev_request_to_create(netdev) < 0)
+                        continue;
+
+                TAKE_PTR(netdev);
+        }
+
+        return 0;
+}
+
+int netdev_reload(Manager *manager) {
+        _cleanup_hashmap_free_ Hashmap *new_netdevs = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        assert(manager);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH(f, files)
-                (void) netdev_load_one(manager, *f);
+        STRV_FOREACH(f, files) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+                NetDev *old;
+
+                if (netdev_load_one(manager, *f, &netdev) < 0)
+                        continue;
+
+                if (netdev_get(manager, netdev->ifname, &old) < 0) {
+                        log_netdev_debug(netdev, "Found new .netdev file: %s", netdev->filename);
+
+                        if (netdev_attach_name_full(netdev, netdev->ifname, &new_netdevs) >= 0)
+                                TAKE_PTR(netdev);
+
+                        continue;
+                }
+
+                if (!stats_by_path_equal(netdev->stats_by_path, old->stats_by_path)) {
+                        log_netdev_debug(netdev, "Found updated .netdev file: %s", netdev->filename);
+
+                        /* Copy ifindex. */
+                        netdev->ifindex = old->ifindex;
+
+                        if (netdev_attach_name_full(netdev, netdev->ifname, &new_netdevs) >= 0)
+                                TAKE_PTR(netdev);
+
+                        continue;
+                }
+
+                /* Keep the original object, and drop the new one. */
+                if (netdev_attach_name_full(old, old->ifname, &new_netdevs) >= 0)
+                        netdev_ref(old);
+        }
+
+        /* Detach old NetDev objects from Manager.
+         * Note, the same object may be registered with multiple names, and netdev_detach() may drop multiple
+         * entries. Hence, hashmap_free_with_destructor() cannot be used. */
+        for (NetDev *n; (n = hashmap_first(manager->netdevs)); )
+                netdev_detach(n);
+
+        /* Attach new NetDev objects to Manager. */
+        for (;;) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = hashmap_steal_first(new_netdevs);
+                if (!netdev)
+                        break;
+
+                netdev->manager = manager;
+                if (netdev_attach(netdev) < 0)
+                        continue;
+
+                /* Create a new netdev or update existing netdev, */
+                if (netdev_request_to_create(netdev) < 0)
+                        continue;
+
+                TAKE_PTR(netdev);
+        }
+
+        /* Reassign NetDev objects to Link object. */
+        Link *link;
+        HASHMAP_FOREACH(link, manager->links_by_index)
+                link_assign_netdev(link);
 
         return 0;
+}
+
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type) {
+        assert(netdev);
+        assert(type < _NETDEV_LOCAL_ADDRESS_TYPE_MAX);
+
+        if (type < 0)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->needs_reconfigure &&
+                NETDEV_VTABLE(netdev)->needs_reconfigure(netdev, type);
 }
 
 int config_parse_netdev_kind(
