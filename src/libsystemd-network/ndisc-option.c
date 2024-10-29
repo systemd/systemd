@@ -1358,6 +1358,8 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
         r = ndisc_get_dns_name(opt + off, ilen, &res.auth_name);
         if (r < 0)
                 return r;
+        if (!in_charset(res.auth_name, URI_UNRESERVED))
+                return -EBADMSG;
         if (dns_name_is_root(res.auth_name))
                 return -EBADMSG;
         off += ilen;
