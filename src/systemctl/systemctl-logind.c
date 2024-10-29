@@ -204,6 +204,10 @@ int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        /* root respects inhibitors since v257 but keeps ignoring sessions by default */
+        if (arg_check_inhibitors < 0 && c == 0 && geteuid() == 0)
+                return 0;
+
         /* Check for current sessions */
         sd_get_sessions(&sessions);
         STRV_FOREACH(s, sessions) {
