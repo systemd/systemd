@@ -179,6 +179,12 @@ typedef struct NetDevVTable {
         /* get ifindex of the netdev. */
         int (*get_ifindex)(NetDev *netdev, const char *name);
 
+        /* provides if MAC address can be set. If this is not set, assumed to be yes. */
+        bool (*can_set_mac)(NetDev *netdev, const struct hw_addr_data *hw_addr);
+
+        /* provides if MTU can be set. If this is not set, assumed to be yes. */
+        bool (*can_set_mtu)(NetDev *netdev, uint32_t mtu);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
