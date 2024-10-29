@@ -2508,8 +2508,8 @@ static int help(void) {
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
                "  -N --limit-messages=NUMBER\n"
-               "                           Exit after receiving a number of matches while\n"
-               "                           monitoring\n"
+               "                           Stop monitoring after receiving the specified number\n"
+               "                           of messages\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
