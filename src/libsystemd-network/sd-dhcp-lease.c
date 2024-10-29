@@ -628,6 +628,11 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
                 r = lease_parse_dns_name(option + offset, ilen, &res.auth_name);
                 if (r < 0)
                         return r;
+                r = dns_name_is_valid_ldh(res.auth_name);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        return -EBADMSG;
                 if (dns_name_is_root(res.auth_name))
                         return -EBADMSG;
                 offset += ilen;
@@ -1551,7 +1556,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = deserialize_dnr(&lease->dnr, dnr);
                 if (r < 0)
                         log_debug_errno(r, "Failed to deserialize DNR servers %s, ignoring: %m", dnr);
-                lease->n_dnr = r;
+                else
+                        lease->n_dnr = r;
         }
 
         if (ntp) {
