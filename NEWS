@@ -207,7 +207,7 @@ CHANGES WITH 257 in spe:
         * PID 1 will now optionally load a policy for the new Linux IPE LSM at
           boot.
 
-        * Transient services (like those started with systemd-run) may now
+        * Transient services (StartTransientUnit() D-Bus method) may now
           receive additional, arbitrary file descriptors to pass to executed
           service processes on activation using the new ExtraFileDescriptor=
           unit property.
