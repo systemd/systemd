@@ -378,7 +378,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-progress-bar.c'),
-                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-qrcode-util.c'),
