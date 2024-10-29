@@ -1067,6 +1067,64 @@ DNS=127.0.0.1
             self.show_journal('systemd-timedated.service')
             self.fail(f'Timezone: {tz}, expected: Pacific/Honolulu')
 
+    def test_wait_online_dns(self):
+        ''' test systemd-networkd-wait-online with --dns '''
+        self.start_unit('systemd-resolved')
+        self.write_network(
+            self.config,
+            (
+                '[Match]\n'
+                f'Name={self.iface}\n'
+                '[Network]\n'
+                'DHCP=ipv4\n'
+                'UseDNS=yes\n'
+                'DNSDefaultRoute=yes\n'
+            )
+        )
+        self.create_iface()
+        self.start_unit('systemd-networkd')
+
+        subprocess.check_call(
+            [NETWORKD_WAIT_ONLINE, '--dns', '--interface', self.iface, '--timeout=10']
+        )
+
+    def test_wait_online_dns_expect_timeout(self):
+        ''' test systemd-networkd-wait-online with --dns, and expect timeout '''
+        self.if_router = None
+        self.start_unit('systemd-resolved')
+        self.write_network(
+            '50-dummy.netdev',
+            (
+                '[NetDev]\n'
+                'Name=dummy0\n'
+                'Kind=dummy\n'
+                'MACAddress=12:34:56:78:9a:bc\n'
+            )
+        )
+        self.write_network(
+            '50-dummy.network',
+            (
+                '[Match]\n'
+                'Name=dummy0\n'
+                '[Network]\n'
+                'Address=192.168.42.100/24\n'
+                'DNSDefaultRoute=yes\n'
+            )
+        )
+        self.start_unit('systemd-networkd')
+
+        env = os.environ.copy()
+        env['SYSTEMD_LOG_LEVEL'] = 'debug'
+        env['SYSTEMD_LOG_TARGET'] = 'console'
+        r = subprocess.run(
+            [NETWORKD_WAIT_ONLINE, '--dns', '--interface', 'dummy0', '--timeout=5'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertRegex(r.stderr, rb'No.*DNS server is accessible')
+
 
 class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
     """Test [Match] sections in .network files.
