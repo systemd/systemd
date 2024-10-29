@@ -814,7 +814,7 @@ static int attach_mount_tree(int mount_tree_fd) {
 
         r = move_mount(mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to move mount tree: %m");
+                return log_warning_errno(errno, "Failed to attach mount tree: %m");
 
         return 0;
 }
