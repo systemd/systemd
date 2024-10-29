@@ -809,7 +809,7 @@ static int attach_mount_tree(int mount_tree_fd) {
                                         .propagation = MS_SLAVE,
                                 }, sizeof(struct mount_attr));
         if (r < 0)
-                return log_warning_errno(r, "Failed to change properties mount tree: %m");
+                return log_warning_errno(errno, "Failed to change properties of mount tree: %m");
 
         r = move_mount(mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
