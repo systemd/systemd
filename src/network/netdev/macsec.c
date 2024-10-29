@@ -499,12 +499,6 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
         MACsec *v = MACSEC(netdev);
         int r;
 
-        if (v->port > 0) {
-                r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
-                if (r < 0)
-                        return r;
-        }
-
         if (v->encrypt >= 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_MACSEC_ENCRYPT, v->encrypt);
                 if (r < 0)
@@ -514,6 +508,17 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
         r = sd_netlink_message_append_u8(m, IFLA_MACSEC_ENCODING_SA, v->encoding_an);
         if (r < 0)
                 return r;
+
+        /* The properties below cannot be updated, and the kernel refuse the whole request if one of the
+         * following attributes is set for an existing interface. */
+        if (netdev->ifindex > 0)
+                return 0;
+
+        if (v->port > 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
