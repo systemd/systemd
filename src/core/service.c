@@ -4540,6 +4540,74 @@ static bool service_notify_message_authorized(Service *s, PidRef *pid) {
         }
 }
 
+static int service_notify_message_parse_new_pid(
+                Unit *u,
+                char * const *tags,
+                FDSet *fds,
+                PidRef *ret) {
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        const char *e;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        /* MAINPIDFD=1 always takes precedence */
+        if (strv_contains(tags, "MAINPIDFD=1")) {
+                unsigned n_fds = fdset_size(fds);
+                if (n_fds != 1)
+                        return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Got MAINPIDFD=1 with %s fd, ignoring.", n_fds == 0 ? "no" : "more than one");
+
+                r = pidref_set_pidfd_consume(&pidref, ASSERT_FD(fdset_steal_first(fds)));
+                if (r < 0)
+                        return log_unit_warning_errno(u, r, "Failed to create reference to received new main pidfd: %m");
+
+                goto finish;
+        }
+
+        e = strv_find_startswith(tags, "MAINPID=");
+        if (!e) {
+                *ret = PIDREF_NULL;
+                return 0;
+        }
+
+        r = pidref_set_pidstr(&pidref, e);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to parse MAINPID=%s field in notification message, ignoring: %m", e);
+
+        e = strv_find_startswith(tags, "MAINPIDFDID=");
+        if (!e)
+                goto finish;
+
+        uint64_t pidfd_id;
+
+        r = safe_atou64(e, &pidfd_id);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to parse MAINPIDFDID= in notification message, ignoring: %s", e);
+                goto finish;
+        }
+
+        r = pidref_acquire_pidfd_id(&pidref);
+        if (r < 0) {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_unit_warning_errno(u, r,
+                                               "Failed to acquire pidfd id of process " PID_FMT ", not validating MAINPIDFDID=%" PRIu64 ": %m",
+                                               pidref.pid, pidfd_id);
+                goto finish;
+        }
+
+        if (pidref.fd_id != pidfd_id)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(ESRCH),
+                                              "PIDFD ID of process " PID_FMT " (%" PRIu64 ") mismatches with received MAINPIDFDID=%" PRIu64 ", not changing main PID.",
+                                              pidref.pid, pidref.fd_id, pidfd_id);
+
+finish:
+        *ret = TAKE_PIDREF(pidref);
+        return 1;
+}
+
 static void service_notify_message(
                 Unit *u,
                 PidRef *pidref,
@@ -4565,38 +4633,34 @@ static void service_notify_message(
         bool notify_dbus = false;
         const char *e;
 
-        /* Interpret MAINPID= */
-        e = strv_find_startswith(tags, "MAINPID=");
-        if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
-                        SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                        SERVICE_STOP, SERVICE_STOP_SIGTERM)) {
+        /* Interpret MAINPID= (+ MAINPIDFDID=) / MAINPIDFD=1 */
+        _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
 
-                _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
+        r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
+        if (r > 0 &&
+            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
+                             SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                             SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
+            (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid))) {
 
-                r = pidref_set_pidstr(&new_main_pid, e);
-                if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to parse MAINPID=%s field in notification message, ignoring: %m", e);
-                else if (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid)) {
+                r = service_is_suitable_main_pid(s, &new_main_pid, LOG_WARNING);
+                if (r == 0) {
+                        /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
 
-                        r = service_is_suitable_main_pid(s, &new_main_pid, LOG_WARNING);
-                        if (r == 0) {
-                                /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
+                        if (ucred->uid == 0) {
+                                log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
+                                r = 1;
+                        } else
+                                log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
+                }
+                if (r > 0) {
+                        (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
 
-                                if (ucred->uid == 0) {
-                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
-                                        r = 1;
-                                } else
-                                        log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
-                        }
-                        if (r > 0) {
-                                (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
+                        r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", s->main_pid.pid);
 
-                                r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
-                                if (r < 0)
-                                        log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", s->main_pid.pid);
-
-                                notify_dbus = true;
-                        }
+                        notify_dbus = true;
                 }
         }
 
