@@ -310,5 +310,5 @@ _arguments \
     '--allow-interactive-authorization=[Allow interactive authorization for operation]:boolean:(1 0)' \
     '--timeout=[Maximum time to wait for method call completion and monitoring]:timeout (seconds)' \
     '--augment-creds=[Extend credential data with data read from /proc/$PID]:boolean:(1 0)' \
-    '--num-matches=[Exit after receiving a number of matches while monitoring]:integer' \
+    '(-M --limit-messages)'{-M,--limit-messages}'[Exit after receiving a number of messages while monitoring]:integer' \
     '*::busctl command:_busctl_commands'
