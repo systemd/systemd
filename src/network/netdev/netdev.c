@@ -622,6 +622,31 @@ finalize:
         return 0;
 }
 
+static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        assert(netdev);
+        assert(hw_addr);
+
+        if (hw_addr->length <= 0)
+                return false;
+
+        if (!NETDEV_VTABLE(netdev)->can_set_mac)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+}
+
+static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
+        assert(netdev);
+
+        if (mtu <= 0)
+                return false;
+
+        if (!NETDEV_VTABLE(netdev)->can_set_mtu)
+                return true;
+
+        return NETDEV_VTABLE(netdev)->can_set_mtu(netdev, mtu);
+}
+
 static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
         int r;
 
@@ -634,14 +659,14 @@ static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message 
         if (r < 0)
                 return r;
 
-        if (hw_addr.length > 0) {
+        if (netdev_can_set_mac(netdev, &hw_addr)) {
                 log_netdev_debug(netdev, "Using MAC address: %s", HW_ADDR_TO_STR(&hw_addr));
                 r = netlink_message_append_hw_addr(m, IFLA_ADDRESS, &hw_addr);
                 if (r < 0)
                         return r;
         }
 
-        if (netdev->mtu != 0) {
+        if (netdev_can_set_mtu(netdev, netdev->mtu)) {
                 r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
                         return r;
