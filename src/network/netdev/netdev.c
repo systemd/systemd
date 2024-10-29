@@ -34,6 +34,7 @@
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
 #include "networkd-sriov.h"
+#include "networkd-state-file.h"
 #include "nlmon.h"
 #include "path-lookup.h"
 #include "siphash24.h"
@@ -351,16 +352,16 @@ void link_assign_netdev(Link *link) {
         old = TAKE_PTR(link->netdev);
 
         if (netdev_get(link->manager, link->ifname, &netdev) < 0)
-                return;
+                goto not_found;
 
         int ifindex = NETDEV_VTABLE(netdev)->get_ifindex ?
                 NETDEV_VTABLE(netdev)->get_ifindex(netdev, link->ifname) :
                 netdev->ifindex;
         if (ifindex != link->ifindex)
-                return;
+                goto not_found;
 
         if (NETDEV_VTABLE(netdev)->iftype != link->iftype)
-                return;
+                goto not_found;
 
         if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
                 const char *kind;
@@ -371,13 +372,23 @@ void link_assign_netdev(Link *link) {
                         kind = netdev_kind_to_string(netdev->kind);
 
                 if (!streq_ptr(kind, link->kind))
-                        return;
+                        goto not_found;
         }
 
         link->netdev = netdev_ref(netdev);
 
-        if (netdev != old)
-                log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+        if (netdev == old)
+                return; /* The same NetDev found. */
+
+        log_link_debug(link, "Found matching .netdev file: %s", netdev->filename);
+        link_dirty(link);
+        return;
+
+not_found:
+
+        if (old)
+                /* Previously assigned NetDev is detached from Manager? Update the state file. */
+                link_dirty(link);
 }
 
 void netdev_enter_failed(NetDev *netdev) {
