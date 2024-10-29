@@ -6,6 +6,17 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+systemd-sysusers - <<EOF
+u unlockedtestuser - "An unlocked system user" / /bin/bash
+u! lockedtestuser - "A locked system user" / /bin/bash
+EOF
+
+userdbctl -j user unlockedtestuser
+userdbctl -j user lockedtestuser
+
+assert_eq "$(userdbctl -j user unlockedtestuser | jq .locked)" "null"
+assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
+
 at_exit() {
     set +e
     userdel -r foobarbaz
