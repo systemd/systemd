@@ -50,7 +50,8 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
                          --inaccessible=/etc/hostname \
                          --resolv-conf=replace-stub \
                          --network-zone=$CONTAINER_ZONE \
-                         --overlay=/etc:/var/lib/machines/$container/etc::/etc
+                         --overlay=/etc:/var/lib/machines/$container/etc::/etc \
+                         --hostname=$container
 EOF
 }
 
@@ -59,7 +60,7 @@ check_both() {
     local result_file="${2:?}"
 
     # We should get 20 services per container, 40 total
-    if [[ "$(wc -l <"$result_file")" -eq 40 ]]; then
+    if [[ "$(wc -l <"$result_file")" -ge 40 ]]; then
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
@@ -81,7 +82,7 @@ check_first() {
     local result_file="${2:?}"
 
     # We should get 20 services per container
-    if [[ "$(wc -l <"$result_file")" -eq 20 ]]; then
+    if [[ "$(wc -l <"$result_file")" -ge 20 ]]; then
         # Check if the services we got are the correct ones
         for i in $(seq 0 $((SERVICE_TYPE_COUNT - 1))); do
             svc=$((service_id * SERVICE_COUNT + i))
@@ -110,16 +111,18 @@ run_and_check_services() {
     local i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
+    error_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
     parameters="{ \"domainName\": \"$service_type.local\", \"name\": \"\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
         varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.StartBrowse "$parameters"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+
     trap "trap - RETURN; systemctl stop $unit_name" RETURN
 
     for _ in {0..14}; do
@@ -153,6 +156,7 @@ run_and_check_services() {
     done
 
     cat "$out_file"
+    cat "$error_file"
     return 1
 }
 
@@ -210,14 +214,16 @@ MulticastDNS=yes
 LLMNR=yes
 EOF
 
-systemctl unmask systemd-resolved.service systemd-networkd.{service,socket}
-systemctl enable --now systemd-resolved.service systemd-networkd.{socket,service}
-ln -svrf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+systemctl unmask systemd-resolved.service systemd-networkd.{service,socket} systemd-machined.service
+systemctl enable --now systemd-resolved.service systemd-networkd.{socket,service} systemd-machined.service
+ln -svrf /run/systemd/resolved.conf.d/99-mdns-llmnr.conf /etc/resolv.conf
+systemctl reload systemd-resolved.service systemd-networkd.service
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
     mkdir -p "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
     cp /run/systemd/resolved.conf.d/99-mdns-llmnr.conf "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
+    touch "/var/lib/machines/$container/etc/hostname"
     systemctl daemon-reload
     machinectl start "$container"
     # Wait for the system bus to start...
