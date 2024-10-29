@@ -331,6 +331,11 @@ bool exec_needs_mount_namespace(
         if (exec_context_get_effective_bind_log_sockets(context))
                 return true;
 
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items)
+                        if (FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY))
+                                return true;
+
         return false;
 }
 
@@ -1118,7 +1123,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
 
                 for (size_t i = 0; i < c->directories[dt].n_items; i++) {
-                        fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].items[i].path);
+                        fprintf(f,
+                                "%s%s: %s%s\n",
+                                prefix,
+                                exec_directory_type_to_string(dt),
+                                c->directories[dt].items[i].path,
+                                FLAGS_SET(c->directories[dt].items[i].flags, EXEC_DIRECTORY_READ_ONLY) ? " (ro)" : "");
 
                         STRV_FOREACH(d, c->directories[dt].items[i].symlinks)
                                 fprintf(f, "%s%s: %s:%s\n", prefix, exec_directory_type_symlink_to_string(dt), c->directories[dt].items[i].path, *d);
@@ -2731,7 +2741,7 @@ static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path
         return NULL;
 }
 
-int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) {
+int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, ExecDirectoryFlags flags) {
         _cleanup_strv_free_ char **s = NULL;
         _cleanup_free_ char *p = NULL;
         ExecDirectoryItem *existing;
@@ -2765,6 +2775,7 @@ int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) 
         d->items[d->n_items++] = (ExecDirectoryItem) {
                 .path = TAKE_PTR(p),
                 .symlinks = TAKE_PTR(s),
+                .flags = flags,
         };
 
         return 1; /* new item is added */
@@ -2782,7 +2793,7 @@ void exec_directory_sort(ExecDirectory *d) {
 
         /* Sort the exec directories to make always parent directories processed at first in
          * setup_exec_directory(), e.g., even if StateDirectory=foo/bar foo, we need to create foo at first,
-         * then foo/bar. Also, set .only_create flag if one of the parent directories is contained in the
+         * then foo/bar. Also, set the ONLY_CREATE flag if one of the parent directories is contained in the
          * list. See also comments in setup_exec_directory() and issue #24783. */
 
         if (d->n_items <= 1)
@@ -2793,7 +2804,7 @@ void exec_directory_sort(ExecDirectory *d) {
         for (size_t i = 1; i < d->n_items; i++)
                 for (size_t j = 0; j < i; j++)
                         if (path_startswith(d->items[i].path, d->items[j].path)) {
-                                d->items[i].only_create = true;
+                                d->items[i].flags |= EXEC_DIRECTORY_ONLY_CREATE;
                                 break;
                         }
 }
