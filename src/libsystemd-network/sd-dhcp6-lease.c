@@ -465,6 +465,8 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
         r = dhcp6_option_parse_domainname(optval + offset, ilen, &res.auth_name);
         if (r < 0)
                 return r;
+        if (!in_charset(res.auth_name, URI_UNRESERVED))
+                return -EBADMSG;
         offset += ilen;
 
         /* RFC9463 § 3.1.6: adn only mode */
