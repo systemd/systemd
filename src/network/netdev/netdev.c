@@ -273,18 +273,17 @@ void netdev_drop(NetDev *netdev) {
         netdev_detach(netdev);
 }
 
-int netdev_attach_name(NetDev *netdev, const char *name) {
+static int netdev_attach_name_full(NetDev *netdev, const char *name, Hashmap **netdevs) {
         int r;
 
         assert(netdev);
-        assert(netdev->manager);
         assert(name);
 
-        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, name, netdev);
+        r = hashmap_ensure_put(netdevs, &string_hash_ops, name, netdev);
         if (r == -ENOMEM)
                 return log_oom();
         if (r == -EEXIST) {
-                NetDev *n = hashmap_get(netdev->manager->netdevs, name);
+                NetDev *n = hashmap_get(*netdevs, name);
 
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
@@ -297,6 +296,13 @@ int netdev_attach_name(NetDev *netdev, const char *name) {
         assert(r > 0);
 
         return 0;
+}
+
+int netdev_attach_name(NetDev *netdev, const char *name) {
+        assert(netdev);
+        assert(netdev->manager);
+
+        return netdev_attach_name_full(netdev, name, &netdev->manager->netdevs);
 }
 
 static int netdev_attach(NetDev *netdev) {
@@ -670,6 +676,7 @@ static int independent_netdev_create(NetDev *netdev) {
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
 
         /* create netdev */
         if (NETDEV_VTABLE(netdev)->create) {
@@ -774,6 +781,9 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         assert(req);
         assert(link);
 
+        if (!netdev_is_managed(netdev))
+                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
                 return r;
@@ -819,6 +829,9 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
                 return 0; /* Already created. */
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         link->stacked_netdevs_created = false;
         r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
                                     netdev, (mfree_func_t) netdev_unref,
@@ -843,6 +856,9 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
 
         assert(!link);
 
+        if (!netdev_is_managed(netdev))
+                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)
                 return r;
@@ -865,6 +881,9 @@ static int netdev_request_to_create(NetDev *netdev) {
 
         if (netdev_is_stacked(netdev))
                 return 0;
+
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
 
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r < 0)
