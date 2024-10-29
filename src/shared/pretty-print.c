@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/utsname.h>
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
+#include <sys/utsname.h>
 
 #include "alloc-util.h"
 #include "color-util.h"
@@ -468,6 +469,14 @@ void draw_progress_bar_impl(const char *prefix, double percentage) {
         }
 
         if (!terminal_is_dumb()) {
+                /* Generate the Windows Terminal progress indication OSC sequence here. Most Linux terminals currently
+                 * ignore this. But let's hope this changes one day. For details about this OSC sequence, see:
+                 *
+                 * https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+                 * https://github.com/microsoft/terminal/pull/8055
+                 */
+                fprintf(stderr, "\x1B]9;4;1;%u\a", (unsigned) ceil(percentage));
+
                 size_t cols = columns();
                 size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;
                 size_t length = cols > prefix_width + 6 ? cols - prefix_width - 6 : 0;
@@ -525,7 +534,9 @@ void clear_progress_bar_impl(const char *prefix) {
                               LESS_BY(columns(), 1U)),
                       stderr);
         else
-                fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
+                /* Undo Windows Terminal progress indication again. */
+                fputs("\x1B]9;4;0;;\a"
+                      ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
 }
