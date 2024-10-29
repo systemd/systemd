@@ -152,17 +152,14 @@ static void tar_import_report_progress(TarImport *i) {
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
 
-        if (isatty_safe(STDERR_FILENO)) {
-                _cleanup_free_ char *s = NULL;
-
-                if (asprintf(&s, "%s %s/%s",
-                             special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                             FORMAT_BYTES(i->written_compressed),
-                             FORMAT_BYTES(i->input_stat.st_size)) < 0)
-                        return;
-
-                draw_progress_bar(s, percent);
-        } else
+        if (isatty_safe(STDERR_FILENO))
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s/%s",
+                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                FORMAT_BYTES(i->written_compressed),
+                                FORMAT_BYTES(i->input_stat.st_size));
+        else
                 log_info("Imported %u%%.", percent);
 
         i->last_percent = percent;

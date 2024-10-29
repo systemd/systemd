@@ -548,6 +548,22 @@ void draw_progress_bar(const char *prefix, double percentage) {
         draw_progress_bar_unbuffered(prefix, percentage);
 }
 
+int draw_progress_barf(double percentage, const char *prefixf, ...) {
+        _cleanup_free_ char *s = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, prefixf);
+        r = vasprintf(&s, prefixf, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        draw_progress_bar(s, percentage);
+        return 0;
+}
+
 void clear_progress_bar(const char *prefix) {
         WITH_BUFFERED_STDERR;
         clear_progress_bar_unbuffered(prefix);
