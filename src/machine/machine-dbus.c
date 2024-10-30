@@ -407,7 +407,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         _cleanup_free_ char *command_line = NULL;
         Machine *m = ASSERT_PTR(userdata);
-        const char *p, *unit, *user, *path, *description, *utmp_id;
+        const char *unit, *user, *path, *description, *utmp_id;
         int r;
 
         assert(message);
@@ -484,10 +484,11 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (master < 0)
                 return master;
 
-        p = path_startswith(pty_name, "/dev/pts/");
-        assert(p);
-
-        slave = machine_open_terminal(m, pty_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        /* First try to get an fd for the PTY peer via the new racefree ioctl(), directly. Otherwise go via
+         * joining the namespace, because it goes by path */
+        slave = pty_open_peer_racefree(master, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(slave))
+                slave = machine_open_terminal(m, pty_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (slave < 0)
                 return slave;
 
@@ -505,6 +506,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         /* Name and mode */
+        const char *p = ASSERT_PTR(path_startswith(pty_name, "/dev/pts/"));
+
         unit = strjoina("container-shell@", p, ".service");
         r = sd_bus_message_append(tm, "ss", unit, "fail");
         if (r < 0)
