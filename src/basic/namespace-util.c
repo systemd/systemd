@@ -10,6 +10,8 @@
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_sched.h"
+#include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -501,4 +503,57 @@ int is_our_namespace(int fd, NamespaceType request_type) {
         }
 
         return stat_inode_same(&st_ours, &st_fd);
+}
+
+int is_idmapping_supported(const char *path) {
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        int r;
+
+        assert(path);
+
+        if (!mount_new_api_supported())
+                return false;
+
+        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        userns_fd = userns_acquire(uid_map, gid_map);
+        if (userns_fd < 0) {
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+                        return false;
+                return userns_fd;
+        }
+
+        dir_fd = open(path, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+        if (dir_fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return -errno;
+        }
+
+        mount_fd = open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return -errno;
+        }
+
+        r = mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                          &(struct mount_attr) {
+                                .attr_set = MOUNT_ATTR_IDMAP | MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC | MOUNT_ATTR_RDONLY | MOUNT_ATTR_NODEV,
+                                .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr));
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                        return false;
+                return -errno;
+        }
+
+        return true;
 }
