@@ -44,6 +44,7 @@
 #include "random-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -53,6 +54,17 @@
 #include "utf8.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
+
+static const char* keyring_table[] = {
+        [-KEY_SPEC_THREAD_KEYRING]       = "thread",
+        [-KEY_SPEC_PROCESS_KEYRING]      = "process",
+        [-KEY_SPEC_SESSION_KEYRING]      = "session",
+        [-KEY_SPEC_USER_KEYRING]         = "user",
+        [-KEY_SPEC_USER_SESSION_KEYRING] = "user-session",
+        [-KEY_SPEC_GROUP_KEYRING]        = "group",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(keyring, int);
 
 static int lookup_key(const char *keyname, key_serial_t *ret) {
         key_serial_t serial;
@@ -134,6 +146,38 @@ static usec_t keyring_cache_timeout(void) {
         return saved_timeout;
 }
 
+static key_serial_t keyring_cache_type(void) {
+        static key_serial_t saved_keyring = KEY_SPEC_USER_KEYRING;
+        static bool saved_keyring_set = false;
+        int r;
+
+        if (saved_keyring_set)
+                return saved_keyring;
+
+        const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_KEYRING_TYPE");
+        if (e) {
+                key_serial_t keyring;
+
+                r = safe_atoi32(e, &keyring);
+                if (r >= 0)
+                        if (keyring < 0)
+                                log_debug_errno(keyring, "Invalid value in $SYSTEMD_ASK_PASSWORD_KEYRING_TYPE, ignoring: %s", e);
+                        else
+                                saved_keyring = keyring;
+                else {
+                        keyring = keyring_from_string(e);
+                        if (keyring < 0)
+                                log_debug_errno(keyring, "Invalid value in $SYSTEMD_ASK_PASSWORD_KEYRING_TYPE, ignoring: %s", e);
+                        else
+                                saved_keyring = -keyring;
+                }
+        }
+
+        saved_keyring_set = true;
+
+        return saved_keyring;
+}
+
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
         _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_(erase_and_freep) char *p = NULL;
@@ -168,7 +212,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
          * have multiple passwords. */
         n = LESS_BY(n, (size_t) 1);
 
-        serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
+        serial = add_key("user", keyname, p, n, keyring_cache_type());
         if (serial == -1)
                 return -errno;
 
