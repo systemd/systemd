@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -159,7 +160,8 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         _cleanup_(sd_device_unrefp) sd_device *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
         const char *sas_address = NULL;
         const char *phy_id;
-        const char *phy_count, *sysname;
+        const char *sysname;
+        unsigned num_phys;
         _cleanup_free_ char *lun = NULL;
 
         assert(parent);
@@ -182,11 +184,10 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         /* Get port device */
         if (sd_device_new_from_subsystem_sysname(&port_sasdev, "sas_port", sysname) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(port_sasdev, "num_phys", &phy_count) < 0)
+        if (device_get_sysattr_unsigned(port_sasdev, "num_phys", &num_phys) < 0)
                 return NULL;
-
-        /* Check if we are simple disk */
-        if (!streq(phy_count, "1"))
+        /* Check if this is a wide port (i.e. num_phys is 2 or higher) */
+        if (num_phys > 1)
                 return handle_scsi_sas_wide_port(parent, path);
 
         /* Get connected phy */
