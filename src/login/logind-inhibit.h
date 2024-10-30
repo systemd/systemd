@@ -66,7 +66,7 @@ int inhibitor_create_fifo(Inhibitor *i);
 
 bool inhibitor_is_orphan(Inhibitor *i);
 
-InhibitWhat manager_inhibit_what(Manager *m, bool block);
+InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mode);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, bool block, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
 static inline bool inhibit_what_is_valid(InhibitWhat w) {
