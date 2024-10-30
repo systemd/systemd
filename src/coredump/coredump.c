@@ -1151,8 +1151,14 @@ static int process_socket(int fd) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected file descriptors.");
                         goto finish;
 
-                } else
-                        cmsg_close_all(&mh);
+                }
+                cmsg_close_all(&mh);
+
+                /* Only zero length messages are allowed after the first message that carried a file descriptor. */
+                if (!first) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non zero length.");
+                        goto finish;
+                }
 
                 /* Add trailing NUL byte, in case these are strings */
                 ((char*) iovec.iov_base)[n] = 0;
