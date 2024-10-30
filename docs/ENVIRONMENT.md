@@ -735,3 +735,9 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 * `SYSTEMD_EXIT_ON_IDLE` – Takes a boolean. When false, the exit-on-idle logic
   of these services is disabled, making it easier to debug them.
+
+`systemd-ask-password`:
+
+* `$SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC` - takes a timespan, which controls
+  the expiration time of keys stored in the kernel keyring by
+  `systemd-ask-password`. Defaults to 150 seconds.
