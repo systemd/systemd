@@ -413,14 +413,23 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term>
           <command>reload</command>
         </term>
-        <listitem><para>Reload <filename>.netdev</filename> and <filename>.network</filename> files.
-        If a new <filename>.netdev</filename> file is found, then the corresponding netdev is created.
-        Note that even if an existing <filename>.netdev</filename> is modified or removed,
-        <command>systemd-networkd</command> does not update or remove the netdev.
-        If a new, modified or removed <filename>.network</filename> file is found, then all interfaces
-        which match the file are reconfigured.</para>
+        <listitem>
+          <para>Reload <filename>.netdev</filename> and <filename>.network</filename> files.</para>
 
-        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+          <para>If a new or modified <filename>.netdev</filename> file is found, then the corresponding
+          netdev is created or updated, respectively. Note, if the corresponding interface already exists,
+          then some of new settings may not be applied. E.g., VLAN ID cannot be changed after the interface
+          was created, so changing [VLAN] <varname>Id=</varname> will not take effect if the matching VLAN
+          interface already exists. To apply such settings, the interfaces need to be removed manually before
+          reload. Also note that even if a <filename>.netdev</filename> file is removed,
+          <command>systemd-networkd</command> does not remove the existing netdev corresponding to the file.
+          </para>
+
+          <para>If a new, modified, or removed <filename>.network</filename> file is found, then all
+          interfaces that matched the file are reconfigured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
