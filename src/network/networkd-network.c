@@ -598,22 +598,45 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         return 0;
 }
 
-int network_load(Manager *manager, OrderedHashmap **networks) {
+int network_load(Manager *manager, OrderedHashmap **ret) {
         _cleanup_strv_free_ char **files = NULL;
+        OrderedHashmap *networks = NULL;
         int r;
 
         assert(manager);
-
-        ordered_hashmap_clear_with_destructor(*networks, network_unref);
+        assert(ret);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
         STRV_FOREACH(f, files)
-                (void) network_load_one(manager, networks, *f);
+                (void) network_load_one(manager, &networks, *f);
 
+        *ret = TAKE_PTR(networks);
         return 0;
+}
+
+static bool network_netdev_equal(Network *a, Network *b) {
+        assert(a);
+        assert(b);
+
+        if (a->batadv != b->batadv ||
+            a->bridge != b->bridge ||
+            a->bond != b->bond ||
+            a->vrf != b->vrf ||
+            a->xfrm != b->xfrm)
+                return false;
+
+        if (hashmap_size(a->stacked_netdevs) != hashmap_size(b->stacked_netdevs))
+                return false;
+
+        NetDev *n;
+        HASHMAP_FOREACH(n, a->stacked_netdevs)
+                if (hashmap_get(b->stacked_netdevs, n->ifname) != n)
+                        return false;
+
+        return true;
 }
 
 int network_reload(Manager *manager) {
@@ -630,15 +653,21 @@ int network_reload(Manager *manager) {
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
                 if (r < 0) {
-                        log_debug("Found new .network file: %s", n->filename);
+                        log_debug("%s: Found new .network file.", n->filename);
                         continue;
                 }
 
                 if (!stats_by_path_equal(n->stats_by_path, old->stats_by_path)) {
-                        log_debug("Found updated .network file: %s", n->filename);
+                        log_debug("%s: Found updated .network file.", n->filename);
                         continue;
                 }
 
+                if (!network_netdev_equal(n, old)) {
+                        log_debug("%s: Detected update of referenced .netdev file(s).", n->filename);
+                        continue;
+                }
+
+                /* Nothing updated, use the existing Network object, and drop the new one. */
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
                         goto failure;

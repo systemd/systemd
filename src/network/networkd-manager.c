@@ -777,7 +777,7 @@ int manager_start(Manager *m) {
 int manager_load_config(Manager *m) {
         int r;
 
-        r = netdev_load(m, false);
+        r = netdev_load(m);
         if (r < 0)
                 return r;
 
@@ -1188,7 +1188,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         (void) notify_reloading();
 
-        r = netdev_load(m, /* reload= */ true);
+        r = netdev_load(m);
         if (r < 0)
                 goto finish;
 
