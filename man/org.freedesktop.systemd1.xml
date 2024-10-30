@@ -3263,7 +3263,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b PrivatePIDs = ...;
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3881,8 +3881,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
-
-    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -4872,6 +4870,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       Unlike boolean <varname>ProtectControlGroups</varname>, <varname>ProtectControlGroupsEx</varname>
       is a string type.</para>
+
+      <para><varname>PrivatePIDs</varname> implements the destination parameter of the
+      unit file setting <varname>PrivatePIDs=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note <varname>PrivatePIDs</varname> is a string type to allow adding more values in the future.</para>
     </refsect2>
   </refsect1>
 
@@ -5441,7 +5444,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b PrivatePIDs = ...;
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6071,8 +6074,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
-
-    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -7450,7 +7451,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b PrivatePIDs = ...;
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8006,8 +8007,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
-
-    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 
@@ -9426,7 +9425,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b PrivatePIDs = ...;
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9968,8 +9967,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property PrivateMounts is not documented!-->
 
     <!--property PrivateIPC is not documented!-->
-
-    <!--property PrivatePIDs is not documented!-->
 
     <!--property ProtectHome is not documented!-->
 

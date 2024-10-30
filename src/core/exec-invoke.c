@@ -3289,6 +3289,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
                 .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
@@ -3924,6 +3925,7 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->extension_directories) ||
                context->protect_system != PROTECT_SYSTEM_NO ||
                context->protect_home != PROTECT_HOME_NO ||
+               exec_needs_pid_namespace(context) ||
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
@@ -4914,6 +4916,26 @@ int exec_invoke(
                 }
         }
 
+        /* Unshare a new PID namespace before setting up mounts to ensure /proc is mounted with only processes in PID namespace visible.
+         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
+                r = setup_private_pids(context, params);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_exec_warning_errno(context, params, r,
+                                                "PrivatePIDs=yes is configured, but pid namespace setup failed, ignoring: %m");
+                else if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                }
+
+                if (r > 0)
+                        /* If we're in the parent process, return immediately in order to exit ASAP.
+                                * The rest of the setup will continue in the child process. */
+                        return 0;
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
+
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -4930,27 +4952,6 @@ int exec_invoke(
                                                     error_path ? ": " : "", strempty(error_path));
                 }
         }
-
-        if (context->private_pids) {
-                if (ns_type_supported(NAMESPACE_PID)) {
-                        r = setup_private_pids(context, params);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_exec_warning_errno(context, params, r,
-                                                       "PrivatePIDs=yes is configured, but pid namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
-                        }
-
-                        if (r > 0)
-                                /* If we're in the parent process, return immediately in order to exit ASAP.
-                                 * The rest of the setup will continue in the child process. */
-                                return 0;
-                } else
-                        log_exec_warning(context, params, "PrivatePIDs=yes is configured, but the kernel does not support pid namespaces, ignoring.");
-        }
-
-        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
         if (needs_sandboxing) {
                 r = apply_protect_hostname(context, params, exit_status);

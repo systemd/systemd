@@ -1938,7 +1938,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-private-pids", c->private_pids);
+        r = serialize_item(f, "exec-context-private-pids", private_pids_to_string(c->private_pids));
         if (r < 0)
                 return r;
 
@@ -2827,10 +2827,9 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->private_ipc = r;
                 } else if ((val = startswith(l, "exec-context-private-pids="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->private_pids = r;
+                        c->private_pids = private_pids_from_string(val);
+                        if (c->private_pids < 0)
+                                return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-remove-ipc="))) {
                         r = parse_boolean(val);
                         if (r < 0)
