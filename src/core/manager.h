@@ -319,6 +319,7 @@ struct Manager {
         /* Data specific to the mount subsystem */
         struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
+        sd_event_source *mount_defer_event_source;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
@@ -660,9 +661,10 @@ void unit_defaults_done(UnitDefaults *defaults);
 
 enum {
         /* most important … */
-        EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-11,
-        EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-10,
-        EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-10,
+        EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-12,
+        EVENT_PRIORITY_SWAP_TABLE        = SD_EVENT_PRIORITY_NORMAL-11,
+        EVENT_PRIORITY_MOUNT_TABLE       = SD_EVENT_PRIORITY_NORMAL-11,
+        EVENT_PRIORITY_MOUNT_TABLE_DEFER = SD_EVENT_PRIORITY_NORMAL-10,
         EVENT_PRIORITY_CGROUP_AGENT      = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv1 */
         EVENT_PRIORITY_CGROUP_INOTIFY    = SD_EVENT_PRIORITY_NORMAL-9, /* cgroupv2 */
         EVENT_PRIORITY_CGROUP_OOM        = SD_EVENT_PRIORITY_NORMAL-8,
