@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "build.h"
 #include "efi-loader.h"
 #include "fd-util.h"
@@ -874,8 +875,14 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", resolved_pkey);
         } else if (arg_private_key_source &&
                    IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
+                AskPasswordRequest req = {
+                        .id = "measure-private-key-pin",
+                        .keyring = arg_private_key_source,
+                        .credential = "measure.private-key-pin",
+                };
+
                 r = openssl_load_key_from_token(
-                                arg_private_key_source_type, arg_private_key_source, arg_private_key, &privkey);
+                                arg_private_key_source_type, arg_private_key_source, arg_private_key, &req, &privkey);
                 if (r < 0)
                         return log_error_errno(
                                         r,

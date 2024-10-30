@@ -17,6 +17,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
@@ -8535,6 +8536,12 @@ static int parse_argv(int argc, char *argv[]) {
                         return r;
         } else if (private_key &&
                    IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
+                AskPasswordRequest req = {
+                        .id = "repart-private-key-pin",
+                        .keyring = arg_private_key_source,
+                        .credential = "repart.private-key-pin",
+                };
+
                 /* This must happen after parse_x509_certificate() is called above, otherwise
                  * signing later will get stuck as the parsed private key won't have the
                  * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
@@ -8542,6 +8549,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_private_key_source_type,
                                 arg_private_key_source,
                                 private_key,
+                                &req,
                                 &arg_private_key);
                 if (r < 0)
                         return log_error_errno(
