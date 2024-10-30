@@ -743,3 +743,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   If unset, the default expiration of 150 seconds is used. If set to `0`, keys are
   not cached in the kernel keyring. If set to `infinity`, keys are cached without an
   expiration time in the kernel keyring.
+
+* `SYSTEMD_ASK_PASSWORD_KEYRING_TYPE` - takes a keyring ID or one of `thread`,
+  `process`, `session`, `user`, `user-session`, or `group`. Controls the kernel
+  keyring in which `systemd-ask-password` caches the queried password. Defaults
+  to `user`.
