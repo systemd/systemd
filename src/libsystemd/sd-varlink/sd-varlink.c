@@ -1356,7 +1356,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
                         if (r == -EBADE) {
-                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set: %m",
+                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set.",
                                                   method);
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
