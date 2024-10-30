@@ -5085,21 +5085,19 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
 static int progress_bytes(uint64_t n_bytes, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
-        _cleanup_free_ char *s = NULL;
 
         p->copy_blocks_done += n_bytes;
 
-        if (asprintf(&s, "%s %s %s %s/%s",
-                     strna(p->copy_blocks_path),
-                     special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                     strna(p->definition_path),
-                     FORMAT_BYTES(p->copy_blocks_done),
-                     FORMAT_BYTES(p->copy_blocks_size)) < 0)
-                return log_oom();
+        (void) draw_progress_barf(
+                        p->copy_blocks_done >= p->copy_blocks_size ? 100.0 : /* catch division be zero */
+                        100.0 * (double) p->copy_blocks_done / (double) p->copy_blocks_size,
+                        "%s %s %s %s/%s",
+                        strna(p->copy_blocks_path),
+                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                        strna(p->definition_path),
+                        FORMAT_BYTES(p->copy_blocks_done),
+                        FORMAT_BYTES(p->copy_blocks_size));
 
-        draw_progress_bar(s,
-                          p->copy_blocks_done >= p->copy_blocks_size ? 100.0 : /* catch division be zero */
-                          100.0 * (double) p->copy_blocks_done / (double) p->copy_blocks_size);
         return 0;
 }
 

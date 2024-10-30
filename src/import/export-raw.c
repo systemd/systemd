@@ -124,17 +124,14 @@ static void raw_export_report_progress(RawExport *e) {
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
 
-        if (isatty_safe(STDERR_FILENO)) {
-                _cleanup_free_ char *s = NULL;
-
-                if (asprintf(&s, "%s %s/%s",
-                             special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                             FORMAT_BYTES(e->written_uncompressed),
-                             FORMAT_BYTES(e->st.st_size)) < 0)
-                        return;
-
-                draw_progress_bar(s, percent);
-        } else
+        if (isatty_safe(STDERR_FILENO))
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s/%s",
+                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                FORMAT_BYTES(e->written_uncompressed),
+                                FORMAT_BYTES(e->st.st_size));
+        else
                 log_info("Exported %u%%.", percent);
 
         e->last_percent = percent;
