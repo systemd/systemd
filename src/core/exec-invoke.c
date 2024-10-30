@@ -2474,7 +2474,7 @@ static int setup_exec_directory(
                 } else {
                         _cleanup_free_ char *target = NULL;
 
-                        if (type != EXEC_DIRECTORY_CONFIGURATION &&
+                        if (EXEC_DIRECTORY_TYPE_SHALL_CHOWN(type) &&
                             readlink_and_make_absolute(p, &target) >= 0) {
                                 _cleanup_free_ char *q = NULL, *q_resolved = NULL, *target_resolved = NULL;
 
@@ -2526,7 +2526,7 @@ static int setup_exec_directory(
                                 if (r != -EEXIST)
                                         goto fail;
 
-                                if (type == EXEC_DIRECTORY_CONFIGURATION) {
+                                if (!EXEC_DIRECTORY_TYPE_SHALL_CHOWN(type)) {
                                         struct stat st;
 
                                         /* Don't change the owner/access mode of the configuration directory,
@@ -3636,7 +3636,8 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
          * directories. */
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                if (t == EXEC_DIRECTORY_CONFIGURATION)
+
+                if (!EXEC_DIRECTORY_TYPE_SHALL_CHOWN(t))
                         continue;
 
                 if (!p->prefix[t])
