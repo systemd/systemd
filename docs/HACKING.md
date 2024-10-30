@@ -80,9 +80,9 @@ choose the right one depending on the distribution of the container or virtual
 machine):
 
 ```sh
-mkosi -t none && mkosi ssh dnf upgrade --disablerepo="*" --assumeyes "/work/build/*.rpm" # CentOS/Fedora
-mkosi -t none && mkosi ssh apt-get install "/work/build/*.deb" # Debian/Ubuntu
-mkosi -t none && mkosi ssh pacman --upgrade --needed --noconfirm "/work/build/*.pkg.tar" # Arch Linux
+mkosi -t none && mkosi ssh dnf upgrade --disablerepo="*" --assumeyes "/work/build/*.rpm"             # CentOS/Fedora
+mkosi -t none && mkosi ssh apt-get install "/work/build/*.deb"                                       # Debian/Ubuntu
+mkosi -t none && mkosi ssh pacman --upgrade --needed --noconfirm "/work/build/*.pkg.tar"             # Arch Linux
 mkosi -t none && mkosi ssh zypper --non-interactive install --allow-unsigned-rpm "/work/build/*.rpm" # OpenSUSE
 ```
 
