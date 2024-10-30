@@ -1926,14 +1926,14 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ 0,
                         &vector);
-        if (vector.memory_size != sizeof(SD_MAGIC))
+        if (vector.memory_size != sizeof(SD_MAGIC) - 1)
                 return false;
 
         err = file_handle_read(handle, vector.file_offset, vector.file_size, &content, &read);
         if (err != EFI_SUCCESS || vector.file_size != read)
                 return false;
 
-        return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
+        return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC) - 1) == 0;
 }
 
 static BootEntry* config_add_entry_loader_auto(
