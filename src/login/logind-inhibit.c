@@ -363,16 +363,14 @@ bool inhibitor_is_orphan(Inhibitor *i) {
         return false;
 }
 
-InhibitWhat manager_inhibit_what(Manager *m, bool block) {
+InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mode) {
         Inhibitor *i;
         InhibitWhat what = 0;
 
         assert(m);
 
         HASHMAP_FOREACH(i, m->inhibitors)
-                if (i->started &&
-                    ((!block && i->mode == INHIBIT_DELAY) ||
-                     (block && IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK))))
+                if (i->started && i->mode == mode)
                         what |= i->what;
 
         return what;
