@@ -1362,7 +1362,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
                                         r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
                                         if (r < 0)
-                                                return r;
+                                                goto fail;
                                 }
                         } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
@@ -1372,7 +1372,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = sd_varlink_error_invalid_parameter_name(v, bad_field);
                                         if (r < 0)
-                                                return r;
+                                                goto fail;
                                 }
                         }
 
@@ -1388,14 +1388,14 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = sd_varlink_error_errno(v, r);
                                         if (r < 0)
-                                                return r;
+                                                goto fail;
                                 }
                         }
                 }
         } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                 r = sd_varlink_errorbo(v, SD_VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)));
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         switch (v->state) {
