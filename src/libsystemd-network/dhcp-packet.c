@@ -14,19 +14,13 @@
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(
+int bootp_message_init(
                 DHCPMessage *message,
                 uint8_t op,
                 uint32_t xid,
                 uint16_t arp_type,
                 uint8_t hlen,
-                const uint8_t *chaddr,
-                uint8_t type,
-                size_t optlen,
-                size_t *optoffset) {
-
-        size_t offset = 0;
-        int r;
+                const uint8_t *chaddr) {
 
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
         assert(chaddr || hlen == 0);
@@ -50,6 +44,27 @@ int dhcp_message_init(
 
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
+
+        return 0;
+}
+
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                uint8_t type,
+                size_t optlen,
+                size_t *optoffset) {
+
+        size_t offset = 0;
+        int r;
+
+        r = bootp_message_init(message, op, xid, arp_type, hlen, chaddr);
+        if (r < 0)
+                return r;
 
         r = dhcp_option_append(message, optlen, &offset, 0,
                                SD_DHCP_OPTION_MESSAGE_TYPE, 1, &type);
