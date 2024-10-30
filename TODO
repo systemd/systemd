@@ -129,6 +129,17 @@ Deprecations and removals:
 
 Features:
 
+* system lsmbpf policy that prohibits creating files owned by "nobody"
+  system-wide
+
+* system lsmpbf policy that prohibits creating or opening device nodes outside
+  of devtmpfs/tmpfs, except if they are the pseudo-devices /dev/null,
+  /dev/zero, /dev/urandom and so on.
+
+* system lsmbpf policy that enforces that block device backed mounts may only
+  be established on top of dm-crypt or dm-verity devices, or an allowlist of
+  file systems (which should probably include vfat, for compat with the ESP)
+
 * $LISTEN_PID, $MAINPID and $SYSTEMD_EXECPID env vars that the service manager
   sets should be augmented with $LISTEN_PIDFDID, $MAINPIDFDID and
   $SYSTEMD_EXECPIDFD (and similar for other env vars we might send).
