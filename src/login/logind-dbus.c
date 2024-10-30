@@ -310,7 +310,14 @@ static int property_get_inhibited(
         assert(bus);
         assert(reply);
 
-        w = manager_inhibit_what(m, /* block= */ streq(property, "BlockInhibited"));
+        if (streq(property, "BlockInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_BLOCK);
+        else if (streq(property, "BlockWeakInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_BLOCK_WEAK);
+        else if (streq(property, "DelayInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_DELAY);
+        else
+                assert_not_reached();
 
         return sd_bus_message_append(reply, "s", inhibit_what_to_string(w));
 }
@@ -3745,6 +3752,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BlockInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("BlockWeakInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DelayInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("InhibitDelayMaxUSec", "t", NULL, offsetof(Manager, inhibit_delay_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UserStopDelayUSec", "t", NULL, offsetof(Manager, user_stop_delay), SD_BUS_VTABLE_PROPERTY_CONST),

@@ -216,6 +216,7 @@ node /org/freedesktop/login1 {
       readonly t IdleSinceHint = ...;
       readonly t IdleSinceHintMonotonic = ...;
       readonly s BlockInhibited = '...';
+      readonly s BlockWeakInhibited = '...';
       readonly s DelayInhibited = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InhibitDelayMaxUSec = ...;
@@ -487,6 +488,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHintMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BlockInhibited"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BlockWeakInhibited"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelayInhibited"/>
 
@@ -805,9 +808,10 @@ node /org/freedesktop/login1 {
       timestamps of the last change of the idle hint boolean, in <constant>CLOCK_REALTIME</constant> and
       <constant>CLOCK_MONOTONIC</constant> timestamps, respectively, in microseconds since the epoch.</para>
 
-      <para>The <varname>BlockInhibited</varname> and <varname>DelayInhibited</varname> properties encode
-      the currently active locks of the respective modes. They are colon separated lists of
-      <literal>shutdown</literal>, <literal>sleep</literal>, and <literal>idle</literal> (see above).</para>
+      <para>The <varname>BlockInhibited</varname>, <varname>BlockWeakInhibited</varname>, and
+      <varname>DelayInhibited</varname> properties encode the currently active locks of the respective
+      modes. They are colon separated lists of <literal>shutdown</literal>, <literal>sleep</literal>, and
+      <literal>idle</literal> (see above).</para>
 
       <para><varname>NCurrentSessions</varname> and <varname>NCurrentInhibitors</varname> contain the number
       of currently registered sessions and inhibitors.</para>
@@ -1634,7 +1638,8 @@ node /org/freedesktop/login1/session/1 {
       <function>ListSessionsEx()</function> were added in version 256.</para>
       <para><varname>HandleSecureAttentionKey</varname>, <function>SecureAttentionKey()</function>,
       <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
-      <varname>CanIdle</varname>, and <varname>CanLock</varname> were added in version 257.</para>
+      <varname>CanIdle</varname>, <varname>CanLock</varname>,
+      and <varname>BlockWeakInhibited</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
