@@ -143,7 +143,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *stream = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         char read_character_buffer = '\0';
         struct winsize w = {
                 .ws_col = 80,
@@ -206,13 +206,15 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = fdopen_independent(fd, "r+", &stream);
+        r = fdopen_independent(fd, "r+", &f);
         if (r < 0) {
                 r = log_error_errno(errno, "Failed to open output file: %m");
                 goto cleanup;
         }
 
-        r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
+        r = print_qrcode_full(f, "Scan the error message",
+                              message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row,
+                              /* check_tty= */ false);
         if (r < 0)
                 log_warning_errno(r, "QR code could not be printed, ignoring: %m");
 
@@ -226,7 +228,7 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = read_one_char(stream, &read_character_buffer, USEC_INFINITY, NULL);
+        r = read_one_char(f, &read_character_buffer, USEC_INFINITY, NULL);
         if (r < 0 && r != -EINTR)
                 log_error_errno(r, "Failed to read character: %m");
 
