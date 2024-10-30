@@ -133,22 +133,25 @@ To build distribution packages for a specific distribution and release without
 building an actual image, the following command can be used:
 
 ```sh
-mkosi -d <distribution> -r <release> -t none -f
+mkosi -d <distribution> -r <release> -t none
 ```
 
-Afterwards the distribution packages will be located in `build/mkosi.output`. To
-also build debuginfo packages, the following command can be used:
+Afterwards the distribution packages will be located in
+`build/mkosi.builddir/<distribution>~<release>~<architecture>/`. To also build
+debuginfo packages, the following command can be used:
 
 ```sh
-mkosi -d <distribution> -r <release> -E WITH_DEBUG=1 -t none -f
+mkosi -d <distribution> -r <release> -E WITH_DEBUG=1 -t none
 ```
 
 To upgrade the systemd packages on the host system to the newer versions built
 by mkosi, run the following:
 
 ```sh
-dnf upgrade build/mkosi.output/*.rpm # Fedora/CentOS
-# TODO: Other distributions
+dnf upgrade build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm                                           # Fedora/CentOS
+apt-get install build/mkosi.builddir/<distribution>~<release>~<architecture>/*.deb                                       # Debian/Ubuntu
+pacman --upgrade --needed --noconfirm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.pkg.tar             # Arch Linux
+zypper --non-interactive install --allow-unsigned-rpm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm # OpenSUSE
 ```
 
 To downgrade back to the old version shipped by the distribution, run the
