@@ -241,6 +241,9 @@ for c in none xz lz4 zstd; do
   cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
 [Remote]
 SplitMode=host
+Compression=zstd
+Compression=xz
+Compression=lz4
 ServerKeyFile=/run/systemd/remote-pki/server.key
 ServerCertificateFile=/run/systemd/remote-pki/server.crt
 TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
@@ -248,8 +251,7 @@ EOF
   cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
 [Upload]
 URL=https://localhost:19532
-Compression=${c}
-CompressionLevel=3
+Compression=${c}:3
 ServerKeyFile=/run/systemd/remote-pki/client.key
 ServerCertificateFile=/run/systemd/remote-pki/client.crt
 TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
