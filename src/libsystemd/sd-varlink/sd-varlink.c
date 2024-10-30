@@ -1361,7 +1361,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
                                         r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
-                                        if (r < 0)
+                                        /* If we didn't manage to enqueue an error response, then fail the
+                                         * connection completely. Otherwise ignore the error from
+                                         * sd_varlink_error() here, it's as it is synthesized from the
+                                         * function's parameters */
+                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
                         } else if (r < 0) {
@@ -1371,7 +1375,8 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                                 if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error_invalid_parameter_name(v, bad_field);
-                                        if (r < 0)
+                                        /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
                         }
@@ -1388,14 +1393,16 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                  * method call remains unanswered. */
                                 if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error_errno(v, r);
-                                        if (r < 0)
+                                        /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
                         }
                 }
         } else if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                 r = sd_varlink_errorbo(v, SD_VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)));
-                if (r < 0)
+                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                         goto fail;
         }
 
@@ -2559,7 +2566,10 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         } else
                 varlink_set_state(v, VARLINK_PROCESSED_METHOD);
 
-        return 1;
+        /* Everything worked. Let's now return the error we got passed as input as negative errno, so that
+         * programs can just do "return sd_bus_error()" and get both: a friendly error reply to clients, and
+         * an error return from the current stack frame. */
+        return sd_varlink_error_to_errno(error_id, parameters);
 }
 
 _public_ int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...) {
