@@ -548,7 +548,14 @@ static int diskseq_should_be_used(
         if (r != -ENOENT)
                 return r;
 
-        return true;
+        /* Even if the property is unspecified, let's ignore MD devices, as if we dissect in an early stage,
+         * the device may not be processed by udevd yet. See issue #32107. */
+        const char *sysname;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        return !startswith(sysname, "md");
 }
 
 static int make_partition_devname(
