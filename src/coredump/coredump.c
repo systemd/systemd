@@ -1092,6 +1092,12 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
+                /* Only zero length messages are allowed after the first message the carried the file descriptor. */
+                if (!first && n > 0) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non zero length.");
+                        goto finish;
+                }
+
                 /* The final zero-length datagram carries the file descriptors and tells us
                  * that we're done. */
                 if (n == 0) {
