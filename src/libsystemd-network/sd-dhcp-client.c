@@ -1601,13 +1601,10 @@ static int client_parse_message(
         lease->next_server = message->siaddr;
         lease->address = message->yiaddr;
 
-        if (client->bootp) {
-                if (!lease->server_address)
-                        lease->server_address = message->siaddr;
+        if (client->bootp)
                 lease->lifetime = USEC_INFINITY;
-        }
 
-        if (lease->server_address == 0)
+        if (lease->server_address == 0 && !client->bootp)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                              "received lease lacks server address, ignoring.");
 
