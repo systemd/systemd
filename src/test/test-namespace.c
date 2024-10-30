@@ -205,6 +205,14 @@ TEST(protect_kernel_logs) {
         assert_se(wait_for_terminate_and_check("ns-kernellogs", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+TEST(idmapping_supported) {
+        assert_se(is_idmapping_supported("/run") >= 0);
+        assert_se(is_idmapping_supported("/var/lib") >= 0);
+        assert_se(is_idmapping_supported("/var/cache") >= 0);
+        assert_se(is_idmapping_supported("/var/log") >= 0);
+        assert_se(is_idmapping_supported("/etc") >= 0);
+}
+
 static int intro(void) {
         if (!have_namespaces())
                 return log_tests_skipped("Don't have namespace support");
