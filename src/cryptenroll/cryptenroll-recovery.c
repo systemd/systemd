@@ -67,7 +67,7 @@ int enroll_recovery(
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        (void) print_qrcode(stderr, "You may optionally scan the recovery key off screen", password);
+        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0) {
                 r = log_oom();
