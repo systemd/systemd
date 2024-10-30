@@ -248,8 +248,7 @@ EOF
   cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
 [Upload]
 URL=https://localhost:19532
-Compression=${c}
-CompressionLevel=3
+Compression=${c}:3
 ServerKeyFile=/run/systemd/remote-pki/client.key
 ServerCertificateFile=/run/systemd/remote-pki/client.crt
 TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
