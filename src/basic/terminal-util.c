@@ -323,7 +323,6 @@ int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage)
 
 int open_terminal(const char *name, int mode) {
         _cleanup_close_ int fd = -EBADF;
-        unsigned c = 0;
 
         /*
          * If a TTY is in the process of being closed opening it might cause EIO. This is horribly awful, but
@@ -336,7 +335,7 @@ int open_terminal(const char *name, int mode) {
         if ((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) != 0)
                 return -EINVAL;
 
-        for (;;) {
+        for (unsigned c = 0;; c++) {
                 fd = open(name, mode, 0);
                 if (fd >= 0)
                         break;
@@ -346,10 +345,9 @@ int open_terminal(const char *name, int mode) {
 
                 /* Max 1s in total */
                 if (c >= 20)
-                        return -errno;
+                        return -EIO;
 
                 (void) usleep_safe(50 * USEC_PER_MSEC);
-                c++;
         }
 
         if (!isatty_safe(fd))
@@ -1296,16 +1294,16 @@ int ptsname_malloc(int fd, char **ret) {
         }
 }
 
-int openpt_allocate(int flags, char **ret_slave) {
+int openpt_allocate(int flags, char **ret_peer_path) {
         _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *p = NULL;
         int r;
 
         fd = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        if (ret_slave) {
+        _cleanup_free_ char *p = NULL;
+        if (ret_peer_path) {
                 r = ptsname_malloc(fd, &p);
                 if (r < 0)
                         return r;
@@ -1317,20 +1315,21 @@ int openpt_allocate(int flags, char **ret_slave) {
         if (unlockpt(fd) < 0)
                 return -errno;
 
-        if (ret_slave)
-                *ret_slave = TAKE_PTR(p);
+        if (ret_peer_path)
+                *ret_peer_path = TAKE_PTR(p);
 
         return TAKE_FD(fd);
 }
 
 static int ptsname_namespace(int pty, char **ret) {
-        int no = -1, r;
+        int no = -1;
+
+        assert(pty >= 0);
 
         /* Like ptsname(), but doesn't assume that the path is
          * accessible in the local namespace. */
 
-        r = ioctl(pty, TIOCGPTN, &no);
-        if (r < 0)
+        if (ioctl(pty, TIOCGPTN, &no) < 0)
                 return -errno;
 
         if (no < 0)
@@ -1342,10 +1341,9 @@ static int ptsname_namespace(int pty, char **ret) {
         return 0;
 }
 
-int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
+int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_peer_path) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t child;
         int r;
 
         assert(pid > 0);
@@ -1354,11 +1352,11 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
         if (r < 0)
                 return r;
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
         r = namespace_fork("(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+                           pidnsfd, mntnsfd, -EBADF, usernsfd, rootfd, /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1376,18 +1374,12 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate_and_check("(sd-openptns)", child, 0);
-        if (r < 0)
-                return r;
-        if (r != EXIT_SUCCESS)
-                return -EIO;
-
         fd = receive_one_fd(pair[0], 0);
         if (fd < 0)
                 return fd;
 
-        if (ret_slave) {
-                r = ptsname_namespace(fd, ret_slave);
+        if (ret_peer_path) {
+                r = ptsname_namespace(fd, ret_peer_path);
                 if (r < 0)
                         return r;
         }
@@ -1398,18 +1390,20 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t child;
         int r;
+
+        assert(pid > 0);
+        assert(name);
 
         r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork("(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
+                           pidnsfd, mntnsfd, -EBADF, usernsfd, rootfd, /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1428,12 +1422,6 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         }
 
         pair[1] = safe_close(pair[1]);
-
-        r = wait_for_terminate_and_check("(sd-terminalns)", child, 0);
-        if (r < 0)
-                return r;
-        if (r != EXIT_SUCCESS)
-                return -EIO;
 
         return receive_one_fd(pair[0], 0);
 }
