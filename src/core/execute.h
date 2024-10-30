@@ -333,6 +333,7 @@ struct ExecContext {
         ProtectControlGroups protect_control_groups;
         ProtectSystem protect_system;
         ProtectHome protect_home;
+        PrivatePIDs private_pids;
         bool protect_hostname;
 
         bool dynamic_user;
@@ -463,6 +464,7 @@ struct ExecParameters {
         char **files_env;
         int user_lookup_fd;
         int handoff_timestamp_fd;
+        int pidref_transport_fd;
 
         int bpf_restrict_fs_map_fd;
 
@@ -621,6 +623,7 @@ ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
+bool exec_needs_pid_namespace(const ExecContext *context);
 
 ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context, const ExecParameters *params);
 bool exec_needs_cgroup_namespace(const ExecContext *context, const ExecParameters *params);
