@@ -2266,3 +2266,59 @@ int terminal_is_pty_fd(int fd) {
 
         return true;
 }
+
+int pty_open_peer_racefree(int fd, int mode) {
+        assert(fd >= 0);
+
+        /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13).
+         *
+         * This is safe to be called on TTYs from other namespaces. */
+
+        if ((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) != 0)
+                return -EINVAL;
+
+        /* This replicates the EIO retry logic of open_terminal() in a modified way. */
+        for (unsigned c = 0;; c++) {
+                int peer_fd = ioctl(fd, TIOCGPTPEER, mode);
+                if (peer_fd >= 0)
+                        return peer_fd;
+
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL) /* new ioctl() is not supported, return a clear error */
+                        return -EOPNOTSUPP;
+
+                if (errno != EIO)
+                        return -errno;
+
+                /* Max 1s in total */
+                if (c >= 20)
+                        return -EIO;
+
+                (void) usleep_safe(50 * USEC_PER_MSEC);
+        }
+}
+
+int pty_open_peer(int fd, int mode) {
+        int r;
+
+        assert(fd >= 0);
+
+        /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13) if it is
+         * available. Otherwise falls back to the POSIX ptsname() + open() logic.
+         *
+         * Because of the fallback path this is not safe to be called on PTYs from other namespaces. (Because
+         * we open the peer PTY name there via a path in the file system.) */
+
+        int peer_fd = pty_open_peer_racefree(fd, mode);
+        if (peer_fd >= 0)
+                return peer_fd;
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(peer_fd))
+                return peer_fd;
+
+        /* The racy fallback path */
+        _cleanup_free_ char *peer_path = NULL;
+        r = ptsname_malloc(fd, &peer_path);
+        if (r < 0)
+                return r;
+
+        return open_terminal(peer_path, mode);
+}

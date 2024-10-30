@@ -291,4 +291,24 @@ TEST(terminal_reset_defensive) {
                 log_notice_errno(r, "Failed to reset terminal: %m");
 }
 
+TEST(pty_open_peer) {
+        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        _cleanup_free_ char *pty_path = NULL;
+
+        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+        assert(pty_fd >= 0);
+        assert(pty_path);
+
+        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        assert(peer_fd >= 0);
+
+        static const char x[] = { 'x', '\n' };
+        assert(write(pty_fd, x, sizeof(x)) == 2);
+
+        char buf[3];
+        assert(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
+        assert(buf[0] == x[0]);
+        assert(buf[1] == x[1]);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
