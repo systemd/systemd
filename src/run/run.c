@@ -1858,11 +1858,11 @@ static void set_window_title(PTYForward *f) {
         (void) pty_forward_set_title_prefix(f, dot);
 }
 
-static int chown_to_capsule(const char *path, const char *capsule) {
+static int fchown_to_capsule(int fd, const char *capsule) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(path);
+        assert(fd >= 0);
         assert(capsule);
 
         p = path_join("/run/capsules/", capsule);
@@ -1877,7 +1877,7 @@ static int chown_to_capsule(const char *path, const char *capsule) {
         if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
                 return -EPERM;
 
-        return chmod_and_chown(path, 0600, st.st_uid, st.st_gid);
+        return fchmod_and_chown(fd, 0600, st.st_uid, st.st_gid);
 }
 
 static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
@@ -1912,7 +1912,7 @@ static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *service = NULL, *pty_path = NULL;
-        _cleanup_close_ int master = -EBADF, slave = -EBADF;
+        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         int r;
 
         assert(bus);
@@ -1922,28 +1922,21 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
-                        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
-                        if (master < 0)
-                                return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
+                        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+                        if (pty_fd < 0)
+                                return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
 
-                        r = ptsname_malloc(master, &pty_path);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine tty name: %m");
+                        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (peer_fd < 0)
+                                return log_error_errno(peer_fd, "Failed to open pty peer: %m");
 
                         if (arg_transport == BUS_TRANSPORT_CAPSULE) {
                                 /* If we are in capsule mode, we must give the capsule UID/GID access to the PTY we just allocated first. */
 
-                                r = chown_to_capsule(pty_path, arg_host);
+                                r = fchown_to_capsule(peer_fd, arg_host);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to chown tty to capsule UID/GID: %m");
                         }
-
-                        if (unlockpt(master) < 0)
-                                return log_error_errno(errno, "Failed to unlock tty: %m");
-
-                        slave = open_terminal(pty_path, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                        if (slave < 0)
-                                return log_error_errno(slave, "Failed to open pty slave: %m");
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
                         _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
@@ -1965,17 +1958,24 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
-                        r = sd_bus_message_read(pty_reply, "hs", &master, &s);
+                        r = sd_bus_message_read(pty_reply, "hs", &pty_fd, &s);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        master = fcntl(master, F_DUPFD_CLOEXEC, 3);
-                        if (master < 0)
+                        pty_fd = fcntl(pty_fd, F_DUPFD_CLOEXEC, 3);
+                        if (pty_fd < 0)
                                 return log_error_errno(errno, "Failed to duplicate master fd: %m");
 
                         pty_path = strdup(s);
                         if (!pty_path)
                                 return log_oom();
+
+                        peer_fd = pty_open_peer_racefree(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(peer_fd))
+                                log_debug_errno(r, "TIOCGPTPEER ioctl not available, falling back to race-ful PTY peer opening: %m");
+                                /* We do not open the peer_fd in this case, we let systemd on the remote side open it instead */
+                        else if (peer_fd < 0)
+                                return log_debug_errno(peer_fd, "Failed to open PTY peer: %m");
 
                         // FIXME: Introduce OpenMachinePTYEx() that accepts ownership/permission as param
                         // and additionally returns the pty fd, for #33216 and #32999
@@ -2005,10 +2005,10 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path, slave);
+        r = make_transient_service_unit(bus, &m, service, pty_path, peer_fd);
         if (r < 0)
                 return r;
-        slave = safe_close(slave);
+        peer_fd = safe_close(peer_fd);
 
         r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
@@ -2066,13 +2066,13 @@ static int start_transient_service(sd_bus *bus) {
                 if (!c.bus_path)
                         return log_oom();
 
-                if (master >= 0) {
+                if (pty_fd >= 0) {
                         (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
                                 log_info("Press ^] three times within 1s to disconnect TTY.");
 
-                        r = pty_forward_new(c.event, master, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c.forward);
+                        r = pty_forward_new(c.event, pty_fd, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, &c.forward);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
