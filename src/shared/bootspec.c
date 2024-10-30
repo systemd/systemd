@@ -1814,7 +1814,7 @@ int show_boot_entry(
 
                 const char *p = e->root ? path_startswith(e->path, e->root) : NULL;
                 if (p) {
-                        text = strjoin(ansi_grey(), e->root, "/", ansi_normal(), "/", p);
+                        text = strjoin(ansi_grey(), e->root, "/", ansi_normal(), p);
                         if (!text)
                                 return log_oom();
                 }
