@@ -1321,12 +1321,16 @@ static int mount_private_apivfs(
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
+                log_debug("Not enough privileges to mount '%s' on '%s', checking if '%s' is a mount point already",
+                          fstype, temporary_mount, entry_path);
 
                 r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
                 if (r > 0)
                         return 0; /* Use the current mount as is. */
+
+                log_debug("'%s' is not a mount point, attempting to bind mount '%s' to '%s'", entry_path, bind_source, entry_path);
 
                 /* We lack permissions to mount a new instance, and it is not already mounted. But we can
                  * access the host's, so as a final fallback bind-mount it to the destination, as most likely
@@ -1348,7 +1352,7 @@ static int mount_private_apivfs(
         /* Then, move the new mount instance. */
         r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype = */ NULL, MS_MOVE, /* opts = */ NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to move mount '%s' to '%s': %m", temporary_mount, entry_path);
 
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
          * where a bunch of files are overmounted, in particular the boot id. */
@@ -2016,7 +2020,8 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_control_groups != PROTECT_CONTROL_GROUPS_NO ||
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
-                p->proc_subset != PROC_SUBSET_ALL;
+                p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_pids != PRIVATE_PIDS_NO;
 }
 
 /* Walk all mount entries and dropping any unused mounts. This affects all
@@ -3321,3 +3326,10 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
+
+static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
+        [PRIVATE_PIDS_NO]  = "no",
+        [PRIVATE_PIDS_YES] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
