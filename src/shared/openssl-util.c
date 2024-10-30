@@ -3,12 +3,14 @@
 #include <endian.h>
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 #if HAVE_OPENSSL
 #  include <openssl/rsa.h>
@@ -18,6 +20,7 @@
 #    include <openssl/engine.h>
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
 REENABLE_WARNING;
 #  endif
 
@@ -1309,10 +1312,63 @@ int pkey_generate_volume_keys(
         }
 }
 
-static int load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret) {
+static int openssl_ask_password_ui_reader(UI *ui, UI_STRING *uis) {
+        int r;
+
+        switch(UI_get_string_type(uis)) {
+        case UIT_PROMPT: {
+                /* If no ask password request was configured use the default openssl UI. */
+                AskPasswordRequest *req = UI_get0_user_data(ui);
+                if (!req)
+                        return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
+
+                req->message = UI_get0_output_string(uis);
+
+                _cleanup_(strv_freep) char **l = NULL;
+                r = ask_password_auto(req, /*until=*/ 0, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to query for recovery PIN: %m");
+                        return 0;
+                }
+
+                if (strv_length(l) != 1) {
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected only a single password/pin.");
+                        return 0;
+                }
+
+                if (UI_set_result(ui, uis, *l) == 0) {
+                        log_openssl_errors("Failed to set user interface result");
+                        return 0;
+                }
+
+                return 1;
+        }
+        default:
+                return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
+        }
+}
+
+static int openssl_ask_password_ui_new(UI_METHOD **ret) {
+        assert(ret);
+
+        UI_METHOD *ui_method = UI_create_method("systemd-ask-password");
+        if (!ui_method)
+                return log_openssl_errors("Failed to initialize openssl user interface");
+
+        if (UI_method_set_reader(ui_method, openssl_ask_password_ui_reader) == 0)
+                return log_openssl_errors("Failed to set openssl user interface reader");
+
+        *ret = TAKE_PTR(ui_method);
+        return 0;
+}
+
+static int load_key_from_provider(const char *provider, const char *private_key_uri, AskPasswordRequest *req, EVP_PKEY **ret) {
+        int r;
 
         assert(provider);
         assert(private_key_uri);
+        assert(req);
+        assert(!req->message);
         assert(ret);
 
 #if OPENSSL_VERSION_MAJOR >= 3
@@ -1323,10 +1379,15 @@ static int load_key_from_provider(const char *provider, const char *private_key_
         if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, "default", /* retain_fallbacks= */ true))
                 return log_openssl_errors("Failed to load OpenSSL provider 'default'");
 
+        _cleanup_(UI_destroy_methodp) UI_METHOD *ui_method = NULL;
+        r = openssl_ask_password_ui_new(&ui_method);
+        if (r < 0)
+                return r;
+
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        /* ui_method= */ NULL,
-                        /* ui_data= */ NULL,
+                        ui_method,
+                        req,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1348,7 +1409,8 @@ static int load_key_from_provider(const char *provider, const char *private_key_
 #endif
 }
 
-static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
+static int load_key_from_engine(const char *engine, const char *private_key_uri, AskPasswordRequest *req, EVP_PKEY **ret) {
+        int r;
 
         assert(engine);
         assert(private_key_uri);
@@ -1363,11 +1425,12 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(
-                        e,
-                        private_key_uri,
-                        /* ui_method= */ NULL,
-                        /* callback_data= */ NULL);
+        _cleanup_(UI_destroy_methodp) UI_METHOD *ui_method = NULL;
+        r = openssl_ask_password_ui_new(&ui_method);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, ui_method, req);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1384,6 +1447,7 @@ int openssl_load_key_from_token(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
                 const char *private_key,
+                AskPasswordRequest *req,
                 EVP_PKEY **ret) {
 
         assert(IN_SET(private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER));
@@ -1393,9 +1457,9 @@ int openssl_load_key_from_token(
         switch (private_key_source_type) {
 
         case OPENSSL_KEY_SOURCE_ENGINE:
-                return load_key_from_engine(private_key_source, private_key, ret);
+                return load_key_from_engine(private_key_source, private_key, req, ret);
         case OPENSSL_KEY_SOURCE_PROVIDER:
-                return load_key_from_provider(private_key_source, private_key, ret);
+                return load_key_from_provider(private_key_source, private_key, req, ret);
         default:
                 assert_not_reached();
         }
