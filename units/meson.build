@@ -641,13 +641,13 @@ units = [
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
         {
-          'file' : 'systemd-sysupdated.service.in',
-          'conditions' : ['ENABLE_SYSUPDATE'],
-          'symlinks' : ['dbus-org.freedesktop.sysupdate1.service'],
-        },
-        {
           'file' : 'systemd-sysupdate.timer',
           'conditions' : ['ENABLE_SYSUPDATE'],
+        },
+        {
+          'file' : 'systemd-sysupdated.service.in',
+          'conditions' : ['ENABLE_SYSUPDATED'],
+          'symlinks' : ['dbus-org.freedesktop.sysupdate1.service'],
         },
         {
           'file' : 'systemd-sysusers.service',
