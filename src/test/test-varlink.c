@@ -33,14 +33,20 @@ static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_va
         int r;
 
         a = sd_json_variant_by_key(parameters, "a");
-        if (!a)
-                return sd_varlink_error(link, "io.test.BadParameters", NULL);
+        if (!a) {
+                r = sd_varlink_error(link, "io.test.BadParameters", NULL);
+                assert_se(r == -EBADR);
+                return r;
+        }
 
         x = sd_json_variant_integer(a);
 
         b = sd_json_variant_by_key(parameters, "b");
-        if (!b)
-                return sd_varlink_error(link, "io.test.BadParameters", NULL);
+        if (!b) {
+                r = sd_varlink_error(link, "io.test.BadParameters", NULL);
+                assert_se(r == -EBADR);
+                return r;
+        }
 
         y = sd_json_variant_integer(b);
 
@@ -105,8 +111,11 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         int r;
 
         a = sd_json_variant_by_key(parameters, "fd");
-        if (!a)
-                return sd_varlink_error(link, "io.test.BadParameters", NULL);
+        if (!a) {
+                r = sd_varlink_error_invalid_parameter_name(link, "fd");
+                assert_se(r == -EINVAL);
+                return r;
+        }
 
         ASSERT_STREQ(sd_json_variant_string(a), "whoop");
 
@@ -242,8 +251,7 @@ static void *thread(void *arg) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *i = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *wrong = NULL;
         sd_json_variant *o = NULL, *k = NULL, *j = NULL;
-        const char *error_id;
-        const char *e;
+        const char *error_id, *e;
         int x = 0;
 
         assert_se(sd_json_build(&i, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
@@ -288,6 +296,7 @@ static void *thread(void *arg) {
         assert_se(sd_varlink_push_fd(c, fd3) == 2);
 
         assert_se(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fd", SD_JSON_BUILD_STRING("whoop")))) >= 0);
+        assert_se(!e);
 
         int fd4 = sd_varlink_peek_fd(c, 0);
         int fd5 = sd_varlink_peek_fd(c, 1);
@@ -297,6 +306,9 @@ static void *thread(void *arg) {
 
         test_fd(fd4, "miau", 4);
         test_fd(fd5, "wuff", 4);
+
+        assert_se(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fdx", SD_JSON_BUILD_STRING("whoopx")))) >= 0);
+        ASSERT_TRUE(sd_varlink_error_is_invalid_parameter(e, o, "fd"));
 
         assert_se(sd_varlink_callb(c, "io.test.IDontExist", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("x", SD_JSON_BUILD_REAL(5.5)))) >= 0);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(o, "method")), "io.test.IDontExist");
