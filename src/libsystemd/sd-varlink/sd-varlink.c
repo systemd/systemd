@@ -1369,7 +1369,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
                                                   method, strna(bad_field));
 
-                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error_invalid_parameter_name(v, bad_field);
                                         if (r < 0)
                                                 goto fail;
@@ -1384,15 +1384,16 @@ static int varlink_dispatch_method(sd_varlink *v) {
                         if (r < 0) {
                                 varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
-                                /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+                                /* We got an error back from the callback. Propagate it to the client if the
+                                 * method call remains unanswered. */
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error_errno(v, r);
                                         if (r < 0)
                                                 goto fail;
                                 }
                         }
                 }
-        } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+        } else if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                 r = sd_varlink_errorbo(v, SD_VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)));
                 if (r < 0)
                         goto fail;

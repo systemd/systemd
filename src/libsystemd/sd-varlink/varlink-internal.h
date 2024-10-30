@@ -63,6 +63,13 @@ typedef enum VarlinkState {
                VARLINK_PENDING_METHOD,                  \
                VARLINK_PENDING_METHOD_MORE)
 
+/* Tests whether we are expected to generate a method call reply, i.e. are processing a method call, except
+ * one with the ONEWAY flag set. */
+#define VARLINK_STATE_WANTS_REPLY(state)                \
+        IN_SET(state,                                   \
+               VARLINK_PROCESSING_METHOD,               \
+               VARLINK_PROCESSING_METHOD_MORE)
+
 typedef struct VarlinkJsonQueueItem VarlinkJsonQueueItem;
 
 /* A queued message we shall write into the socket, along with the file descriptors to send at the same
