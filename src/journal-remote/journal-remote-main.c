@@ -33,16 +33,17 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static const char* arg_url = NULL;
-static const char* arg_getter = NULL;
-static const char* arg_listen_raw = NULL;
-static const char* arg_listen_http = NULL;
-static const char* arg_listen_https = NULL;
-static char** arg_files = NULL; /* Do not free this. */
+static const char *arg_url = NULL;
+static const char *arg_getter = NULL;
+static const char *arg_listen_raw = NULL;
+static const char *arg_listen_http = NULL;
+static const char *arg_listen_https = NULL;
+static CompressionOpts **arg_compression = NULL;
+static char **arg_files = NULL; /* Do not free this. */
 static bool arg_compress = true;
 static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
-static char** arg_gnutls_log = NULL;
+static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
 static char *arg_output = NULL;
@@ -66,6 +67,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -153,10 +155,13 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata);
 
-static int request_meta(void **connection_cls, int fd, char *hostname, Compression compression) {
+static int request_meta(void **connection_cls, int fd, char *hostname) {
         RemoteSource *source;
         Writer *writer;
+        char *buf = NULL;
         int r;
+        float q = 1.0;
+        int count = 0;
 
         assert(connection_cls);
         if (*connection_cls)
@@ -175,7 +180,24 @@ static int request_meta(void **connection_cls, int fd, char *hostname, Compressi
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
-        source->compression = compression;
+        for (int i = 0; arg_compression[i] != NULL; i++)
+                count++;
+        if (count > 0) {
+                float step = q / count;
+
+                for (int i = 0; arg_compression[i] != NULL; i++, q-=step) {
+                        if (buf == NULL)
+                                r = asprintf(&buf, "%s;q=%.1f", compression_lowercase_to_string(arg_compression[i]->algorithm), q);
+                        else
+                                r = asprintf(&buf, ",%s;q=%.1f", compression_lowercase_to_string(arg_compression[i]->algorithm), q);
+                        if (r < 0)
+                                return log_oom();
+                        source->encoding = strnappend(source->encoding, buf, r);
+                        free(buf);
+                }
+        }
+
+        source->compression = COMPRESSION_NONE;
         *connection_cls = source;
         return 0;
 }
@@ -263,7 +285,7 @@ static int process_http_upload(
                                     remaining);
         }
 
-        return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.");
+        return mhd_respond_with_encoding(connection, MHD_HTTP_ACCEPTED, source->encoding, "OK.");
 };
 
 static mhd_result request_handler(
@@ -279,7 +301,6 @@ static mhd_result request_handler(
         const char *header;
         int r, code, fd;
         _cleanup_free_ char *hostname = NULL;
-        Compression compression = COMPRESSION_NONE;
         bool chunked = false;
 
         assert(connection);
@@ -289,10 +310,20 @@ static mhd_result request_handler(
 
         log_trace("Handling a connection %s %s %s", method, url, version);
 
-        if (*connection_cls)
+        if (*connection_cls) {
+                RemoteSource *source = (RemoteSource*)*connection_cls;
+                header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
+                if (header) {
+                        Compression c = compression_lowercase_from_string(header);
+                        if (c < 0 || !compression_supported(c))
+                                return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
+                                                    "Unsupported Content-Encoding type: %s", header);
+                        source->compression = c;
+                }
                 return process_http_upload(connection,
                                            upload_data, upload_data_size,
-                                           *connection_cls);
+                                           source);
+        }
 
         if (!streq(method, "POST"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
@@ -304,15 +335,6 @@ static mhd_result request_handler(
         if (!header || !streq(header, "application/vnd.fdo.journal"))
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
-
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Encoding");
-        if (header) {
-                Compression c = compression_lowercase_from_string(header);
-                if (c < 0 || !compression_supported(c))
-                        return mhd_respondf(connection, 0, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
-                                            "Unsupported Content-Encoding type: %s", header);
-                compression = c;
-        }
 
         header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
         if (header) {
@@ -372,7 +394,7 @@ static mhd_result request_handler(
 
         assert(hostname);
 
-        r = request_meta(connection_cls, fd, hostname, compression);
+        r = request_meta(connection_cls, fd, hostname);
         if (r == -ENOMEM)
                 return respond_oom(connection);
         else if (r < 0)
@@ -742,6 +764,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
+                { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 {}
         };
 
