@@ -340,7 +340,7 @@ bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType typ
         if (!context->dynamic_user)
                 return false;
 
-        if (type == EXEC_DIRECTORY_CONFIGURATION)
+        if (!EXEC_DIRECTORY_TYPE_SHALL_CHOWN(type))
                 return false;
 
         if (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
@@ -1639,7 +1639,7 @@ int exec_context_get_clean_directories(
                                 return r;
 
                         /* Also remove private directories unconditionally. */
-                        if (t != EXEC_DIRECTORY_CONFIGURATION) {
+                        if (EXEC_DIRECTORY_TYPE_SHALL_CHOWN(t)) {
                                 j = path_join(prefix[t], "private", i->path);
                                 if (!j)
                                         return -ENOMEM;

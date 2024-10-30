@@ -152,6 +152,12 @@ typedef enum ExecDirectoryType {
         _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
+static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
+        /* Returns true for the ExecDirectoryTypes that we shall chown()ing for the user to. We do this for
+         * all of them, except for configuration */
+        return t >= 0 && t < _EXEC_DIRECTORY_TYPE_MAX && t != EXEC_DIRECTORY_CONFIGURATION;
+}
+
 typedef struct ExecDirectoryItem {
         char *path;
         char **symlinks;
