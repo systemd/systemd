@@ -12,9 +12,9 @@ CHANGES WITH 257 in spe:
           to accidentally delete too many files when using --purge incorrectly.
 
         * The systemd-creds 'cat' verb now expects base64-encoded encrypted
-          credentials for consistency with the 'decrypt' verb and the
+          credentials as input, for consistency with the 'decrypt' verb and the
           LoadCredentialEncrypted= service setting. Previously it could only
-          read raw binary data.
+          read raw, unencoded binary data.
 
         * Support for automatic flushing of the nscd user/group database caches
           has been dropped.
@@ -227,6 +227,20 @@ CHANGES WITH 257 in spe:
           added that complements the existing
           ManagedOOMMemoryPressureDurationLimit= and specifes the PSI
           measurement interval for the specific unit.
+
+        * The sd_notify() protocol has been extended to allow changing the main
+          PID of a process by providing a pidfd of the new main process, or by
+          specifying the pidfd inode number. Previously this was only supported
+          by specifying the classic UNIX PID, which of course is racy.
+
+        * The SocketUser=/SocketGroup= settings of .socket units are now also
+          applied to POSIX message queues.
+
+        * The ProtectControlGroups= unit file setting now supports two
+          additional values: if set to "private" a new cgroup namespace is
+          allocated for the service and cgroupfs mounted accordingly; if set to
+          "strict" a new cgroup namespace is allocated for the service, and
+          cgroupfs is mounted read-only for the service.
 
         systemd-udevd:
 
@@ -546,13 +560,7 @@ CHANGES WITH 257 in spe:
 
         * systemd-nspawn now supports unprivileged FUSE inside containers.
 
-        Miscellaneous:
-
-        * systemctl now supports the --now option with the 'reenable' verb.
-
-        * systemd-mount can now output JSON with a new --json= switch, for use
-          with --list-devices. It also shows the "diskseq" property in the
-          block device list.
+        systemd-importd:
 
         * A new generator sytemd-import-generator has been added to
           synthetisize image download jobs. This provides functionality similar
@@ -563,6 +571,17 @@ CHANGES WITH 257 in spe:
 
         * systemd-importd now provides a Varlink IPC interface, in addition to
           its existing D-Bus IPC interface.
+
+        * The individual import/export tools will now display a nice progress
+          bar when downloading files.
+
+        Miscellaneous:
+
+        * systemctl now supports the --now option with the 'reenable' verb.
+
+        * systemd-mount can now output JSON with a new --json= switch, for use
+          with --list-devices. It also shows the "diskseq" property in the
+          block device list.
 
         * systemd-id128 gained a new 'var-partition-uuid' verb to calculate
           the DPS UUID for /var/ keyed by the local machine-id.
@@ -628,6 +647,30 @@ CHANGES WITH 257 in spe:
           mode until the system is disconnected from a power source.
 
         * A bunch of patches to ease building against musl have been merged.
+
+        * The various components that display progress bars
+          (i.e. systemd-repart, systemd-sysupdate/updatectl, importctl), will
+          now also issue the ANSI sequences for progress reports that Windows
+          Terminal understands. Most Linux terminals currently do not support
+          this sequence (and ignore it), but hopefully this will change one
+          day. The progress information is used to display a nice progress
+          animation in the terminal tab and icon. For details about the ANSI
+          sequence and its effects, see:
+
+          https://github.com/microsoft/terminal/pull/8055
+          https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+
+        * systemd-sysusers is now able to create fully locked accounts. For
+          compatibility it so far created accounts with a locked (i.e. invalid)
+          password, but not marked locked as a whole. With the new "!" modifier
+          for "u" lines, it is now possible to create fully locked
+          accounts. The distinction between accounts with a locked password and
+          fully locked accounts is relevant when considering non-password forms
+          of authentication, i.e. SSH and such. It is strongly recommended to
+          make use of this new feature for almost all system accounts, since
+          they usually do not require (and should not permit) interactive
+          logins. All of systemd's own system users have been changed to be
+          marked as fully locked.
 
         — <place>, <date>
 
