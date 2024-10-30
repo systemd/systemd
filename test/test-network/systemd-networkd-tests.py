@@ -6625,7 +6625,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfKernelReturnsInvalidFlags()
     def test_dhcp_client_ipv4_only(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network',
+                          '25-sit-dhcp4.netdev', '25-sit-dhcp4.network')
 
         self.setup_nftset('addr4', 'ipv4_addr')
         self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
@@ -6638,7 +6639,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
-        self.wait_online('veth99:routable', 'veth-peer:routable')
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'sit-dhcp4:carrier')
         self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         print('## ip address show dev veth99 scope global')
@@ -6710,6 +6711,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertEqual(i['ConfigSource'], 'DHCPv4')
             a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
             self.assertEqual('192.168.5.1', a)
+
+        print('## tunnel')
+        output = check_output('ip -d link show sit-dhcp4')
+        print(output)
+        self.assertRegex(output, fr'sit (ip6ip )?remote any local {address1} dev veth99')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
@@ -6805,6 +6811,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertEqual(i['ConfigSource'], 'DHCPv4')
             a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
             self.assertEqual('192.168.5.1', a)
+
+        print('## tunnel')
+        output = check_output('ip -d link show sit-dhcp4')
+        print(output)
+        self.assertRegex(output, fr'sit (ip6ip )?remote any local {address2} dev veth99')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()

@@ -708,6 +708,14 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static bool tunnel_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type) {
+        assert(type >= 0 && type < _NETDEV_LOCAL_ADDRESS_TYPE_MAX);
+
+        Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
+
+        return t->local_type == type;
+}
+
 static int unset_local(Tunnel *t) {
         assert(t);
 
@@ -1119,6 +1127,7 @@ const NetDevVTable ipip_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_TUNNEL,
 };
 
@@ -1130,6 +1139,7 @@ const NetDevVTable sit_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_SIT,
 };
 
@@ -1141,6 +1151,7 @@ const NetDevVTable vti_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_TUNNEL,
 };
 
@@ -1152,6 +1163,7 @@ const NetDevVTable vti6_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_TUNNEL6,
 };
 
@@ -1163,6 +1175,7 @@ const NetDevVTable gre_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_IPGRE,
 };
 
@@ -1174,6 +1187,7 @@ const NetDevVTable gretap_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
@@ -1186,6 +1200,7 @@ const NetDevVTable ip6gre_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_IP6GRE,
 };
 
@@ -1197,6 +1212,7 @@ const NetDevVTable ip6gretap_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
@@ -1209,6 +1225,7 @@ const NetDevVTable ip6tnl_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_TUNNEL6,
 };
 
@@ -1220,6 +1237,7 @@ const NetDevVTable erspan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
+        .needs_reconfigure = tunnel_needs_reconfigure,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
