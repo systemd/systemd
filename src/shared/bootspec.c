@@ -1215,16 +1215,18 @@ static int boot_entries_find_unified(
                         if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 2))
+                        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                                 return log_oom();
 
-                        if (boot_entry_load_unified(root, j, p, osrelease, profile, cmdline, config->entries + config->n_entries) < 0)
+                        BootEntry *entry = config->entries + config->n_entries;
+
+                        if (boot_entry_load_unified(root, j, p, osrelease, profile, cmdline, entry) < 0)
                                 continue;
 
-                        config->n_entries++;
-
                         /* look for .efi.extra.d */
-                        (void) boot_entries_find_unified_local_addons(config, dirfd(d), de->d_name, full, config->entries + config->n_entries);
+                        (void) boot_entries_find_unified_local_addons(config, dirfd(d), de->d_name, full, entry);
+
+                        config->n_entries++;
                 }
         }
 
