@@ -773,9 +773,12 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
 }
 
 static int change_uid_gid(const Context *context) {
+        int r;
+
+        assert(context);
+
         uid_t uid = context->uid;
         gid_t gid = context->gid;
-        int r;
 
         if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
@@ -1233,7 +1236,7 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, int mounts
                                          * what we want to send, and the second one contains
                                          * the trailing dots. */
                                         copy[0] = iovw->iovec[i];
-                                        copy[1] = IOVEC_MAKE(((char[]){'.', '.', '.'}), 3);
+                                        copy[1] = IOVEC_MAKE(((const char[]){'.', '.', '.'}), 3);
 
                                         mh.msg_iov = copy;
                                         mh.msg_iovlen = 2;
@@ -1265,9 +1268,7 @@ static int gather_pid_metadata_from_argv(
                 Context *context,
                 int argc, char **argv) {
 
-        _cleanup_free_ char *free_timestamp = NULL;
         int r, signo;
-        char *t;
 
         assert(iovw);
         assert(context);
@@ -1281,8 +1282,8 @@ static int gather_pid_metadata_from_argv(
                                        argc, _META_ARGV_MAX);
 
         for (int i = 0; i < _META_ARGV_MAX; i++) {
-
-                t = argv[i];
+                _cleanup_free_ char *buf = NULL;
+                const char *t = argv[i];
 
                 switch (i) {
 
@@ -1291,9 +1292,11 @@ static int gather_pid_metadata_from_argv(
                          * zeroes, so that the kernel-supplied 1s granularity timestamps
                          * becomes 1μs granularity, i.e. the granularity systemd usually
                          * operates in. */
-                        t = free_timestamp = strjoin(argv[i], "000000");
-                        if (!t)
+                        buf = strjoin(argv[i], "000000");
+                        if (!buf)
                                 return log_oom();
+
+                        t = buf;
                         break;
 
                 case META_ARGV_SIGNAL:
@@ -1432,7 +1435,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         return save_context(context, iovw);
 }
 
-static int send_ucred(int transport_fd, struct ucred *ucred) {
+static int send_ucred(int transport_fd, const struct ucred *ucred) {
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control = {};
         struct msghdr mh = {
                 .msg_control = &control,
@@ -1441,6 +1444,7 @@ static int send_ucred(int transport_fd, struct ucred *ucred) {
         struct cmsghdr *cmsg;
 
         assert(transport_fd >= 0);
+        assert(ucred);
 
         cmsg = CMSG_FIRSTHDR(&mh);
         *cmsg = (struct cmsghdr) {
@@ -1463,6 +1467,7 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
         struct ucred *ucred = NULL;
         ssize_t n;
 
+        assert(transport_fd >= 0);
         assert(ret_ucred);
 
         n = recvmsg_safe(transport_fd, &mh, 0);
@@ -1588,12 +1593,12 @@ static int forward_coredump_to_container(Context *context) {
                         char buf[DECIMAL_STR_MAX(pid_t)];
                         const char *t = context->meta[i];
 
+                        /* Patch some of the fields with the translated ucred data */
                         switch (i) {
 
                         case META_ARGV_PID:
                                 xsprintf(buf, PID_FMT, ucred.pid);
                                 t = buf;
-
                                 break;
 
                         case META_ARGV_UID:
@@ -1817,6 +1822,8 @@ static int process_backtrace(int argc, char *argv[]) {
         Context context = {};
         char *message;
         int r;
+
+        assert(argc >= 2);
 
         log_debug("Processing backtrace on stdin...");
 
