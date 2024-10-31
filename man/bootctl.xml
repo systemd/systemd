@@ -526,6 +526,20 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--secure-boot-auto-enroll</option></term>
+        <listitem><para>Configure the ESP for secure boot auto-enrollment when invoking the
+        <command>install</command> command. Specifying this option will make <command>bootctl</command>
+        populate the ESP with signed <literal>PK</literal>, <literal>KEK</literal> and <literal>db</literal>
+        EFI signature lists which will be picked up and enrolled by <command>systemd-boot</command> if secure
+        boot is in setup mode and secure boot auto-enrollment is enabled.</para>
+
+        <para>When specifying this option, a certificate and private key have to be provided as well using
+        the <option>--certificate=</option> and <option>--private-key=</option> options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help"/>
