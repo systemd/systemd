@@ -64,11 +64,17 @@
         "/usr/local/lib/" n "\0"                \
         "/usr/lib/" n "\0"
 
-#define CONF_PATHS(n)                           \
+#define CONF_PATHS_ADMIN(n)                     \
         "/etc/" n,                              \
-        "/run/" n,                              \
+        "/run/" n
+
+#define CONF_PATHS_SYSTEM(n)                    \
         "/usr/local/lib/" n,                    \
         "/usr/lib/" n
+
+#define CONF_PATHS(n)                           \
+        CONF_PATHS_ADMIN(n),                    \
+        CONF_PATHS_SYSTEM(n)
 
 #define CONF_PATHS_STRV(n)                      \
         STRV_MAKE(CONF_PATHS(n))
