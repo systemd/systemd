@@ -143,6 +143,7 @@ typedef struct Context {
         PidRef pidref;
         uid_t uid;
         gid_t gid;
+        int signo;
         bool is_pid1;
         bool is_journald;
         int mount_tree_fd;
@@ -1016,7 +1017,7 @@ static int submit_coredump(
         return 0;
 }
 
-static int context_parse_iovw(Context *context, const struct iovec_wrapper *iovw) {
+static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         const char *unit;
         int r;
 
@@ -1027,9 +1028,8 @@ static int context_parse_iovw(Context *context, const struct iovec_wrapper *iovw
         /* Converts the data in the iovec array iovw into separate fields. Fills in context->meta[] (for
          * which no memory is allocated, it just contains direct pointers into the iovec array memory). */
 
-        for (size_t n = 0; n < iovw->count; n++) {
-                struct iovec *iovec = iovw->iovec + n;
-
+        bool have_signal_name = false;
+        FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
                 for (size_t i = 0; i < ELEMENTSOF(meta_field_names); i++) {
                         /* Note that these strings are NUL terminated, because we made sure that a
                          * trailing NUL byte is in the buffer, though not included in the iov_len
@@ -1043,6 +1043,9 @@ static int context_parse_iovw(Context *context, const struct iovec_wrapper *iovw
                                 break;
                         }
                 }
+
+                have_signal_name = have_signal_name ||
+                        memory_startswith(iovec->iov_base, iovec->iov_len, "COREDUMP_SIGNAL_NAME=");
         }
 
         if (!context->meta[META_ARGV_PID])
@@ -1070,9 +1073,18 @@ static int context_parse_iovw(Context *context, const struct iovec_wrapper *iovw
         if (r < 0)
                 return log_error_errno(r, "Failed to parse GID \"%s\": %m", context->meta[META_ARGV_GID]);
 
+        r = parse_signo(context->meta[META_ARGV_SIGNAL], &context->signo);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse signal number \"%s\", ignoring: %m", context->meta[META_ARGV_SIGNAL]);
+
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
         context->is_journald = streq_ptr(unit, SPECIAL_JOURNALD_SERVICE);
+
+        /* After parsing everything, let's also synthesize a new iovw field for the textual signal name if it
+         * isn't already set. */
+        if (SIGNAL_VALID(context->signo) && !have_signal_name)
+                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
 
         return 0;
 }
@@ -1316,7 +1328,7 @@ static int gather_pid_metadata_from_argv(
                 Context *context,
                 int argc, char **argv) {
 
-        int r, signo;
+        int r;
 
         assert(iovw);
         assert(context);
@@ -1333,9 +1345,7 @@ static int gather_pid_metadata_from_argv(
                 _cleanup_free_ char *buf = NULL;
                 const char *t = argv[i];
 
-                switch (i) {
-
-                case META_ARGV_TIMESTAMP:
+                if (i == META_ARGV_TIMESTAMP) {
                         /* The journal fields contain the timestamp padded with six
                          * zeroes, so that the kernel-supplied 1s granularity timestamps
                          * becomes 1μs granularity, i.e. the granularity systemd usually
@@ -1345,17 +1355,6 @@ static int gather_pid_metadata_from_argv(
                                 return log_oom();
 
                         t = buf;
-                        break;
-
-                case META_ARGV_SIGNAL:
-                        /* For signal, record its pretty name too */
-                        if (safe_atoi(argv[i], &signo) >= 0 && SIGNAL_VALID(signo))
-                                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
-                                                             signal_to_string(signo));
-                        break;
-
-                default:
-                        break;
                 }
 
                 r = iovw_put_string_field(iovw, meta_field_names[i], t);
@@ -1636,7 +1635,6 @@ static int forward_coredump_to_container(Context *context) {
                 (void) iovw_put_string_field(iovw, "COREDUMP_FORWARDED=", "1");
 
                 for (int i = 0; i < _META_ARGV_MAX; i++) {
-                        int signo;
                         char buf[DECIMAL_STR_MAX(pid_t)];
                         const char *t = context->meta[i];
 
@@ -1656,13 +1654,6 @@ static int forward_coredump_to_container(Context *context) {
                         case META_ARGV_GID:
                                 xsprintf(buf, GID_FMT, ucred.gid);
                                 t = buf;
-                                break;
-
-                        case META_ARGV_SIGNAL:
-                                if (safe_atoi(t, &signo) >= 0 && SIGNAL_VALID(signo))
-                                        (void) iovw_put_string_field(iovw,
-                                                                     "COREDUMP_SIGNAL_NAME=SIG",
-                                                                     signal_to_string(signo));
                                 break;
 
                         default:
@@ -1793,7 +1784,7 @@ static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         _cleanup_(context_done) Context context = CONTEXT_NULL;
-        int r, signo;
+        int r;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
          * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
@@ -1824,9 +1815,9 @@ static int process_kernel(int argc, char* argv[]) {
 
         /* Log minimal metadata now, so it is not lost if the system is about to shut down. */
         log_info("Process %s (%s) of user %s terminated abnormally with signal %s/%s, processing...",
-                        context.meta[META_ARGV_PID], context.meta[META_COMM],
-                        context.meta[META_ARGV_UID], context.meta[META_ARGV_SIGNAL],
-                        strna(safe_atoi(context.meta[META_ARGV_SIGNAL], &signo) >= 0 ? signal_to_string(signo) : NULL));
+                 context.meta[META_ARGV_PID], context.meta[META_COMM],
+                 context.meta[META_ARGV_UID], context.meta[META_ARGV_SIGNAL],
+                 signal_to_string(context.signo));
 
         r = in_same_namespace(getpid_cached(), context.pidref.pid, NAMESPACE_PID);
         if (r < 0)
