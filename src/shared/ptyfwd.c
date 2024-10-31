@@ -397,7 +397,7 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         if (!t)
                 return 0;
 
-        _cleanup_free_ char *joined = strjoin("\x1b]0;", f->title_prefix, t, "\a");
+        _cleanup_free_ char *joined = strjoin(ANSI_OSC "0;", f->title_prefix, t, ANSI_ST);
         if (!joined)
                 return -ENOMEM;
 
@@ -507,11 +507,16 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the OSC sequence is over
                                  *
-                                 * There are two allowed ways to end an OSC sequence:
-                                 * BEL '\x07'
-                                 * String Terminator (ST): <Esc>\ - "\x1b\x5c"
-                                 * since we cannot lookahead to see if the Esc is followed by a \
-                                 * we cut a corner here and assume it will be \. */
+                                 * There are three documented ways to end an OSC sequence:
+                                 *     1. BEL aka ^G aka \x07
+                                 *     2. \x9c
+                                 *     3. \x1b\x5c
+                                 * since we cannot look ahead to see if the Esc is followed by a "\"
+                                 * we cut a corner here and assume it will be "\"e.
+                                 *
+                                 * Note that we do not support \x9c here, because that's also a valid UTF8
+                                 * codepoint, and that would create ambiguity. Various terminal emulators
+                                 * similar do not support it. */
 
                                 if (IN_SET(c, '\x07', '\x1b')) {
                                         r = insert_window_title_fix(f, i+1);
@@ -567,7 +572,7 @@ static int do_shovel(PTYForward *f) {
                 if (f->title) {
                         if (!strextend(&f->out_buffer,
                                        ANSI_WINDOW_TITLE_PUSH
-                                       "\x1b]2;", f->title, "\a"))
+                                       ANSI_OSC "2;", f->title, ANSI_ST))
                                 return log_oom();
                 }
 
