@@ -144,6 +144,7 @@ typedef struct Context {
         uid_t uid;
         gid_t gid;
         int signo;
+        uint64_t rlimit;
         bool is_pid1;
         bool is_journald;
         int mount_tree_fd;
@@ -455,7 +456,7 @@ static int save_external_coredump(
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int fd = -EBADF;
-        uint64_t rlimit, process_limit, max_size;
+        uint64_t process_limit, max_size;
         bool truncated, storage_on_tmpfs;
         struct stat st;
         int r;
@@ -468,11 +469,7 @@ static int save_external_coredump(
         assert(ret_compressed_size);
         assert(ret_truncated);
 
-        r = safe_atou64(context->meta[META_ARGV_RLIMIT], &rlimit);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse resource limit '%s': %m",
-                                       context->meta[META_ARGV_RLIMIT]);
-        if (rlimit < page_size())
+        if (context->rlimit < page_size())
                 /* Is coredumping disabled? Then don't bother saving/processing the
                  * coredump. Anything below PAGE_SIZE cannot give a readable coredump
                  * (the kernel uses ELF_EXEC_PAGESIZE which is not easily accessible, but
@@ -487,7 +484,7 @@ static int save_external_coredump(
                                        "Limits for coredump processing and storage are both 0, not dumping core.");
 
         /* Never store more than the process configured, or than we actually shall keep or process */
-        max_size = MIN(rlimit, process_limit);
+        max_size = MIN(context->rlimit, process_limit);
 
         r = make_filename(context, &fn);
         if (r < 0)
@@ -1076,6 +1073,10 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         r = parse_signo(context->meta[META_ARGV_SIGNAL], &context->signo);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse signal number \"%s\", ignoring: %m", context->meta[META_ARGV_SIGNAL]);
+
+        r = safe_atou64(context->meta[META_ARGV_RLIMIT], &context->rlimit);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse resource limit \"%s\", ignoring: %m", context->meta[META_ARGV_RLIMIT]);
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
