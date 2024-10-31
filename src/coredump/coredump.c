@@ -140,14 +140,25 @@ static const char * const meta_field_names[_META_MAX] = {
 };
 
 typedef struct Context {
-        const char *meta[_META_MAX];
-        size_t meta_size[_META_MAX];
-        pid_t pid;
+        PidRef pidref;
         uid_t uid;
         gid_t gid;
         bool is_pid1;
         bool is_journald;
+        int mount_tree_fd;
+
+        /* These point into external memory, are not owned by this object */
+        const char *meta[_META_MAX];
+        size_t meta_size[_META_MAX];
 } Context;
+
+#define CONTEXT_NULL                            \
+        (Context) {                             \
+                .pidref = PIDREF_NULL,          \
+                .uid = UID_INVALID,             \
+                .gid = GID_INVALID,             \
+                .mount_tree_fd = -EBADF,        \
+        }
 
 typedef enum CoredumpStorage {
         COREDUMP_STORAGE_NONE,
@@ -176,6 +187,13 @@ static uint64_t arg_max_use = UINT64_MAX;
 #if HAVE_DWFL_SET_SYSROOT
 static bool arg_enter_namespace = false;
 #endif
+
+static void context_done(Context *c) {
+        assert(c);
+
+        pidref_done(&c->pidref);
+        c->mount_tree_fd = safe_close(c->mount_tree_fd);
+}
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -824,8 +842,7 @@ static int attach_mount_tree(int mount_tree_fd) {
 static int submit_coredump(
                 const Context *context,
                 struct iovec_wrapper *iovw,
-                int input_fd,
-                int mount_tree_fd) {
+                int input_fd) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
@@ -866,7 +883,7 @@ static int submit_coredump(
                 (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
         }
 
-        if (mount_tree_fd >= 0 && attach_mount_tree(mount_tree_fd) >= 0)
+        if (context->mount_tree_fd >= 0 && attach_mount_tree(context->mount_tree_fd) >= 0)
                 root = MOUNT_TREE_ROOT;
 
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
@@ -1007,7 +1024,8 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         assert(iovw);
         assert(iovw->count >= _META_ARGV_MAX);
 
-        /* The context does not allocate any memory on its own */
+        /* Converts the data in the iovec array iovw into separate fields. Fills in context->meta[] (for
+         * which no memory is allocated, it just contains direct pointers into the iovec array memory). */
 
         for (size_t n = 0; n < iovw->count; n++) {
                 struct iovec *iovec = iovw->iovec + n;
@@ -1031,9 +1049,18 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to find the PID of crashing process");
 
-        r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
+        pid_t parsed_pid;
+        r = parse_pid(context->meta[META_ARGV_PID], &parsed_pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+        if (pidref_is_set(&context->pidref)) {
+                if (context->pidref.pid != parsed_pid)
+                        return log_error_errno(r, "Passed PID " PID_FMT " does not match passed " PID_FMT ": %m", parsed_pid, context->pidref.pid);
+        } else {
+                r = pidref_set_pid(&context->pidref, parsed_pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize pidref from pid " PID_FMT ": %m", parsed_pid);
+        }
 
         r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
         if (r < 0)
@@ -1051,10 +1078,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 }
 
 static int process_socket(int fd) {
-        _cleanup_close_ int input_fd = -EBADF, mount_tree_fd = -EBADF;
-        Context context = {};
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_close_ int input_fd = -EBADF;
         struct iovec_wrapper iovw = {};
-        bool first = true;
+        enum {
+                STATE_PAYLOAD,
+                STATE_INPUT_FD_DONE,
+                STATE_PID_FD_DONE,
+        } state = STATE_PAYLOAD;
         int r;
 
         assert(fd >= 0);
@@ -1095,71 +1126,77 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-                /* The final zero-length datagram carries the file descriptors and tells us
-                 * that we're done. */
+                /* The final zero-length datagrams ("sentinels") carry file descriptors and tell us that
+                 * we're done. There are three sentinels: one with just the coredump fd, followed by one with
+                 * the pidfd, and finally one with the mount tree fd. The latter two or the last one may be
+                 * omitted (which is supported for compatibility with older systemd version, in particular to
+                 * facilitate cross-container coredumping). */
                 if (n == 0) {
                         struct cmsghdr *found;
 
-                        if (first) {
-                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-                                if (found) {
-                                        /* This is the first message that carries file descriptors. Maybe
-                                         * there will be one more that actually contains array of two
-                                         * descriptors. */
-                                        assert(input_fd < 0);
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
+                        if (!found) {
+                                /* This is zero length message but it either doesn't carry a single
+                                 * descriptor, or it has more than one. This is a protocol violation so let's
+                                 * bail out.
+                                 *
+                                 * Well, not quite! In practice there's one more complication: EOF on
+                                 * SOCK_SEQPACKET is not distinguishable from a zero length datagram. Hence
+                                 * if we get a zero length datagram without fds we consider it EOF, and
+                                 * that's permissible for the final two fds. Hence let's be strict on the
+                                 * first fd, but lenient on the other two. */
 
-                                        input_fd = *CMSG_TYPED_DATA(found, int);
-                                        first = false;
+                                if (!cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1) && state != STATE_PAYLOAD) /* no fds, and already got the first fd → we are done */
+                                        break;
 
-                                        continue;
-                                }
-
-                                /* This is zero length message but it either doesn't carry a single descriptor,
-                                 * or it has more than one. This is a protocol violation so let's bail out. */
                                 cmsg_close_all(&mh);
                                 r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Received zero length message with zero or more than one file descriptor(s).");
+                                                    "Received zero length message with zero or more than one file descriptor(s), expected one.");
                                 goto finish;
                         }
 
-                        /* Second zero length message might carry two file descriptors, coredump fd and mount tree fd. */
-                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
-                        if (found) {
-                                int fds[2] = EBADF_PAIR;
+                        switch (state) {
 
-                                memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
+                        case STATE_PAYLOAD:
+                                assert(input_fd < 0);
+                                input_fd = *CMSG_TYPED_DATA(found, int);
+                                state = STATE_INPUT_FD_DONE;
+                                continue;
 
-                                assert(mount_tree_fd < 0);
-                                assert(input_fd >= 0);
+                        case STATE_INPUT_FD_DONE:
+                                assert(!pidref_is_set(&context.pidref));
 
-                                /* Let's close input fd we got in the previous iteration. */
-                                safe_close(input_fd);
+                                r = pidref_set_pidfd_consume(&context.pidref, *CMSG_TYPED_DATA(found, int));
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to initialize pidref: %m");
+                                        goto finish;
+                                }
 
-                                input_fd = fds[0];
-                                mount_tree_fd = fds[1];
+                                state = STATE_PID_FD_DONE;
+                                continue;
 
-                                /* We have all FDs we need so let's take a shortcut here. */
+                        case STATE_PID_FD_DONE:
+                                assert(context.mount_tree_fd < 0);
+                                context.mount_tree_fd = *CMSG_TYPED_DATA(found, int);
+                                /* We have all FDs we need so we are done. */
                                 break;
                         }
 
-                        /* This is second iteration and we didn't find array of two FDs. */
-                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
-                        cmsg_close_all(&mh);
-
-                        if (!found)
-                                /* Hence we either have no FDs which is OK and we can break. */
-                                break;
-
-                        /* Or we have some other number of FDs and somebody is playing games with us. */
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected file descriptors.");
-                        goto finish;
-
+                        break;
                 }
+
                 cmsg_close_all(&mh);
 
                 /* Only zero length messages are allowed after the first message that carried a file descriptor. */
-                if (!first) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non zero length.");
+                if (state != STATE_PAYLOAD) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non-zero length.");
+                        goto finish;
+                }
+
+                /* Payload messages should not carry fds */
+                if (cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1)) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                            "Received payload message with file descriptor(s), expected none.");
                         goto finish;
                 }
 
@@ -1190,14 +1227,14 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-        r = submit_coredump(&context, &iovw, input_fd, mount_tree_fd);
+        r = submit_coredump(&context, &iovw, input_fd);
 
 finish:
         iovw_free_contents(&iovw, true);
         return r;
 }
 
-static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, int mounts_fd) {
+static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref, int mount_tree_fd) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -1250,15 +1287,26 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, int mounts
                 }
         }
 
+        /* First sentinel: the coredump fd */
         r = send_one_fd(fd, input_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send coredump fd: %m");
 
-        if (mounts_fd >= 0) {
-                r = send_many_fds(fd, (int[]) { input_fd, mounts_fd }, 2, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to send coredump fds: %m");
-        }
+        /* The optional second sentinel: the pidfd */
+        if (!pidref_is_set(pidref) || pidref->fd < 0) /* If we have no pidfd, stop now */
+                return 0;
+
+        r = send_one_fd(fd, pidref->fd, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send pidfd: %m");
+
+        /* The optional third sentinel: the mount tree fd */
+        if (mount_tree_fd < 0) /* If we have no mount tree, stop now */
+                return 0;
+
+        r = send_one_fd(fd, mount_tree_fd, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send mount tree fd: %m");
 
         return 0;
 }
@@ -1334,7 +1382,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         /* Note that if we fail on oom later on, we do not roll-back changes to the iovec
          * structure. (It remains valid, with the first iovec fields initialized.) */
 
-        pid = context->pid;
+        pid = context->pidref.pid;
 
         /* The following is mandatory */
         r = pid_get_comm(pid, &t);
@@ -1526,13 +1574,15 @@ static int forward_coredump_to_container(Context *context) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t leader_pid, child;
         struct ucred ucred = {
-                .pid = context->pid,
+                .pid = context->pidref.pid,
                 .uid = context->uid,
                 .gid = context->gid,
         };
         int r;
 
-        r = namespace_get_leader(context->pid, NAMESPACE_PID, &leader_pid);
+        assert(context);
+
+        r = namespace_get_leader(context->pidref.pid, NAMESPACE_PID, &leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get namespace leader: %m");
 
@@ -1561,9 +1611,6 @@ static int forward_coredump_to_container(Context *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid);
         if (r == 0) {
-                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
-                Context child_context = {};
-
                 pair[0] = safe_close(pair[0]);
 
                 r = access_nofollow("/run/systemd/coredump", W_OK);
@@ -1578,7 +1625,7 @@ static int forward_coredump_to_container(Context *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                iovw = iovw_new();
+                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = iovw_new();
                 if (!iovw) {
                         log_oom();
                         _exit(EXIT_FAILURE);
@@ -1629,6 +1676,7 @@ static int forward_coredump_to_container(Context *context) {
                         }
                 }
 
+                _cleanup_(context_done) Context child_context = CONTEXT_NULL;
                 r = save_context(&child_context, iovw);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to save context: %m");
@@ -1641,7 +1689,7 @@ static int forward_coredump_to_container(Context *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = send_iovec(iovw, STDIN_FILENO, -EBADF);
+                r = send_iovec(iovw, STDIN_FILENO, &context->pidref, /* mount_tree_fd= */ -EBADF);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
@@ -1744,8 +1792,7 @@ static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
 
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
-        _cleanup_close_ int mount_tree_fd = -EBADF;
-        Context context = {};
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r, signo;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
@@ -1781,7 +1828,7 @@ static int process_kernel(int argc, char* argv[]) {
                         context.meta[META_ARGV_UID], context.meta[META_ARGV_SIGNAL],
                         strna(safe_atoi(context.meta[META_ARGV_SIGNAL], &signo) >= 0 ? signal_to_string(signo) : NULL));
 
-        r = in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID);
+        r = in_same_namespace(getpid_cached(), context.pidref.pid, NAMESPACE_PID);
         if (r < 0)
                 log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
         if (r == 0) {
@@ -1791,7 +1838,7 @@ static int process_kernel(int argc, char* argv[]) {
                 if (r >= 0)
                         return 0;
 
-                r = gather_pid_mount_tree_fd(&context, &mount_tree_fd);
+                r = gather_pid_mount_tree_fd(&context, &context.mount_tree_fd);
                 if (r < 0)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
@@ -1811,15 +1858,15 @@ static int process_kernel(int argc, char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
-                return submit_coredump(&context, iovw, STDIN_FILENO, mount_tree_fd);
+                return submit_coredump(&context, iovw, STDIN_FILENO);
 
-        return send_iovec(iovw, STDIN_FILENO, mount_tree_fd);
+        return send_iovec(iovw, STDIN_FILENO, &context.pidref, context.mount_tree_fd);
 }
 
 static int process_backtrace(int argc, char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
-        Context context = {};
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
         char *message;
         int r;
 
