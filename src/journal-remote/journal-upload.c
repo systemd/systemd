@@ -494,9 +494,7 @@ static void destroy_uploader(Uploader *u) {
 
 static int perform_upload(Uploader *u) {
         CURLcode code;
-        CURLHcode hcode;
         long status;
-        struct curl_header *encoding;
 
         assert(u);
 
@@ -527,9 +525,13 @@ static int perform_upload(Uploader *u) {
                                        "Upload to %s finished with unexpected code %ld: %s",
                                        u->url, status, strna(u->answer));
         else {
+#if LIBCURL_VERSION_NUM >= 0x075300
                 if (u->compression->algorithm == COMPRESSION_NONE) {
                         Compression algorithm;
+                        struct curl_header *encoding;
                         bool found = false;
+                        CURLHcode hcode;
+
                         hcode = curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &encoding);
                         if (hcode == CURLHE_OK && encoding && encoding->value) {
                                 while(encoding->value != NULL && !found) {
@@ -569,6 +571,7 @@ static int perform_upload(Uploader *u) {
                                  }
                         }
                 }
+#endif
 
                 log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
