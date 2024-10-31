@@ -37,10 +37,6 @@
 #define EFI_LOADER_VARIABLE_STR(name) EFI_VENDOR_VARIABLE_STR(EFI_VENDOR_LOADER_STR, name)
 #define EFI_SYSTEMD_VARIABLE_STR(name) EFI_VENDOR_VARIABLE_STR(EFI_VENDOR_SYSTEMD_STR, name)
 
-#define EFI_GLOBAL_VARIABLE(name) EFI_GLOBAL_VARIABLE_STR(STRINGIFY(name))
-#define EFI_LOADER_VARIABLE(name) EFI_LOADER_VARIABLE_STR(STRINGIFY(name))
-#define EFI_SYSTEMD_VARIABLE(name) EFI_SYSTEMD_VARIABLE_STR(STRINGIFY(name))
-
 #define EFIVAR_PATH(variable) "/sys/firmware/efi/efivars/" variable
 #define EFIVAR_CACHE_PATH(variable) "/run/systemd/efivars/" variable
 

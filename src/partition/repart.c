@@ -8587,7 +8587,7 @@ static int parse_efi_variable_factory_reset(void) {
         if (!in_initrd()) /* Never honour EFI variable factory reset request outside of the initrd */
                 return 0;
 
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(FactoryReset), &value);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), &value);
         if (r < 0) {
                 if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
@@ -8608,7 +8608,7 @@ static int parse_efi_variable_factory_reset(void) {
 static int remove_efi_variable_factory_reset(void) {
         int r;
 
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), NULL, 0);
         if (r < 0) {
                 if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
