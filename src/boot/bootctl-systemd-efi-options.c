@@ -34,7 +34,7 @@ int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
                         log_notice("Note: SystemdOptions EFI variable has been modified since boot. New value: %s",
                                    new);
         } else {
-                r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), argv[1]);
+                r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions"), argv[1]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set SystemdOptions EFI variable: %m");
         }

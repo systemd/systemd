@@ -161,7 +161,7 @@ int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (!is_efi_boot())
                 goto skip;
 
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(HibernateLocation), &location_str);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("HibernateLocation"), &location_str);
         if (r == -ENOENT) {
                 log_debug_errno(r, "EFI variable HibernateLocation is not set, skipping.");
                 goto skip;

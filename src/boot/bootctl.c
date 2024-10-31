@@ -149,7 +149,7 @@ static int print_loader_or_stub_path(void) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to determine loader partition UUID: %m");
 
-                r = efi_get_variable_path(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &p);
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("LoaderImageIdentifier"), &p);
                 if (r == -ENOENT)
                         return log_error_errno(r, "No loader EFI binary path passed.");
                 if (r < 0)
@@ -163,7 +163,7 @@ static int print_loader_or_stub_path(void) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to determine stub partition UUID: %m");
 
-                r = efi_get_variable_path(EFI_LOADER_VARIABLE(StubImageIdentifier), &p);
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &p);
                 if (r == -ENOENT)
                         return log_error_errno(r, "No stub EFI binary path passed.");
                 if (r < 0)
