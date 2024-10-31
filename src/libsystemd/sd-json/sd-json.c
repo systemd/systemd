@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -3867,22 +3868,13 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                         l = va_arg(ap, char **);
 
-                        _cleanup_strv_free_ char **el = NULL;
-                        STRV_FOREACH_PAIR(x, y, l) {
-                                char *n = NULL;
+                        if (current->n_suppress == 0) {
+                                _cleanup_strv_free_ char **el = NULL;
 
-                                n = strjoin(*x, "=", *y);
-                                if (!n) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
-
-                                r = strv_consume(&el, n);
+                                r = strv_env_get_merged(l, &el);
                                 if (r < 0)
                                         goto finish;
-                        }
 
-                        if (current->n_suppress == 0) {
                                 r = sd_json_variant_new_array_strv(&add, el);
                                 if (r < 0)
                                         goto finish;
@@ -4541,7 +4533,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_STRV_NON_EMPTY: {
+                case _JSON_BUILD_PAIR_STRV_NON_EMPTY:
+                case _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY: {
                         const char *n;
                         char **l;
 
@@ -4554,11 +4547,19 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
+                                _cleanup_strv_free_ char **el = NULL;
+
+                                if (command == _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY) {
+                                        r = strv_env_get_merged(l, &el);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_array_strv(&add_more, l);
+                                r = sd_json_variant_new_array_strv(&add_more, el ?: l);
                                 if (r < 0)
                                         goto finish;
                         }

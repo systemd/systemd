@@ -266,7 +266,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
         return *t == '=';
 }
 
-char **strv_env_delete(char **x, size_t n_lists, ...) {
+char** strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
         _cleanup_strv_free_ char **t = NULL;
         va_list ap;
@@ -564,7 +564,35 @@ char* strv_env_pairs_get(char **l, const char *name) {
         return result;
 }
 
-char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
+int strv_env_get_merged(char **l, char ***ret) {
+        _cleanup_strv_free_ char **v = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        /* This converts a strv with pairs of environment variable name + value into a strv of name and
+         * value concatenated with a "=" separator. E.g.
+         * input  : { "NAME", "value", "FOO", "var" }
+         * output : { "NAME=value", "FOO=var" } */
+
+        STRV_FOREACH_PAIR(key, value, l) {
+                char *s;
+
+                s = strjoin(*key, "=", *value);
+                if (!s)
+                        return -ENOMEM;
+
+                r = strv_consume_with_size(&v, &n, s);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+char** strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         int k = 0;
 
         STRV_FOREACH(p, e) {
