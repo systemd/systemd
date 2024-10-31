@@ -27,6 +27,13 @@
 #define ANSI_WINDOW_TITLE_PUSH "\x1b[22;2t"
 #define ANSI_WINDOW_TITLE_POP "\x1b[23;2t"
 
+/* ANSI "string terminator" character ("ST"). Terminal emulators typically allow three different ones: 0x07,
+ * 0x9c, and 0x1B 0x5C. We'll avoid 0x07 (BEL, aka ^G) since it might trigger unexpected TTY signal
+ * handling. And we'll avoid 0x9c since that's also valid regular codepoint in UTF-8 and elsewhere, and
+ * creates ambiguities. Because of that some terminal emulators explicitly choose not to support it. Hence we
+ * use 0x1B 0x5c */
+#define ANSI_ST "\e\x5c"
+
 bool isatty_safe(int fd);
 
 int terminal_reset_defensive(int fd, bool switch_to_text);
