@@ -386,6 +386,10 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
+
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
         }
 
         r = sd_dhcp_server_stop(link->dhcp_server);
@@ -407,10 +411,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         r = ipv4acd_stop(link);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 ACD client: %m"));
-
-        r = sd_dhcp6_client_stop(link->dhcp6_client);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
 
         r = dhcp_pd_remove(link, /* only_marked = */ false);
         if (r < 0)
