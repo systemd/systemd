@@ -1033,7 +1033,7 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                          * count (see process_socket() and gather_pid_metadata_*()) */
                         assert(((char*) iovec->iov_base)[iovec->iov_len] == 0);
 
-                        const char *p = startswith(iovec->iov_base, meta_field_names[i]);
+                        const char *p = memory_startswith(iovec->iov_base, iovec->iov_len, meta_field_names[i]);
                         if (p) {
                                 context->meta[i] = p;
                                 context->meta_size[i] = iovec->iov_len - strlen(meta_field_names[i]);
