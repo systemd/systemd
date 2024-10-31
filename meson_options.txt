@@ -108,6 +108,10 @@ option('repart', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'install the systemd-repart tool')
 option('sysupdate', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-sysupdate tool')
+option('sysupdated', type: 'combo', value : 'auto',
+       choices : ['auto', 'enabled', 'disabled'],
+       description : 'install the systemd-sysupdated service')
+
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('pstore', type : 'boolean',
