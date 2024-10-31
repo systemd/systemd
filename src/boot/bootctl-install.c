@@ -8,14 +8,17 @@
 #include "copy.h"
 #include "dirent-util.h"
 #include "efi-api.h"
+#include "efi-fundamental.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "kernel-config.h"
 #include "os-util.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -295,6 +298,8 @@ static const char *const esp_subdirs[] = {
         "EFI/systemd",
         "EFI/BOOT",
         "loader",
+        "loader/keys",
+        "loader/keys/auto",
         NULL
 };
 
@@ -569,6 +574,161 @@ static int install_entry_token(void) {
         return 0;
 }
 
+static int efi_timestamp(EFI_TIME *ret) {
+        uint64_t epoch = UINT64_MAX;
+        struct tm tm = {};
+        int r;
+
+        assert(ret);
+
+        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
+
+        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /*utc=*/ false, &tm);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
+
+        *ret = (EFI_TIME) {
+                .Year = 1900 + tm.tm_year,
+                .Month = tm.tm_mon,
+                .Day = tm.tm_mday,
+                .Hour = tm.tm_hour,
+                .Minute = tm.tm_min,
+                .Second = tm.tm_sec,
+        };
+
+        return 0;
+}
+
+static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, EVP_PKEY *private_key) {
+#if HAVE_OPENSSL
+        int r;
+
+        _cleanup_free_ uint8_t *dercert = NULL;
+        int dercertsz;
+        dercertsz = i2d_X509(certificate, &dercert);
+        if (dercertsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_close_ int keys_fd = chase_and_open("loader/keys/auto", esp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, NULL);
+        if (keys_fd < 0)
+                return log_error_errno(keys_fd, "Failed to chase loader/keys/auto in the ESP: %m");
+
+        _cleanup_free_ EFI_SIGNATURE_LIST *siglist = malloc(sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) + dercertsz);
+        if (!siglist)
+                return log_oom();
+
+        *siglist = (EFI_SIGNATURE_LIST) {
+                .SignatureType = EFI_CERT_X509_GUID,
+                .SignatureListSize = sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) + dercertsz,
+                .SignatureHeaderSize = 0,
+                .SignatureSize = sizeof(EFI_SIGNATURE_DATA) + dercertsz,
+        };
+
+        memcpy(siglist->Signatures[0].SignatureData, dercert, dercertsz);
+
+        EFI_TIME timestamp;
+        r = efi_timestamp(&timestamp);
+        if (r < 0)
+                return r;
+
+        uint32_t attrs =
+                EFI_VARIABLE_NON_VOLATILE|
+                EFI_VARIABLE_BOOTSERVICE_ACCESS|
+                EFI_VARIABLE_RUNTIME_ACCESS|
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+
+        FOREACH_STRING(db, "PK", "KEK", "db") {
+                _cleanup_(BIO_freep) BIO *bio = NULL;
+
+                bio = BIO_new(BIO_s_mem());
+                if (!bio)
+                        return log_oom();
+
+                _cleanup_free_ char16_t *db16 = utf8_to_utf16(db, SIZE_MAX);
+                if (!db16)
+                        return log_oom();
+
+                if (BIO_write(bio, db16, char16_strlen(db16) * sizeof(char16_t)) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable name to bio");
+
+                EFI_GUID *guid = STR_IN_SET(db, "PK", "KEK") ? &(EFI_GUID) EFI_GLOBAL_VARIABLE : &(EFI_GUID) EFI_IMAGE_SECURITY_DATABASE_GUID;
+
+                if (BIO_write(bio, guid, sizeof(*guid)) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable GUID to bio");
+
+                if (BIO_write(bio, &attrs, sizeof(attrs)) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write variable attributes to bio");
+
+                if (BIO_write(bio, &timestamp, sizeof(timestamp)) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write timestamp to bio");
+
+                if (BIO_write(bio, &siglist, siglist->SignatureListSize) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
+
+                _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+                p7 = PKCS7_sign(certificate, private_key, NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
+                if (!p7)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                _cleanup_free_ uint8_t *sig = NULL;
+                int sigsz = i2d_PKCS7_SIGNED(p7->d.sign, &sig);
+                if (sigsz < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                                               ERR_error_string(ERR_get_error(), NULL));
+
+                _cleanup_free_ EFI_VARIABLE_AUTHENTICATION_2 *auth = malloc(sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsz);
+                if (!auth)
+                        return log_oom();
+
+                *auth = (EFI_VARIABLE_AUTHENTICATION_2) {
+                        .TimeStamp = timestamp,
+                        .AuthInfo = {
+                                .Hdr = {
+                                        .dwLength = sizeof(auth->AuthInfo) + sigsz,
+                                        .wRevision = 0x0200,
+                                        .wCertificateType = 0x0EF1,
+                                },
+                                .CertType = EFI_CERT_TYPE_PKCS7_GUID,
+                        }
+                };
+
+                memcpy(auth->AuthInfo.CertData, sig, sigsz);
+
+                _cleanup_free_ char *filename = strjoin(db, ".auth");
+                if (!filename)
+                        return log_oom();
+
+                _cleanup_close_ int fd = openat(keys_fd, filename, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open secure boot auto-enrollment file for writing: %m");
+
+                r = loop_write(fd, auth, sizeof(*auth) + sigsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write authentication descriptor to secure boot auto-enrollment file: %m");
+
+                r = loop_write(fd, siglist, siglist->SignatureListSize);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write signature list to secure boot auto-enrollment file: %m");
+
+                log_info("Secure boot auto-enrollment file %s/loader/keys/auto/%s successfully written.", esp, filename);
+        }
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot set up secure boot auto-enrollment.");
+#endif
+}
+
 static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         _cleanup_free_ char *opath = NULL;
         sd_id128_t ouuid;
@@ -778,6 +938,9 @@ static int are_we_installed(const char *esp_path) {
 }
 
 int verb_install(int argc, char *argv[], void *userdata) {
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_(ask_password_user_interface_freep) AskPasswordUserInterface *ui = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
         uint32_t part = 0;
@@ -788,6 +951,26 @@ int verb_install(int argc, char *argv[], void *userdata) {
 
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
+
+        if (arg_secure_boot_auto_enroll) {
+                r = openssl_load_x509_certificate(arg_certificate, &certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .id = "bootctl-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "bootctl.private-key-pin",
+                                },
+                                &private_key,
+                                &ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
 
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
         if (graceful && r == -ENOKEY)
@@ -849,6 +1032,12 @@ int verb_install(int argc, char *argv[], void *userdata) {
 
                         if (arg_install_random_seed) {
                                 r = install_random_seed(arg_esp_path);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (arg_secure_boot_auto_enroll) {
+                                r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
                                 if (r < 0)
                                         return r;
                         }
