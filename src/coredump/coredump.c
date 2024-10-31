@@ -1016,7 +1016,7 @@ static int submit_coredump(
         return 0;
 }
 
-static int save_context(Context *context, const struct iovec_wrapper *iovw) {
+static int context_parse_iovw(Context *context, const struct iovec_wrapper *iovw) {
         const char *unit;
         int r;
 
@@ -1214,7 +1214,7 @@ static int process_socket(int fd) {
         /* Make sure we got all data we really need */
         assert(input_fd >= 0);
 
-        r = save_context(&context, &iovw);
+        r = context_parse_iovw(&context, &iovw);
         if (r < 0)
                 goto finish;
 
@@ -1365,7 +1365,7 @@ static int gather_pid_metadata_from_argv(
 
         /* Cache some of the process metadata we collected so far and that we'll need to
          * access soon */
-        return save_context(context, iovw);
+        return context_parse_iovw(context, iovw);
 }
 
 static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context) {
@@ -1452,7 +1452,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (read_full_virtual_file(p, &t, &size) >= 0) {
                 char *buf = malloc(strlen("COREDUMP_PROC_AUXV=") + size + 1);
                 if (buf) {
-                        /* Add a dummy terminator to make save_context() happy. */
+                        /* Add a dummy terminator to make context_parse_iovw() happy. */
                         *mempcpy_typesafe(stpcpy(buf, "COREDUMP_PROC_AUXV="), t, size) = '\0';
                         (void) iovw_consume(iovw, buf, size + strlen("COREDUMP_PROC_AUXV="));
                 }
@@ -1480,7 +1480,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
 
         /* we successfully acquired all metadata */
-        return save_context(context, iovw);
+        return context_parse_iovw(context, iovw);
 }
 
 static int send_ucred(int transport_fd, const struct ucred *ucred) {
@@ -1677,7 +1677,7 @@ static int forward_coredump_to_container(Context *context) {
                 }
 
                 _cleanup_(context_done) Context child_context = CONTEXT_NULL;
-                r = save_context(&child_context, iovw);
+                r = context_parse_iovw(&child_context, iovw);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to save context: %m");
                         _exit(EXIT_FAILURE);
