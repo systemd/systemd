@@ -23,6 +23,10 @@ static inline void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_free_contents(iovw, true);
 }
 
+static inline void iovw_done(struct iovec_wrapper *iovw) {
+        iovw_free_contents(iovw, false);
+}
+
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
 static inline int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
         /* Move data into iovw or free on error */
