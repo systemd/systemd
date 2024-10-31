@@ -129,6 +129,16 @@ Deprecations and removals:
 
 Features:
 
+* journald: beef up ClientContext logic to store pidfd_id of peer, to validate
+  we really use the right cache entry
+
+* journald: log client's pidfd id as a new automatic field _PIDFDID= or so.
+
+* journald: split up ClientContext cache in two: one cache keyed by pid/pidfdid
+  with process information, and another one keyed by cgroup path/cgroupid with
+  cgroup information. This way if a service consisting of many logging
+  processes can take benefit of the cgroup caching.
+
 * system lsmbpf policy that prohibits creating files owned by "nobody"
   system-wide
 
