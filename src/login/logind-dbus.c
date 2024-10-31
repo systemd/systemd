@@ -2663,11 +2663,11 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                         if (r < 0) {
                                 if (r == -ENOENT)
                                         return sd_bus_error_set(error,
-                                                        BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                        "No upcoming maintenance window scheduled");
-                                return sd_bus_error_setf(error,
-                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                "Failed to determine next maintenance window");
+                                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
+                                                                "No upcoming maintenance window scheduled");
+
+                                return sd_bus_error_set_errnof(error, r,
+                                                               "Failed to determine next maintenance window: %m");
                         }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
