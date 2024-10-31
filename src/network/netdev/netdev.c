@@ -923,21 +923,9 @@ static int netdev_request_to_create(NetDev *netdev) {
         if (netdev->state != NETDEV_STATE_LOADING)
                 return 0; /* Already configured (at least tried previously). Not necessary to reconfigure. */
 
-        r = netdev_is_ready_to_create(netdev, NULL);
+        r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
         if (r < 0)
-                return r;
-        if (r > 0) {
-                /* If the netdev has no dependency, then create it now. */
-                r = independent_netdev_create(netdev);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
-
-        } else {
-                /* Otherwise, wait for the dependencies being resolved. */
-                r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
-        }
+                return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
 
         return 0;
 }
