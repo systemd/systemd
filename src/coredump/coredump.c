@@ -1091,9 +1091,9 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
 }
 
 static int process_socket(int fd) {
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_close_ int input_fd = -EBADF;
-        struct iovec_wrapper iovw = {};
         enum {
                 STATE_PAYLOAD,
                 STATE_INPUT_FD_DONE,
@@ -1117,27 +1117,21 @@ static int process_socket(int fd) {
                 ssize_t n, l;
 
                 l = next_datagram_size_fd(fd);
-                if (l < 0) {
-                        r = log_error_errno(l, "Failed to determine datagram size to read: %m");
-                        goto finish;
-                }
+                if (l < 0)
+                        return log_error_errno(l, "Failed to determine datagram size to read: %m");
 
                 _cleanup_(iovec_done) struct iovec iovec = {
                         .iov_len = l,
                         .iov_base = malloc(l + 1),
                 };
-                if (!iovec.iov_base) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!iovec.iov_base)
+                        return log_oom();
 
                 mh.msg_iov = &iovec;
 
                 n = recvmsg_safe(fd, &mh, MSG_CMSG_CLOEXEC);
-                if (n < 0)  {
-                        r = log_error_errno(n, "Failed to receive datagram: %m");
-                        goto finish;
-                }
+                if (n < 0)
+                        return log_error_errno(n, "Failed to receive datagram: %m");
 
                 /* The final zero-length datagrams ("sentinels") carry file descriptors and tell us that
                  * we're done. There are three sentinels: one with just the coredump fd, followed by one with
@@ -1163,9 +1157,8 @@ static int process_socket(int fd) {
                                         break;
 
                                 cmsg_close_all(&mh);
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Received zero length message with zero or more than one file descriptor(s), expected one.");
-                                goto finish;
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Received zero length message with zero or more than one file descriptor(s), expected one.");
                         }
 
                         switch (state) {
@@ -1180,10 +1173,8 @@ static int process_socket(int fd) {
                                 assert(!pidref_is_set(&context.pidref));
 
                                 r = pidref_set_pidfd_consume(&context.pidref, *CMSG_TYPED_DATA(found, int));
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to initialize pidref: %m");
-                                        goto finish;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to initialize pidref: %m");
 
                                 state = STATE_PID_FD_DONE;
                                 continue;
@@ -1201,25 +1192,20 @@ static int process_socket(int fd) {
                 cmsg_close_all(&mh);
 
                 /* Only zero length messages are allowed after the first message that carried a file descriptor. */
-                if (state != STATE_PAYLOAD) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non-zero length.");
-                        goto finish;
-                }
+                if (state != STATE_PAYLOAD)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Received unexpected message with non-zero length.");
 
                 /* Payload messages should not carry fds */
-                if (cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1)) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                if (cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                             "Received payload message with file descriptor(s), expected none.");
-                        goto finish;
-                }
 
                 /* Add trailing NUL byte, in case these are strings */
                 ((char*) iovec.iov_base)[n] = 0;
                 iovec.iov_len = (size_t) n;
 
-                r = iovw_put(&iovw, iovec.iov_base, iovec.iov_len);
-                if (r < 0)
-                        goto finish;
+                if (iovw_put(&iovw, iovec.iov_base, iovec.iov_len) < 0)
+                        return log_oom();
 
                 TAKE_STRUCT(iovec);
         }
@@ -1229,22 +1215,14 @@ static int process_socket(int fd) {
 
         r = context_parse_iovw(&context, &iovw);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Make sure we received at least all fields we need. */
         for (int i = 0; i < _META_MANDATORY_MAX; i++)
-                if (!context.meta[i]) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                            "A mandatory argument (%i) has not been sent, aborting.",
-                                            i);
-                        goto finish;
-                }
+                if (!context.meta[i])
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A mandatory argument (%i) has not been sent, aborting.", i);
 
-        r = submit_coredump(&context, &iovw, input_fd);
-
-finish:
-        iovw_free_contents(&iovw, true);
-        return r;
+        return submit_coredump(&context, &iovw, input_fd);
 }
 
 static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref, int mount_tree_fd) {
