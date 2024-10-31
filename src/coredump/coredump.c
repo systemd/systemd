@@ -1061,7 +1061,7 @@ static int process_socket(int fd) {
 
         log_setup();
 
-        log_debug("Processing coredump received on stdin...");
+        log_debug("Processing coredump received via socket...");
 
         for (;;) {
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
