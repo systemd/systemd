@@ -413,17 +413,17 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderFirmwareInfo), &fw_info);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderInfo), &loader);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(StubInfo), &stub);
-                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
-                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE(StubImageIdentifier), &stub_path);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderFirmwareType"), &fw_type);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderFirmwareInfo"), &fw_info);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderInfo"), &loader);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("StubInfo"), &stub);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE_STR("LoaderImageIdentifier"), &loader_path);
+                (void) efi_get_variable_path_and_warn(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &stub_path);
                 (void) efi_loader_get_features(&loader_features);
                 (void) efi_stub_get_features(&stub_features);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntrySelected), &current_entry);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &oneshot_entry);
-                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE(LoaderEntryDefault), &default_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -525,7 +525,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 }
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
-                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
+                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderSystemToken")), F_OK) >= 0;
                 printf(" System Token: %s\n", have ? "set" : "not set");
 
                 if (arg_esp_path) {

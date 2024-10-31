@@ -1049,7 +1049,7 @@ static int validate_stub(void) {
                 log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
                             "The PCR measurements seen are unlikely to be valid.");
 
-        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE(StubPcrKernelImage), "kernel image");
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
         if (r < 0)
                 return r;
 
