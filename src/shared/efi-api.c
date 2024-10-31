@@ -79,7 +79,7 @@ int efi_reboot_to_firmware_supported(void) {
         if (!is_efi_boot())
                 goto not_supported;
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE(OsIndicationsSupported), NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndicationsSupported"), NULL, &v, &s);
         if (r == -ENOENT)
                 goto not_supported; /* variable doesn't exist? it's not supported then */
         if (r < 0)
@@ -115,7 +115,7 @@ static int get_os_indications(uint64_t *ret) {
                 return r;
 
         /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
-        if (stat(EFIVAR_PATH(EFI_GLOBAL_VARIABLE(OsIndications)), &new_stat) < 0) {
+        if (stat(EFIVAR_PATH(EFI_GLOBAL_VARIABLE_STR("OsIndications")), &new_stat) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
@@ -129,7 +129,7 @@ static int get_os_indications(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE(OsIndications), NULL, &v, &s);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), NULL, &v, &s);
         if (r == -ENOENT) {
                 /* Some firmware implementations that do support OsIndications and report that with
                  * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's
@@ -172,7 +172,7 @@ int efi_set_reboot_to_firmware(bool value) {
 
         /* Avoid writing to efi vars store if we can due to firmware bugs. */
         if (b != b_new)
-                return efi_set_variable(EFI_GLOBAL_VARIABLE(OsIndications), &b_new, sizeof(uint64_t));
+                return efi_set_variable(EFI_GLOBAL_VARIABLE_STR("OsIndications"), &b_new, sizeof(uint64_t));
 
         return 0;
 }
@@ -399,7 +399,7 @@ int efi_get_boot_order(uint16_t **ret_order) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_GLOBAL_VARIABLE(BootOrder), NULL, &buf, &l);
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("BootOrder"), NULL, &buf, &l);
         if (r < 0)
                 return r;
 
@@ -419,7 +419,7 @@ int efi_set_boot_order(const uint16_t *order, size_t n) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        return efi_set_variable(EFI_GLOBAL_VARIABLE(BootOrder), order, n * sizeof(uint16_t));
+        return efi_set_variable(EFI_GLOBAL_VARIABLE_STR("BootOrder"), order, n * sizeof(uint16_t));
 }
 
 static int boot_id_hex(const char s[static 4]) {
