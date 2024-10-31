@@ -28,6 +28,25 @@ const char* user_record_state_color(const char *state) {
         return NULL;
 }
 
+static void dump_self_modifiable(const char *heading, char **field, const char **value) {
+        assert(heading);
+
+        /* Helper function for printing the various self_modifiable_* fields from the user record */
+
+        if (strv_isempty((char**) value))
+                /* Case 1: the array is explicitly set to be empty by the administrator */
+                printf("%13s %sDisabled by Administrator%s\n", heading, ansi_highlight_red(), ansi_normal());
+        else if (!field)
+                /* Case 2: we have values, but the field is NULL. This means that we're using the defaults.
+                 * We list them anyways, because they're security-sensitive to the administrator */
+                STRV_FOREACH(i, value)
+                        printf("%13s %s%s%s\n", i == value ? heading : "", ansi_grey(), *i, ansi_normal());
+        else
+                /* Case 3: we have a list provided by the administrator */
+                STRV_FOREACH(i, value)
+                        printf("%13s %s\n", i == value ? heading : "", *i);
+}
+
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
         _cleanup_strv_free_ char **langs = NULL;
         const char *hd, *ip, *shell;
@@ -585,6 +604,16 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->service)
                 printf("     Service: %s\n", hr->service);
+
+        dump_self_modifiable("Self Modify:",
+                             hr->self_modifiable_fields,
+                             user_record_self_modifiable_fields(hr));
+        dump_self_modifiable("(Blobs)",
+                             hr->self_modifiable_blobs,
+                             user_record_self_modifiable_blobs(hr));
+        dump_self_modifiable("(Privileged)",
+                             hr->self_modifiable_privileged,
+                             user_record_self_modifiable_privileged(hr));
 }
 
 void group_record_show(GroupRecord *gr, bool show_full_user_info) {
