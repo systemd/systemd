@@ -1519,7 +1519,7 @@ static int can_forward_coredump(pid_t pid) {
 static int forward_coredump_to_container(Context *context) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t pid, child;
+        pid_t leader_pid, child;
         struct ucred ucred = {
                 .pid = context->pid,
                 .uid = context->uid,
@@ -1527,11 +1527,11 @@ static int forward_coredump_to_container(Context *context) {
         };
         int r;
 
-        r = namespace_get_leader(context->pid, NAMESPACE_PID, &pid);
+        r = namespace_get_leader(context->pid, NAMESPACE_PID, &leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get namespace leader: %m");
 
-        r = can_forward_coredump(pid);
+        r = can_forward_coredump(leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
         if (r == 0)
@@ -1546,15 +1546,15 @@ static int forward_coredump_to_container(Context *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to set SO_PASSCRED: %m");
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
+        r = namespace_open(leader_pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
         if (r < 0)
-                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", pid);
+                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", leader_pid);
 
         r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", pid);
+                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid);
         if (r == 0) {
                 _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
                 Context child_context = {};
