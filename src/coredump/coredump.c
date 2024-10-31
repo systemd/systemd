@@ -1045,9 +1045,10 @@ static int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                         memory_startswith(iovec->iov_base, iovec->iov_len, "COREDUMP_SIGNAL_NAME=");
         }
 
-        if (!context->meta[META_ARGV_PID])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to find the PID of crashing process");
+        /* The basic fields from argv[] should always be there, refuse early if not */
+        for (int i = 0; i < _META_ARGV_MAX; i++)
+                if (!context->meta[i])
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A required (%s) has not been sent, aborting.", meta_field_names[i]);
 
         pid_t parsed_pid;
         r = parse_pid(context->meta[META_ARGV_PID], &parsed_pid);
