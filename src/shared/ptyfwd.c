@@ -507,11 +507,16 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the OSC sequence is over
                                  *
-                                 * There are two allowed ways to end an OSC sequence:
-                                 * BEL '\x07'
-                                 * String Terminator (ST): <Esc>\ - "\x1b\x5c"
-                                 * since we cannot lookahead to see if the Esc is followed by a \
-                                 * we cut a corner here and assume it will be \. */
+                                 * There are three documented ways to end an OSC sequence:
+                                 *     1. BEL aka ^G aka \x07
+                                 *     2. \x9c
+                                 *     3. \x1b\x5c
+                                 * since we cannot look ahead to see if the Esc is followed by a "\"
+                                 * we cut a corner here and assume it will be "\"e.
+                                 *
+                                 * Note that we do not support \x9c here, because that's also a valid UTF8
+                                 * codepoint, and that would create ambiguity. Various terminal emulators
+                                 * similar do not support it. */
 
                                 if (IN_SET(c, '\x07', '\x1b')) {
                                         r = insert_window_title_fix(f, i+1);
