@@ -17,7 +17,8 @@ struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
 
-void iovw_free_contents(struct iovec_wrapper *iovw, bool free_vectors);
+void iovw_done_free(struct iovec_wrapper *iovw);
+void iovw_done(struct iovec_wrapper *iovw);
 
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
 static inline int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {

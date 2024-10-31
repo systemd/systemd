@@ -9,22 +9,27 @@ struct iovec_wrapper *iovw_new(void) {
         return new0(struct iovec_wrapper, 1);
 }
 
-void iovw_free_contents(struct iovec_wrapper *iovw, bool free_vectors) {
+void iovw_done(struct iovec_wrapper *iovw) {
         assert(iovw);
-
-        if (free_vectors)
-                for (size_t i = 0; i < iovw->count; i++)
-                        free(iovw->iovec[i].iov_base);
 
         iovw->iovec = mfree(iovw->iovec);
         iovw->count = 0;
+}
+
+void iovw_done_free(struct iovec_wrapper *iovw) {
+        assert(iovw);
+
+        FOREACH_ARRAY(i, iovw->iovec, iovw->count)
+                iovec_done(i);
+
+        iovw_done(iovw);
 }
 
 struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
         if (!iovw)
                 return NULL;
 
-        iovw_free_contents(iovw, /* free_vectors= */ true);
+        iovw_done_free(iovw);
         return mfree(iovw);
 }
 
@@ -32,7 +37,7 @@ struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw) {
         if (!iovw)
                 return NULL;
 
-        iovw_free_contents(iovw, /* free_vectors= */ false);
+        iovw_done(iovw);
         return mfree(iovw);
 }
 
@@ -124,7 +129,7 @@ int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source
 
 rollback:
         for (size_t i = original_count; i < target->count; i++)
-                free(target->iovec[i].iov_base);
+                iovec_done(target->iovec + i);
 
         target->count = original_count;
         return r;
