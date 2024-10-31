@@ -75,3 +75,5 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 int namespace_open_by_type(NamespaceType type);
 
 int is_our_namespace(int fd, NamespaceType type);
+
+int is_idmapping_supported(const char *path);
