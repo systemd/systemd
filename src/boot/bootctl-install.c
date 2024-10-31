@@ -1015,13 +1015,13 @@ static int remove_loader_variables(void) {
         /* Remove all persistent loader variables we define */
 
         FOREACH_STRING(var,
-                       EFI_LOADER_VARIABLE(LoaderConfigConsoleMode),
-                       EFI_LOADER_VARIABLE(LoaderConfigTimeout),
-                       EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot),
-                       EFI_LOADER_VARIABLE(LoaderEntryDefault),
-                       EFI_LOADER_VARIABLE(LoaderEntryLastBooted),
-                       EFI_LOADER_VARIABLE(LoaderEntryOneShot),
-                       EFI_LOADER_VARIABLE(LoaderSystemToken)) {
+                       EFI_LOADER_VARIABLE_STR("LoaderConfigConsoleMode"),
+                       EFI_LOADER_VARIABLE_STR("LoaderConfigTimeout"),
+                       EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"),
+                       EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"),
+                       EFI_LOADER_VARIABLE_STR("LoaderEntryLastBooted"),
+                       EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"),
+                       EFI_LOADER_VARIABLE_STR("LoaderSystemToken")) {
 
                 int q;
 
