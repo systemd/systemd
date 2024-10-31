@@ -108,10 +108,10 @@ CHANGES WITH 257 in spe:
           types like integers, floats, booleans, strings, UUIDs, base64-encoded
           and hex-encoded binary data, and arrays are supported natively. The
           library has been part of systemd for a while as internal component,
-          and now being made publically available, too. On major user of
-          sd-json is the JSON interface sd-varlink (see below). Note that
-          documentation on sd-json is very much incomplete for now, but the
-          systemd codebase should provide plenty code real-life code examples.
+          and now being made publicly available, too. On major user of sd-json
+          is the JSON interface sd-varlink (see below). Note that documentation
+          on sd-json is very much incomplete for now, but the systemd codebase
+          should provide plenty code real-life code examples.
 
         * libsystemd's Varlink IPC API is now available as part of libsystemd
           under the name "sd-varlink". This library is a C implementation of
@@ -225,7 +225,7 @@ CHANGES WITH 257 in spe:
 
         * A new service property ManagedOOMMemoryPressureDurationSec= has been
           added that complements the existing
-          ManagedOOMMemoryPressureDurationLimit= and specifes the PSI
+          ManagedOOMMemoryPressureDurationLimit= and specifies the PSI
           measurement interval for the specific unit.
 
         * The sd_notify() protocol has been extended to allow changing the main
@@ -426,7 +426,7 @@ CHANGES WITH 257 in spe:
           files reflecting this suffix change.
 
         * systemd-sysupdate now supports a new ".feature" files that may be
-          used in conjuntion with ".transfer" files to group them together, and
+          used in conjunction with ".transfer" files to group them together, and
           allow them to be turned off or on, individually per group.
 
         TPM & systemd-cryptsetup:
