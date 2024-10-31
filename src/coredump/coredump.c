@@ -1385,7 +1385,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         pid = context->pidref.pid;
 
         /* The following is mandatory */
-        r = pid_get_comm(pid, &t);
+        r = pidref_get_comm(&context->pidref, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 
@@ -1400,7 +1400,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (r < 0)
                 log_warning_errno(r, "Failed to get EXE, ignoring: %m");
 
-        if (cg_pid_get_unit(pid, &t) >= 0)
+        if (cg_pidref_get_unit(&context->pidref, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
 
         if (cg_pid_get_user_unit(pid, &t) >= 0)
@@ -1418,7 +1418,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (sd_pid_get_slice(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
 
-        if (pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
+        if (pidref_get_cmdline(&context->pidref, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
