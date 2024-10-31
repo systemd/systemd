@@ -397,7 +397,7 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         if (!t)
                 return 0;
 
-        _cleanup_free_ char *joined = strjoin("\x1b]0;", f->title_prefix, t, ANSI_ST);
+        _cleanup_free_ char *joined = strjoin(ANSI_OSC "0;", f->title_prefix, t, ANSI_ST);
         if (!joined)
                 return -ENOMEM;
 
@@ -572,7 +572,7 @@ static int do_shovel(PTYForward *f) {
                 if (f->title) {
                         if (!strextend(&f->out_buffer,
                                        ANSI_WINDOW_TITLE_PUSH
-                                       "\x1b]2;", f->title, ANSI_ST))
+                                       ANSI_OSC "2;", f->title, ANSI_ST))
                                 return log_oom();
                 }
 

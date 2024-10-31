@@ -34,6 +34,9 @@
  * use 0x1B 0x5c */
 #define ANSI_ST "\e\x5c"
 
+/* The "operating system command" ("OSC") start sequence */
+#define ANSI_OSC "\e]"
+
 bool isatty_safe(int fd);
 
 int terminal_reset_defensive(int fd, bool switch_to_text);
