@@ -39,7 +39,7 @@ sync_in b
     sync_in d
 
     # Move main process back to toplevel
-    systemd-notify "MAINPID=$$"
+    systemd-notify --pid=parent "MAINPID=$$"
 
     # Should be dropped again
     systemd-notify --status="BOGUS2" --pid=parent
