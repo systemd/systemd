@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "calendarspec.h"
+#include "compress.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -1383,6 +1384,63 @@ int config_parse_warn_compat(
         }
 
         return 0;
+}
+
+int config_parse_compression(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CompressionOpts ***opts = ASSERT_PTR(data);
+        int level = -1;
+        char *l = NULL;
+        _cleanup_free_ char *t = NULL;
+
+        if (isempty(rvalue)) {
+                return 1;
+        }
+
+        l = strchr(rvalue, ':');
+        if (l) {
+                double lVal = strtol(l, NULL, 10);
+                if (lVal < 0)
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Compression level %s should be positive", l);
+                level = lVal;
+        }
+
+        t = strndup(rvalue, l - rvalue);
+        if (!t)
+                return log_syntax_parse_error(unit, filename, line, ENOMEM, lvalue, rvalue);
+
+        Compression c = compression_lowercase_from_string(t);
+        if (c < 0)
+                return log_syntax_parse_error(unit, filename, line, c, lvalue, rvalue);
+        if (!compression_supported(c))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                  "Compression=%s is not supported on a system", t);
+
+        int size = 0;
+        for (int i = 0; *opts != NULL && (*opts)[i] != NULL; i++) {
+                if ((*opts)[i]->algorithm == c) {
+                        (*opts)[i]->level = level;
+                        return 1;
+                }
+                size++;
+        }
+        *opts = (CompressionOpts**)realloc(*opts, (size + 2) * sizeof(CompressionOpts*));
+        (*opts)[size] = (CompressionOpts*)malloc(sizeof(CompressionOpts));
+        (*opts)[size]->level = level;
+        (*opts)[size]->algorithm = c;
+        (*opts)[size+1] = NULL;
+        return 1;
 }
 
 int config_parse_log_facility(
