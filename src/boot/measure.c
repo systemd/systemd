@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "build.h"
 #include "efi-loader.h"
 #include "fd-util.h"
@@ -803,6 +804,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        _cleanup_(ask_password_user_interface_freep) AskPasswordUserInterface *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
         size_t n;
@@ -874,8 +876,19 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", resolved_pkey);
         } else if (arg_private_key_source &&
                    IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
+
+                r = ask_password_user_interface_new(&ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate ask-password user interface: %m");
+
+                ui->request = (AskPasswordRequest) {
+                        .id = "measure-private-key-pin",
+                        .keyring = arg_private_key,
+                        .credential = "measure.private-key-pin",
+                };
+
                 r = openssl_load_key_from_token(
-                                arg_private_key_source_type, arg_private_key_source, arg_private_key, &privkey);
+                                arg_private_key_source_type, arg_private_key_source, arg_private_key, ui, &privkey);
                 if (r < 0)
                         return log_error_errno(
                                         r,
