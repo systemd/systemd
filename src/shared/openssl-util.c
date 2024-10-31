@@ -3,12 +3,14 @@
 #include <endian.h>
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 #if HAVE_OPENSSL
 #  include <openssl/rsa.h>
@@ -18,6 +20,7 @@
 #    include <openssl/engine.h>
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
 REENABLE_WARNING;
 #  endif
 
@@ -1309,10 +1312,10 @@ int pkey_generate_volume_keys(
         }
 }
 
-static int load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret) {
-
+static int load_key_from_provider(const char *provider, const char *private_key_uri, AskPasswordUserInterface *ui, EVP_PKEY **ret) {
         assert(provider);
         assert(private_key_uri);
+        assert(ui);
         assert(ret);
 
 #if OPENSSL_VERSION_MAJOR >= 3
@@ -1325,8 +1328,8 @@ static int load_key_from_provider(const char *provider, const char *private_key_
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        /* ui_method= */ NULL,
-                        /* ui_data= */ NULL,
+                        ui->method,
+                        &ui->request,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1348,10 +1351,10 @@ static int load_key_from_provider(const char *provider, const char *private_key_
 #endif
 }
 
-static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
-
+static int load_key_from_engine(const char *engine, const char *private_key_uri, AskPasswordUserInterface *ui, EVP_PKEY **ret) {
         assert(engine);
         assert(private_key_uri);
+        assert(ui);
         assert(ret);
 
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
@@ -1363,11 +1366,13 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(
-                        e,
-                        private_key_uri,
-                        /* ui_method= */ NULL,
-                        /* callback_data= */ NULL);
+        if (ENGINE_ctrl(e, ENGINE_CTRL_SET_USER_INTERFACE, /*i=*/ 0, ui->method, /*f=*/ NULL) <= 0)
+                return log_openssl_errors("Failed to set engine user interface");
+
+        if (ENGINE_ctrl(e, ENGINE_CTRL_SET_CALLBACK_DATA, /*i=*/ 0, &ui->request, /*f=*/ NULL) <= 0)
+                return log_openssl_errors("Failed to set engine user interface data");
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, ui->method, &ui->request);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1384,23 +1389,87 @@ int openssl_load_key_from_token(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
                 const char *private_key,
-                EVP_PKEY **ret) {
+                AskPasswordUserInterface *ui,
+                EVP_PKEY **ret_private_key) {
 
         assert(IN_SET(private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER));
         assert(private_key_source);
+        assert(ui);
         assert(private_key);
 
         switch (private_key_source_type) {
 
         case OPENSSL_KEY_SOURCE_ENGINE:
-                return load_key_from_engine(private_key_source, private_key, ret);
+                return load_key_from_engine(private_key_source, private_key, ui, ret_private_key);
         case OPENSSL_KEY_SOURCE_PROVIDER:
-                return load_key_from_provider(private_key_source, private_key, ret);
+                return load_key_from_provider(private_key_source, private_key, ui, ret_private_key);
         default:
                 assert_not_reached();
         }
 }
+
+static int ask_password_user_interface_read(UI *ui, UI_STRING *uis) {
+        int r;
+
+        switch(UI_get_string_type(uis)) {
+        case UIT_PROMPT: {
+                /* If no ask password request was configured use the default openssl UI. */
+                AskPasswordRequest *req = UI_get0_user_data(ui);
+                if (!req)
+                        return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
+
+                req->message = UI_get0_output_string(uis);
+
+                _cleanup_(strv_freep) char **l = NULL;
+                r = ask_password_auto(req, /*until=*/ 0, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &l);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to query for PIN: %m");
+                        return 0;
+                }
+
+                if (strv_length(l) != 1) {
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected only a single password/pin.");
+                        return 0;
+                }
+
+                if (UI_set_result(ui, uis, *l) != 0) {
+                        log_openssl_errors("Failed to set user interface result");
+                        return 0;
+                }
+
+                return 1;
+        }
+        default:
+                return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
+        }
+}
 #endif
+
+int ask_password_user_interface_new(AskPasswordUserInterface **ret) {
+#if HAVE_OPENSSL
+        assert(ret);
+
+        _cleanup_(UI_destroy_methodp) UI_METHOD *method = UI_create_method("systemd-ask-password");
+        if (!method)
+                return log_openssl_errors("Failed to initialize openssl user interface");
+
+        if (UI_method_set_reader(method, ask_password_user_interface_read) != 0)
+                return log_openssl_errors("Failed to set openssl user interface reader");
+
+        AskPasswordUserInterface *ui = new(AskPasswordUserInterface, 1);
+        if (!ui)
+                return log_oom_debug();
+
+        *ui = (AskPasswordUserInterface) {
+                .method = TAKE_PTR(method),
+        };
+
+        *ret = TAKE_PTR(ui);
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot create ask-password user interface.");
+#endif
+}
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 #if HAVE_OPENSSL

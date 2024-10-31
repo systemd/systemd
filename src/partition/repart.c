@@ -17,6 +17,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
@@ -149,7 +150,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
-static EVP_PKEY *arg_private_key = NULL;
+static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static X509 *arg_certificate = NULL;
@@ -182,7 +183,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -429,6 +430,9 @@ typedef struct Context {
         int backing_fd;
 
         bool from_scratch;
+
+        EVP_PKEY *private_key;
+        AskPasswordUserInterface *ui;
 } Context;
 
 static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
@@ -754,6 +758,9 @@ static Context* context_free(Context *context) {
                 unlink_and_free(context->node);
         else
                 free(context->node);
+
+        EVP_PKEY_free(context->private_key);
+        ask_password_user_interface_free(context->ui);
 
         return mfree(context);
 }
@@ -4979,6 +4986,7 @@ static int partition_format_verity_hash(
 
 static int sign_verity_roothash(
                 const struct iovec *roothash,
+                EVP_PKEY *private_key,
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
@@ -4989,6 +4997,7 @@ static int sign_verity_roothash(
         int sigsz;
 
         assert(roothash);
+        assert(private_key);
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
@@ -5000,7 +5009,7 @@ static int sign_verity_roothash(
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(arg_certificate, arg_private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = PKCS7_sign(arg_certificate, private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
@@ -5043,7 +5052,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-        r = sign_verity_roothash(&hp->roothash, &sig);
+        r = sign_verity_roothash(&hp->roothash, context->private_key, &sig);
         if (r < 0)
                 return r;
 
@@ -6092,6 +6101,65 @@ static int parse_private_key(const char *key, size_t key_size, EVP_PKEY **ret) {
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot parse private key.");
 #endif
+}
+
+static int load_private_key(EVP_PKEY **ret_private_key, AskPasswordUserInterface **ret_user_interface) {
+        int r;
+
+        if (arg_private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                _cleanup_(erase_and_freep) char *k = NULL;
+                size_t n = 0;
+
+                r = read_full_file_full(
+                                AT_FDCWD, arg_private_key, UINT64_MAX, SIZE_MAX,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                NULL,
+                                &k, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read key file '%s': %m", arg_private_key);
+
+                r = parse_private_key(k, n, ret_private_key);
+                if (r < 0)
+                        return r;
+
+                *ret_user_interface = NULL;
+        } else if (arg_private_key &&
+                   IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
+
+                _cleanup_(ask_password_user_interface_freep) AskPasswordUserInterface *ui = NULL;
+                r = ask_password_user_interface_new(&ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate ask-password user interface: %m");
+
+                ui->request = (AskPasswordRequest) {
+                        .id = "repart-private-key-pin",
+                        .keyring = arg_private_key,
+                        .credential = "repart.private-key-pin",
+                };
+
+                /* This must happen after parse_x509_certificate() is called above, otherwise
+                 * signing later will get stuck as the parsed private key won't have the
+                 * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
+                r = openssl_load_key_from_token(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                ui,
+                                ret_private_key);
+                if (r < 0)
+                        return log_error_errno(
+                                        r,
+                                        "Failed to load key '%s' from OpenSSL private key source %s: %m",
+                                        arg_private_key,
+                                        arg_private_key_source);
+
+                *ret_user_interface = TAKE_PTR(ui);
+        } else {
+                *ret_private_key = NULL;
+                *ret_user_interface = NULL;
+        }
+
+        return 0;
 }
 
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
@@ -7899,8 +7967,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        _cleanup_free_ char *private_key = NULL;
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -8153,7 +8219,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PRIVATE_KEY: {
-                        r = free_and_strdup_warn(&private_key, optarg);
+                        r = free_and_strdup_warn(&arg_private_key, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -8516,39 +8582,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
-        }
-
-        if (private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                _cleanup_(erase_and_freep) char *k = NULL;
-                size_t n = 0;
-
-                r = read_full_file_full(
-                                AT_FDCWD, private_key, UINT64_MAX, SIZE_MAX,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                NULL,
-                                &k, &n);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read key file '%s': %m", private_key);
-
-                r = parse_private_key(k, n, &arg_private_key);
-                if (r < 0)
-                        return r;
-        } else if (private_key &&
-                   IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
-                /* This must happen after parse_x509_certificate() is called above, otherwise
-                 * signing later will get stuck as the parsed private key won't have the
-                 * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
-                r = openssl_load_key_from_token(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                private_key,
-                                &arg_private_key);
-                if (r < 0)
-                        return log_error_errno(
-                                        r,
-                                        "Failed to load key '%s' from OpenSSL private key source %s: %m",
-                                        private_key,
-                                        arg_private_key_source);
         }
 
         return 1;
@@ -9037,6 +9070,10 @@ static int run(int argc, char *argv[]) {
         context = context_new(arg_seed);
         if (!context)
                 return log_oom();
+
+        r = load_private_key(&context->private_key, &context->ui);
+        if (r < 0)
+                return r;
 
         r = context_read_seed(context, arg_root);
         if (r < 0)
