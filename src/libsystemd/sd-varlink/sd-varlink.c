@@ -1386,17 +1386,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
-                        if (r < 0) {
+                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the
                                  * method call remains unanswered. */
-                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
-                                        r = sd_varlink_error_errno(v, r);
-                                        /* If we didn't manage to enqueue an error response, then fail the connection completely. */
-                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
-                                                goto fail;
-                                }
+                                r = sd_varlink_error_errno(v, r);
+                                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
                         }
                 }
         } else if (VARLINK_STATE_WANTS_REPLY(v->state)) {
