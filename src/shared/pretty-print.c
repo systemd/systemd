@@ -88,7 +88,9 @@ int terminal_urlify(const char *url, const char *text, char **ret) {
                 text = url;
 
         if (urlify_enabled())
-                n = strjoin("\x1B]8;;", url, "\a", text, "\x1B]8;;\a");
+                n = strjoin(ANSI_OSC "8;;", url, ANSI_ST,
+                            text,
+                            ANSI_OSC "8;;" ANSI_ST);
         else
                 n = strdup(text);
         if (!n)
@@ -475,7 +477,7 @@ void draw_progress_bar_unbuffered(const char *prefix, double percentage) {
                  * https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
                  * https://github.com/microsoft/terminal/pull/8055
                  */
-                fprintf(stderr, "\x1B]9;4;1;%u\a", (unsigned) ceil(percentage));
+                fprintf(stderr, ANSI_OSC "9;4;1;%u" ANSI_ST, (unsigned) ceil(percentage));
 
                 size_t cols = columns();
                 size_t prefix_width = utf8_console_width(prefix) + 1 /* space */;
@@ -534,7 +536,7 @@ void clear_progress_bar_unbuffered(const char *prefix) {
                       stderr);
         else
                 /* Undo Windows Terminal progress indication again. */
-                fputs("\x1B]9;4;0;;\a"
+                fputs(ANSI_OSC "9;4;0;;" ANSI_ST
                       ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);

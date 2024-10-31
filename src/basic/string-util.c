@@ -698,7 +698,8 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_OTHER,
                 STATE_ESCAPE,
                 STATE_CSI,
-                STATE_CSO,
+                STATE_OSC,
+                STATE_OSC_CLOSING,
         } state = STATE_OTHER;
         _cleanup_(memstream_done) MemStream m = {};
         size_t isz, shift[2] = {}, n_carriage_returns = 0;
@@ -711,7 +712,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          *
          * 1. Replaces TABs by 8 spaces
          * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
-         * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
+         * 3. Strips ANSI operating system sequences (OSC), i.e. ESC ']' … ST sequences
          * 4. Strip trailing \r characters (since they would "move the cursor", but have no
          *    other effect).
          *
@@ -719,7 +720,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
          * supposed to suppress the most basic formatting noise, but nothing else.
          *
-         * Why care for CSO sequences? Well, to undo what terminal_urlify() and friends generate. */
+         * Why care for OSC sequences? Well, to undo what terminal_urlify() and friends generate. */
 
         isz = _isz ? *_isz : strlen(*ibuf);
 
@@ -766,8 +767,8 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         } else if (*i == '[') { /* ANSI CSI */
                                 state = STATE_CSI;
                                 begin = i + 1;
-                        } else if (*i == ']') { /* ANSI CSO */
-                                state = STATE_CSO;
+                        } else if (*i == ']') { /* ANSI OSC */
+                                state = STATE_OSC;
                                 begin = i + 1;
                         } else {
                                 fputc('\x1B', f);
@@ -793,17 +794,35 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                         break;
 
-                case STATE_CSO:
+                case STATE_OSC:
                         assert(n_carriage_returns == 0);
 
+                        /* There are three kinds of OSC terminators: \x07, \x1b\x5c or \x9c. We only support
+                         * the first two, because the last one is a valid UTF-8 codepoint and hence creates
+                         * an ambiguity (many Terminal emulators refuse to support it as well). */
                         if (i >= *ibuf + isz || /* EOT … */
-                            (*i != '\a' && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
+                            (!IN_SET(*i, '\x07', '\x1b') && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
                                 state = STATE_OTHER;
                                 i = begin-1;
-                        } else if (*i == '\a')
+                        } else if (*i == '\x07') /* Single character ST */
+                                state = STATE_OTHER;
+                        else if (*i == '\x1B')
+                                state = STATE_OSC_CLOSING;
+
+                        break;
+
+                case STATE_OSC_CLOSING:
+                        if (i >= *ibuf + isz || /* EOT … */
+                            *i != '\x5c') { /* … or incomplete two-byte ST in sequence */
+                                fputc('\x1B', f);
+                                fputc(']', f);
+                                advance_offsets(i - *ibuf, highlight, shift, 2);
+                                state = STATE_OTHER;
+                                i = begin-1;
+                        } else if (*i == '\x5c')
                                 state = STATE_OTHER;
 
                         break;
