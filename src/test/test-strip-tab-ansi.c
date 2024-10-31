@@ -67,6 +67,15 @@ TEST(strip_tab_ansi) {
                 assert_se(strip_tab_ansi(&q, NULL, NULL));
                 ASSERT_STREQ(q, qq);
         }
+
+        /* Test that both kinds of ST are recognized after OSC */
+        assert_se(p = strdup("before" ANSI_OSC "inside1" ANSI_ST
+                             "between1" ANSI_OSC "inside2\a"
+                             "between2" ANSI_OSC "inside3\x1b\x5c"
+                             "after"));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        ASSERT_STREQ(p, "beforebetween1between2after");
+        free(p);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
