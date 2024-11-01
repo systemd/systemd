@@ -171,7 +171,7 @@ CHANGES WITH 257 in spe:
           to refer to processes.
 
         * A build option -D link-executor-shared=false can be used to build
-          the systemd-executor binary (added in the previous release) in a way
+          the systemd-executor binary (added in a previous release) in a way
           where it does not link to shared libsystemd-shared-….so library.
           PID1 holds a reference to the executor binary that was on disk when
           the manager was started or restarted, but the shared libraries it is
@@ -241,6 +241,11 @@ CHANGES WITH 257 in spe:
           allocated for the service and cgroupfs mounted accordingly; if set to
           "strict" a new cgroup namespace is allocated for the service, and
           cgroupfs is mounted read-only for the service.
+
+        * The StateDirectory=, RuntimeDirectory=, CacheDirectory=, LogsDirectory=,
+          and ConfigurationDirectory= settings gained support for configuring the
+          respective directories as read-only, via a ':ro' flag that can be
+          appended to each setting.
 
         systemd-udevd:
 
