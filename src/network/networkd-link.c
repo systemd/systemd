@@ -376,11 +376,11 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         assert(link->manager);
         assert(link->manager->event);
 
-        bool keep_dhcp = may_keep_dhcp &&
-                         link->network &&
-                         !link->network->dhcp_send_decline && /* IPv4 ACD for the DHCPv4 address is running. */
-                         (link->manager->state == MANAGER_RESTARTING ||
-                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+        bool keep_dhcp =
+                may_keep_dhcp &&
+                link->network &&
+                (link->manager->state == MANAGER_RESTARTING ||
+                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
         if (!keep_dhcp) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
