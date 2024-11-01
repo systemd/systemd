@@ -912,7 +912,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
         if (r == -ELOOP)
                 return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
         if (r < 0)
-                goto finish;
+                goto fail;
         if (r == DNS_QUERY_CNAME) {
                 /* This was a cname, and the query was restarted. */
                 TAKE_PTR(q);
@@ -924,7 +924,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 r = dns_question_matches_rr(question, rr, NULL);
                 if (r < 0)
-                        goto finish;
+                        goto fail;
                 if (r == 0)
                         continue;
 
@@ -942,7 +942,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
                         q->block_all_complete--;
 
                         if (r < 0)
-                                goto finish;
+                                goto fail;
                 }
 
                 found++;
@@ -961,11 +961,9 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
         resolve_service_all_complete(TAKE_PTR(q));
         return;
 
-finish:
-        if (r < 0) {
-                log_error_errno(r, "Failed to send address reply: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
-        }
+fail:
+        log_error_errno(r, "Failed to send address reply: %m");
+        (void) sd_varlink_error_errno(q->varlink_request, r);
 }
 
 static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
