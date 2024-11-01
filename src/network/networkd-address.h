@@ -114,7 +114,7 @@ int link_drop_static_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
 void link_foreignize_addresses(Link *link);
-bool link_address_is_dynamic(const Link *link, const Address *address);
+bool link_address_is_dynamic(Link *link, const Address *address);
 
 int link_get_address_full(
                 Link *link,
