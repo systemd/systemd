@@ -179,6 +179,21 @@ static int ipv4ll_set_address(Link *link) {
         assert(link->network);
         assert(link->ipv4ll);
 
+        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                Address *a;
+
+                SET_FOREACH(a, link->addresses) {
+                        if (a->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (a->family != AF_INET)
+                                continue;
+                        if (!in4_addr_is_link_local_dynamic(&a->in_addr.in))
+                                continue;
+
+                        return sd_ipv4ll_set_address(link->ipv4ll, &a->in_addr.in);
+                }
+        }
+
         if (!in4_addr_is_set(&link->network->ipv4ll_start_address))
                 return 0;
 
