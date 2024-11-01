@@ -738,9 +738,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 `systemd-ask-password`:
 
-* `$SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC` - takes a timespan or `default`,
-  which controls the expiration time of keys stored in the kernel keyring by
-  `systemd-ask-password`. If unset or set to `default`, the default expiration
-  of 150 seconds is used. If set to `0`, keys are not cached in the kernel
-  keyring. If set to `infinity`, keys are cached without an expiration time in
-  the kernel keyring.
+* `$SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC` - takes a timespan, which controls
+  the expiration time of keys stored in the kernel keyring by `systemd-ask-password`.
+  If unset, the default expiration of 150 seconds is used. If set to `0`, keys are
+  not cached in the kernel keyring. If set to `infinity`, keys are cached without an
+  expiration time in the kernel keyring.
