@@ -321,7 +321,7 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
 
 static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
                 { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  0                 },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
@@ -347,9 +347,6 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         r = dns_name_is_valid(p.name);
         if (r < 0)
@@ -490,7 +487,7 @@ finish:
 
 static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  SD_JSON_MANDATORY },
                 { "address", SD_JSON_VARIANT_ARRAY,         json_dispatch_address,   0,                                   SD_JSON_MANDATORY },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
@@ -516,9 +513,6 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         if (!IN_SET(p.family, AF_INET, AF_INET6))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
@@ -968,12 +962,12 @@ fail:
 
 static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0              },
-                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0              },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0                 },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0                 },
                 { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  SD_JSON_MANDATORY },
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex), 0              },
-                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0              },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0              },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParametersResolveService, ifindex), SD_JSON_RELAX     },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0                 },
                 {}
         };
 
@@ -997,9 +991,6 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         if (!IN_SET(p.family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
@@ -1123,7 +1114,7 @@ finish:
 
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
                 { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, class),   0                 },
                 { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
@@ -1149,9 +1140,6 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         r = dns_name_is_valid(p.name);
         if (r < 0)

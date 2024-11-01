@@ -69,8 +69,8 @@ typedef struct InterfaceInfo {
 
 static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, Link **ret) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
-                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
                 {}
         };
 
