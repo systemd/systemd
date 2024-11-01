@@ -114,7 +114,7 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to format JSON object: %m");
 
-        r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(HibernateLocation), formatted);
+        r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE_STR("HibernateLocation"), formatted);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to set EFI variable HibernateLocation: %m");
 
