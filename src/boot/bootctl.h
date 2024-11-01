@@ -6,6 +6,7 @@
 
 #include "boot-entry.h"
 #include "image-policy.h"
+#include "openssl-util.h"
 #include "pager.h"
 
 typedef enum InstallSource {
@@ -38,6 +39,11 @@ extern char *arg_efi_boot_option_description;
 extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
+extern bool arg_secure_boot_auto_enroll;
+extern char *arg_private_key;
+extern KeySourceType arg_private_key_source_type;
+extern char *arg_private_key_source;
+extern char *arg_certificate;
 
 static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */

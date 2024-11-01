@@ -62,6 +62,11 @@ char *arg_efi_boot_option_description = NULL;
 bool arg_dry_run = false;
 ImagePolicy *arg_image_policy = NULL;
 bool arg_varlink = false;
+bool arg_secure_boot_auto_enroll = false;
+char *arg_private_key = NULL;
+KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
+char *arg_private_key_source = NULL;
+char *arg_certificate = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -149,7 +154,7 @@ static int print_loader_or_stub_path(void) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to determine loader partition UUID: %m");
 
-                r = efi_get_variable_path(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &p);
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("LoaderImageIdentifier"), &p);
                 if (r == -ENOENT)
                         return log_error_errno(r, "No loader EFI binary path passed.");
                 if (r < 0)
@@ -163,7 +168,7 @@ static int print_loader_or_stub_path(void) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to determine stub partition UUID: %m");
 
-                r = efi_get_variable_path(EFI_LOADER_VARIABLE(StubImageIdentifier), &p);
+                r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &p);
                 if (r == -ENOENT)
                         return log_error_errno(r, "No stub EFI binary path passed.");
                 if (r < 0)
@@ -277,6 +282,19 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
                "     --dry-run         Dry run (unlink and cleanup)\n"
+               "     --secure-boot-auto-enroll\n"
+               "                       Set up secure boot auto-enrollment\n"
+               "     --private-key=PATH|URI\n"
+               "                       Private key to use when setting up secure boot\n"
+               "                       auto-enrollment or an engine or provider specific\n"
+               "                       designation if --private-key-source= is used\n"
+               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
+               "                       Specify how to use KEY for --private-key=. Allows\n"
+               "                       an OpenSSL engine/provider to be used when setting\n"
+               "                       up secure boot auto-enrollment\n"
+               "     --certificate=PATH\n"
+               "                       PEM certificate to use when setting up secure boot\n"
+               "                       auto-enrollment\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -309,6 +327,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DRY_RUN,
                 ARG_PRINT_LOADER_PATH,
                 ARG_PRINT_STUB_PATH,
+                ARG_SECURE_BOOT_AUTO_ENROLL,
+                ARG_PRIVATE_KEY,
+                ARG_PRIVATE_KEY_SOURCE,
+                ARG_CERTIFICATE,
         };
 
         static const struct option options[] = {
@@ -339,6 +361,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
                 { "dry-run",                     no_argument,       NULL, ARG_DRY_RUN                     },
+                { "secure-boot-auto-enroll",     no_argument,       NULL, ARG_SECURE_BOOT_AUTO_ENROLL     },
+                { "private-key",                 required_argument, NULL, ARG_PRIVATE_KEY                 },
+                { "private-key-source",          required_argument, NULL, ARG_PRIVATE_KEY_SOURCE          },
+                { "certificate",                 required_argument, NULL, ARG_CERTIFICATE                 },
                 {}
         };
 
@@ -491,6 +517,33 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_dry_run = true;
                         break;
 
+                case ARG_SECURE_BOOT_AUTO_ENROLL:
+                        arg_secure_boot_auto_enroll = true;
+                        break;
+
+                case ARG_PRIVATE_KEY: {
+                        r = free_and_strdup_warn(&arg_private_key, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_PRIVATE_KEY_SOURCE:
+                        r = parse_openssl_key_source_argument(
+                                        optarg,
+                                        &arg_private_key_source,
+                                        &arg_private_key_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CERTIFICATE: {
+                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -516,6 +569,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
+
+        if (arg_secure_boot_auto_enroll && !arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no certificate provided");
+
+        if (arg_secure_boot_auto_enroll && !arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided");
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
