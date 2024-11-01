@@ -1727,15 +1727,6 @@ static int home_update_internal(
                 secret = saved_secret;
         }
 
-        if (blobs) {
-                const char *failed = NULL;
-                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
-                if (r == -EINVAL)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
-        }
-
         r = manager_verify_user_record(h->manager, hr);
         switch (r) {
 
