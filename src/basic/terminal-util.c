@@ -1923,12 +1923,12 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (tcsetattr(STDIN_FILENO, TCSADRAIN, &new_termios) < 0)
                 return -errno;
 
-        r = loop_write(STDOUT_FILENO, "\x1B]11;?\x07", SIZE_MAX);
+        r = loop_write(STDOUT_FILENO, ANSI_OSC "11;?" ANSI_ST, SIZE_MAX);
         if (r < 0)
                 goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
-        char buf[STRLEN("\x1B]11;rgb:0/0/0\x07")]; /* shortest possible reply */
+        char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
         BackgroundColorContext context = {};
 
