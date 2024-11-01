@@ -15,6 +15,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
@@ -1260,13 +1261,18 @@ int address_remove_and_cancel(Address *address, Link *link) {
         return 0;
 }
 
-bool link_address_is_dynamic(const Link *link, const Address *address) {
+bool link_address_is_dynamic(Link *link, const Address *address) {
         Route *route;
 
         assert(link);
         assert(link->manager);
         assert(address);
 
+        /* IPv4LL */
+        if (link_ipv4ll_enabled(link) && address->family == AF_INET && in4_addr_is_link_local_dynamic(&address->in_addr.in))
+                return true;
+
+        /* DHCP or SLAAC */
         if (address->lifetime_preferred_usec != USEC_INFINITY)
                 return true;
 
