@@ -758,6 +758,17 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize speed meter: %m");
 
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                if (link->state != LINK_STATE_PENDING)
+                        continue;
+
+                r = link_check_initialized(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to check if link is initialized: %m");
+                        link_enter_failed(link);
+                }
+        }
+
         /* The dirty handler will deal with future serialization, but the first one
            must be done explicitly. */
 
