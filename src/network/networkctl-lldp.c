@@ -27,10 +27,10 @@ static void interface_info_done(InterfaceInfo *p) {
 }
 
 static const sd_json_dispatch_field interface_info_dispatch_table[] = {
-        { "InterfaceIndex",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(InterfaceInfo, ifindex),  SD_JSON_MANDATORY },
-        { "InterfaceName",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   SD_JSON_MANDATORY },
-        { "InterfaceAlternativeNames", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0                 },
-        { "Neighbors",                 SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(InterfaceInfo, v),        0                 },
+        { "InterfaceIndex",            _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex),  SD_JSON_MANDATORY|SD_JSON_RELAX },
+        { "InterfaceName",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   SD_JSON_MANDATORY               },
+        { "InterfaceAlternativeNames", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0                               },
+        { "Neighbors",                 SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(InterfaceInfo, v),        0                               },
         {},
 };
 
