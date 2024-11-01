@@ -301,3 +301,19 @@ const struct sigaction sigaction_default = {
         .sa_handler = SIG_DFL,
         .sa_flags = SA_RESTART,
 };
+
+int parse_signo(const char *s, int *ret) {
+        int sig, r;
+
+        r = safe_atoi(s, &sig);
+        if (r < 0)
+                return r;
+
+        if (!SIGNAL_VALID(sig))
+                return -EINVAL;
+
+        if (ret)
+                *ret = sig;
+
+        return 0;
+}
