@@ -131,6 +131,8 @@ USB_IDS += [
 USB_IDS += [
     # Huawei (ME936) (kip)
     "12d1:15bb",
+    # Quectel (EM060)
+    "2c7c:0128",
     # Fibocom (L850-GL) (coral, nautilus, sarien)
     "2cb7:0007",
     # Fibocom (NL668, NL652)
@@ -139,6 +141,12 @@ USB_IDS += [
     "2cb7:01a2",
     # Fibocom (FM101-GL) (adb)
     "2cb7:01a4",
+    # Rolling Wireless (RW101)
+    "33f8:01a2",
+    # Rolling Wireless (RW135)
+    "33f8:0115",
+    # NetPrisma (LCUK54)
+    "3731:0100",
 ]
 
 # Mass Storage
@@ -340,9 +348,9 @@ PCI_IDS += [
 # Phison
 PCI_IDS += [
     # E13 NVMe Controller (redrix)
-    '1987:5013',
+    "1987:5013",
     # E18 PCIe4 NVMe Controller (vell)
-    '1987:5018',
+    "1987:5018",
 ]
 
 # Do not edit below this line. #################################################
