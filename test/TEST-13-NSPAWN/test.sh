@@ -11,9 +11,8 @@ TEST_FORCE_NEWIMAGE=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-test_append_files() {
-    local workspace="${1:?}"
-    local container="$workspace/usr/share/TEST-13-NSPAWN-container-template"
+_install_base_container() {
+    local container="${1:?}"
 
     # For virtual wlan interface.
     instmods mac80211_hwsim
@@ -53,6 +52,16 @@ echo "Hello from dummy init, beautiful day, innit?"
 ip link
 EOF
     chmod +x "$container/sbin/init"
+}
+
+test_append_files() {
+    local workspace="${1:?}"
+    local container="$workspace/usr/share/TEST-13-NSPAWN-container-template"
+    local container_systemd="$workspace/usr/share/TEST-13-NSPAWN-container-systemd-template"
+
+    _install_base_container "$container"
+    _install_base_container "$container_systemd"
+    initdir="$container_systemd" install_systemd
 }
 
 do_test "$@"
