@@ -252,7 +252,7 @@ bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
 bool link_has_ipv6_connectivity(Link *link);
 
-int link_stop_engines(Link *link, bool may_keep_dhcp);
+int link_stop_engines(Link *link, bool may_keep_dynamic);
 void link_free_engines(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;

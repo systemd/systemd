@@ -369,20 +369,20 @@ void link_set_state(Link *link, LinkState state) {
         link_dirty(link);
 }
 
-int link_stop_engines(Link *link, bool may_keep_dhcp) {
+int link_stop_engines(Link *link, bool may_keep_dynamic) {
         int r, ret = 0;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->event);
 
-        bool keep_dhcp =
-                may_keep_dhcp &&
+        bool keep_dynamic =
+                may_keep_dynamic &&
                 link->network &&
                 (link->manager->state == MANAGER_RESTARTING ||
-                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC));
 
-        if (!keep_dhcp) {
+        if (!keep_dynamic) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
@@ -449,7 +449,7 @@ void link_enter_failed(Link *link) {
                 return;
 
 stop:
-        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -1366,7 +1366,7 @@ int link_reconfigure_impl(Link *link, bool force) {
                               "Unmanaging interface.");
 
         /* Dropping old .network file */
-        r = link_stop_engines(link, false);
+        r = link_stop_engines(link, /* may_keep_dynamic = */ false);
         if (r < 0)
                 return r;
 
@@ -1813,7 +1813,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (!link->network)
                 return ret;
 
-        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic = */ false));
         RET_GATHER(ret, link_drop_managed_config(link));
 
         return ret;

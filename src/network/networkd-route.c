@@ -1464,8 +1464,8 @@ static int link_mark_routes(Link *link, bool foreign) {
                             FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                                 continue;
 
-                        if (route->protocol == RTPROT_DHCP &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                        if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                                 continue;
                 }
 
