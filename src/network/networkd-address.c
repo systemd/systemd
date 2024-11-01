@@ -1270,6 +1270,10 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         if (address->lifetime_preferred_usec != USEC_INFINITY)
                 return true;
 
+        /* There are no way to drtermine if the IPv6 address is dynamic when the lifetime is infinity. */
+        if (address->family != AF_INET)
+                return false;
+
         /* Even when the address is leased from a DHCP server, networkd assign the address
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
@@ -1277,7 +1281,7 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
-                /* The route is not assigned yet, or already removed. Ignoring. */
+                /* The route is not assigned yet, or already being removed. Ignoring. */
                 if (!route_exists(route))
                         continue;
 
