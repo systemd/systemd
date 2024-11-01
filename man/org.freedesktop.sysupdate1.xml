@@ -28,7 +28,7 @@
     is a system service that allows unprivileged clients to update the system. This page describes the D-Bus
     interface.</para>
 
-    <para><strong>WARNING!</strong> This API is currently <emphasis>unstable</emphasis> and is thus subject
+    <para><emphasis>WARNING!</emphasis> This API is currently <emphasis>unstable</emphasis> and is thus subject
     to breaking changes between versions of systemd.</para>
   </refsect1>
 
@@ -254,7 +254,7 @@ node /org/freedesktop/sysupdate1/target/host {
           this version.</para></listitem>
         </varlistentry>
       </variablelist>
-      
+
       <para><function>CheckNew()</function> checks if a newer version is available for this target. This
       method pulls metadata from the network. If a newer version is found, this method returns the
       version number. If no newer version is found, this method returns an empty string. Use
