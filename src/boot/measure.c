@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "build.h"
 #include "efi-loader.h"
 #include "fd-util.h"
@@ -803,6 +804,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
         size_t n;
@@ -834,54 +836,31 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         /* This must be done before openssl_load_key_from_token() otherwise it will get stuck */
         if (arg_certificate) {
-                _cleanup_(BIO_freep) BIO *cb = NULL;
-                _cleanup_free_ char *crt = NULL;
-
-                r = read_full_file_full(
-                                AT_FDCWD, arg_certificate, UINT64_MAX, SIZE_MAX,
-                                READ_FULL_FILE_CONNECT_SOCKET,
-                                /* bind_name= */ NULL,
-                                &crt, &n);
+                r = openssl_load_x509_certificate(arg_certificate, &certificate);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read certificate file '%s': %m", arg_certificate);
-
-                cb = BIO_new_mem_buf(crt, n);
-                if (!cb)
-                        return log_oom();
-
-                certificate = PEM_read_bio_X509(cb, NULL, NULL, NULL);
-                if (!certificate)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EBADMSG),
-                                        "Failed to parse X.509 certificate: %s",
-                                        ERR_error_string(ERR_get_error(), NULL));
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
         }
 
-        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                _cleanup_fclose_ FILE *privkeyf = NULL;
-                _cleanup_free_ char *resolved_pkey = NULL;
+        if (arg_private_key) {
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                }
 
-                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &resolved_pkey);
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .id = "measure-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "measure.private-key-pin",
+                                },
+                                &privkey,
+                                &ui);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
-
-                privkeyf = fopen(resolved_pkey, "re");
-                if (!privkeyf)
-                        return log_error_errno(errno, "Failed to open private key file '%s': %m", resolved_pkey);
-
-                privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
-                if (!privkey)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", resolved_pkey);
-        } else if (arg_private_key_source &&
-                   IN_SET(arg_private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER)) {
-                r = openssl_load_key_from_token(
-                                arg_private_key_source_type, arg_private_key_source, arg_private_key, &privkey);
-                if (r < 0)
-                        return log_error_errno(
-                                        r,
-                                        "Failed to load key '%s' from OpenSSL key source %s: %m",
-                                        arg_private_key,
-                                        arg_private_key_source);
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
         }
 
         if (arg_public_key) {
@@ -1049,7 +1028,7 @@ static int validate_stub(void) {
                 log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
                             "The PCR measurements seen are unlikely to be valid.");
 
-        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE(StubPcrKernelImage), "kernel image");
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), "kernel image");
         if (r < 0)
                 return r;
 

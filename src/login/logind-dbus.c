@@ -3277,12 +3277,12 @@ static int method_set_reboot_to_boot_loader_menu(
 
         if (use_efi) {
                 if (x == UINT64_MAX)
-                        r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), NULL, 0);
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), NULL, 0);
                 else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
                         xsprintf(buf, "%" PRIu64, DIV_ROUND_UP(x, USEC_PER_SEC)); /* second granularity */
 
-                        r = efi_set_variable_string(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), buf);
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), buf);
                 }
                 if (r < 0)
                         return r;
@@ -3472,9 +3472,9 @@ static int method_set_reboot_to_boot_loader_entry(
         if (use_efi) {
                 if (isempty(v))
                         /* Delete item */
-                        r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderEntryOneShot), NULL, 0);
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), NULL, 0);
                 else
-                        r = efi_set_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), v);
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), v);
                 if (r < 0)
                         return r;
         } else {
