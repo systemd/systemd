@@ -179,7 +179,7 @@ static int ipv4ll_set_address(Link *link) {
         assert(link->network);
         assert(link->ipv4ll);
 
-        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                 Address *a;
 
                 SET_FOREACH(a, link->addresses) {

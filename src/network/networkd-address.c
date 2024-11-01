@@ -1280,8 +1280,8 @@ bool link_address_is_dynamic(Link *link, const Address *address) {
         if (address->family != AF_INET)
                 return false;
 
-        /* Even when the address is leased from a DHCP server, networkd assign the address
-         * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
+        /* Even if an IPv4 address is leased from a DHCP server with a finite lifetime, networkd assign the
+         * address without lifetime when KeepConfiguration=dynamic. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
@@ -1416,8 +1416,8 @@ int link_drop_foreign_addresses(Link *link) {
                         continue;
 
                 /* link_address_is_dynamic() is slightly heavy. Let's call the function only when KeepConfiguration= is set. */
-                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP, KEEP_CONFIGURATION_STATIC) &&
-                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DHCP))
+                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC, KEEP_CONFIGURATION_STATIC) &&
+                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DYNAMIC))
                         continue;
 
                 address_mark(address);

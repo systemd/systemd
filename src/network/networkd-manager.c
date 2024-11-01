@@ -476,7 +476,7 @@ static int manager_stop(Manager *manager, ManagerState state) {
 
         Link *link;
         HASHMAP_FOREACH(link, manager->links_by_index) {
-                (void) link_stop_engines(link, /* may_keep_dhcp = */ true);
+                (void) link_stop_engines(link, /* may_keep_dynamic = */ true);
                 link_free_engines(link);
         }
 
@@ -505,8 +505,8 @@ static int manager_set_keep_configuration(Manager *m) {
         assert(m);
 
         if (in_initrd()) {
-                log_debug("Running in initrd, keep DHCPv4 addresses on stopping networkd by default.");
-                m->keep_configuration = KEEP_CONFIGURATION_DHCP_ON_STOP;
+                log_debug("Running in initrd, keep dynamically assigned addresses and routes by default.");
+                m->keep_configuration = KEEP_CONFIGURATION_DYNAMIC;
                 return 0;
         }
 
