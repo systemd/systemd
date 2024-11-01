@@ -46,8 +46,10 @@ EOF
 
 check
 
-MAJOR=$(udevadm info /dev/sda | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')
-MINOR=$(udevadm info /dev/sda | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')
+ROOTDEV="$(bootctl -RR)"
+
+MAJOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')"
+MINOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')"
 test -L "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
@@ -56,8 +58,8 @@ EOF
 
 check
 
-MAJOR=$(udevadm info /dev/sda | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')
-MINOR=$(udevadm info /dev/sda | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')
+MAJOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MAJOR=' | sed -e 's/^E: MAJOR=//')"
+MINOR="$(udevadm info "$ROOTDEV" | grep -e '^E: MINOR=' | sed -e 's/^E: MINOR=//')"
 test ! -e "/run/udev/watch/b${MAJOR}:${MINOR}"
 
 rm /run/udev/rules.d/00-debug.rules
