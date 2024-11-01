@@ -47,6 +47,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "transaction.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
@@ -2645,13 +2646,23 @@ static void service_enter_restart(Service *s, bool shortcut) {
                 return;
         }
 
-        /* Any units that are bound to this service must also be restarted. We use JOB_START for ourselves
-         * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs. */
-        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_RESTART_DEPENDENCIES, NULL, &error, NULL);
+        /* Any units that are bound to this service must also be restarted, unless RestartMode=direct.
+         * We use JOB_START for ourselves but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART
+         * for those dependency jobs in the former case, plain JOB_REPLACE when RestartMode=direct.
+         *
+         * Also, when RestartMode=direct is used, the service being restarted don't enter the inactive/failed state,
+         * i.e. unit_process_job -> job_finish_and_invalidate is never called, and the previous job might still
+         * be running (especially for Type=oneshot services).
+         * We need to refuse late merge and re-enqueue the anchor job. */
+        r = manager_add_job_full(UNIT(s)->manager,
+                                 JOB_START, UNIT(s),
+                                 s->restart_mode == SERVICE_RESTART_MODE_DIRECT ? JOB_REPLACE : JOB_RESTART_DEPENDENCIES,
+                                 TRANSACTION_REENQUEUE_ANCHOR,
+                                 /* affected_jobs = */ NULL,
+                                 &error, /* ret = */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
-                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
-                return;
+                return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
         }
 
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't
@@ -4955,7 +4966,7 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
         e = sd_bus_message_get_error(reply);
         if (e) {
                 r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "GetConnectionUnixProcessID() failed: %s", bus_error_message(e, r));
+                log_unit_warning_errno(UNIT(s), r, "GetConnectionUnixProcessID() failed: %s", bus_error_message(e, r));
                 return 1;
         }
 
@@ -4967,7 +4978,7 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
 
         r = pidref_set_pid(&pidref, pid);
         if (r < 0) {
-                log_debug_errno(r, "GetConnectionUnixProcessID() returned invalid PID: %m");
+                log_unit_debug_errno(UNIT(s), r, "GetConnectionUnixProcessID() returned invalid PID: %m");
                 return 1;
         }
 
@@ -5014,7 +5025,7 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
                                 "s",
                                 s->bus_name);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to request owner PID of service name, ignoring: %m");
+                        log_unit_debug_errno(u, r, "Failed to request owner PID of service name, ignoring: %m");
         }
 }
 

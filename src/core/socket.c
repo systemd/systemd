@@ -2345,7 +2345,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, NULL, &error, NULL);
+                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -2413,7 +2413,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 s->n_connections++;
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, &error, /* ret = */ NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
