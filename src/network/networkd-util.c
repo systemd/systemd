@@ -23,7 +23,7 @@ static const char * const network_config_source_table[_NETWORK_CONFIG_SOURCE_MAX
         [NETWORK_CONFIG_SOURCE_RUNTIME] = "runtime",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(network_config_source, NetworkConfigSource);
+DEFINE_STRING_TABLE_LOOKUP(network_config_source, NetworkConfigSource);
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret) {
         static const char* states[] = {
