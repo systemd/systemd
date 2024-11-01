@@ -45,7 +45,7 @@ int close_and_notify_warn(int fd, const char *name) {
         return safe_close(fd);
 }
 
-static int notify_push_fd(int fd, const char *name) {
+int notify_push_fd(int fd, const char *name) {
         _cleanup_free_ char *state = NULL;
 
         assert(fd >= 0);
