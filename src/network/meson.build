@@ -76,6 +76,7 @@ sources = files(
         'networkd-route-nexthop.c',
         'networkd-route-util.c',
         'networkd-routing-policy-rule.c',
+        'networkd-serialize.c',
         'networkd-setlink.c',
         'networkd-speed-meter.c',
         'networkd-sriov.c',
