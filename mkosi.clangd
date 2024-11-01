@@ -8,6 +8,7 @@ ARCH="$(jq -r .Architecture <<< "$MKOSI_CONFIG")"
 
 exec mkosi \
     --incremental=strict \
+    --build-sources-ephemeral=no \
     --format=none \
     build \
     clangd \
