@@ -672,6 +672,17 @@ CHANGES WITH 257 in spe:
           logins. All of systemd's own system users have been changed to be
           marked as fully locked.
 
+        * systemd-coredump now supports a new EnterNamespace= option, which
+          defaults to off. If enabled systemd-coredump will access the mount
+          namespace of any crashed process to acquire debug symbol information,
+          in order to be able to symbolized backtraces. This option is useful
+          to improve backtraces of processes of containerized
+          applications. (Note that the host systemd-coredump preferably
+          dispatches coredump processing to the container itself, if it
+          supports that. Only full-OS containers which run systemd inside will
+          support this however, in which case EnterNamespace= might be an
+          alternative approach to acquire symbolized backtraces.)
+
         — <place>, <date>
 
 CHANGES WITH 256:
