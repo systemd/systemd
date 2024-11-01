@@ -68,7 +68,7 @@ static int address_append_json(Address *address, sd_json_variant **array) {
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family));
 }
 
-static int addresses_append_json(Set *addresses, sd_json_variant **v) {
+int addresses_append_json(Set *addresses, bool only_managed, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         Address *address;
         int r;
@@ -76,6 +76,13 @@ static int addresses_append_json(Set *addresses, sd_json_variant **v) {
         assert(v);
 
         SET_FOREACH(address, addresses) {
+                if (only_managed) {
+                        if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (address_is_ready(address))
+                                continue;
+                }
+
                 r = address_append_json(address, &array);
                 if (r < 0)
                         return r;
@@ -199,8 +206,9 @@ static int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant *
         return json_variant_set_field_non_null(v, "NextHops", array);
 }
 
-static int route_append_json(Route *route, sd_json_variant **array) {
+static int route_append_json(Route *route, bool on_serialization, sd_json_variant **array) {
         _cleanup_free_ char *scope = NULL, *protocol = NULL, *table = NULL, *flags = NULL, *state = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(route);
@@ -226,8 +234,8 @@ static int route_append_json(Route *route, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arraybo(
-                        array,
+        r = sd_json_buildo(
+                        &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", route->family),
                         JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
@@ -255,9 +263,23 @@ static int route_append_json(Route *route, sd_json_variant **array) {
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
                         SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family));
+        if (r < 0)
+                return r;
+
+        if (on_serialization) {
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", route->nexthop.ifindex),
+                                JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY("Metrics", route->metric.metrics, route->metric.n_metrics),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("TCPCongestionControlAlgorithm", route->metric.tcp_congestion_control_algo));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_append_array(array, v);
 }
 
-static int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
+int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         Route *route;
         int r;
@@ -266,10 +288,17 @@ static int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v
         assert(v);
 
         SET_FOREACH(route, manager->routes) {
-                if (route->nexthop.ifindex != ifindex)
-                        continue;
+                if (ifindex >= 0) {
+                        if (route->nexthop.ifindex != ifindex)
+                                continue;
+                } else {
+                        if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (!route_exists(route))
+                                continue;
+                }
 
-                r = route_append_json(route, &array);
+                r = route_append_json(route, /* on_serialization = */ ifindex < 0, &array);
                 if (r < 0)
                         return r;
         }
@@ -1417,7 +1446,7 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = addresses_append_json(link->addresses, &v);
+        r = addresses_append_json(link->addresses, /* only_managed = */ false, &v);
         if (r < 0)
                 return r;
 
