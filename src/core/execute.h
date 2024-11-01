@@ -163,6 +163,7 @@ typedef struct ExecDirectoryItem {
         char *path;
         char **symlinks;
         ExecDirectoryFlags flags;
+        bool idmapped;
 } ExecDirectoryItem;
 
 typedef struct ExecDirectory {
