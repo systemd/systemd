@@ -236,6 +236,7 @@ static int route_append_json(Route *route, sd_json_variant **array) {
                                                      "Source", JSON_BUILD_IN_ADDR(&route->src, route->family)),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("SourcePrefixLength", route->src_prefixlen),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("PreferredSource", &route->prefsrc, route->family),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("TOS", route->tos),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Scope", route->scope),
                         SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", route->protocol),
@@ -250,6 +251,7 @@ static int route_append_json(Route *route, sd_json_variant **array) {
                         SD_JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
                         SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
                         JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("NextHopID", route->nexthop_id),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
                         SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family));
