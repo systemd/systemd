@@ -238,7 +238,7 @@ testcase_nvme_subsystem() {
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
 }
 
-testcase_virtio_scsi_identically_named_partitions() {
+testcase_identically_named_partitions() {
     local num_part num_disk i j
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
@@ -263,7 +263,7 @@ EOF
     [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$((num_part * num_disk))" ]]
 }
 
-testcase_multipath_basic_failover() {
+testcase_multipath_failover() {
     local dmpath i path wwid
 
     # Configure multipath
