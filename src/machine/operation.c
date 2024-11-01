@@ -154,3 +154,18 @@ Operation *operation_free(Operation *o) {
 
         return mfree(o);
 }
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int r) {
+        if (r >= 0)
+                _exit(EXIT_SUCCESS);
+
+        assert(errno_fd >= 0);
+
+        ssize_t n = write(errno_fd, &r, sizeof(r));
+        if (n < 0)
+                log_debug_errno(errno, "Failed to write operation's errno: %m");
+        if (n != sizeof(r))
+                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Sent unexpectedly short message");
+
+        _exit(EXIT_FAILURE);
+}
