@@ -1636,7 +1636,7 @@ static int link_initialized(Link *link, sd_device *device) {
         return link_call_getlink(link, link_initialized_handler);
 }
 
-static int link_check_initialized(Link *link) {
+int link_check_initialized(Link *link) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -2836,6 +2836,10 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 return 0;
                         }
 
+                        /* Do not enter initialized state if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
+
                         r = link_check_initialized(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
@@ -2857,6 +2861,10 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 link_set_state(link, LINK_STATE_UNMANAGED);
                                 return 0;
                         }
+
+                        /* Do not configure interface if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
 
                         r = link_reconfigure_impl(link, /* force = */ false);
                         if (r < 0) {
