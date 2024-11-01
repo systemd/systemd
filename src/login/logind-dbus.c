@@ -2056,6 +2056,7 @@ static int verify_shutdown_creds(
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked, interactive;
+        Inhibitor *offending = NULL;
         uid_t uid;
         int r;
 
@@ -2076,7 +2077,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, &offending);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2095,13 +2096,17 @@ static int verify_shutdown_creds(
         }
 
         if (blocked) {
-                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
+                PolkitFlags polkit_flags = 0;
+
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
+                    (uid != 0 || (FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS) && offending->mode == INHIBIT_BLOCK_WEAK)))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
                                                  "Access denied due to active block inhibitor");
 
                 /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
-                 * by polkit */
-                PolkitFlags polkit_flags = POLKIT_ALWAYS_QUERY;
+                 * by polkit, unless a weak blocker is used. */
+                if (offending->mode != INHIBIT_BLOCK_WEAK)
+                        polkit_flags |= POLKIT_ALWAYS_QUERY;
 
                 if (interactive)
                         polkit_flags |= POLKIT_ALLOW_INTERACTIVE;

@@ -404,9 +404,9 @@ bool manager_is_inhibited(
                 bool ignore_inactive,
                 bool ignore_uid,
                 uid_t uid,
-                Inhibitor **offending) {
+                Inhibitor **ret_offending) {
 
-        Inhibitor *i;
+        Inhibitor *i, *offending = NULL;
         struct dual_timestamp ts = DUAL_TIMESTAMP_NULL;
         bool inhibited = false;
 
@@ -437,12 +437,16 @@ bool manager_is_inhibited(
 
                 inhibited = true;
 
-                if (offending)
-                        *offending = i;
+                /* Stronger inhibitor wins */
+                if (!offending || (i->mode < offending->mode))
+                        offending = i;
         }
 
         if (since)
                 *since = ts;
+
+        if (ret_offending)
+                *ret_offending = offending;
 
         return inhibited;
 }
