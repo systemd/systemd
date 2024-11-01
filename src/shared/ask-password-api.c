@@ -123,7 +123,7 @@ static usec_t keyring_cache_timeout(void) {
                 return saved_timeout;
 
         const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC");
-        if (e && !streq(e, "default")) {
+        if (e) {
                 r = parse_sec(e, &saved_timeout);
                 if (r < 0)
                         log_debug_errno(r, "Invalid value in $SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC, ignoring: %s", e);
