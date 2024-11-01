@@ -238,8 +238,7 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (rtnl_fd >= 0) {
                                 log_debug("Received multiple netlink socket, ignoring.");
-                                safe_close(fd);
-                                continue;
+                                goto unused;
                         }
 
                         rtnl_fd = fd;
@@ -249,6 +248,7 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
                 if (manager_add_tuntap_fd(m, fd, names[i]) >= 0)
                         continue;
 
+        unused:
                 if (m->test_mode)
                         safe_close(fd);
                 else
