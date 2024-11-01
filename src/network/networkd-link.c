@@ -1567,12 +1567,6 @@ static int link_initialized_and_synced(Link *link) {
         assert(link);
         assert(link->manager);
 
-        if (link->manager->test_mode) {
-                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
-
         if (link->state == LINK_STATE_PENDING) {
                 log_link_debug(link, "Link state is up-to-date");
                 link_set_state(link, LINK_STATE_INITIALIZED);
@@ -2836,6 +2830,12 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 return 0;
                         }
 
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
                         r = link_check_initialized(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
@@ -2849,13 +2849,20 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 link_enter_failed(link);
                                 return 0;
                         }
-                        if (r > 0) {
-                                r = link_reconfigure_impl(link, /* force = */ false);
-                                if (r < 0) {
-                                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                                        link_enter_failed(link);
-                                        return 0;
-                                }
+                        if (r == 0)
+                                return 0;
+
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to configure interface.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                                link_enter_failed(link);
+                                return 0;
                         }
                 }
                 break;
