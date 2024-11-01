@@ -96,23 +96,6 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         return in6_addr_is_link_local(&in6) ? ifindex : 0;
 }
 
-static int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *ifi = ASSERT_PTR(userdata);
-        int64_t t;
-
-        assert(variant);
-
-        if (!sd_json_variant_is_integer(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        t = sd_json_variant_integer(variant);
-        if (t > INT_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is out of bounds for an interface index.", strna(name));
-
-        *ifi = (int) t;
-        return 0;
-}
-
 static int json_dispatch_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         int *family = ASSERT_PTR(userdata);
         int64_t t;
