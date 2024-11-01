@@ -824,7 +824,7 @@ static int attach_mount_tree(int mount_tree_fd) {
 
         r = mount_setattr(mount_tree_fd, "", AT_EMPTY_PATH,
                                 &(struct mount_attr) {
-                                        .attr_set = MOUNT_ATTR_RDONLY|MOUNT_ATTR_NOSUID|MOUNT_ATTR_NODEV|MOUNT_ATTR_NOEXEC,
+                                        .attr_set = MOUNT_ATTR_RDONLY|MOUNT_ATTR_NOSUID|MOUNT_ATTR_NODEV|MOUNT_ATTR_NOEXEC|MOUNT_ATTR_NOSYMFOLLOW,
                                         .propagation = MS_SLAVE,
                                 }, sizeof(struct mount_attr));
         if (r < 0)
@@ -1688,7 +1688,7 @@ static int forward_coredump_to_container(Context *context) {
         return 0;
 }
 
-static int gather_pid_mount_tree_fd(const Context *context, int *ret_fd) {
+static int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd) {
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
 #if !HAVE_DWFL_SET_SYSROOT
         *ret_fd = -EOPNOTSUPP;
@@ -1809,7 +1809,7 @@ static int process_kernel(int argc, char* argv[]) {
                 if (r >= 0)
                         return 0;
 
-                r = gather_pid_mount_tree_fd(&context, &context.mount_tree_fd);
+                r = acquire_pid_mount_tree_fd(&context, &context.mount_tree_fd);
                 if (r < 0)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
