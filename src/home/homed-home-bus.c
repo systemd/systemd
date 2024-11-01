@@ -55,7 +55,7 @@ static int property_get_state(
         return sd_bus_message_append(reply, "s", home_state_to_string(home_get_state(h)));
 }
 
-int bus_home_client_is_trusted(Home *h, sd_bus_message *message) {
+static int bus_home_client_is_trusted(Home *h, sd_bus_message *message, bool strict) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t euid;
         int r;
@@ -73,7 +73,7 @@ int bus_home_client_is_trusted(Home *h, sd_bus_message *message) {
         if (r < 0)
                 return r;
 
-        return euid == 0 || h->uid == euid;
+        return (!strict && euid == 0) || h->uid == euid;
 }
 
 static int home_verify_polkit_async(
@@ -117,7 +117,7 @@ int bus_home_get_record_json(
         assert(h);
         assert(ret);
 
-        trusted = bus_home_client_is_trusted(h, message);
+        trusted = bus_home_client_is_trusted(h, message, /* strict= */ false);
         if (trusted < 0) {
                 log_warning_errno(trusted, "Failed to determine whether client is trusted, assuming untrusted.");
                 trusted = false;
@@ -423,7 +423,7 @@ int bus_home_update_record(
                 Hashmap *blobs,
                 uint64_t flags,
                 sd_bus_error *error) {
-        int r;
+        int r, relax_access;
 
         assert(h);
         assert(message);
@@ -436,10 +436,32 @@ int bus_home_update_record(
         if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
+        }
+
+        relax_access = user_record_self_changes_allowed(h->record, hr);
+        if (relax_access < 0) {
+                log_warning_errno(relax_access, "Failed to determine if changes to user record are permitted, assuming not: %m");
+                relax_access = false;
+        } else if (relax_access) {
+                relax_access = bus_home_client_is_trusted(h, message, /* strict= */ true);
+                if (relax_access < 0) {
+                        log_warning_errno(relax_access, "Failed to determine whether client is trusted, assuming not: %m");
+                        relax_access = false;
+                }
+        }
+
         r = home_verify_polkit_async(
                         h,
                         message,
-                        "org.freedesktop.home1.update-home",
+                        relax_access ? "org.freedesktop.home1.update-home-by-owner"
+                                     : "org.freedesktop.home1.update-home",
                         UID_INVALID,
                         error);
         if (r < 0)
@@ -561,7 +583,7 @@ int bus_home_method_change_password(
                         h,
                         message,
                         "org.freedesktop.home1.passwd-home",
-                        h->uid,
+                        h->uid, /* Always let a user change their own password. Safe b/c homework will always re-check password */
                         error);
         if (r < 0)
                 return r;
