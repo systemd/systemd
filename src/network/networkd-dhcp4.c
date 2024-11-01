@@ -1168,6 +1168,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                                log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
+                                return 0;
+                        }
+
                         if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
@@ -1180,11 +1185,6 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0 && r != -ESTALE) /* On exit, we cannot and should not start sd-ipv4ll. */
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
-
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                                log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
-                                return 0;
                         }
 
                         if (link->dhcp_lease) {
