@@ -387,6 +387,10 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
 
+                r = sd_ipv4ll_stop(link->ipv4ll);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
+
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
@@ -403,10 +407,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         r = sd_lldp_tx_stop(link->lldp_tx);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Tx: %m"));
-
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
 
         r = ipv4acd_stop(link);
         if (r < 0)
