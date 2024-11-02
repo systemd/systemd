@@ -51,6 +51,12 @@ CHANGES WITH 257 in spe:
           too many systems, because most NVMe devices only know a namespace 1
           by default.
 
+        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
+          considered obsolete and systemd by default will ignore configuration
+          that enables them. To forcibly reenable cgroup v1 support,
+          SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must additionally be set on the
+          kernel command line.
+
        Announcements of Future Feature Removals:
 
         * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
@@ -64,11 +70,8 @@ CHANGES WITH 257 in spe:
           will be phased out in a future release in 2025, i.e. we expect to bump
           the minimum baseline to v5.4 then too.
 
-        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
-          considered obsolete and systemd by default will refuse to boot under
-          it. To forcibly reenable cgroup v1 support,
-          SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must be set on kernel command
-          line. The complete removal of cgroup v1 is scheduled for v258.
+        * The complete removal of support for cgroup v1 ('legacy' and 'hybrid'
+          hierarchies) is scheduled for v258.
 
         * Support for System V service scripts is deprecated and will be
           removed in v258. Please make sure to update your software
