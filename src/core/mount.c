@@ -570,6 +570,9 @@ static int mount_verify(Mount *m) {
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
                                             "Cannot create mount unit for credential mount '%s'. Refusing.", m->where);
 
+        if (exec_needs_pid_namespace(&m->exec_context))
+                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
+
         p = get_mount_parameters_fragment(m);
         if (p && !p->what && !UNIT(m)->perpetual)
                 return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC), "What= setting is missing. Refusing.");
