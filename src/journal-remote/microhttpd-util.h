@@ -65,15 +65,23 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 int mhd_respond_internal(
                 struct MHD_Connection *connection,
                 enum MHD_RequestTerminationCode code,
+                const char *encoding,
                 const char *buffer,
                 size_t size,
                 enum MHD_ResponseMemoryMode mode);
 
-#define mhd_respond(connection, code, message)                  \
-        mhd_respond_internal(                                   \
-             connection, code,                                  \
-             message "\n",                                      \
-             strlen(message) + 1,                               \
+#define mhd_respond(connection, code, message)         \
+        mhd_respond_internal(                          \
+             (connection), (code), NULL,               \
+             message "\n",                             \
+             strlen(message) + 1,                      \
+             MHD_RESPMEM_PERSISTENT)
+
+#define mhd_respond_with_encoding(connection, code, encoding, message)   \
+        mhd_respond_internal(                                            \
+             (connection), (code), encoding,                             \
+             message "\n",                                               \
+             strlen(message) + 1,                                        \
              MHD_RESPMEM_PERSISTENT)
 
 int mhd_respond_oom(struct MHD_Connection *connection);
@@ -82,12 +90,13 @@ int mhd_respondf_internal(
                 struct MHD_Connection *connection,
                 int error,
                 enum MHD_RequestTerminationCode code,
-                const char *format, ...) _printf_(4,5);
+                const char *encoding,
+                const char *format, ...) _printf_(5,6);
 
-#define mhd_respondf(connection, error, code, format, ...)      \
-        mhd_respondf_internal(                                  \
-                connection, error, code,                        \
-                format "\n",                                    \
+#define mhd_respondf(connection, error, code, format, ...)   \
+        mhd_respondf_internal(                               \
+                connection, error, code, NULL,               \
+                format "\n",                                 \
                 ##__VA_ARGS__)
 
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname);
