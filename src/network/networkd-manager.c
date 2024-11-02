@@ -475,10 +475,8 @@ static int manager_stop(Manager *manager, ManagerState state) {
         manager->state = state;
 
         Link *link;
-        HASHMAP_FOREACH(link, manager->links_by_index) {
+        HASHMAP_FOREACH(link, manager->links_by_index)
                 (void) link_stop_engines(link, /* may_keep_dhcp = */ true);
-                link_free_engines(link);
-        }
 
         return 0;
 }
