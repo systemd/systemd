@@ -59,6 +59,15 @@
 
     <variablelist class='config-directives'>
       <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem><para>Acceptable compression algorithms to be used by systemd-journal-upload. Compression algorithms are
+        used for <literal>Accept-Encoding</literal> header contruction with priorities set according to an order in configuration</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Seal=</varname></term>
 
         <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
