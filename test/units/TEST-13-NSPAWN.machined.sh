@@ -360,12 +360,12 @@ timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .
 systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
 
 (ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
-(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
-varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
-(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')
-varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'OSRelease'
-(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
-varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'OSRelease'
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
 
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'
@@ -381,3 +381,12 @@ varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineI
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Update '{"name":"long-running-renamed", "newName": "long-running", "readOnly": false}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}' | jq '.readOnly' | grep 'false'
+
+# test io.systemd.MachineImage.Clone
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-cloned", "readOnly": true}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}' | jq '.readOnly' | grep 'true'
+
+# test io.systemd.MachineImage.Remove
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Remove '{"name":"long-running-cloned"}'
+(! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}')
