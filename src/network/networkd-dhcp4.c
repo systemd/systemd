@@ -915,7 +915,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                 r = sd_dhcp_lease_get_lifetime_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: failed to get lifetime: %m");
@@ -1168,23 +1168,17 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
-                        if (link->ipv4ll) {
-                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
+                                log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
+                                return 0;
+                        }
 
-                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
-                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
-                                }
+                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
+                                log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0 && r != -ESTALE) /* On exit, we cannot and should not start sd-ipv4ll. */
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-                        }
-
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                                log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
-                                return 0;
                         }
 
                         if (link->dhcp_lease) {
@@ -1205,7 +1199,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_EXPIRED:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1220,7 +1214,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1259,12 +1253,6 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
-
-                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
-                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
-                                }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
@@ -1394,7 +1382,7 @@ static int dhcp4_find_dynamic_address(Link *link, struct in_addr *ret) {
         assert(link->network);
         assert(ret);
 
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                 return false;
 
         SET_FOREACH(a, link->addresses) {
