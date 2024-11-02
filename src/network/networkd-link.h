@@ -252,7 +252,7 @@ bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
 bool link_has_ipv6_connectivity(Link *link);
 
-int link_stop_engines(Link *link, bool may_keep_dhcp);
+int link_stop_engines(Link *link, bool may_keep_dynamic);
 void link_free_engines(Link *link);
 
 const char* link_state_to_string(LinkState s) _const_;
@@ -263,6 +263,8 @@ int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 int link_reconfigure_impl(Link *link, bool force);
 int link_reconfigure(Link *link, bool force);
 int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message);
+
+int link_check_initialized(Link *link);
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

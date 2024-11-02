@@ -406,7 +406,7 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         return 0;
 }
 
-static void log_route_debug(const Route *route, const char *str, Manager *manager) {
+void log_route_debug(const Route *route, const char *str, Manager *manager) {
         _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
@@ -1464,8 +1464,8 @@ static int link_mark_routes(Link *link, bool foreign) {
                             FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                                 continue;
 
-                        if (route->protocol == RTPROT_DHCP &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                        if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                                 continue;
                 }
 
