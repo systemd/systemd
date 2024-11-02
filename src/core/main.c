@@ -3175,15 +3175,18 @@ int main(int argc, char *argv[]) {
 
                         r = mount_cgroup_legacy_controllers(loaded_policy);
                         if (r < 0) {
-                                if (r == -ERFKILL)
-                                        error_message = "Refusing to run under cgroup v1, SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 not specified on kernel command line";
-                                else
-                                        error_message = "Failed to mount cgroup v1 hierarchy";
+                                error_message = "Failed to mount cgroup v1 hierarchy";
                                 goto finish;
                         }
                         if (r > 0) {
-                                log_full(LOG_CRIT, "Legacy cgroup v1 support selected. This is no longer supported. Will proceed anyway after 30s.");
-                                (void) usleep_safe(30 * USEC_PER_SEC);
+                                if (cg_is_legacy_force_enabled())
+                                        log_warning("Legacy support for cgroup v1 enabled via SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1.");
+                                else {
+                                        log_error("Legacy cgroup v1 selected. This is no longer supported. Will proceed anyway after 30s.\n"
+                                                  "Set systemd.unified_cgroup_hierarchy=1 to switch to cgroup v2 "
+                                                  "or set SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 to suppress this warning.");
+                                        (void) usleep_safe(30 * USEC_PER_SEC);
+                                }
                         }
                 }
 
