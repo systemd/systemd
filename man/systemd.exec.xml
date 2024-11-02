@@ -1977,6 +1977,29 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivatePIDs=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to false. If enabled, sets up a new PID namespace
+        for the executed processes. Each executed process is now PID 1 - the init process - in the new namespace.
+        <filename>/proc/</filename> is mounted such that only processes in the PID namespace are visible.
+        If <varname>PrivatePIDs=</varname> is set, <varname>MountAPIVFS=yes</varname> is implied.</para>
+
+        <para>Note <varname>PrivatePIDs=</varname> is not supported with <varname>Type=forking</varname> since
+        the kernel will kill all processes in the PID namespace if the init process terminates.</para>
+
+        <para>This setting will be ignored if the kernel does not support PID namespaces.</para>
+
+        <para>Note unprivileged user services (i.e. a service run by the per-user instance of the service manager)
+        will fail with <varname>PrivatePIDs=yes</varname> if <filename>/proc/</filename> is masked
+        (i.e. <filename>/proc/kmsg</filename> is over-mounted with <constant>tmpfs</constant> like
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> does).
+        This is due to a kernel restriction not allowing unprivileged user namespaces to mount a less restrictive
+        instance of <filename>/proc/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument or one of <literal>self</literal> or

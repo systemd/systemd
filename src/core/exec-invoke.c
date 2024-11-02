@@ -61,6 +61,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
@@ -2175,14 +2176,14 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
                         if (errno != ENOENT) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to open %s: %m", a);
                                 goto child_fail;
                         }
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
                         if (write(fd, "deny\n", 5) < 0) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
                                 goto child_fail;
                         }
 
@@ -2193,11 +2194,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "gid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
                         goto child_fail;
                 }
                 fd = safe_close(fd);
@@ -2206,11 +2207,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 a = procfs_file_alloca(ppid, "uid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
                         goto child_fail;
                 }
                 if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
                         goto child_fail;
                 }
 
@@ -2224,7 +2225,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         errno_pipe[1] = safe_close(errno_pipe[1]);
 
         if (unshare(CLONE_NEWUSER) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to unshare user namespace: %m");
 
         /* Let the child know that the namespace is ready now */
         if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
@@ -2249,6 +2250,126 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 return -EIO;
 
         return 1;
+}
+
+static int can_mount_proc(const ExecContext *c, ExecParameters *p) {
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
+        ssize_t n;
+        int r;
+
+        assert(c);
+        assert(p);
+
+        /* If running via unprivileged user manager and /proc/ is masked (e.g. /proc/kmsg is over-mounted with tmpfs
+         * like systemd-nspawn does), then mounting /proc/ will fail with EPERM. This is due to a kernel restriction
+         * where unprivileged user namespaces cannot mount a less restrictive instance of /proc. */
+
+        /* Create temporary directory for mounting /proc. */
+        r = mkdtemp_malloc("/tmp/systemd-temporary-proc-XXXXXX", &tmpdir);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to create temporary directory for mounting proc: %m");
+
+        /* Create a communication channel so that the child can tell the parent a proper error code in case it
+         * failed. */
+        if (pipe2(errno_pipe, O_CLOEXEC) < 0)
+                return log_exec_debug_errno(c, p, -errno, "Failed to create pipe for communicating with child process (sd-proc-check): %m");
+
+        /* Fork a child process into its own mount and PID namespace. Note safe_fork() already remounts / as SLAVE
+         * with FORK_MOUNTNS_SLAVE. */
+        r = safe_fork("(sd-proc-check)",
+                      FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_PIDNS, &pid);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to fork child process (sd-proc-check): %m");
+        if (r == 0) {
+                errno_pipe[0] = safe_close(errno_pipe[0]);
+
+                /* Try mounting /proc on a temporary directory. No need to clean up the mount since the mount
+                 * namespace will be cleaned up once the process exits. */
+                r = mount_follow_verbose(LOG_DEBUG, "proc", tmpdir, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                if (r < 0) {
+                        (void) write(errno_pipe[1], &r, sizeof(r));
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe[1] = safe_close(errno_pipe[1]);
+
+        /* Try to read an error code from the child */
+        n = read(errno_pipe[0], &r, sizeof(r));
+        if (n < 0)
+                return log_exec_debug_errno(c, p, -errno, "Failed to read errno from pipe with child process (sd-proc-check): %m");
+        if (n == sizeof(r)) { /* an error code was sent to us */
+                /* This is the expected case where proc cannot be mounted due to permissions. */
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return 0;
+                else if (r < 0)
+                        return r;
+
+                return -EIO;
+        }
+        if (n != 0) /* on success we should have read 0 bytes */
+                return -EIO;
+
+        r = wait_for_terminate_and_check("(sd-proc-check)", TAKE_PID(pid), 0 /* flags= */);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to wait for (sd-proc-check) child process to terminate: %m");
+        if (r != EXIT_SUCCESS) {
+                /* If something strange happened with the child, let's consider this fatal, too */
+                return log_exec_debug_errno(c, p, SYNTHETIC_ERRNO(EIO), "Child process (sd-proc-check) exited with unexpected exit status '%d'.", r);
+        }
+
+        return 1;
+}
+
+static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r, q;
+
+        assert(c);
+        assert(p);
+
+        if (unshare(CLONE_NEWPID) < 0)
+                return log_exec_debug_errno(c, p, errno, "Failed to unshare pid namespace: %m");
+
+        /* The first process created after unsharing a pid namespace becomes PID 1 in the pid namespace, so
+         * we have to fork after unsharing the pid namespace to become PID 1. The parent sends the child
+         * pidref to the manager and exits while the child process continues with the rest of exec_invoke()
+         * and finally executes the actual payload. */
+
+        r = pidref_safe_fork("(sd-pidfd-child)", /*flags=*/ 0, &pidref);
+        if (r < 0)
+                return log_exec_debug_errno(c, p, r, "Failed to fork child into new pid namespace: %m");
+
+        if (r > 0) {
+                /* In the parent process, we send the child pidref to the manager and exit.
+                 * If PIDFD is not supported, only the child PID is sent. The server then
+                 * uses the child PID to set the new exec main process.
+                 *
+                 * Unlike services, mount points, sockets and swap devices do not use pidref
+                 * transport. */
+                if (p->pidref_transport_fd >= 0) {
+                        q = send_one_fd_iov(
+                                        p->pidref_transport_fd,
+                                        pidref.fd,
+                                        &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
+                                        /*iovlen=*/ 1,
+                                        /*flags=*/ 0);
+                        if (q < 0)
+                                return log_exec_debug_errno(c, p, q, "Failed to send child pidref to manager: %m");
+                }
+
+                /* Our caller will make sure the "middle" process will exit ASAP. */
+        }
+
+        p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
+
+        /* NOTE! This function returns TWICE, once in the parent and once in the child, and it's the *child* that is going to survive,
+         * while the parent will exit shortly! */
+        return r;
 }
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
@@ -3301,6 +3422,7 @@ static int apply_mount_namespace(
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+                .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
                 .private_tmp = needs_sandboxing ? context->private_tmp : false,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
@@ -3573,7 +3695,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 16];
+        int dont_close[n_fds + 17];
 
         assert(params);
 
@@ -3611,6 +3733,9 @@ static int close_remaining_fds(
 
         if (params->handoff_timestamp_fd >= 0)
                 dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        if (params->pidref_transport_fd >= 0)
+                dont_close[n_dont_close++] = params->pidref_transport_fd;
 
         assert(n_dont_close <= ELEMENTSOF(dont_close));
 
@@ -3934,6 +4059,7 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->extension_directories) ||
                context->protect_system != PROTECT_SYSTEM_NO ||
                context->protect_home != PROTECT_HOME_NO ||
+               exec_needs_pid_namespace(context) ||
                context->protect_kernel_tunables ||
                context->protect_kernel_modules ||
                context->protect_kernel_logs ||
@@ -4139,6 +4265,7 @@ int exec_invoke(
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
         bool keep_seccomp_privileges = false;
+        bool has_cap_sys_admin = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -4790,6 +4917,9 @@ int exec_invoke(
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
+        /* Check CAP_SYS_ADMIN before we enter user namespace to see if we can mount /proc even though its masked. */
+        has_cap_sys_admin = have_effective_cap(CAP_SYS_ADMIN) > 0;
+
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
                  * /sys being present. The actual MAC context application will happen later, as late as
@@ -4923,6 +5053,39 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up cgroup namespacing: %m");
                 }
         }
+
+        /* Unshare a new PID namespace before setting up mounts to ensure /proc/ is mounted with only processes in PID namespace visible.
+         * Note PrivatePIDs=yes implies MountAPIVFS=yes so we'll always ensure procfs is remounted. */
+        if (needs_sandboxing && exec_needs_pid_namespace(context)) {
+                /* If we had CAP_SYS_ADMIN prior to joining the user namespace, then we are privileged and don't need
+                 * to check if we can mount /proc/.
+                 *
+                 * We need to check prior to entering the user namespace because if we're running unprivileged or in a
+                 * system without CAP_SYS_ADMIN, then we can have CAP_SYS_ADMIN in the current user namespace but not
+                 * once we unshare a mount namespace. */
+                r = has_cap_sys_admin ? 1 : can_mount_proc(context, params);
+                if (r > 0) {
+                        r = setup_private_pids(context, params);
+                        if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(context, params, r, "Failed to set up pid namespace: %m");
+                        }
+
+                        if (r > 0)
+                                /* Return value > 0 means we are in the parent process. Thus, return immediately in order to exit ASAP.
+                                * The rest of the setup will continue in the child process. */
+                                return 0;
+                } else if (r == 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EPERM),
+                                                    "PrivatePIDs=yes is configured, but /proc/ cannot be re-mounted due to lack of privileges, refusing.");
+                } else {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_exec_error_errno(context, params, r, "Failed to detect if /proc/ can be remounted: %m");
+                }
+        }
+
+        /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
