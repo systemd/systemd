@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
@@ -2267,6 +2268,62 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
+static int parse_version(const char *filename, char **ret) {
+        const char *start, *ext_suffix;
+        char *version = NULL;
+        /* We are only looking for extension images here, because for directories, we want a no-op*/
+        static const char *valid_extensions[] = {".confext.raw", ".sysext.raw", ".raw"};
+
+        assert(filename);
+        assert(ret);
+
+        /* Find the last occurrences of '_'. This will mark the start of the extension version. */
+        start = strrchr(filename, '_');
+        if (!start) {
+                /* If no underscore found, assign "none" and return success.
+                * This is for cases where there are no versions in the filename like 'image.raw'. */
+                version = strdup("none");
+                if (!version)
+                        return -ENOMEM;
+                *ret = version;
+                return 0;
+        }
+        start ++;
+
+        /* Find the extension suffix, if a valid one is associated with it */
+        for (const char **ext = valid_extensions; *ext; ++ext) {
+                ext_suffix = strstr(start, *ext);
+                if (ext_suffix)
+                        break;
+        }
+
+        if (!ext_suffix) {
+                /* If no valid extension filename suffix is found, assign "none" and return success. */
+                version = strdup("none");
+                if (!version)
+                        return -ENOMEM;
+                *ret = version;
+                return 0;
+        }
+
+        size_t version_length = ext_suffix - start;
+        if (version_length == 0) {
+                version = strdup("none");
+                if (!version)
+                        return -ENOMEM;
+                *ret = version;
+                return 0;
+        }
+
+        /* Extract the version substring */
+        version = strndup(start, version_length);
+        if (!version)
+                return -ENOMEM;
+        *ret = version;
+
+        return 0;
+}
+
 static int verb_list(int argc, char **argv, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -2286,14 +2343,27 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return 0;
         }
 
-        t = table_new("name", "type", "path", "time");
+        t = table_new("name", "version", "type", "path", "time");
         if (!t)
                 return log_oom();
 
         HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *image_name = NULL, *version = NULL;
+
+                /* Get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &image_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", img->path);
+
+                /* Using the above, extract just the version part from the image name */
+                r = parse_version(image_name, &version);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get version for the extension '%s': %m", image_name);
+
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, img->name,
+                                TABLE_STRING, version,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
