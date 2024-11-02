@@ -2232,9 +2232,18 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_oom();
 
         HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *image_name = NULL;
+
+                /* Get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &image_name);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", img->path);
+
                 r = table_add_many(
                                 t,
-                                TABLE_STRING, img->name,
+                                TABLE_STRING, image_name,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
