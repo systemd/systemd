@@ -1092,26 +1092,62 @@ int config_parse_ignore_carrier_loss(
         return 0;
 }
 
+int config_parse_keep_configuration(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        KeepConfiguration t, *k = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
+
+        if (isempty(rvalue)) {
+                *k = ASSERT_PTR(network->manager)->keep_configuration;
+                return 0;
+        }
+
+        /* backward compatibility */
+        if (STR_IN_SET(rvalue, "dhcp", "dhcp-on-stop")) {
+                log_syntax(unit, LOG_INFO, filename, line, 0,
+                           "KeepConfiguration=%s is deprecated, assuming \"dynamic\".",
+                           rvalue);
+
+                *k = KEEP_CONFIGURATION_DYNAMIC;
+                return 0;
+        }
+
+        t = keep_configuration_from_string(rvalue);
+        if (t < 0)
+                return log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
+
+        *k = t;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration);
 
 static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
-        [KEEP_CONFIGURATION_NO]           = "no",
-        [KEEP_CONFIGURATION_DHCP_ON_STOP] = "dhcp-on-stop",
-        [KEEP_CONFIGURATION_DHCP]         = "dhcp",
-        [KEEP_CONFIGURATION_STATIC]       = "static",
-        [KEEP_CONFIGURATION_YES]          = "yes",
+        [KEEP_CONFIGURATION_NO]      = "no",
+        [KEEP_CONFIGURATION_DYNAMIC] = "dynamic",
+        [KEEP_CONFIGURATION_STATIC]  = "static",
+        [KEEP_CONFIGURATION_YES]     = "yes",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
 
 static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
-        [ACTIVATION_POLICY_UP] =          "up",
-        [ACTIVATION_POLICY_ALWAYS_UP] =   "always-up",
-        [ACTIVATION_POLICY_MANUAL] =      "manual",
+        [ACTIVATION_POLICY_UP]          = "up",
+        [ACTIVATION_POLICY_ALWAYS_UP]   = "always-up",
+        [ACTIVATION_POLICY_MANUAL]      = "manual",
         [ACTIVATION_POLICY_ALWAYS_DOWN] = "always-down",
-        [ACTIVATION_POLICY_DOWN] =        "down",
-        [ACTIVATION_POLICY_BOUND] =       "bound",
+        [ACTIVATION_POLICY_DOWN]        = "down",
+        [ACTIVATION_POLICY_BOUND]       = "bound",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);

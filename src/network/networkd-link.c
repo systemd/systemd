@@ -369,23 +369,41 @@ void link_set_state(Link *link, LinkState state) {
         link_dirty(link);
 }
 
-int link_stop_engines(Link *link, bool may_keep_dhcp) {
+int link_stop_engines(Link *link, bool may_keep_dynamic) {
         int r, ret = 0;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->event);
 
-        bool keep_dhcp = may_keep_dhcp &&
-                         link->network &&
-                         !link->network->dhcp_send_decline && /* IPv4 ACD for the DHCPv4 address is running. */
-                         (link->manager->state == MANAGER_RESTARTING ||
-                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+        bool keep_dynamic =
+                may_keep_dynamic &&
+                link->network &&
+                (link->manager->state == MANAGER_RESTARTING ||
+                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC));
 
-        if (!keep_dhcp) {
+        if (!keep_dynamic) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
+
+                r = sd_ipv4ll_stop(link->ipv4ll);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
+
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+
+                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
+
+                r = ndisc_stop(link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+
+                ndisc_flush(link);
         }
 
         r = sd_dhcp_server_stop(link->dhcp_server);
@@ -400,27 +418,9 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Tx: %m"));
 
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
-
         r = ipv4acd_stop(link);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 ACD client: %m"));
-
-        r = sd_dhcp6_client_stop(link->dhcp6_client);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
-
-        r = dhcp_pd_remove(link, /* only_marked = */ false);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
-
-        r = ndisc_stop(link);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
-
-        ndisc_flush(link);
 
         r = sd_radv_stop(link->radv);
         if (r < 0)
@@ -449,7 +449,7 @@ void link_enter_failed(Link *link) {
                 return;
 
 stop:
-        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -1366,7 +1366,7 @@ int link_reconfigure_impl(Link *link, bool force) {
                               "Unmanaging interface.");
 
         /* Dropping old .network file */
-        r = link_stop_engines(link, false);
+        r = link_stop_engines(link, /* may_keep_dynamic = */ false);
         if (r < 0)
                 return r;
 
@@ -1567,12 +1567,6 @@ static int link_initialized_and_synced(Link *link) {
         assert(link);
         assert(link->manager);
 
-        if (link->manager->test_mode) {
-                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
-
         if (link->state == LINK_STATE_PENDING) {
                 log_link_debug(link, "Link state is up-to-date");
                 link_set_state(link, LINK_STATE_INITIALIZED);
@@ -1642,7 +1636,7 @@ static int link_initialized(Link *link, sd_device *device) {
         return link_call_getlink(link, link_initialized_handler);
 }
 
-static int link_check_initialized(Link *link) {
+int link_check_initialized(Link *link) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -1813,7 +1807,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (!link->network)
                 return ret;
 
-        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic = */ false));
         RET_GATHER(ret, link_drop_managed_config(link));
 
         return ret;
@@ -2836,6 +2830,16 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 return 0;
                         }
 
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
+                        /* Do not enter initialized state if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
+
                         r = link_check_initialized(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
@@ -2849,13 +2853,24 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 link_enter_failed(link);
                                 return 0;
                         }
-                        if (r > 0) {
-                                r = link_reconfigure_impl(link, /* force = */ false);
-                                if (r < 0) {
-                                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                                        link_enter_failed(link);
-                                        return 0;
-                                }
+                        if (r == 0)
+                                return 0;
+
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to configure interface.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
+                        /* Do not configure interface if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
+
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                                link_enter_failed(link);
+                                return 0;
                         }
                 }
                 break;
