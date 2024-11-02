@@ -30,7 +30,7 @@ executables += [
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
-                'dependencies' : libblkid,
+                'dependencies' : [libblkid, libopenssl],
         },
         libexec_template + {
                 'name' : 'systemd-bless-boot',

@@ -33,7 +33,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderBootCountPath)), F_OK) < 0) {
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderBootCountPath")), F_OK) < 0) {
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Skipping generator, not booted with boot counting in effect.");
                         return 0;
