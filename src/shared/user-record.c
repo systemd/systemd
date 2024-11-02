@@ -2223,7 +2223,7 @@ const char** user_record_self_modifiable_privileged(UserRecord *h) {
                 "passwordHint",
 
                 /* Authentication methods */
-                "hashedPassword"
+                "hashedPassword",
                 "pkcs11EncryptedKey",
                 "fido2HmacSalt",
                 "recoveryKey",
