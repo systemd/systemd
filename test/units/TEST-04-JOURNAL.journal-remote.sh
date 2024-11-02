@@ -29,6 +29,10 @@ trap at_exit EXIT
 TEST_MESSAGE="-= This is a test message $RANDOM =-"
 TEST_TAG="$(systemd-id128 new)"
 
+systemctl stop systemd-journal-upload
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
 journalctl --sync
 
@@ -79,6 +83,8 @@ EOF
 systemd-analyze cat-config systemd/journal-remote.conf
 systemd-analyze cat-config systemd/journal-upload.conf
 
+systemctl daemon-reload
+systemctl reset-failed systemd-journal-upload
 systemctl restart systemd-journal-remote.socket
 systemctl restart systemd-journal-upload
 timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
@@ -97,7 +103,7 @@ rm -rf /var/log/journal/remote/*
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
 journalctl --sync
 
-mkdir /run/systemd/remote-pki
+mkdir -p /run/systemd/remote-pki
 cat >/run/systemd/remote-pki/ca.conf <<EOF
 [ req ]
 prompt = no
@@ -189,6 +195,7 @@ EOF
 systemd-analyze cat-config systemd/journal-remote.conf
 systemd-analyze cat-config systemd/journal-upload.conf
 
+systemctl daemon-reload
 systemctl restart systemd-journal-remote.socket
 systemctl restart systemd-journal-upload
 timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
@@ -225,6 +232,50 @@ systemctl daemon-reload
 chgrp -R systemd-journal /run/systemd/journal-remote-tls
 chmod -R g+rwX /run/systemd/journal-remote-tls
 
+systemctl reset-failed systemd-journal-upload
 systemctl restart systemd-journal-upload
 timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-upload)" != failed ]]; do sleep 1; done'
 (! systemctl status systemd-journal-upload)
+
+systemctl stop systemd-journal-upload
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+
+# Let's test sending data with compression enabled
+for c in none xz lz4 zstd; do
+  echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+  journalctl --sync
+
+  cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+Compression=zstd xz
+Compression=lz4
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+  cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
+[Upload]
+URL=https://localhost:19532
+Compression=${c}:3
+ServerKeyFile=/run/systemd/remote-pki/client.key
+ServerCertificateFile=/run/systemd/remote-pki/client.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+  systemd-analyze cat-config systemd/journal-remote.conf
+  systemd-analyze cat-config systemd/journal-upload.conf
+
+  systemctl reset-failed systemd-journal-upload
+  systemctl restart systemd-journal-remote.socket
+  systemctl restart systemd-journal-upload
+  timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+  systemctl status systemd-journal-{remote,upload}
+
+  # It may take a bit until the whole journal is transferred
+  timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+
+  systemctl stop systemd-journal-upload
+  systemctl stop systemd-journal-remote.{socket,service}
+  rm -rf /var/log/journal/remote/*
+done
