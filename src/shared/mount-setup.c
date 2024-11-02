@@ -515,9 +515,6 @@ int mount_cgroup_legacy_controllers(bool loaded_policy) {
         if (!cg_is_legacy_wanted())
                 return 0;
 
-        if (!cg_is_legacy_force_enabled())
-                return -ERFKILL;
-
         FOREACH_ELEMENT(mp, cgroupv1_mount_table) {
                 r = mount_one(mp, loaded_policy);
                 if (r < 0)
