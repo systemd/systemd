@@ -1096,7 +1096,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
         return buf;
 }
 
-static void log_address_debug(const Address *address, const char *str, const Link *link) {
+void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *state = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
