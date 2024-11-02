@@ -734,6 +734,8 @@ int manager_start(Manager *m) {
 
         assert(m);
 
+        log_debug("Starting...");
+
         (void) sysctl_add_monitor(m);
 
         /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF.
@@ -780,30 +782,34 @@ int manager_start(Manager *m) {
                         log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
         }
 
+        log_debug("Started.");
         return 0;
 }
 
 int manager_load_config(Manager *m) {
         int r;
 
+        log_debug("Loading...");
+
         r = netdev_load(m);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to load .netdev files: %m");
 
         manager_clear_unmanaged_tuntap_fds(m);
 
         r = network_load(m, &m->networks);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to load .network files: %m");
 
         r = manager_build_dhcp_pd_subnet_ids(m);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to build DHCP-PD subnet ID map: %m");
 
         r = manager_build_nexthop_ids(m);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to build nexthop ID map: %m");
 
+        log_debug("Loaded.");
         return 0;
 }
 
@@ -1033,6 +1039,8 @@ static int manager_enumerate_nl80211_mlme(Manager *m) {
 int manager_enumerate(Manager *m) {
         int r;
 
+        log_debug("Enumerating...");
+
         r = manager_enumerate_links(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate links: %m");
@@ -1094,6 +1102,7 @@ int manager_enumerate(Manager *m) {
         else if (r < 0)
                 return log_error_errno(r, "Could not enumerate wireless LAN stations: %m");
 
+        log_debug("Enumeration completed.");
         return 0;
 }
 
@@ -1195,15 +1204,20 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         assert(m);
 
+        log_debug("Reloading...");
         (void) notify_reloading();
 
         r = netdev_reload(m);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Failed to reload .netdev files: %m");
                 goto finish;
+        }
 
         r = network_reload(m);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Failed to reload .network files: %m");
                 goto finish;
+        }
 
         HASHMAP_FOREACH(link, m->links_by_index) {
                 if (message)
@@ -1212,6 +1226,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
                         (void) link_reconfigure(link, /* force = */ false);
         }
 
+        log_debug("Reloaded.");
         r = 0;
 finish:
         (void) sd_notify(/* unset= */ false, NOTIFY_READY);
