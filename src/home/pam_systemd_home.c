@@ -149,7 +149,7 @@ static int acquire_user_record(
                 _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
                 _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
-                r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);
+                r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, bus_data);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -563,7 +563,7 @@ static int acquire_home(
          * request to collect one more password and pass the new and all previously used passwords again. */
 
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, bus_data);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -892,7 +892,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 return r;
 
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1114,7 +1114,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store new password: %m");
 
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", debug, &bus, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
