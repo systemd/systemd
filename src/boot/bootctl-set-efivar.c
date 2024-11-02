@@ -74,17 +74,17 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         assert(ret_target_size);
 
         if (streq(arg1, "@current")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntrySelected), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySelected': %m");
 
         } else if (streq(arg1, "@oneshot")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntryOneShot), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryOneShot': %m");
 
         } else if (streq(arg1, "@default")) {
-                r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntryDefault), NULL, (void *) ret_target, ret_target_size);
+                r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
 
@@ -114,7 +114,7 @@ int verb_set_efivar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Not booted with UEFI.");
 
-        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderInfo)), F_OK) < 0) {
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
                 if (errno == ENOENT) {
                         log_error_errno(errno, "Not booted with a supported boot loader.");
                         return -EOPNOTSUPP;
@@ -137,16 +137,16 @@ int verb_set_efivar(int argc, char *argv[], void *userdata) {
         int (* arg_parser)(const char *, char16_t **, size_t *);
 
         if (streq(argv[0], "set-default")) {
-                variable = EFI_LOADER_VARIABLE(LoaderEntryDefault);
+                variable = EFI_LOADER_VARIABLE_STR("LoaderEntryDefault");
                 arg_parser = parse_loader_entry_target_arg;
         } else if (streq(argv[0], "set-oneshot")) {
-                variable = EFI_LOADER_VARIABLE(LoaderEntryOneShot);
+                variable = EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot");
                 arg_parser = parse_loader_entry_target_arg;
         } else if (streq(argv[0], "set-timeout")) {
-                variable = EFI_LOADER_VARIABLE(LoaderConfigTimeout);
+                variable = EFI_LOADER_VARIABLE_STR("LoaderConfigTimeout");
                 arg_parser = parse_timeout;
         } else if (streq(argv[0], "set-timeout-oneshot")) {
-                variable = EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot);
+                variable = EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot");
                 arg_parser = parse_timeout;
         } else
                 assert_not_reached();

@@ -527,7 +527,7 @@ int clear_efi_hibernate_location_and_warn(void) {
         if (!is_efi_boot())
                 return 0;
 
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("HibernateLocation"), NULL, 0);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
