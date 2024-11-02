@@ -512,11 +512,21 @@ int mount_cgroup_legacy_controllers(bool loaded_policy) {
         _cleanup_set_free_ Set *controllers = NULL;
         int r;
 
+        /* Before we actually start deleting cgroup v1 code, make it harder to boot in cgroupv1 mode first.
+         * See also #30852. */
+
         if (!cg_is_legacy_wanted())
                 return 0;
-
-        if (!cg_is_legacy_force_enabled())
-                return -ERFKILL;
+        if (cg_is_legacy_force_enabled())
+                log_warning("Legacy support for cgroup v1 enabled via SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1.");
+        else {
+                log_error("Legacy cgroup v1 configured. This will stop being supported soon.\n"
+                          "Will proceed with cgroup v2 after 30 s.\n"
+                          "Set systemd.unified_cgroup_hierarchy=1 to switch to cgroup v2 "
+                          "or set SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 to reenable v1 temporarily.");
+                (void) usleep_safe(30 * USEC_PER_SEC);
+                return 0;
+        }
 
         FOREACH_ELEMENT(mp, cgroupv1_mount_table) {
                 r = mount_one(mp, loaded_policy);
