@@ -38,6 +38,9 @@ static int netlabel_command(uint16_t command, const char *label, const Address *
         assert(address->link->manager->genl);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
 
+        if (address->link->manager->state == MANAGER_STOPPED)
+                return 0; /* We cannot call link_ref() below. */
+
         r = sd_genl_message_new(address->link->manager->genl, NETLBL_NLTYPE_UNLABELED_NAME, command, &m);
         if (r < 0)
                 return r;
