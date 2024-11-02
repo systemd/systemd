@@ -24,6 +24,10 @@ typedef enum Compression {
 
 const char* compression_to_string(Compression compression);
 Compression compression_from_string(const char *compression);
+const char* compression_lowercase_to_string(Compression compression);
+Compression compression_lowercase_from_string(const char *compression);
+const char* compression_header_to_string(Compression compression);
+Compression compression_header_from_string(const char *compression);
 
 bool compression_supported(Compression c);
 
