@@ -1106,12 +1106,12 @@ static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
 
 static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
-        [ACTIVATION_POLICY_UP] =          "up",
-        [ACTIVATION_POLICY_ALWAYS_UP] =   "always-up",
-        [ACTIVATION_POLICY_MANUAL] =      "manual",
+        [ACTIVATION_POLICY_UP]          = "up",
+        [ACTIVATION_POLICY_ALWAYS_UP]   = "always-up",
+        [ACTIVATION_POLICY_MANUAL]      = "manual",
         [ACTIVATION_POLICY_ALWAYS_DOWN] = "always-down",
-        [ACTIVATION_POLICY_DOWN] =        "down",
-        [ACTIVATION_POLICY_BOUND] =       "bound",
+        [ACTIVATION_POLICY_DOWN]        = "down",
+        [ACTIVATION_POLICY_BOUND]       = "bound",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
