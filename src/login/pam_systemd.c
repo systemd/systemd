@@ -1087,7 +1087,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
 
         /* Talk to logind over the message bus */
-        r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, &d);
+        r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1303,7 +1303,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 /* Before we go and close the FIFO we need to tell logind that this is a clean session
                  * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
 
-                r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, NULL);
+                r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, NULL);
                 if (r != PAM_SUCCESS)
                         return r;
 
