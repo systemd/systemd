@@ -80,6 +80,8 @@ struct Route {
         int gateway_onlink;
 };
 
+void log_route_debug(const Route *route, const char *str, Manager *manager);
+
 extern const struct hash_ops route_hash_ops;
 extern const struct hash_ops route_hash_ops_unref;
 
