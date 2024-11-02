@@ -2208,6 +2208,23 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
+static int parse_version(const char *filename, char **version) {
+    char *start, *end;
+
+    // Find the string between the last occurrences of '_' and '.' for the version of the extension
+    start = strrchr(filename, '_');
+    end = strrchr(filename, '.');
+
+    if (!start || !end || start >= end)
+        return -1;
+
+    start++;
+
+    size_t length = end - start;
+    *version = strndup(start, length);
+    return *version ? 0 : -1;
+}
+
 static int verb_list(int argc, char **argv, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -2227,14 +2244,27 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return 0;
         }
 
-        t = table_new("name", "type", "path", "time");
+        t = table_new("name", "version", "type", "path", "time");
         if (!t)
                 return log_oom();
 
         HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *image_name = NULL, *version = NULL;
+
+                /* Get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &image_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", img->path);
+
+                // Using the above, extract just the version part from the image name
+                r = parse_version(image_name, &version);
+                if (r < 0)
+                        printf("No version suffix found for the extension '%s'", image_name);
+
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, img->name,
+                                TABLE_STRING, version,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
