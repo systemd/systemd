@@ -58,8 +58,11 @@ static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
+static CompressionArgs arg_compression = {};
+static bool arg_force_compression = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compression, compression_args_clear);
 
 static void close_fd_input(Uploader *u);
 
@@ -203,6 +206,17 @@ int start_upload(Uploader *u,
                         return log_oom();
                 h = l;
 
+                if (u->compression.algorithm != COMPRESSION_NONE) {
+                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression.algorithm));
+                        if (!header)
+                                return log_oom();
+
+                        l = curl_slist_append(h, header);
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
+
                 u->header = TAKE_PTR(h);
         }
 
@@ -292,8 +306,10 @@ int start_upload(Uploader *u,
 }
 
 static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
+        _cleanup_free_ char *compression_buffer = NULL;
         Uploader *u = ASSERT_PTR(userp);
         ssize_t n;
+        int r;
 
         assert(nmemb < SSIZE_MAX / size);
 
@@ -302,10 +318,31 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
 
         assert(!size_multiply_overflow(size, nmemb));
 
-        n = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, n);
-        if (n > 0)
-                return n;
+        if (u->compression.algorithm != COMPRESSION_NONE) {
+                compression_buffer = malloc_multiply(nmemb, size);
+                if (!compression_buffer) {
+                        log_oom();
+                        return CURL_READFUNC_ABORT;
+                }
+        }
+
+        n = read(u->input, compression_buffer ?: buf, size * nmemb);
+        log_debug("%s: allowed %zu, read %zd", __func__, size * nmemb, n);
+
+        if (n > 0) {
+                if (u->compression.algorithm == COMPRESSION_NONE)
+                        return n;
+
+                size_t compressed_size;
+                r = compress_blob(u->compression.algorithm, compression_buffer, n, buf, size * nmemb, &compressed_size, u->compression.level);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to compress %zu bytes using (Compression=%s, Level=%d): %m",
+                                        n, compression_lowercase_to_string(u->compression.algorithm), u->compression.level);
+                        return CURL_READFUNC_ABORT;
+                }
+                assert(compressed_size <= size * nmemb);
+                return compressed_size;
+        }
 
         u->uploading = false;
         if (n < 0) {
@@ -389,7 +426,12 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         *u = (Uploader) {
                 .input = -1,
+                .compression.algorithm = COMPRESSION_NONE,
+                .compression.level = -1,
         };
+
+        if (arg_force_compression && arg_compression.size > 0)
+                u->compression = arg_compression.opts[0];
 
         host = STARTSWITH_SET(url, "http://", "https://");
         if (!host) {
@@ -448,6 +490,66 @@ static void destroy_uploader(Uploader *u) {
         sd_event_unref(u->event);
 }
 
+#if LIBCURL_VERSION_NUM >= 0x075300
+static int update_content_encoding(Uploader *u, const char *accept_encoding) {
+        int r;
+
+        assert(u);
+
+        for (const char *p = accept_encoding;;) {
+                _cleanup_free_ char *encoding_value = NULL, *alg = NULL;
+                Compression algorithm;
+                CURLcode code;
+
+                r = extract_first_word(&p, &encoding_value, ",", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract Accept-Encoding header value: %m");
+                if (r == 0)
+                        return 0;
+
+                const char *q = encoding_value;
+                r = extract_first_word(&q, &alg, ";", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract compression algorithm from Accept-Encoding header: %m");
+
+                algorithm = compression_lowercase_from_string(alg);
+                if (algorithm <= 0 || !compression_supported(algorithm)) {
+                        continue;
+                }
+
+                FOREACH_ARRAY(opt, arg_compression.opts, arg_compression.size) {
+                        if (opt->algorithm != algorithm)
+                                continue;
+
+                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression.algorithm));
+                        if (!header)
+                                return log_oom();
+
+                        /* First, update existing Content-Encoding header. */
+                        bool found = false;
+                        for (struct curl_slist *l = u->header; l; l = l->next)
+                                if (startswith(l->data, "Content-Encoding:")) {
+                                        free_and_replace(l->data, header);
+                                        found = true;
+                                        break;
+                                }
+
+                        /* If Content-Encoding header is not found, append new one. */
+                        if (!found) {
+                                struct curl_slist *l = curl_slist_append(u->header, header);
+                                if (!l)
+                                        return log_oom();
+                                u->header = l;
+                        }
+
+                        easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_ERR, return -EXFULL);
+                        u->compression = *opt;
+                        return 0;
+                }
+        }
+}
+#endif
+
 static int perform_upload(Uploader *u) {
         CURLcode code;
         long status;
@@ -480,9 +582,25 @@ static int perform_upload(Uploader *u) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Upload to %s finished with unexpected code %ld: %s",
                                        u->url, status, strna(u->answer));
-        else
+        else {
+#if LIBCURL_VERSION_NUM >= 0x075300
+                int r;
+                if (u->compression.algorithm == COMPRESSION_NONE) {
+                        struct curl_header *encoding_header;
+                        CURLHcode hcode;
+
+                        hcode = curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &encoding_header);
+                        if (hcode == CURLHE_OK && encoding_header && encoding_header->value) {
+                                r = update_content_encoding(u, encoding_header->value);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+#endif
+
                 log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
+        }
 
         free_and_replace(u->last_cursor, u->current_cursor);
 
@@ -496,6 +614,8 @@ static int parse_config(void) {
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
+                { "Upload",  "Compression",            config_parse_compression,    true,                     &arg_compression          },
+                { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
         };
 
