@@ -406,7 +406,7 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         return 0;
 }
 
-static void log_route_debug(const Route *route, const char *str, Manager *manager) {
+void log_route_debug(const Route *route, const char *str, Manager *manager) {
         _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
