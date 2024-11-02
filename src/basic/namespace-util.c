@@ -3,6 +3,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#if WANT_LINUX_FS_H
+#include <linux/fs.h>
+#endif
 
 #include "errno-util.h"
 #include "fd-util.h"
@@ -10,6 +13,8 @@
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_sched.h"
+#include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -501,4 +506,53 @@ int is_our_namespace(int fd, NamespaceType request_type) {
         }
 
         return stat_inode_same(&st_ours, &st_fd);
+}
+
+int is_idmapping_supported(const char *path) {
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        int r;
+
+        assert(path);
+
+        if (!mount_new_api_supported())
+                return false;
+
+        r = strextendf(&uid_map, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_NOBODY, UID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        r = strextendf(&gid_map, GID_FMT " " GID_FMT " " GID_FMT "\n", GID_NOBODY, GID_NOBODY, 1u);
+        if (r < 0)
+                return r;
+
+        userns_fd = userns_acquire(uid_map, gid_map);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+                return false;
+        if (userns_fd < 0)
+                return log_debug_errno(userns_fd, "ID-mapping supported namespace acquire failed for '%s' : %m", path);
+
+        dir_fd = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(dir_fd) || dir_fd == -EINVAL)
+                return false;
+        if (dir_fd < 0)
+                return log_debug_errno(dir_fd, "ID-mapping supported open failed for '%s' : %m", path);
+
+        mount_fd = RET_NERRNO(open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd) || mount_fd == -EINVAL)
+                return false;
+        if (mount_fd < 0)
+                return log_debug_errno(mount_fd, "ID-mapping supported open_tree failed for '%s' : %m", path);
+
+        r = RET_NERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                       &(struct mount_attr) {
+                                .attr_set = MOUNT_ATTR_IDMAP | MOUNT_ATTR_NOSUID | MOUNT_ATTR_NOEXEC | MOUNT_ATTR_RDONLY | MOUNT_ATTR_NODEV,
+                                .userns_fd = userns_fd,
+                        }, sizeof(struct mount_attr)));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EINVAL || r == -EPERM)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "ID-mapping supported setattr failed for '%s' : %m", path);
+
+        return true;
 }
