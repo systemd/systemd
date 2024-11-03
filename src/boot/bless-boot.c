@@ -219,7 +219,7 @@ static int acquire_boot_count_path(
         uint64_t left, done;
         int r;
 
-        r = efi_get_variable_path(EFI_LOADER_VARIABLE(LoaderBootCountPath), &path);
+        r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("LoaderBootCountPath"), &path);
         if (r == -ENOENT)
                 return -EUNATCH; /* in this case, let the caller print a message */
         if (r < 0)
