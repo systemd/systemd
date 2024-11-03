@@ -79,7 +79,7 @@ static int set_system_token(void) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), NULL, NULL, &token_size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderSystemToken"), NULL, NULL, &token_size);
         if (r == -ENODATA)
                 log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
         else if (r < 0) {
@@ -103,7 +103,7 @@ static int set_system_token(void) {
          * and possibly get identification information or too much insight into the kernel's entropy pool
          * state. */
         WITH_UMASK(0077) {
-                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
+                r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderSystemToken"), buffer, sizeof(buffer));
                 if (r < 0) {
                         if (!arg_graceful)
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
