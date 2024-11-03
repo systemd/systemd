@@ -1320,6 +1320,30 @@ static int link_get_network(Link *link, Network **ret) {
         return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOENT), "No matching .network found.");
 }
 
+static void link_enter_unmanaged(Link *link) {
+        assert(link);
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return;
+
+        log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
+                      "Unmanaging interface.");
+
+        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
+        (void) link_drop_requests(link);
+        (void) link_drop_managed_config(link);
+
+        /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
+         * bound_by map. Otherwise, if a link enters unmanaged state below, then its carrier state will
+         * not propagated to other interfaces anymore. Moreover, it is not necessary to recreate the
+         * map here, as it depends on .network files assigned to other links. */
+        link_free_bound_to_list(link);
+        link_free_engines(link);
+
+        link->network = network_unref(link->network);
+        link_set_state(link, LINK_STATE_UNMANAGED);
+}
+
 int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
         int r;
@@ -1336,34 +1360,29 @@ int link_reconfigure_impl(Link *link, bool force) {
                 return 0;
 
         r = link_get_network(link, &network);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT) {
+                link_enter_unmanaged(link);
+                return 0;
+        }
+        if (r < 0)
                 return r;
-
-        if (link->state != LINK_STATE_UNMANAGED && !network)
-                /* If link is in initialized state, then link->network is also NULL. */
-                force = true;
 
         if (link->network == network && !force)
                 return 0;
 
-        if (network) {
-                _cleanup_free_ char *joined = strv_join(network->dropins, ", ");
-
-                if (link->state == LINK_STATE_INITIALIZED)
-                        log_link_info(link, "Configuring with %s%s%s%s.",
-                                      network->filename,
-                                      isempty(joined) ? "" : " (dropins: ",
-                                      joined,
-                                      isempty(joined) ? "" : ")");
-                else
-                        log_link_info(link, "Reconfiguring with %s%s%s%s.",
-                                      network->filename,
-                                      isempty(joined) ? "" : " (dropins: ",
-                                      joined,
-                                      isempty(joined) ? "" : ")");
-        } else
-                log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
-                              "Unmanaging interface.");
+        _cleanup_free_ char *joined = strv_join(network->dropins, ", ");
+        if (link->network)
+                log_link_info(link, "Reconfiguring with %s%s%s%s.",
+                              network->filename,
+                              isempty(joined) ? "" : " (dropins: ",
+                              joined,
+                              isempty(joined) ? "" : ")");
+        else
+                log_link_info(link, "Configuring with %s%s%s%s.",
+                              network->filename,
+                              isempty(joined) ? "" : " (dropins: ",
+                              joined,
+                              isempty(joined) ? "" : ")");
 
         /* Dropping old .network file */
         r = link_stop_engines(link, false);
@@ -1374,7 +1393,7 @@ int link_reconfigure_impl(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        if (network && !force && network->keep_configuration != KEEP_CONFIGURATION_YES)
+        if (!force && network->keep_configuration != KEEP_CONFIGURATION_YES)
                 /* When a new/updated .network file is assigned, first make all configs (addresses,
                  * routes, and so on) foreign, and then drop unnecessary configs later by
                  * link_drop_foreign_config() in link_configure().
@@ -1398,11 +1417,6 @@ int link_reconfigure_impl(Link *link, bool force) {
 
         link_free_engines(link);
         link->network = network_unref(link->network);
-
-        if (!network) {
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
