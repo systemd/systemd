@@ -10,7 +10,6 @@ executables += [
                 'sources' : files(
                         'pcrlock.c',
                         'pcrlock-firmware.c',
-                        'pehash.c',
                 ),
                 'dependencies' : [
                         libm,
