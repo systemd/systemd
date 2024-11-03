@@ -394,11 +394,15 @@ int dnstls_manager_init(Manager *manager) {
 
         manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
         if (!manager->dnstls_data.ctx)
-                return -ENOMEM;
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                         "Failed to create SSL context: %s",
+                                         ERR_error_string(ERR_get_error(), NULL));
 
         r = SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
         if (r == 0)
-                return -EIO;
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                         "Failed to set protocol version on SSL context: %s",
+                                         ERR_error_string(ERR_get_error(), NULL));
 
         (void) SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
 
@@ -407,7 +411,6 @@ int dnstls_manager_init(Manager *manager) {
                 return log_warning_errno(SYNTHETIC_ERRNO(EIO),
                                          "Failed to load system trust store: %s",
                                          ERR_error_string(ERR_get_error(), NULL));
-
         return 0;
 }
 

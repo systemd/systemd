@@ -236,7 +236,9 @@ int dnstls_manager_init(Manager *manager) {
 
         r = gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
         if (r < 0)
-                return -ENOMEM;
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                         "Failed to allocate SSL credentials: %s",
+                                         gnutls_strerror(r));
 
         r = gnutls_certificate_set_x509_system_trust(manager->dnstls_data.cert_cred);
         if (r < 0)
