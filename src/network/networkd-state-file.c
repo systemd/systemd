@@ -948,6 +948,11 @@ void link_dirty(Link *link) {
         assert(link);
         assert(link->manager);
 
+        /* When the manager is in MANAGER_STOPPED, it is not necessary to update state files anymore, as they
+         * will be removed soon anyway. Moreover, we cannot call link_ref() in that case. */
+        if (link->manager->state == MANAGER_STOPPED)
+                return;
+
         /* The serialized state in /run is no longer up-to-date. */
 
         /* Also mark manager dirty as link is dirty */

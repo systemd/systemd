@@ -222,7 +222,7 @@ void link_dns_settings_clear(Link *link) {
         link->dnssec_negative_trust_anchors = set_free_free(link->dnssec_negative_trust_anchors);
 }
 
-void link_free_engines(Link *link) {
+static void link_free_engines(Link *link) {
         if (!link)
                 return;
 

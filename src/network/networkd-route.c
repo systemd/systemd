@@ -574,6 +574,9 @@ int route_remove(Route *route, Manager *manager) {
         assert(route);
         assert(manager);
 
+        if (manager->state == MANAGER_STOPPED)
+                return 0; /* The remove request will not be queued anyway. Suppress logging below. */
+
         /* If the route is remembered, then use the remembered object. */
         (void) route_get(manager, route, &route);
 
