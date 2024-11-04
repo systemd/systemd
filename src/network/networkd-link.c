@@ -376,11 +376,11 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         assert(link->manager);
         assert(link->manager->event);
 
-        bool keep_dhcp = may_keep_dhcp &&
-                         link->network &&
-                         !link->network->dhcp_send_decline && /* IPv4 ACD for the DHCPv4 address is running. */
-                         (link->manager->state == MANAGER_RESTARTING ||
-                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+        bool keep_dhcp =
+                may_keep_dhcp &&
+                link->network &&
+                (link->manager->state == MANAGER_RESTARTING ||
+                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
         if (!keep_dhcp) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
@@ -1567,12 +1567,6 @@ static int link_initialized_and_synced(Link *link) {
         assert(link);
         assert(link->manager);
 
-        if (link->manager->test_mode) {
-                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
-                link_set_state(link, LINK_STATE_UNMANAGED);
-                return 0;
-        }
-
         if (link->state == LINK_STATE_PENDING) {
                 log_link_debug(link, "Link state is up-to-date");
                 link_set_state(link, LINK_STATE_INITIALIZED);
@@ -1642,7 +1636,7 @@ static int link_initialized(Link *link, sd_device *device) {
         return link_call_getlink(link, link_initialized_handler);
 }
 
-static int link_check_initialized(Link *link) {
+int link_check_initialized(Link *link) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -2836,6 +2830,16 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 return 0;
                         }
 
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to enter initialized state.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
+                        /* Do not enter initialized state if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
+
                         r = link_check_initialized(link);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to check link is initialized: %m");
@@ -2849,13 +2853,24 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 link_enter_failed(link);
                                 return 0;
                         }
-                        if (r > 0) {
-                                r = link_reconfigure_impl(link, /* force = */ false);
-                                if (r < 0) {
-                                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                                        link_enter_failed(link);
-                                        return 0;
-                                }
+                        if (r == 0)
+                                return 0;
+
+                        if (link->manager->test_mode) {
+                                log_link_debug(link, "Running in test mode, refusing to configure interface.");
+                                link_set_state(link, LINK_STATE_UNMANAGED);
+                                return 0;
+                        }
+
+                        /* Do not configure interface if we are enumerating. */
+                        if (manager->enumerating)
+                                return 0;
+
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                                link_enter_failed(link);
+                                return 0;
                         }
                 }
                 break;

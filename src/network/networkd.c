@@ -104,8 +104,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not start manager: %m");
 
-        log_info("Enumeration completed");
-
         notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         r = sd_event_loop(m->event);
