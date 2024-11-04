@@ -591,7 +591,7 @@ static int efi_timestamp(EFI_TIME *ret) {
                 return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
 
         *ret = (EFI_TIME) {
-                .Year = 1900 + tm.tm_year,
+                .Year = htole16(1900 + tm.tm_year),
                 /* tm_mon starts at 0, EFI_TIME months start at 1. */
                 .Month = tm.tm_mon + 1,
                 .Day = tm.tm_mday,
@@ -627,8 +627,8 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
 
         *siglist = (EFI_SIGNATURE_LIST) {
                 .SignatureType = EFI_CERT_X509_GUID,
-                .SignatureListSize = siglistsz,
-                .SignatureSize = offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz,
+                .SignatureListSize = htole32(siglistsz),
+                .SignatureSize = htole32(offsetof(EFI_SIGNATURE_DATA, SignatureData) + dercertsz),
         };
 
         memcpy(siglist->Signatures[0].SignatureData, dercert, dercertsz);
@@ -638,11 +638,11 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
         if (r < 0)
                 return r;
 
-        uint32_t attrs =
+        uint32_t attrs = htole32(
                 EFI_VARIABLE_NON_VOLATILE|
                 EFI_VARIABLE_BOOTSERVICE_ACCESS|
                 EFI_VARIABLE_RUNTIME_ACCESS|
-                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+                EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS);
 
         FOREACH_STRING(db, "PK", "KEK", "db") {
                 _cleanup_(BIO_freep) BIO *bio = NULL;
@@ -694,9 +694,9 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
                         .TimeStamp = timestamp,
                         .AuthInfo = {
                                 .Hdr = {
-                                        .dwLength = offsetof(WIN_CERTIFICATE_UEFI_GUID, CertData) + sigsz,
-                                        .wRevision = 0x0200,
-                                        .wCertificateType = 0x0EF1, /* WIN_CERT_TYPE_EFI_GUID */
+                                        .dwLength = htole32(offsetof(WIN_CERTIFICATE_UEFI_GUID, CertData) + sigsz),
+                                        .wRevision = htole16(0x0200),
+                                        .wCertificateType = htole16(0x0EF1), /* WIN_CERT_TYPE_EFI_GUID */
                                 },
                                 .CertType = EFI_CERT_TYPE_PKCS7_GUID,
                         }
