@@ -3,6 +3,8 @@
 
 set -ex
 
+shopt -s nullglob
+
 info() { echo -e "\033[33;1m$1\033[0m"; }
 fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
