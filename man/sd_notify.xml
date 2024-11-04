@@ -499,6 +499,26 @@
     successfully. Specifically, no error is returned when a file descriptor is attempted to be stored using
     <varname>FDSTORE=1</varname> but the service is not actually configured to permit storing of file
     descriptors (see above).</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-E2BIG</constant></term>
+
+          <listitem><para>More file descriptors passed at once than the system allows. On Linux the number of
+          file descriptors that may be passed across <constant>AF_UNIX</constant> sockets at once is 253, see
+          <citerefentry
+          project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+          details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
