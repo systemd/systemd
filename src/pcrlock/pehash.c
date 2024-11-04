@@ -135,6 +135,10 @@ int pe_hash(int fd,
                 r = hash_file(fd, mdctx, p, st.st_size - p - certificate_table->Size);
                 if (r < 0)
                         return r;
+
+                /* If the file size is not a multiple of 8 bytes, pad the hash with zero bytes. */
+                if (st.st_size % 8 != 0 && EVP_DigestUpdate(mdctx, (const uint8_t[8]) {}, 8 - (st.st_size % 8)) != 1)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to hash data.");
         }
 
         int hsz = EVP_MD_CTX_size(mdctx);
