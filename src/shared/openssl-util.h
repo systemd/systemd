@@ -140,6 +140,7 @@ int openssl_load_key_from_token(KeySourceType private_key_source_type, const cha
 
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
+typedef struct EVP_MD EVP_MD;
 typedef struct UI_METHOD UI_METHOD;
 
 static inline void *X509_free(X509 *p) {
