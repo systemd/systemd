@@ -55,6 +55,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ECDSA_SIG*, ECDSA_SIG_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free_all, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_OCTET_STRING*, ASN1_OCTET_STRING_free, NULL);
 
@@ -140,13 +141,25 @@ typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
 typedef struct EVP_MD EVP_MD;
 typedef struct UI_METHOD UI_METHOD;
+typedef struct ASN1_TYPE ASN1_TYPE;
+typedef struct ASN1_STRING ASN1_STRING;
 
-static inline void *X509_free(X509 *p) {
+static inline void* X509_free(X509 *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline void *EVP_PKEY_free(EVP_PKEY *p) {
+static inline void* EVP_PKEY_free(EVP_PKEY *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
+static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
+static inline void* ASN1_STRING_free(ASN1_STRING *p) {
         assert(p == NULL);
         return NULL;
 }
@@ -155,6 +168,8 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TYPE*, ASN1_TYPE_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_STRING*, ASN1_STRING_free, NULL);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
