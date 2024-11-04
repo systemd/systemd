@@ -174,6 +174,17 @@ static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *u
         return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
 }
 
+static int ipv4ll_set_address(Link *link) {
+        assert(link);
+        assert(link->network);
+        assert(link->ipv4ll);
+
+        if (!in4_addr_is_set(&link->network->ipv4ll_start_address))
+                return 0;
+
+        return sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+}
+
 int ipv4ll_configure(Link *link) {
         uint64_t seed;
         int r;
@@ -200,6 +211,10 @@ int ipv4ll_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        r = ipv4ll_set_address(link);
+        if (r < 0)
+                return r;
 
         r = sd_ipv4ll_set_mac(link->ipv4ll, &link->hw_addr.ether);
         if (r < 0)
