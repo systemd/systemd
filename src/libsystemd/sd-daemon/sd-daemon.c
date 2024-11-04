@@ -457,7 +457,7 @@ static int pid_notify_with_fds_internal(
                 pid_t pid,
                 const char *state,
                 const int *fds,
-                unsigned n_fds) {
+                size_t n_fds) {
 
         SocketAddress address;
         struct iovec iovec;
@@ -728,16 +728,7 @@ _public_ int sd_pid_notifyf_with_fds(
         _cleanup_free_ char *p = NULL;
         int r;
 
-        /* Paranoia check: we traditionally used 'unsigned' as array size, but we nowadays more correctly use
-         * 'size_t'. sd_pid_notifyf_with_fds() and sd_pid_notify_with_fds() are from different eras, hence
-         * differ in this. Let's catch resulting incompatibilites early, even though they are pretty much
-         * theoretic only */
-        if (n_fds > UINT_MAX) {
-                r = -E2BIG;
-                goto finish;
-        }
-
-        else if (format) {
+        if (format) {
                 va_list ap;
 
                 va_start(ap, format);
