@@ -107,6 +107,18 @@ int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
         return 0;
 }
 
+int loop_write_exact(int fd, void *buf, size_t nbytes) {
+        ssize_t n;
+
+        n = loop_write(fd, buf, nbytes);
+        if (n < 0)
+                return (int) n;
+        if ((size_t) n != nbytes)
+                return -EIO;
+
+        return 0;
+}
+
 int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
         const uint8_t *p;
         usec_t end;
@@ -305,4 +317,19 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
         }
 
         return q - (const uint8_t*) p;
+}
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int r) {
+        if (r >= 0)
+                _exit(EXIT_SUCCESS);
+
+        assert(errno_fd >= 0);
+
+        int rr = loop_write_exact(errno_fd, &r, sizeof(r));
+        if (rr == -EIO)
+                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Sent unexpectedly short message");
+        if (rr < 0)
+                log_debug_errno(rr, "Failed to write errno to errno_fd=%d: %m", errno_fd);
+
+        _exit(EXIT_FAILURE);
 }

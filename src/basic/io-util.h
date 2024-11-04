@@ -16,6 +16,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
 
 int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout);
+int loop_write_exact(int fd, void *buf, size_t nbytes);
 static inline int loop_write(int fd, const void *buf, size_t nbytes) {
         return loop_write_full(fd, buf, nbytes, 0);
 }
@@ -44,3 +45,5 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
         return FILE_SIZE_VALID(l);
 
 }
+
+void report_errno_and_exit(int errno_fd, int r);
