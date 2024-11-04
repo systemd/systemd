@@ -6,6 +6,7 @@
 #include "bus-polkit.h"
 #include "fd-util.h"
 #include "image-varlink.h"
+#include "io-util.h"
 #include "machine.h"
 #include "string-util.h"
 
