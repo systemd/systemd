@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* resolved: report ttl in resolution replies if we know it. This data is useful
+  for tools such as wireguard which want to periodically re-resolve DNS names,
+  and might want to use the TTL has hint for that.
+
 * journald: beef up ClientContext logic to store pidfd_id of peer, to validate
   we really use the right cache entry
 
