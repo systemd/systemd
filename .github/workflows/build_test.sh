@@ -14,7 +14,7 @@ ARGS=(
     "--optimization=s -Dutmp=false"
     "--optimization=2 -Dc_args=-Wmaybe-uninitialized -Ddns-over-tls=openssl"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
-    "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled"
+    "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled -Defi=false -Dbootloader=disabled"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
