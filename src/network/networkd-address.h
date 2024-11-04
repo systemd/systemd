@@ -73,6 +73,8 @@ struct Address {
         NFTSetContext nft_set_context;
 };
 
+void log_address_debug(const Address *address, const char *str, const Link *link);
+
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
