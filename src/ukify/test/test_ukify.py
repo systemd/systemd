@@ -623,7 +623,7 @@ def test_efi_signing_pesign(kernel_initrd, tmp_path):
 
     ukify.make_uki(opts)
 
-    # let's check that sbverify likes the resulting file
+    # let's check that pesign likes the resulting file
     dump = subprocess.check_output([
         'pesign', '-S',
         '-i', output,
