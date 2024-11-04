@@ -63,6 +63,14 @@ executables += [
                 'dependencies' : libopenssl,
         },
         libexec_template + {
+                'name' : 'systemd-sbsign',
+                'conditions' : [
+                        'HAVE_OPENSSL',
+                ],
+                'sources' : files('sign.c'),
+                'dependencies' : libopenssl,
+        },
+        libexec_template + {
                 'name' : 'systemd-boot-check-no-failures',
                 'sources' : files('boot-check-no-failures.c'),
         },
