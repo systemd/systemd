@@ -600,14 +600,16 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
-                if (r < 0)
-                        return (void) log_debug_errno(r, "Failed to get DNR from DHCP lease, ignoring: %m");
+                if (r < 0 && r != -ENODATA)
+                        log_warning_errno(r, "Failed to get DNR from DHCP lease, ignoring: %m");
 
-                r = dns_resolvers_to_dot_strv(resolvers, r, &names);
-                if (r < 0)
-                        return (void) log_warning_errno(r, "Failed to get DoT servers from DHCP DNR, ignoring: %m");
-                if (r > 0)
-                        fputstrv(f, names, NULL, space);
+                if (r > 0) {
+                        r = dns_resolvers_to_dot_strv(resolvers, r, &names);
+                        if (r < 0)
+                                return (void) log_warning_errno(r, "Failed to get DoT servers from DHCP DNR, ignoring: %m");
+                        if (r > 0)
+                                fputstrv(f, names, NULL, space);
+                }
         }
 
         if (lease6 && conditional6) {
@@ -616,14 +618,16 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
-                if (r < 0)
-                        return (void) log_debug_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
+                if (r < 0 && r != -ENODATA)
+                        log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
 
-                r = dns_resolvers_to_dot_strv(resolvers, r, &names);
-                if (r < 0)
-                        return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
-                if (r > 0)
-                        fputstrv(f, names, NULL, space);
+                if (r > 0) {
+                        r = dns_resolvers_to_dot_strv(resolvers, r, &names);
+                        if (r < 0)
+                                return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
+                        if (r > 0)
+                                fputstrv(f, names, NULL, space);
+                }
         }
 
         if (lvalue)
