@@ -102,3 +102,10 @@ struct sockaddr_vm {
 #ifndef SIOCGSKNS
 #define SIOCGSKNS 0x894C
 #endif
+
+/* The maximum number of fds that SCM_RIGHTS accepts. This is an internal kernel constant, but very much
+ * useful for userspace too. It's documented in unix(7) these days, hence should be fairly reliable to define
+ * here. */
+#ifndef SCM_MAX_FD
+#define SCM_MAX_FD 253U
+#endif
