@@ -180,10 +180,10 @@ _public_ int sd_is_special(int fd, const char *path) {
 
                 if (S_ISREG(st_fd.st_mode) && S_ISREG(st_path.st_mode))
                         return stat_inode_same(&st_path, &st_fd);
-                else if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
+                if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
                         return st_path.st_rdev == st_fd.st_rdev;
-                else
-                        return 0;
+
+                return 0;
         }
 
         return 1;
