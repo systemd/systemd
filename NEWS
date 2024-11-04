@@ -247,6 +247,13 @@ CHANGES WITH 257 in spe:
           respective directories as read-only, via a ':ro' flag that can be
           appended to each setting.
 
+        * When DynamicUser= is combined with
+          StateDirectory=/RuntimeDirectory=/CacheDirectory=/LogsDirectory= and
+          ID mapped mounts are available on the referenced path, the data in
+          there is now preferably made available by establishing ID mapped from
+          the "nobody" user to the dynamic user, rather than via recursive
+          chown()ing.
+
         systemd-udevd:
 
         * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
@@ -392,6 +399,18 @@ CHANGES WITH 257 in spe:
         * bootctl gained a --random-seed=yes|no option to control provisioning
           of the random seed file in ESP. (This is useful when producing an
           image that will be used multiple times.)
+
+        * bootctl now optionally supports installing UEFI Secure Boot databases
+          (ESLs) for systemd-boot to pick up and automatically enroll if the
+          system is booted in Setup Mode. This is controlled via bootctl's new
+          --secure-boot-auto-enroll=yes switch (and some auxiliary ones). A
+          certificate can be provided in DER format, and it is automatically
+          converted into an ESL, as needed.
+
+        * bootctl, systemd-measure, systemd-repart when referencing signing
+          keys on OpenSSL engines may now query for PINs and similar via
+          systemd's native systemd-ask-password logic (and take benefit of its
+          caching and UI).
 
         The journal:
 
@@ -580,6 +599,24 @@ CHANGES WITH 257 in spe:
         * The individual import/export tools will now display a nice progress
           bar when downloading files.
 
+        systemd-userdb & systemd-homed:
+
+        * userdbctl gained a pair of switches --uid-min= and --uid-max= to
+          filter the UID/GID range of the listed users or groups. It also
+          gained a new switch --disposition= to filter them by disposition
+          (i.e. show only system users or only regular users, and so on). It
+          also gained a new switch --fuzzy that permits a "fuzzy" search for a
+          user, i.e. doing a substring and string distance search, and looking
+          into the real name field of the user and other similar fields. It
+          gained a new switch --boundaries=no for disabling display of the
+          UID/GID range boundaries in its output.
+
+        * User records learnt a new set of fields that may list field names
+          that may be changed by the user themselves without requiring
+          administrator authentication. This new field is honoured by
+          systemd-homed to allow users to change selected properties of their
+          own user records.
+
         Miscellaneous:
 
         * systemctl now supports the --now option with the 'reenable' verb.
@@ -607,16 +644,6 @@ CHANGES WITH 257 in spe:
         * The systemd-ask-password concept has been extended with a per-user
           concept, i.e. user programs may now ask for passwords via the same
           mechanism and the previously system-wide only mechanism.
-
-        * userdbctl gained a pair of switches --uid-min= and --uid-max= to
-          filter the UID/GID range of the listed users or groups. It also
-          gained a new switch --disposition= to filter them by disposition
-          (i.e. show only system users or only regular users, and so on). It
-          also gained a new switch --fuzzy that permits a "fuzzy" search for a
-          user, i.e. doing a substring and string distance search, and looking
-          into the real name field of the user and other similar fields. It
-          gained a new switch --boundaries=no for disabling display of the
-          UID/GID range boundaries in its output.
 
         * A new set of system/service credentials are added:
           shell.prompt.prefix, shell.prompt.suffix and shell.welcome. At login
