@@ -306,3 +306,20 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
 
         return q - (const uint8_t*) p;
 }
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int error) {
+        int r;
+
+        if (error >= 0)
+                _exit(EXIT_SUCCESS);
+
+        assert(errno_fd >= 0);
+
+        r = loop_write(errno_fd, &error, sizeof(error));
+        if (r == -EIO)
+                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Sent unexpectedly short message.");
+        else if (r < 0)
+                log_debug_errno(r, "Failed to write errno to errno_fd=%d: %m", errno_fd);
+
+        _exit(EXIT_FAILURE);
+}
