@@ -172,6 +172,8 @@ typedef struct Item {
 
         bool purge:1;
 
+        bool ignore_if_missing:1;
+
         OperationMask done;
 } Item;
 
@@ -3593,7 +3595,8 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
-                unbase64 = false, from_cred = false, missing_user_or_group = false, purge = false;
+                unbase64 = false, from_cred = false, missing_user_or_group = false, purge = false,
+                ignore_if_missing = false;
         int r;
 
         assert(fname);
@@ -3661,6 +3664,8 @@ static int parse_line(
                         from_cred = true;
                 else if (action[pos] == '$' && !purge)
                         purge = true;
+                else if (action[pos] == '?' && !ignore_if_missing)
+                        ignore_if_missing = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3678,6 +3683,7 @@ static int parse_line(
         i.allow_failure = allow_failure;
         i.try_replace = try_replace;
         i.purge = purge;
+        i.ignore_if_missing = ignore_if_missing;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
         if (ERRNO_IS_NEG_NOINFO(r))
@@ -3861,6 +3867,20 @@ static int parse_line(
                         if (!i.argument)
                                 return log_oom();
                 }
+
+                if (i.ignore_if_missing) {
+                        r = chase(i.argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /*ret_path=*/ NULL, /*ret_fd=*/ NULL);
+                        if (r == -ENOENT) {
+                                /* Silently skip over lines where the source file is missing. */
+                                log_syntax(NULL, LOG_DEBUG, fname, line, 0,
+                                           "Symlink source path '%s' does not exist, skipping line.", i.argument);
+                                return 0;
+                        }
+                        if (r < 0)
+                                return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                                  "Failed to check if %s exists: %m", i.argument);
+                }
+
                 break;
 
         case COPY_FILES:
