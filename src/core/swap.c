@@ -256,6 +256,9 @@ static int swap_verify(Swap *s) {
         if (!unit_has_name(UNIT(s), e))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Value of What= and unit name do not match, not loading.");
 
+        if (exec_needs_pid_namespace(&s->exec_context))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
+
         return 0;
 }
 
