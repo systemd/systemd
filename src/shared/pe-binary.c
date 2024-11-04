@@ -12,8 +12,6 @@
 #include "string-table.h"
 #include "string-util.h"
 
-#define IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE 4U
-
 bool pe_header_is_64bit(const PeHeader *h) {
         assert(h);
 
@@ -440,6 +438,56 @@ int pe_hash(int fd,
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate PE hash.");
 #endif
+}
+
+int pe_checksum(int fd, uint32_t *ret) {
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat file: %m");
+
+        r = pe_load_headers(fd, &dos_header, &pe_header);
+        if (r < 0)
+                return r;
+
+        uint32_t checksum = 0, checksum_offset = le32toh(dos_header->e_lfanew) + offsetof(PeHeader, optional.CheckSum);
+        size_t off = 0;
+        for (;;) {
+                uint16_t buf[32*1024];
+
+                ssize_t n = pread(fd, buf, sizeof(buf), off);
+                if (n == 0)
+                        break;
+                if (n < 0)
+                        return log_debug_errno(errno, "Failed to read from PE file: %m");
+                if (n % sizeof(uint16_t) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from PE file");
+
+                for (size_t i = 0; i < (size_t) n / 2; i++) {
+                        if (off + i >= checksum_offset && off + i < checksum_offset + sizeof(pe_header->optional.CheckSum))
+                                continue;
+
+                        uint16_t val = le16toh(buf[i]);
+
+                        checksum += val;
+                        checksum = (checksum >> 16) + (checksum & 0xffff);
+                }
+
+                off += n;
+        }
+
+        checksum = (checksum >> 16) + (checksum & 0xffff);
+        checksum += off;
+
+        *ret = checksum;
+        return 0;
 }
 
 #if HAVE_OPENSSL
