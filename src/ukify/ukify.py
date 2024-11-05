@@ -526,6 +526,36 @@ class SbSign(SignTool):
         return 'No signature table present' in info
 
 
+class SystemdSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
+        assert opts.sb_key is not None
+        assert opts.sb_cert is not None
+
+        tool = find_tool(
+            'systemd-sbsign',
+            '/usr/lib/systemd/systemd-sbsign',
+            opts=opts,
+            msg='systemd-sbsign, required for signing, is not installed',
+        )
+        cmd = [
+            tool,
+            "sign",
+            '--private-key', opts.sb_key,
+            '--certificate', opts.sb_cert,
+            *(['--private-key-source', f"engine:{opts.signing_engine}"] if opts.signing_engine is not None else []),
+            input_f,
+            '--output', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: UkifyConfig) -> bool:
+        raise NotImplementedError("systemd-sbsign cannot yet verify if existing PE binaries are signed")
+
+
 def parse_banks(s: str) -> list[str]:
     banks = re.split(r',|\s+', s)
     # TODO: do some sanity checking here
@@ -1477,6 +1507,8 @@ class SignToolAction(argparse.Action):
             setattr(namespace, 'signtool', SbSign)
         elif values == 'pesign':
             setattr(namespace, 'signtool', PeSign)
+        elif values == 'systemd':
+            setattr(namespace, 'signtool', SystemdSign)
         else:
             raise ValueError(f"Unknown signtool '{values}' (this is unreachable)")
 
@@ -1624,7 +1656,7 @@ CONFIG_ITEMS = [
     ),
     ConfigItem(
         '--signtool',
-        choices=('sbsign', 'pesign'),
+        choices=('sbsign', 'pesign', 'systemd'),
         action=SignToolAction,
         dest='signtool',
         help=(
@@ -1940,11 +1972,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
-        if opts.signtool and opts.signtool != SbSign:
+        if opts.signtool and opts.signtool not in (SbSign, SystemdSign):
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
-        opts.signtool = SbSign
+        if not opts.signtool:
+            opts.signtool = SbSign
     elif bool(opts.sb_cert_name):
         # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
         if opts.signtool and opts.signtool != PeSign:
