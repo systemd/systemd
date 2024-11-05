@@ -433,7 +433,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) ? "not validated" :
-                  (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"),
+                          (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"),
                   FLAGS_SET(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) ? "confidential" : "non-confidential");
 
         t->state = state;
