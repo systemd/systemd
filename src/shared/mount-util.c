@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
@@ -1819,4 +1820,71 @@ char* umount_and_unlink_and_free(char *p) {
         (void) umount2(p, 0);
         (void) unlink(p);
         return mfree(p);
+}
+
+static int path_get_mount_info(
+                const char *path,
+                char **ret_fstype,
+                char **ret_options) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_free_ char *fstype = NULL, *options = NULL;
+        struct libmnt_fs *fs;
+        int r;
+
+        assert(path);
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_file(table, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        fs = mnt_table_find_mountpoint(table, path, MNT_ITER_FORWARD);
+        if (!fs)
+                return -EINVAL;
+
+        if (ret_fstype) {
+                fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                if (!fstype)
+                        return -ENOMEM;
+        }
+
+        if (ret_options) {
+                options = strdup(strempty(mnt_fs_get_options(fs)));
+                if (!options)
+                        return -ENOMEM;
+        }
+
+        if (ret_fstype)
+                *ret_fstype = TAKE_PTR(fstype);
+        if (ret_options)
+                *ret_options = TAKE_PTR(options);
+
+        return 0;
+}
+
+int path_is_network_fs_harder(const char *path) {
+        _cleanup_free_ char *fstype = NULL, *options = NULL;
+        int r, ret;
+
+        assert(path);
+
+        ret = path_is_network_fs(path);
+        if (ret > 0)
+                return true;
+
+        r = path_get_mount_info(path, &fstype, &options);
+        if (r < 0)
+                return RET_GATHER(ret, r);
+
+        if (fstype_is_network(fstype))
+                return true;
+
+        if (fstab_test_option(options, "_netdev\0"))
+                return true;
+
+        return false;
 }
