@@ -4381,6 +4381,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp_pvlan', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'accept_local', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'rp_filter', '0')
+        self.check_ipv4_sysctl_attr('dummy98', 'force_igmp_version', '1')
 
         copy_network_unit('25-sysctl.network.d/25-ipv6-privacy-extensions.conf')
         networkctl_reload()
