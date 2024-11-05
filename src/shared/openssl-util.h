@@ -134,8 +134,6 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int openssl_load_key_from_token(KeySourceType private_key_source_type, const char *private_key_source, const char *private_key, OpenSSLAskPasswordUI *ui, EVP_PKEY **ret_private_key);
-
 #else
 
 typedef struct X509 X509;
@@ -170,16 +168,6 @@ static inline void* ASN1_STRING_free(ASN1_STRING *p) {
         return NULL;
 }
 
-static inline int openssl_load_key_from_token(
-                KeySourceType private_key_source_type,
-                const char *private_key_source,
-                const char *private_key,
-                OpenSSLAskPasswordUI *ui,
-                EVP_PKEY **ret_private_key) {
-
-        return -EOPNOTSUPP;
-}
-
 #endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
@@ -193,12 +181,13 @@ struct OpenSSLAskPasswordUI {
         UI_METHOD *method;
 };
 
-int openssl_ask_password_ui_new(OpenSSLAskPasswordUI **ret);
+int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret);
 
 static inline OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
         if (!ui)
                 return NULL;
 
+        UI_set_default_method(UI_OpenSSL());
         UI_destroy_method(ui->method);
         return mfree(ui);
 }
