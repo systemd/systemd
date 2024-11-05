@@ -3,7 +3,12 @@
 
 #include <sys/types.h>
 
+#include "openssl-util.h"
+#include "macro-fundamental.h"
 #include "sparse-endian.h"
+#include "uki.h"
+
+#define IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE 4U
 
 /* When naming things we try to stay close to the official Windows APIs as per:
  * → https://learn.microsoft.com/en-us/windows/win32/debug/pe-format  */
@@ -147,3 +152,9 @@ bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 
 bool pe_is_native(const PeHeader *pe_header);
+
+int pe_hash(int fd, const EVP_MD *md, void **ret_hash, size_t *ret_hash_size);
+
+int pe_checksum(int fd, uint32_t *ret);
+
+int uki_hash(int fd, const EVP_MD *md, void *ret_hashes[static _UNIFIED_SECTION_MAX], size_t *ret_hash_size);
