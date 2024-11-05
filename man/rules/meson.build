@@ -155,6 +155,7 @@ manpages = [
  ['sd-journal', '3', [], ''],
  ['sd-json', '3', [], ''],
  ['sd-login', '3', [], 'HAVE_PAM'],
+ ['sd-varlink', '3', [], ''],
  ['sd_booted', '3', [], ''],
  ['sd_bus_add_match',
   '3',
