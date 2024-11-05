@@ -134,59 +134,48 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int openssl_load_key_from_token(KeySourceType private_key_source_type, const char *private_key_source, const char *private_key, OpenSSLAskPasswordUI *ui, EVP_PKEY **ret_private_key);
-
 #else
 
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
+typedef struct EVP_MD EVP_MD;
 typedef struct UI_METHOD UI_METHOD;
+typedef struct ASN1_TYPE ASN1_TYPE;
+typedef struct ASN1_STRING ASN1_STRING;
 
-static inline void *X509_free(X509 *p) {
+static inline void* X509_free(X509 *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline void *EVP_PKEY_free(EVP_PKEY *p) {
+static inline void* EVP_PKEY_free(EVP_PKEY *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline void* UI_destroy_method(UI_METHOD *p) {
+static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline int openssl_load_key_from_token(
-                KeySourceType private_key_source_type,
-                const char *private_key_source,
-                const char *private_key,
-                OpenSSLAskPasswordUI *ui,
-                EVP_PKEY **ret_private_key) {
-
-        return -EOPNOTSUPP;
+static inline void* ASN1_STRING_free(ASN1_STRING *p) {
+        assert(p == NULL);
+        return NULL;
 }
 
 #endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TYPE*, ASN1_TYPE_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_STRING*, ASN1_STRING_free, NULL);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
         UI_METHOD *method;
 };
 
-int openssl_ask_password_ui_new(OpenSSLAskPasswordUI **ret);
-
-static inline OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
-        if (!ui)
-                return NULL;
-
-        UI_destroy_method(ui->method);
-        return mfree(ui);
-}
+OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 
