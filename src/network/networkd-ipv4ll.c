@@ -195,8 +195,8 @@ static int ipv4ll_set_address(Link *link) {
         if (in4_addr_is_set(&link->network->ipv4ll_start_address))
                 return sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
 
-        /* 3. If KeepConfiguration=dhcp, use a foreign IPv4LL address. */
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+        /* 3. If KeepConfiguration=dynamic, use a foreign IPv4LL address. */
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                 return 0;
 
         SET_FOREACH(a, link->addresses) {
