@@ -3010,7 +3010,7 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
 
         r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
         if (r < 0)
-                return log_error_errno(r, "Failed to set varlink time-out: %m");
+                return log_error_errno(r, "Failed to set varlink timeout: %m");
 
         r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

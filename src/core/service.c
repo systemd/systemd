@@ -4733,7 +4733,7 @@ static void service_notify_message(
                     monotonic_usec != USEC_INFINITY &&
                     monotonic_usec >= s->reload_begin_usec)
                         /* Note, we don't call service_enter_reload_by_notify() here, because we
-                         * don't need reload propagation nor do we want to restart the time-out. */
+                         * don't need reload propagation nor do we want to restart the timeout. */
                         service_set_state(s, SERVICE_RELOAD_NOTIFY);
 
                 if (s->state == SERVICE_RUNNING)

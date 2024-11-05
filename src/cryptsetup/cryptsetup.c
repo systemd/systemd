@@ -1294,7 +1294,7 @@ static int run_security_device_monitor(
         assert(event);
         assert(monitor);
 
-        /* Runs the event loop for the device monitor until either something happens, or the time-out is
+        /* Runs the event loop for the device monitor until either something happens, or the timeout is
          * hit. */
 
         for (;;) {

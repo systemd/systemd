@@ -950,7 +950,7 @@
         for supported formats). Defaults to 30s. Once the specified timeout elapsed authentication via
         password is attempted. Note that this timeout applies to waiting for the security device to show up —
         it does not apply to the PIN prompt for the device (should one be needed) or similar. Pass 0 to turn
-        off the time-out and wait forever.</para>
+        off the timeout and wait forever.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
