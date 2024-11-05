@@ -24,6 +24,7 @@ fi
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
     swapoff --all
+    rm -f /swapfile
     if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
         btrfs filesystem mkswapfile -s 64M /swapfile
     else
