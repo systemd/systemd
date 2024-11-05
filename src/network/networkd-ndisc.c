@@ -30,6 +30,7 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
+#define NDISC_ENCRYPTED_DNS_MAX 64U
 /* Not defined in the RFC, but let's set an upper limit to make not consume much memory.
  * This should be safe as typically there should be at most 1 portal per network. */
 #define NDISC_CAPTIVE_PORTAL_MAX 64U
@@ -1939,6 +1940,11 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         if (dnr) {
                 dnr->router = router;
                 dnr->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        if (set_size(link->ndisc_dnr) >= NDISC_ENCRYPTED_DNS_MAX) {
+                log_link_warning(link, "Too many Encrypted DNS records received. Only first %u records will be used.", NDISC_ENCRYPTED_DNS_MAX);
                 return 0;
         }
 
