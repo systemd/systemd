@@ -263,6 +263,7 @@ class UkifyConfig:
     sections_by_name: dict[str, 'Section']
     sign_kernel: bool
     signing_engine: Optional[str]
+    signing_provider: Optional[str]
     signtool: Optional[type['SignTool']]
     splash: Optional[Path]
     stub: Path
@@ -548,6 +549,11 @@ class SystemdSbSign(SignTool):
                 if opts.signing_engine is not None
                 else []
             ),
+            *(
+                ['--private-key-source', f'provider:{opts.signing_provider}']
+                if opts.signing_provider is not None
+                else []
+            ),
             input_f,
             '--output', output_f,
         ]  # fmt: skip
@@ -744,6 +750,10 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             if opts.signing_engine is not None:
                 assert pub_key
                 extra += [f'--private-key-source=engine:{opts.signing_engine}']
+                extra += [f'--certificate={pub_key}']
+            elif opts.signing_provider is not None:
+                assert pub_key
+                extra += [f'--private-key-source=provider:{opts.signing_provider}']
                 extra += [f'--certificate={pub_key}']
             elif pub_key:
                 extra += [f'--public-key={pub_key}']
@@ -999,9 +1009,9 @@ def make_uki(opts: UkifyConfig) -> None:
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
-            # If we are getting a certificate when using an engine, we need to convert it to public key
-            # format
-            if opts.signing_engine is not None and Path(pcrpkey).exists():
+            # If we are getting a certificate when using an engine or provider, we need to convert it to
+            # public key format.
+            if (opts.signing_engine or opts.signing_provider) and Path(pcrpkey).exists():
                 from cryptography.hazmat.primitives import serialization
                 from cryptography.x509 import load_pem_x509_certificate
 
@@ -1659,6 +1669,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SigningEngine',
     ),
     ConfigItem(
+        '--signing-provider',
+        metavar='file|provider:PROVIDER|engine:ENGINE',
+        help='OpenSSL provider to use for signing\n"',
+        config_key='UKI/SigningProvider',
+    ),
+    ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign', 'systemd-sbsign'),
         action=SignToolAction,
@@ -1673,7 +1689,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-private-key',
         dest='sb_key',
-        help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine-specific designation for SB signing',  # noqa: E501
+        help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider specific designation for SB signing',  # noqa: E501
         config_key='UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
@@ -1722,7 +1738,7 @@ CONFIG_ITEMS = [
         '--pcr-private-key',
         dest='pcr_private_keys',
         action='append',
-        help='private part of the keypair or engine-specific designation for signing PCR signatures',
+        help='private part of the keypair or engine/provider specific designation for signing PCR signatures',  # noqa: E501
         config_key='PCRSignature:/PCRPrivateKey',
         config_push=ConfigItem.config_set_group,
     ),
@@ -1732,7 +1748,7 @@ CONFIG_ITEMS = [
         metavar='PATH',
         type=Path,
         action='append',
-        help='public part of the keypair or engine-specific designation for signing PCR signatures',
+        help='public part of the keypair or engine/provider specific designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
         config_push=ConfigItem.config_set_group,
     ),
@@ -1963,7 +1979,10 @@ def finalize_options(opts: argparse.Namespace) -> None:
         else:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
 
-    if opts.signing_engine is None:
+    if opts.signing_engine and opts.signing_provider:
+        raise ValueError('Only one of --signing-engine= and --signing-provider= may be specified')
+
+    if opts.signing_engine is None and opts.signing_provider is None:
         if opts.sb_key:
             opts.sb_key = Path(opts.sb_key)
         if opts.sb_cert:
@@ -1989,6 +2008,9 @@ def finalize_options(opts: argparse.Namespace) -> None:
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name='
             )
         opts.signtool = PeSign
+
+    if opts.signing_provider and opts.signtool != SystemdSbSign:
+        raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
