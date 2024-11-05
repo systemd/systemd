@@ -427,8 +427,6 @@ node /org/freedesktop/hostname1 {
     name.</para>
   </refsect1>
 
-  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
-
   <refsect1>
     <title>Examples</title>
 
@@ -442,12 +440,7 @@ node /org/freedesktop/hostname1 {
     </example>
   </refsect1>
 
-  <refsect1>
-    <title>See Also</title>
-
-    <para>David Zeuthen's original Fedora
-    <ulink url="https://fedoraproject.org/wiki/Features/BetterHostname">Feature page about xdg-hostname</ulink></para>
-  </refsect1>
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 
   <refsect1>
     <title>History</title>
@@ -461,5 +454,17 @@ node /org/freedesktop/hostname1 {
       <para><varname>MachineID</varname>, <varname>BootID</varname> and
       <varname>VSockCID</varname> were added in version 256.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member>David Zeuthen's original Fedora
+      <ulink url="https://fedoraproject.org/wiki/Features/BetterHostname">Feature page about xdg-hostname</ulink></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

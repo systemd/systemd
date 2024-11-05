@@ -99,6 +99,7 @@ systemd-timesyncd.service
       <member><citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-timesyncd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
