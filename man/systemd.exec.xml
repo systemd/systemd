@@ -893,8 +893,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Mandatory Access Control</title>
 
-    <xi:include href="system-only.xml" xpointer="plural"/>
-
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -921,6 +919,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
         is not enabled. This setting does not affect commands prefixed with <literal>+</literal>.</para>
 
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
         <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
@@ -938,6 +938,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>The value may be prefixed by <literal>-</literal>, in which case all errors will be ignored. An empty
         value may be specified to unset previous assignments. This does not affect commands prefixed with
         <literal>+</literal>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
@@ -1430,6 +1432,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>ProtectSystem=</varname>. This setting is implied if <varname>DynamicUser=</varname> is
         set. This setting cannot ensure protection in all cases. In general it has the same limitations as
         <varname>ReadOnlyPaths=</varname>, see below. Defaults to off.</para>
+
+        <para>Note that if <varname>ProtectSystem=</varname> is set to <literal>strict</literal> and
+        <varname>PrivateTmp=</varname> is enabled, then <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> will be writable.</para>
 
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
