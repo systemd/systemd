@@ -92,11 +92,14 @@ bool cg_is_unified_wanted(void) {
         if (r >= 0)
                 return (wanted = r >= CGROUP_UNIFIED_ALL);
 
-        /* If we were explicitly passed systemd.unified_cgroup_hierarchy, respect that. */
+        /* If we have explicit configuration for v1 or v2, respect that. */
+        if (cg_is_legacy_force_enabled())
+                return (wanted = false);
+
         bool b;
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", /* flags = */ 0, &b);
-        if (r > 0)
-                return (wanted = b);
+        if (r > 0 && b)
+                return (wanted = true);
 
         /* If we passed cgroup_no_v1=all with no other instructions, it seems highly unlikely that we want to
          * use hybrid or legacy hierarchy. */
@@ -106,7 +109,10 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = true);
 
         /* If any controller is in use as v1, don't use unified. */
-        return (wanted = (cg_any_controller_used_for_v1() <= 0));
+        if (cg_any_controller_used_for_v1() > 0)
+                return (wanted = false);
+
+        return (wanted = true);
 }
 
 bool cg_is_legacy_wanted(void) {
@@ -152,19 +158,27 @@ bool cg_is_hybrid_wanted(void) {
 }
 
 bool cg_is_legacy_force_enabled(void) {
-        bool force;
+        static thread_local int enabled = -1;
+        int r;
+
+        /* If we have a cached value, return that. */
+        if (enabled >= 0)
+                return enabled;
 
         if (!cg_is_legacy_wanted())
-                return false;
+                return (enabled = false);
 
-        /* If in container, we have to follow host's cgroup hierarchy. */
-        if (detect_container() > 0)
-                return true;
+        /* Otherwise, require both systemd.unified_cgroup_hierarchy=0 and
+         * SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1. */
 
-        if (proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &force) < 0)
-                return false;
-
-        return force;
+        bool b;
+        r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", /* flags = */ 0, &b);
+        if (r <= 0 || b)
+                return (enabled = false);
+        r = proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &b);
+        if (r <= 0 || !b)
+                return (enabled = false);
+        return (enabled = true);
 }
 
 int cg_weight_parse(const char *s, uint64_t *ret) {
