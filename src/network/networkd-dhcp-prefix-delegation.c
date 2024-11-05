@@ -1252,6 +1252,28 @@ int dhcp_request_prefix_delegation(Link *link) {
                 dhcp6_pd_assign_subnet_prefixes(link, uplink);
 }
 
+int link_drop_dhcp_pd_config(Link *link, Network *network) {
+        assert(link);
+        assert(network);
+
+        if (!link_dhcp_pd_is_enabled(link))
+                return 0;
+
+        /* If will be disabled or at least one config is changed, then drop all configurations. */
+        if (!network->dhcp_pd ||
+            link->network->dhcp_pd_assign != network->dhcp_pd_assign ||
+            (link->network->dhcp_pd_assign &&
+             (link->network->dhcp_pd_manage_temporary_address != network->dhcp_pd_manage_temporary_address ||
+              !set_equal(link->network->dhcp_pd_tokens, network->dhcp_pd_tokens))) ||
+            link->network->dhcp_pd_subnet_id != network->dhcp_pd_subnet_id ||
+            link->network->dhcp_pd_route_metric != network->dhcp_pd_route_metric ||
+            link->network->dhcp_pd_uplink_index != network->dhcp_pd_uplink_index ||
+            !streq_ptr(link->network->dhcp_pd_uplink_name, network->dhcp_pd_uplink_name))
+                return dhcp_pd_remove(link, /* only_marked = */ false);
+
+        return 0;
+}
+
 int config_parse_dhcp_pd_subnet_id(
                 const char *unit,
                 const char *filename,

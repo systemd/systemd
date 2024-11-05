@@ -68,6 +68,7 @@ int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_le
                     usec_t lifetime_preferred_usec, usec_t lifetime_valid_usec);
 
 int link_request_radv(Link *link);
+int link_drop_radv_config(Link *link, Network *network);
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;

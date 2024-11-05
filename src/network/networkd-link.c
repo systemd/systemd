@@ -1117,6 +1117,28 @@ static int link_drop_static_config(Link *link) {
         return r;
 }
 
+static int link_drop_dynamic_config(Link *link, Network *network) {
+        int r;
+
+        assert(link);
+        assert(network);
+
+        /* Drop unnecessary dynamic configurations gracefully, e.g. drop DHCP lease in the case that
+         * previously DHCP=yes and now DHCP=no, but keep DHCP lease when DHCP setting is unchanged. */
+
+        r = link_drop_ndisc_config(link, network);
+        RET_GATHER(r, link_drop_radv_config(link, network));
+        RET_GATHER(r, link_drop_dhcp4_config(link, network));
+        RET_GATHER(r, link_drop_dhcp6_config(link, network));
+        RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
+        RET_GATHER(r, link_drop_ipv4ll_config(link, network));
+        link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
+        link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
+
+        return r;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -1364,13 +1386,6 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                               isempty(joined) ? "" : ")");
 
         /* Dropping old .network file */
-        r = link_stop_engines(link, false);
-        if (r < 0)
-                return r;
-
-        r = link_drop_requests(link);
-        if (r < 0)
-                return r;
 
         if (FLAGS_SET(flags, LINK_RECONFIGURE_UNCONDITIONALLY)) {
                 /* Remove all static configurations. Note, dynamic configurations are dropped by
@@ -1379,7 +1394,23 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                 r = link_drop_static_config(link);
                 if (r < 0)
                         return r;
+
+                /* Stop DHCP client and friends, and drop dynamic configurations like DHCP address. */
+                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                if (r < 0)
+                        return r;
+
+                /* Free DHCP client and friends. */
+                link_free_engines(link);
+        } else {
+                r = link_drop_dynamic_config(link, network);
+                if (r < 0)
+                        return r;
         }
+
+        r = link_drop_requests(link);
+        if (r < 0)
+                return r;
 
         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
          * bound_by map. Otherwise, if a link enters unmanaged state below, then its carrier state will
@@ -1387,7 +1418,6 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
          * map here, as it depends on .network files assigned to other links. */
         link_free_bound_to_list(link);
 
-        link_free_engines(link);
         link->network = network_unref(link->network);
 
         /* Then, apply new .network file */
