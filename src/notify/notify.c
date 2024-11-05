@@ -453,6 +453,8 @@ static int run(int argc, char* argv[]) {
                 r = sd_pid_notify_with_fds(arg_pid.pid, /* unset_environment= */ false, msg, a, k);
 
         }
+        if (r == -E2BIG)
+                return log_error_errno(r, "Too many file descriptors passed.");
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
         if (r == 0)
