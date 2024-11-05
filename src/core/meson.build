@@ -44,6 +44,7 @@ libcore_sources = files(
         'load-dropin.c',
         'load-fragment.c',
         'manager-dump.c',
+        'manager-json.c',
         'manager-serialize.c',
         'manager.c',
         'mount.c',
@@ -62,6 +63,7 @@ libcore_sources = files(
         'transaction.c',
         'unit-dependency-atom.c',
         'unit-printf.c',
+        'unit-json.c',
         'unit-serialize.c',
         'unit.c',
 )
