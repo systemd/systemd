@@ -561,18 +561,16 @@ static int dnr_append_json(Link *link, sd_json_variant **v) {
                         return r;
 
                 n_dnr = sd_dhcp_lease_get_dnr(link->dhcp_lease, &dnr);
-                if (n_dnr < 0)
-                        return 0;
-
-                FOREACH_ARRAY(res, dnr, n_dnr) {
-                        r = dnr_append_json_one(link,
-                                                res,
-                                                NETWORK_CONFIG_SOURCE_DHCP4,
-                                                &s,
-                                                &array);
-                        if (r < 0)
-                                return r;
-                }
+                if (n_dnr > 0)
+                        FOREACH_ARRAY(res, dnr, n_dnr) {
+                                r = dnr_append_json_one(link,
+                                                        res,
+                                                        NETWORK_CONFIG_SOURCE_DHCP4,
+                                                        &s,
+                                                        &array);
+                                if (r < 0)
+                                        return r;
+                        }
         }
 
         if (link->dhcp6_lease && link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
@@ -585,18 +583,16 @@ static int dnr_append_json(Link *link, sd_json_variant **v) {
                         return r;
 
                 n_dnr = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &dnr);
-                if (n_dnr < 0)
-                        return 0;
-
-                FOREACH_ARRAY(res, dnr, n_dnr) {
-                        r = dnr_append_json_one(link,
-                                                res,
-                                                NETWORK_CONFIG_SOURCE_DHCP6,
-                                                &s,
-                                                &array);
-                        if (r < 0)
-                                return r;
-                }
+                if (n_dnr > 0)
+                        FOREACH_ARRAY(res, dnr, n_dnr) {
+                                r = dnr_append_json_one(link,
+                                                        res,
+                                                        NETWORK_CONFIG_SOURCE_DHCP6,
+                                                        &s,
+                                                        &array);
+                                if (r < 0)
+                                        return r;
+                        }
         }
 
         if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_NDISC)) {
