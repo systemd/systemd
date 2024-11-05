@@ -254,6 +254,11 @@ CHANGES WITH 257 in spe:
           the "nobody" user to the dynamic user, rather than via recursive
           chown()ing.
 
+        * A new service property PrivatePIDs= has been added that runs executed
+          processes as PID 1 - the init process - within their own PID namespace.
+          PrivatePIDs= also mounts /proc/ so only processes within the new PID
+          namespace are visible.
+
         systemd-udevd:
 
         * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
