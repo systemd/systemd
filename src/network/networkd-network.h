@@ -342,6 +342,7 @@ struct Network {
         IPReversePathFilter ipv4_rp_filter;
         int ipv6_proxy_ndp;
         Set *ipv6_proxy_ndp_addresses;
+        IPv4ForceIgmpVersion ipv4_force_igmp_version;
 
         /* NDisc support */
         int ndisc;
