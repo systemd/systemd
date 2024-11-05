@@ -1415,6 +1415,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         set. This setting cannot ensure protection in all cases. In general it has the same limitations as
         <varname>ReadOnlyPaths=</varname>, see below. Defaults to off.</para>
 
+        <para>Note that if <varname>ProtectSystem=</varname> is set to <literal>strict</literal> and
+        <varname>PrivateTmp=</varname> is enabled, then <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> will be writable.</para>
+
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
