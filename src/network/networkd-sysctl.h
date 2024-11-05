@@ -53,3 +53,18 @@ IPReversePathFilter ip_reverse_path_filter_from_string(const char *s) _pure_;
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_reverse_path_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_forward_deprecated);
+
+typedef enum IPv4ForceIgmpVersion {
+        /* These values map to the kernel's /proc/sys/net/ipv4/conf/INTERFACE/force_igmp_version values. Do not reorder! */
+        IPV4_FORCE_IGMP_VERSION_NO = 0,
+        IPV4_FORCE_IGMP_VERSION_1  = 1,
+        IPV4_FORCE_IGMP_VERSION_2  = 2,
+        IPV4_FORCE_IGMP_VERSION_3  = 3,
+        _IPV4_FORCE_IGMP_VERSION_MAX,
+        _IPV4_FORCE_IGMP_VERSION_INVALID = -EINVAL,
+} IPv4ForceIgmpVersion;
+
+const char* ipv4_force_igmp_version_to_string(IPv4ForceIgmpVersion i) _const_;
+IPv4ForceIgmpVersion ipv4_force_igmp_version_from_string(const char *s) _pure_;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv4_force_igmp_version);
