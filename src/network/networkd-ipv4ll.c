@@ -179,10 +179,21 @@ static int ipv4ll_set_address(Link *link) {
         assert(link->network);
         assert(link->ipv4ll);
 
-        if (!in4_addr_is_set(&link->network->ipv4ll_start_address))
-                return 0;
+        /* 1. Use already assigned address. */
+        Address *a;
+        SET_FOREACH(a, link->addresses) {
+                if (a->source != NETWORK_CONFIG_SOURCE_IPV4LL)
+                        continue;
 
-        return sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                assert(a->family == AF_INET);
+                return sd_ipv4ll_set_address(link->ipv4ll, &a->in_addr.in);
+        }
+
+        /* 2. If no address is assigned yet, use explicitly configured address. */
+        if (in4_addr_is_set(&link->network->ipv4ll_start_address))
+                return sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+
+        return 0;
 }
 
 int ipv4ll_configure(Link *link) {
@@ -229,6 +240,27 @@ int ipv4ll_configure(Link *link) {
                 return r;
 
         return sd_ipv4ll_set_check_mac_callback(link->ipv4ll, ipv4ll_check_mac, link->manager);
+}
+
+int link_drop_ipv4ll_config(Link *link, Network *network) {
+        int ret = 0;
+
+        assert(link);
+        assert(network);
+
+        if (!link_ipv4ll_enabled(link))
+                return 0;
+
+        Network *saved = link->network;
+        link->network = network;
+        bool enabled = link_ipv4ll_enabled(link);
+        link->network = saved;
+
+        if (!enabled)
+                ret = sd_ipv4ll_stop(link->ipv4ll);
+
+        link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
+        return ret;
 }
 
 int ipv4ll_update_mac(Link *link) {

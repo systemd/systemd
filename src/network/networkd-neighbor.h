@@ -36,8 +36,7 @@ int neighbor_remove(Neighbor *neighbor, Link *link);
 int network_drop_invalid_neighbors(Network *network);
 
 int link_drop_static_neighbors(Link *link);
-int link_drop_foreign_neighbors(Link *link);
-void link_foreignize_neighbors(Link *link);
+int link_drop_unmanaged_neighbors(Link *link);
 
 int link_request_static_neighbors(Link *link);
 
