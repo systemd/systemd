@@ -4,7 +4,12 @@
 set -eux
 set -o pipefail
 
-(! journalctl -q -o short-monotonic --grep "didn't pass validation" | grep -v "test-varlink-idl" >>/failed)
+if [ -r /varlink-didnt-pass-validation-exceptions ]; then
+        (! journalctl -q -o short-monotonic --grep "didn't pass validation" | grep -v "test-varlink-idl" | grep -v -f /varlink-didnt-pass-validation-exceptions >>/failed)
+        rm -f /varlink-didnt-pass-validation-exceptions
+else
+        (! journalctl -q -o short-monotonic --grep "didn't pass validation" | grep -v "test-varlink-idl" >>/failed)
+fi
 
 # Here, the redundant '[ ]' in the pattern is required in order not to match the logged command itself.
 (! journalctl -q -o short-monotonic --grep 'Warning: cannot close sd-bus connection[ ].*after fork' >>/failed)
