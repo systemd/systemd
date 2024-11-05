@@ -2165,26 +2165,20 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 errno_pipe[0] = safe_close(errno_pipe[0]);
 
                 /* Wait until the parent unshared the user namespace */
-                if (read(unshare_ready_fd, &c, sizeof(c)) < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
+                if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
 
                 /* Disable the setgroups() system call in the child user namespace, for good. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
-                        if (errno != ENOENT) {
-                                r = -errno;
-                                goto child_fail;
-                        }
+                        if (errno != ENOENT)
+                                report_errno_and_exit(errno_pipe[1], -errno);
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = -errno;
-                                goto child_fail;
-                        }
+                        if (write(fd, "deny\n", 5) < 0)
+                                report_errno_and_exit(errno_pipe[1], -errno);
 
                         fd = safe_close(fd);
                 }
@@ -2192,33 +2186,24 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 /* First write the GID map */
                 a = procfs_file_alloca(ppid, "gid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
-                if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
+                if (fd < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
+
+                if (write(fd, gid_map, strlen(gid_map)) < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
+
                 fd = safe_close(fd);
 
                 /* The write the UID map */
                 a = procfs_file_alloca(ppid, "uid_map");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
-                if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
+                if (fd < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
+
+                if (write(fd, uid_map, strlen(uid_map)) < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
 
                 _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe[1], &r, sizeof(r));
-                _exit(EXIT_FAILURE);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
