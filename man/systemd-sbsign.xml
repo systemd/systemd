@@ -49,6 +49,16 @@
         <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>validate-key</option></term>
+
+        <listitem><para>Checks that we can load the private key specified with
+        <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
