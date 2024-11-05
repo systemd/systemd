@@ -102,14 +102,13 @@ int route_get_request(Manager *manager, const Route *route, Request **ret);
 
 bool route_can_update(const Route *existing, const Route *requesting);
 
-int link_drop_routes(Link *link, bool foreign);
+int link_drop_routes(Link *link, bool only_static);
 static inline int link_drop_static_routes(Link *link) {
-        return link_drop_routes(link, false);
-}
-static inline int link_drop_foreign_routes(Link *link) {
         return link_drop_routes(link, true);
 }
-int link_foreignize_routes(Link *link);
+static inline int link_drop_unmanaged_routes(Link *link) {
+        return link_drop_routes(link, false);
+}
 
 int link_request_route(
                 Link *link,

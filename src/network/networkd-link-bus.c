@@ -665,11 +665,9 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = link_reconfigure(l, /* force = */ true);
-        if (r > 0)
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
-        if (r < 0)
-                return r;
+        r = link_reconfigure_full(l, LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY, message, /* counter = */ NULL);
+        if (r != 0)
+                return r; /* Will reply later when r > 0. */
 
         return sd_bus_reply_method_return(message, NULL);
 }

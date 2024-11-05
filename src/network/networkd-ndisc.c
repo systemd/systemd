@@ -2668,6 +2668,90 @@ int link_request_ndisc(Link *link) {
         return 0;
 }
 
+int link_drop_ndisc_config(Link *link, Network *network) {
+        int r, ret = 0;
+
+        assert(link);
+        assert(network);
+
+        if (!link_ndisc_enabled(link))
+                return 0; /* Currently DHCPv4 client is not enabled, there is nothing we need to drop. */
+
+        Network *current = link->network;
+        link->network = network;
+        bool enabled = link_ndisc_enabled(link);
+        link->network = current;
+
+        if (!enabled) {
+                /* Currently enabled but will be disabled. Stop the client and flush configs. */
+                ret = ndisc_stop(link);
+                ndisc_flush(link);
+                link->ndisc = sd_ndisc_unref(link->ndisc);
+                return ret;
+        }
+
+        /* Even if the client is currently enabled and also enabled in the new .network file, detailed
+         * settings for the client may be different. Let's unref() the client. */
+        link->ndisc = sd_ndisc_unref(link->ndisc);
+
+        /* Redirect messages will be ignored. Drop configurations based on the previously received redirect
+         * messages. */
+        if (!network->ndisc_use_redirect)
+                (void) ndisc_drop_redirect(link, /* router = */ NULL);
+
+        /* If one of the route setting is changed, drop all routes. */
+        if (link->network->ndisc_use_gateway != network->ndisc_use_gateway ||
+            link->network->ndisc_use_route_prefix != network->ndisc_use_route_prefix ||
+            link->network->ndisc_use_onlink_prefix != network->ndisc_use_onlink_prefix ||
+            link->network->ndisc_quickack != network->ndisc_quickack ||
+            link->network->ndisc_route_metric_high != network->ndisc_route_metric_high ||
+            link->network->ndisc_route_metric_medium != network->ndisc_route_metric_medium ||
+            link->network->ndisc_route_metric_low != network->ndisc_route_metric_low ||
+            !set_equal(link->network->ndisc_deny_listed_router, network->ndisc_deny_listed_router) ||
+            !set_equal(link->network->ndisc_allow_listed_router, network->ndisc_allow_listed_router) ||
+            !set_equal(link->network->ndisc_deny_listed_prefix, network->ndisc_deny_listed_prefix) ||
+            !set_equal(link->network->ndisc_allow_listed_prefix, network->ndisc_allow_listed_prefix) ||
+            !set_equal(link->network->ndisc_deny_listed_route_prefix, network->ndisc_deny_listed_route_prefix) ||
+            !set_equal(link->network->ndisc_allow_listed_route_prefix, network->ndisc_allow_listed_route_prefix)) {
+                Route *route;
+                SET_FOREACH(route, link->manager->routes) {
+                        if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                                continue;
+
+                        if (route->nexthop.ifindex != link->ifindex)
+                                continue;
+
+                        if (route->protocol == RTPROT_REDIRECT)
+                                continue; /* redirect route is handled by ndisc_drop_redirect(). */
+
+                        r = route_remove_and_cancel(route, link->manager);
+                        if (r < 0)
+                                RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove SLAAC route, ignoring: %m"));
+                }
+        }
+
+        /* If SLAAC address is disabled, drop all addresses. */
+        if (!network->ndisc_use_autonomous_prefix ||
+            !set_equal(link->network->ndisc_tokens, network->ndisc_tokens) ||
+            !set_equal(link->network->ndisc_deny_listed_prefix, network->ndisc_deny_listed_prefix) ||
+            !set_equal(link->network->ndisc_allow_listed_prefix, network->ndisc_allow_listed_prefix)) {
+                Address *address;
+                SET_FOREACH(address, link->addresses) {
+                        if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
+                                continue;
+
+                        r = address_remove_and_cancel(address, link);
+                        if (r < 0)
+                                RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove SLAAC address, ignoring: %m"));
+                }
+        }
+
+        if (!network->ndisc_use_mtu)
+                link->ndisc_mtu = 0;
+
+        return ret;
+}
+
 int ndisc_stop(Link *link) {
         assert(link);
 
