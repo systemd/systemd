@@ -42,6 +42,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%5$sSign binaries for EFI Secure Boot%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  sign EXEFILE           Sign the given binary for EFI Secure Boot\n"
+               "  validate-key           Validate the given private key\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
@@ -445,10 +446,44 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_validate_key(int argc, char *argv[], void *userdata) {
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        int r;
+
+        if (!arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No private key specified, use --private-key=.");
+
+        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+        }
+
+        r = openssl_load_private_key(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
+                        &(AskPasswordRequest) {
+                                .id = "sbsign-private-key-pin",
+                                .keyring = arg_private_key,
+                                .credential = "sbsign.private-key-pin",
+                        },
+                        &private_key,
+                        &ui);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+
+        log_info("OK");
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",      VERB_ANY, VERB_ANY, 0,    help       },
-                { "sign",      2,        2,        0,    verb_sign  },
+                { "help",         VERB_ANY, VERB_ANY, 0,    help              },
+                { "sign",         2,        2,        0,    verb_sign         },
+                { "validate-key", VERB_ANY, VERB_ANY, 0,    verb_validate_key },
                 {}
         };
         int r;
