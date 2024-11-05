@@ -92,7 +92,6 @@ static int status_entries(
 
                 r = show_boot_entry(
                                 boot_config_default_entry(config),
-                                &config->global_addons,
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
