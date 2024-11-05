@@ -38,11 +38,16 @@ int link_lldp_tx_configure(Link *link) {
 
         assert(link);
 
-        if (!link_lldp_tx_enabled(link))
-                return 0;
+        if (!link_lldp_tx_enabled(link)) {
+                r = sd_lldp_tx_stop(link->lldp_tx);
+                if (r < 0)
+                        return r;
 
-        if (link->lldp_tx)
-                return -EBUSY;
+                link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
+                return 0;
+        }
+
+        link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
         r = sd_lldp_tx_new(&link->lldp_tx);
         if (r < 0)

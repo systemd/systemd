@@ -7238,10 +7238,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
 
-    def test_dhcp_keep_configuration_dhcp(self):
+    def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-veth-peer.network',
-                          '25-dhcp-client-keep-configuration-dhcp.network')
+                          '25-dhcp-client-keep-configuration-dynamic.network')
         start_networkd()
         self.wait_online('veth-peer:carrier')
         start_dnsmasq()
@@ -7285,10 +7285,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
                          'valid_lft forever preferred_lft forever')
 
-    def test_dhcp_keep_configuration_dhcp_on_stop(self):
+    def test_dhcp_keep_configuration_dynamic_on_stop(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-veth-peer.network',
-                          '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
+                          '25-dhcp-client-keep-configuration-dynamic-on-stop.network')
         start_networkd()
         self.wait_online('veth-peer:carrier')
         start_dnsmasq()

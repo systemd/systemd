@@ -48,6 +48,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-serialize.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
 #include "networkd-wifi.h"
@@ -89,7 +90,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         log_debug("Coming back from suspend, reconfiguring all connections...");
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure(link, /* force = */ true);
+                (void) link_reconfigure(link, LINK_RECONFIGURE_UNCONDITIONALLY);
 
         return 0;
 }
@@ -244,6 +245,9 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
                         rtnl_fd = fd;
                         continue;
                 }
+
+                if (manager_set_serialization_fd(m, fd, names[i]) >= 0)
+                        continue;
 
                 if (manager_add_tuntap_fd(m, fd, names[i]) >= 0)
                         continue;
@@ -442,6 +446,7 @@ static int manager_post_handler(sd_event_source *s, void *userdata) {
                     fw_ctx_get_reply_callback_count(manager->fw_ctx) > 0)
                         return 0; /* There are some message calls waiting for their replies. */
 
+                (void) manager_serialize(manager);
                 manager->state = MANAGER_STOPPED;
                 return sd_event_exit(sd_event_source_get_event(s), 0);
 
@@ -476,7 +481,7 @@ static int manager_stop(Manager *manager, ManagerState state) {
 
         Link *link;
         HASHMAP_FOREACH(link, manager->links_by_index)
-                (void) link_stop_engines(link, /* may_keep_dhcp = */ true);
+                (void) link_stop_engines(link, /* may_keep_dynamic = */ true);
 
         return 0;
 }
@@ -503,8 +508,8 @@ static int manager_set_keep_configuration(Manager *m) {
         assert(m);
 
         if (in_initrd()) {
-                log_debug("Running in initrd, keep DHCPv4 addresses on stopping networkd by default.");
-                m->keep_configuration = KEEP_CONFIGURATION_DHCP_ON_STOP;
+                log_debug("Running in initrd, keep dynamically assigned configurations on stopping networkd by default.");
+                m->keep_configuration = KEEP_CONFIGURATION_DYNAMIC_ON_STOP;
                 return 0;
         }
 
@@ -644,6 +649,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
+                .serialization_fd = -EBADF,
                 .ip_forwarding = { -1, -1, },
 #if HAVE_VMLINUX_H
                 .cgroup_fd = -EBADF,
@@ -724,6 +730,8 @@ Manager* manager_free(Manager *m) {
         safe_close(m->persistent_storage_fd);
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
+
+        m->serialization_fd = safe_close(m->serialization_fd);
 
         return mfree(m);
 }
@@ -1219,12 +1227,9 @@ int manager_reload(Manager *m, sd_bus_message *message) {
                 goto finish;
         }
 
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                if (message)
-                        (void) link_reconfigure_on_bus_method_reload(link, message);
-                else
-                        (void) link_reconfigure(link, /* force = */ false);
-        }
+        HASHMAP_FOREACH(link, m->links_by_index)
+                (void) link_reconfigure_full(link, /* flags = */ 0, message,
+                                             /* counter = */ message ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;

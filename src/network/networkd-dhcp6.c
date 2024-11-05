@@ -827,11 +827,17 @@ int link_request_dhcp6_client(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp6_enabled(link) && !link_ndisc_enabled(link))
-                return 0;
+        if (!link_dhcp6_enabled(link) && !link_ndisc_enabled(link)) {
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        return r;
 
-        if (link->dhcp6_client)
+                link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
                 return 0;
+        }
+
+        /* Only unref() client here. The lease will be unref()ed later when a new lease is acquired. */
+        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
 
         r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, NULL);
         if (r < 0)

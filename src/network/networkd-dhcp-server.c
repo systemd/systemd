@@ -719,11 +719,16 @@ int link_request_dhcp_server(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
+        if (!link_dhcp4_server_enabled(link)) {
+                r = sd_dhcp_server_stop(link->dhcp_server);
+                if (r < 0)
+                        return r;
 
-        if (link->dhcp_server)
+                link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
                 return 0;
+        }
+
+        link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
 
         log_link_debug(link, "Requesting DHCP server.");
         r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, NULL);

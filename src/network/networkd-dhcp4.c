@@ -915,7 +915,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                 r = sd_dhcp_lease_get_lifetime_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: failed to get lifetime: %m");
@@ -1168,7 +1168,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1199,7 +1199,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_EXPIRED:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1214,7 +1214,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1375,49 +1375,49 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
-static int dhcp4_find_dynamic_address(Link *link, struct in_addr *ret) {
-        Address *a;
-
+static int dhcp4_set_request_address(Link *link) {
         assert(link);
         assert(link->network);
-        assert(ret);
+        assert(link->dhcp_client);
 
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                return false;
+        /* 1. Use already assigned address. */
+        Address *a;
+        SET_FOREACH(a, link->addresses) {
+                if (a->source != NETWORK_CONFIG_SOURCE_DHCP4)
+                        continue;
+
+                assert(a->family == AF_INET);
+
+                log_link_debug(link, "DHCPv4 CLIENT: requesting previously acquired address %s.",
+                               IN4_ADDR_TO_STRING(&a->in_addr.in));
+                return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
+        }
+
+        /* 2. If no address is assigned yet, use explicitly configured address. */
+        if (in4_addr_is_set(&link->network->dhcp_request_address)) {
+                log_link_debug(link, "DHCPv4 CLIENT: requesting address %s specified by RequestAddress=.",
+                               IN4_ADDR_TO_STRING(&link->network->dhcp_request_address));
+                return sd_dhcp_client_set_request_address(link->dhcp_client, &link->network->dhcp_request_address);
+        }
+
+        /* 3. If KeepConfiguration=dynamic, use a foreign dynamic address. */
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
+                return 0;
 
         SET_FOREACH(a, link->addresses) {
                 if (a->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
                 if (a->family != AF_INET)
                         continue;
-                if (link_address_is_dynamic(link, a))
-                        break;
+                if (!link_address_is_dynamic(link, a))
+                        continue;
+
+                log_link_debug(link, "DHCPv4 CLIENT: requesting foreign dynamic address %s.",
+                               IN4_ADDR_TO_STRING(&a->in_addr.in));
+                return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
         }
 
-        if (!a)
-                return false;
-
-        *ret = a->in_addr.in;
-        return true;
-}
-
-static int dhcp4_set_request_address(Link *link) {
-        struct in_addr a;
-
-        assert(link);
-        assert(link->network);
-        assert(link->dhcp_client);
-
-        a = link->network->dhcp_request_address;
-
-        if (in4_addr_is_null(&a))
-                (void) dhcp4_find_dynamic_address(link, &a);
-
-        if (in4_addr_is_null(&a))
-                return 0;
-
-        log_link_debug(link, "DHCPv4 CLIENT: requesting %s.", IN4_ADDR_TO_STRING(&a));
-        return sd_dhcp_client_set_request_address(link->dhcp_client, &a);
+        return 0;
 }
 
 static bool link_needs_dhcp_broadcast(Link *link) {
@@ -1819,11 +1819,17 @@ int link_request_dhcp4_client(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp4_enabled(link))
-                return 0;
+        if (!link_dhcp4_enabled(link)) {
+                r = sd_dhcp_client_stop(link->dhcp_client);
+                if (r < 0)
+                        return r;
 
-        if (link->dhcp_client)
+                link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
                 return 0;
+        }
+
+        /* Only unref() client here. The lease will be unref()ed later when a new lease is acquired. */
+        link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
 
         r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, dhcp4_process_request, NULL);
         if (r < 0)

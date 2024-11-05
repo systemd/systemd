@@ -67,11 +67,16 @@ static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_ll
 int link_lldp_rx_configure(Link *link) {
         int r;
 
-        if (!link_lldp_rx_enabled(link))
-                return 0;
+        if (!link_lldp_rx_enabled(link)) {
+                r = sd_lldp_rx_stop(link->lldp_rx);
+                if (r < 0)
+                        return r;
 
-        if (link->lldp_rx)
-                return -EBUSY;
+                link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
+                return 0;
+        }
+
+        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
 
         r = sd_lldp_rx_new(&link->lldp_rx);
         if (r < 0)

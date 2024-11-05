@@ -631,11 +631,17 @@ int link_request_radv(Link *link) {
 
         assert(link);
 
-        if (!link_radv_enabled(link))
-                return 0;
+        if (!link_radv_enabled(link)) {
+                r = sd_radv_stop(link->radv);
+                if (r < 0)
+                        return r;
 
-        if (link->radv)
+                link->radv = sd_radv_unref(link->radv);
                 return 0;
+        }
+
+        /* FIXME: keep dynamic configs acquired by DHCP-PD. */
+        link->radv = sd_radv_unref(link->radv);
 
         r = link_queue_request(link, REQUEST_TYPE_RADV, radv_process_request, NULL);
         if (r < 0)
