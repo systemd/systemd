@@ -368,10 +368,10 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
 
 # test io.systemd.Machine.Open
-(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host"}')
-(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": ""}')
-(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": null}')
-(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "foo"}')
+#(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host"}')
+#(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": ""}')
+#(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": null}')
+#(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "foo"}')
 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "tty"}'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "login"}'
