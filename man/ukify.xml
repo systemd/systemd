@@ -440,9 +440,9 @@
           <term><varname>SecureBootSigningTool=<replaceable>SIGNER</replaceable></varname></term>
           <term><option>--signtool=<replaceable>SIGNER</replaceable></option></term>
 
-          <listitem><para>Whether to use <literal>sbsign</literal> or <literal>pesign</literal>.
-          Depending on this choice, different parameters are required in order to sign an image.
-          Defaults to <literal>sbsign</literal>.</para>
+          <listitem><para>Whether to use <literal>sbsign</literal>, <literal>pesign</literal> or
+          <literal>systemd</literal>. Depending on this choice, different parameters are required in order to
+          sign an image. Defaults to <literal>sbsign</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
