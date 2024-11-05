@@ -4,11 +4,12 @@
 
 #include "libmount-util.h"
 
-int libmount_parse(
+int libmount_parse_cached(
                 const char *path,
                 FILE *source,
                 struct libmnt_table **ret_table,
-                struct libmnt_iter **ret_iter) {
+                struct libmnt_iter **ret_iter,
+                struct libmnt_cache *tag_cache) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -21,6 +22,9 @@ int libmount_parse(
         iter = mnt_new_iter(MNT_ITER_FORWARD);
         if (!table || !iter)
                 return -ENOMEM;
+
+        if (tag_cache)
+                mnt_table_set_cache(table, tag_cache);
 
         /* If source or path are specified, we use on the functions which ignore utab.
          * Only if both are empty, we use mnt_table_parse_mtab(). */
@@ -37,6 +41,15 @@ int libmount_parse(
         *ret_table = TAKE_PTR(table);
         *ret_iter = TAKE_PTR(iter);
         return 0;
+}
+
+
+int libmount_parse(
+                const char *path,
+                FILE *source,
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+        return libmount_parse_cached(path, source, ret_table, ret_iter, NULL);
 }
 
 int libmount_is_leaf(
