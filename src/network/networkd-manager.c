@@ -31,6 +31,7 @@
 #include "fs-util.h"
 #include "initrd-util.h"
 #include "local-addresses.h"
+#include "mount-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-address-label.h"
@@ -59,7 +60,6 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
-#include "stat-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tclass.h"
@@ -508,9 +508,11 @@ static int manager_set_keep_configuration(Manager *m) {
                 return 0;
         }
 
-        r = path_is_network_fs("/");
-        if (r < 0)
-                return log_error_errno(r, "Failed to detect if root is network filesystem: %m");
+        r = path_is_network_fs_harder("/");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to detect if root is network filesystem, assuming not: %m");
+                return 0;
+        }
         if (r == 0) {
                 m->keep_configuration = _KEEP_CONFIGURATION_INVALID;
                 return 0;
