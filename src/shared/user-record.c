@@ -493,40 +493,6 @@ static int json_dispatch_access_mode(const char *name, sd_json_variant *variant,
         return 0;
 }
 
-static int json_dispatch_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **n = NULL;
-        char ***l = userdata;
-        int r;
-
-        if (sd_json_variant_is_null(variant)) {
-                *l = strv_free(*l);
-                return 0;
-        }
-
-        if (!sd_json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
-
-        for (size_t i = 0; i < sd_json_variant_elements(variant); i++) {
-                sd_json_variant *e;
-                const char *a;
-
-                e = sd_json_variant_by_index(variant, i);
-                if (!sd_json_variant_is_string(e))
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
-
-                assert_se(a = sd_json_variant_string(e));
-
-                if (!env_assignment_is_valid(a))
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
-
-                r = strv_env_replace_strdup(&n, a);
-                if (r < 0)
-                        return json_log_oom(variant, flags);
-        }
-
-        return strv_free_and_replace(*l, n);
-}
-
 static int json_dispatch_locale(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = userdata;
         const char *n;
@@ -1237,7 +1203,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
                 { "umask",                      SD_JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0              },
-                { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0              },
+                { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
                 { "preferredLanguage",          SD_JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0              },
                 { "additionalLanguages",        SD_JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0              },
@@ -1583,7 +1549,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
                 { "umask",                      SD_JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0              },
-                { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0              },
+                { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
                 { "preferredLanguage",          SD_JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0              },
                 { "additionalLanguages",        SD_JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0              },
