@@ -3522,7 +3522,7 @@ int dissected_image_acquire_metadata(
                         r = detach_mount_namespace_userns(userns_fd);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to detach mount namespace: %m");
-                        goto inner_fail;
+                        report_errno_and_exit(error_pipe[1], r);
                 }
 
                 r = dissected_image_mount(
@@ -3537,7 +3537,7 @@ int dissected_image_acquire_metadata(
                                 DISSECT_IMAGE_USR_NO_ROOT);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
-                        goto inner_fail;
+                        report_errno_and_exit(error_pipe[1], r);
                 }
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
@@ -3609,7 +3609,7 @@ int dissected_image_acquire_metadata(
 
                                 r = loop_write(fds[2*k+1], &found, sizeof(found));
                                 if (r < 0)
-                                        goto inner_fail;
+                                        report_errno_and_exit(error_pipe[1], r);
 
                                 goto next;
                         }
@@ -3629,18 +3629,13 @@ int dissected_image_acquire_metadata(
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
                         if (r < 0)
-                                goto inner_fail;
+                                report_errno_and_exit(error_pipe[1], r);
 
                 next:
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
                 _exit(EXIT_SUCCESS);
-
-        inner_fail:
-                /* Let parent know the error */
-                (void) write(error_pipe[1], &r, sizeof(r));
-                _exit(EXIT_FAILURE);
         }
 
         error_pipe[1] = safe_close(error_pipe[1]);
