@@ -2648,11 +2648,19 @@ int link_request_ndisc(Link *link) {
 
         assert(link);
 
-        if (!link_ndisc_enabled(link))
-                return 0;
+        if (!link_ndisc_enabled(link)) {
+                r = ndisc_stop(link);
+                if (r < 0)
+                        return r;
 
-        if (link->ndisc)
+                ndisc_flush(link);
+
+                link->ndisc = sd_ndisc_unref(link->ndisc);
                 return 0;
+        }
+
+        /* Do not flush acquired configs here. It will be flushed later when necessary. */
+        link->ndisc = sd_ndisc_unref(link->ndisc);
 
         r = link_queue_request(link, REQUEST_TYPE_NDISC, ndisc_process_request, NULL);
         if (r < 0)

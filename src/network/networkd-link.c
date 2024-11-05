@@ -1211,6 +1211,12 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        if (!link_dhcp_pd_is_enabled(link)) {
+                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                if (r < 0)
+                        return r;
+        }
+
         r = link_request_ndisc(link);
         if (r < 0)
                 return r;
@@ -1364,13 +1370,6 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                               isempty(joined) ? "" : ")");
 
         /* Dropping old .network file */
-        r = link_stop_engines(link, false);
-        if (r < 0)
-                return r;
-
-        r = link_drop_requests(link);
-        if (r < 0)
-                return r;
 
         if (FLAGS_SET(flags, LINK_RECONFIGURE_UNCONDITIONALLY)) {
                 /* Remove all static configurations. Note, dynamic configurations are dropped by
@@ -1379,7 +1378,21 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                 r = link_drop_static_config(link);
                 if (r < 0)
                         return r;
+
+                /* Stop DHCP client and friends, and drop dynamic configurations like DHCP address. */
+                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                if (r < 0)
+                        return r;
+
+                /* Free DHCP client and friends. Note, if LINK_RECONFIGURE_UNCONDITIONALLY is unset, unnecessary
+                 * engines (e.g. in the case that previously DHCP=yes, but now DHCP=no), will be freed later
+                 * in link_configure(). */
+                link_free_engines(link);
         }
+
+        r = link_drop_requests(link);
+        if (r < 0)
+                return r;
 
         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
          * bound_by map. Otherwise, if a link enters unmanaged state below, then its carrier state will
@@ -1387,7 +1400,6 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
          * map here, as it depends on .network files assigned to other links. */
         link_free_bound_to_list(link);
 
-        link_free_engines(link);
         link->network = network_unref(link->network);
 
         /* Then, apply new .network file */
