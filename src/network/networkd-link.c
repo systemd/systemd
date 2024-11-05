@@ -1008,7 +1008,7 @@ static int link_drop_requests(Link *link) {
 
                 /* If the request is already called, but its reply is not received, then we need to
                  * drop the configuration (e.g. address) here. Note, if the configuration is known,
-                 * it will be handled later by link_drop_foreign_addresses() or so. */
+                 * it will be handled later by link_drop_unmanaged_addresses() or so. */
                 if (req->waiting_reply && link->state != LINK_STATE_LINGER)
                         switch (req->type) {
                         case REQUEST_TYPE_ADDRESS: {
@@ -1086,33 +1086,23 @@ static Link *link_drop(Link *link) {
         return link_unref(link);
 }
 
-static int link_drop_foreign_config(Link *link) {
+static int link_drop_unmanaged_config(Link *link) {
         int r;
 
         assert(link);
+        assert(link->state == LINK_STATE_CONFIGURING);
         assert(link->manager);
 
-        /* Drop foreign config, but ignore unmanaged, loopback, or critical interfaces. We do not want
-         * to remove loopback address or addresses used for root NFS. */
-
-        if (IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
-                return 0;
-        if (FLAGS_SET(link->flags, IFF_LOOPBACK))
-                return 0;
-        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
-                return 0;
-
-        r = link_drop_foreign_routes(link);
-
-        RET_GATHER(r, link_drop_foreign_nexthops(link));
-        RET_GATHER(r, link_drop_foreign_addresses(link));
-        RET_GATHER(r, link_drop_foreign_neighbors(link));
-        RET_GATHER(r, manager_drop_foreign_routing_policy_rules(link->manager));
+        r = link_drop_unmanaged_routes(link);
+        RET_GATHER(r, link_drop_unmanaged_nexthops(link));
+        RET_GATHER(r, link_drop_unmanaged_addresses(link));
+        RET_GATHER(r, link_drop_unmanaged_neighbors(link));
+        RET_GATHER(r, link_drop_unmanaged_routing_policy_rules(link));
 
         return r;
 }
 
-static int link_drop_managed_config(Link *link) {
+static int link_drop_static_config(Link *link) {
         int r;
 
         assert(link);
@@ -1125,17 +1115,6 @@ static int link_drop_managed_config(Link *link) {
         RET_GATHER(r, link_drop_static_routing_policy_rules(link));
 
         return r;
-}
-
-static void link_foreignize_config(Link *link) {
-        assert(link);
-        assert(link->manager);
-
-        link_foreignize_routes(link);
-        link_foreignize_nexthops(link);
-        link_foreignize_addresses(link);
-        link_foreignize_neighbors(link);
-        link_foreignize_routing_policy_rules(link);
 }
 
 static int link_configure(Link *link) {
@@ -1252,7 +1231,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_drop_foreign_config(link);
+        r = link_drop_unmanaged_config(link);
         if (r < 0)
                 return r;
 
@@ -1331,7 +1310,7 @@ static void link_enter_unmanaged(Link *link) {
 
         (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
         (void) link_drop_requests(link);
-        (void) link_drop_managed_config(link);
+        (void) link_drop_static_config(link);
 
         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
          * bound_by map. Otherwise, if a link enters unmanaged state below, then its carrier state will
@@ -1393,18 +1372,11 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(flags, LINK_RECONFIGURE_UNCONDITIONALLY) && network->keep_configuration != KEEP_CONFIGURATION_YES)
-                /* When a new/updated .network file is assigned, first make all configs (addresses,
-                 * routes, and so on) foreign, and then drop unnecessary configs later by
-                 * link_drop_foreign_config() in link_configure().
-                 * Note, when KeepConfiguration=yes, link_drop_foreign_config() does nothing. Hence,
-                 * here we need to drop the configs such as addresses, routes, and so on configured by
-                 * the previously assigned .network file. */
-                link_foreignize_config(link);
-        else {
-                /* Remove all managed configs. Note, foreign configs are removed in later by
-                 * link_configure() -> link_drop_foreign_config() if the link is managed by us. */
-                r = link_drop_managed_config(link);
+        if (FLAGS_SET(flags, LINK_RECONFIGURE_UNCONDITIONALLY)) {
+                /* Remove all static configurations. Note, dynamic configurations are dropped by
+                 * link_stop_engines(), and foreign configurations will be removed later by
+                 * link_configure() -> link_drop_unmanaged_config(). */
+                r = link_drop_static_config(link);
                 if (r < 0)
                         return r;
         }
@@ -1791,7 +1763,7 @@ static int link_carrier_lost_impl(Link *link) {
                 return ret;
 
         RET_GATHER(ret, link_stop_engines(link, false));
-        RET_GATHER(ret, link_drop_managed_config(link));
+        RET_GATHER(ret, link_drop_static_config(link));
 
         return ret;
 }
