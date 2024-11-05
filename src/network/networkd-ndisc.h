@@ -69,6 +69,7 @@ int ndisc_stop(Link *link);
 void ndisc_flush(Link *link);
 
 int link_request_ndisc(Link *link);
+int link_drop_ndisc_config(Link *link, Network *network);
 int ndisc_reconfigure_address(Address *address, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_start_dhcp6_client);

@@ -42,6 +42,11 @@ typedef enum LinkState {
         _LINK_STATE_INVALID = -EINVAL,
 } LinkState;
 
+typedef enum LinkReconfigurationFlag {
+        LINK_RECONFIGURE_UNCONDITIONALLY = 1 << 0, /* Reconfigure an interface even if .network file is unchanged. */
+        LINK_RECONFIGURE_CLEANLY         = 1 << 1, /* Drop all existing configs before reconfiguring. Otherwise, reuse existing configs as possible as we can. */
+} LinkReconfigurationFlag;
+
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct NetDev NetDev;
@@ -252,16 +257,18 @@ bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
 bool link_has_ipv6_connectivity(Link *link);
 
-int link_stop_engines(Link *link, bool may_keep_dhcp);
+int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
-int link_reconfigure_impl(Link *link, bool force);
-int link_reconfigure(Link *link, bool force);
-int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message);
+int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags);
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter);
+static inline int link_reconfigure(Link *link, LinkReconfigurationFlag flags) {
+        return link_reconfigure_full(link, flags, NULL, NULL);
+}
 
 int link_check_initialized(Link *link);
 
