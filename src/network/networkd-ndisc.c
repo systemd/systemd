@@ -1278,7 +1278,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
          *
          * - If the prefix is already present in the host's Prefix List as the result of a previously
          *   received advertisement, reset its invalidation timer to the Valid Lifetime value in the Prefix
-         *   Information option. If the new Lifetime value is zero, time-out the prefix immediately. */
+         *   Information option. If the new Lifetime value is zero, timeout the prefix immediately. */
         if (lifetime_usec == 0) {
                 r = ndisc_remove_route(route, link);
                 if (r < 0)
