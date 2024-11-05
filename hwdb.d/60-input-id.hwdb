@@ -89,3 +89,7 @@ id-input:modalias:input:b0003v26CEp01A2*
  ID_INPUT_JOYSTICK=
  ID_INPUT_KEY=
  ID_INPUT=
+
+# Microsoft Xbox Elite Controller Series 2
+id-input:modalias:input:b0005v045Ep0B22e0521*
+  ID_INPUT_JOYSTICK=1
