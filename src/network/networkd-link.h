@@ -44,6 +44,7 @@ typedef enum LinkState {
 
 typedef enum LinkReconfigurationFlag {
         LINK_RECONFIGURE_UNCONDITIONALLY = 1 << 0, /* Reconfigure an interface even if .network file is unchanged. */
+        LINK_RECONFIGURE_CLEANLY         = 1 << 1, /* Drop all existing configs before reconfiguring. Otherwise, reuse existing configs as possible as we can. */
 } LinkReconfigurationFlag;
 
 typedef struct Manager Manager;

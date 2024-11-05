@@ -1387,7 +1387,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         /* Dropping old .network file */
 
-        if (FLAGS_SET(flags, LINK_RECONFIGURE_UNCONDITIONALLY)) {
+        if (FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
                 /* Remove all static configurations. Note, dynamic configurations are dropped by
                  * link_stop_engines(), and foreign configurations will be removed later by
                  * link_configure() -> link_drop_unmanaged_config(). */
@@ -1741,7 +1741,7 @@ static int link_carrier_gained(Link *link) {
          * For non-wireless interfaces, we have no way to detect the connected network change. So,
          * we do not set any flags here. Note, both ssid and previous_ssid are NULL in that case. */
         if (link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid))
-                flags |= LINK_RECONFIGURE_UNCONDITIONALLY;
+                flags |= LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY;
         link->previous_ssid = mfree(link->previous_ssid);
 
         /* AP and P2P-GO interfaces may have a new SSID - update the link properties in case a new .network
