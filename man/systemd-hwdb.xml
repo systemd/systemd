@@ -83,8 +83,9 @@
 
   <refsect1>
     <title>See Also</title>
-    <para><citerefentry>
-        <refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum>
-    </citerefentry></para>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
   </refsect1>
 </refentry>
