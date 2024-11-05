@@ -875,8 +875,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Mandatory Access Control</title>
 
-    <xi:include href="system-only.xml" xpointer="plural"/>
-
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -903,6 +901,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
         is not enabled. This setting does not affect commands prefixed with <literal>+</literal>.</para>
 
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
         <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
@@ -920,6 +920,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>The value may be prefixed by <literal>-</literal>, in which case all errors will be ignored. An empty
         value may be specified to unset previous assignments. This does not affect commands prefixed with
         <literal>+</literal>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
