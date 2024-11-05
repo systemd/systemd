@@ -2370,10 +2370,12 @@ static int run(int argc, char* argv[]) {
 
                 _cleanup_free_ char *command = NULL;
                 r = find_executable(arg_cmdline[0], &command);
-                if (r < 0)
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_debug_errno(r, "Failed to find executable '%s' due to permission problems, leaving path as is: %m", arg_cmdline[0]);
+                else if (r < 0)
                         return log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
-
-                free_and_replace(arg_cmdline[0], command);
+                else
+                        free_and_replace(arg_cmdline[0], command);
         }
 
         if (!arg_description) {
