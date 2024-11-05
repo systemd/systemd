@@ -174,6 +174,10 @@ static const char* devicetree_get_compatible(const void *dtb) {
         return NULL;
 }
 
+bool firmware_devicetree_exists(void) {
+        return !!find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
+}
+
 /* This function checks if the firmware provided Devicetree
  * and a UKI provided Devicetree contain the same first entry
  * on their respective "compatible" fields (which usually defines
