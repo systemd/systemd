@@ -827,12 +827,12 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
                 if (fork_disable_dump) {
                         r = RET_NERRNO(prctl(PR_SET_DUMPABLE, 0));
                         if (r < 0)
-                                goto child_fail;
+                                report_errno_and_exit(error_pipe[1], r);
                 }
 
                 r = parse_elf(fd, executable, root, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
                 if (r < 0)
-                        goto child_fail;
+                        report_errno_and_exit(error_pipe[1], r);
 
                 if (buf) {
                         size_t len = strlen(buf);
@@ -853,7 +853,7 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
                         if (r == -EAGAIN)
                                 log_warning("Write failed, backtrace will be truncated.");
                         else if (r < 0)
-                                goto child_fail;
+                                report_errno_and_exit(error_pipe[1], r);
 
                         return_pipe[1] = safe_close(return_pipe[1]);
                 }
@@ -866,10 +866,8 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
                         (void) fcntl(json_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
 
                         json_out = take_fdopen(&json_pipe[1], "w");
-                        if (!json_out) {
-                                r = -errno;
-                                goto child_fail;
-                        }
+                        if (!json_out)
+                                report_errno_and_exit(error_pipe[1], -errno);
 
                         r = sd_json_variant_dump(package_metadata, SD_JSON_FORMAT_FLUSH, json_out, NULL);
                         if (r < 0)
@@ -877,10 +875,6 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
                 }
 
                 _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(error_pipe[1], &r, sizeof(r));
-                _exit(EXIT_FAILURE);
         }
 
         error_pipe[1] = safe_close(error_pipe[1]);
