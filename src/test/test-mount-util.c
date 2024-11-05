@@ -537,4 +537,11 @@ TEST(bind_mount_submounts) {
         assert_se(umount_recursive(b, 0) >= 0);
 }
 
+TEST(path_is_network_fs_harder) {
+        ASSERT_OK(path_is_network_fs_harder("/"));
+        ASSERT_OK_ZERO(path_is_network_fs_harder("/dev"));
+        ASSERT_OK_ZERO(path_is_network_fs_harder("/sys"));
+        ASSERT_OK_ZERO(path_is_network_fs_harder("/run"));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
