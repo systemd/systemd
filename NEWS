@@ -5157,7 +5157,7 @@ CHANGES WITH 250:
 
         * A new kernel command line option systemd.watchdog_sec= is now
           understood which may be used to override the hardware watchdog
-          time-out for the boot.
+          timeout for the boot.
 
         * A new setting DefaultOOMScoreAdjust= is now supported in
           /etc/systemd/system.conf and /etc/systemd/user.conf. It may be used
@@ -5217,7 +5217,7 @@ CHANGES WITH 250:
           variable passed to invoked processes.
 
         * A new setting RuntimeRandomizedExtraSec= has been added for service
-          and scope units that allows extending the runtime time-out as
+          and scope units that allows extending the runtime timeout as
           configured by RuntimeMaxSec= with a randomized amount.
 
         * The syntax of the service unit settings RuntimeDirectory=,
@@ -5580,7 +5580,7 @@ CHANGES WITH 250:
           non-x86 architectures.
 
         * bootctl learnt new set-timeout and set-timeout-oneshot commands that
-          may be used to set the boot menu time-out of the boot loader (for all
+          may be used to set the boot menu timeout of the boot loader (for all
           or just the subsequent boot).
 
         * bootctl and kernel-install will now read variables

@@ -83,7 +83,7 @@
     <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     …) has the effect of <function>sd_event_exit()</function> being invoked once the event source triggers,
     with the specified userdata pointer cast to an integer as the exit code parameter. This is useful to
-    automatically terminate an event loop after some condition, such as a time-out or reception of
+    automatically terminate an event loop after some condition, such as a timeout or reception of
     <constant>SIGTERM</constant> or similar. See the documentation for the respective constructor call for
     details.</para>
   </refsect1>

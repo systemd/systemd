@@ -1744,7 +1744,7 @@ int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {
         /* Tests whether it makes sense to route queries for the specified DNS RR types to the specified
          * protocol. For classic DNS pretty much all RR types are suitable, but for LLMNR/mDNS let's
          * allowlist only a few that make sense. We use this when routing queries so that we can more quickly
-         * return errors for queries that will almost certainly fail/time-out otherwise. For example, this
+         * return errors for queries that will almost certainly fail/time out otherwise. For example, this
          * ensures that SOA, NS, or DS/DNSKEY queries are never routed to mDNS/LLMNR where they simply make
          * no sense. */
 

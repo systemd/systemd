@@ -203,9 +203,9 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
 
         assert(fd >= 0);
 
-        /* A version of lock_generic(), but with a time-out. We do this in a child process, since the kernel
+        /* A version of lock_generic(), but with a timeout. We do this in a child process, since the kernel
          * APIs natively don't support a timeout. We set a SIGALRM timer that will kill the child after the
-         * timeout is hit. Returns -ETIMEDOUT if the time-out is hit, and 0 on success.
+         * timeout is hit. Returns -ETIMEDOUT if the timeout is hit, and 0 on success.
          *
          * This only works for BSD and UNPOSIX locks, as only those are fd-bound, and hence can be acquired
          * from any process that has access to the fd. POSIX locks OTOH are process-bound, and hence if we'd
