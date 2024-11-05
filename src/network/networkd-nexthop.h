@@ -53,14 +53,13 @@ int nexthop_remove(NextHop *nexthop, Manager *manager);
 
 int network_drop_invalid_nexthops(Network *network);
 
-int link_drop_nexthops(Link *link, bool foreign);
-static inline int link_drop_foreign_nexthops(Link *link) {
-        return link_drop_nexthops(link, /* foreign = */ true);
+int link_drop_nexthops(Link *link, bool only_static);
+static inline int link_drop_unmanaged_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* only_static = */ false);
 }
 static inline int link_drop_static_nexthops(Link *link) {
-        return link_drop_nexthops(link, /* foreign = */ false);
+        return link_drop_nexthops(link, /* only_static = */ true);
 }
-void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 
