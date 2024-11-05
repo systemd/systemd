@@ -1610,25 +1610,39 @@ bool clock_supported(clockid_t clock) {
 }
 
 int get_timezone(char **ret) {
-        _cleanup_free_ char *t = NULL;
+        const char *e = NULL;
         int r;
+        _cleanup_free_ char *p = strdup("/etc/localtime");
+        int i = 0;
+        const int max_iter = 10; /* Limit maximum nested links iterations / circular links */
 
         assert(ret);
 
-        r = readlink_malloc("/etc/localtime", &t);
-        if (r == -ENOENT)
-                /* If the symlink does not exist, assume "UTC", like glibc does */
-                return strdup_to(ret, "UTC");
-        if (r < 0)
-                return r; /* Return EINVAL if not a symlink */
+        while (!e && (++i <= max_iter)) {
+                _cleanup_free_ char *t = NULL;
 
-        const char *e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
-        if (!e)
-                return -EINVAL;
-        if (!timezone_is_valid(e, LOG_DEBUG))
-                return -EINVAL;
+                if (!p)
+                        return -ENOMEM;
 
-        return strdup_to(ret, e);
+                r = readlink_malloc("/etc/localtime", &t);
+                if (r == -ENOENT)
+                        /* If the symlink does not exist, assume "UTC", like glibc does */
+                        return strdup_to(ret, "UTC");
+                if (r < 0)
+                        return r; /* Return EINVAL if not a symlink */
+
+                e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+                if (e) {
+                        if (!timezone_is_valid(e, LOG_DEBUG))
+                                return -EINVAL;
+
+                        return strdup_to(ret, e);
+                }
+                free(p);
+                p = strdup(t); /* Follow nested / multiple links */
+        }
+
+        return -EINVAL;
 }
 
 int mktime_or_timegm_usec(
