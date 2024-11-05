@@ -527,7 +527,7 @@ int is_idmapping_supported(const char *path) {
                 return r;
 
         userns_fd = userns_acquire(uid_map, gid_map);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd) || userns_fd == -EPERM)
                 return false;
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "ID-mapping supported namespace acquire failed for '%s' : %m", path);
