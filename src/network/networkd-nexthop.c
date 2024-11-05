@@ -856,9 +856,10 @@ static bool nexthop_can_update(const NextHop *assigned_nexthop, const NextHop *r
         return true;
 }
 
-static void link_mark_nexthops(Link *link, bool foreign) {
+int link_drop_nexthops(Link *link, bool only_static) {
         NextHop *nexthop;
         Link *other;
+        int r = 0;
 
         assert(link);
         assert(link->manager);
@@ -869,13 +870,20 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                 if (nexthop->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* When 'foreign' is true, mark only foreign nexthops, and vice versa. */
-                if (nexthop->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
-                        continue;
-
                 /* Ignore nexthops not assigned yet or already removed. */
                 if (!nexthop_exists(nexthop))
                         continue;
+
+                if (only_static) {
+                        if (nexthop->source != NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+                } else {
+                        /* Do not mark foreign nexthop when KeepConfiguration= is enabled. */
+                        if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                            link->network &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                                continue;
+                }
 
                 /* Ignore nexthops bound to other links. */
                 if (nexthop->ifindex > 0 && nexthop->ifindex != link->ifindex)
@@ -886,7 +894,7 @@ static void link_mark_nexthops(Link *link, bool foreign) {
 
         /* Then, unmark all nexthops requested by active links. */
         HASHMAP_FOREACH(other, link->manager->links_by_index) {
-                if (!foreign && other == link)
+                if (only_static && other == link)
                         continue;
 
                 if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
@@ -905,17 +913,8 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                         nexthop_unmark(existing);
                 }
         }
-}
 
-int link_drop_nexthops(Link *link, bool foreign) {
-        NextHop *nexthop;
-        int r = 0;
-
-        assert(link);
-        assert(link->manager);
-
-        link_mark_nexthops(link, foreign);
-
+        /* Finally, remove all marked nexthops. */
         HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
@@ -924,22 +923,6 @@ int link_drop_nexthops(Link *link, bool foreign) {
         }
 
         return r;
-}
-
-void link_foreignize_nexthops(Link *link) {
-        NextHop *nexthop;
-
-        assert(link);
-        assert(link->manager);
-
-        link_mark_nexthops(link, /* foreign = */ false);
-
-        HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
-                if (!nexthop_is_marked(nexthop))
-                        continue;
-
-                nexthop->source = NETWORK_CONFIG_SOURCE_FOREIGN;
-        }
 }
 
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {

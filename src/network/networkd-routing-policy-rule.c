@@ -800,21 +800,30 @@ static void manager_unmark_routing_policy_rule(Manager *m, const RoutingPolicyRu
         routing_policy_rule_unmark(existing);
 }
 
-static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
+int link_drop_routing_policy_rules(Link *link, bool only_static) {
         RoutingPolicyRule *rule;
-        Link *link;
+        int r = 0;
 
-        assert(m);
+        assert(link);
+        assert(link->manager);
 
         /* First, mark all existing rules. */
-        SET_FOREACH(rule, m->rules) {
+        SET_FOREACH(rule, link->manager->rules) {
                 /* Do not touch rules managed by kernel. */
                 if (rule->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* When 'foreign' is true, mark only foreign rules, and vice versa. */
-                if (rule->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
-                        continue;
+                if (only_static) {
+                        /* When 'only_static' is true, mark only static rules. */
+                        if (rule->source != NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+                } else {
+                        /* Do not mark foreign rules when KeepConfiguration= is enabled. */
+                        if (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                            link->network &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                                continue;
+                }
 
                 /* Ignore rules not assigned yet or already removing. */
                 if (!routing_policy_rule_exists(rule))
@@ -824,57 +833,34 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
         }
 
         /* Then, unmark all rules requested by active links. */
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                if (link == except)
+        Link *other;
+        HASHMAP_FOREACH(other, link->manager->links_by_index) {
+                if (only_static && other == link)
                         continue;
 
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
-                HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                HASHMAP_FOREACH(rule, other->network->rules_by_section) {
                         if (IN_SET(rule->family, AF_INET, AF_INET6))
-                                manager_unmark_routing_policy_rule(m, rule, rule->family);
+                                manager_unmark_routing_policy_rule(link->manager, rule, rule->family);
                         else {
                                 assert(rule->address_family == ADDRESS_FAMILY_YES);
-                                manager_unmark_routing_policy_rule(m, rule, AF_INET);
-                                manager_unmark_routing_policy_rule(m, rule, AF_INET6);
+                                manager_unmark_routing_policy_rule(link->manager, rule, AF_INET);
+                                manager_unmark_routing_policy_rule(link->manager, rule, AF_INET6);
                         }
                 }
         }
-}
 
-int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
-        RoutingPolicyRule *rule;
-        int r = 0;
-
-        assert(m);
-
-        manager_mark_routing_policy_rules(m, foreign, except);
-
-        SET_FOREACH(rule, m->rules) {
-                if (!routing_policy_rule_is_marked(rule))
-                        continue;
-
-                RET_GATHER(r, routing_policy_rule_remove(rule, m));
-        }
-
-        return r;
-}
-
-void link_foreignize_routing_policy_rules(Link *link) {
-        RoutingPolicyRule *rule;
-
-        assert(link);
-        assert(link->manager);
-
-        manager_mark_routing_policy_rules(link->manager, /* foreign = */ false, link);
-
+        /* Finally, remove all marked rules. */
         SET_FOREACH(rule, link->manager->rules) {
                 if (!routing_policy_rule_is_marked(rule))
                         continue;
 
-                rule->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+                RET_GATHER(r, routing_policy_rule_remove(rule, link->manager));
         }
+
+        return r;
 }
 
 static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
