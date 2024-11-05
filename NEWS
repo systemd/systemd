@@ -2214,6 +2214,9 @@ CHANGES WITH 255:
           specific devices explicitly. NetworkManager will soon implement a
           similar logic.
 
+        * .network files gained a new MulticastIGMPVersion= setting in the
+          [Network] section, to control sysctl's force_igmp_version setting.
+
         systemctl:
 
         * systemctl is-failed now checks the system state if no unit is
