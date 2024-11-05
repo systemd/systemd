@@ -24,6 +24,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
 REENABLE_WARNING;
 #  endif
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
+
 /* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
  * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
  * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
@@ -1315,12 +1317,10 @@ int pkey_generate_volume_keys(
 static int load_key_from_provider(
                 const char *provider,
                 const char *private_key_uri,
-                OpenSSLAskPasswordUI *ui,
                 EVP_PKEY **ret) {
 
         assert(provider);
         assert(private_key_uri);
-        assert(ui);
         assert(ret);
 
 #if OPENSSL_VERSION_MAJOR >= 3
@@ -1333,8 +1333,8 @@ static int load_key_from_provider(
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        ui->method,
-                        &ui->request,
+                        /*ui_method=*/ NULL,
+                        /*ui_method=*/ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1356,10 +1356,9 @@ static int load_key_from_provider(
 #endif
 }
 
-static int load_key_from_engine(const char *engine, const char *private_key_uri, OpenSSLAskPasswordUI *ui, EVP_PKEY **ret) {
+static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
         assert(engine);
         assert(private_key_uri);
-        assert(ui);
         assert(ret);
 
 #if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
@@ -1371,13 +1370,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        if (ENGINE_ctrl(e, ENGINE_CTRL_SET_USER_INTERFACE, /*i=*/ 0, ui->method, /*f=*/ NULL) <= 0)
-                return log_openssl_errors("Failed to set engine user interface");
-
-        if (ENGINE_ctrl(e, ENGINE_CTRL_SET_CALLBACK_DATA, /*i=*/ 0, &ui->request, /*f=*/ NULL) <= 0)
-                return log_openssl_errors("Failed to set engine user interface data");
-
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, ui->method, &ui->request);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /*ui_method=*/ NULL, /*callback_data=*/ NULL);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1390,36 +1383,13 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
 #endif
 }
 
-int openssl_load_key_from_token(
-                KeySourceType private_key_source_type,
-                const char *private_key_source,
-                const char *private_key,
-                OpenSSLAskPasswordUI *ui,
-                EVP_PKEY **ret_private_key) {
-
-        assert(IN_SET(private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER));
-        assert(private_key_source);
-        assert(ui);
-        assert(private_key);
-
-        switch (private_key_source_type) {
-
-        case OPENSSL_KEY_SOURCE_ENGINE:
-                return load_key_from_engine(private_key_source, private_key, ui, ret_private_key);
-        case OPENSSL_KEY_SOURCE_PROVIDER:
-                return load_key_from_provider(private_key_source, private_key, ui, ret_private_key);
-        default:
-                assert_not_reached();
-        }
-}
-
 static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         int r;
 
         switch(UI_get_string_type(uis)) {
         case UIT_PROMPT: {
                 /* If no ask password request was configured use the default openssl UI. */
-                AskPasswordRequest *req = UI_get0_user_data(ui);
+                AskPasswordRequest *req = (AskPasswordRequest*) UI_method_get_ex_data(UI_get_method(ui), 0);
                 if (!req)
                         return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
 
@@ -1448,10 +1418,41 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
                 return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
         }
 }
-#endif
 
-int openssl_ask_password_ui_new(OpenSSLAskPasswordUI **ret) {
-#if HAVE_OPENSSL
+static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
+        _cleanup_(erase_and_freep) char *rawkey = NULL;
+        _cleanup_(BIO_freep) BIO *kb = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
+        size_t rawkeysz;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = read_full_file_full(
+                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &rawkey, &rawkeysz);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read key file '%s': %m", path);
+
+        kb = BIO_new_mem_buf(rawkey, rawkeysz);
+        if (!kb)
+                return log_oom_debug();
+
+        pk = PEM_read_bio_PrivateKey(kb, NULL, NULL, NULL);
+        if (!pk)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM private key: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (ret)
+                *ret = TAKE_PTR(pk);
+
+        return 0;
+}
+
+static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
         assert(ret);
 
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = UI_create_method("systemd-ask-password");
@@ -1467,12 +1468,31 @@ int openssl_ask_password_ui_new(OpenSSLAskPasswordUI **ret) {
 
         *ui = (OpenSSLAskPasswordUI) {
                 .method = TAKE_PTR(method),
+                .request = *request,
         };
+
+        UI_set_default_method(ui->method);
+
+        if (UI_method_set_ex_data(ui->method, 0, &ui->request) == 0)
+                return log_openssl_errors("Failed to set extra data for UI method");
 
         *ret = TAKE_PTR(ui);
         return 0;
+}
+#endif
+
+OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
+#if HAVE_OPENSSL
+        if (!ui)
+                return NULL;
+
+        assert(UI_get_default_method() == ui->method);
+        UI_set_default_method(UI_OpenSSL());
+        UI_destroy_method(ui->method);
+        return mfree(ui);
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot create ask-password user interface.");
+        assert(ui == NULL);
+        return NULL;
 #endif
 }
 
@@ -1531,43 +1551,6 @@ int openssl_load_x509_certificate(const char *path, X509 **ret) {
 #endif
 }
 
-static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
-#if HAVE_OPENSSL
-        _cleanup_(erase_and_freep) char *rawkey = NULL;
-        _cleanup_(BIO_freep) BIO *kb = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
-        size_t rawkeysz;
-        int r;
-
-        assert(path);
-        assert(ret);
-
-        r = read_full_file_full(
-                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        &rawkey, &rawkeysz);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read key file '%s': %m", path);
-
-        kb = BIO_new_mem_buf(rawkey, rawkeysz);
-        if (!kb)
-                return log_oom_debug();
-
-        pk = PEM_read_bio_PrivateKey(kb, NULL, NULL, NULL);
-        if (!pk)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM private key: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (ret)
-                *ret = TAKE_PTR(pk);
-
-        return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot load private key.");
-#endif
-}
-
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
@@ -1575,7 +1558,7 @@ int openssl_load_private_key(
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface) {
-
+#if HAVE_OPENSSL
         int r;
 
         assert(private_key);
@@ -1589,18 +1572,21 @@ int openssl_load_private_key(
                 *ret_user_interface = NULL;
         } else {
                 _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-                r = openssl_ask_password_ui_new(&ui);
+                r = openssl_ask_password_ui_new(request, &ui);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to allocate ask-password user interface: %m");
 
-                ui->request = *request;
+                switch (private_key_source_type) {
 
-                r = openssl_load_key_from_token(
-                                private_key_source_type,
-                                private_key_source,
-                                private_key,
-                                ui,
-                                ret_private_key);
+                case OPENSSL_KEY_SOURCE_ENGINE:
+                        r = load_key_from_engine(private_key_source, private_key, ret_private_key);
+                        break;
+                case OPENSSL_KEY_SOURCE_PROVIDER:
+                        r = load_key_from_provider(private_key_source, private_key, ret_private_key);
+                        break;
+                default:
+                        assert_not_reached();
+                }
                 if (r < 0)
                         return log_debug_errno(
                                         r,
@@ -1612,6 +1598,9 @@ int openssl_load_private_key(
         }
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot load private key.");
+#endif
 }
 
 int parse_openssl_key_source_argument(
