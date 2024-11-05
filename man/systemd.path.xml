@@ -153,11 +153,14 @@
         not apply to <varname>PathChanged=</varname> and
         <varname>PathModified=</varname>.</para>
 
-        <para>If the path itself or any of the containing directories
-        are not accessible, <command>systemd</command> will watch for
-        permission changes and notice that conditions are satisfied
-        when permissions allow that. </para></listitem>
+        <para>If the path itself or any of the containing directories are not accessible,
+        <command>systemd</command> will watch for permission changes and notice that conditions are satisfied
+        when permissions allow that. </para>
+
+        <para>Note that files whose name starts with a dot (i.e. hidden files) are generally ignored when
+        monitoring these paths.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>Unit=</varname></term>
 
