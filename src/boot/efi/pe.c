@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "chid.h"
+#include "devicetree.h"
 #include "pe.h"
 #include "util.h"
 
@@ -162,11 +164,70 @@ static bool pe_section_name_equal(const char *a, const char *b) {
         return true;
 }
 
-static void pe_locate_sections(
+static bool pe_use_this_dtb(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const void *dtb,
+                size_t dtb_size,
+                const Device *device_table,
+                size_t device_table_size,
+                size_t section_nb) {
+
+        assert(section_table);
+        assert(n_section_table > 0);
+        assert(dtb);
+
+        EFI_STATUS err;
+
+        static const Device *cached_device_table = NULL;
+        static const Device *cached_device = NULL;
+
+        err = devicetree_match(dtb, dtb_size);
+        if (err == EFI_SUCCESS)
+                return true;
+        if (err != EFI_UNSUPPORTED)
+                return false;
+
+        /* Firmware does not provide the devicetree, so try matching against a list from .hwids section */
+        const char *compatible = NULL;
+        if (cached_device_table != device_table) {
+                cached_device_table = device_table;
+                cached_device = NULL;
+
+                if (!device_table) {
+                        log_info("HWIDs section is missing, no DT blob will be selected");
+                        return false;
+                }
+
+                err = chid_match(device_table, device_table_size, &cached_device);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
+                        return false;
+                }
+        }
+
+        if (!cached_device)
+                return false;
+
+        compatible = device_get_compatible(cached_device_table, cached_device);
+        if (!compatible)
+                return false;
+
+        err = devicetree_match_by_compatible(dtb, dtb_size, compatible);
+        if (err == EFI_SUCCESS)
+                return true;
+        if (err == EFI_INVALID_PARAMETER)
+                log_error_status(err, "Found bad DT blob in PE section %zu", section_nb);
+        return false;
+}
+
+static void pe_locate_sections_internal(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
                 const char *const section_names[],
                 size_t validate_base,
+                const Device *device_table,
+                size_t device_table_size,
                 PeSectionVector sections[]) {
 
         assert(section_table || n_section_table == 0);
@@ -206,6 +267,22 @@ static void pe_locate_sections(
                                         continue;
                         }
 
+                        /* Special handling for .dtbauto sections compared to plain .dtb */
+                        if (pe_section_name_equal(section_names[i], ".dtbauto")) {
+                                /* .dtbauto sections require validate_base for matching */
+                                if (!validate_base)
+                                        break;
+                                if (!pe_use_this_dtb(
+                                                  section_table,
+                                                  n_section_table,
+                                                  (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+                                                  j->VirtualSize,
+                                                  device_table,
+                                                  device_table_size,
+                                                  i))
+                                        continue;
+                        }
+
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
                                 .memory_size = j->VirtualSize,
@@ -223,6 +300,55 @@ static void pe_locate_sections(
                         break;
                 }
 }
+
+static bool looking_for_dbauto(const char *const section_names[]) {
+        assert(section_names);
+
+        for (size_t i = 0; section_names[i]; i++)
+                if (pe_section_name_equal(section_names[i], ".dtbauto"))
+                        return true;
+         return false;
+}
+
+static void pe_locate_sections(
+                const PeSectionHeader section_table[],
+                size_t n_section_table,
+                const char *const section_names[],
+                size_t validate_base,
+                PeSectionVector sections[]) {
+
+        if (!looking_for_dbauto(section_names))
+                return pe_locate_sections_internal(
+                                  section_table,
+                                  n_section_table,
+                                  section_names,
+                                  validate_base,
+                                  /* device_table */ NULL,
+                                  /* device_table_size */ 0,
+                                  sections);
+
+        /* Find HWIDs table*/
+        PeSectionVector hwids_section = {};
+
+        pe_locate_sections_internal(
+                        section_table,
+                        n_section_table,
+                        (const char *const[]) { ".hwids", NULL },
+                        validate_base,
+                        /* device_table */ NULL,
+                        /* device_table_size */ 0,
+                        &hwids_section);
+
+        return pe_locate_sections_internal(
+                            section_table,
+                            n_section_table,
+                            section_names,
+                            validate_base,
+                            (const Device *) ((const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset),
+                            hwids_section.memory_size,
+                            sections);
+}
+
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
