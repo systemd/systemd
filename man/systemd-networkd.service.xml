@@ -63,6 +63,12 @@
     <para><command>systemd-networkd</command> may be introspected and controlled at runtime using
     <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     </para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.network1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
   </refsect1>
 
   <refsect1><title>Configuration Files</title>
@@ -91,6 +97,7 @@
       <member><citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.network1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
