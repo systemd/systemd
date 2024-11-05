@@ -5,4 +5,4 @@ Name=veth99
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=false
-KeepConfiguration=dhcp-on-stop
+KeepConfiguration=dynamic-on-stop
