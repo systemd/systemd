@@ -185,4 +185,14 @@ $ gdbus introspect --system \
     <para>These D-Bus interfaces follow <ulink url="https://0pointer.de/blog/projects/versioning-dbus.html">
     the usual interface versioning guidelines</ulink>.</para>
   </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
 </refentry>
