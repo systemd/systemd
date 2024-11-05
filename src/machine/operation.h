@@ -39,5 +39,3 @@ static inline int operation_new_with_bus_reply(Manager *manager, Machine *machin
 static inline int operation_new_with_varlink_reply(Manager *manager, Machine *machine, pid_t child, sd_varlink *link, int errno_fd, Operation **ret) {
         return operation_new(manager, machine, child, /* message = */ NULL, link, errno_fd, ret);
 }
-
-void report_errno_and_exit(int errno_fd, int r);
