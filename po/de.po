@@ -5,16 +5,18 @@
 # Benjamin Steinwender <b@stbe.at>, 2014.
 # Bernd Homuth <dev@hmt.im>, 2015.
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
-# Ettore Atalan <atalanttore@googlemail.com>, 2021.
+# Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024.
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-05-07 17:36+0000\n"
-"Last-Translator: Jarne Förster <fedora@mymailclient.de>\n"
+"PO-Revision-Date: 2024-11-05 13:46+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -22,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.5.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -225,9 +227,8 @@ msgstr ""
 "nicht eingesteckt."
 
 #: src/home/pam_systemd_home.c:381
-#, fuzzy
 msgid "Security token PIN: "
-msgstr "Sicherheitstoken PIN: "
+msgstr "PIN des Sicherheitstokens: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
@@ -388,27 +389,26 @@ msgid "Import a disk image"
 msgstr "Datenabbild importieren"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr "Authentifizierung ist erforderlich um ein Datenabbild zu importieren"
+msgstr "Legitimierung ist zum Importieren eines Abbildes erforderlich."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
 msgstr "Datenabbild exportieren"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr "Authentifizierung ist erforderlich um ein Datenabbild zu exportieren"
+msgstr ""
+"Legitimierung ist zum Exportieren eines Festplattenabbildes erforderlich."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
 msgstr "Datenabbild herunterladen"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "Authentifizierung ist erforderlich um ein Datenabbild herunterzuladen"
+msgstr ""
+"Legitimierung ist zum Herunterladen eines Festplattenabbildes erforderlich."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -416,7 +416,6 @@ msgstr "Transfer eines Datenabbilds abbrechen"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
@@ -1252,7 +1251,7 @@ msgstr "Legitimierung ist zum Festlegen der Systemzeitzone notwendig."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Alte Systemaktualisierungen bereinigen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 #, fuzzy
