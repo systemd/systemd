@@ -266,13 +266,15 @@
     <example>
       <title>Generate a unified kernel image, and calculate the expected TPM PCR 11 value</title>
 
-      <programlisting>$ ukify --output=vmlinux.efi \
+      <programlisting>$ ukify build \
+     --linux=vmlinux \
+     --initrd=initrd.cpio \
      --os-release=@os-release.txt \
      --cmdline=@cmdline.txt \
      --splash=splash.bmp \
      --devicetree=devicetree.dtb \
      --measure \
-     vmlinux initrd.cpio
+     --output=vmlinux.efi
 11:sha1=d775a7b4482450ac77e03ee19bda90bd792d6ec7
 11:sha256=bc6170f9ce28eb051ab465cd62be8cf63985276766cf9faf527ffefb66f45651
 11:sha384=1cf67dff4757e61e5...7f49ad720be02fd07263e1f93061243aec599d1ee4b4
@@ -291,7 +293,7 @@
       <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key.pem
 ..+.+++++++++......+.........+......+.......+....+.....+.+...+..........
 $ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
-# systemd-measure sign \
+$ systemd-measure sign \
      --linux=vmlinux \
      --osrel=os-release.txt \
      --cmdline=cmdline.txt \
@@ -303,7 +305,9 @@ $ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
      --bank=sha256 \
      --private-key=tpm2-pcr-private-key.pem \
      --public-key=tpm2-pcr-public-key.pem >tpm2-pcr-signature.json
-# ukify --output=vmlinuz.efi \
+$ ukify build \
+     --linux=vmlinux \
+     --initrd=initrd.cpio \
      --os-release=@os-release.txt \
      --cmdline=@cmdline.txt \
      --splash=splash.bmp \
@@ -311,7 +315,7 @@ $ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
      --pcr-private-key=tpm2-pcr-private-key.pem \
      --pcr-public-key=tpm2-pcr-public-key.pem \
      --pcr-banks=sha1,sha256 \
-     vmlinux initrd.cpio</programlisting>
+     --output=vmlinuz.efi</programlisting>
 
      <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
 
@@ -347,7 +351,9 @@ $ openssl rsa -pubout -in tpm2-pcr-private-key.pem -out tpm2-pcr-public-key.pem
 $ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private-key-initrd.pem
 ..+.......++........+........+......+........+....+.....+.+..+..........
 $ openssl rsa -pubout -in tpm2-pcr-private-key-initrd.pem -out tpm2-pcr-public-key-initrd.pem
-# ukify --output vmlinux-1.2.3.efi \
+$ ukify build \
+     --linux=vmlinux-1.2.3 \
+     --initrd=initrd.cpio \
      --os-release=@os-release.txt \
      --cmdline=@cmdline.txt \
      --splash=splash.bmp \
@@ -359,8 +365,8 @@ $ openssl rsa -pubout -in tpm2-pcr-private-key-initrd.pem -out tpm2-pcr-public-k
      --pcr-private-key=tpm2-pcr-private-key-initrd.pem \
      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
      --phases=enter-initrd \
-     vmlinux-1.2.3 initrd.cpio \
-     --uname=1.2.3
+     --uname=1.2.3 \
+     --output vmlinux-1.2.3.efi
 + /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
 --osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
 --splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
