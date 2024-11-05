@@ -1005,6 +1005,25 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MulticastIGMPVersion=</varname></term>
+        <listitem>
+          <para>Configure IPv4 Multicast IGMP Version. If not configure not change the IPV4 Multicast IGMP protocol version.
+          If configured it takes one of
+          <literal>no</literal>, <literal>1</literal>, <literal>2</literal>, or <literal>3</literal>.
+          When <literal>no</literal> no enforcement of an IGMP version, IGMPv1/v2 fallback allowed, will back to
+          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expires no source validation will be done.
+          When <literal>v1</literal> enforce to use IGMP version 1, will also reply IGMPv1 report if receive
+          IGMPv2/v3 query.
+          When <literal>v2</literal> enforce to use IGMP version 2, will fallback to IGMPv1 if receive IGMPv1 query
+          message, will also reply IGMPv2 report if receive IGMPv3 query.
+          When <literal>v3</literal> enforce to use IGMP version 3, the same react with "no".
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4AcceptLocal=</varname></term>
         <listitem>
           <para>Takes a boolean. Accept packets with local source addresses. In combination with
