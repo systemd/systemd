@@ -839,7 +839,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         /* When signing we only support JSON output */
         arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
 
-        /* This must be done before openssl_load_key_from_token() otherwise it will get stuck */
+        /* This must be done before openssl_load_private_key() otherwise it will get stuck */
         if (arg_certificate) {
                 r = openssl_load_x509_certificate(arg_certificate, &certificate);
                 if (r < 0)
