@@ -98,7 +98,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --initrd=PATH       Path to initrd image file              %7$s .initrd\n"
                "     --ucode=PATH        Path to microcode image file           %7$s .ucode\n"
                "     --splash=PATH       Path to splash bitmap file             %7$s .splash\n"
-               "     --dtb=PATH          Path to Devicetree file                %7$s .dtb\n"
+               "     --dtb=PATH          Path to DeviceTree file                %7$s .dtb\n"
                "     --uname=PATH        Path to 'uname -r' file                %7$s .uname\n"
                "     --sbat=PATH         Path to SBAT file                      %7$s .sbat\n"
                "     --pcrpkey=PATH      Path to public key for PCR signatures  %7$s .pcrpkey\n"

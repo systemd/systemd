@@ -214,7 +214,7 @@
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
       PE binaries and specific sections are loaded from them. Addons are used to pass additional kernel
-      command line parameters (<literal>.cmdline</literal> section), or Devicetree blobs
+      command line parameters (<literal>.cmdline</literal> section), or DeviceTree blobs
       (<literal>.dtb</literal> section), additional initrds (<literal>.initrd</literal> section),
       and microcode updates (<literal>.ucode</literal> section). Addons allow those resources to be passed
       regardless of the kernel version being booted, for example allowing platform vendors to ship

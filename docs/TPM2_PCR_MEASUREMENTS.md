@@ -110,15 +110,15 @@ UTF-16.
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
 trailing NUL bytes).
 
-### PCR 12, `EV_EVENT_TAG`, "Devicetrees"
+### PCR 12, `EV_EVENT_TAG`, "DeviceTrees"
 
-Devicetree addons are measured individually as a tagged event.
+DeviceTree addons are measured individually as a tagged event.
 
 → **Event Tag** `0x6c46f751`
 
 → **Description** the addon filename.
 
-→ **Measured hash** covers the content of the Devicetree.
+→ **Measured hash** covers the content of the DeviceTree.
 
 ### PCR 12, `EV_EVENT_TAG`, "Initrd addons"
 

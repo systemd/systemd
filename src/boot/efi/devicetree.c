@@ -178,8 +178,8 @@ bool firmware_devicetree_exists(void) {
         return !!find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
 }
 
-/* This function checks if the firmware provided Devicetree
- * and a UKI provided Devicetree contain the same first entry
+/* This function checks if the firmware provided DeviceTree
+ * and a UKI provided DeviceTree contain the same first entry
  * on their respective "compatible" fields (which usually defines
  * the actual device model). More specifically, given the FW/UKI
  * "compatible" property pair:
