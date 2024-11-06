@@ -103,37 +103,37 @@ CHANGES WITH 257 in spe:
 
         libsystemd:
 
-        * systemd's JSON API is now available as public interface of libsystemd
-          under the name "sd-json". The purpose of the library is to allow
-          structures to be conveniently created in C code and serialized to
-          JSON, and for JSON to be conveniently deserialized into in-memory
-          structures, using callbacks to handle specific keys. Various data
-          types like integers, floats, booleans, strings, UUIDs, base64-encoded
-          and hex-encoded binary data, and arrays are supported natively. The
-          library has been part of systemd for a while as internal component,
-          and now being made publicly available, too. On major user of sd-json
-          is the JSON interface sd-varlink (see below). Note that documentation
-          on sd-json is very much incomplete for now, but the systemd codebase
-          should provide plenty code real-life code examples.
+        * systemd's JSON API is now available as public interface of
+          libsystemd, under the name "sd-json". The purpose of the library is
+          to allow structures to be conveniently created in C code and
+          serialized to JSON, and for JSON to be conveniently deserialized into
+          in-memory structures, using callbacks to handle specific
+          keys. Various data types like integers, floats, booleans, strings,
+          UUIDs, base64-encoded and hex-encoded binary data, and arrays are
+          supported natively. The library has been part of systemd for a while
+          as internal component, and is now made publicly available. One major
+          user of sd-json is sd-varlink (see below). Note that the
+          documentation of sd-json is very much incomplete for now, but the
+          systemd codebase provides plenty real-life code examples.
 
-        * libsystemd's Varlink IPC API is now available as part of libsystemd
+        * systemd's Varlink IPC API is now available as part of libsystemd,
           under the name "sd-varlink". This library is a C implementation of
           the Varlink IPC system (https://varlink.org/) that has been adopted
           by systemd for various interfaces. It relies on the sd-json JSON
-          component, see above. Note that documentation on sd-varlink is very
-          much incomplete for now, but the systemd codebase should provide
-          plenty code real-life code examples.
+          component, see above. Note that the documentation of sd-varlink is
+          very much incomplete for now, but the systemd codebase provides
+          plenty real-life code examples.
 
         * sd-bus gained a new call sd_bus_pending_method_calls() which returns
           the number of currently open asynchronous method calls initiated on
           this connection towards peers.
 
         * sd-device gained a new call sd_device_monitor_is_running() that
-          returns whener the specified monitor object is already running. It
+          returns whether the specified monitor object is already running. It
           also gained sd_device_monitor_get_fd(),
           sd_device_monitor_get_events(), sd_device_monitor_get_timeout() and
-          sd_device_monitor_receive() to permit sd-device to run on a foreign
-          event loop implementation. It also gained
+          sd_device_monitor_receive() to permit sd-device to run on top of a
+          foreign event loop implementation. It also gained
           sd_device_get_driver_subsystem() which returns the subsystem of
           driver objects. The new sd_device_get_device_id() call returns a
           short string identifying the device record.
@@ -148,8 +148,9 @@ CHANGES WITH 257 in spe:
         * Multipath TCP (MPTCP) is now supported as a socket protocol for
           .socket units.
 
-        * New /etc/fstab option x-systemd.wants= creates "Wants" dependencies.
-          (This is similar to the previously available x-systemd.requires=.)
+        * A new /etc/fstab option x-systemd.wants= creates "Wants="
+          dependencies.  (This is similar to the previously available
+          x-systemd.requires=.)
 
         * The initialization of the system clock during boot and updates has
           been simplified: both PID 1 or systemd-timesyncd will pick the latest
@@ -161,17 +162,17 @@ CHANGES WITH 257 in spe:
           shutdown, so that the user may use it to initiate a reboot if the
           system freezes otherwise.
 
-        * The new unit option PrivateUsers=identity can be used to request a
-          user namespace with an identity mapping for the first 65536
-          UIDs/GIDs.  This is analogous to the systemd-nspawn's
+        * The new value "identity" for the unit setting PrivateUsers= may be
+          used to request a user namespace with an identity mapping for the
+          first 65536 UIDs/GIDs.  This is analogous to the systemd-nspawn's
           --private-users=identity.
 
-        * The new unit option PrivateTmp=disconnected can be used to specify
-          that a separate tmpfs instance should be used for /tmp/ and /var/tmp/
-          for the unit.
+        * The new value "disconnected" for the unit setting PrivateTmp= may be
+          used to specify that a separate tmpfs instance should be used for
+          /tmp/ and /var/tmp/ for the unit.
 
-        * The manager (and various other tools too) use pidfds in more places
-          to refer to processes.
+        * The server manager (and various other tools too) use pidfds in more
+          places to refer to processes.
 
         * A build option -D link-executor-shared=false can be used to build
           the systemd-executor binary (added in a previous release) in a way
@@ -185,41 +186,41 @@ CHANGES WITH 257 in spe:
           execute.
 
         * The systemd.machine_id= kernel command line parameter interpreted by
-          PID 1 now supports an additional special value: if "firmware" is
-          specified the machine ID is initialized from the SMBIOS/DeviceTree
-          system UUID. (Previously this was already done in VM environments,
-          this extends the concept to any system, but only on explicit request
-          via this option.)
+          PID 1 now supports an additional special value: if set to "firmware"
+          the machine ID is initialized from the SMBIOS/DeviceTree system
+          UUID. (Previously this was already done autmatically in VM
+          environments, this extends the concept to any system, but only on
+          explicit request via this option.)
 
         * The ImportCredential= setting in service unit files now permits
-          renaming credentials imported.
+          renaming of credentials as they are imported.
 
-        * The RestartMode= gained a new "debug" setting. If specified and the
-          service fails so that it shall be restarted it is invoked in
+        * The RestartMode= setting gained a new "debug" value. If specified and
+          the service fails so that it shall be restarted it is invoked in
           "debugging mode". Debugging mode means that the $DEBUG_INVOCATION
           environment variable will be set to "1" for the new
           invocation. Moreover, any setting LogLevelMax= will be temporarily
           changed to "debug" for the next invocation. This mode is useful to
-          repeat invocation of tools if they fail but with additional logging
-          or testing routines turned on.
+          automatically repeat invocation of tools in case they fail – but with
+          additional logging or testing routines enabled.
 
         * A new service setting BindLogSockets= has been added that
           controls whether the AF_UNIX sockets required for logging shall be
           bind mounted to the mount sandbox allocated for the service.
 
-        * PID 1 will now optionally load a policy for the new Linux IPE LSM at
-          boot.
+        * At early boot, PID 1 will now optionally load a policy for the new
+          Linux IPE LSM.
 
-        * Transient services (StartTransientUnit() D-Bus method) may now
-          receive additional, arbitrary file descriptors to pass to executed
-          service processes on activation using the new ExtraFileDescriptor=
-          unit property.
+        * Transient services (as invoked by the StartTransientUnit() D-Bus
+          method) may now receive additional, arbitrary file descriptors to
+          pass to executed service processes during activation using the new
+          ExtraFileDescriptor= unit property.
 
         * Calendar .timer units gained a new boolean DeferReactivation=
           option. If enabled and the repetitive calendar timer elapses again
           while the service the timer activates is still running, immediate
-          reactivation once it finishes is skipped, and the timer has to elapse
-          again before the service is reactivated.
+          reactivation of the service once it finishes is skipped, and the
+          timer has to elapse again before the service is reactivated.
 
         * Generator processes invoked by the service manager will now receive a
           new environment variable $SYSTEMD_SOFT_REBOOTS_COUNT that indicates
@@ -245,10 +246,10 @@ CHANGES WITH 257 in spe:
           "strict" a new cgroup namespace is allocated for the service, and
           cgroupfs is mounted read-only for the service.
 
-        * The StateDirectory=, RuntimeDirectory=, CacheDirectory=, LogsDirectory=,
-          and ConfigurationDirectory= settings gained support for configuring the
-          respective directories as read-only, via a ':ro' flag that can be
-          appended to each setting.
+        * The StateDirectory=, RuntimeDirectory=, CacheDirectory=,
+          LogsDirectory=, and ConfigurationDirectory= settings gained support
+          for configuring the respective directories as read-only, via a ':ro'
+          flag that can be appended to each setting's value.
 
         * When DynamicUser= is combined with
           StateDirectory=/RuntimeDirectory=/CacheDirectory=/LogsDirectory= and
@@ -258,15 +259,15 @@ CHANGES WITH 257 in spe:
           chown()ing.
 
         * A new service property PrivatePIDs= has been added that runs executed
-          processes as PID 1 - the init process - within their own PID namespace.
-          PrivatePIDs= also mounts /proc/ so only processes within the new PID
-          namespace are visible.
+          processes as PID 1 - the init process - within their own PID
+          namespace.  PrivatePIDs= also mounts /proc/ so only processes within
+          the new PID namespace are visible.
 
         systemd-udevd:
 
         * udev rules now set 'uaccess' for /dev/udmabuf, giving locally
-          logged-in users access to the hardware. This is necessary to support
-          IPMI cameras with libcamera.
+          logged-in users access to the hardware. This is useful in order to
+          support IPMI cameras with libcamera.
 
         * Serial port devices will no longer show up as systemd units, unless
           they have an IO port or memory assigned to them. This means that only
@@ -281,9 +282,9 @@ CHANGES WITH 257 in spe:
           searched for both on the interface's parent device (as before) and
           the device itself (new).
 
-        * Various USB hardware wallets have are now recognized by udev via a
-          .hwdb file, and get the ID_HARDWARE_WALLET= property set, which
-          enables "uaccess" for them, i.e. direct unprivileged access.
+        * Various USB hardware wallets are now recognized by udev via a .hwdb
+          file, and get the ID_HARDWARE_WALLET= property set, which enables
+          "uaccess" for them, i.e. direct unprivileged access.
 
         * udevadm info will now output the device ID string in lines prefixed
           with "J:", and the driver subsystem in lines prefixed with "B:".
@@ -478,8 +479,8 @@ CHANGES WITH 257 in spe:
 
         TPM & systemd-cryptsetup:
 
-        * The 'tpm2' verb which lists usable TPM2 devices has been moved from
-          systemd-creds to systemd-analyze.
+        * The 'has-tpm2' verb which reports whether TPM2 functionality is
+          available has been moved from systemd-creds to systemd-analyze.
 
         * systemd-tpm2-setup will gracefully handle TPMs that have a PIN set on
           the TPM, and not automatically set up a Storage Root Key (SRK) in
@@ -640,6 +641,29 @@ CHANGES WITH 257 in spe:
           systemd-homed to allow users to change selected properties of their
           own user records.
 
+        systemd-run & run0:
+
+        * run0 gained a new pair of settings --pty and --pipe that control
+          whether to invoke the specified binary on a freshly allocated pseudo
+          TTY, or whether to pass the client's STDIN/STDOUT/STDERR through
+          directly. run0 also gained a new switch --shell-prompt-prefix= that
+          permits passing in a string to display on each shell prompt as
+          prefix. If not specified otherwise this will show a superman emoji
+          (🦸), in order to visually communicate the temporarily elevated
+          privileges a run0 session provides. This makes use of the
+          $SHELL_PROMPT_PREFIX environment variables mentioned above.
+
+        * systemd-run can output some data as JSON via the new --json= option.
+
+        systemd-tmpfiles:
+
+        * systemd-tmpfiles --purge switch now requires specification of at
+          least one tmpfiles.d/ drop-in file.
+
+        * tmpfiles.d/ files gained a new '?' specifier for the 'L' line type to
+          create a symlink only if the source exists, and gracefully skip the
+          line otherwise.
+
         Miscellaneous:
 
         * systemctl now supports the --now option with the 'reenable' verb.
@@ -654,15 +678,7 @@ CHANGES WITH 257 in spe:
         * localectl gained a -l/--full option to show output without
           ellipsization.
 
-        * systemd-run can output some data as JSON via the new --json= option.
-
         * timedatectl now supports interactive polkit authorization.
-
-        * systemd-tmpfiles --purge switch now requires specification of at
-          least one tmpfiles.d/ drop-in file.
-
-        * tmpfiles.d gained a new '?' specifier for the 'L' type to create a
-          symlink only if the source exists, and gracefully skip otherwise.
 
         * The new Linux mseal(), listmount(), statmount() syscalls have been
           added to relevant system call groups.
@@ -682,16 +698,6 @@ CHANGES WITH 257 in spe:
           originates from a specific system, execution context or tool. These
           credentials and environment variables are supposed to be generically
           useful within and outside of the immediate systemd context.
-
-        * run0 gained a new pair of settings --pty and --pipe that control
-          whether to invoke the specified binary on a freshly allocated pseudo
-          TTY, or whether to pass the client's STDIN/STDOUT/STDERR through
-          directly. run0 also gained a new switch --shell-prompt-prefix= that
-          permits passing in a string to display on each shell prompt as
-          prefix. If not specified otherwise this will show a superman emoji
-          (🦸), in order to visually communicate the temporarily elevated
-          privileges a run0 session provides. This makes use of the
-          $SHELL_PROMPT_PREFIX environment variables mentioned above.
 
         * New RELEASE_TYPE=, EXPERIMENT=, EXPERIMENT_URL= fields have been
           defined for the /etc/os-release file. For example,
