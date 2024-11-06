@@ -2165,10 +2165,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 errno_pipe[0] = safe_close(errno_pipe[0]);
 
                 /* Wait until the parent unshared the user namespace */
-                if (read(unshare_ready_fd, &c, sizeof(c)) < 0) {
-                        r = -errno;
-                        goto child_fail;
-                }
+                if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
 
                 /* Disable the setgroups() system call in the child user namespace, for good. */
                 a = procfs_file_alloca(ppid, "setgroups");
@@ -2176,14 +2174,14 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (fd < 0) {
                         if (errno != ENOENT) {
                                 r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                                goto child_fail;
+                                report_errno_and_exit(errno_pipe[1], r);
                         }
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
                         if (write(fd, "deny\n", 5) < 0) {
                                 r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
-                                goto child_fail;
+                                report_errno_and_exit(errno_pipe[1], r);
                         }
 
                         fd = safe_close(fd);
@@ -2194,12 +2192,14 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
                         r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe[1], r);
                 }
+
                 if (write(fd, gid_map, strlen(gid_map)) < 0) {
                         r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe[1], r);
                 }
+
                 fd = safe_close(fd);
 
                 /* The write the UID map */
@@ -2207,18 +2207,15 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
                         r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe[1], r);
                 }
+
                 if (write(fd, uid_map, strlen(uid_map)) < 0) {
                         r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe[1], r);
                 }
 
                 _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe[1], &r, sizeof(r));
-                _exit(EXIT_FAILURE);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
