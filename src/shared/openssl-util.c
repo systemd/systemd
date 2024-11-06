@@ -1340,6 +1340,9 @@ static int load_key_from_provider(
         if (!store)
                 return log_openssl_errors("Failed to open OpenSSL store via '%s'", private_key_uri);
 
+        if (OSSL_STORE_expect(store, OSSL_STORE_INFO_PKEY) == 0)
+                return log_openssl_errors("Failed to filter store by private keys");
+
         _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
         if (!info)
                 return log_openssl_errors("Failed to load OpenSSL store via '%s'", private_key_uri);
