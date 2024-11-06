@@ -502,7 +502,7 @@ try_devicetree:
                 return NULL;
         }
 
-        /* Note that the Devicetree specification uses the very same vocabulary
+        /* Note that the DeviceTree specification uses the very same vocabulary
          * of chassis types as we do, hence we do not need to translate these types:
          *
          * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */

@@ -123,7 +123,7 @@
 
                   <row>
                     <entry><replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></entry>
-                    <entry>Devicetree alias index</entry>
+                    <entry>DeviceTree alias index</entry>
                   </row>
 
                 </tbody>
