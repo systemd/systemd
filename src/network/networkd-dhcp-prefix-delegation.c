@@ -1294,14 +1294,21 @@ int dhcp_request_prefix_delegation(Link *link) {
 
 int link_drop_dhcp_pd_config(Link *link, Network *network) {
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_dhcp_pd_is_enabled(link))
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
+
+        if (!link_dhcp_pd_is_enabled(link)) /* Disabled now, drop all configs. */
+                return dhcp_pd_remove(link, /* only_marked = */ false);
+
+        /* If previously explicitly disabled, then there is nothing we need to drop.
+         * If this is called on start up, we do not know the previous settings, assume nothing changed. */
+        if (!network || !network->dhcp_pd)
                 return 0;
 
-        /* If will be disabled or at least one config is changed, then drop all configurations. */
-        if (!network->dhcp_pd ||
-            link->network->dhcp_pd_assign != network->dhcp_pd_assign ||
+        /* If at least one setting is changed, then drop all configurations. */
+        if (link->network->dhcp_pd_assign != network->dhcp_pd_assign ||
             (link->network->dhcp_pd_assign &&
              (link->network->dhcp_pd_manage_temporary_address != network->dhcp_pd_manage_temporary_address ||
               !set_equal(link->network->dhcp_pd_tokens, network->dhcp_pd_tokens))) ||

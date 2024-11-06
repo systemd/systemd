@@ -2672,27 +2672,38 @@ int link_drop_ndisc_config(Link *link, Network *network) {
         int r, ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_ndisc_enabled(link))
-                return 0; /* Currently DHCPv4 client is not enabled, there is nothing we need to drop. */
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        Network *current = link->network;
-        link->network = network;
-        bool enabled = link_ndisc_enabled(link);
-        link->network = current;
-
-        if (!enabled) {
-                /* Currently enabled but will be disabled. Stop the client and flush configs. */
+        if (!link_ndisc_enabled(link)) {
+                /* NDisc is disabled. Stop the client if it is running and flush configs. */
                 ret = ndisc_stop(link);
                 ndisc_flush(link);
                 link->ndisc = sd_ndisc_unref(link->ndisc);
                 return ret;
         }
 
-        /* Even if the client is currently enabled and also enabled in the new .network file, detailed
+        /* Even if the client was previously enabled and also enabled in the new .network file, detailed
          * settings for the client may be different. Let's unref() the client. */
         link->ndisc = sd_ndisc_unref(link->ndisc);
+
+        /* Get if NDisc was enabled or not. */
+        Network *current = link->network;
+        link->network = network;
+        bool enabled = link_ndisc_enabled(link);
+        link->network = current;
+
+        /* If previously explicitly disabled, there should be nothing to drop.
+         * If we do not know the previous setting of the client, e.g. when networkd is restarted, in that
+         * case we do not have the previous .network file assigned to the interface, then  let's assume no
+         * detailed configuration is changed. Hopefully, unmatching configurations will be dropped after
+         * their lifetime. */
+        if (!enabled)
+                return 0;
+
+        assert(network);
 
         /* Redirect messages will be ignored. Drop configurations based on the previously received redirect
          * messages. */
