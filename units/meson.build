@@ -242,6 +242,11 @@ units = [
         { 'file' : 'system-update-pre.target' },
         { 'file' : 'system-update.target' },
         {
+          'file' : 'systemd-ask-password.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        { 'file' : 'systemd-ask-password@.service' },
+        {
           'file' : 'systemd-ask-password-console.path',
           'symlinks' : ['sysinit.target.wants/'],
         },
