@@ -5067,7 +5067,7 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
         _cleanup_close_ int child_pidfd = -EBADF, parent_pidfd = -EBADF;
         struct ucred *ucred = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) * 2) control;
-        pid_t child_pid;
+        pid_t child_pid = 0; /* silence false-positive warning by coverity */
         struct msghdr msghdr = {
                 .msg_iov = &IOVEC_MAKE(&child_pid, sizeof(child_pid)),
                 .msg_iovlen = 1,
