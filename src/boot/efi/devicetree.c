@@ -131,6 +131,7 @@ static const char* devicetree_get_compatible(const void *dtb) {
 
         if (struct_off % sizeof(uint32_t) != 0)
                 return NULL;
+
         if (struct_size % sizeof(uint32_t) != 0 ||
             !ADD_SAFE(&end, struct_off, struct_size) ||
             end > strings_off)
@@ -150,7 +151,7 @@ static const char* devicetree_get_compatible(const void *dtb) {
                         break;
                 case FDT_PROP:
                         /* At least 3 words should present: len, name_off, c (nul-terminated string always has non-zero length) */
-                        if (i + 3 >= size_words || cursor[++i] != 0)
+                        if (i + 3 >= size_words)
                                 return NULL;
                         len = be32toh(cursor[++i]);
                         name_off = be32toh(cursor[++i]);
