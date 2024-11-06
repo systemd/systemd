@@ -253,7 +253,7 @@ static void pe_locate_sections_internal(
                                                   j->VirtualSize,
                                                   device_table,
                                                   device,
-                                                  i))
+                                                  (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
                                         continue;
                         }
 
