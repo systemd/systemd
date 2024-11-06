@@ -924,7 +924,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
                 char str[ALTIFNAMSIZ];
                 if (snprintf_ok(str, sizeof str, "%sd%u", prefix, i))
                         udev_builtin_add_property(dev, mode, "ID_NET_NAME_ONBOARD", str);
-                log_device_debug(dev, "Devicetree identifier: alias_index=%u %s \"%s\"",
+                log_device_debug(dev, "DeviceTree identifier: alias_index=%u %s \"%s\"",
                                  i, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
                 return 0;
         }

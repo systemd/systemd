@@ -186,7 +186,7 @@ CHANGES WITH 257 in spe:
 
         * The systemd.machine_id= kernel command line parameter interpreted by
           PID 1 now supports an additional special value: if "firmware" is
-          specified the machine ID is initialized from the SMBIOS/Devicetree
+          specified the machine ID is initialized from the SMBIOS/DeviceTree
           system UUID. (Previously this was already done in VM environments,
           this extends the concept to any system, but only on explicit request
           via this option.)
@@ -276,10 +276,10 @@ CHANGES WITH 257 in spe:
           show up as .device units in systemd.
 
         * The firmware_node/sun sysfs attribute will now be used (if available)
-          for naming slot-based network interfaces,
-          i.e. ID_NET_NAME_SLOT. Moreover the interface aliases specified in
-          Devicetree are now searched for both on the interfaces parent device
-          (as before) and the device itself (new).
+          for naming slot-based network interfaces, i.e. ID_NET_NAME_SLOT.
+          Moreover the interface aliases specified in DeviceTree are now
+          searched for both on the interface's parent device (as before) and
+          the device itself (new).
 
         * Various USB hardware wallets have are now recognized by udev via a
           .hwdb file, and get the ID_HARDWARE_WALLET= property set, which
@@ -2012,7 +2012,7 @@ CHANGES WITH 255:
           respective SBAT sections, so that they can be revoked individually if
           needed.
 
-        * systemd-boot will no longer load unverified Devicetree blobs when UEFI
+        * systemd-boot will no longer load unverified DeviceTree blobs when UEFI
           SecureBoot is enabled. For more details see:
           https://github.com/systemd/systemd/security/advisories/GHSA-6m6p-rjcq-334c
 
@@ -2033,7 +2033,7 @@ CHANGES WITH 255:
           command-line addons before measuring them in TPM2 PCR 12, in a single
           measurement, instead of measuring them individually.
 
-        * systemd-stub will now measure and load Devicetree Blob addons, which
+        * systemd-stub will now measure and load DeviceTree Blob addons, which
           are searched and loaded following the same model as the existing
           kernel command-line addons.
 
@@ -2041,7 +2041,7 @@ CHANGES WITH 255:
           passed from systemd-boot when running inside Confidential VMs with UEFI
           SecureBoot enabled.
 
-        * systemd-stub will now load a Devicetree blob even if the firmware did
+        * systemd-stub will now load a DeviceTree blob even if the firmware did
           not load any beforehand (e.g.: for ACPI systems).
 
         * ukify is no longer considered experimental, and now ships in /usr/bin/.
@@ -4355,7 +4355,7 @@ CHANGES WITH 252 🎃:
         * 'udevadm wait' will now listen to kernel uevents too when called with
           --initialized=no.
 
-        * When naming network devices udev will now consult the Devicetree
+        * When naming network devices udev will now consult the DeviceTree
           "alias" fields for the device.
 
         * systemd-udev will now create infiniband/by-path and

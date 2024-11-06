@@ -54,7 +54,7 @@ libraries (such as OpenSSL or gnu-efi) are linked, embedded, or used.
 
 ## Additional Resources
 BLS Type #1 entries allow the user to load two types of additional resources that can affect the system
-before `ExitBootServices()` has been called — kernel command line arguments and Devicetree blobs — that are
+before `ExitBootServices()` has been called — kernel command line arguments and DeviceTree blobs — that are
 not validated before use, as they do not carry signatures. For this reason, when SecureBoot is enabled,
 loading these resources is automatically disabled. There is no override for this security mechanism, neither
 at build time nor at runtime. Note that initrds are also not verified in BLS Type #1 configurations, for
@@ -62,7 +62,7 @@ compatibility with how SecureBoot has been traditionally handled on Linux-based 
 only load them after `ExitBootServices()` has been called.
 
 Another mechanism is supported by `systemd-boot` and `systemd-stub` to add additional payloads to the boot
-process: "addons". Addons are PE signed binaries that can carry kernel command line arguments or Devicetree
+process: "addons". Addons are PE signed binaries that can carry kernel command line arguments or DeviceTree
 blobs (more payload types might be added in the future).
 In contrast to the user-specified additions in the Type #1 case
 described above, these addons are loaded through the UEFI image loading protocol, and thus are subject to
