@@ -21,6 +21,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
@@ -392,6 +393,9 @@ static int process_and_watch_password_files(bool watch) {
 
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
+
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop =
+                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
