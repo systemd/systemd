@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2024-05-02 04:40+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: italian\n"
@@ -116,29 +116,39 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Autenticazione richiesta per aggiornare l'area home di un utente."
 
 #: src/home/org.freedesktop.home1.policy:53
+#, fuzzy
+msgid "Update your home area"
+msgstr "Aggiorna un'area home"
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr "Autenticazione richiesta per aggiornare l'area home di un utente."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Ridimensiona un'area home"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr "Autenticazione richiesta per ridimensionare l'area home di un utente."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Modifica password di un'area home"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Autenticazione richiesta per modificare la password dell'area home di un "
 "utente."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Attiva un'area home"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr "Autenticazione richiesta per attivare l'area home di un utente."
 
@@ -1210,6 +1220,17 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Autenticazione richiesta per impostare l'orario di sistema."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Autenticazione richiesta per gestire le sessioni attive, gli utenti e le "
+"postazioni."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Imposta l'orario di sistema"
@@ -1252,23 +1273,23 @@ msgstr ""
 "Autenticazione richiesta per verificare se la sincronizzazione dell'orario "
 "in rete deve essere attivata."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autenticazione richiesta per avviare '$(unit)'."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autenticazione richiesta per fermare '$(unit)'."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autenticazione richiesta per ricaricare '$(unit)'."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autenticazione richiesta per riavviare '$(unit)'."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1276,16 +1297,16 @@ msgstr ""
 "Autenticazione richiesta per inviare un segnale UNIX ai processi di "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '$(unit)'."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autenticazione richiesta per configurare le proprietà di '$(unit)'."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1293,7 +1314,7 @@ msgstr ""
 "Autenticazione richiesta per eliminare i file e le directory associate a "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

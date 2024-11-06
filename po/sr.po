@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2021-02-23 22:40+0000\n"
 "Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
@@ -122,19 +122,28 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home area"
+msgid "Update your home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
-msgid "Authentication is required to resize a user's home area."
-msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
+msgid "Authentication is required to update your home area."
+msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home area"
+msgid "Resize a home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+msgid "Authentication is required to resize a user's home area."
+msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid ""
 "Authentication is required to change the password of a user's home area."
@@ -142,11 +151,11 @@ msgstr ""
 "Потребно је да се идентификујете да бисте управљали покренутим сесијама, "
 "корисницима и седиштима."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr ""
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
@@ -1239,6 +1248,17 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Потребно је да се идентификујете да бисте поставили системско време."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Потребно је да се идентификујете да бисте управљали покренутим сесијама, "
+"корисницима и седиштима."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Постави системско време"
@@ -1281,23 +1301,23 @@ msgstr ""
 "Потребно је да се идентификујете да бисте подесили да ли се време усклађује "
 "са мреже."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте покренули „$(unit)“."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте зауставили „$(unit)“."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте поново учитали „$(unit)“."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте поново покренули „$(unit)“."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
@@ -1305,18 +1325,18 @@ msgid ""
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
 "за „$(unit)“."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
 "Authentication is required to delete files and directories associated with "
@@ -1325,7 +1345,7 @@ msgstr ""
 "Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
 "за „$(unit)“."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

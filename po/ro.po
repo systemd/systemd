@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2021-01-12 17:36+0000\n"
 "Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
@@ -125,32 +125,44 @@ msgstr ""
 "utilizator."
 
 #: src/home/org.freedesktop.home1.policy:53
+#, fuzzy
+msgid "Update your home area"
+msgstr "Actualizează un spațiu personal"
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Autentificarea este necesară pentru a actualiza spațiul personal al unui "
+"utilizator."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Redimensionează un spațiu personal"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
 "Autentificarea este necesară pentru a redimensiona spațiul personal al unui "
 "utilizator."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Schimbă parola pentru un spațiu personal"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Autentificarea este necesară pentru schimbarea parolei unui spațiu personal "
 "al unui utilizator."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Crează un spațiu personal"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
@@ -1228,6 +1240,17 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Autentificarea este necesară pentru a seta ora sistemului."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Autentificarea este necesară pentru gestionarea sesiunilor active, "
+"utilizatorilor și stațiilor."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Setare oră sistem"
@@ -1268,23 +1291,23 @@ msgstr ""
 "Autentificarea este necesară pentru a controla dacă sincronizarea cu ora "
 "rețelei ar trebui activată."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentificarea este necesară pentru a porni „$(unit)”."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentificarea este necesară pentru a opri „$(unit)”."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentificarea este necesară pentru a reîncărca „$(unit)”."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentificarea este necesară pentru a reporni „$(unit)”."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1292,17 +1315,17 @@ msgstr ""
 "Autentificarea este necesară pentru a trimite un semnal UNIX către procesele "
 "unui „$(unit)”."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentificarea este necesară pentru a reseta starea „eșuată” a „$(unit)”."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1310,7 +1333,7 @@ msgstr ""
 "Autentificarea este necesară pentru a șterge fișierele și directoarele "
 "asociate lui „$(unit)”."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
