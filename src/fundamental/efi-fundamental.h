@@ -2,7 +2,10 @@
 #pragma once
 
 #if !SD_BOOT
+#  include <stdbool.h>
 #  include <stdint.h>
+#  include <string.h>
+
 /* Matches EFI API definition of the same structure for userspace */
 typedef struct {
         uint32_t Data1;
@@ -10,6 +13,10 @@ typedef struct {
         uint16_t Data3;
         uint8_t Data4[8];
 } EFI_GUID;
+
+static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
+        return memcmp(a, b, sizeof(EFI_GUID)) == 0;
+}
 
 typedef struct {
         EFI_GUID SignatureOwner;
