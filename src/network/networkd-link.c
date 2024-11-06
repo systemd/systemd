@@ -1121,7 +1121,7 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         int r;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
         /* Drop unnecessary dynamic configurations gracefully, e.g. drop DHCP lease in the case that
          * previously DHCP=yes and now DHCP=no, but keep DHCP lease when DHCP setting is unchanged. */
@@ -1394,22 +1394,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
                               joined,
                               isempty(joined) ? "" : ")");
 
-        /* Dropping old .network file */
-
-        if (FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
-                /* Stop DHCP client and friends, and drop dynamic configurations like DHCP address. */
-                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
-                if (r < 0)
-                        return r;
-
-                /* Free DHCP client and friends. */
-                link_free_engines(link);
-        } else {
-                r = link_drop_dynamic_config(link, network);
-                if (r < 0)
-                        return r;
-        }
-
+        /* Dropping configurations based on the old .network file. */
         r = link_drop_requests(link);
         if (r < 0)
                 return r;
@@ -1420,10 +1405,30 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
          * map here, as it depends on .network files assigned to other links. */
         link_free_bound_to_list(link);
 
-        link->network = network_unref(link->network);
+        _cleanup_(network_unrefp) Network *old_network = TAKE_PTR(link->network);
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+
+        if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DHCP) ||
+            !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
+                /* To make 'networkctl reconfigure INTERFACE' work safely for an interface whose new .network
+                 * file has KeepConfiguration=dhcp or yes, even if a clean reconfiguration is requested,
+                 * drop only unnecessary or possibly being changed dynamic configurations here. */
+                r = link_drop_dynamic_config(link, old_network);
+                if (r < 0)
+                        return r;
+        } else {
+                /* Otherwise, stop DHCP client and friends unconditionally, and drop all dynamic
+                 * configurations like DHCP address and routes. */
+                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                if (r < 0)
+                        return r;
+
+                /* Free DHCP client and friends. */
+                link_free_engines(link);
+        }
+
         link_update_operstate(link, true);
         link_dirty(link);
 
