@@ -243,20 +243,28 @@ static int process_one_password_file(const char *filename, FILE *f) {
                 SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
                 SET_FLAG(flags, ASK_PASSWORD_SILENT, silent);
 
-                if (arg_plymouth) {
-                        AskPasswordRequest req = {
-                                .message = message,
-                        };
+                /* Allow providing a password via env var, for debugging purposes */
+                const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD");
+                if (e) {
+                        passwords = strv_new(e);
+                        if (!passwords)
+                                return log_oom();
+                } else {
+                        if (arg_plymouth) {
+                                AskPasswordRequest req = {
+                                        .message = message,
+                                };
 
-                        r = ask_password_plymouth(&req, not_after, flags, filename, &passwords);
-                } else
-                        r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
-                if (r < 0) {
-                        /* If the query went away, that's OK */
-                        if (IN_SET(r, -ETIME, -ENOENT))
-                                return 0;
+                                r = ask_password_plymouth(&req, not_after, flags, filename, &passwords);
+                        } else
+                                r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
+                        if (r < 0) {
+                                /* If the query went away, that's OK */
+                                if (IN_SET(r, -ETIME, -ENOENT))
+                                        return 0;
 
-                        return log_error_errno(r, "Failed to query password: %m");
+                                return log_error_errno(r, "Failed to query password: %m");
+                        }
                 }
 
                 assert(!strv_isempty(passwords));
