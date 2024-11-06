@@ -40,7 +40,7 @@
 #include "path-util.h"
 #include "pcrextend-util.h"
 #include "pcrlock-firmware.h"
-#include "pehash.h"
+#include "pe-binary.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
