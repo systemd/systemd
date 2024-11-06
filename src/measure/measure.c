@@ -38,6 +38,8 @@ static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static char *arg_public_key = NULL;
 static char *arg_certificate = NULL;
+static char *arg_certificate_source = NULL;
+static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_current = false;
@@ -50,6 +52,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
@@ -87,7 +90,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "                         Specify how to use KEY for --private-key=. Allows\n"
                "                         an OpenSSL engine/provider to be used for signing\n"
                "     --public-key=KEY    Public key (PEM) to validate against\n"
-               "     --certificate=PATH  PEM certificate to use when signing with a URI\n"
+               "     --certificate=PATH|URI\n"
+               "                         PEM certificate to use for signing, or a provider\n"
+               "                         specific designation if --certificate-source= is used\n"
+               "     --certificate-source=file|provider:PROVIDER\n"
+               "                         Specify how to interpret the certificate from\n"
+               "                         --certificate=. Allows the certificate to be loaded\n"
+               "                         from an OpenSSL provider\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
@@ -156,6 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_KEY_SOURCE,
                 ARG_PUBLIC_KEY,
                 ARG_CERTIFICATE,
+                ARG_CERTIFICATE_SOURCE,
                 ARG_TPM2_DEVICE,
                 ARG_JSON,
                 ARG_PHASE,
@@ -186,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
                 { "public-key",         required_argument, NULL, ARG_PUBLIC_KEY         },
                 { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
+                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
                 { "json",               required_argument, NULL, ARG_JSON               },
                 { "phase",              required_argument, NULL, ARG_PHASE              },
                 { "append",             required_argument, NULL, ARG_APPEND             },
@@ -265,10 +276,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CERTIFICATE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_certificate);
+                        r = free_and_strdup_warn(&arg_certificate, optarg);
                         if (r < 0)
                                 return r;
+                        break;
 
+                case ARG_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        optarg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TPM2_DEVICE: {
@@ -841,7 +860,17 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         /* This must be done before openssl_load_private_key() otherwise it will get stuck */
         if (arg_certificate) {
-                r = openssl_load_x509_certificate(arg_certificate, &certificate);
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
         }
