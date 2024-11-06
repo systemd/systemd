@@ -297,6 +297,29 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRExtend);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PCRExtend.Extend", vl_method_extend);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
         Tpm2UserspaceEventType event;
@@ -309,25 +332,11 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
+                r = vl_server();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRExtend);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-                r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PCRExtend.Extend", vl_method_extend);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind Varlink method: %m");
-
-                r = sd_varlink_server_loop_auto(varlink_server);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+                        return r;
 
                 return EXIT_SUCCESS;
         }
