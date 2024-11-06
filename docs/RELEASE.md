@@ -26,7 +26,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 17. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
 18. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
 20. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
-21. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `v256` to `v257~devel`)
+21. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
 
 # Steps to a Successful Stable Release
 
