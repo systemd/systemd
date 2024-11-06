@@ -11,6 +11,7 @@
 #include "varlink-idl-util.h"
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.BootControl.h"
+#include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
@@ -192,6 +193,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Machine);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_AskPassword);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
