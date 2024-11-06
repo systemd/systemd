@@ -42,7 +42,7 @@
     <para>Varlink IPC uses <ulink url="https://json.org/">JSON</ulink> as marshalling format. The sd-varlink
     API relies on the
     <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry> API for JSON
-    seralization, deserialization and manipulation.</para>
+    serialization, deserialization and manipulation.</para>
 
     <para>The <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
     makes the functionality implemented by sd-varlink available from the command line.</para>
