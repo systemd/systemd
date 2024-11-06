@@ -384,6 +384,16 @@ CHANGES WITH 257 in spe:
           reset one, and so on – which only differ in kernel command line, but
           nothing else).
 
+        * New .dtbauto and .hwids sections are now documented and supported in
+          systemd-measure, ukify, systemd-stub, and systemd-boot. A single UKI
+          can contain multiple .dtbauto sections, and the 'compatible' string
+          therein will be compared with the equivalent field in the DTB
+          provided by the firmware, if present. If absent, SMBIOS will be used
+          to calculate hardware IDs and compare them with the content of
+          .hwids. This allows including multiple DTBs in a single UKI, with
+          the bootloader automatically selecting the correct one for the
+          current hardware.
+
         * ukify gained an --extend switch to import an existing UKI to
           be extended, and a --measure-base= switch to support measurement
           of multi-profile UKIs.
@@ -645,6 +655,9 @@ CHANGES WITH 257 in spe:
 
         * systemd-tmpfiles --purge switch now requires specification of at
           least one tmpfiles.d/ drop-in file.
+
+        * tmpfiles.d gained a new '?' specifier for the 'L' type to create a
+          symlink only if the source exists, and gracefully skip otherwise.
 
         * The new Linux mseal(), listmount(), statmount() syscalls have been
           added to relevant system call groups.
