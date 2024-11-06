@@ -59,58 +59,66 @@
       <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
            src/fundamental/uki.h's UnifiedSection enum -->
 
-      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel
-      image. (Required)</para></listitem>
+      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel image.
+      This section is required.</para></listitem>
 
-      <listitem><para>An <literal>.osrel</literal> section with OS release information, i.e. the contents of
-      the <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-      of the OS the kernel belongs to.</para></listitem>
+      <listitem><para>An optional <literal>.osrel</literal> section with OS release information, i.e. the
+      contents of the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
+      the OS the kernel belongs to.</para></listitem>
 
-      <listitem><para>A <literal>.cmdline</literal> section with the kernel command line to pass to the
-      invoked kernel.</para></listitem>
+      <listitem><para>An optional <literal>.cmdline</literal> section with the kernel command line to pass to
+      the invoked kernel.</para></listitem>
 
-      <listitem><para>An <literal>.initrd</literal> section with the initrd.</para></listitem>
+      <listitem><para>An optional <literal>.initrd</literal> section with the initrd.</para></listitem>
 
-      <listitem><para>A <literal>.ucode</literal> section with an initrd containing microcode, to be handed
-      to the kernel before any other initrd. This initrd must not be compressed.</para></listitem>
+      <listitem><para>An optional <literal>.ucode</literal> section with an initrd containing microcode, to
+      be handed to the kernel before any other initrd. This initrd must not be compressed.</para></listitem>
 
-      <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
+      <listitem><para>An optional <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
-      <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
+      <listitem><para>An optional <literal>.dtb</literal> section with a compiled binary DeviceTree.
+      </para></listitem>
 
-      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. Stub will always try to find first matching one.
-      Matching process extracts first <varname>compatible</varname> string from <literal>.dtbauto</literal>
-      section and compares it with the first Devicetree's <varname>compatible</varname> string supplied by
-      the firmware in configuration tables. If firmware does not provide Devicetree, matching with
-      <varname>.hwids</varname>  section will be used instead. Stub will use SMBIOS data to calculate hardware
-      IDs of the machine (as per <ulink url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
-      then it will proceed to trying to find any of them in <literal>.hwids</literal> section and will use first
-      matching entry's <varname>compatible</varname>  as a search key among the <literal>.dtbauto</literal>
-      entries, in a similar fashion as the use of <varname>compatible</varname> string read from the firmware
-      provided Devicetree was described before. First matching <literal>.dtbauto</literal> section will be
+      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. <filename>systemd-stub</filename>
+      will always use the first matching one. The match is performed by taking the first DeviceTree's
+      <varname>compatible</varname> string supplied by the firmware in configuration tables and comparing it
+      with the first <varname>compatible</varname> string from each of the <literal>.dtbauto</literal>
+      sections. If the firmware does not provide a DeviceTree, the match is done using the
+      <varname>.hwids</varname> section instead. After selecting a <literal>.hwids</literal> section (see the
+      description below), the <varname>compatible</varname> string from that section will be used to perform
+      the same matching procedure. If a match is found, that <literal>.dtbauto</literal> section will be
       loaded and will override <varname>.dtb</varname> if present.</para></listitem>
 
-      <listitem><para>A <literal>.hwids</literal> section with hardware IDs of the machines to match Devicetrees (refer to <literal>.dtbauto</literal> section description).</para></listitem>
+      <listitem><para>Zero or more <literal>.hwids</literal> sections with hardware IDs of the machines to
+      match DeviceTrees. <filename>systemd-stub</filename> will use the SMBIOS data to calculate hardware IDs
+      of the machine (as per <ulink
+      url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
+      and then it will try to find any of them in each of the <literal>.hwids</literal> sections. The first
+      matching section will be used.</para></listitem>
 
-      <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
-      output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
+      <listitem><para>An optional <literal>.uname</literal> section with the kernel version information, i.e.
+      the output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
       section.</para></listitem>
 
-      <listitem><para>An <literal>.sbat</literal> section with
-      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
-      metadata.</para></listitem>
+      <listitem><para>An optional <literal>.sbat</literal> section with
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation metadata.
+      </para></listitem>
 
-      <listitem><para>A <literal>.pcrsig</literal> section with a set of cryptographic signatures for the
-      expected TPM2 PCR values after the kernel has been booted, in JSON format. This is useful for
+      <listitem><para>An optional <literal>.pcrsig</literal> section with a set of cryptographic signatures
+      for the expected TPM2 PCR values after the kernel has been booted, in JSON format. This is useful for
       implementing TPM2 policies that bind disk encryption and similar to kernels that are signed by a
       specific key.</para></listitem>
 
-      <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
-      signature data in the <literal>.pcrsig</literal> section.</para></listitem>
+      <listitem><para>An optional <literal>.pcrpkey</literal> section with a public key in the PEM format
+      matching the signature data in the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
-    <para>In a basic UKI, the sections listed above appear at most once. In a multi-profile UKI,
+    <!-- FIXME: how does .dtauto/.hwids matching interact with profiles? -->
+
+    <para>In a basic UKI, the sections listed above appear at most once, with the exception of
+    <literal>.dtbauto</literal> and <literal>.hwids</literal> sections. In a multi-profile UKI,
     multiple sets of these sections are present in a single file and form "profiles",
     one of which can be selected at boot. For this, the PE section <literal>.profile</literal> is
     defined to be used as the separator between sets of sections. The
