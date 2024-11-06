@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-09-06 09:38+0000\n"
+"PO-Revision-Date: 2024-11-06 12:46+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -815,27 +815,27 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Indiquer au boot loader d'afficher le menu de sélection"
+msgstr "Indiquer au bootloader de démarrer sur le menu de sélection"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Une authentification est requise pour indiquer au boot loader d'afficher le "
-"menu de sélection."
+"Une authentification est requise pour indiquer au bootloader de démarrer sur "
+"le menu de sélection."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Indiquer au boot loader de démarrer une entrée spécifique"
+msgstr "Indiquer au bootloader de démarrer une entrée spécifique"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Une authentification est requise pour indiquer au boot loader de démarrer "
-"une entrée spécifique."
+"Une authentification est requise pour indiquer au bootloader de démarrer une "
+"entrée spécifique."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
