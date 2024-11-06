@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "devnum-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
@@ -367,6 +368,40 @@ int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dis
 
         *ret = makedev(data.major, data.minor);
         return 0;
+}
+
+int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        for (size_t i = 0; i < sd_json_variant_elements(variant); i++) {
+                sd_json_variant *e;
+                const char *a;
+
+                e = sd_json_variant_by_index(variant, i);
+                if (!sd_json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                assert_se(a = sd_json_variant_string(e));
+
+                if (!env_assignment_is_valid(a))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
+
+                r = strv_env_replace_strdup(&n, a);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
 }
 
 static int json_variant_new_stat(sd_json_variant **ret, const struct stat *st) {
