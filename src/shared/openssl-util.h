@@ -6,6 +6,13 @@
 #include "macro.h"
 #include "sha256.h"
 
+typedef enum CertificateSourceType {
+        OPENSSL_CERTIFICATE_SOURCE_FILE,
+        OPENSSL_CERTIFICATE_SOURCE_PROVIDER,
+        _OPENSSL_CERTIFICATE_SOURCE_MAX,
+        _OPENSSL_CERTIFICATE_SOURCE_INVALID = -EINVAL,
+} CertificateSourceType;
+
 typedef enum KeySourceType {
         OPENSSL_KEY_SOURCE_FILE,
         OPENSSL_KEY_SOURCE_ENGINE,
@@ -15,6 +22,8 @@ typedef enum KeySourceType {
 } KeySourceType;
 
 typedef struct OpenSSLAskPasswordUI OpenSSLAskPasswordUI;
+
+int parse_openssl_certificate_source_argument(const char *argument, char **certificate_source, CertificateSourceType *certificate_source_type);
 
 int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
 
@@ -182,7 +191,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
-int openssl_load_x509_certificate(const char *path, X509 **ret);
+int openssl_load_x509_certificate(
+                CertificateSourceType certificate_source_type,
+                const char *certificate_source,
+                const char *certificate,
+                X509 **ret);
 
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,
