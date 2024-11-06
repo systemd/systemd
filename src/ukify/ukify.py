@@ -249,21 +249,22 @@ class UkifyConfig:
     output: Optional[str]
     pcr_banks: list[str]
     pcr_private_keys: list[str]
-    pcr_public_keys: list[Path]
+    pcr_public_keys: list[str]
     pcrpkey: Optional[Path]
     phase_path_groups: Optional[list[str]]
     profile: Union[str, Path, None]
-    sb_cert: Path
+    sb_cert: Union[str, Path, None]
     sb_cert_name: Optional[str]
     sb_cert_validity: int
     sb_certdir: Path
-    sb_key: Optional[Path]
+    sb_key: Union[str, Path, None]
     sbat: Optional[list[str]]
     sections: list['Section']
     sections_by_name: dict[str, 'Section']
     sign_kernel: bool
     signing_engine: Optional[str]
     signing_provider: Optional[str]
+    certificate_provider: Optional[str]
     signtool: Optional[type['SignTool']]
     splash: Optional[Path]
     stub: Path
@@ -554,6 +555,11 @@ class SystemdSbSign(SignTool):
                 if opts.signing_provider is not None
                 else []
             ),
+            *(
+                ['--certificate-source', f'provider:{opts.certificate_provider}']
+                if opts.certificate_provider is not None
+                else []
+            ),
             input_f,
             '--output', output_f,
         ]  # fmt: skip
@@ -666,7 +672,7 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[Path], Optional[str]]]:
+def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
@@ -757,6 +763,10 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 extra += [f'--certificate={pub_key}']
             elif pub_key:
                 extra += [f'--public-key={pub_key}']
+
+            if opts.certificate_provider is not None:
+                extra += [f'--certificate-source=provider:{opts.certificate_provider}']
+
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
             print('+', shell_join(cmd + extra))  # type: ignore
@@ -1007,34 +1017,30 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
+        measure_tool = find_tool('systemd-measure', '/usr/lib/systemd/systemd-measure')
+        cmd = [measure_tool, 'pcrpkey']
+
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
-            pcrpkey = opts.pcr_public_keys[0]
-            # If we are getting a certificate when using an engine or provider, we need to convert it to
-            # public key format.
-            if (opts.signing_engine or opts.signing_provider) and Path(pcrpkey).exists():
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.x509 import load_pem_x509_certificate
+            # If we're using an engine or provider, the public key will be an X.509 certificate.
+            if opts.signing_engine or opts.signing_provider:
+                cmd += ['--certificate', opts.pcr_public_keys[0]]
+                if opts.certificate_provider:
+                    cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
+            else:
+                cmd += ['--public-key', opts.pcr_public_keys[0]]
 
-                try:
-                    cert = load_pem_x509_certificate(Path(pcrpkey).read_bytes())
-                except ValueError:
-                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
-                else:
-                    pcrpkey = cert.public_key().public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                    )
+            print('+', shell_join(cmd))
+            pcrpkey = subprocess.check_output(cmd)
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            from cryptography.hazmat.primitives import serialization
+            cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
 
-            privkey = serialization.load_pem_private_key(
-                Path(opts.pcr_private_keys[0]).read_bytes(),
-                password=None,
-            )
-            pcrpkey = privkey.public_key().public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
+            if opts.signing_engine:
+                cmd += ['--private-key-source', f'engine:{opts.signing_engine}']
+            if opts.signing_provider:
+                cmd += ['--private-key-source', f'provider:{opts.signing_provider}']
+
+            print('+', shell_join(cmd))
+            pcrpkey = subprocess.check_output(cmd)
 
     sections = [
         # name,      content,         measure?
@@ -1284,7 +1290,7 @@ def generate_keys(opts: UkifyConfig) -> None:
             Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
-            pub_key.write_bytes(pub_key_pem)
+            Path(pub_key).write_bytes(pub_key_pem)
 
         work = True
 
@@ -1675,6 +1681,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SigningProvider',
     ),
     ConfigItem(
+        '--certificate-provider',
+        metavar='PROVIDER',
+        help='OpenSSL provider to load certificate from',
+        config_key='UKI/CertificateProvider',
+    ),
+    ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign', 'systemd-sbsign'),
         action=SignToolAction,
@@ -1746,7 +1758,6 @@ CONFIG_ITEMS = [
         '--pcr-public-key',
         dest='pcr_public_keys',
         metavar='PATH',
-        type=Path,
         action='append',
         help='public part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
@@ -1982,11 +1993,11 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.signing_engine and opts.signing_provider:
         raise ValueError('Only one of --signing-engine= and --signing-provider= may be specified')
 
-    if opts.signing_engine is None and opts.signing_provider is None:
-        if opts.sb_key:
-            opts.sb_key = Path(opts.sb_key)
-        if opts.sb_cert:
-            opts.sb_cert = Path(opts.sb_cert)
+    if opts.signing_engine is None and opts.signing_provider is None and opts.sb_key:
+        opts.sb_key = Path(opts.sb_key)
+
+    if opts.certificate_provider is None and opts.sb_cert:
+        opts.sb_cert = Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         # one param only given, sbsign needs both
@@ -2011,6 +2022,9 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.signing_provider and opts.signtool != SystemdSbSign:
         raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
+
+    if opts.certificate_provider and opts.signtool != SystemdSbSign:
+        raise ValueError('--certificate-provider= can only be used with--signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
