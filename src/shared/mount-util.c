@@ -1011,26 +1011,18 @@ static int mount_in_namespace_legacy(
                 r = path_extract_filename(mount_outside, &mount_outside_fn);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to extract filename from propagation file or directory '%s': %m", mount_outside);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 mount_inside = path_join(incoming_path, mount_outside_fn);
-                if (!mount_inside) {
-                        r = log_oom_debug();
-                        goto child_fail;
-                }
+                if (!mount_inside)
+                        report_errno_and_exit(errno_pipe_fd[1], log_oom_debug());
 
                 r = mount_nofollow_verbose(LOG_DEBUG, mount_inside, dest, NULL, MS_MOVE, NULL);
                 if (r < 0)
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe_fd[1], r);
 
                 _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
-                _exit(EXIT_FAILURE);
         }
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
@@ -1224,14 +1216,8 @@ static int mount_in_namespace(
 
                         r = mount_exchange_graceful(new_mount_fd, dest, /* mount_beneath= */ true);
                 }
-                if (r < 0) {
-                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
