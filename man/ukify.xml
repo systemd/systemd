@@ -528,6 +528,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>CertificateProvider=<replaceable>PROVIDER</replaceable></varname></term>
+          <term><option>--certificate-provider=<replaceable>PROVIDER</replaceable></option></term>
+
+          <listitem><para>An OpenSSL provider to be used for loading the certificate used to sign the
+          resulting binary and PCR measurements. This option can only be used when using
+          <command>systemd-sbsign</command> as the signing tool.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SignKernel=<replaceable>BOOL</replaceable></varname></term>
           <term><option>--sign-kernel</option></term>
           <term><option>--no-sign-kernel</option></term>
