@@ -83,7 +83,7 @@
 
       <varlistentry>
         <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
-        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME<replaceable>]</option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
         <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Set the Secure Boot private key and certificate for use with the
