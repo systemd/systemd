@@ -110,7 +110,8 @@ static const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
 void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
         assert(smbios_fields);
         assert(ret_chids);
-        for (size_t i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++)
+
+        for (size_t i = 0; i < CHID_TYPES_MAX; i++)
                 if (chid_smbios_table[i] != 0)
                         get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
                 else
