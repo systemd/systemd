@@ -712,12 +712,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops, char, string_hash_func, string_compare_func,
                                       Target, target_free);
 
-static int target_new(Manager *m, TargetClass class, const char *name, const char *path, Target **ret) {
+static int target_new(Target **ret, Manager *m, TargetClass class, const char *name, const char *path) {
         _cleanup_(target_freep) Target *t = NULL;
-        int r;
 
-        assert(m);
         assert(ret);
+        assert(m);
 
         t = new(Target, 1);
         if (!t)
@@ -743,10 +742,6 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
                 t->id = strjoin(target_class_to_string(class), ":", name);
         if (!t->id)
                 return -ENOMEM;
-
-        r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
-        if (r < 0)
-                return r;
 
         *ret = TAKE_PTR(t);
         return 0;
@@ -1805,13 +1800,13 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                Target *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
                 if (IMAGE_IS_HOST(image))
                         continue; /* We already enroll the host ourselves */
 
-                r = target_new(m, class, image->name, image->path, &t);
+                r = target_new(&t, m, class, image->name, image->path);
                 if (r < 0)
                         return r;
                 t->image_type = image->type;
@@ -1823,6 +1818,11 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;
@@ -1831,7 +1831,6 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
 static int manager_enumerate_components(Manager *m) {
         _cleanup_strv_free_ char **components = NULL;
         bool have_default;
-        Target *t;
         int r;
 
         r = target_list_components(NULL, &components, &have_default);
@@ -1839,21 +1838,34 @@ static int manager_enumerate_components(Manager *m) {
                 return r;
 
         if (have_default) {
-                r = target_new(m, TARGET_HOST, "host", "sysupdate.d", &t);
+                _cleanup_(target_freep) Target *t = NULL;
+
+                r = target_new(&t, m, TARGET_HOST, "host", "sysupdate.d");
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         STRV_FOREACH(component, components) {
                 _cleanup_free_ char *path = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
                 path = strjoin("sysupdate.", *component, ".d");
                 if (!path)
                         return -ENOMEM;
 
-                r = target_new(m, TARGET_COMPONENT, *component, path, &t);
+                r = target_new(&t, m, TARGET_COMPONENT, *component, path);
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;
