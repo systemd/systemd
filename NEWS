@@ -430,6 +430,11 @@ CHANGES WITH 257 in spe:
           systemd's native systemd-ask-password logic (and take benefit of its
           caching and UI).
 
+        * A new systemd-sbsign tool has been added, that can be used to sign
+          EFI binaries (PE). This tool supports OpenSSL engines and providers,
+          with pin caching support for PKCS11. ukify supports it as an
+          alternative to sbsigntool and pesign.
+
         The journal:
 
         * journalctl can now list invocations of a unit with the
