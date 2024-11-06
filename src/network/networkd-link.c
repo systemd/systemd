@@ -386,6 +386,24 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
+
+                r = sd_ipv4ll_stop(link->ipv4ll);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
+
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+
+                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
+
+                r = ndisc_stop(link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+
+                ndisc_flush(link);
         }
 
         r = sd_dhcp_server_stop(link->dhcp_server);
@@ -400,27 +418,9 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Tx: %m"));
 
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
-
         r = ipv4acd_stop(link);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 ACD client: %m"));
-
-        r = sd_dhcp6_client_stop(link->dhcp6_client);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
-
-        r = dhcp_pd_remove(link, /* only_marked = */ false);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
-
-        r = ndisc_stop(link);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
-
-        ndisc_flush(link);
 
         r = sd_radv_stop(link->radv);
         if (r < 0)
