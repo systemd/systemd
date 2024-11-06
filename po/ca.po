@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2018-02-27 04:18-0500\n"
 "Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
 "Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
@@ -120,19 +120,29 @@ msgstr ""
 "Es requereix autenticació per annexar un dispositiu a un lloc de treball."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home area"
+msgid "Update your home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
-msgid "Authentication is required to resize a user's home area."
-msgstr "Es requereix autenticació per establir un missatge de mur"
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Es requereix autenticació per annexar un dispositiu a un lloc de treball."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home area"
+msgid "Resize a home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+msgid "Authentication is required to resize a user's home area."
+msgstr "Es requereix autenticació per establir un missatge de mur"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid ""
 "Authentication is required to change the password of a user's home area."
@@ -140,11 +150,11 @@ msgstr ""
 "Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
 "treball actius."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr ""
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
@@ -1236,6 +1246,17 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Es requereix autenticació per establir l'hora del sistema."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
+"treball actius."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Estableix l'hora del sistema"
@@ -1276,45 +1297,45 @@ msgstr ""
 "Es requereix autenticació per controlar si s'ha d'activar la sincronització "
 "de l'hora de xarxa."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Es requereix autenticació per iniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Es requereix autenticació per aturar «$(unit)»."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Es requereix autenticació per tornar a carregar «$(unit)»."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Es requereix autenticació per reiniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

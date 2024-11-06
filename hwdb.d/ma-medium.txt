@@ -13067,6 +13067,12 @@ D00000-DFFFFF     (base 16)		DIG_LINK
 				Uttar Pradesh    201301
 				IN
 
+0C-47-A9   (hex)		Lens Technology (Xiangtan) Co.,Ltd
+A00000-AFFFFF     (base 16)		Lens Technology (Xiangtan) Co.,Ltd
+				16 Baishi West Road, Xiangtan Economic and Technological Development Zone
+				Xiangtan  Hunan  411100
+				CN
+
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
 				140 58th St. Bldg A, Ste 2N
@@ -21617,12 +21623,6 @@ E8-6C-C7   (hex)		KLAB
 				Yuseong-gu  Daejeon  34014
 				KR
 
-24-5D-FC   (hex)		Senix Corporation
-C00000-CFFFFF     (base 16)		Senix Corporation
-				10516 Route 116, Suite 300
-				Hinesburg  VT  05461
-				US
-
 24-5D-FC   (hex)		Hunan Honestone lntelligence Technology Co.,Ltd
 D00000-DFFFFF     (base 16)		Hunan Honestone lntelligence Technology Co.,Ltd
 				705, Building 1, Fortune Plaza, Wankuntu, Xiangzhang Road, Yuhua District, Changsha City,
@@ -26449,6 +26449,12 @@ E00000-EFFFFF     (base 16)		JET OPTOELECTRONICS CO., LTD.
 				Matam Scientific Industries Center,   Building 8.2
 				Mail box 15123  Haifa  3508409
 				IL
+
+24-5D-FC   (hex)		Senix 
+C00000-CFFFFF     (base 16)		Senix 
+				10516 Route 116, Suite 300
+				Hinesburg  VT  05461
+				US
 
 0C-47-A9   (hex)		Private
 400000-4FFFFF     (base 16)		Private
@@ -33193,3 +33199,15 @@ AC-EF-92   (hex)		LIFT CONTROLS PRIVATE LIMITED
 				Survey no 39/1, Murdi, Khandepar, Ponda
 				Ponda  Goa  403406
 				IN
+
+0C-47-A9   (hex)		Annapurna labs
+C00000-CFFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+0C-47-A9   (hex)		Shenzhen Hebang Electronic Co., Ltd
+B00000-BFFFFF     (base 16)		Shenzhen Hebang Electronic Co., Ltd
+				2nd Floor West, Bldg B, Kelunte Low Carbon Industry Park, Huarong Road, Dalang, Longhua District
+				Shenzhen    518000
+				CN

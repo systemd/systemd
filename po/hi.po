@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
@@ -106,27 +106,37 @@ msgid "Authentication is required to update a user's home area."
 msgstr "उपयोक्ता के गृह क्षेत्र का अद्यतन करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/home/org.freedesktop.home1.policy:53
+#, fuzzy
+msgid "Update your home area"
+msgstr "गृह क्षेत्र का अद्यतन करें"
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr "उपयोक्ता के गृह क्षेत्र का अद्यतन करने के लिए प्रमाणीकरण आवश्यक है।"
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "गृह क्षेत्र का आकार बदलें"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr "उपयोक्ता के गृह क्षेत्र का आकार बदलने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "गृह क्षेत्र का पासवर्ड बदलें"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr "उपयोक्ता के गृह क्षेत्र का पासवर्ड बदलने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "गृह क्षेत्र सक्रिय करें"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr "उपयोक्ता के गृह क्षेत्र को सक्रिय करने के लिए प्रमाणीकरण आवश्यक है।"
 
@@ -1126,6 +1136,15 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "सिस्टम समय निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr "सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "सिस्टम समय निर्धारित करें"
@@ -1166,43 +1185,43 @@ msgstr ""
 "यह नियंत्रित करने के लिए प्रमाणीकरण आवश्यक है कि नेटवर्क समय समन्वयन सक्षम किया जाएगा "
 "या नहीं।"
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' शुरू करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' को रोकने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' को पुनः लोड करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' को पुनः आरंभ करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)' की \"विफल\" स्थिति को रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' पर गुण निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "'$(unit)' से जुड़ी फाइलों और निर्देशिकाओं को हटाने के लिए प्रमाणीकरण आवश्यक है।"
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"
