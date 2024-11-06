@@ -129,6 +129,12 @@ Deprecations and removals:
 
 Features:
 
+* machined: when registering a machine, also take a relative cgroup path,
+  relative to the machine's unit. This is useful when registering unpriv
+  machines, as they might sit down the cgroup tree, below a cgroup delegation
+  boundary. Then, install an inotify watch on that cgroup to track when the
+  machine's local cgroup goes down.
+
 * resolved: report ttl in resolution replies if we know it. This data is useful
   for tools such as wireguard which want to periodically re-resolve DNS names,
   and might want to use the TTL has hint for that.
