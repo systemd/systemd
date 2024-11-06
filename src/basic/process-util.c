@@ -35,6 +35,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
@@ -2238,3 +2239,18 @@ static const char* const sched_policy_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int error) {
+        int r;
+
+        if (error >= 0)
+                _exit(EXIT_SUCCESS);
+
+        assert(errno_fd >= 0);
+
+        r = loop_write(errno_fd, &error, sizeof(error));
+        if (r < 0)
+                log_debug_errno(r, "Failed to write errno to errno_fd=%d: %m", errno_fd);
+
+        _exit(EXIT_FAILURE);
+}

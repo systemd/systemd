@@ -273,3 +273,5 @@ int posix_spawn_wrapper(
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);
 int proc_dir_read_pidref(DIR *d, PidRef *ret);
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int error);
