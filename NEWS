@@ -294,8 +294,8 @@ CHANGES WITH 257 in spe:
 
         systemd-logind:
 
-        * New DesignatedMaintenanceTime= configuration option allows
-          shutdowns to be automatically scheduled at the specified time.
+        * New DesignatedMaintenanceTime= configuration option allows shutdowns
+          to be automatically scheduled at the specified time.
 
         * logind now reacts to Ctrl-Alt-Shift-Esc being pressed. It will send
           out a org.freedesktop.login1.SecureAttentionKey signal, indicating a
@@ -309,8 +309,8 @@ CHANGES WITH 257 in spe:
           session switches away.
 
         * systemd-logind now exposes two D-Bus properties CanLock and CanIdle
-          for all sessions that indicate whether the session's class supports
-          screen locking and idle detection.
+          for all sessions. These properties indicate whether the session's
+          class supports screen locking and idleness detection.
 
         * systemd-inhibit now allows interactive polkit authorization. It
           gained a --no-ask-password option to suppress it.
@@ -321,12 +321,13 @@ CHANGES WITH 257 in spe:
           Machines started via the systemd-vmspawn@.service unit will now be
           registered with systemd-machined.
 
-        * systemd-machined gained a pretty complete set of Varlink interfaces
-          to its functionality as alternative to the existing D-Bus interface.
+        * systemd-machined gained a pretty complete set of Varlink APIs
+          exposing its functionality. This is an alternative to the
+          pre-existing D-Bus interface.
 
         systemd-resolved:
 
-        * resolvconf command now supports '-p' switch. If specified, the
+        * The resolvconf command now supports '-p' switch. If specified, the
           interface will not be used as the default route for domain name
           lookups.
 
@@ -338,11 +339,11 @@ CHANGES WITH 257 in spe:
         * IPv6 address labels can be configured in a new [IPv6AddressLabel]
           section with Prefix= and Label= settings.
 
-        * 'networkctl edit' can now read the new contents from standard input
-          with the new --stdin option.
+        * 'networkctl edit' can now read the new file contents from standard
+          input with the new --stdin option.
 
-        * 'networkctl edit' and 'cat' now supports editing .netdev files by
-          link. 'networkctl cat' can also list all configuration files
+        * 'networkctl edit' and 'cat' now support editing/showing .netdev files
+          by link. 'networkctl cat' can also list all configuration files
           associated with an interface at once with ':all'.
 
         * networkctl gained a --no-ask-password option to suppress interactive
@@ -351,7 +352,7 @@ CHANGES WITH 257 in spe:
         * "mac" has been added to the default AlternativeNamesPolicy= setting
           for network links (via 99-default.link). This means "enx*" interface
           names will now be added to the list of alternative interface names by
-          default for all interfaces that have a MAC address assigned to them
+          default, for all interfaces that have a MAC address assigned
           by hardware.
 
         * networkd .netdev bridge devices gained a new setting FDBMaxLearned=
@@ -366,18 +367,18 @@ CHANGES WITH 257 in spe:
           thus highlighting conflict of ownership/management of these knobs.
 
         * systemd-networkd will now make RFC9463 DNR fields available to
-          systemd-resolved, for automatic DoT configuration, and similar.
+          systemd-resolved, for automatic DNS DoT configuration, and similar.
 
         systemd-boot, systemd-stub, and related tools:
 
         * The EFI stub now supports loading of .ucode sections with microcode
-          from PE add-on files. It now also supports loading .initrd sections
+          from PE add-on files. It also now supports loading .initrd sections
           from PE add-on files.
 
         * A new .profile PE section type is now documented and supported in
-          systemd-measure, ukify, systemd-stub and systemd-boot. Those new
+          systemd-measure, ukify, systemd-stub and systemd-boot. These new
           sections allow multiple "profiles" to be stored together in the UKI,
-          with .profile sections creating groupings of sections in the UKI,
+          where each .profile section creates groupings of sections in the UKI,
           allowing some sections to be shared and other sections like .cmdline
           or .initrd unique to the profile. This may be used to provide a
           single UKI that synthesizes multiple menu items in the boot menu (for
@@ -390,10 +391,10 @@ CHANGES WITH 257 in spe:
           can contain multiple .dtbauto sections, and the 'compatible' string
           therein will be compared with the equivalent field in the DTB
           provided by the firmware, if present. If absent, SMBIOS will be used
-          to calculate hardware IDs and compare them with the content of
-          .hwids. This allows including multiple DTBs in a single UKI, with
-          the bootloader automatically selecting the correct one for the
-          current hardware.
+          to calculate hardware IDs (CHIDs) and look them up in the content of
+          .hwids, hopefully revealing an fallback 'compatible' string. This
+          allows including multiple DTBs in a single UKI, with systemd-stub
+          automatically loading the correct one for the current hardware.
 
         * ukify gained an --extend switch to import an existing UKI to
           be extended, and a --measure-base= switch to support measurement
@@ -406,25 +407,26 @@ CHANGES WITH 257 in spe:
 
         * systemd-stub will report the partition UUID and image identifier its
           UKI executable is placed on separately from the data systemd-boot
-          provides about where to find its own executable. This is useful when
-          systemd-boot and UKIs are placed on distinct partitions (i.e. ESP and
-          XBOOTLDR).
+          provides about where to find its own executable, via EFI
+          variables. This is useful when systemd-boot and UKIs are placed on
+          distinct partitions (i.e. ESP and XBOOTLDR).
 
-        * bootctl --print-loader-path and --print-stub-path that output the
-          path to the boot loader or UKI used for the current boot.
+        * bootctl gained new switches --print-loader-path and --print-stub-path
+          that output the path to the boot loader or UKI used for the current
+          boot.
 
-        * bootctl kernel-identify now supports identifying EFI add-ons.
+        * bootctl kernel-identify now recognizes EFI add-ons.
 
         * bootctl gained a --random-seed=yes|no option to control provisioning
-          of the random seed file in ESP. (This is useful when producing an
-          image that will be used multiple times.)
+          of the random seed file in the ESP. (This is useful when producing an
+          image that will be used in multiple instances.)
 
         * bootctl now optionally supports installing UEFI Secure Boot databases
-          (ESLs) for systemd-boot to pick up and automatically enroll if the
-          system is booted in Setup Mode. This is controlled via bootctl's new
-          --secure-boot-auto-enroll=yes switch (and some auxiliary ones). A
-          certificate can be provided in DER format, and it is automatically
-          converted into an ESL, as needed.
+          (i.e. db/dbx/…  databases in ESL format) for systemd-boot to pick up
+          and automatically enroll if the system is booted in Setup Mode. This
+          is controlled via bootctl's new --secure-boot-auto-enroll=yes switch
+          (and some auxiliary ones). A certificate can be provided in DER
+          format, and is automatically converted into an ESL, as needed.
 
         * bootctl, systemd-measure, systemd-repart when referencing signing
           keys on OpenSSL engines may now query for PINs and similar via
@@ -432,9 +434,9 @@ CHANGES WITH 257 in spe:
           caching and UI).
 
         * A new systemd-sbsign tool has been added, that can be used to sign
-          EFI binaries (PE). This tool supports OpenSSL engines and providers,
-          with pin caching support for PKCS11. ukify supports it as an
-          alternative to sbsigntool and pesign.
+          EFI binaries (PE) for Secure Boot. This tool supports OpenSSL engines
+          and providers, with pin caching support for PKCS11. ukify supports it
+          as an alternative to sbsigntool and pesign.
 
         The journal:
 
@@ -469,11 +471,11 @@ CHANGES WITH 257 in spe:
           and AppStream metadata.
 
         * Transfer definitions for systemd-sysupdate are supposed to carry the
-          ".transfer" suffix now, changing from ".conf". The latter is
-          supported for compatibility too, but it's recommended to rename all
-          files reflecting this suffix change.
+          ".transfer" suffix now, changing from ".conf". The latter remains
+          supported for compatibility, but it's recommended to rename all files
+          reflecting this suffix change.
 
-        * systemd-sysupdate now supports a new ".feature" files that may be
+        * systemd-sysupdate now supports new ".feature" files that may be
           used in conjunction with ".transfer" files to group them together, and
           allow them to be turned off or on, individually per group.
 
@@ -483,8 +485,8 @@ CHANGES WITH 257 in spe:
           available has been moved from systemd-creds to systemd-analyze.
 
         * systemd-tpm2-setup will gracefully handle TPMs that have a PIN set on
-          the TPM, and not automatically set up a Storage Root Key (SRK) in
-          that case.
+          the TPM, and not attempt to automatically set up a Storage Root Key
+          (SRK) in that case.
 
         * New crypttab option password-cache=yes|no|read-only can be used to
           customize password caching.
@@ -526,7 +528,7 @@ CHANGES WITH 257 in spe:
           start the specified executable on the remote side, and communicate
           with the remote process using the Varlink protocol.
 
-          "ssh:" address specification has been renamed to "ssh-unix:"
+          The "ssh:" address specification has been renamed to "ssh-unix:"
           (reflecting the fact it is used to connect to a remote AF_UNIX socket
           via SSH). The old syntax is still supported for backwards
           compatibility.
@@ -547,7 +549,8 @@ CHANGES WITH 257 in spe:
           to enable internal compression in filesystems created offline.
 
         * systemd-repart understands a new MakeSymlinks= option to create one
-          or more symlinks (each specified as a symlink name and target).
+          or more symlinks (each specified as a symlink name and target) within
+          a newly formatted file system.
 
         * systemd-repart gained a new SupplementFor= setting that allows
           allocating a partition only if some other existing partition cannot
@@ -560,15 +563,15 @@ CHANGES WITH 257 in spe:
 
         systemd-ssh-proxy:
 
-        * systemd-ssh-proxy now also supports the "VSOCK MUX" protocol used by
-          CloudHypervisor/Firecracker to expose AF_VSOCK sockets of the VM on
-          the host. Or in other words: it's now possible to directly connect to
-          ssh via AF_VSOCK from hosts to VMs of these two hypervisors
-          (previously this was only supported for hypervisors which expose
-          AF_VSOCK on the host as AF_VSOCK, such as qemu).
+        * systemd-ssh-proxy now also supports the AF_UNIX-based "VSOCK MUX"
+          protocol used by CloudHypervisor/Firecracker to expose AF_VSOCK
+          sockets of the VM on the host. Or in other words: it's now possible
+          to directly connect to ssh via AF_VSOCK from hosts to VMs of these
+          two hypervisors (previously this was only supported for hypervisors
+          which expose AF_VSOCK on the host as AF_VSOCK, such as qemu).
 
         * systemd-ssh-proxy can now reference local VMs by their name: connect
-          to any local VM "foobar" registered with machined via "ssh
+          to any local VM "foobar" registered with systemd-machined via "ssh
           machine/foobar" using the AF_VSOCK protocol.
 
         systemd-analyze:
@@ -592,7 +595,6 @@ CHANGES WITH 257 in spe:
 
         * 'busctl monitor' gained new options --limit-messages= and --timeout=
           to set the number of matches or limit the runtime of the command.
-          This is intended to be used in scripts.
 
         * busctl now supports doing method calls with embedded unix file
           descriptors.
@@ -610,9 +612,9 @@ CHANGES WITH 257 in spe:
 
         systemd-importd:
 
-        * A new generator sytemd-import-generator has been added to
-          synthetisize image download jobs. This provides functionality similar
-          to importctl, but configured via the kernel command line and system
+        * A new generator sytemd-import-generator has been added to synthesize
+          image download jobs. This provides functionality similar to
+          importctl, but is configured via the kernel command line and system
           credentials. It may be used to automatically download sysext,
           confext, portable service, nspawn container or vmspawn VM images at
           boot.
@@ -646,14 +648,17 @@ CHANGES WITH 257 in spe:
         * run0 gained a new pair of settings --pty and --pipe that control
           whether to invoke the specified binary on a freshly allocated pseudo
           TTY, or whether to pass the client's STDIN/STDOUT/STDERR through
-          directly. run0 also gained a new switch --shell-prompt-prefix= that
-          permits passing in a string to display on each shell prompt as
-          prefix. If not specified otherwise this will show a superman emoji
-          (🦸), in order to visually communicate the temporarily elevated
-          privileges a run0 session provides. This makes use of the
-          $SHELL_PROMPT_PREFIX environment variables mentioned above.
+          directly.
 
-        * systemd-run can output some data as JSON via the new --json= option.
+        * run0 gained a new switch --shell-prompt-prefix= that permits passing
+          in a string to display on each shell prompt as prefix. If not
+          specified otherwise this will show a superhero emoji (🦸), in order
+          to visually communicate the temporarily elevated privileges a run0
+          session provides. This makes use of the $SHELL_PROMPT_PREFIX
+          environment variables mentioned below.
+
+        * systemd-run can output some of its runtime data in JSON format via
+          the new --json= option.
 
         systemd-tmpfiles:
 
@@ -683,8 +688,8 @@ CHANGES WITH 257 in spe:
         * The new Linux mseal(), listmount(), statmount() syscalls have been
           added to relevant system call groups.
 
-        * The systemd-ask-password concept has been extended with a per-user
-          concept, i.e. user programs may now ask for passwords via the same
+        * The systemd-ask-password logic has been extended with a per-user
+          scope, i.e. user programs may now ask for passwords via the same
           mechanism and the previously system-wide only mechanism.
 
         * A new set of system/service credentials are added:
@@ -697,7 +702,8 @@ CHANGES WITH 257 in spe:
           useful to visually highlight the fact a specific shell prompt
           originates from a specific system, execution context or tool. These
           credentials and environment variables are supposed to be generically
-          useful within and outside of the immediate systemd context.
+          useful within and outside of the immediate systemd context. It is
+          also used by 'run0', see above.
 
         * New RELEASE_TYPE=, EXPERIMENT=, EXPERIMENT_URL= fields have been
           defined for the /etc/os-release file. For example,
@@ -724,28 +730,28 @@ CHANGES WITH 257 in spe:
           https://github.com/microsoft/terminal/pull/8055
           https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
 
-        * systemd-sysusers is now able to create fully locked accounts. For
-          compatibility it so far created accounts with a locked (i.e. invalid)
-          password, but not marked locked as a whole. With the new "!" modifier
-          for "u" lines, it is now possible to create fully locked
-          accounts. The distinction between accounts with a locked password and
-          fully locked accounts is relevant when considering non-password forms
-          of authentication, i.e. SSH and such. It is strongly recommended to
-          make use of this new feature for almost all system accounts, since
-          they usually do not require (and should not permit) interactive
-          logins. All of systemd's own system users have been changed to be
-          marked as fully locked.
+        * systemd-sysusers is now able to create fully locked user
+          accounts. For compatibility it so far created accounts with a locked
+          (i.e. invalid) password, but not marked locked as a whole. With the
+          new "!" modifier for "u" lines, it is now possible to create fully
+          locked accounts. The distinction between accounts with a locked
+          password and fully locked accounts is relevant when considering
+          non-password forms of authentication, i.e. SSH and such. It is
+          strongly recommended to make use of this new feature for almost all
+          system accounts, since they usually do not require (and should not
+          permit) interactive logins. All of systemd's own system users have
+          been changed to be marked as fully locked.
 
         * systemd-coredump now supports a new EnterNamespace= option, which
           defaults to off. If enabled systemd-coredump will access the mount
           namespace of any crashed process to acquire debug symbol information,
-          in order to be able to symbolized backtraces. This option is useful
-          to improve backtraces of processes of containerized
-          applications. (Note that the host systemd-coredump preferably
-          dispatches coredump processing to the container itself, if it
-          supports that. Only full-OS containers which run systemd inside will
-          support this however, in which case EnterNamespace= might be an
-          alternative approach to acquire symbolized backtraces.)
+          in order to be able to symbolize backtraces. This option is useful to
+          improve backtraces of processes of containerized applications. (Note
+          that the host systemd-coredump preferably dispatches coredump
+          processing to the container itself, if it supports that. Only full-OS
+          containers which run systemd inside will support this however, in
+          other cases EnterNamespace= might be an suitable approach to acquire
+          symbolized backtraces.)
 
         Contributions from: A. Wilcox, Abderrahim Kitouni, Adrian Vovk,
         Alain Greppin, Allison Karlitskaya, Alyssa Ross, Anders Jonsson,
