@@ -264,6 +264,7 @@ class UkifyConfig:
     sign_kernel: bool
     signing_engine: Optional[str]
     signing_provider: Optional[str]
+    certificate_provider: Optional[str]
     signtool: Optional[type['SignTool']]
     splash: Optional[Path]
     stub: Path
@@ -554,6 +555,11 @@ class SystemdSbSign(SignTool):
                 if opts.signing_provider is not None
                 else []
             ),
+            *(
+                ['--certificate-source', f'provider:{opts.certificate_provider}']
+                if opts.certificate_provider is not None
+                else []
+            ),
             input_f,
             '--output', output_f,
         ]  # fmt: skip
@@ -757,6 +763,10 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 extra += [f'--certificate={pub_key}']
             elif pub_key:
                 extra += [f'--public-key={pub_key}']
+
+            if opts.certificate_provider is not None:
+                extra += [f'--certificate-source={opts.certificate_provider}']
+
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
             print('+', shell_join(cmd + extra))  # type: ignore
@@ -1675,6 +1685,12 @@ CONFIG_ITEMS = [
         config_key='UKI/SigningProvider',
     ),
     ConfigItem(
+        '--certificate-provider',
+        metavar='PROVIDER',
+        help='OpenSSL provider to load certificate from',
+        config_key='UKI/CertificateProvider',
+    ),
+    ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign', 'systemd-sbsign'),
         action=SignToolAction,
@@ -1982,11 +1998,11 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.signing_engine and opts.signing_provider:
         raise ValueError('Only one of --signing-engine= and --signing-provider= may be specified')
 
-    if opts.signing_engine is None and opts.signing_provider is None:
-        if opts.sb_key:
-            opts.sb_key = Path(opts.sb_key)
-        if opts.sb_cert:
-            opts.sb_cert = Path(opts.sb_cert)
+    if opts.signing_engine is None and opts.signing_provider is None and opts.sb_key:
+        opts.sb_key = Path(opts.sb_key)
+
+    if opts.certificate_provider is None and opts.sb_cert:
+        opts.sb_cert = Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         # one param only given, sbsign needs both
@@ -2011,6 +2027,9 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.signing_provider and opts.signtool != SystemdSbSign:
         raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
+
+    if opts.certificate_provider and opts.signtool != SystemdSbSign:
+        raise ValueError('--certificate-provider= can only be used with--signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
