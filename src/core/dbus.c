@@ -1101,16 +1101,16 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
         return 0;
 }
 
-int bus_foreach_bus(
+int bus_foreach_bus_signal(
                 Manager *m,
                 sd_bus_track *subscribed2,
-                int (*send_message)(sd_bus *bus, void *userdata),
+                int (*send_signal)(sd_bus *bus, void *userdata),
                 void *userdata) {
 
         int r = 0;
 
         assert(m);
-        assert(send_message);
+        assert(send_signal);
 
         /* Send to all direct buses, unconditionally */
         sd_bus *b;
@@ -1120,14 +1120,14 @@ int bus_foreach_bus(
                 if (sd_bus_is_ready(b) <= 0)
                         continue;
 
-                RET_GATHER(r, send_message(b, userdata));
+                RET_GATHER(r, send_signal(b, userdata));
         }
 
         /* Send to API bus, but only if somebody is subscribed */
         if (m->api_bus &&
             (sd_bus_track_count(m->subscribed) > 0 ||
              sd_bus_track_count(subscribed2) > 0))
-                RET_GATHER(r, send_message(m->api_bus, userdata));
+                RET_GATHER(r, send_signal(m->api_bus, userdata));
 
         return r;
 }

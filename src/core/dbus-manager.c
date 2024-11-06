@@ -2339,7 +2339,7 @@ static void manager_unit_files_changed(Manager *m, const InstallChange *changes,
         /* See comments for this variable in manager.h */
         m->unit_file_state_outdated = true;
 
-        r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+        r = bus_foreach_bus_signal(m, NULL, send_unit_files_changed, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send UnitFilesChanged signal, ignoring: %m");
 }
@@ -3706,7 +3706,7 @@ void bus_manager_send_finished(
 
         assert(m);
 
-        r = bus_foreach_bus(
+        r = bus_foreach_bus_signal(
                         m,
                         NULL,
                         send_finished,
@@ -3744,7 +3744,7 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
+        r = bus_foreach_bus_signal(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
                 log_debug_errno(r, "Failed to send reloading signal: %m");
 }
@@ -3763,7 +3763,7 @@ void bus_manager_send_change_signal(Manager *m) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        r = bus_foreach_bus_signal(m, NULL, send_changed_signal, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send manager change signal: %m");
 }
