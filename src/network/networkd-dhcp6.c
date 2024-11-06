@@ -841,6 +841,26 @@ int link_request_dhcp6_client(Link *link) {
         return 0;
 }
 
+int link_drop_dhcp6_config(Link *link, Network *network) {
+        int ret = 0;
+
+        assert(link);
+        assert(network);
+
+        if (!link_dhcp6_enabled(link))
+                return 0; /* Currently DHCPv6 client is not enabled, there is nothing we need to drop. */
+
+        if (!FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6))
+                /* Currently enabled but will be disabled. Stop the client and drop the lease. */
+                ret = sd_dhcp6_client_stop(link->dhcp6_client);
+
+        /* Even if the client is currently enabled and also enabled in the new .network file, detailed
+         * settings for the client may be different. Let's unref() the client. But do not unref() the lease.
+         * it will be unref()ed later when a new lease is acquired. */
+        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+        return ret;
+}
+
 int link_serialize_dhcp6_client(Link *link, FILE *f) {
         _cleanup_free_ char *duid = NULL;
         uint32_t iaid;

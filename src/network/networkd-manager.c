@@ -89,7 +89,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         log_debug("Coming back from suspend, reconfiguring all connections...");
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure(link, /* force = */ true);
+                (void) link_reconfigure(link, LINK_RECONFIGURE_UNCONDITIONALLY);
 
         return 0;
 }
@@ -1221,12 +1221,9 @@ int manager_reload(Manager *m, sd_bus_message *message) {
                 goto finish;
         }
 
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                if (message)
-                        (void) link_reconfigure_on_bus_method_reload(link, message);
-                else
-                        (void) link_reconfigure(link, /* force = */ false);
-        }
+        HASHMAP_FOREACH(link, m->links_by_index)
+                (void) link_reconfigure_full(link, /* flags = */ 0, message,
+                                             /* counter = */ message ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;

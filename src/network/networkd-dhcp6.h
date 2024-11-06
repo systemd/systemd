@@ -13,6 +13,7 @@ typedef enum DHCP6ClientStartMode {
 } DHCP6ClientStartMode;
 
 typedef struct Link Link;
+typedef struct Network Network;
 
 bool link_dhcp6_with_address_enabled(Link *link);
 int dhcp6_check_ready(Link *link);
@@ -21,6 +22,7 @@ int dhcp6_start(Link *link);
 int dhcp6_start_on_ra(Link *link, bool information_request);
 
 int link_request_dhcp6_client(Link *link);
+int link_drop_dhcp6_config(Link *link, Network *network);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);
 

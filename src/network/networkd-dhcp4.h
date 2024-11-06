@@ -25,6 +25,7 @@ int dhcp4_lease_lost(Link *link);
 int dhcp4_check_ready(Link *link);
 
 int link_request_dhcp4_client(Link *link);
+int link_drop_dhcp4_config(Link *link, Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
