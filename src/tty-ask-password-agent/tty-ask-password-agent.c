@@ -393,6 +393,8 @@ static int process_and_watch_password_files(bool watch) {
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
 
+        (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
 
