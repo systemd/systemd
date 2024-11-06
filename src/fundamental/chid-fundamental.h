@@ -2,6 +2,12 @@
 
 #pragma once
 
+#if SD_BOOT
+#  include "efi-string.h"
+#else
+#  include <uchar.h>
+#endif
+
 #include "efi-fundamental.h"
 #include "string-util-fundamental.h"
 

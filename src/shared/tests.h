@@ -559,3 +559,22 @@ static inline int run_test_table(void) {
                         abort();                                                                                \
                 }                                                                                               \
         })
+
+#define EFI_GUID_Fmt "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+#define EFI_GUID_Arg(guid) (guid).Data1, (guid).Data2, (guid).Data3,                           \
+                           (guid).Data4[0], (guid).Data4[1], (guid).Data4[2], (guid).Data4[3], \
+                           (guid).Data4[4], (guid).Data4[5], (guid).Data4[6], (guid).Data4[7]  \
+
+#define ASSERT_EQ_EFI_GUID(expr1, expr2)                                                                        \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                if (!efi_guid_equal(_expr1, _expr2)) {                                                          \
+                        log_error("%s:%i: Assertion failed: expected \"%s == %s\", but " EFI_GUID_Fmt           \
+                                  " != " EFI_GUID_Fmt,                                                          \
+                                  PROJECT_FILE, __LINE__,                                                       \
+                                  #expr1, #expr2,                                                               \
+                                  EFI_GUID_Arg(*_expr1), EFI_GUID_Arg(*_expr2));                                \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
