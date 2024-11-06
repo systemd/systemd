@@ -366,7 +366,7 @@ $ ukify build \
      --pcr-public-key=tpm2-pcr-public-key-initrd.pem \
      --phases=enter-initrd \
      --uname=1.2.3 \
-     --output vmlinux-1.2.3.efi
+     --output=vmlinux-1.2.3.efi
 + /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
 --osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
 --splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
