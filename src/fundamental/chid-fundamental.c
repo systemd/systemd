@@ -15,12 +15,10 @@
  */
 
 #if SD_BOOT
-#  include "efi-string.h"
 #  include "util.h"
 #else
 #  include <byteswap.h>
 #  include <string.h>
-#  include <uchar.h>
 #  include <utf8.h>
 #define strsize16(str) ((char16_strlen(str) + 1) * sizeof(char16_t))
 #endif
