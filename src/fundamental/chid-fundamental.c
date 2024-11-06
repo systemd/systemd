@@ -20,7 +20,7 @@
 #  include <byteswap.h>
 #  include <string.h>
 #  include <utf8.h>
-#define strsize16(str) ((char16_strlen(str) + 1) * sizeof(char16_t))
+#define strlen16 char16_strlen
 #endif
 
 #include "chid-fundamental.h"
@@ -42,7 +42,7 @@ static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIE
                 if ((mask >> i) & 1) {
                         if (i > 0)
                                 sha1_process_bytes(L"&", 2, &ctx);
-                        sha1_process_bytes(smbios_fields[i], strsize16(smbios_fields[i]), &ctx);
+                        sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
                 }
 
         uint8_t hash[SHA1_DIGEST_SIZE];
