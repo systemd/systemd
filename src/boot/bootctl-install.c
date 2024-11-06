@@ -956,7 +956,17 @@ int verb_install(int argc, char *argv[], void *userdata) {
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
         if (arg_secure_boot_auto_enroll) {
-                r = openssl_load_x509_certificate(arg_certificate, &certificate);
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 

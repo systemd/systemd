@@ -64,6 +64,8 @@ ImagePolicy *arg_image_policy = NULL;
 bool arg_varlink = false;
 bool arg_secure_boot_auto_enroll = false;
 char *arg_certificate = NULL;
+CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
+char *arg_certificate_source = NULL;
 char *arg_private_key = NULL;
 KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
@@ -77,6 +79,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_efi_boot_option_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 
@@ -295,9 +298,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Specify how to use KEY for --private-key=. Allows\n"
                "                       an OpenSSL engine/provider to be used when setting\n"
                "                       up secure boot auto-enrollment\n"
-               "     --certificate=PATH\n"
-               "                       PEM certificate to use when setting up secure boot\n"
-               "                       auto-enrollment\n"
+               "     --certificate=PATH|URI\n"
+               "                       PEM certificate to use when setting up Secure Boot\n"
+               "                       auto-enrollment, or a provider specific designation\n"
+               "                       if --certificate-source= is used\n"
+               "     --certificate-source=file|provider:PROVIDER\n"
+               "                       Specify how to interpret the certificate from\n"
+               "                       --certificate=. Allows the certificate to be loaded\n"
+               "                       from an OpenSSL provider\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -332,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRINT_STUB_PATH,
                 ARG_SECURE_BOOT_AUTO_ENROLL,
                 ARG_CERTIFICATE,
+                ARG_CERTIFICATE_SOURCE,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
         };
@@ -366,6 +375,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dry-run",                     no_argument,       NULL, ARG_DRY_RUN                     },
                 { "secure-boot-auto-enroll",     required_argument, NULL, ARG_SECURE_BOOT_AUTO_ENROLL     },
                 { "certificate",                 required_argument, NULL, ARG_CERTIFICATE                 },
+                { "certificate-source",          required_argument, NULL, ARG_CERTIFICATE_SOURCE          },
                 { "private-key",                 required_argument, NULL, ARG_PRIVATE_KEY                 },
                 { "private-key-source",          required_argument, NULL, ARG_PRIVATE_KEY_SOURCE          },
                 {}
@@ -526,12 +536,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE: {
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_certificate);
+                case ARG_CERTIFICATE:
+                        r = free_and_strdup_warn(&arg_certificate, optarg);
                         if (r < 0)
                                 return r;
                         break;
-                }
+
+                case ARG_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        optarg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_PRIVATE_KEY: {
                         r = free_and_strdup_warn(&arg_private_key, optarg);
