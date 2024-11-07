@@ -252,6 +252,7 @@ static int run(int argc, char *argv[]) {
         timeout = arg_timeout > 0 ? usec_add(now(CLOCK_MONOTONIC), arg_timeout) : 0;
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = arg_message,
                 .icon = arg_icon,
                 .id = arg_id,

@@ -463,7 +463,6 @@ int ask_password_plymouth(
 #define SKIPPED "(skipped)"
 
 int ask_password_tty(
-                int ttyfd,
                 const AskPasswordRequest *req,
                 usec_t until,
                 AskPasswordFlags flags,
@@ -526,8 +525,11 @@ int ask_password_tty(
         CLEANUP_ERASE(passphrase);
 
         /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
-        if (ttyfd < 0)
+        int ttyfd;
+        if (req->tty_fd < 0)
                 ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        else
+                ttyfd = req->tty_fd;
 
         if (ttyfd >= 0) {
                 if (tcgetattr(ttyfd, &old_termios) < 0)
@@ -1128,7 +1130,7 @@ int ask_password_auto(
         }
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
-                return ask_password_tty(-EBADF, req, until, flags, ret);
+                return ask_password_tty(req, until, flags, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
                 return ask_password_agent(req, until, flags, ret);

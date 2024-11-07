@@ -182,6 +182,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
                         arg_private_key_source,
                         arg_private_key,
                         &(AskPasswordRequest) {
+                                .tty_fd = -EBADF,
                                 .id = "keyutil-private-key-pin",
                                 .keyring = arg_private_key,
                                 .credential = "keyutil.private-key-pin",
@@ -238,6 +239,7 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                                 arg_private_key_source,
                                 arg_private_key,
                                 &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
                                         .id = "keyutil-private-key-pin",
                                         .keyring = arg_private_key,
                                         .credential = "keyutil.private-key-pin",

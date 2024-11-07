@@ -55,6 +55,7 @@ int load_volume_key_password(
                         return log_oom();
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = question,
                         .icon = "drive-harddisk",
                         .id = id,
@@ -130,6 +131,7 @@ int enroll_password(
                         return log_oom();
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .icon = "drive-harddisk",
                         .id = id,
                         .keyring = "cryptenroll",
