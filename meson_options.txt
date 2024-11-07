@@ -353,6 +353,10 @@ option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
        choices : ['yes', 'opportunistic', 'no'],
        value : 'no')
+option('default-dns-over-https', type : 'combo',
+       description : 'default DNS-over-HTTPS mode',
+       choices : ['yes', 'no'],
+       value : 'no')
 option('default-mdns', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default MulticastDNS mode',
@@ -363,6 +367,8 @@ option('default-llmnr', type : 'combo',
        value : 'yes')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
        description : 'DNS-over-TLS support')
+option('dns-over-https', type : 'combo', choices : ['true', 'false'],
+       description : 'DNS-over-HTTPS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
        value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google')
