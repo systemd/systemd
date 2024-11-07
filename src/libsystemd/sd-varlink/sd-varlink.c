@@ -1420,6 +1420,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PENDING_METHOD_MORE);
                 break;
 
+        case VARLINK_DISCONNECTED: /* Handler called sd_varlink_close() on us, which is fine */
+                break;
+
         default:
                 assert_not_reached();
         }
