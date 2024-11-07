@@ -179,7 +179,7 @@ typedef struct Link {
         Set *ndisc_dnr;
         uint32_t ndisc_mtu;
         unsigned ndisc_messages;
-        bool ndisc_configured:1;
+        bool ndisc_configured;
 
         sd_radv *radv;
 
