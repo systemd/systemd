@@ -4549,14 +4549,15 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         _cleanup_(strv_free_erasep) char **l = NULL;
 
                         AskPasswordRequest req = {
+                                .tty_fd = -EBADF,
                                 .message = "Recovery PIN",
                                 .id = "pcrlock-recovery-pin",
                                 .credential = "pcrlock.recovery-pin",
+                                .until = USEC_INFINITY,
                         };
 
                         r = ask_password_auto(
                                         &req,
-                                        /* until= */ 0,
                                         /* flags= */ 0,
                                         &l);
                         if (r < 0)

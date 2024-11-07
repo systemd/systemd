@@ -3077,13 +3077,15 @@ int dissected_image_decrypt_interactively(
                 z = strv_free_erase(z);
 
                 static const AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = "Please enter image passphrase:",
                         .id = "dissect",
                         .keyring = "dissect",
                         .credential = "dissect.passphrase",
+                        .until = USEC_INFINITY,
                 };
 
-                r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &z);
+                r = ask_password_auto(&req, /* flags= */ 0, &z);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 

@@ -263,13 +263,15 @@ static int acquire_existing_password(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "home-password",
                 .credential = "home.password",
+                .until = USEC_INFINITY,
         };
 
-        r = ask_password_auto(&req, USEC_INFINITY, flags, &password);
+        r = ask_password_auto(&req, flags, &password);
         if (r == -EUNATCH) { /* EUNATCH is returned if no password was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No passwords acquired.");
@@ -321,13 +323,15 @@ static int acquire_recovery_key(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "home-recovery-key",
                 .credential = "home.recovery-key",
+                .until = USEC_INFINITY,
         };
 
-        r = ask_password_auto(&req, USEC_INFINITY, flags, &recovery_key);
+        r = ask_password_auto(&req, flags, &recovery_key);
         if (r == -EUNATCH) { /* EUNATCH is returned if no recovery key was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No recovery keys acquired.");
@@ -375,13 +379,15 @@ static int acquire_token_pin(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "token-pin",
                 .credential = "home.token-pin",
+                .until = USEC_INFINITY,
         };
 
-        r = ask_password_auto(&req, USEC_INFINITY, flags, &pin);
+        r = ask_password_auto(&req, flags, &pin);
         if (r == -EUNATCH) { /* EUNATCH is returned if no PIN was found and asking interactively was disabled
                               * via the flags. Not an error for us. */
                 log_debug_errno(r, "No security token PINs acquired.");
@@ -1229,15 +1235,16 @@ static int acquire_new_password(
                         return log_oom();
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = question,
                         .icon = "user-home",
                         .keyring = "home-password",
                         .credential = "home.new-password",
+                        .until = USEC_INFINITY,
                 };
 
                 r = ask_password_auto(
                                 &req,
-                                USEC_INFINITY,
                                 /* flags= */ 0, /* no caching, we want to collect a new password here after all */
                                 &first);
                 if (r < 0)
@@ -1253,7 +1260,6 @@ static int acquire_new_password(
 
                 r = ask_password_auto(
                                 &req,
-                                USEC_INFINITY,
                                 /* flags= */ 0, /* no caching */
                                 &second);
                 if (r < 0)

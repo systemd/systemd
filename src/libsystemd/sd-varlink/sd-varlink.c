@@ -1420,6 +1420,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PENDING_METHOD_MORE);
                 break;
 
+        case VARLINK_DISCONNECTED: /* Handler called sd_varlink_close() on us, which is fine */
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -1673,6 +1676,30 @@ _public_ int sd_varlink_get_fd(sd_varlink *v) {
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid fd.");
 
         return v->input_fd;
+}
+
+_public_ int sd_varlink_get_input_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->input_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid input fd.");
+
+        return v->input_fd;
+}
+
+_public_ int sd_varlink_get_output_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->output_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid output fd.");
+
+        return v->output_fd;
 }
 
 _public_ int sd_varlink_get_events(sd_varlink *v) {
