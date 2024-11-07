@@ -906,6 +906,7 @@ static int get_password(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = text,
                 .icon = "drive-harddisk",
                 .id = id,
@@ -1422,6 +1423,7 @@ static int crypt_activate_by_token_pin_ask_password(
                 pins = strv_free_erase(pins);
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = message,
                         .icon = "drive-harddisk",
                         .keyring = keyring,

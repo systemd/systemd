@@ -380,6 +380,7 @@ int pkcs11_token_login(
                                 return log_oom();
 
                         AskPasswordRequest req = {
+                                .tty_fd = -EBADF,
                                 .message = text,
                                 .icon = askpw_icon,
                                 .id = id,

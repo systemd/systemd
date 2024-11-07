@@ -27,9 +27,10 @@ typedef struct AskPasswordRequest {
         const char *id;              /* some identifier used for this prompt for the "ask-password" protocol */
         const char *credential;      /* $CREDENTIALS_DIRECTORY credential name */
         const char *flag_file;       /* Once this flag file disappears abort the query */
+        int tty_fd;                  /* If querying on a TTY, the TTY to query on (or -EBADF) */
 } AskPasswordRequest;
 
-int ask_password_tty(int tty_fd, const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, char ***ret);
+int ask_password_tty(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, char ***ret);
 int ask_password_plymouth(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, char ***ret);
 int ask_password_agent(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
 int ask_password_auto(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);

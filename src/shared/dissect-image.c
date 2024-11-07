@@ -3077,6 +3077,7 @@ int dissected_image_decrypt_interactively(
                 z = strv_free_erase(z);
 
                 static const AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = "Please enter image passphrase:",
                         .id = "dissect",
                         .keyring = "dissect",
