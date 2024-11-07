@@ -137,33 +137,32 @@ bool use_audit(void) {
         static int cached_use = -1;
         int r;
 
-        if (cached_use < 0) {
-                int fd;
+        if (cached_use >= 0)
+                return cached_use;
 
-                fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
-                if (fd < 0) {
-                        cached_use = !IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT, EPERM);
-                        if (!cached_use)
-                                log_debug_errno(errno, "Won't talk to audit: %m");
-                } else {
-                        /* If we try and use the audit fd but get -ECONNREFUSED, it is because
-                         * we are not in the initial user namespace, and the kernel does not
-                         * have support for audit outside of the initial user namespace
-                         * (see https://elixir.bootlin.com/linux/latest/C/ident/audit_netlink_ok).
-                         *
-                         * If we receive any other error, do not disable audit because we are not
-                         * sure that the error indicates that audit will not work in general. */
-                        r = try_audit_request(fd);
-                        if (r < 0) {
-                                cached_use = r != -ECONNREFUSED;
-                                log_debug_errno(r, cached_use ?
-                                                   "Failed to make request on audit fd, ignoring: %m" :
-                                                   "Won't talk to audit: %m");
-                        } else
-                                cached_use = true;
-
-                        safe_close(fd);
-                }
+        _cleanup_close_ int fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
+        if (fd < 0) {
+                cached_use = !ERRNO_IS_PRIVILEGE(errno) && !ERRNO_IS_NOT_SUPPORTED(errno);
+                if (cached_use)
+                        log_debug_errno(errno, "Unexpected error while creating audit socket, proceeding with its use: %m");
+                else
+                        log_debug_errno(errno, "Won't talk to audit, because feature or privilege absent: %m");
+        } else {
+                /* If we try and use the audit fd but get -ECONNREFUSED, it is because we are not in the
+                 * initial user namespace, and the kernel does not have support for audit outside of the
+                 * initial user namespace (see
+                 * https://elixir.bootlin.com/linux/latest/C/ident/audit_netlink_ok).
+                 *
+                 * If we receive any other error, do not disable audit because we are not sure that the error
+                 * indicates that audit will not work in general. */
+                r = try_audit_request(fd);
+                if (r < 0) {
+                        cached_use = r != -ECONNREFUSED;
+                        log_debug_errno(r, cached_use ?
+                                        "Failed to make request on audit fd, ignoring: %m" :
+                                        "Won't talk to audit: %m");
+                } else
+                        cached_use = true;
         }
 
         return cached_use;
