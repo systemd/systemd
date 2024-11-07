@@ -86,7 +86,7 @@
         PATH=/opt/foo/bin:$PATH
         LD_LIBRARY_PATH=/opt/foo/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
         XDG_DATA_DIRS=/opt/foo/share:${XDG_DATA_DIRS:-/usr/local/share/:/usr/share/}
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
   </refsect1>

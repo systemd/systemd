@@ -2626,7 +2626,7 @@ Description=My failure handler for %i
 Type=oneshot
 # Perform some special action for when %i exits unexpectedly.
 ExecStart=/usr/sbin/myfailurehandler %i
-     </programlisting>
+</programlisting>
 
      <para>We can then add an instance of
      <filename index='false'>failure-handler@.service</filename> as an
@@ -2637,7 +2637,7 @@ ExecStart=/usr/sbin/myfailurehandler %i
 
     <programlisting>[Unit]
 OnFailure=failure-handler@%N.service
-    </programlisting>
+</programlisting>
 
     <para>Now, after running <command>systemctl daemon-reload</command> all
     services will have acquired an <varname>OnFailure=</varname> dependency on
@@ -2655,7 +2655,7 @@ OnFailure=failure-handler@%N.service
 <command>mkdir /etc/systemd/system/failure-handler@.service.d/</command>
 <command>ln -s /dev/null /etc/systemd/system/failure-handler@.service.d/10-all.conf</command>
 <command>systemctl daemon-reload</command>
-    </programlisting>
+</programlisting>
 
     <para>This ensures that if a <filename index='false'>failure-handler@.service</filename> instance fails it will not trigger an instance named
     <filename index='false'>failure-handler@failure-handler.service</filename>.</para>

@@ -119,14 +119,14 @@
 -auth       optional    pam_gnome_keyring.so
 -session    optional    pam_gnome_keyring.so auto_start
 -session    optional    pam_kwallet5.so auto_start
-    </programlisting>
+</programlisting>
 
     <para>And add the following lines to your display manager's systemd service file, so it can access root's keyring:</para>
 
     <programlisting>
 [Service]
 KeyringMode=inherit
-    </programlisting>
+</programlisting>
 
     <para>In this setup, early during the boot process,
     <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
