@@ -179,7 +179,7 @@ typedef struct Link {
         Set *ndisc_dnr;
         uint32_t ndisc_mtu;
         unsigned ndisc_messages;
-        bool ndisc_configured:1;
+        bool ndisc_configured;
 
         sd_radv *radv;
 
@@ -257,7 +257,7 @@ bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
 bool link_has_ipv6_connectivity(Link *link);
 
-int link_stop_engines(Link *link, bool may_keep_dhcp);
+int link_stop_engines(Link *link, bool may_keep_dynamic);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
