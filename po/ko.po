@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-08-24 10:36+0000\n"
+"PO-Revision-Date: 2024-11-07 02:35+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -109,12 +109,10 @@ msgid "Authentication is required to update a user's home area."
 msgstr "사용자 홈 영역을 최신화 하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "홈 영역을 최신화"
+msgstr "자신의 홈 영역 최신화"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
 msgstr "사용자 홈 영역을 최신화 하려면 인증이 필요합니다."
 
@@ -1117,12 +1115,11 @@ msgstr "오래된 시스템 최신화를 정리하려면 인증이 필요합니�
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "추가 사양을 관리합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr "활성 세션, 사용자 시트를 관리하려면 인증이 필요합니다."
+msgstr "추가 사양을 관리하려면 인증이 필요합니다"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

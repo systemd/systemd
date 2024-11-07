@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-08-25 11:38+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -117,14 +117,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Bir kullanıcının ev alanını güncellemek kimlik doğrulaması gerektirir."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Ev alanını güncelle"
+msgstr "Ev alanınızı güncelleyin"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Bir kullanıcının ev alanını güncellemek kimlik doğrulaması gerektirir."
+msgstr "Ev alanınızı güncellemek kimlik doğrulaması gerektirir."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1221,14 +1219,11 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "İsteğe bağlı özellikleri yönet"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Aktif oturumları, kullanıcıları ve yuvaları yönetmek için kimlik doğrulaması "
-"gereklidir."
+msgstr "İsteğe bağlı özellikleri yönetmek için kimlik doğrulaması gereklidir"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
