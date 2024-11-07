@@ -2,11 +2,13 @@
 
 executables += [
         libexec_template + {
-                'name' : 'systemd-sbsign',
+                'name' : 'systemd-measure',
                 'conditions' : [
+                        'HAVE_BLKID',
                         'HAVE_OPENSSL',
+                        'HAVE_TPM2',
                 ],
-                'sources' : files('sbsign.c'),
+                'sources' : files('measure.c'),
                 'dependencies' : libopenssl,
         },
 ]
