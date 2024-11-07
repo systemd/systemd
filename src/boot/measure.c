@@ -862,6 +862,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                         .id = "measure-private-key-pin",
                                         .keyring = arg_private_key,
                                         .credential = "measure.private-key-pin",
+                                        .until = USEC_INFINITY,
                                 },
                                 &privkey,
                                 &ui);

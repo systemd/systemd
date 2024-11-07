@@ -112,16 +112,17 @@ int acquire_fido2_key(
                 if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
-                static const AskPasswordRequest req = {
+                AskPasswordRequest req = {
                         .tty_fd = -EBADF,
                         .message = "Please enter security token PIN:",
                         .icon = "drive-harddisk",
                         .keyring = "fido2-pin",
                         .credential = "cryptsetup.fido2-pin",
+                        .until = until,
                 };
 
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(&req, until, askpw_flags, &pins);
+                r = ask_password_auto(&req, askpw_flags, &pins);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user password: %m");
 
