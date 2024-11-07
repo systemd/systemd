@@ -119,6 +119,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                                 SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
 
                         AskPasswordRequest req = {
+                                .tty_fd = -EBADF,
                                 .message = "Please enter TPM2 PIN:",
                                 .icon = "drive-harddisk",
                                 .keyring = "tpm2-pin",

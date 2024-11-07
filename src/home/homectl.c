@@ -263,6 +263,7 @@ static int acquire_existing_password(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "home-password",
@@ -321,6 +322,7 @@ static int acquire_recovery_key(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "home-recovery-key",
@@ -375,6 +377,7 @@ static int acquire_token_pin(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = question,
                 .icon = "user-home",
                 .keyring = "token-pin",
@@ -1229,6 +1232,7 @@ static int acquire_new_password(
                         return log_oom();
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = question,
                         .icon = "user-home",
                         .keyring = "home-password",
