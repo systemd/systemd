@@ -1856,13 +1856,20 @@ int path_is_network_fs_harder(const char *path) {
         _cleanup_free_ char *fstype = NULL, *options = NULL;
         int r, ret;
 
-        assert(path);
+        if (!path || !path_is_absolute(path))
+                return -EINVAL;
 
         ret = path_is_network_fs(path);
+        if (ret == -ENOENT)
+                return false;
         if (ret > 0)
                 return true;
 
         r = path_get_mount_info(path, &fstype, &options);
+        if (r == -EINVAL) {
+                log_debug_errno(r, "Failed to find mount point '%s', maybe not a mount point, assuming not a network filesystem: %m", path);
+                return false;
+        }
         if (r < 0)
                 return RET_GATHER(ret, r);
 
