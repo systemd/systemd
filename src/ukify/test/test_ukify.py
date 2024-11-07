@@ -207,7 +207,7 @@ def test_parse_args_many_deprecated():
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
+    assert opts.pcr_public_keys == ['PKEY2']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.sb_key == 'SBKEY'
@@ -253,7 +253,7 @@ def test_parse_args_many():
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
+    assert opts.pcr_public_keys == ['PKEY2']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.sb_key == 'SBKEY'
@@ -360,8 +360,7 @@ def test_config_priority(tmp_path):
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2'),
-                                    pathlib.Path('some/path8')]
+    assert opts.pcr_public_keys == ['PKEY2', 'some/path8']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.signtool == ukify.SbSign # from args
