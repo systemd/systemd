@@ -29,6 +29,7 @@ typedef struct AskPasswordRequest {
         const char *flag_file;       /* Once this flag file disappears abort the query */
         int tty_fd;                  /* If querying on a TTY, the TTY to query on (or -EBADF) */
         usec_t until;                /* CLOCK_MONOTONIC time until which to show the prompt */
+        int hup_fd;                  /* An extra fd to watch for POLLHUP, in which case to abort the query */
 } AskPasswordRequest;
 
 int ask_password_tty(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
