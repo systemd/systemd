@@ -1975,9 +1975,9 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.stub is None:
         if opts.linux is not None:
-            opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+            opts.stub = Path(f'/usr/lib/systemd/boot/linux{opts.efi_arch}.efi.stub')
         else:
-            opts.stub = Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
+            opts.stub = Path(f'/usr/lib/systemd/boot/addon{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine and opts.signing_provider:
         raise ValueError('Only one of --signing-engine= and --signing-provider= may be specified')

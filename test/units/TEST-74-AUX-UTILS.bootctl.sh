@@ -13,7 +13,7 @@ if ! command -v bootctl >/dev/null; then
     exit 0
 fi
 
-if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
+if [[ ! -d /usr/lib/systemd/boot ]]; then
     echo "sd-boot is not installed, skipping."
     exit 0
 fi

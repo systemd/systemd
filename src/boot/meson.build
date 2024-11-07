@@ -427,4 +427,9 @@ foreach efi_elf_binary : efi_elf_binaries
              suite : 'efi')
 endforeach
 
+# symlink for backwards compatibility after rename
+meson.add_install_script(sh, '-c',
+                         ln_s.format(bootlibdir,
+                                     bootlibdir / 'efi'))
+
 alias_target('systemd-boot', boot_targets)
