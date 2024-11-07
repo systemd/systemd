@@ -6705,7 +6705,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
 
         networkctl_reload()
-        networkctl_reconfigure('veth99') # Release previously acquired lease and start new DHCPv6 handshake.
         self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # checking address

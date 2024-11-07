@@ -1136,6 +1136,15 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
+        /* Even if we do not release DHCP lease or so, reset 'configured' flags. Otherwise, e.g. if
+         * previously UseDNS= was disabled but is now enabled, link will enter configured state before
+         * expected DNS servers being acquired. */
+        link->ipv4ll_address_configured = false;
+        link->dhcp4_configured = false;
+        link->dhcp6_configured = false;
+        link->dhcp_pd_configured = false;
+        link->ndisc_configured = false;
+
         return r;
 }
 
