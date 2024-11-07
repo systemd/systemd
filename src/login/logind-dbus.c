@@ -1006,7 +1006,7 @@ static int create_session(
                                          "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.",
                                          m->sessions_max);
 
-        (void) audit_session_from_pid(leader.pid, &audit_id);
+        (void) audit_session_from_pid(&leader, &audit_id);
         if (audit_session_is_valid(audit_id)) {
                 /* Keep our session IDs and the audit session IDs in sync */
 

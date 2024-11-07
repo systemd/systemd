@@ -1118,7 +1118,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
-                r = audit_session_from_pid(pidref->pid, &c->audit_session_id);
+                r = audit_session_from_pid(pidref, &c->audit_session_id);
                 if (r == -ENODATA) {
                         /* ENODATA means: no audit session id assigned */
                         c->audit_session_id = AUDIT_SESSION_INVALID;
@@ -1131,7 +1131,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
-                r = audit_loginuid_from_pid(pidref->pid, &c->audit_login_uid);
+                r = audit_loginuid_from_pid(pidref, &c->audit_login_uid);
                 if (r == -ENODATA) {
                         /* ENODATA means: no audit login uid assigned */
                         c->audit_login_uid = UID_INVALID;
