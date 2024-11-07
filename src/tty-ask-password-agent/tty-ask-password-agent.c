@@ -151,6 +151,7 @@ static int agent_ask_password_tty(
                 .message = message,
                 .flag_file = flag_file,
                 .until = until,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_tty(&req, flags, ret);
@@ -259,6 +260,7 @@ static int process_one_password_file(const char *filename, FILE *f) {
                                         .message = message,
                                         .flag_file = filename,
                                         .until = not_after,
+                                        .hup_fd = -EBADF,
                                 };
 
                                 r = ask_password_plymouth(&req, flags, &passwords);
