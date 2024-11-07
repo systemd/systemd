@@ -124,12 +124,12 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 .icon = "drive-harddisk",
                                 .keyring = "tpm2-pin",
                                 .credential = "cryptenroll.new-tpm2-pin",
+                                .until = USEC_INFINITY,
                         };
 
                         pin = strv_free_erase(pin);
                         r = ask_password_auto(
                                         &req,
-                                        /* until= */ USEC_INFINITY,
                                         /* flags= */ 0,
                                         &pin);
                         if (r < 0)
@@ -140,7 +140,6 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
 
                         r = ask_password_auto(
                                         &req,
-                                        USEC_INFINITY,
                                         /* flags= */ 0,
                                         &pin2);
                         if (r < 0)

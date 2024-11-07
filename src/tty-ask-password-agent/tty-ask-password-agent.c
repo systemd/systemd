@@ -151,9 +151,10 @@ static int agent_ask_password_tty(
                 .tty_fd = tty_fd,
                 .message = message,
                 .flag_file = flag_file,
+                .until = until,
         };
 
-        r = ask_password_tty(&req, until, flags, ret);
+        r = ask_password_tty(&req, flags, ret);
 
         if (arg_console) {
                 assert(tty_fd >= 0);
@@ -258,9 +259,10 @@ static int process_one_password_file(const char *filename, FILE *f) {
                                         .tty_fd = -EBADF,
                                         .message = message,
                                         .flag_file = filename,
+                                        .until = not_after,
                                 };
 
-                                r = ask_password_plymouth(&req, not_after, flags, &passwords);
+                                r = ask_password_plymouth(&req, flags, &passwords);
                         } else
                                 r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
                         if (r < 0) {

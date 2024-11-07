@@ -309,7 +309,6 @@ static int backspace_string(int ttyfd, const char *str) {
 
 int ask_password_plymouth(
                 const AskPasswordRequest *req,
-                usec_t until,
                 AskPasswordFlags flags,
                 char ***ret) {
 
@@ -369,8 +368,8 @@ int ask_password_plymouth(
         for (;;) {
                 usec_t timeout;
 
-                if (until > 0)
-                        timeout = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                if (req->until > 0)
+                        timeout = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
                 else
                         timeout = USEC_INFINITY;
 
@@ -464,7 +463,6 @@ int ask_password_plymouth(
 
 int ask_password_tty(
                 const AskPasswordRequest *req,
-                usec_t until,
                 AskPasswordFlags flags,
                 char ***ret) {
 
@@ -584,8 +582,8 @@ int ask_password_tty(
                 usec_t timeout;
                 ssize_t n;
 
-                if (until > 0)
-                        timeout = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                if (req->until > 0)
+                        timeout = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
                 else
                         timeout = USEC_INFINITY;
 
@@ -799,7 +797,6 @@ static int create_socket(const char *askpwdir, char **ret) {
 
 int ask_password_agent(
                 const AskPasswordRequest *req,
-                usec_t until,
                 AskPasswordFlags flags,
                 char ***ret) {
 
@@ -894,7 +891,7 @@ int ask_password_agent(
                 socket_name,
                 FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED),
                 FLAGS_SET(flags, ASK_PASSWORD_ECHO),
-                until,
+                req->until,
                 FLAGS_SET(flags, ASK_PASSWORD_SILENT));
 
         if (req) {
@@ -946,8 +943,8 @@ int ask_password_agent(
                 usec_t timeout;
                 ssize_t n;
 
-                if (until > 0)
-                        timeout = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                if (req->until > 0)
+                        timeout = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
                 else
                         timeout = USEC_INFINITY;
 
@@ -1106,7 +1103,6 @@ static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFla
 
 int ask_password_auto(
                 const AskPasswordRequest *req,
-                usec_t until,
                 AskPasswordFlags flags,
                 char ***ret) {
 
@@ -1130,10 +1126,10 @@ int ask_password_auto(
         }
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
-                return ask_password_tty(req, until, flags, ret);
+                return ask_password_tty(req, flags, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
-                return ask_password_agent(req, until, flags, ret);
+                return ask_password_agent(req, flags, ret);
 
         return -EUNATCH;
 }

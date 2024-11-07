@@ -40,10 +40,11 @@ static int get_pin(
                         .icon = "drive-harddisk",
                         .keyring = "tpm2-pin",
                         .credential = askpw_credential,
+                        .until = until,
                 };
 
                 pin = strv_free_erase(pin);
-                r = ask_password_auto(&req, until, askpw_flags, &pin);
+                r = ask_password_auto(&req, askpw_flags, &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user pin: %m");
                 assert(strv_length(pin) == 1);

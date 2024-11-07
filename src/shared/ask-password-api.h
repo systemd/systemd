@@ -28,11 +28,12 @@ typedef struct AskPasswordRequest {
         const char *credential;      /* $CREDENTIALS_DIRECTORY credential name */
         const char *flag_file;       /* Once this flag file disappears abort the query */
         int tty_fd;                  /* If querying on a TTY, the TTY to query on (or -EBADF) */
+        usec_t until;                /* CLOCK_MONOTONIC time until which to show the prompt */
 } AskPasswordRequest;
 
-int ask_password_tty(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, char ***ret);
-int ask_password_plymouth(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, char ***ret);
-int ask_password_agent(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
-int ask_password_auto(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
+int ask_password_tty(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+int ask_password_plymouth(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+int ask_password_agent(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
+int ask_password_auto(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
 
 int acquire_user_ask_password_directory(char **ret);

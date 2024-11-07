@@ -12,9 +12,10 @@ TEST(ask_password) {
                 .tty_fd = -EBADF,
                 .message = "hello?",
                 .keyring = "da key",
+                .until = USEC_INFINITY,
         };
 
-        r = ask_password_tty(&req, /* until= */ 0, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, &ret);
+        r = ask_password_tty(&req, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, &ret);
         if (r == -ECANCELED)
                 ASSERT_NULL(ret);
         else {

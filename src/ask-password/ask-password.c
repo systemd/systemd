@@ -258,9 +258,10 @@ static int run(int argc, char *argv[]) {
                 .id = arg_id,
                 .keyring = arg_key_name,
                 .credential = arg_credential_name ?: "password",
+                .until = timeout,
         };
 
-        r = ask_password_auto(&req, timeout, arg_flags, &l);
+        r = ask_password_auto(&req, arg_flags, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
