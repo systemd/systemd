@@ -61,6 +61,7 @@ int load_volume_key_password(
                         .id = id,
                         .keyring = "cryptenroll",
                         .credential = "cryptenroll.passphrase",
+                        .until = USEC_INFINITY,
                 };
 
                 for (;;) {
@@ -70,7 +71,7 @@ int load_volume_key_password(
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
                                                        "Too many attempts, giving up.");
 
-                        r = ask_password_auto(&req, USEC_INFINITY, ask_password_flags, &passwords);
+                        r = ask_password_auto(&req, ask_password_flags, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -136,6 +137,7 @@ int enroll_password(
                         .id = id,
                         .keyring = "cryptenroll",
                         .credential = "cryptenroll.new-passphrase",
+                        .until = USEC_INFINITY,
                 };
 
                 for (;;) {
@@ -152,7 +154,7 @@ int enroll_password(
 
                         req.message = question;
 
-                        r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &passwords);
+                        r = ask_password_auto(&req, /* flags= */ 0, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -165,7 +167,7 @@ int enroll_password(
 
                         req.message = question;
 
-                        r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &passwords2);
+                        r = ask_password_auto(&req, /* flags= */ 0, &passwords2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query password: %m");
 
