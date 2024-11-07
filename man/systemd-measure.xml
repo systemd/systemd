@@ -104,6 +104,16 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>pcrpkey</command></term>
+
+        <listitem><para>This commands prints the public key either given with <option>--public-key=</option>,
+        or extracted from the certificate given with <option>--certificate=</option> or the private key given
+        with <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -188,14 +198,20 @@
 
       <varlistentry>
         <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
-        <term><option>--private-key-source=<replaceable>TYPE[:NAME]</replaceable></option></term>
-        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
 
         <listitem><para>As an alternative to <option>--public-key=</option> for the
         <command>sign</command> command, these switches can be used to sign with an hardware token. The
         private key option can take a path or a URI that will be passed to the OpenSSL engine or
         provider, as specified by <option>--private-key-source=</option> as a type:name tuple, such as
         engine:pkcs11. The specified OpenSSL signing engine or provider will be used to sign.</para>
+
+        <para>The <option>--certificate=</option> option also takes a path or a URI that will be passed to
+        the OpenSSL provider, as specified by <option>--certificate-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>provider:pkcs11</literal>. Note that unlike
+        <option>--private-key-source=</option> this option only supports providers and not engines.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
