@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-06 12:46+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -128,16 +128,13 @@ msgstr ""
 "utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Mettre à jour un espace personnel"
+msgstr "Mettre à jour votre espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
 msgstr ""
-"Une authentification est requise pour mettre à jour l'espace personnel d'un "
-"utilisateur."
+"Une authentification est requise pour mettre à jour votre espace personnel."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1261,14 +1258,12 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Gérer les fonctionnalités en option"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
 msgstr ""
-"Une authentification est requise pour gérer les sessions actives, les "
-"utilisateurs et les postes (seats)."
+"Une authentification est requise pour gérer les fonctionnalités en option."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
