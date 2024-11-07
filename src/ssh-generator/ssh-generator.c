@@ -246,7 +246,7 @@ static int add_vsock_socket(
                 return r;
 
         log_info("Binding SSH to AF_VSOCK vsock::22.\n"
-                 "→ connect via 'ssh vsock/%u' from host", local_cid);
+                 "Connect via 'ssh vsock/%u' from host", local_cid);
         return 0;
 }
 
@@ -281,7 +281,7 @@ static int add_local_unix_socket(
                 return r;
 
         log_info("Binding SSH to AF_UNIX socket /run/ssh-unix-local/socket.\n"
-                 "→ connect via 'ssh .host' locally");
+                 "Connect via 'ssh .host' locally");
         return 0;
 }
 
@@ -336,8 +336,8 @@ static int add_export_unix_socket(
         if (r < 0)
                 return r;
 
-        log_info("Binding SSH to AF_UNIX socket /run/host/unix-export/ssh\n"
-                 "→ connect via 'ssh unix/run/systemd/nspawn/unix-export/\?\?\?/ssh' from host");
+        log_info("Binding SSH to AF_UNIX socket /run/host/unix-export/ssh.\n"
+                 "Connect via 'ssh unix/run/systemd/nspawn/unix-export/\?\?\?/ssh' from host");
 
         return 0;
 }
