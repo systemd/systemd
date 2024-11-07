@@ -1165,6 +1165,17 @@ int ask_password_auto(
 
         assert(ret);
 
+        /* Returns the following well-known errors:
+         *
+         *      -ETIME → a timeout was specified and hit
+         *    -EUNATCH → no couldn't ask interactively and no cached password available either
+         *     -ENOENT → the specified flag file disappeared
+         *  -ECANCELED → the user explicitly cancelled the request
+         *      -EINTR → SIGINT/SIGTERM where received during the query
+         *    -ENOEXEC → headless mode was requested but no password could be acquired non-interactively
+         * -ECONNRESET → a POLLHUP has been seen on the specified hup_fd
+         */
+
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_CREDENTIAL) && req && req->credential) {
                 r = ask_password_credential(req, flags, ret);
                 if (r != -ENOKEY)
