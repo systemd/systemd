@@ -96,6 +96,8 @@ sd_varlink* sd_varlink_ref(sd_varlink *link);
 sd_varlink* sd_varlink_unref(sd_varlink *v);
 
 int sd_varlink_get_fd(sd_varlink *v);
+int sd_varlink_get_input_fd(sd_varlink *v);
+int sd_varlink_get_output_fd(sd_varlink *v);
 int sd_varlink_get_events(sd_varlink *v);
 int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret);
 

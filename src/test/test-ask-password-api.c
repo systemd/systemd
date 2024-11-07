@@ -9,11 +9,14 @@ TEST(ask_password) {
         int r;
 
         static const AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = "hello?",
                 .keyring = "da key",
+                .until = USEC_INFINITY,
+                .hup_fd = -EBADF,
         };
 
-        r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, /* flag_file= */ NULL, &ret);
+        r = ask_password_tty(&req, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, &ret);
         if (r == -ECANCELED)
                 ASSERT_NULL(ret);
         else {
