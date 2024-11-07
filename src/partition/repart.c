@@ -154,6 +154,8 @@ static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static char *arg_certificate = NULL;
+static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
+static char *arg_certificate_source = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
 static char *arg_tpm2_device_key = NULL;
@@ -186,6 +188,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
@@ -7808,8 +7811,14 @@ static int help(void) {
                "                          Specify how to use KEY for --private-key=. Allows\n"
                "                          an OpenSSL engine/provider to be used when generating\n"
                "                          verity roothash signatures\n"
-               "     --certificate=PATH   PEM certificate to use when generating verity\n"
-               "                          roothash signatures\n"
+               "     --certificate=PATH|URI\n"
+               "                          PEM certificate to use when generating verity roothash\n"
+               "                          signatures, or a provider specific designation if\n"
+               "                           --certificate-source= is used\n"
+               "     --certificate-source=file|provider:PROVIDER\n"
+               "                          Specify how to interpret the certificate from\n"
+               "                          --certificate=. Allows the certificate to be loaded\n"
+               "                          from an OpenSSL provider\n"
                "\n%3$sEncryption:%4$s\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
@@ -7878,6 +7887,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
                 ARG_CERTIFICATE,
+                ARG_CERTIFICATE_SOURCE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_DEVICE_KEY,
                 ARG_TPM2_SEAL_KEY_HANDLE,
@@ -7922,6 +7932,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                 { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
                 { "private-key-source",   required_argument, NULL, ARG_PRIVATE_KEY_SOURCE   },
                 { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
+                { "certificate-source",   required_argument, NULL, ARG_CERTIFICATE_SOURCE   },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-device-key",      required_argument, NULL, ARG_TPM2_DEVICE_KEY      },
                 { "tpm2-seal-key-handle", required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE },
@@ -8130,12 +8141,20 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                                 return r;
                         break;
 
-                case ARG_CERTIFICATE: {
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_certificate);
+                case ARG_CERTIFICATE:
+                        r = free_and_strdup_warn(&arg_certificate, optarg);
                         if (r < 0)
                                 return r;
                         break;
-                }
+
+                case ARG_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        optarg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
@@ -8468,7 +8487,17 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
         }
 
         if (arg_certificate) {
-                r = openssl_load_x509_certificate(arg_certificate, &certificate);
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
         }
