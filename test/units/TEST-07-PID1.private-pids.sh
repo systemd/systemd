@@ -18,7 +18,7 @@ at_exit() {
     set +e
 
     # Unmount any file systems
-    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
+    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]] && [ -d /proc/scsi ]; then
         umount /proc/scsi
     fi
     umount /tmp/TEST-07-PID1-private-pids-proc
@@ -147,13 +147,13 @@ testcase_unpriv() {
     rm -rf /tmp/TEST-07-PID1-private-pids-proc
 
     # Now verify the behavior with masking - units should fail as PrivatePIDs=yes has no graceful fallback.
-    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
+    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]] && [ -d /proc/scsi ]; then
         mount -t tmpfs tmpfs /proc/scsi
     fi
 
     (! runas testuser systemd-run --wait --user --pipe -p PrivatePIDs=yes true)
 
-    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
+    if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]] && [ -d /proc/scsi ]; then
         umount /proc/scsi
     fi
 }
