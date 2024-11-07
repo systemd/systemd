@@ -1127,11 +1127,11 @@ static int link_drop_dynamic_config(Link *link, Network *network) {
          * previously DHCP=yes and now DHCP=no, but keep DHCP lease when DHCP setting is unchanged. */
 
         r = link_drop_ndisc_config(link, network);
-        RET_GATHER(r, link_drop_radv_config(link, network));
+        RET_GATHER(r, link_drop_radv_config(link, network)); /* Stop before dropping DHCP-PD prefixes. */
+        RET_GATHER(r, link_drop_ipv4ll_config(link, network)); /* Stop before DHCPv4 client. */
         RET_GATHER(r, link_drop_dhcp4_config(link, network));
         RET_GATHER(r, link_drop_dhcp6_config(link, network));
         RET_GATHER(r, link_drop_dhcp_pd_config(link, network));
-        RET_GATHER(r, link_drop_ipv4ll_config(link, network));
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx); /* TODO: keep the received neighbors. */
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
