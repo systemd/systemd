@@ -863,6 +863,7 @@ int fido2_generate_hmac_hash(
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         };
 
                         r = ask_password_auto(&req, /* flags= */ 0, &pin);

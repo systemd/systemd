@@ -259,6 +259,7 @@ static int run(int argc, char *argv[]) {
                 .keyring = arg_key_name,
                 .credential = arg_credential_name ?: "password",
                 .until = timeout,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_auto(&req, arg_flags, &l);

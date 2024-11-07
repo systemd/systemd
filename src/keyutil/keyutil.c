@@ -187,6 +187,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
                                 .keyring = arg_private_key,
                                 .credential = "keyutil.private-key-pin",
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         },
                         &private_key,
                         &ui);
@@ -245,6 +246,7 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                                         .keyring = arg_private_key,
                                         .credential = "keyutil.private-key-pin",
                                         .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
                                 },
                                 &private_key,
                                 &ui);

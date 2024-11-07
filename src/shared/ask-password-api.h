@@ -28,6 +28,7 @@ typedef struct AskPasswordRequest {
         const char *credential;      /* $CREDENTIALS_DIRECTORY credential name */
         const char *flag_file;       /* Once this flag file disappears abort the query */
         int tty_fd;                  /* If querying on a TTY, the TTY to query on (or -EBADF) */
+        int hup_fd;                  /* An extra fd to watch for POLLHUP, in which case to abort the query */
         usec_t until;                /* CLOCK_MONOTONIC time until which to show the prompt (if zero: forever) */
 } AskPasswordRequest;
 

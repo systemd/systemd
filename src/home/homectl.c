@@ -269,6 +269,7 @@ static int acquire_existing_password(
                 .keyring = "home-password",
                 .credential = "home.password",
                 .until = USEC_INFINITY,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_auto(&req, flags, &password);
@@ -329,6 +330,7 @@ static int acquire_recovery_key(
                 .keyring = "home-recovery-key",
                 .credential = "home.recovery-key",
                 .until = USEC_INFINITY,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_auto(&req, flags, &recovery_key);
@@ -385,6 +387,7 @@ static int acquire_token_pin(
                 .keyring = "token-pin",
                 .credential = "home.token-pin",
                 .until = USEC_INFINITY,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_auto(&req, flags, &pin);
@@ -1241,6 +1244,7 @@ static int acquire_new_password(
                         .keyring = "home-password",
                         .credential = "home.new-password",
                         .until = USEC_INFINITY,
+                        .hup_fd = -EBADF,
                 };
 
                 r = ask_password_auto(

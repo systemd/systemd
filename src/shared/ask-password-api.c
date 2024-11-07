@@ -355,15 +355,30 @@ int ask_password_plymouth(
 
         enum {
                 POLL_SOCKET,
-                POLL_INOTIFY, /* Must be last, because optional */
+                POLL_TWO,
+                POLL_THREE,
                 _POLL_MAX,
         };
 
         struct pollfd pollfd[_POLL_MAX] = {
-                [POLL_SOCKET]  = { .fd = fd,         .events = POLLIN },
-                [POLL_INOTIFY] = { .fd = inotify_fd, .events = POLLIN },
+                [POLL_SOCKET] = {
+                        .fd = fd,
+                        .events = POLLIN,
+                },
         };
-        size_t n_pollfd = inotify_fd >= 0 ? _POLL_MAX : _POLL_MAX-1;
+        size_t n_pollfd = POLL_SOCKET + 1, inotify_idx = SIZE_MAX, hup_fd_idx = SIZE_MAX;
+        if (inotify_fd >= 0)
+                pollfd[inotify_idx = n_pollfd++] = (struct pollfd) {
+                        .fd = inotify_fd,
+                        .events = POLLIN,
+                };
+        if (req->hup_fd >= 0)
+                pollfd[hup_fd_idx = n_pollfd++] = (struct pollfd) {
+                        .fd = req->hup_fd,
+                        .events = POLLHUP,
+                };
+
+        assert(n_pollfd <= _POLL_MAX);
 
         for (;;) {
                 usec_t timeout;
@@ -384,7 +399,10 @@ int ask_password_plymouth(
                 if (r == 0)
                         return -ETIME;
 
-                if (inotify_fd >= 0 && pollfd[POLL_INOTIFY].revents != 0)
+                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP)
+                        return -ECONNRESET;
+
+                if (inotify_fd >= 0 && pollfd[inotify_idx].revents != 0)
                         (void) flush_fd(inotify_fd);
 
                 if (pollfd[POLL_SOCKET].revents == 0)
@@ -567,15 +585,31 @@ int ask_password_tty(
 
         enum {
                 POLL_TTY,
-                POLL_INOTIFY, /* Must be last, because optional */
+                POLL_TWO,
+                POLL_THREE,
                 _POLL_MAX,
         };
 
         struct pollfd pollfd[_POLL_MAX] = {
-                [POLL_TTY]     = { .fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO, .events = POLLIN },
-                [POLL_INOTIFY] = { .fd = inotify_fd,                        .events = POLLIN },
+                [POLL_TTY]     = {
+                        .fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO,
+                        .events = POLLIN,
+                },
         };
-        size_t n_pollfd = inotify_fd >= 0 ? _POLL_MAX : _POLL_MAX-1;
+        size_t n_pollfd = POLL_TTY + 1, inotify_idx = SIZE_MAX, hup_fd_idx = SIZE_MAX;
+
+        if (inotify_fd >= 0)
+                pollfd[inotify_idx = n_pollfd++] = (struct pollfd) {
+                        .fd = inotify_fd,
+                        .events = POLLIN,
+                };
+        if (req->hup_fd >= 0)
+                pollfd[hup_fd_idx = n_pollfd++] = (struct pollfd) {
+                        .fd = req->hup_fd,
+                        .events = POLLHUP,
+                };
+
+        assert(n_pollfd <= _POLL_MAX);
 
         for (;;) {
                 _cleanup_(erase_char) char c;
@@ -603,7 +637,12 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                if (inotify_fd >= 0 && pollfd[POLL_INOTIFY].revents != 0 && keyring) {
+                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP) {
+                        r = -ECONNRESET;
+                        goto finish;
+                }
+
+                if (inotify_fd >= 0 && pollfd[inotify_idx].revents != 0 && keyring) {
                         (void) flush_fd(inotify_fd);
 
                         r = ask_password_keyring(req, flags, ret);
@@ -924,16 +963,29 @@ int ask_password_agent(
         enum {
                 POLL_SOCKET,
                 POLL_SIGNAL,
-                POLL_INOTIFY, /* Must be last, because optional */
+                POLL_THREE,
+                POLL_FOUR,
                 _POLL_MAX
         };
 
         struct pollfd pollfd[_POLL_MAX] = {
                 [POLL_SOCKET]  = { .fd = socket_fd,  .events = POLLIN },
                 [POLL_SIGNAL]  = { .fd = signal_fd,  .events = POLLIN },
-                [POLL_INOTIFY] = { .fd = inotify_fd, .events = POLLIN },
         };
-        size_t n_pollfd = inotify_fd >= 0 ? _POLL_MAX : _POLL_MAX - 1;
+        size_t n_pollfd = POLL_SIGNAL + 1, inotify_idx = SIZE_MAX, hup_fd_idx = SIZE_MAX;
+
+        if (inotify_fd >= 0)
+                pollfd[inotify_idx = n_pollfd++] = (struct pollfd) {
+                        .fd = inotify_fd,
+                        .events = POLLIN,
+                };
+        if (req->hup_fd >= 0)
+                pollfd[hup_fd_idx = n_pollfd ++] = (struct pollfd) {
+                        .fd = req->hup_fd,
+                        .events = POLLHUP,
+                };
+
+        assert(n_pollfd <= _POLL_MAX);
 
         for (;;) {
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
@@ -963,7 +1015,10 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if (inotify_fd >= 0 && pollfd[POLL_INOTIFY].revents != 0) {
+                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP)
+                        return -ECONNRESET;
+
+                if (inotify_fd >= 0 && pollfd[inotify_idx].revents != 0) {
                         (void) flush_fd(inotify_fd);
 
                         if (req && req->keyring) {
