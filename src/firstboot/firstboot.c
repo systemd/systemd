@@ -738,6 +738,7 @@ static int prompt_root_password(int rfd) {
                         .tty_fd = -EBADF,
                         .message = msg1,
                         .until = USEC_INFINITY,
+                        .hup_fd = -EBADF,
                 };
 
                 r = ask_password_tty(&req, /* flags= */ 0, &a);
