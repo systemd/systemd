@@ -606,7 +606,7 @@
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw'
-      </programlisting>
+</programlisting>
 
       <para>This creates an unsigned UKI <filename>./vmlinuz.unsigned.efi</filename>.</para>
     </example>
@@ -632,7 +632,7 @@
       --secureboot-certificate=sb.cert \
       --sign-kernel \
       --cmdline='quiet rw rhgb'
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed UKI <filename index='false'>./vmlinuz.signed.efi</filename>.
       The initrd section contains two concatenated parts, <filename index='false'>early_cpio</filename>
@@ -676,7 +676,7 @@ Phases=enter-initrd:leave-initrd
 $ ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
-      </programlisting>
+</programlisting>
 
       <para>One "initrd" (<filename index='false'>early_cpio</filename>) is specified in the config file, and
       the other initrd (<filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>) is specified
@@ -694,7 +694,7 @@ $ ukify -c ukify.conf build \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
       --output=debug.addon.efi
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
       <literal>debug</literal> with SBAT metadata referring to the owner of the addon.</para>
@@ -738,7 +738,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
       <programlisting>$ ukify build \
       --profile='TITLE=Base' \
       --output=profile0.efi
-      </programlisting>
+</programlisting>
 
       <para>Add a second profile (@1):</para>
 
@@ -747,7 +747,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
 ID=storagetm' \
       --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
       --output=profile1.efi
-      </programlisting>
+</programlisting>
 
       <para>Add a third profile (@2):</para>
 
@@ -756,7 +756,7 @@ ID=storagetm' \
 ID=factory-reset' \
       --cmdline='quiet rw systemd.unit=factory-reset.target' \
       --output=profile2.efi
-      </programlisting>
+</programlisting>
 
       <para>Then, create a UKI and include all the generated profiles:</para>
 
@@ -768,7 +768,7 @@ ID=factory-reset' \
       --join-profile=profile1.efi \
       --join-profile=profile2.efi \
       --output=base.efi
-      </programlisting>
+</programlisting>
 
       <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
     </example>

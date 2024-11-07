@@ -36,7 +36,7 @@
 #include &lt;systemd/sd-messages.h&gt;
 #include &lt;systemd/sd-path.h&gt;
 #include &lt;systemd/sd-varlink.h&gt;
-    </programlisting>
+</programlisting>
 
     <cmdsynopsis>
       <command>pkg-config --cflags --libs libsystemd</command>
