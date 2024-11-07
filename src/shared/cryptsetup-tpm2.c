@@ -35,6 +35,7 @@ static int get_pin(
                                         "Use the '$PIN' environment variable.");
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = "Please enter TPM2 PIN:",
                         .icon = "drive-harddisk",
                         .keyring = "tpm2-pin",
