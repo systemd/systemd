@@ -8489,6 +8489,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                                         .id = "repart-private-key-pin",
                                         .keyring = arg_private_key,
                                         .credential = "repart.private-key-pin",
+                                        .until = USEC_INFINITY,
                                 },
                                 &private_key,
                                 &ui);
