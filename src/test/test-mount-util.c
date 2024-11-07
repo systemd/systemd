@@ -538,9 +538,44 @@ TEST(bind_mount_submounts) {
 }
 
 TEST(path_is_network_fs_harder) {
-        ASSERT_OK_ZERO(path_is_network_fs_harder("/dev"));
-        ASSERT_OK_ZERO(path_is_network_fs_harder("/sys"));
-        ASSERT_OK_ZERO(path_is_network_fs_harder("/run"));
+        int r;
+
+        ASSERT_OK(path_is_network_fs_harder("/"));
+        ASSERT_OK(path_is_network_fs_harder("/dev"));
+        ASSERT_OK(path_is_network_fs_harder("/sys"));
+        ASSERT_OK(path_is_network_fs_harder("/run"));
+        ASSERT_ERROR(path_is_network_fs_harder(NULL), EINVAL);
+        ASSERT_ERROR(path_is_network_fs_harder(""), EINVAL);
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
+                return;
+        }
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        assert_se(mkdtemp_malloc("/tmp/test-mount-util.path_is_network_fs_harder.XXXXXXX", &t) >= 0);
+
+        r = safe_fork("(make_mount-point)",
+                      FORK_RESET_SIGNALS |
+                      FORK_CLOSE_ALL_FDS |
+                      FORK_DEATHSIG_SIGTERM |
+                      FORK_WAIT |
+                      FORK_REOPEN_LOG |
+                      FORK_LOG |
+                      FORK_NEW_MOUNTNS |
+                      FORK_MOUNTNS_SLAVE,
+                      NULL);
+        ASSERT_OK(r);
+
+        if (r == 0) {
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK_ZERO(path_is_network_fs_harder(t));
+                ASSERT_OK_ERRNO(umount(t));
+
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, "x-systemd-growfs,x-systemd-automount"));
+                ASSERT_OK_ZERO(path_is_network_fs_harder(t));
+                ASSERT_OK_ERRNO(umount(t));
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
