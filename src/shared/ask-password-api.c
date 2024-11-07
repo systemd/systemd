@@ -311,7 +311,6 @@ int ask_password_plymouth(
                 const AskPasswordRequest *req,
                 usec_t until,
                 AskPasswordFlags flags,
-                const char *flag_file,
                 char ***ret) {
 
         _cleanup_close_ int fd = -EBADF, inotify_fd = -EBADF;
@@ -328,12 +327,12 @@ int ask_password_plymouth(
 
         const char *message = req && req->message ? req->message : "Password:";
 
-        if (flag_file) {
+        if (req->flag_file) {
                 inotify_fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
                 if (inotify_fd < 0)
                         return -errno;
 
-                if (inotify_add_watch(inotify_fd, flag_file, IN_ATTRIB) < 0) /* for the link count */
+                if (inotify_add_watch(inotify_fd, req->flag_file, IN_ATTRIB) < 0) /* for the link count */
                         return -errno;
         }
 
@@ -375,7 +374,7 @@ int ask_password_plymouth(
                 else
                         timeout = USEC_INFINITY;
 
-                if (flag_file && access(flag_file, F_OK) < 0)
+                if (req->flag_file && access(req->flag_file, F_OK) < 0)
                         return -errno;
 
                 r = ppoll_usec(pollfd, n_pollfd, timeout);
@@ -468,7 +467,6 @@ int ask_password_tty(
                 const AskPasswordRequest *req,
                 usec_t until,
                 AskPasswordFlags flags,
-                const char *flag_file,
                 char ***ret) {
 
         bool reset_tty = false, dirty = false, use_color = false, press_tab_visible = false;
@@ -493,15 +491,14 @@ int ask_password_tty(
         if (!FLAGS_SET(flags, ASK_PASSWORD_HIDE_EMOJI) && emoji_enabled())
                 message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
 
-        if (flag_file || (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && keyring)) {
+        if (req->flag_file || (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && keyring)) {
                 inotify_fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
                 if (inotify_fd < 0)
                         return -errno;
         }
-        if (flag_file) {
-                if (inotify_add_watch(inotify_fd, flag_file, IN_ATTRIB /* for the link count */) < 0)
+        if (req->flag_file)
+                if (inotify_add_watch(inotify_fd, req->flag_file, IN_ATTRIB /* for the link count */) < 0)
                         return -errno;
-        }
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && req && keyring) {
                 r = ask_password_keyring(req, flags, ret);
                 if (r >= 0)
@@ -590,8 +587,8 @@ int ask_password_tty(
                 else
                         timeout = USEC_INFINITY;
 
-                if (flag_file) {
-                        r = RET_NERRNO(access(flag_file, F_OK));
+                if (req->flag_file) {
+                        r = RET_NERRNO(access(req->flag_file, F_OK));
                         if (r < 0)
                                 goto finish;
                 }
@@ -819,6 +816,10 @@ int ask_password_agent(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
                 return -EUNATCH;
+
+        /* We don't support the flag file concept for now when querying via the agent logic */
+        if (req->flag_file)
+                return -EOPNOTSUPP;
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
@@ -1127,7 +1128,7 @@ int ask_password_auto(
         }
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_TTY) && isatty_safe(STDIN_FILENO))
-                return ask_password_tty(-EBADF, req, until, flags, NULL, ret);
+                return ask_password_tty(-EBADF, req, until, flags, ret);
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
                 return ask_password_agent(req, until, flags, ret);
