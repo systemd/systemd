@@ -913,6 +913,7 @@ static int get_password(
                 .keyring = "cryptsetup",
                 .credential = "cryptsetup.passphrase",
                 .until = until,
+                .hup_fd = -EBADF,
         };
 
         if (ignore_cached)
@@ -1430,6 +1431,7 @@ static int crypt_activate_by_token_pin_ask_password(
                         .keyring = keyring,
                         .credential = credential,
                         .until = until,
+                        .hup_fd = -EBADF,
                 };
 
                 r = ask_password_auto(&req, flags, &pins);
