@@ -148,6 +148,7 @@ testcase_unpriv() {
 
     # Now verify the behavior with masking - units should fail as PrivatePIDs=yes has no graceful fallback.
     if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
+        mkdir -p /proc/scsi
         mount -t tmpfs tmpfs /proc/scsi
     fi
 
