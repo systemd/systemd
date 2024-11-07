@@ -8485,6 +8485,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                                 arg_private_key_source,
                                 arg_private_key,
                                 &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
                                         .id = "repart-private-key-pin",
                                         .keyring = arg_private_key,
                                         .credential = "repart.private-key-pin",
