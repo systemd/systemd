@@ -15,14 +15,12 @@
  */
 
 #if SD_BOOT
-#  include "efi-string.h"
 #  include "util.h"
 #else
 #  include <byteswap.h>
 #  include <string.h>
-#  include <uchar.h>
 #  include <utf8.h>
-#define strsize16(str) ((char16_strlen(str) + 1) * sizeof(char16_t))
+#define strlen16 char16_strlen
 #endif
 
 #include "chid-fundamental.h"
@@ -44,7 +42,7 @@ static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIE
                 if ((mask >> i) & 1) {
                         if (i > 0)
                                 sha1_process_bytes(L"&", 2, &ctx);
-                        sha1_process_bytes(smbios_fields[i], strsize16(smbios_fields[i]), &ctx);
+                        sha1_process_bytes(smbios_fields[i], strlen16(smbios_fields[i]) * sizeof(char16_t), &ctx);
                 }
 
         uint8_t hash[SHA1_DIGEST_SIZE];
@@ -112,7 +110,8 @@ static const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
 void chid_calculate(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIELDS_MAX], EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
         assert(smbios_fields);
         assert(ret_chids);
-        for (size_t i = 0; i < _CHID_SMBIOS_FIELDS_MAX; i++)
+
+        for (size_t i = 0; i < CHID_TYPES_MAX; i++)
                 if (chid_smbios_table[i] != 0)
                         get_chid(smbios_fields, chid_smbios_table[i], &ret_chids[i]);
                 else
