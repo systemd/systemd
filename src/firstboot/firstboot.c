@@ -738,7 +738,7 @@ static int prompt_root_password(int rfd) {
                         .message = msg1,
                 };
 
-                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &a);
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(a) != 1)
@@ -760,7 +760,7 @@ static int prompt_root_password(int rfd) {
 
                 req.message = msg2;
 
-                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &b);
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(b) != 1)
