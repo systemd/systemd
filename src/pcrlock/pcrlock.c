@@ -4549,6 +4549,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         _cleanup_(strv_free_erasep) char **l = NULL;
 
                         AskPasswordRequest req = {
+                                .tty_fd = -EBADF,
                                 .message = "Recovery PIN",
                                 .id = "pcrlock-recovery-pin",
                                 .credential = "pcrlock.recovery-pin",
