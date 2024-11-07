@@ -67,7 +67,7 @@ SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 "$SD_PCRLOCK" predict --pcr="0x1+0x3+4"
 "$SD_PCRLOCK" predict --json=pretty --pcr="$PCRS"
 
-SD_STUB="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+SD_STUB="$(find /usr/lib/systemd/boot/ -name "systemd-boot*.efi" | head -n1)"
 if [[ -n "$SD_STUB" ]]; then
     "$SD_PCRLOCK" lock-pe "$SD_STUB"
     "$SD_PCRLOCK" lock-pe <"$SD_STUB"

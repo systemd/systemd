@@ -12,7 +12,7 @@ if ! command -v /usr/lib/systemd/systemd-sbsign >/dev/null; then
     exit 0
 fi
 
-if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
+if [[ ! -d /usr/lib/systemd/boot ]]; then
     echo "systemd-boot is not installed, skipping."
     exit 0
 fi
@@ -42,7 +42,7 @@ testcase_sign_systemd_boot() {
         exit 0
     fi
 
-    SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+    SD_BOOT="$(find /usr/lib/systemd/boot/ -name "systemd-boot*.efi" | head -n1)"
 
     (! sbverify --cert /tmp/sb.crt "$SD_BOOT")
     /usr/lib/systemd/systemd-sbsign sign --certificate /tmp/sb.crt --private-key /tmp/sb.key --output /tmp/sdboot "$SD_BOOT"

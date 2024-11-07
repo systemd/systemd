@@ -651,7 +651,7 @@
 
     <para>
       <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
-      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+      -kernel /usr/lib/systemd/boot/systemd-bootx64.efi</command>
     </para>
 
     <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will

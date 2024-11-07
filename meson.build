@@ -172,7 +172,7 @@ catalogdir = prefixdir / 'lib/systemd/catalog'
 kerneldir = prefixdir / 'lib/kernel'
 kernelinstalldir = kerneldir / 'install.d'
 factorydir = datadir / 'factory'
-bootlibdir = prefixdir / 'lib/systemd/boot/efi'
+bootlibdir = prefixdir / 'lib/systemd/boot'
 testsdir = prefixdir / 'lib/systemd/tests'
 unittestsdir = testsdir / 'unit-tests'
 testdata_dir = testsdir / 'testdata'
@@ -2344,8 +2344,9 @@ subdir('src/ask-password')
 subdir('src/backlight')
 subdir('src/battery-check')
 subdir('src/binfmt')
+subdir('src/bless')
 subdir('src/boot')
-subdir('src/boot/efi')
+subdir('src/bootctl')
 subdir('src/busctl')
 subdir('src/cgls')
 subdir('src/cgroups-agent')
@@ -2380,6 +2381,7 @@ subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
+subdir('src/measure')
 subdir('src/mountfsd')
 subdir('src/modules-load')
 subdir('src/mount')
@@ -2408,6 +2410,7 @@ subdir('src/rfkill')
 subdir('src/rpm')
 subdir('src/run')
 subdir('src/run-generator')
+subdir('src/sbsign')
 subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
