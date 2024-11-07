@@ -512,7 +512,7 @@ $ systemd-vmspawn --image=image.raw
     </example>
 
     <example>
-      <title>Import and run a Fedora 39 Cloud image using machinectl</title>
+      <title>Import and run a Fedora &fedora_latest_version; Cloud image using machinectl</title>
 
       <programlisting>
 $ curl -L \
