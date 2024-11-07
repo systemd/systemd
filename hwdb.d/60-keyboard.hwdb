@@ -1149,6 +1149,11 @@ evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IG
 evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
 
+# Lenovo Thinkbook 16 G6+ 2024
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
+ KEYBOARD_KEY_0a=!9
+ KEYBOARD_KEY_0b=!0
+
 ###########################################################
 # LG
 ###########################################################
