@@ -989,6 +989,7 @@ int verb_install(int argc, char *argv[], void *userdata) {
                                         .keyring = arg_private_key,
                                         .credential = "bootctl.private-key-pin",
                                         .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
                                 },
                                 &private_key,
                                 &ui);

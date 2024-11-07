@@ -62,6 +62,7 @@ int load_volume_key_password(
                         .keyring = "cryptenroll",
                         .credential = "cryptenroll.passphrase",
                         .until = USEC_INFINITY,
+                        .hup_fd = -EBADF,
                 };
 
                 for (;;) {
@@ -138,6 +139,7 @@ int enroll_password(
                         .keyring = "cryptenroll",
                         .credential = "cryptenroll.new-passphrase",
                         .until = USEC_INFINITY,
+                        .hup_fd = -EBADF,
                 };
 
                 for (;;) {

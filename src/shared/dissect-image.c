@@ -3083,6 +3083,7 @@ int dissected_image_decrypt_interactively(
                         .keyring = "dissect",
                         .credential = "dissect.passphrase",
                         .until = USEC_INFINITY,
+                        .hup_fd = -EBADF,
                 };
 
                 r = ask_password_auto(&req, /* flags= */ 0, &z);

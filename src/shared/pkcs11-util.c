@@ -387,6 +387,7 @@ int pkcs11_token_login(
                                 .keyring = askpw_keyring,
                                 .credential = askpw_credential,
                                 .until = until,
+                                .hup_fd = -EBADF,
                         };
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
