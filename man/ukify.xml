@@ -569,7 +569,7 @@
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw'
-      </programlisting>
+</programlisting>
 
       <para>This creates an unsigned UKI <filename>./vmlinuz.unsigned.efi</filename>.</para>
     </example>
@@ -595,7 +595,7 @@
       --secureboot-certificate=sb.cert \
       --sign-kernel \
       --cmdline='quiet rw rhgb'
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed UKI <filename index='false'>./vmlinuz.signed.efi</filename>.
       The initrd section contains two concatenated parts, <filename index='false'>early_cpio</filename>
@@ -639,7 +639,7 @@ Phases=enter-initrd:leave-initrd
 $ ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
-      </programlisting>
+</programlisting>
 
       <para>One "initrd" (<filename index='false'>early_cpio</filename>) is specified in the config file, and
       the other initrd (<filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>) is specified
@@ -657,7 +657,7 @@ $ ukify -c ukify.conf build \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
       --output=debug.addon.efi
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
       <literal>debug</literal> with SBAT metadata referring to the owner of the addon.</para>

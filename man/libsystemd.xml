@@ -36,7 +36,7 @@
 #include &lt;systemd/sd-login.h&gt;
 #include &lt;systemd/sd-messages.h&gt;
 #include &lt;systemd/sd-path.h&gt;
-    </programlisting>
+</programlisting>
 
     <cmdsynopsis>
       <command>pkg-config --cflags --libs libsystemd</command>

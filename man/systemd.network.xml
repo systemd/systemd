@@ -6333,31 +6333,31 @@ Tunnel=ipip-tun
 Tunnel=sit-tun
 Tunnel=gre-tun
 Tunnel=vti-tun
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-ipip.netdev
 [NetDev]
 Name=ipip-tun
 Kind=ipip
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-sit.netdev
 [NetDev]
 Name=sit-tun
 Kind=sit
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-gre.netdev
 [NetDev]
 Name=gre-tun
 Kind=gre
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-vti.netdev
 [NetDev]
 Name=vti-tun
 Kind=vti
-      </programlisting>
+</programlisting>
 
       <para>This will bring interface <literal>ens1</literal> up and create an IPIP tunnel,
       a SIT tunnel, a GRE tunnel, and a VTI tunnel using it.</para>

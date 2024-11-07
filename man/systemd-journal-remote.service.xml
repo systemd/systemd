@@ -343,7 +343,7 @@
     <para>Copy local journal events to a different journal directory:
     <programlisting>
 journalctl -o export | systemd-journal-remote -o /tmp/dir/foo.journal -
-    </programlisting>
+</programlisting>
     </para>
 
     <para>Retrieve all available events from a remote
@@ -352,7 +352,7 @@ journalctl -o export | systemd-journal-remote -o /tmp/dir/foo.journal -
     <filename>/var/log/journal/remote/remote-some.host.journal</filename>:
     <programlisting>
 systemd-journal-remote --url http://some.host:19531/
-    </programlisting>
+</programlisting>
     </para>
 
     <para>Retrieve current boot events and wait for new events from a remote
@@ -361,7 +361,7 @@ systemd-journal-remote --url http://some.host:19531/
     <filename>/var/log/journal/remote/remote-some.host.journal</filename>:
     <programlisting>
 systemd-journal-remote --url http://some.host:19531/entries?boot&amp;follow
-    </programlisting>
+</programlisting>
     </para>
 </refsect1>
 

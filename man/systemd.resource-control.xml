@@ -105,7 +105,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
                /      \
        b1.service   b2.service
                     CPUWeight=1000
-        </programlisting>
+</programlisting>
 
         <para>In this hierarchy, the <option>cpu</option> controller is enabled for all units shown except
         <filename>b1.service</filename> and <filename>b2.service</filename>. Because there is no explicit

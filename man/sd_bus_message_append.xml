@@ -194,12 +194,12 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
      <para>Append a structure composed of a string and a D-Bus path:</para>
 
      <programlisting>sd_bus_message_append(m, "(so)", "a string", "/a/path");
-    </programlisting>
+</programlisting>
 
      <para>Append an array of UNIX file descriptors:</para>
 
      <programlisting>sd_bus_message_append(m, "ah", 3, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-    </programlisting>
+</programlisting>
 
      <para>Append a variant, with the real type "g" (signature),
      and value "sdbusisgood":</para>
@@ -210,7 +210,7 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
      </para>
 
      <programlisting>sd_bus_message_append(m, "a{is}", 3, 1, "a", 2, "b", 3, NULL);
-     </programlisting>
+</programlisting>
   </refsect1>
 
   <refsect1>
