@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-08-24 10:36+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -122,15 +122,13 @@ msgstr ""
 "użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Aktualizacja przestrzeni domowej"
+msgstr "Aktualizacja przestrzeni domowej tego użytkownika"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową "
+"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową tego "
 "użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:63
@@ -1212,14 +1210,11 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Zarządzanie funkcjami opcjonalnymi"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zarządzać aktywnymi sesjami, "
-"użytkownikami i stanowiskami."
+msgstr "Wymagane jest uwierzytelnienie, aby zarządzać funkcjami opcjonalnymi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
