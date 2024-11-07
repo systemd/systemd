@@ -526,8 +526,8 @@ static void client_context_really_refresh(
         client_context_read_basic(c);
         (void) client_context_read_label(c, label, label_size);
 
-        (void) audit_session_from_pid(c->pid, &c->auditid);
-        (void) audit_loginuid_from_pid(c->pid, &c->loginuid);
+        (void) audit_session_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->auditid);
+        (void) audit_loginuid_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->loginuid);
 
         (void) client_context_read_cgroup(s, c, unit_id);
         (void) client_context_read_invocation_id(s, c);
