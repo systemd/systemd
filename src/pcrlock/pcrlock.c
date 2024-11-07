@@ -4554,6 +4554,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                 .id = "pcrlock-recovery-pin",
                                 .credential = "pcrlock.recovery-pin",
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         };
 
                         r = ask_password_auto(

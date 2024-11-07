@@ -125,6 +125,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 .keyring = "tpm2-pin",
                                 .credential = "cryptenroll.new-tpm2-pin",
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         };
 
                         pin = strv_free_erase(pin);

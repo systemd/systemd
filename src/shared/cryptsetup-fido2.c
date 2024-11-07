@@ -119,6 +119,7 @@ int acquire_fido2_key(
                         .keyring = "fido2-pin",
                         .credential = "cryptsetup.fido2-pin",
                         .until = until,
+                        .hup_fd = -EBADF,
                 };
 
                 pins = strv_free_erase(pins);

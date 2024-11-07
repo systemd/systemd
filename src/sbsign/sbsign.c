@@ -217,6 +217,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 .keyring = arg_private_key,
                                 .credential = "sbsign.private-key-pin",
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         },
                         &private_key,
                         &ui);
@@ -544,6 +545,7 @@ static int verb_validate_key(int argc, char *argv[], void *userdata) {
                                 .keyring = arg_private_key,
                                 .credential = "sbsign.private-key-pin",
                                 .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         },
                         &private_key,
                         &ui);
