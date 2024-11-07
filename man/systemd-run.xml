@@ -647,7 +647,7 @@ There is a screen on:
 
       <programlisting>$ systemd-run -t echo "&lt;${INVOCATION_ID}>" '&lt;${INVOCATION_ID}>'
       &lt;> &lt;5d0149bfa2c34b79bccb13074001eb20>
-      </programlisting>
+</programlisting>
 
       <para>The first argument is expanded by the shell (double quotes), but the second one is not expanded
       by the shell (single quotes).
@@ -673,7 +673,7 @@ There is a screen on:
       <programlisting>$ systemd-run --expand-environment=no -t bash \
       -c 'echo $SHELL $$ >/dev/stdout'
 /bin/bash 12345
-      </programlisting>
+</programlisting>
 
       <para>The last argument is passed verbatim to the
       <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>

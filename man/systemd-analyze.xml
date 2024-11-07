@@ -271,7 +271,7 @@ multi-user.target reached after 47.820s in userspace
             23ms sysroot.mount
             11ms initrd-udevadm-cleanup-db.service
              3ms sys-kernel-config.mount
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
 
@@ -670,7 +670,7 @@ NAutoVTs=8
 
 # /etc/systemd/logind.conf.d/50-override.conf
 ... some administrator override
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
 
@@ -716,7 +716,7 @@ $ systemd-analyze compare-versions 1 lt 2; echo $?
 0
 $ systemd-analyze compare-versions 1 ge 2; echo $?
 1
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
 
@@ -768,7 +768,7 @@ Error: org.freedesktop.systemd1.LoadFailed:
    No such file or directory.
 Failed to create user.slice/start: Invalid argument
 user.slice: man nosuchfile(1) command failed with code 16
-        </programlisting>
+</programlisting>
       </example>
 
       <example>
@@ -787,7 +787,7 @@ Accept=yes
 $ systemd-analyze verify ./a.socket ./b.socket
 Service a.service not loaded, a.socket cannot be started.
 Service b@0.service not loaded, b.socket cannot be started.
-        </programlisting>
+</programlisting>
       </example>
 
       <example>
@@ -807,7 +807,7 @@ Failed to prepare filename /tmp/source: Invalid argument
 
 $ systemd-analyze verify /tmp/source:alias.service
 alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
-        </programlisting>
+</programlisting>
       </example>
 
     </refsect2>
@@ -886,7 +886,7 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
                 "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
         }
 }
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
 
@@ -1762,7 +1762,7 @@ io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
     "range": 1
     }
 }
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
