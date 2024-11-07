@@ -104,6 +104,16 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>pcrpkey</command></term>
+
+        <listitem><para>This commands writes the public key to stdout extracted from either the public key
+        given with <option>--public-key=</option>, the certificate given with <option>--certificate=</option>
+        or the private key given with <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

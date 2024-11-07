@@ -77,6 +77,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  status                 Show current PCR values\n"
                "  calculate              Calculate expected PCR values\n"
                "  sign                   Calculate and sign expected PCR values\n"
+               "  pcrpkey                Calculate the PCR public key\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
@@ -1173,12 +1174,100 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_pcrpkey(int argc, char *argv[], void *userdata) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
+        int r;
+
+        if (arg_public_key) {
+                _cleanup_fclose_ FILE *public_keyf = NULL;
+
+                public_keyf = fopen(arg_public_key, "re");
+                if (!public_keyf)
+                        return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
+
+                public_key = PEM_read_PUBKEY(public_keyf, NULL, NULL, NULL);
+                if (!public_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+
+        } else if (arg_certificate) {
+                _cleanup_(X509_freep) X509 *certificate = NULL;
+
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+                public_key = X509_get_pubkey(certificate);
+                if (!public_key)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EIO),
+                                        "Failed to extract public key from certificate %s.",
+                                        arg_certificate);
+
+        } else if (arg_private_key) {
+                _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                }
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .id = "measure-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "measure.private-key-pin",
+                                },
+                                &private_key,
+                                &ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+
+                _cleanup_(memstream_done) MemStream m = {};
+                FILE *tf = memstream_init(&m);
+                if (!tf)
+                        return log_oom();
+
+                if (i2d_PUBKEY_fp(tf, private_key) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
+
+                fflush(tf);
+                rewind(tf);
+
+                if (!d2i_PUBKEY_fp(tf, &public_key))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --public-key=, --certificate= or --private-key= must be specified");
+
+        if (PEM_write_PUBKEY(stdout, public_key) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key to stdout");
+
+        return 0;
+}
+
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",      VERB_ANY, VERB_ANY, 0,            help           },
                 { "status",    VERB_ANY, 1,        VERB_DEFAULT, verb_status    },
                 { "calculate", VERB_ANY, 1,        0,            verb_calculate },
                 { "sign",      VERB_ANY, 1,        0,            verb_sign      },
+                { "pcrpkey",   VERB_ANY, 1,        0,            verb_pcrpkey   },
                 {}
         };
 
