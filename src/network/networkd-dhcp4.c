@@ -247,7 +247,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP4)
                         continue;
-                if (route->nexthop.ifindex != 0 && route->nexthop.ifindex != link->ifindex)
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
