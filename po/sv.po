@@ -12,8 +12,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-10-24 00:56+0000\n"
-"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -117,14 +117,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Autentisering krävs för att uppdatera en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Uppdatera en hemarea"
+msgstr "Uppdatera din hemarea"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Autentisering krävs för att uppdatera en användares hemarea."
+msgstr "Autentisering krävs för att uppdatera din hemarea."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1172,13 +1170,11 @@ msgstr "Autentisering krävs för att rensa gamla systemuppdateringar."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Hantera valfria funktioner"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Autentisering krävs för att hantera aktiva sessioner, användare och platser."
+msgstr "Autentisering krävs för att hantera valfria funktioner"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

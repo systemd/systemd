@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-08-25 11:38+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -130,16 +130,13 @@ msgstr ""
 "аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
 msgstr "Обновить домашнее пространство"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
 msgstr ""
-"Чтобы обновить домашнее пространство пользователя, необходимо пройти "
-"аутентификацию."
+"Чтобы обновить ваше домашнее пространство, необходимо пройти аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1278,14 +1275,12 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Управление дополнительными функциями"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
 msgstr ""
-"Для управления текущими сеансами, пользователями и рабочими местами, "
-"необходимо пройти аутентификацию."
+"Для управления дополнительными функциями необходимо пройти аутентификацию."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
