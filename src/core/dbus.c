@@ -138,6 +138,9 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
 
         if (set_remove(m->private_buses, bus)) {
                 log_debug("Got disconnect on private connection.");
+
+                /* Don't bother checking if the bus was subscribed; try to remove it opportunistically. */
+                set_remove(m->private_buses_subscribed, bus);
                 destroy_bus(m, &bus);
         }
 
@@ -761,6 +764,9 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
+        /* If this bus (i.e. object address) was subscribed previously let's drop it from that set. */
+        set_remove(m->private_buses_subscribed, bus);
+
         TAKE_PTR(bus);
 
         log_debug("Accepted new private connection.");
@@ -1044,6 +1050,8 @@ void bus_done_private(Manager *m) {
                 destroy_bus(m, &b);
 
         m->private_buses = set_free(m->private_buses);
+        m->private_buses_subscribed = set_free(m->private_buses_subscribed);
+
 
         m->private_listen_event_source = sd_event_source_disable_unref(m->private_listen_event_source);
         m->private_listen_fd = safe_close(m->private_listen_fd);
@@ -1114,7 +1122,7 @@ int bus_foreach_bus_signal(
 
         /* Send to all direct buses, unconditionally */
         sd_bus *b;
-        SET_FOREACH(b, m->private_buses) {
+        SET_FOREACH(b, m->private_buses_subscribed) {
 
                 /* Don't bother with enqueuing these messages to clients that haven't started yet */
                 if (sd_bus_is_ready(b) <= 0)
