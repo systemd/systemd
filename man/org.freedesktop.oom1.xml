@@ -47,7 +47,7 @@ node /org/freedesktop/oom1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method DumpByFileDescriptor is not documented!-->
 

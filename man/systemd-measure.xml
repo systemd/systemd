@@ -381,7 +381,7 @@ $ ukify build \
 --public-key=tpm2-pcr-public-key-initrd.pem \
 --phase=enter-initrd
 Wrote unsigned vmlinux-1.2.3.efi
-      </programlisting>
+</programlisting>
 
       <para><command>ukify</command> prints out both invocations of <command>systemd-measure</command> as
       informative output (the lines starting with <literal>+</literal>); this allows us to see how

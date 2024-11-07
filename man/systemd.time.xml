@@ -266,7 +266,7 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
       yearly → *-01-01 00:00:00
    quarterly → *-01,04,07,10-01 00:00:00
 semiannually → *-01,07-01 00:00:00
-   </programlisting>
+</programlisting>
 
     <para>Examples for valid timestamps and their
     normalized form:</para>

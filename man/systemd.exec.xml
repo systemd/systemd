@@ -4722,7 +4722,7 @@ OnFailure=myhandler.service
 
 [Service]
 ExecStart=/bin/myprogram
-        </programlisting>
+</programlisting>
 
         <para>A service <filename index="false">mysuccess.service</filename> which can trigger an
         <varname>OnSuccess=</varname> dependency.</para>
@@ -4734,7 +4734,7 @@ OnSuccess=myhandler.service
 
 [Service]
 ExecStart=/bin/mysecondprogram
-        </programlisting>
+</programlisting>
 
         <para>A service <filename index="false">myhandler.service</filename> which can be triggered
         by any of the above services.</para>
@@ -4745,7 +4745,7 @@ Description=Acts on service failing or succeeding
 
 [Service]
 ExecStart=/bin/bash -c "echo $MONITOR_SERVICE_RESULT $MONITOR_EXIT_CODE $MONITOR_EXIT_STATUS $MONITOR_INVOCATION_ID $MONITOR_UNIT"
-        </programlisting>
+</programlisting>
 
         <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
         then <filename index="false">myhandler.service</filename> would be triggered and the
@@ -4757,7 +4757,7 @@ MONITOR_EXIT_CODE=exited
 MONITOR_EXIT_STATUS=1
 MONITOR_INVOCATION_ID=cc8fdc149b2b4ca698d4f259f4054236
 MONITOR_UNIT=myfailer.service
-        </programlisting>
+</programlisting>
 
         <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
         then <filename index="false">myhandler.service</filename> would be triggered and the
@@ -4769,7 +4769,7 @@ MONITOR_EXIT_CODE=exited
 MONITOR_EXIT_STATUS=0
 MONITOR_INVOCATION_ID=6ab9af147b8c4a3ebe36e7a5f8611697
 MONITOR_UNIT=mysuccess.service
-        </programlisting>
+</programlisting>
 
     </example>
 

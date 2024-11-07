@@ -632,7 +632,7 @@ sd_notifyf(0, "STATUS=Failed to start up: %s\n"
 sd_notify(0, "READY=1");
 /* set timeout to 5 seconds */
 sd_notify_barrier(0, 5 * 1000000);
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
