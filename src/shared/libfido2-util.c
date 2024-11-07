@@ -861,9 +861,10 @@ int fido2_generate_hmac_hash(
                                 .icon = askpw_icon,
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
+                                .until = USEC_INFINITY,
                         };
 
-                        r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &pin);
+                        r = ask_password_auto(&req, /* flags= */ 0, &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire user PIN: %m");
 
