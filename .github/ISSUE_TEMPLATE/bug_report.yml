@@ -18,7 +18,7 @@ body:
         If a distro build is used, please just paste the package version, e.g. `systemd-254.7-1.fc39.x86_64`.
         See https://github.com/systemd/systemd-stable/tags for the list of most recent releases.
         For older version please use distribution trackers (see https://systemd.io/CONTRIBUTING#filing-issues).
-      placeholder: '255'
+      placeholder: '256.x'
     validations:
       required: true
 
