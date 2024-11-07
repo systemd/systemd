@@ -20,8 +20,8 @@ int dhcp_request_prefix_delegation(Link *link);
 int link_drop_dhcp_pd_config(Link *link, Network *network);
 int dhcp4_pd_prefix_acquired(Link *uplink);
 int dhcp6_pd_prefix_acquired(Link *uplink);
-void dhcp_pd_prefix_lost(Link *uplink);
 void dhcp4_pd_prefix_lost(Link *uplink);
+void dhcp6_pd_prefix_lost(Link *uplink);
 int dhcp_pd_reconfigure_address(Address *address, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_pd_subnet_id);

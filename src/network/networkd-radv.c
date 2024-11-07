@@ -649,10 +649,10 @@ int link_drop_radv_config(Link *link, Network *network) {
         int ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_radv_enabled(link))
-                return 0;
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the server. */
 
         // FIXME: check detailed settings and do not stop if nothing changed.
         // FIXME: save dynamic prefixes acquired by DHCP-PD.
