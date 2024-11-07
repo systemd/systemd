@@ -38,6 +38,8 @@ static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static char *arg_public_key = NULL;
 static char *arg_certificate = NULL;
+static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
+static char *arg_certificate_source = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_current = false;
@@ -50,6 +52,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
@@ -74,6 +77,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  status                 Show current PCR values\n"
                "  calculate              Calculate expected PCR values\n"
                "  sign                   Calculate and sign expected PCR values\n"
+               "  pcrpkey                Calculate the PCR public key\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
@@ -87,7 +91,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "                         Specify how to use KEY for --private-key=. Allows\n"
                "                         an OpenSSL engine/provider to be used for signing\n"
                "     --public-key=KEY    Public key (PEM) to validate against\n"
-               "     --certificate=PATH  PEM certificate to use when signing with a URI\n"
+               "     --certificate=PATH|URI\n"
+               "                         PEM certificate to use for signing, or a provider\n"
+               "                         specific designation if --certificate-source= is used\n"
+               "     --certificate-source=file|provider:PROVIDER\n"
+               "                         Specify how to interpret the certificate from\n"
+               "                         --certificate=. Allows the certificate to be loaded\n"
+               "                         from an OpenSSL provider\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
@@ -156,6 +166,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_KEY_SOURCE,
                 ARG_PUBLIC_KEY,
                 ARG_CERTIFICATE,
+                ARG_CERTIFICATE_SOURCE,
                 ARG_TPM2_DEVICE,
                 ARG_JSON,
                 ARG_PHASE,
@@ -186,6 +197,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
                 { "public-key",         required_argument, NULL, ARG_PUBLIC_KEY         },
                 { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
+                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
                 { "json",               required_argument, NULL, ARG_JSON               },
                 { "phase",              required_argument, NULL, ARG_PHASE              },
                 { "append",             required_argument, NULL, ARG_APPEND             },
@@ -265,10 +277,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CERTIFICATE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_certificate);
+                        r = free_and_strdup_warn(&arg_certificate, optarg);
                         if (r < 0)
                                 return r;
+                        break;
 
+                case ARG_CERTIFICATE_SOURCE:
+                        r = parse_openssl_certificate_source_argument(
+                                        optarg,
+                                        &arg_certificate_source,
+                                        &arg_certificate_source_type);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_TPM2_DEVICE: {
@@ -841,7 +861,17 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         /* This must be done before openssl_load_private_key() otherwise it will get stuck */
         if (arg_certificate) {
-                r = openssl_load_x509_certificate(arg_certificate, &certificate);
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
         }
@@ -1144,12 +1174,100 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_pcrpkey(int argc, char *argv[], void *userdata) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
+        int r;
+
+        if (arg_public_key) {
+                _cleanup_fclose_ FILE *public_keyf = NULL;
+
+                public_keyf = fopen(arg_public_key, "re");
+                if (!public_keyf)
+                        return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
+
+                public_key = PEM_read_PUBKEY(public_keyf, NULL, NULL, NULL);
+                if (!public_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+
+        } else if (arg_certificate) {
+                _cleanup_(X509_freep) X509 *certificate = NULL;
+
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+                public_key = X509_get_pubkey(certificate);
+                if (!public_key)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EIO),
+                                        "Failed to extract public key from certificate %s.",
+                                        arg_certificate);
+
+        } else if (arg_private_key) {
+                _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+                }
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .id = "measure-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "measure.private-key-pin",
+                                },
+                                &private_key,
+                                &ui);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+
+                _cleanup_(memstream_done) MemStream m = {};
+                FILE *tf = memstream_init(&m);
+                if (!tf)
+                        return log_oom();
+
+                if (i2d_PUBKEY_fp(tf, private_key) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
+
+                fflush(tf);
+                rewind(tf);
+
+                if (!d2i_PUBKEY_fp(tf, &public_key))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --public-key=, --certificate= or --private-key= must be specified");
+
+        if (PEM_write_PUBKEY(stdout, public_key) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key to stdout");
+
+        return 0;
+}
+
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",      VERB_ANY, VERB_ANY, 0,            help           },
                 { "status",    VERB_ANY, 1,        VERB_DEFAULT, verb_status    },
                 { "calculate", VERB_ANY, 1,        0,            verb_calculate },
                 { "sign",      VERB_ANY, 1,        0,            verb_sign      },
+                { "pcrpkey",   VERB_ANY, 1,        0,            verb_pcrpkey   },
                 {}
         };
 

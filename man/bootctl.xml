@@ -529,8 +529,9 @@
       <varlistentry>
         <term><option>--secure-boot-auto-enroll=yes|no</option></term>
         <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
-        <term><option>--private-key-source=<replaceable>TYPE[:NAME]</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
         <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
 
         <listitem><para>Configure the ESP for secure boot auto-enrollment when invoking the
         <command>install</command> command. Takes a boolean argument. Disabled by default. Enabling this
@@ -542,9 +543,12 @@
 
         <para>When specifying this option, a certificate and private key have to be provided as well using
         the <option>--certificate=</option> and <option>--private-key=</option> options. The
-        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate. The
-        <option>--private-key=</option> option can take a path or a URI that will be passed to the OpenSSL
-        engine or provider, as specified by <option>--private-key-source=</option> as a
+        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate or a URI
+        that's passed to the OpenSSL provider configured with <option>--certificate-source</option> which
+        takes one of <literal>file</literal> or <literal>provider</literal>, with the latter being followed
+        by a specific provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>.
+        The <option>--private-key=</option> option can take a path or a URI that will be passed to the
+        OpenSSL engine or provider, as specified by <option>--private-key-source=</option> as a
         <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>. The specified OpenSSL
         signing engine or provider will be used to sign the EFI signature lists.</para>
 
