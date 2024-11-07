@@ -307,7 +307,6 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         int r;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
-        manager_mark_routes(link->manager, NULL, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -330,7 +329,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
         } else if (sd_dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         if (link->dhcp6_messages == 0) {
                 link->dhcp6_configured = true;
@@ -377,7 +376,7 @@ static int dhcp6_lease_lost(Link *link) {
         log_link_info(link, "DHCPv6 lease lost");
 
         if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
 
