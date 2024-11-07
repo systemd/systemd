@@ -10,13 +10,13 @@
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
+# Anselm Schueler <mail@anselmschueler.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-05 13:46+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"PO-Revision-Date: 2024-11-07 13:26+0000\n"
+"Last-Translator: Anselm Schueler <mail@anselmschueler.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -131,9 +131,8 @@ msgstr ""
 "Benutzers notwendig."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Einen persönlichen Bereich aktualisieren"
+msgstr "Deinen persönlichen Bereich aktualisieren"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:54
