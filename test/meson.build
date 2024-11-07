@@ -142,11 +142,13 @@ endif
 ############################################################
 
 if install_tests
-        foreach script : ['integration-test-setup.sh', 'run-unit-tests.py']
-                install_data(script,
-                             install_mode : 'rwxr-xr-x',
-                             install_dir : testsdir)
-        endforeach
+        install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
+
+        install_data('integration-test-setup.sh',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testdata_dir)
 endif
 
 ############################################################
