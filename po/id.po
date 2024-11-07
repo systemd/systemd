@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-10-27 05:38+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -112,14 +112,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Otentikasi diperlukan untuk memperbarui suatu area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Memperbarui suatu area rumah"
+msgstr "Memperbarui area rumah Anda"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Otentikasi diperlukan untuk memperbarui suatu area rumah pengguna."
+msgstr "Otentikasi diperlukan untuk memperbarui area rumah Anda."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1166,12 +1164,11 @@ msgstr "Otentikasi diperlukan untuk membersihkan pembaruan sistem lama."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Kelola fitur opsional"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
+msgstr "Otentikasi diperlukan untuk mengelola fitur opsional"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
