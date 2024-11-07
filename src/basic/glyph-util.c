@@ -32,6 +32,7 @@ const char* special_glyph_full(SpecialGlyph code, bool force_utf) {
          * http://git.altlinux.org/people/legion/packages/kbd.git?p=kbd.git;a=blob;f=data/consolefonts/README.eurlatgr
          */
 
+        DISABLE_WARNING_POINTER_SIGN;
         static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
@@ -153,6 +154,7 @@ const char* special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SUPERHERO]               = u8"🦸",
                 },
         };
+        REENABLE_WARNING;
 
         if (code < 0)
                 return NULL;

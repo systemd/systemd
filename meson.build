@@ -387,6 +387,7 @@ possible_common_cc_flags = [
         '-Werror=missing-prototypes',
         '-Werror=overflow',
         '-Werror=override-init',
+        '-Werror=pointer-sign',
         '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
