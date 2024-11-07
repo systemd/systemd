@@ -1056,3 +1056,9 @@ global:
         sd_device_monitor_get_timeout;
         sd_device_monitor_receive;
 } LIBSYSTEMD_256;
+
+LIBSYSTEMD_258 {
+global:
+        sd_varlink_get_input_fd;
+        sd_varlink_get_output_fd;
+} LIBSYSTEMD_257;
