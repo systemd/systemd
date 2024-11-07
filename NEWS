@@ -188,7 +188,7 @@ CHANGES WITH 257 in spe:
         * The systemd.machine_id= kernel command line parameter interpreted by
           PID 1 now supports an additional special value: if set to "firmware"
           the machine ID is initialized from the SMBIOS/DeviceTree system
-          UUID. (Previously this was already done autmatically in VM
+          UUID. (Previously this was already done automatically in VM
           environments, this extends the concept to any system, but only on
           explicit request via this option.)
 
