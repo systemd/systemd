@@ -1340,6 +1340,9 @@ static int load_key_from_provider(
         if (!store)
                 return log_openssl_errors("Failed to open OpenSSL store via '%s'", private_key_uri);
 
+        if (OSSL_STORE_expect(store, OSSL_STORE_INFO_PKEY) == 0)
+                return log_openssl_errors("Failed to filter store by private keys");
+
         _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
         if (!info)
                 return log_openssl_errors("Failed to load OpenSSL store via '%s'", private_key_uri);
@@ -1479,6 +1482,80 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         *ret = TAKE_PTR(ui);
         return 0;
 }
+
+static int load_x509_certificate_from_file(const char *path, X509 **ret) {
+        _cleanup_free_ char *rawcert = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(BIO_freep) BIO *cb = NULL;
+        size_t rawcertsz;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = read_full_file_full(
+                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &rawcert, &rawcertsz);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read certificate file '%s': %m", path);
+
+        cb = BIO_new_mem_buf(rawcert, rawcertsz);
+        if (!cb)
+                return log_oom_debug();
+
+        cert = PEM_read_bio_X509(cb, NULL, NULL, NULL);
+        if (!cert)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (ret)
+                *ret = TAKE_PTR(cert);
+
+        return 0;
+}
+
+static int load_x509_certificate_from_provider(const char *provider, const char *certificate_uri, X509 **ret) {
+        assert(provider);
+        assert(certificate_uri);
+        assert(ret);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        /* Load the provider so that this can work without any custom written configuration in /etc/.
+         * Also load the 'default' as that seems to be the recommendation. */
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, provider, /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider '%s'", provider);
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, "default", /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider 'default'");
+
+        _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
+                        certificate_uri,
+                        /*ui_method=*/ NULL,
+                        /*ui_method=*/ NULL,
+                        /* post_process= */ NULL,
+                        /* post_process_data= */ NULL);
+        if (!store)
+                return log_openssl_errors("Failed to open OpenSSL store via '%s'", certificate_uri);
+
+        if (OSSL_STORE_expect(store, OSSL_STORE_INFO_CERT) == 0)
+                return log_openssl_errors("Failed to filter store by X.509 certificates");
+
+        _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
+        if (!info)
+                return log_openssl_errors("Failed to load OpenSSL store via '%s'", certificate_uri);
+
+        _cleanup_(X509_freep) X509 *cert = OSSL_STORE_INFO_get1_CERT(info);
+        if (!cert)
+                return log_openssl_errors("Failed to load certificate via '%s'", certificate_uri);
+
+        *ret = TAKE_PTR(cert);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
 #endif
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
@@ -1514,36 +1591,33 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 #endif
 }
 
-int openssl_load_x509_certificate(const char *path, X509 **ret) {
+int openssl_load_x509_certificate(
+                CertificateSourceType certificate_source_type,
+                const char *certificate_source,
+                const char *certificate,
+                X509 **ret) {
 #if HAVE_OPENSSL
-        _cleanup_free_ char *rawcert = NULL;
-        _cleanup_(X509_freep) X509 *cert = NULL;
-        _cleanup_(BIO_freep) BIO *cb = NULL;
-        size_t rawcertsz;
         int r;
 
-        assert(path);
-        assert(ret);
+        assert(certificate);
 
-        r = read_full_file_full(
-                        AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL,
-                        &rawcert, &rawcertsz);
+        switch (certificate_source_type) {
+
+        case OPENSSL_CERTIFICATE_SOURCE_FILE:
+                r = load_x509_certificate_from_file(certificate, ret);
+                break;
+        case OPENSSL_CERTIFICATE_SOURCE_PROVIDER:
+                r = load_x509_certificate_from_provider(certificate_source, certificate, ret);
+                break;
+        default:
+                assert_not_reached();
+        }
         if (r < 0)
-                return log_debug_errno(r, "Failed to read certificate file '%s': %m", path);
-
-        cb = BIO_new_mem_buf(rawcert, rawcertsz);
-        if (!cb)
-                return log_oom_debug();
-
-        cert = PEM_read_bio_X509(cb, NULL, NULL, NULL);
-        if (!cert)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        if (ret)
-                *ret = TAKE_PTR(cert);
+                return log_debug_errno(
+                                r,
+                                "Failed to load certificate '%s' from OpenSSL certificate source %s: %m",
+                                certificate,
+                                certificate_source);
 
         return 0;
 #else
@@ -1601,6 +1675,35 @@ int openssl_load_private_key(
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot load private key.");
 #endif
+}
+
+int parse_openssl_certificate_source_argument(
+                const char *argument,
+                char **certificate_source,
+                CertificateSourceType *certificate_source_type) {
+
+        CertificateSourceType type;
+        const char *e = NULL;
+        int r;
+
+        assert(argument);
+        assert(certificate_source);
+        assert(certificate_source_type);
+
+        if (streq(argument, "file"))
+                type = OPENSSL_CERTIFICATE_SOURCE_FILE;
+        else if ((e = startswith(argument, "provider:")))
+                type = OPENSSL_CERTIFICATE_SOURCE_PROVIDER;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid certificate source '%s'", argument);
+
+        r = free_and_strdup_warn(certificate_source, e);
+        if (r < 0)
+                return r;
+
+        *certificate_source_type = type;
+
+        return 0;
 }
 
 int parse_openssl_key_source_argument(
