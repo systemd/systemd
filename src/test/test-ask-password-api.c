@@ -13,6 +13,7 @@ TEST(ask_password) {
                 .message = "hello?",
                 .keyring = "da key",
                 .until = USEC_INFINITY,
+                .hup_fd = -EBADF,
         };
 
         r = ask_password_tty(&req, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, &ret);

@@ -41,6 +41,7 @@ static int get_pin(
                         .keyring = "tpm2-pin",
                         .credential = askpw_credential,
                         .until = until,
+                        .hup_fd = -EBADF,
                 };
 
                 pin = strv_free_erase(pin);
