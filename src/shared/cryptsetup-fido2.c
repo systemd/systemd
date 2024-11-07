@@ -112,6 +112,7 @@ int acquire_fido2_key(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
                 static const AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = "Please enter security token PIN:",
                         .icon = "drive-harddisk",
                         .keyring = "fido2-pin",
