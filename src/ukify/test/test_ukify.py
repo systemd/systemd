@@ -211,7 +211,7 @@ def test_parse_args_many_deprecated():
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.sb_key == 'SBKEY'
-    assert opts.sb_cert == 'SBCERT'
+    assert opts.sb_cert == Path('SBCERT')
     assert opts.sign_kernel is False
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
