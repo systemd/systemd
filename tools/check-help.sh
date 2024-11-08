@@ -10,6 +10,11 @@ set -o pipefail
 BINARY="${1:?}"
 export SYSTEMD_LOG_LEVEL=info
 
+if [[ ! -d /proc/self/ ]]; then
+   echo "/proc/self/ is not available, skipping"
+   exit 77
+fi
+
 if [[ ! -x "$BINARY" ]]; then
     echo "$BINARY is not an executable"
     exit 1
