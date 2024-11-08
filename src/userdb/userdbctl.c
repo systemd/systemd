@@ -17,6 +17,7 @@
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "uid-classification.h"
 #include "uid-range.h"
 #include "user-record-show.h"
 #include "user-util.h"
@@ -156,8 +157,8 @@ static const struct {
                 .disposition = USER_DYNAMIC,
         },
         {
-                .first = CONTAINER_UID_BASE_MIN,
-                .last = CONTAINER_UID_BASE_MAX,
+                .first = CONTAINER_UID_MIN,
+                .last = CONTAINER_UID_MAX,
                 .name = "container",
                 .disposition = USER_CONTAINER,
         },
