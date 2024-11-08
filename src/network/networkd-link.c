@@ -1821,6 +1821,9 @@ static int link_carrier_lost(Link *link) {
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 usec = 0;
 
+        else if (link_forget_routes(link)) /* This must be called after ARPHRD_CAN check. */
+                usec = 0; /* If some managed routes are removed, we need to reconfigure the interface anyway. */
+
         else if (!link->network)
                 usec = 0;
 

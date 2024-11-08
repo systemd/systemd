@@ -1538,6 +1538,38 @@ int link_drop_routes(Link *link, bool only_static) {
         return r;
 }
 
+bool link_forget_routes(Link *link) {
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(!link_has_carrier(link));
+
+        /* When an interface lose its carrier, IPv4 non-local routes bound to the interface are silently
+         * removed by the kernel, without any notifications. Let's forget them in that case. Otherwise, when
+         * the link goes up later, the configuration order of routes may be confused by the nonexistent
+         * routes. See issue #35047. */
+
+        bool forgot = false;
+        Route *route;
+        SET_FOREACH(route, link->manager->routes) {
+                // TODO: handle multipath routes
+                if (route->nexthop.ifindex != link->ifindex)
+                        continue;
+                if (route->family != AF_INET)
+                        continue;
+                // TODO: check RTN_NAT and RTN_XRESOLVE
+                if (!IN_SET(route->type, RTN_UNICAST, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
+                        continue;
+
+                log_route_debug(route, "Forgetting silently removed", link->manager);
+                route_detach(route);
+
+                if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                        forgot = true;
+        }
+
+        return forgot; /* Return true if at least one managed route is removed. */
+}
+
 int network_add_ipv4ll_route(Network *network) {
         _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         unsigned section_line;
