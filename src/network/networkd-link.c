@@ -1148,6 +1148,10 @@ static int link_configure(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
+        r = link_drop_unmanaged_config(link);
+        if (r < 0)
+                return r;
+
         r = link_new_bound_to_list(link);
         if (r < 0)
                 return r;
@@ -1250,10 +1254,6 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_lldp_tx_configure(link);
-        if (r < 0)
-                return r;
-
-        r = link_drop_unmanaged_config(link);
         if (r < 0)
                 return r;
 
