@@ -1808,63 +1808,81 @@ char* umount_and_unlink_and_free(char *p) {
         return mfree(p);
 }
 
-static int path_get_mount_info(
+static int path_get_mount_info_at(
+                int dir_fd,
                 const char *path,
                 char **ret_fstype,
                 char **ret_options) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_free_ char *fstype = NULL, *options = NULL;
-        struct libmnt_fs *fs;
-        int r;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r, mnt_id;
 
-        assert(path);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        table = mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = mnt_table_parse_mtab(table, /* filename = */ NULL);
+        r = path_get_mnt_id_at(dir_fd, path, &mnt_id);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get mount ID: %m");
 
-        fs = mnt_table_find_mountpoint(table, path, MNT_ITER_FORWARD);
-        if (!fs)
-                return -EINVAL;
+        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
-        if (ret_fstype) {
-                fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
-                if (!fstype)
-                        return -ENOMEM;
+        for (;;) {
+                struct libmnt_fs *fs;
+
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break; /* EOF */
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                if (mnt_fs_get_id(fs) != mnt_id)
+                        continue;
+
+                _cleanup_free_ char *fstype = NULL, *options = NULL;
+
+                if (ret_fstype) {
+                        fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                        if (!fstype)
+                                return log_oom_debug();
+                }
+
+                if (ret_options) {
+                        options = strdup(strempty(mnt_fs_get_options(fs)));
+                        if (!options)
+                                return log_oom_debug();
+                }
+
+                if (ret_fstype)
+                        *ret_fstype = TAKE_PTR(fstype);
+                if (ret_options)
+                        *ret_options = TAKE_PTR(options);
+
+                return 0;
         }
 
-        if (ret_options) {
-                options = strdup(strempty(mnt_fs_get_options(fs)));
-                if (!options)
-                        return -ENOMEM;
-        }
-
-        if (ret_fstype)
-                *ret_fstype = TAKE_PTR(fstype);
-        if (ret_options)
-                *ret_options = TAKE_PTR(options);
-
-        return 0;
+        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
 }
 
-int path_is_network_fs_harder(const char *path) {
+int path_is_network_fs_harder_at(int dir_fd, const char *path) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        fd = xopenat(dir_fd, path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0)
+                return fd;
+
+        r = fd_is_network_fs(fd);
+        if (r != 0)
+                return r;
+
         _cleanup_free_ char *fstype = NULL, *options = NULL;
-        int r, ret;
-
-        assert(path);
-
-        ret = path_is_network_fs(path);
-        if (ret > 0)
-                return true;
-
-        r = path_get_mount_info(path, &fstype, &options);
+        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options);
         if (r < 0)
-                return RET_GATHER(ret, r);
+                return r;
 
         if (fstype_is_network(fstype))
                 return true;

@@ -181,4 +181,7 @@ int mount_credentials_fs(const char *path, size_t size, bool ro);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
 
-int path_is_network_fs_harder(const char *path);
+int path_is_network_fs_harder_at(int dir_fd, const char *path);
+static inline int path_is_network_fs_harder(const char *path) {
+        return path_is_network_fs_harder_at(AT_FDCWD, path);
+}
