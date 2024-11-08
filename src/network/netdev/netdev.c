@@ -432,18 +432,17 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -EEXIST)
-                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
-        else if (r < 0) {
-                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+        if (r >= 0)
+                log_netdev_debug(netdev, "Created.");
+        else if (r == -EEXIST && netdev->ifindex > 0)
+                log_netdev_debug(netdev, "Already exists.");
+        else {
+                log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
                 netdev_enter_failed(netdev);
-
-                return 1;
+                return 0;
         }
 
-        log_netdev_debug(netdev, "Created");
-
-        return 1;
+        return netdev_enter_ready(netdev);
 }
 
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
@@ -464,8 +463,6 @@ int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
 }
 
 static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
-        int r;
-
         assert(netdev);
         assert(name);
         assert(ifindex > 0);
@@ -478,11 +475,7 @@ static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex
                                                 "Received netlink message with unexpected interface name %s (ifindex=%i).",
                                                 name, ifindex);
 
-        r = netdev_set_ifindex_internal(netdev, ifindex);
-        if (r <= 0)
-                return r;
-
-        return netdev_enter_ready(netdev);
+        return netdev_set_ifindex_internal(netdev, ifindex);
 }
 
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
@@ -866,17 +859,25 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
 }
 
 static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
         assert(m);
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not create stacked netdev");
+        if (r >= 0)
+                log_netdev_debug(netdev, "Created.");
+        else if (r == -EEXIST && netdev->ifindex > 0)
+                log_netdev_debug(netdev, "Already exists.");
+        else {
+                log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
+                netdev_enter_failed(netdev);
                 link_enter_failed(link);
                 return 0;
         }
+
+        (void) netdev_enter_ready(netdev);
 
         if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
