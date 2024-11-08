@@ -542,7 +542,7 @@ TEST(ipv6_enabled) {
         log_info("IPv6 enabled: %s", yes_no(socket_ipv6_is_enabled()));
 }
 
-TEST(sockaddr_un_set_path) {
+TEST(sockaddr_un_set_path, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(unlink_and_freep) char *sh = NULL;
         _cleanup_free_ char *j = NULL;
