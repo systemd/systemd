@@ -60,6 +60,7 @@ static const char *user_disposition_to_color(UserDisposition d) {
                 return ansi_green();
 
         case USER_CONTAINER:
+        case USER_FOREIGN:
                 return ansi_cyan();
 
         case USER_RESERVED:
@@ -168,6 +169,12 @@ static const struct {
                 .last = CONTAINER_UID_MAX,
                 .name = "container",
                 .disposition = USER_CONTAINER,
+        },
+        {
+                .first = FOREIGN_UID_MIN,
+                .last = FOREIGN_UID_MAX,
+                .name = "foreign",
+                .disposition = USER_FOREIGN,
         },
 #if ENABLE_HOMED
         {
