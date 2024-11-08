@@ -56,13 +56,23 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_reselect, BondPrimaryReselect);
 
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        assert(!link);
-        assert(m);
-
         Bond *b = BOND(netdev);
         int r;
 
-        if (b->mode != _NETDEV_BOND_MODE_INVALID) {
+        assert(netdev->manager);
+        assert(!link);
+        assert(m);
+
+        if (netdev->ifindex > 0) {
+                r = link_get_by_index(netdev->manager, netdev->ifindex, &link);
+                if (r < 0)
+                        return r;
+        }
+
+        bool up = link && FLAGS_SET(link->flags, IFF_UP);
+        bool has_slaves = link && !set_isempty(link->slaves);
+
+        if (b->mode != _NETDEV_BOND_MODE_INVALID && !up && !has_slaves) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, b->mode);
                 if (r < 0)
                         return r;
@@ -75,7 +85,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         }
 
         if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
-            b->mode == NETDEV_BOND_MODE_802_3AD) {
+            b->mode == NETDEV_BOND_MODE_802_3AD &&
+            !up) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate);
                 if (r < 0)
                         return r;
@@ -119,14 +130,16 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         }
 
         if (b->ad_select != _NETDEV_BOND_AD_SELECT_INVALID &&
-            b->mode == NETDEV_BOND_MODE_802_3AD) {
+            b->mode == NETDEV_BOND_MODE_802_3AD &&
+            !up) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_SELECT, b->ad_select);
                 if (r < 0)
                         return r;
         }
 
         if (b->fail_over_mac != _NETDEV_BOND_FAIL_OVER_MAC_INVALID &&
-            b->mode == NETDEV_BOND_MODE_ACTIVE_BACKUP) {
+            b->mode == NETDEV_BOND_MODE_ACTIVE_BACKUP &&
+            !has_slaves) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_FAIL_OVER_MAC, b->fail_over_mac);
                 if (r < 0)
                         return r;
@@ -181,7 +194,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return r;
         }
 
-        if (b->ad_user_port_key != 0) {
+        if (b->ad_user_port_key != 0 && !up) {
                 r = sd_netlink_message_append_u16(m, IFLA_BOND_AD_USER_PORT_KEY, b->ad_user_port_key);
                 if (r < 0)
                         return r;
@@ -197,7 +210,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (r < 0)
                 return r;
 
-        if (b->tlb_dynamic_lb >= 0) {
+        if (b->tlb_dynamic_lb >= 0 && !up) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_TLB_DYNAMIC_LB, b->tlb_dynamic_lb);
                 if (r < 0)
                         return r;
