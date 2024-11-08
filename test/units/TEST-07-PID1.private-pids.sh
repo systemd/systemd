@@ -132,10 +132,12 @@ testcase_unpriv() {
         return 0
     fi
 
-    # The kernel has a restriction for unprivileged user namespaces where they cannot mount a less restrictive
-    # instance of /proc/. So if /proc/ is masked (e.g. /proc/kmsg is over-mounted with tmpfs as systemd-nspawn does),
-    # then mounting a new /proc/ will fail and we will still see the host's /proc/. Thus, to allow tests to run in
-    # a VM or nspawn, we mount a new proc on a temporary directory with no masking to bypass this kernel restriction.
+    # IMPORTANT: For /proc/ to be remounted in pid namespace within an unprivileged user namespace, there needs to
+    # be at least 1 unmasked procfs mount in ANY directory. Otherwise, if /proc/ is masked (e.g. /proc/scsi is
+    # over-mounted with tmpfs), then mounting a new /proc/ will fail.
+    #
+    # Thus, to guarantee PrivatePIDs=yes tests for unprivileged users pass, we mount a new procfs on a temporary
+    # directory with no masking. This will guarantee an unprivileged user can mount a new /proc/ successfully.
     mkdir -p /tmp/TEST-07-PID1-private-pids-proc
     mount -t proc proc /tmp/TEST-07-PID1-private-pids-proc
 
@@ -146,7 +148,16 @@ testcase_unpriv() {
     umount /tmp/TEST-07-PID1-private-pids-proc
     rm -rf /tmp/TEST-07-PID1-private-pids-proc
 
-    # Now verify the behavior with masking - units should fail as PrivatePIDs=yes has no graceful fallback.
+    # Now we will mask /proc/ by mounting tmpfs over /proc/scsi. This will guarantee that mounting /proc/ will fail
+    # for unprivileged users when using PrivatePIDs=yes. Now units should fail as PrivatePIDs=yes has no graceful
+    # fallback.
+    #
+    # Note some kernels do not have /proc/scsi so we verify the directory exists prior to running the test.
+    if [ ! -d /proc/scsi ]; then
+        echo "/proc/scsi does not exist, skipping unprivileged PrivatePIDs=yes test with masked /proc/"
+        return 0
+    fi
+
     if [[ "$HAS_EXISTING_SCSI_MOUNT" == "no" ]]; then
         mount -t tmpfs tmpfs /proc/scsi
     fi
