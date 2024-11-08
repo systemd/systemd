@@ -206,7 +206,7 @@ int ipv4ll_configure(Link *link) {
                 return 0;
 
         if (link->ipv4ll)
-                return -EBUSY;
+                return 0;
 
         r = sd_ipv4ll_new(&link->ipv4ll);
         if (r < 0)
@@ -246,18 +246,26 @@ int link_drop_ipv4ll_config(Link *link, Network *network) {
         int ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_ipv4ll_enabled(link))
-                return 0;
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        Network *saved = link->network;
-        link->network = network;
-        bool enabled = link_ipv4ll_enabled(link);
-        link->network = saved;
-
-        if (!enabled)
+        if (!link_ipv4ll_enabled(link)) {
+                /* The client is disabled. Stop if it is running, and drop the address. */
                 ret = sd_ipv4ll_stop(link->ipv4ll);
+
+                /* Also, explicitly drop the address for the case that this is called on start up.
+                 * See also comments in link_drop_dhcp4_config(). */
+                Address *a;
+                SET_FOREACH(a, link->addresses) {
+                        if (a->source != NETWORK_CONFIG_SOURCE_IPV4LL)
+                                continue;
+
+                        assert(a->family == AF_INET);
+                        RET_GATHER(ret, address_remove_and_cancel(a, link));
+                }
+        }
 
         link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
         return ret;
