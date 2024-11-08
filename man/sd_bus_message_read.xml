@@ -249,7 +249,7 @@ sd_bus_message_read(m, "v", "gt", &amp;s, &amp;v);</programlisting>
 const char *s, *t, *u;
 
 sd_bus_message_read(m, "a{is}", 3, &amp;i, &amp;s, &amp;j, &amp;t, &amp;k, &amp;u);
-     </programlisting>
+</programlisting>
 
      <para>Read a single file descriptor, and duplicate it in order to keep it open after the message is
      freed.</para>

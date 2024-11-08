@@ -172,7 +172,7 @@ COREDUMP_CMDLINE=/usr/lib64/firefox/firefox -contentproc -childID 5 -isForBrowse
 COREDUMP_CGROUP=/user.slice/user-1000.slice/user@1000.service/app.slice/app-….scope
 COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 …
-    </programlisting>
+</programlisting>
 
     <para>The following fields are saved (if known) with the journal entry</para>
 
@@ -305,7 +305,7 @@ flags:   ...
 pos:     ...
 flags:   ...
 ...
-        </programlisting>
+</programlisting>
 
         <para>The first line contains the file descriptor number <replaceable>fd</replaceable> and the path,
         while subsequent lines show the contents of

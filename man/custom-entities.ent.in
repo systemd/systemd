@@ -18,5 +18,5 @@
 <!ENTITY DEFAULT_TIMEOUT "{{DEFAULT_TIMEOUT_SEC}} s">
 <!ENTITY DEFAULT_USER_TIMEOUT "{{DEFAULT_USER_TIMEOUT_SEC}} s">
 <!ENTITY DEFAULT_KEYMAP "{{SYSTEMD_DEFAULT_KEYMAP}}">
-<!ENTITY fedora_latest_version "40">
-<!ENTITY fedora_cloud_release "1.10">
+<!ENTITY fedora_latest_version "41">
+<!ENTITY fedora_cloud_release "1.4">
