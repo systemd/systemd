@@ -13,6 +13,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "static-destruct.h"
 #include "strv.h"
 
@@ -106,6 +107,7 @@ typedef struct TestFunc {
         const char * const name;
         bool has_ret:1;
         bool sd_booted:1;
+        bool proc_mounted:1;
 } TestFunc;
 
 /* See static-destruct.h for an explanation of how this works. */
@@ -160,6 +162,10 @@ static inline int run_test_table(void) {
 
                 if (t->sd_booted && sd_booted() <= 0) {
                         log_info("/* systemd not booted, skipping %s */", t->name);
+                        if (t->has_ret && r == EXIT_SUCCESS)
+                                r = EXIT_TEST_SKIP;
+                } else if (t->proc_mounted && proc_mounted() <= 0) {
+                        log_info("/* procfs is not available, skipping %s */", t->name);
                         if (t->has_ret && r == EXIT_SUCCESS)
                                 r = EXIT_TEST_SKIP;
                 } else {

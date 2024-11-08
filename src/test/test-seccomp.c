@@ -363,7 +363,7 @@ TEST(restrict_namespace) {
         assert_se(wait_for_terminate_and_check("nsseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
-TEST(protect_sysctl) {
+TEST(protect_sysctl, .proc_mounted = true) {
         pid_t pid;
         _cleanup_free_ char *seccomp = NULL;
 

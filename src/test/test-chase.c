@@ -31,7 +31,7 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
         ASSERT_STREQ(fname, expected);
 }
 
-TEST(chase) {
+TEST(chase, .proc_mounted = true) {
         _cleanup_free_ char *result = NULL, *pwd = NULL;
         _cleanup_close_ int pfd = -EBADF;
         char *temp;
@@ -728,7 +728,7 @@ TEST(chaseat_prefix_root) {
         ASSERT_STREQ(ret, expected);
 }
 
-TEST(trailing_dot_dot) {
+TEST(trailing_dot_dot, .proc_mounted = true) {
         _cleanup_free_ char *path = NULL, *fdpath = NULL;
         _cleanup_close_ int fd = -EBADF;
 

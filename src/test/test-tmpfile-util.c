@@ -242,7 +242,7 @@ TEST(tempfn_random_child) {
         test_tempfn_random_child_one(p, "hoge", q, 0);
 }
 
-TEST(link_tmpfile) {
+TEST(link_tmpfile, .proc_mounted = true) {
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         const char *p = saved_argv[1] ?: "/tmp";

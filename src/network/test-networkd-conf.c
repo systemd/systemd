@@ -209,7 +209,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         }
 }
 
-TEST(config_parse_address) {
+TEST(config_parse_address, .proc_mounted = true) {
         test_config_parse_address_one("", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/8", AF_INET, 0, NULL, 0);

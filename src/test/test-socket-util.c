@@ -542,7 +542,7 @@ TEST(ipv6_enabled) {
         log_info("IPv6 enabled: %s", yes_no(socket_ipv6_is_enabled()));
 }
 
-TEST(sockaddr_un_set_path) {
+TEST(sockaddr_un_set_path, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(unlink_and_freep) char *sh = NULL;
         _cleanup_free_ char *j = NULL;
@@ -584,7 +584,7 @@ TEST(sockaddr_un_set_path) {
         assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) >= 0);
 }
 
-TEST(getpeerpidref) {
+TEST(getpeerpidref, .proc_mounted = true) {
         _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
 
         ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fd));

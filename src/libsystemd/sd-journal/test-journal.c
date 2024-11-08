@@ -118,7 +118,7 @@ static void test_non_empty_one(void) {
         puts("------------------------------------------------------------");
 }
 
-TEST(non_empty) {
+TEST(non_empty, .proc_mounted = true) {
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
         test_non_empty_one();
 
@@ -258,7 +258,7 @@ static void test_min_compress_size_one(void) {
         assert_se(!check_compressed(256, 255));
 }
 
-TEST(min_compress_size) {
+TEST(min_compress_size, .proc_mounted = true) {
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
         test_min_compress_size_one();
 

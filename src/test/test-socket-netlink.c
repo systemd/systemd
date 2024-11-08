@@ -369,7 +369,7 @@ TEST(in_addr_port_ifindex_name_from_string_auto) {
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
 }
 
-TEST(netns_get_nsid) {
+TEST(netns_get_nsid, .proc_mounted = true) {
         uint32_t u;
         int r;
 

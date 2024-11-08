@@ -56,7 +56,7 @@ static const Specifier specifier_table[] = {
         {}
 };
 
-TEST(specifier_printf) {
+TEST(specifier_printf, .proc_mounted = true) {
         static const Specifier table[] = {
                 { 'X', specifier_string,         (char*) "AAAA" },
                 { 'Y', specifier_string,         (char*) "BBBB" },
@@ -128,7 +128,7 @@ TEST(specifier_real_path_missing_file) {
         assert_se(r == -ENOENT);
 }
 
-TEST(specifiers) {
+TEST(specifiers, .proc_mounted = true) {
         int r;
 
         for (const Specifier *s = specifier_table; s->specifier; s++) {
@@ -173,7 +173,7 @@ TEST(specifiers_assorted) {
         }
 }
 
-TEST(specifiers_missing_data_ok) {
+TEST(specifiers_missing_data_ok, .proc_mounted = true) {
         _cleanup_free_ char *resolved = NULL;
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);

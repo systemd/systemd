@@ -38,7 +38,7 @@ TEST(sysctl_normalize) {
         }
 }
 
-TEST(sysctl_read) {
+TEST(sysctl_read, .proc_mounted = true) {
         _cleanup_free_ char *s = NULL;
         struct utsname u;
         sd_id128_t a, b;

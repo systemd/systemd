@@ -24,7 +24,7 @@ static int parse_item(const char *key, const char *value, void *data) {
         return 0;
 }
 
-TEST(proc_cmdline_parse) {
+TEST(proc_cmdline_parse, .proc_mounted = true) {
         assert_se(proc_cmdline_parse(parse_item, &obj, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
 }
 
