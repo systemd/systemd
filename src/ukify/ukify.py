@@ -243,6 +243,7 @@ class UkifyConfig:
     efi_arch: str
     hwids: Path
     initrd: list[Path]
+    efifw: list[Path]
     join_profiles: list[Path]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
     linux: Optional[Path]
@@ -371,6 +372,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.dtb':     'binary',
     '.dtbauto': 'binary',
     '.hwids':   'binary',
+    '.efifw':   'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -453,7 +455,10 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        if any(section.name == s.name for s in self.sections[start:] if s.name != '.dtbauto'):
+        multiple_allowed_sections = ['.dtbauto', '.efifw']
+        if any(
+            section.name == s.name for s in self.sections[start:] if s.name not in multiple_allowed_sections
+        ):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -1202,6 +1207,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
         ('.initrd',  initrd,          True),
+        *(('.efifw', fw, True) for fw in opts.efifw),
         ('.ucode',   opts.microcode,  True),
     ]  # fmt: skip
 
@@ -1258,6 +1264,7 @@ def make_uki(opts: UkifyConfig) -> None:
         '.osrel',
         '.cmdline',
         '.initrd',
+        '.efifw',
         '.ucode',
         '.splash',
         '.dtb',
@@ -1724,6 +1731,16 @@ CONFIG_ITEMS = [
         action='append',
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
+        config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--efifw',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        default=[],
+        help='firmware file [.efifw section]',
+        config_key='UKI/Firmware',
         config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
