@@ -605,10 +605,9 @@
       <varlistentry>
         <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
-        <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
-        <option>--root=</option> or in the host's root directory if neither is specified. Disabled by
-        default.</para>
+        <listitem><para>Specifies a path, within the partition marked <option>MountPoint=/</option>,
+        to write fstab entries for the mountpoints configured with <option>MountPoint=</option>. Disabled
+        by default.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
