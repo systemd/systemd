@@ -262,6 +262,7 @@ class UkifyConfig:
     efi_arch: str
     hwids: Path
     initrd: list[Path]
+    efifw: list[Path]
     join_profiles: list[Path]
     sign_profiles: list[str]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
@@ -391,6 +392,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.dtb':     'binary',
     '.dtbauto': 'binary',
     '.hwids':   'binary',
+    '.efifw':   'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -473,7 +475,10 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        if any(section.name == s.name for s in self.sections[start:] if s.name != '.dtbauto'):
+        multiple_allowed_sections = ['.dtbauto', '.efifw']
+        if any(
+            section.name == s.name for s in self.sections[start:] if s.name not in multiple_allowed_sections
+        ):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -665,7 +670,10 @@ def check_inputs(opts: UkifyConfig) -> None:
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, Path):
-                    item.open().close()
+                    if item.is_dir():
+                        item.iterdir()
+                    else:
+                        item.open().close()
 
     check_splash(opts.splash)
 
@@ -1049,6 +1057,10 @@ NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
 DEVICE_TYPE_DEVICETREE = 1
 DEVICE_TYPE_UEFI_FW = 2
 
+# Keep in sync with efifirmware.h
+FWHEADERMAGIC = 'feeddead'
+EFIFW_HEADER_SIZE = 4 + 4 + 4 + 4
+
 
 def device_make_descriptor(device_type: int, size: int) -> int:
     return (size) | (device_type << 28)
@@ -1139,6 +1151,42 @@ def parse_hwid_dir(path: Path) -> bytes:
     return devices_blob + strings_blob
 
 
+def parse_efifw_dir(path: Path) -> bytes:
+    if not path.is_dir():
+        raise ValueError(f'{path} is not a directory or it does not exist.')
+
+    # only one firmware image must be present in the directory
+    # to uniquely identify that firmware with its ID.
+    if len(list(path.glob('*'))) != 1:
+        raise ValueError(f'{path} must contain exactly one firmware image file.')
+
+    payload_blob = b''
+    for fw in path.iterdir():
+        payload_blob += fw.read_bytes()
+
+    payload_len = len(payload_blob)
+    if payload_len == 0:
+        raise ValueError(f'{fw} is a zero byte file!')
+
+    dirname = path.parts[-1]
+    # firmware id is the name of the directory the firmware bundle is in,
+    # terminated by NULL.
+    fwid = b'' + dirname.encode() + b'\0'
+    fwid_len = len(fwid)
+    magic = bytes.fromhex(FWHEADERMAGIC)
+
+    efifw_header_blob = b''
+    efifw_header_blob += struct.pack('<p', magic)
+    efifw_header_blob += struct.pack('<I', EFIFW_HEADER_SIZE)
+    efifw_header_blob += struct.pack('<I', fwid_len)
+    efifw_header_blob += struct.pack('<I', payload_len)
+
+    efifw_blob = b''
+    efifw_blob += efifw_header_blob + fwid + payload_blob
+
+    return efifw_blob
+
+
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
@@ -1222,6 +1270,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
         ('.initrd',  initrd,          True),
+        *(('.efifw', parse_efifw_dir(fw), False) for fw in opts.efifw),
         ('.ucode',   opts.microcode,  True),
     ]  # fmt: skip
 
@@ -1281,6 +1330,7 @@ def make_uki(opts: UkifyConfig) -> None:
         '.osrel',
         '.cmdline',
         '.initrd',
+        '.efifw',
         '.ucode',
         '.splash',
         '.dtb',
@@ -1754,6 +1804,16 @@ CONFIG_ITEMS = [
         action='append',
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
+        config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--efifw',
+        metavar='DIR',
+        type=Path,
+        action='append',
+        default=[],
+        help='Directory with efi firmware binary file [.efifw section]',
+        config_key='UKI/Firmware',
         config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
