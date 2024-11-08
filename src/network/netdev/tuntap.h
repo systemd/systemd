@@ -8,7 +8,6 @@ typedef struct TunTap TunTap;
 struct TunTap {
         NetDev meta;
 
-        int fd;
         char *user_name;
         char *group_name;
         bool multi_queue;
