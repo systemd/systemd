@@ -181,6 +181,9 @@ int main(int argc, char *argv[]) {
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         test_setup_logging(LOG_DEBUG);
 
         /* Run this test multiple times with different configurations of features. */

@@ -16,6 +16,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
         log_info("Current system CPU time: %s", FORMAT_TIMESPAN(nsec/NSEC_PER_USEC, 1));
 

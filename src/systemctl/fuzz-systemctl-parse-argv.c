@@ -8,6 +8,7 @@
 #include "fuzz.h"
 #include "nulstr-util.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "static-destruct.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -21,6 +22,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (size > 16*1024)
                 return 0; /* See the comment below about the limit for strv_length(). */
+
+        if (proc_mounted() <= 0)
+                return EXIT_TEST_SKIP;
 
         fuzz_setup_logging();
 
