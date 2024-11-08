@@ -1131,6 +1131,8 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • If O_CREAT is used with XO_LABEL, any created file will be immediately relabelled.
          *
          *   • If the path is specified NULL or empty, behaves like fd_reopen().
+         *
+         *   • If XO_NOCOW is specified will turn on the NOCOW btrfs flag on the file, if available.
          */
 
         if (isempty(path)) {
