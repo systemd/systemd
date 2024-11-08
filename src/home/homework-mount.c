@@ -20,6 +20,7 @@
 #include "namespace-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 static const char *mount_options_for_fstype(const char *fstype) {
@@ -215,7 +216,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
         /* Also map the container range. People can use that to place containers owned by high UIDs in their
          * home directories if they really want. We won't manage this UID range for them but pass it through
          * 1:1, and it will lose its meaning once migrated between hosts. */
-        r = append_identity_range(&text, CONTAINER_UID_BASE_MIN, CONTAINER_UID_BASE_MAX+1, stored_uid);
+        r = append_identity_range(&text, CONTAINER_UID_MIN, CONTAINER_UID_MAX+1, stored_uid);
         if (r < 0)
                 return log_oom();
 
