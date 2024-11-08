@@ -276,17 +276,12 @@ static int vl_method_mount_image(
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_free_ char *ps = NULL;
         bool image_is_trusted = false;
-        uid_t peer_uid;
         int r;
 
         assert(link);
         assert(parameters);
 
         sd_json_variant_sensitive(parameters); /* might contain passwords */
-
-        r = sd_varlink_get_peer_uid(link, &peer_uid);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get client UID: %m");
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
