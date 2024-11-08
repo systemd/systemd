@@ -111,6 +111,7 @@ static inline int link_drop_static_routes(Link *link) {
 static inline int link_drop_unmanaged_routes(Link *link) {
         return link_drop_routes(link, false);
 }
+void link_forget_routes(Link *link);
 
 int link_request_route(
                 Link *link,

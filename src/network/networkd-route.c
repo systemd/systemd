@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if.h>
 #include <linux/ipv6_route.h>
 #include <linux/nexthop.h>
 
@@ -1538,6 +1539,37 @@ int link_drop_routes(Link *link, bool only_static) {
         }
 
         return r;
+}
+
+void link_forget_routes(Link *link) {
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(!FLAGS_SET(link->flags, IFF_UP));
+
+        /* When an interface went down, IPv4 non-local routes bound to the interface are silently removed by
+         * the kernel, without any notifications. Let's forget them in that case. Otherwise, when the link
+         * goes up later, the configuration order of routes may be confused by the nonexistent routes.
+         * See issue #35047. */
+
+        Route *route;
+        SET_FOREACH(route, link->manager->routes) {
+                // TODO: handle multipath routes
+                if (route->nexthop.ifindex != link->ifindex)
+                        continue;
+                if (route->family != AF_INET)
+                        continue;
+                // TODO: check RTN_NAT and RTN_XRESOLVE
+                if (!IN_SET(route->type, RTN_UNICAST, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
+                        continue;
+
+                Request *req;
+                if (route_get_request(link->manager, route, &req) >= 0)
+                        route_enter_removed(req->userdata);
+
+                route_enter_removed(route);
+                log_route_debug(route, "Forgetting silently removed", link->manager);
+                route_detach(route);
+        }
 }
 
 int network_add_ipv4ll_route(Network *network) {
