@@ -714,7 +714,6 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops, char, string_hash_func, s
 
 static int target_new(Manager *m, TargetClass class, const char *name, const char *path, Target **ret) {
         _cleanup_(target_freep) Target *t = NULL;
-        int r;
 
         assert(m);
         assert(ret);
@@ -743,10 +742,6 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
                 t->id = strjoin(target_class_to_string(class), ":", name);
         if (!t->id)
                 return -ENOMEM;
-
-        r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
-        if (r < 0)
-                return r;
 
         *ret = TAKE_PTR(t);
         return 0;
@@ -1805,7 +1800,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                Target *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
                 if (IMAGE_IS_HOST(image))
@@ -1823,6 +1818,11 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;
@@ -1831,7 +1831,6 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
 static int manager_enumerate_components(Manager *m) {
         _cleanup_strv_free_ char **components = NULL;
         bool have_default;
-        Target *t;
         int r;
 
         r = target_list_components(NULL, &components, &have_default);
@@ -1839,13 +1838,21 @@ static int manager_enumerate_components(Manager *m) {
                 return r;
 
         if (have_default) {
+                _cleanup_(target_freep) Target *t = NULL;
+
                 r = target_new(m, TARGET_HOST, "host", "sysupdate.d", &t);
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         STRV_FOREACH(component, components) {
                 _cleanup_free_ char *path = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
                 path = strjoin("sysupdate.", *component, ".d");
                 if (!path)
@@ -1854,6 +1861,11 @@ static int manager_enumerate_components(Manager *m) {
                 r = target_new(m, TARGET_COMPONENT, *component, path, &t);
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;
