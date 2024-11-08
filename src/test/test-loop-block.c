@@ -234,6 +234,9 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 
 #if HAVE_BLKID

@@ -10,6 +10,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         u = umask(0111);
 
         n = 0;
