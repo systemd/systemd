@@ -240,6 +240,7 @@ class UkifyConfig:
     devicetree: Path
     efi_arch: str
     initrd: list[Path]
+    firmware: Path
     join_profiles: list[Path]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
     linux: Optional[Path]
@@ -362,6 +363,7 @@ class Uname:
 DEFAULT_SECTIONS_TO_SHOW = {
     '.linux':   'binary',
     '.initrd':  'binary',
+    '.fmw':     'binary',
     '.ucode':   'binary',
     '.splash':  'binary',
     '.dtb':     'binary',
@@ -1050,6 +1052,7 @@ def make_uki(opts: UkifyConfig) -> None:
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
         ('.initrd',  initrd,          True),
+        ('.fmw',     opts.firmware,   True),
         ('.ucode',   opts.microcode,  True),
     ]  # fmt: skip
 
@@ -1106,6 +1109,7 @@ def make_uki(opts: UkifyConfig) -> None:
         '.osrel',
         '.cmdline',
         '.initrd',
+        '.fmw',
         '.ucode',
         '.splash',
         '.dtb',
@@ -1583,6 +1587,12 @@ CONFIG_ITEMS = [
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
         config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--firmware',
+        type=Path,
+        help='firmware file [.fmw section]',
+        config_key='UKI/Firmware',
     ),
     ConfigItem(
         '--microcode',
