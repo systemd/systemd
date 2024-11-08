@@ -4050,6 +4050,55 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(manage_foreign_routes=manage_foreign_routes):
                 self._test_route_static(manage_foreign_routes)
 
+    def test_route_static_issue_35047(self):
+        copy_network_unit(
+            '25-route-static-issue-35047.network',
+            '25-route-static-issue-35047.network.d/step1.conf',
+            '12-dummy.netdev',
+            copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertIn('192.0.2.2 proto kernel scope link src 192.0.2.1', output)
+        self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
+        self.assertIn('198.51.100.0/24 via 192.0.2.2 proto static', output)
+
+        check_output('ip link set dev dummy98 down')
+        self.wait_route_dropped('dummy98', '192.0.2.2 proto kernel scope link src 192.0.2.1', ipv='-6', table='all', timeout_sec=10)
+        self.wait_route_dropped('dummy98', '198.51.100.0/24 via 192.0.2.2 proto static', ipv='-6', table='all', timeout_sec=10)
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertNotIn('192.0.2.2', output)
+        self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
+        self.assertNotIn('198.51.100.0/24', output)
+
+        check_output('ip address del 192.0.2.1 peer 192.0.2.2/32 dev dummy98')
+        self.wait_route_dropped('dummy98', 'local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', ipv='-6', table='all', timeout_sec=10)
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertNotIn('192.0.2.2', output)
+        self.assertNotIn('192.0.2.1', output)
+        self.assertNotIn('198.51.100.0/24', output)
+
+        remove_network_unit('25-route-static-issue-35047.network.d/step1.conf')
+        copy_network_unit('25-route-static-issue-35047.network.d/step2.conf')
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertIn('192.0.2.2 proto static scope link', output)
+        self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
+        self.assertIn('198.51.100.0/24 via 192.0.2.2 proto static', output)
+
     @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
         copy_network_unit('25-route-via-ipv6.network', '12-dummy.netdev')
