@@ -606,7 +606,7 @@ ID_NET_NAME_PATH=enp0s31f6
 
       <programlisting>ID_NET_NAME_ONBOARD=eno1
 ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -699,7 +699,7 @@ net:naming:drvirtio_net:*
   ID_NET_NAME_ALLOW=1
   ID_NET_NAME_ALLOW_DEV_PORT=0
   ID_NET_NAME_ALLOW_PHYS_PORT_NAME=0
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 

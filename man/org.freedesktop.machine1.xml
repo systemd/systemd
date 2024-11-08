@@ -183,7 +183,7 @@ node /org/freedesktop/machine1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method UnregisterMachine is not documented!-->
 
@@ -531,7 +531,7 @@ node /org/freedesktop/machine1/machine/rawhide {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetUIDShift is not documented!-->
 
@@ -687,7 +687,7 @@ node /org/freedesktop/machine1/machine/rawhide {
 $ gdbus introspect --system \
   --dest org.freedesktop.machine1 \
   --object-path /org/freedesktop/machine1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -697,7 +697,7 @@ $ gdbus introspect --system \
 $ gdbus introspect --system \
   --dest org.freedesktop.machine1 \
   --object-path /org/freedesktop/machine1/machine/rawhide
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 

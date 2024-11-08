@@ -186,7 +186,7 @@ $ systemd-id128 show --value --uuid user-home
 $ systemd-id128 show 773f91ef-66d4-49b5-bd83-d683bf40ad16
 NAME      ID
 user-home 773f91ef66d449b5bd83d683bf40ad16
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -205,7 +205,7 @@ $ systemd-id128 machine-id -u -a 1fb8f24b-02df-458d-9659-cc8ace68e28a
 $ systemd-id128 -Pu show 3a9d668b-4db7-4939-8a4a-5e78a03bffb7 \
     -a 1fb8f24b-02df-458d-9659-cc8ace68e28a
 47b82cb1-5339-43da-b2a6-1c350aef1bd1
-      </programlisting>
+</programlisting>
 
       <para>On a given machine with the ID 3a9d668b-4db7-4939-8a4a-5e78a03bffb7, for the application
       1fb8f24b-02df-458d-9659-cc8ace68e28a, we generate an application-specific machine ID

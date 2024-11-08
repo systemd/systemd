@@ -409,7 +409,7 @@ pam_set_data(handle, "systemd.tasks_max",  (void *)"50",   cleanup);
 pam_set_data(handle, "systemd.cpu_weight", (void *)"100",  cleanup);
 pam_set_data(handle, "systemd.io_weight",  (void *)"340",  cleanup);
 pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
-      </programlisting>
+</programlisting>
     </para>
 
   </refsect1>

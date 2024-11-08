@@ -68,7 +68,7 @@ node /org/freedesktop/timesync1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method SetRuntimeNTPServers is not documented!-->
 
@@ -146,7 +146,7 @@ node /org/freedesktop/timesync1 {
 $ gdbus introspect --system \
   --dest org.freedesktop.timesync1 \
   --object-path /org/freedesktop/timesync1
-      </programlisting>
+</programlisting>
     </example>
 
   </refsect1>

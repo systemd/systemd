@@ -81,14 +81,13 @@ CHANGES WITH 257 in spe:
         * To work around limitations of X11's keyboard handling systemd's
           keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
           mapped the microphone mute and touchpad on/off/toggle keys to the
-          function keys F20, F21, F22, F23 instead of their correct key
-          codes. This key code mangling will be removed in the next systemd
-          release v258. To maintain compatibility with X11 applications that
-          rely on the old function key code mappings, this mangling has now
-          been moved to the relevant X11 keyboard driver modules instead. Thus,
-          in order to ensure these keys continue to work as before, make sure
-          to update the xf86-input-evdev and xf86-input-libinput packages to
-          the newest version before updating systemd to v258.
+          function keys F20, F21, F22, F23 instead of their correct key codes.
+          This key code mangling will be removed in the next systemd release.
+          To maintain compatibility with X11 applications that rely on the old
+          function key code mappings, this mangling has now been moved to the
+          relevant X11 keyboard driver modules. In order to ensure these keys
+          continue to work, update to xf86-input-evdev >= 2.11.0 and
+          xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
 
         * Support for the SystemdOptions EFI variable is deprecated.
           'bootctl systemd-efi-options' will emit a warning when used. It seems

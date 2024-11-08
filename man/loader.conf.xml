@@ -362,7 +362,7 @@ attr=NON_VOLATILE,RUNTIME_ACCESS,BOOTSERVICE_ACCESS,TIME_BASED_AUTHENTICATED_WRI
 sbvarsign --attr "${attr}" --key PK.key --cert PK.pem --output PK.auth PK PK.esl
 sbvarsign --attr "${attr}" --key PK.key --cert PK.pem --output KEK.auth KEK KEK.esl
 sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.esl
-        </programlisting>
+</programlisting>
 
         <para>This feature is considered dangerous because even if all the required files are signed with the
         keys being loaded, some files necessary for the system to function properly still won't be. This
@@ -409,7 +409,7 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
 timeout 0
 default 01234567890abcdef1234567890abdf0-*
 editor no
-    </programlisting>
+</programlisting>
 
     <para>The menu will not be shown by default (the menu can still be shown by
     pressing and holding a key during boot). One of the entries with files with a
