@@ -749,6 +749,10 @@ int config_get_stats_by_path(
                         return -errno;
                 }
 
+                /*Skipping empty udev rules file*/
+                if (null_or_empty(&st))
+                        continue;
+
                 r = hashmap_put_stats_by_path(&stats_by_path, *f, &st);
                 if (r < 0)
                         return r;
