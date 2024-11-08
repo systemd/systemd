@@ -2,6 +2,7 @@
 
 #include "chid.h"
 #include "devicetree.h"
+#include "efifirmware.h"
 #include "pe.h"
 #include "util.h"
 
@@ -195,6 +196,33 @@ static bool pe_use_this_dtb(
         return false;
 }
 
+static bool pe_use_this_firmware(
+                const void *efifw,
+                size_t efifw_size,
+                const void *base,
+                const Device *device,
+                size_t section_nb) {
+
+        assert(efifw);
+
+        EFI_STATUS err;
+
+        /* if there is no hwids section, there is nothing much we can do */
+        if (!device || !base)
+                return false;
+
+        const char *fwid = device_get_fwid(base, device);
+        if (!fwid)
+                return false;
+
+        err = efifirmware_match_by_fwid(efifw, efifw_size, fwid);
+        if (err == EFI_SUCCESS)
+                return true;
+        if (err == EFI_INVALID_PARAMETER)
+                log_error_status(err, "Found bad efifw blob in PE section %zu", section_nb);
+        return false;
+}
+
 static void pe_locate_sections_internal(
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
@@ -252,6 +280,20 @@ static void pe_locate_sections_internal(
                                                   device_table,
                                                   device,
                                                   (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
+                                        continue;
+                        }
+
+                        /* handle eifwauto section */
+                        if (pe_section_name_equal(section_names[i], ".efifwauto")) {
+                                /* .dtbauto sections require validate_base for matching */
+                                if (!validate_base)
+                                        break;
+                                if (!pe_use_this_firmware(
+                                                    (const uint8_t *) SIZE_TO_PTR(validate_base) + j->VirtualAddress,
+                                                    j->VirtualSize,
+                                                    device_table,
+                                                    device,
+                                                    (PTR_TO_SIZE(j) - PTR_TO_SIZE(section_table)) / sizeof(*j)))
                                         continue;
                         }
 
