@@ -992,6 +992,7 @@ manpages = [
    'systemd-journald@.service',
    'systemd-journald@.socket'],
   ''],
+ ['systemd-keyutil', '1', [], ''],
  ['systemd-localed.service', '8', ['systemd-localed'], 'ENABLE_LOCALED'],
  ['systemd-logind.service', '8', ['systemd-logind'], 'ENABLE_LOGIND'],
  ['systemd-machine-id-commit.service', '8', [], ''],
