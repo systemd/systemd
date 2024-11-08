@@ -102,6 +102,8 @@ containeruidbasemin=${container_uid_base_min}
 container_uid_base_max={{CONTAINER_UID_BASE_MAX}}
 containeruidbasemax=${container_uid_base_max}
 
+foreign_uid_base={{FOREIGN_UID_BASE}}
+
 Name: systemd
 Description: systemd System and Service Manager
 URL: {{PROJECT_URL}}
