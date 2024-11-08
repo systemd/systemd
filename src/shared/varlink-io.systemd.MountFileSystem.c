@@ -49,6 +49,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(imageName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(imageUuid, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                MountMapMode,
+                SD_VARLINK_DEFINE_ENUM_VALUE(root),
+                SD_VARLINK_DEFINE_ENUM_VALUE(foreign),
+                SD_VARLINK_DEFINE_ENUM_VALUE(identity),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto));
+
+static SD_VARLINK_DEFINE_METHOD(
+                MountDirectory,
+                SD_VARLINK_DEFINE_INPUT(directoryFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, MountMapMode, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_DEFINE_OUTPUT(mountFileDescriptor, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(IncompatibleImage);
 static SD_VARLINK_DEFINE_ERROR(MultipleRootPartitionsFound);
 static SD_VARLINK_DEFINE_ERROR(RootPartitionNotFound);
@@ -59,9 +75,17 @@ static SD_VARLINK_DEFINE_ERROR(VerityFailure);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MountFileSystem,
                 "io.systemd.MountFileSystem",
+                SD_VARLINK_INTERFACE_COMMENT("APIs for unpriviliged mounting."),
+                SD_VARLINK_SYMBOL_COMMENT("Encodes the designated purpose of a partition"),
                 &vl_type_PartitionDesignator,
+                SD_VARLINK_SYMBOL_COMMENT("Information about a specific partition"),
                 &vl_type_PartitionInfo,
+                SD_VARLINK_SYMBOL_COMMENT("Takes a disk image file descriptor as input, returns a set of mount file descriptors for it."),
                 &vl_method_MountImage,
+                SD_VARLINK_SYMBOL_COMMENT("Selects the type of UID/GID mapping to apply"),
+                &vl_type_MountMapMode,
+                SD_VARLINK_SYMBOL_COMMENT("Takes a directory file descriptor as input, returns a mount file descriptor."),
+                &vl_method_MountDirectory,
                 &vl_error_IncompatibleImage,
                 &vl_error_MultipleRootPartitionsFound,
                 &vl_error_RootPartitionNotFound,
