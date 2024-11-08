@@ -20,6 +20,7 @@ typedef enum UnifiedSection {
         UNIFIED_SECTION_PROFILE,
         UNIFIED_SECTION_DTBAUTO,
         UNIFIED_SECTION_HWIDS,
+        UNIFIED_SECTION_FIRMWARE,
         _UNIFIED_SECTION_MAX,
 } UnifiedSection;
 
