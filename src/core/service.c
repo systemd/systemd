@@ -5131,8 +5131,6 @@ static void service_reset_failed(Unit *u) {
         s->live_mount_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
-
-        (void) unit_set_debug_invocation(u, /* enable= */ false);
 }
 
 static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
