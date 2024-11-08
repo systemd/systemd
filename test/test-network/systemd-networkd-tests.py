@@ -1628,6 +1628,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ethertype ip ')
         self.assertRegex(output, 'srcportmin 1001 ')
 
+        touch_network_unit('25-bareudp.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('bareudp99:degraded')
+
     @expectedFailureIfModuleIsNotAvailable('batman-adv')
     def test_batadv(self):
         copy_network_unit('25-batadv.netdev', '26-netdev-link-local-addressing-yes.network')
@@ -1639,6 +1643,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show batadv99')
         print(output)
         self.assertRegex(output, 'batadv')
+
+        touch_network_unit('25-batadv.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('batadv99:degraded')
 
     def test_bridge(self):
         copy_network_unit('25-bridge.netdev', '25-bridge-configure-without-carrier.network')
@@ -1964,6 +1972,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'link/ether 12:34:56:78:9a:bf')
         self.assertRegex(output, 'mtu 1800')
 
+        touch_network_unit(
+            '25-veth.netdev',
+            '26-netdev-link-local-addressing-yes.network',
+            '25-veth-mtu.netdev')
+        networkctl_reload()
+        self.wait_online(
+            'veth99:degraded',
+            'veth-peer:degraded',
+            'veth-mtu:degraded',
+            'veth-mtu-peer:degraded')
+
     def check_tuntap(self, attached):
         pid = networkd_pid()
         name = psutil.Process(pid).name()[:15]
@@ -2023,6 +2042,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.check_tuntap(True)
 
+        touch_network_unit('25-tun.netdev', '25-tap.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('testtun99:degraded', 'testtap99:degraded')
+
+        self.check_tuntap(True)
+
         remove_network_unit('26-netdev-link-local-addressing-yes.network')
         restart_networkd()
         self.wait_online('testtun99:degraded', 'testtap99:degraded', setup_state='unmanaged')
@@ -2048,6 +2073,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online('vrf99:carrier')
         self.networkctl_check_unit('vrf99', '25-vrf', '26-netdev-link-local-addressing-yes')
 
+        touch_network_unit('25-vrf.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl()
+        self.wait_online('vrf99:carrier')
+
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
         copy_network_unit('25-vcan.netdev', '26-netdev-link-local-addressing-yes.network',
@@ -2069,6 +2098,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('mtu 16 ', output)
 
+        touch_network_unit(
+            '25-vcan.netdev',
+            '26-netdev-link-local-addressing-yes.network',
+            '25-vcan98.netdev',
+            '25-vcan98.network')
+        networkctl_reload()
+        self.wait_online('vcan99:carrier', 'vcan98:carrier')
+
     @expectedFailureIfModuleIsNotAvailable('vxcan')
     def test_vxcan(self):
         copy_network_unit('25-vxcan.netdev', '26-netdev-link-local-addressing-yes.network')
@@ -2079,6 +2116,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online('vxcan99', 'vxcan-peer')
         self.networkctl_check_unit('vxcan99', '25-vxcan', '26-netdev-link-local-addressing-yes')
         self.networkctl_check_unit('vxcan-peer', '25-vxcan', '26-netdev-link-local-addressing-yes')
+
+        touch_network_unit('25-vxcan.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl()
+        self.wait_online('vxcan99:carrier', 'vxcan-peer:carrier')
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
@@ -2211,6 +2252,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             output = check_output('wg show wg97 fwmark')
             self.assertEqual(output, '0x4d3')
 
+        touch_network_unit(
+            '25-wireguard.netdev', '25-wireguard.network',
+            '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
+            '25-wireguard-public-key.txt', '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
+            '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
+        networkctl_reload()
+        self.wait_online('wg99:routable', 'wg98:routable', 'wg97:carrier')
+
     def test_geneve(self):
         copy_network_unit('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
@@ -2224,6 +2273,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '6082')
         self.assertRegex(output, 'udpcsum')
         self.assertRegex(output, 'udp6zerocsumrx')
+
+        touch_network_unit('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('geneve99:degraded')
 
     def test_ipip_tunnel(self):
         copy_network_unit('12-dummy.netdev', '25-ipip.network',
@@ -2825,6 +2878,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
 
+        touch_network_unit(
+            '25-fou-ipproto-ipip.netdev', '25-fou-ipproto-gre.netdev',
+            '25-fou-ipip.netdev', '25-fou-sit.netdev',
+            '25-fou-gre.netdev', '25-fou-gretap.netdev')
+        networkctl_reload()
+        self.wait_online('ipiptun96:off', 'sittun96:off', 'gretun96:off', 'gretap96:off', setup_state='unmanaged')
+
     def test_vxlan(self):
         copy_network_unit('11-dummy.netdev', '25-vxlan-test1.network',
                           '25-vxlan.netdev', '25-vxlan.network',
@@ -2929,6 +2989,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online('nlmon99:carrier')
         self.networkctl_check_unit('nlmon99', '25-nlmon', '26-netdev-link-local-addressing-yes')
 
+        touch_network_unit('25-nlmon.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('nlmon99:carrier')
+
     @expectedFailureIfModuleIsNotAvailable('ifb')
     def test_ifb(self):
         copy_network_unit('25-ifb.netdev', '26-netdev-link-local-addressing-yes.network')
@@ -2936,6 +3000,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online('ifb99:degraded')
         self.networkctl_check_unit('ifb99', '25-ifb', '26-netdev-link-local-addressing-yes')
+
+        touch_network_unit('25-ifb.netdev', '26-netdev-link-local-addressing-yes.network')
+        networkctl_reload()
+        self.wait_online('ifb99:degraded')
 
     @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
     def test_rps_cpu_1(self):
@@ -3093,6 +3161,12 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Peer session 18, tunnel 11")
         self.assertRegex(output, "interface name: l2tp-ses2")
 
+        touch_network_unit(
+            '11-dummy.netdev', '25-l2tp-dummy.network',
+            '25-l2tp-udp.netdev', '25-l2tp.network')
+        networkctl_reload()
+        self.wait_online('test1:routable', 'l2tp-ses1:degraded', 'l2tp-ses2:degraded')
+
     @expectedFailureIfModuleIsNotAvailable('l2tp_eth', 'l2tp_ip', 'l2tp_netlink')
     def test_l2tp_ip(self):
         copy_network_unit('11-dummy.netdev', '25-l2tp-dummy.network',
@@ -3121,6 +3195,12 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Session 27 in tunnel 10")
         self.assertRegex(output, "Peer session 28, tunnel 12")
         self.assertRegex(output, "interface name: l2tp-ses4")
+
+        touch_network_unit(
+            '11-dummy.netdev', '25-l2tp-dummy.network',
+            '25-l2tp-ip.netdev', '25-l2tp.network')
+        networkctl_reload()
+        self.wait_online('test1:routable', 'l2tp-ses3:degraded', 'l2tp-ses4:degraded')
 
 class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
@@ -5365,6 +5445,15 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         self.wait_online('dummy98:enslaved', 'bond199:degraded')
         self.assertNotIn('dummy98: Bringing link down', read_networkd_log(since=since))
 
+        check_output('ip link del dev dummy98')
+        touch_network_unit(
+            '23-active-slave.network',
+            '23-bond199.network',
+            '25-bond-active-backup-slave.netdev',
+            '12-dummy.netdev')
+        networkctl_reload()
+        self.wait_online('dummy98:enslaved', 'bond199:degraded')
+
     def test_bond_primary_slave(self):
         copy_network_unit('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
@@ -5737,6 +5826,18 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertIn('master bridge99 ', output)
         self.assertIn('bridge_slave', output)
         self.assertIn('mtu 9000 ', output)
+
+        # test reload
+        check_output('ip link del dev dummy98')
+        touch_network_unit(
+            '11-dummy.netdev',
+            '12-dummy.netdev',
+            '26-bridge.netdev',
+            '26-bridge-slave-interface-1.network',
+            '26-bridge-slave-interface-2.network',
+            '25-bridge99.network')
+        networkctl_reload()
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bridge99:routable')
 
     def test_bridge_configure_without_carrier(self):
         copy_network_unit('26-bridge.netdev', '26-bridge-configure-without-carrier.network',
