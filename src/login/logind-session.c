@@ -1393,7 +1393,11 @@ int session_kill(Session *s, KillWhom whom, int signo) {
         if (!s->scope)
                 return -ESRCH;
 
-        return manager_kill_unit(s->manager, s->scope, whom, signo, NULL);
+        switch (whom) {
+                case KILL_ALL: return manager_kill_unit(s->manager, s->scope, KILL_ALL, signo, NULL);
+                case KILL_LEADER: return pidref_kill(&s->leader, signo);
+                default: return -EINVAL;
+        }
 }
 
 static int session_open_vt(Session *s, bool reopen) {
