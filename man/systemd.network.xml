@@ -2546,6 +2546,17 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>BOOTP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The DHCPv4 client can be configured to communicate with BOOP servers that
+          don't accept Option 53, DHCP Message Type. In this configuration, a BOOTP Request is sent without
+          any options by default. A BOOTP reply that contains Option 1: Subnet Mask is expected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
