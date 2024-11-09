@@ -1169,7 +1169,7 @@ int dns_cache_lookup(
                 /* We'll return any packet we have for this. Typically all cache entries for the same key
                  * should come from the same packet anyway, hence it doesn't really matter which packet we
                  * return here, they should all resolve to the same anyway. */
-                if (!full_packet && j->full_packet)
+                if (!full_packet && j->full_packet && j->key->type != DNS_TYPE_CNAME)
                         full_packet = dns_packet_ref(j->full_packet);
         }
 
