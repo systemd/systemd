@@ -432,18 +432,17 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -EEXIST)
-                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
-        else if (r < 0) {
-                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+        if (r >= 0)
+                log_netdev_debug(netdev, "Created.");
+        else if (r == -EEXIST && netdev->ifindex > 0)
+                log_netdev_debug(netdev, "Already exists.");
+        else {
+                log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
                 netdev_enter_failed(netdev);
-
-                return 1;
+                return 0;
         }
 
-        log_netdev_debug(netdev, "Created");
-
-        return 1;
+        return netdev_enter_ready(netdev);
 }
 
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
@@ -464,8 +463,6 @@ int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
 }
 
 static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
-        int r;
-
         assert(netdev);
         assert(name);
         assert(ifindex > 0);
@@ -478,11 +475,7 @@ static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex
                                                 "Received netlink message with unexpected interface name %s (ifindex=%i).",
                                                 name, ifindex);
 
-        r = netdev_set_ifindex_internal(netdev, ifindex);
-        if (r <= 0)
-                return r;
-
-        return netdev_enter_ready(netdev);
+        return netdev_set_ifindex_internal(netdev, ifindex);
 }
 
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
@@ -930,21 +923,9 @@ static int netdev_request_to_create(NetDev *netdev) {
         if (netdev->state != NETDEV_STATE_LOADING)
                 return 0; /* Already configured (at least tried previously). Not necessary to reconfigure. */
 
-        r = netdev_is_ready_to_create(netdev, NULL);
+        r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
         if (r < 0)
-                return r;
-        if (r > 0) {
-                /* If the netdev has no dependency, then create it now. */
-                r = independent_netdev_create(netdev);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
-
-        } else {
-                /* Otherwise, wait for the dependencies being resolved. */
-                r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
-        }
+                return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
 
         return 0;
 }
