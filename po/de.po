@@ -16,7 +16,8 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2024-11-09 20:13+0000\n"
-"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -1185,7 +1186,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Abfrageergebnisse abonnieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
@@ -1219,7 +1220,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Statistik zurücksetzen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to reset statistics."
@@ -1227,7 +1228,7 @@ msgstr "Legitimierung ist zum Zurücksetzen der Statistik erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Auf Systemaktualisierungen prüfen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 msgid "Authentication is required to check for system updates."
@@ -1235,7 +1236,7 @@ msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen notwendig."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Systemaktualisierungen installieren"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
@@ -1244,7 +1245,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Spezifische Systemversion installieren"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
 #, fuzzy
