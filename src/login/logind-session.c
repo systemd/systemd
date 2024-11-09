@@ -1391,17 +1391,18 @@ int session_kill(Session *s, KillWhom whom, int signo) {
         assert(s);
 
         switch (whom) {
-                case KILL_ALL:
-                        if (!s->scope)
-                                return -ESRCH;
 
-                        return manager_kill_unit(s->manager, s->scope, KILL_ALL, signo, NULL);
+        case KILL_ALL:
+                if (!s->scope)
+                        return -ESRCH;
 
-                case KILL_LEADER:
-                        return pidref_kill(&s->leader, signo);
+                return manager_kill_unit(s->manager, s->scope, KILL_ALL, signo, NULL);
 
-                default:
-                        assert_not_reached();
+        case KILL_LEADER:
+                return pidref_kill(&s->leader, signo);
+
+        default:
+                assert_not_reached();
         }
 }
 
