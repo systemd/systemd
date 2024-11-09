@@ -995,8 +995,7 @@ def make_uki(opts: UkifyConfig) -> None:
     sign_kernel = opts.sign_kernel
     linux = opts.linux
 
-    if sign_args_present:
-        assert opts.linux is not None
+    if opts.linux and sign_args_present:
         assert opts.signtool is not None
 
         if not sign_kernel:
