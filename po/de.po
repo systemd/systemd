@@ -15,8 +15,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-07 13:26+0000\n"
-"Last-Translator: Anselm Schueler <mail@anselmschueler.com>\n"
+"PO-Revision-Date: 2024-11-09 20:13+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -253,9 +253,10 @@ msgid "Please confirm presence on security token of user %s."
 msgstr "Bitte Präsenz auf Sicherheitstoken für %s bestätigen."
 
 #: src/home/pam_systemd_home.c:420
-#, fuzzy, c-format
+#, c-format
 msgid "Please verify user on security token of user %s."
-msgstr "Bitte Benutzer auf Sicherheitstoken für %s verifizieren."
+msgstr ""
+"Bitte Benutzer anhand des Sicherheitstokens von Benutzer %s verifizieren."
 
 #: src/home/pam_systemd_home.c:429
 msgid ""
@@ -1205,45 +1206,41 @@ msgid "Dump server state"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "Legitimierung ist zum Festlegen von NTP-Servern notwendig."
+msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "Legitimierung ist zum Festlegen von Domains notwendig."
+msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "Legitimierung ist zum Zurücksetzen der NTP-Einstellungen notwendig."
+msgstr "Legitimierung ist zum Zurücksetzen der Statistik erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
 msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen notwendig."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
 msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
+msgstr ""
+"Legitimierung ist zum Installieren von Systemaktualisierungen notwendig."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
@@ -1267,7 +1264,7 @@ msgstr "Legitimierung ist zum Festlegen der Systemzeit notwendig."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Optionale Funktionen verwalten"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
