@@ -1390,10 +1390,19 @@ SessionState session_get_state(Session *s) {
 int session_kill(Session *s, KillWhom whom, int signo) {
         assert(s);
 
-        if (!s->scope)
-                return -ESRCH;
+        switch (whom) {
+                case KILL_ALL:
+                        if (!s->scope)
+                                return -ESRCH;
 
-        return manager_kill_unit(s->manager, s->scope, whom, signo, NULL);
+                        return manager_kill_unit(s->manager, s->scope, KILL_ALL, signo, NULL);
+
+                case KILL_LEADER:
+                        return pidref_kill(&s->leader, signo);
+
+                default:
+                        assert_not_reached();
+        }
 }
 
 static int session_open_vt(Session *s, bool reopen) {
