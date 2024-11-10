@@ -49,7 +49,7 @@ static char16_t *smbios_to_hashable_string(const char *str) {
 
 /* This has to be in a struct due to _cleanup_ in populate_board_chids */
 typedef struct SmbiosInfo {
-        const char16_t *smbios_fields[_CHID_SMBIOS_FIELDS_MAX];
+        char16_t *smbios_fields[_CHID_SMBIOS_FIELDS_MAX];
 } SmbiosInfo;
 
 static void smbios_info_populate(SmbiosInfo *ret_info) {
@@ -71,7 +71,7 @@ static void smbios_info_populate(SmbiosInfo *ret_info) {
 
 static void smbios_info_done(SmbiosInfo *info) {
         FOREACH_ELEMENT(i, info->smbios_fields)
-                free(i);
+                free(*i);
 }
 
 static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]) {
@@ -81,7 +81,7 @@ static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]
                 return EFI_INVALID_PARAMETER;
 
         smbios_info_populate(&info);
-        chid_calculate(info.smbios_fields, ret_chids);
+        chid_calculate((const char16_t *const *) info.smbios_fields, ret_chids);
 
         return EFI_SUCCESS;
 }
