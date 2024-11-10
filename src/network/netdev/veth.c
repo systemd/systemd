@@ -150,4 +150,5 @@ const NetDevVTable veth_vtable = {
         .get_ifindex = netdev_veth_get_ifindex,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };

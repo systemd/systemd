@@ -400,7 +400,7 @@ int netdev_enter_ready(NetDev *netdev) {
         assert(netdev);
         assert(netdev->ifname);
 
-        if (netdev->state != NETDEV_STATE_CREATING)
+        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_CREATING))
                 return 0;
 
         netdev->state = NETDEV_STATE_READY;
@@ -820,7 +820,16 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         assert(link);
 
         if (!netdev_is_managed(netdev))
-                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+                goto cancelled; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
+        if (NETDEV_VTABLE(netdev)->keep_existing && netdev->ifindex > 0) {
+                /* Already exists, and the netdev does not support updating, entering the ready state. */
+                r = netdev_enter_ready(netdev);
+                if (r < 0)
+                        return r;
+
+                goto cancelled;
+        }
 
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
@@ -829,6 +838,18 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         r = stacked_netdev_create(netdev, link, req);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
+
+        return 1;
+
+cancelled:
+        assert_se(TAKE_PTR(req->counter) == &link->create_stacked_netdev_messages);
+        link->create_stacked_netdev_messages--;
+
+        if (link->create_stacked_netdev_messages == 0) {
+                link->stacked_netdevs_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
+        }
 
         return 1;
 }
@@ -901,6 +922,15 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
 
         if (!netdev_is_managed(netdev))
                 return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
+        if (NETDEV_VTABLE(netdev)->keep_existing && netdev->ifindex > 0) {
+                /* Already exists, and the netdev does not support updating, entering the ready state. */
+                r = netdev_enter_ready(netdev);
+                if (r < 0)
+                        return r;
+
+                return 1; /* Skip this request. */
+        }
 
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)
