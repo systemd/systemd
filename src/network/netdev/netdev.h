@@ -199,6 +199,10 @@ typedef struct NetDevVTable {
 
         /* When assigning ifindex to the netdev, skip to check if the netdev kind matches. */
         bool skip_netdev_kind_check;
+
+        /* Provides if the netdev can be updated, that is, whether RTM_NEWLINK with existing ifindex is supported or not.
+         * If this is true, the netdev does not support updating. */
+        bool keep_existing;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
