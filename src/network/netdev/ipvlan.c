@@ -60,6 +60,7 @@ const NetDevVTable ipvlan_vtable = {
         .can_set_mac = ipvlan_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
 
 const NetDevVTable ipvtap_vtable = {
@@ -71,6 +72,7 @@ const NetDevVTable ipvtap_vtable = {
         .can_set_mac = ipvlan_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
 
 IPVlanMode link_get_ipvlan_mode(Link *link) {

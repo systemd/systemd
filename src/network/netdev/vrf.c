@@ -33,4 +33,5 @@ const NetDevVTable vrf_vtable = {
         .can_set_mac = vrf_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
