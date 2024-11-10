@@ -41,13 +41,13 @@ executables += [
 ]
 
 if conf.get('ENABLE_REPART') == 1
-        install_data('definitions/confext.repart.d/10-root.conf', install_dir : repartdefinitionsdir / 'confext.repart.d')
-        install_data('definitions/confext.repart.d/20-root-verity.conf', install_dir : repartdefinitionsdir / 'confext.repart.d')
-        install_data('definitions/confext.repart.d/30-root-verity-sig.conf', install_dir : repartdefinitionsdir / 'confext.repart.d')
-        install_data('definitions/portable.repart.d/10-root.conf', install_dir : repartdefinitionsdir / 'portable.repart.d')
-        install_data('definitions/portable.repart.d/20-root-verity.conf', install_dir : repartdefinitionsdir / 'portable.repart.d')
+        install_data('definitions/confext.repart.d/10-root.conf',             install_dir : repartdefinitionsdir / 'confext.repart.d')
+        install_data('definitions/confext.repart.d/20-root-verity.conf',      install_dir : repartdefinitionsdir / 'confext.repart.d')
+        install_data('definitions/confext.repart.d/30-root-verity-sig.conf',  install_dir : repartdefinitionsdir / 'confext.repart.d')
+        install_data('definitions/portable.repart.d/10-root.conf',            install_dir : repartdefinitionsdir / 'portable.repart.d')
+        install_data('definitions/portable.repart.d/20-root-verity.conf',     install_dir : repartdefinitionsdir / 'portable.repart.d')
         install_data('definitions/portable.repart.d/30-root-verity-sig.conf', install_dir : repartdefinitionsdir / 'portable.repart.d')
-        install_data('definitions/sysext.repart.d/10-root.conf', install_dir : repartdefinitionsdir / 'sysext.repart.d')
-        install_data('definitions/sysext.repart.d/20-root-verity.conf', install_dir : repartdefinitionsdir / 'sysext.repart.d')
-        install_data('definitions/sysext.repart.d/30-root-verity-sig.conf', install_dir : repartdefinitionsdir / 'sysext.repart.d')
+        install_data('definitions/sysext.repart.d/10-root.conf',              install_dir : repartdefinitionsdir / 'sysext.repart.d')
+        install_data('definitions/sysext.repart.d/20-root-verity.conf',       install_dir : repartdefinitionsdir / 'sysext.repart.d')
+        install_data('definitions/sysext.repart.d/30-root-verity-sig.conf',   install_dir : repartdefinitionsdir / 'sysext.repart.d')
 endif
