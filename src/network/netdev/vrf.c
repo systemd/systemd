@@ -28,4 +28,5 @@ const NetDevVTable vrf_vtable = {
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
