@@ -1265,4 +1265,5 @@ const NetDevVTable wireguard_vtable = {
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = wireguard_verify,
         .iftype = ARPHRD_NONE,
+        .keep_existing = true,
 };
