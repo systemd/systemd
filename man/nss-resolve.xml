@@ -175,7 +175,7 @@ netgroup:       nis</programlisting>
       <member><citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

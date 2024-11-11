@@ -40,7 +40,7 @@
 
     <para><filename>*.pcrlock</filename> files define expected TPM2 PCR measurements of components involved
     in the boot
-    process. <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    process. <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     uses such pcrlock files to analyze and predict TPM2 PCR measurements. The pcrlock files are JSON arrays
     that follow a subset of the <ulink
     url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log Format
@@ -292,7 +292,7 @@
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

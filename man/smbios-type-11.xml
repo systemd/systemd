@@ -29,7 +29,7 @@
 
     <para>Various OS components process SMBIOS Type 11 vendor strings that a virtual machine manager (VMM)
     may set and a virtual machine (VM) receives. SMBIOS Type 11 vendor strings may play a similar role as
-    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     parameters but generally are under control of the VMM rather than the boot loader or UKI.</para>
 
     <para>For details on SMBIOS Type 11 see the <ulink url="https://www.dmtf.org/standards/smbios/">System
@@ -60,7 +60,7 @@
 
         <listitem><para>This allows configuration of additional kernel command line options, and is read by
         the kernel UEFI stub. For details see
-        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -70,7 +70,7 @@
 
         <listitem><para>This allows configuration of additional kernel command line options for Boot Loader
         Specification Type 1 entries, and is read by <command>systemd-boot</command>. For details see
-        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

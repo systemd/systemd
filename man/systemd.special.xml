@@ -409,7 +409,7 @@
         <varlistentry>
           <term><filename>initrd-fs.target</filename></term>
           <listitem>
-            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             automatically adds dependencies of type <varname>Before=</varname> to
             <filename>sysroot-usr.mount</filename> and all mount points found in
             <filename>/etc/fstab</filename> that have the <option>x-initrd.mount</option> mount option set
@@ -426,10 +426,10 @@
           <listitem>
             <para>A special initrd target unit that is reached when the root filesystem device is available, but before
             it has been mounted.
-            <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             and
-            <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            automatically setup the appropriate dependencies to make this happen.
+            <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically set up the appropriate dependencies to make this happen.
             </para>
 
             <xi:include href="version-info.xml" xpointer="v230"/>
@@ -438,7 +438,7 @@
         <varlistentry>
           <term><filename>initrd-root-fs.target</filename></term>
           <listitem>
-            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             automatically adds dependencies of type <varname>Before=</varname> to the
             <filename>sysroot.mount</filename> unit, which is generated from the kernel command line's
             <varname>root=</varname> setting (or equivalent).</para>
@@ -449,7 +449,7 @@
         <varlistentry>
           <term><filename>initrd-usr-fs.target</filename></term>
           <listitem>
-            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             automatically adds dependencies of type <varname>Before=</varname> to the
             <filename>sysusr-usr.mount</filename> unit, which is generated from the kernel command line's
             <varname>usr=</varname> switch. Services may order themselves after this target unit in order to
@@ -495,7 +495,7 @@
         <varlistentry>
           <term><filename>local-fs.target</filename></term>
           <listitem>
-            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             automatically adds dependencies of type
             <varname>Before=</varname> to all mount units that refer to
             local mount points for this target unit. In addition, it
@@ -625,7 +625,7 @@
           <listitem>
             <para>Similar to <filename>cryptsetup.target</filename>, but for encrypted
             devices which are accessed over the network. It is used for
-            <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v235"/>
@@ -636,7 +636,7 @@
           <listitem>
             <para>Similar to <filename>veritysetup.target</filename>, but for verity
             integrity protected devices which are accessed over the network. It is used for
-            <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
@@ -1005,7 +1005,7 @@
           devices after services that synthesize these block devices. In particular, this is intended to be
           used with storage services (such as
           <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>/
-          <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           that allocate and manage a virtual block device. Storage services are ordered before an instance of
           <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
           particularly relevant during shutdown, as it ensures that the mount is deactivated first and the
@@ -1304,7 +1304,7 @@
 
       <para>There are four <literal>.slice</literal> units which form the basis of the hierarchy for
       assignment of resources for services, users, and virtual machines or containers. See
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details about slice units.</para>
 
       <variablelist>
@@ -1501,7 +1501,7 @@ PartOf=graphical-session.target
 
       <para>There are four <literal>.slice</literal> units which form the basis of the user hierarchy for
       assignment of resources for user applications and services. See
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details about slice units and the documentation about
       <ulink url="https://systemd.io/DESKTOP_ENVIRONMENTS">Desktop Environments</ulink>
       for further information.</para>
