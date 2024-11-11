@@ -1138,6 +1138,8 @@ static int process_route_one(
                         }
                 }
 
+                route_attach_to_nexthop(route);
+
                 route_enter_configured(route);
                 log_route_debug(route, is_new ? "Received new" : "Received remembered", manager);
 
