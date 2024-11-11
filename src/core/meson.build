@@ -45,6 +45,7 @@ libcore_sources = files(
         'load-fragment.c',
         'manager-dump.c',
         'manager-serialize.c',
+        'manager-varlink.c',
         'manager.c',
         'mount.c',
         'namespace.c',
