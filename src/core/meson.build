@@ -40,6 +40,7 @@ libcore_sources = files(
         'generator-setup.c',
         'import-creds.c',
         'job.c',
+        'job-varlink.c',
         'kill.c',
         'load-dropin.c',
         'load-fragment.c',
