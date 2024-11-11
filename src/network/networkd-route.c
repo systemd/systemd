@@ -47,7 +47,7 @@ static Route* route_detach_impl(Route *route) {
         return NULL;
 }
 
-static void route_detach(Route *route) {
+void route_detach(Route *route) {
         route_unref(route_detach_impl(route));
 }
 

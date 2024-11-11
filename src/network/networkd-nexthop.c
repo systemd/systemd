@@ -485,21 +485,23 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
-static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
-        int r = 0;
-
+static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
         assert(nexthop);
         assert(manager);
 
         /* If a nexthop is removed, the kernel silently removes routes that depend on the removed nexthop.
-         * Let's remove them for safety (though, they are already removed in the kernel, hence that should
-         * fail), and forget them. */
+         * Let's forget them. */
 
         Route *route;
-        SET_FOREACH(route, nexthop->routes)
-                RET_GATHER(r, route_remove(route, manager));
+        SET_FOREACH(route, nexthop->routes) {
+                Request *req;
+                if (route_get_request(manager, route, &req) >= 0)
+                        route_enter_removed(req->userdata);
 
-        return r;
+                route_enter_removed(route);
+                log_route_debug(route, "Forgetting silently removed", manager);
+                route_detach(route);
+        }
 }
 
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
@@ -517,7 +519,7 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                                        (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop nexthop, ignoring");
 
-                (void) nexthop_remove_dependents(nexthop, manager);
+                nexthop_forget_dependents(nexthop, manager);
 
                 if (nexthop->manager) {
                         /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
@@ -1022,7 +1024,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (nexthop) {
                         nexthop_enter_removed(nexthop);
                         log_nexthop_debug(nexthop, "Forgetting removed", m);
-                        (void) nexthop_remove_dependents(nexthop, m);
+                        nexthop_forget_dependents(nexthop, m);
                         nexthop_detach(nexthop);
                 } else
                         log_nexthop_debug(&(const NextHop) { .id = id }, "Kernel removed unknown", m);
