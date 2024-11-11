@@ -2,6 +2,7 @@
 
 #include "json-util.h"
 #include "rlimit-util.h"
+#include "unit.h"
 #include "varlink-common.h"
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -39,4 +40,26 @@ int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         return sd_json_buildo(ret,
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("soft", rl->rlim_cur, RLIM_INFINITY),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("hard", rl->rlim_max, RLIM_INFINITY));
+}
+
+int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_strv_free_ char **pairs = NULL;
+        ActivationDetails *activation_details = userdata;
+        int r;
+
+        assert(ret);
+
+        r = activation_details_append_pair(activation_details, &pairs);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(key, value, pairs) {
+                r = sd_json_variant_set_field_string(&v, *key, *value);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
 }

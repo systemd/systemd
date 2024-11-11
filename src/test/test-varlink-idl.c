@@ -13,6 +13,7 @@
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
@@ -195,6 +196,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Manager);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Job);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
