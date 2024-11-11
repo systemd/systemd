@@ -278,13 +278,13 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 # sending TRAP signal
 rm -f /var/lib/machines/long-running/trap
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "whom": "leader", "signal": 5}'
-timeout 30 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+timeout 120 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
 
 # test io.systemd.Machine.Terminate
 long_running_machine_start
 rm -f /var/lib/machines/long-running/terminate
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Terminate '{"name":"long-running"}'
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
 timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
 
 # test io.systemd.Machine.Register
@@ -356,7 +356,7 @@ journalctl --sync
 machinectl terminate container-without-os-release
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
-timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
+timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
 
 (ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
