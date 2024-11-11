@@ -491,19 +491,9 @@ static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
         assert(nexthop);
         assert(manager);
 
-        /* If a nexthop is removed, the kernel silently removes nexthops and routes that depend on the
-         * removed nexthop. Let's remove them for safety (though, they are already removed in the kernel,
-         * hence that should fail), and forget them. */
-
-        void *id;
-        SET_FOREACH(id, nexthop->nexthops) {
-                NextHop *nh;
-
-                if (nexthop_get_by_id(manager, PTR_TO_UINT32(id), &nh) < 0)
-                        continue;
-
-                RET_GATHER(r, nexthop_remove(nh, manager));
-        }
+        /* If a nexthop is removed, the kernel silently removes routes that depend on the removed nexthop.
+         * Let's remove them for safety (though, they are already removed in the kernel, hence that should
+         * fail), and forget them. */
 
         Route *route;
         SET_FOREACH(route, nexthop->routes)
