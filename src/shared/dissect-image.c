@@ -4271,7 +4271,6 @@ int mountfsd_mount_image(
         _cleanup_close_ int image_fd = -EBADF;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_free_ char *ps = NULL;
-        unsigned max_fd = UINT_MAX;
         const char *error_id;
         int r;
 
@@ -4365,9 +4364,6 @@ int mountfsd_mount_image(
                         return log_error_errno(r, "Failed to parse partition data: %m");
 
                 if (pp.fsmount_fd_idx != UINT_MAX) {
-                        if (max_fd == UINT_MAX || pp.fsmount_fd_idx > max_fd)
-                                max_fd = pp.fsmount_fd_idx;
-
                         fsmount_fd = sd_varlink_take_fd(vl, pp.fsmount_fd_idx);
                         if (fsmount_fd < 0)
                                 return fsmount_fd;
