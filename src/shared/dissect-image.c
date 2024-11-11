@@ -2170,6 +2170,9 @@ int dissected_image_mount(
 
         assert(m);
 
+        if (FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID)) /* For image based mounts we currently require an identity mapping */
+                return -EOPNOTSUPP;
+
         /* If 'where' is NULL then we'll use the new mount API to create fsmount() fds for the mounts and
          * store them in DissectedPartition.fsmount_fd.
          *
@@ -4405,4 +4408,85 @@ int mountfsd_mount_image(
 #else
         return -EOPNOTSUPP;
 #endif
+}
+
+typedef struct MountDirectoryReplyParameters {
+        unsigned fsmount_fd_idx;
+} MountDirectoryReplyParameters;
+
+int mountfsd_mount_directory(
+                const char *path,
+                int userns_fd,
+                DissectImageFlags flags,
+                int *ret_mount_fd) {
+
+        MountDirectoryReplyParameters p = {
+                .fsmount_fd_idx = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "mountFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(struct MountDirectoryReplyParameters, fsmount_fd_idx), SD_JSON_MANDATORY },
+                {}
+        };
+
+        int r;
+
+        /* Pick one identity, not both, that makes no sense. */
+        assert(!FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID|DISSECT_IMAGE_IDENTITY_UID));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (directory_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        r = sd_varlink_push_dup_fd(vl, directory_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+
+        if (userns_fd >= 0) {
+                r = sd_varlink_push_dup_fd(vl, userns_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+        }
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.MountFileSystem.MountDirectory",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("directoryFileDescriptor", 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(1)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),
+                        SD_JSON_BUILD_PAIR_STRING("mode", FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID) ? "foreign" :
+                                                          FLAGS_SET(flags, DISSECT_IMAGE_IDENTITY_UID) ? "identity" : "auto"),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call MountDirectory() varlink call: %m");
+        if (!isempty(error_id))
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to call MountDirectory() varlink call: %s", error_id);
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse MountImage() reply: %m");
+
+        _cleanup_close_ int fsmount_fd = sd_varlink_take_fd(vl, p.fsmount_fd_idx);
+        if (fsmount_fd < 0)
+                return log_error_errno(fsmount_fd, "Failed to take mount fd from Varlink connection: %m");
+
+        *ret_mount_fd = TAKE_FD(fsmount_fd);
+        return 0;
 }
