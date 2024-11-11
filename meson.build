@@ -2378,6 +2378,7 @@ subdir('src/integritysetup')
 subdir('src/journal')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
+subdir('src/keyutil')
 subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
@@ -2699,7 +2700,7 @@ endif
 
 mkosi_depends = public_programs
 
-foreach executable : ['systemd-journal-remote', 'systemd-measure']
+foreach executable : ['systemd-journal-remote', 'systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
         if executable in executables_by_name
                 mkosi_depends += [executables_by_name[executable]]
         endif

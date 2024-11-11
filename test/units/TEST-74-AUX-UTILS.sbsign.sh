@@ -53,8 +53,4 @@ testcase_sign_systemd_boot() {
     sbverify --cert /tmp/sb.crt /tmp/sdboot
 }
 
-testcase_validate_key() {
-    /usr/lib/systemd/systemd-sbsign validate-key --certificate /tmp/sb.crt --private-key /tmp/sb.key
-}
-
 run_testcases
