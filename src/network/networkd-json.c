@@ -28,55 +28,79 @@
 #include "user-util.h"
 #include "wifi-util.h"
 
-static int address_append_json(Address *address, sd_json_variant **array) {
-        _cleanup_free_ char *scope = NULL, *flags = NULL, *state = NULL;
+static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
+        _cleanup_free_ char *state = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(address);
         assert(array);
 
-        r = route_scope_to_string_alloc(address->scope, &scope);
-        if (r < 0)
-                return r;
-
-        r = address_flags_to_string_alloc(address->flags, address->family, &flags);
-        if (r < 0)
-                return r;
-
         r = network_config_state_to_string_alloc(address->state, &state);
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arraybo(
-                        array,
+        r = sd_json_buildo(
+                        &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", address->family),
                         JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Peer", &address->in_addr_peer, address->family),
-                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Broadcast", &address->broadcast),
                         SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", address->prefixlen),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("Scope", address->scope),
-                        SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
-                        SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Label", address->label),
-                        JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", address->lifetime_preferred_usec),
-                        JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
-                        JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
-                        JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
-                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family));
+        if (r < 0)
+                return r;
+
+        if (!serializing) {
+                _cleanup_free_ char *scope = NULL, *flags = NULL;
+
+                r = route_scope_to_string_alloc(address->scope, &scope);
+                if (r < 0)
+                        return r;
+
+                r = address_flags_to_string_alloc(address->flags, address->family, &flags);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Broadcast", &address->broadcast),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Scope", address->scope),
+                                SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
+                                SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Label", address->label),
+                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", address->lifetime_preferred_usec),
+                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
+                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
+                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
+                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_append_array(array, v);
 }
 
-static int addresses_append_json(Set *addresses, sd_json_variant **v) {
+int addresses_append_json(Link *link, bool serializing, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         Address *address;
         int r;
 
+        assert(link);
         assert(v);
 
-        SET_FOREACH(address, addresses) {
-                r = address_append_json(address, &array);
+        SET_FOREACH(address, link->addresses) {
+                if (serializing) {
+                        if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (!address_is_ready(address))
+                                continue;
+
+                        log_address_debug(address, "Serializing", link);
+                }
+
+                r = address_append_json(address, serializing, &array);
                 if (r < 0)
                         return r;
         }
@@ -199,35 +223,20 @@ static int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant *
         return json_variant_set_field_non_null(v, "NextHops", array);
 }
 
-static int route_append_json(Route *route, sd_json_variant **array) {
-        _cleanup_free_ char *scope = NULL, *protocol = NULL, *table = NULL, *flags = NULL, *state = NULL;
+static int route_append_json(Route *route, bool serializing, sd_json_variant **array) {
+        _cleanup_free_ char *state = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(route);
         assert(array);
 
-        r = route_scope_to_string_alloc(route->scope, &scope);
-        if (r < 0)
-                return r;
-
-        r = route_protocol_to_string_alloc(route->protocol, &protocol);
-        if (r < 0)
-                return r;
-
-        r = manager_get_route_table_to_string(route->manager, route->table, /* append_num = */ false, &table);
-        if (r < 0)
-                return r;
-
-        r = route_flags_to_string_alloc(route->flags, &flags);
-        if (r < 0)
-                return r;
-
         r = network_config_state_to_string_alloc(route->state, &state);
         if (r < 0)
                 return r;
 
-        return sd_json_variant_append_arraybo(
-                        array,
+        r = sd_json_buildo(
+                        &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", route->family),
                         JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
@@ -238,26 +247,63 @@ static int route_append_json(Route *route, sd_json_variant **array) {
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("PreferredSource", &route->prefsrc, route->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("TOS", route->tos),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Scope", route->scope),
-                        SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", route->protocol),
-                        SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Type", route->type),
-                        SD_JSON_BUILD_PAIR_STRING("TypeString", route_type_to_string(route->type)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Priority", route->priority),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Table", route->table),
-                        SD_JSON_BUILD_PAIR_STRING("TableString", table),
-                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route_metric_get(&route->metric, RTAX_MTU)),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
                         SD_JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
-                        SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
-                        JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("NextHopID", route->nexthop_id),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(route->source)),
-                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family));
+        if (r < 0)
+                return r;
+
+        if (serializing) {
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", route->nexthop.ifindex),
+                                JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY("Metrics", route->metric.metrics, route->metric.n_metrics),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("TCPCongestionControlAlgorithm", route->metric.tcp_congestion_control_algo));
+                if (r < 0)
+                        return r;
+        } else {
+                _cleanup_free_ char *scope = NULL, *protocol = NULL, *table = NULL, *flags = NULL;
+
+                r = route_scope_to_string_alloc(route->scope, &scope);
+                if (r < 0)
+                        return r;
+
+                r = route_protocol_to_string_alloc(route->protocol, &protocol);
+                if (r < 0)
+                        return r;
+
+                r = manager_get_route_table_to_string(route->manager, route->table, /* append_num = */ false, &table);
+                if (r < 0)
+                        return r;
+
+                r = route_flags_to_string_alloc(route->flags, &flags);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
+                                SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                                SD_JSON_BUILD_PAIR_STRING("TypeString", route_type_to_string(route->type)),
+                                SD_JSON_BUILD_PAIR_STRING("TableString", table),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route_metric_get(&route->metric, RTAX_MTU)),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
+                                SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
+                                JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", route->lifetime_usec),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_append_array(array, v);
 }
 
-static int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
+int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         Route *route;
         int r;
@@ -266,10 +312,21 @@ static int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v
         assert(v);
 
         SET_FOREACH(route, manager->routes) {
-                if (route->nexthop.ifindex != ifindex)
-                        continue;
+                if (ifindex >= 0) {
+                        if (route->nexthop.ifindex != ifindex)
+                                continue;
+                } else {
+                        /* negative ifindex means we are serializing now. */
 
-                r = route_append_json(route, &array);
+                        if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (!route_exists(route))
+                                continue;
+
+                        log_route_debug(route, "Serializing", manager);
+                }
+
+                r = route_append_json(route, /* serializing = */ ifindex < 0, &array);
                 if (r < 0)
                         return r;
         }
@@ -1413,7 +1470,7 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = addresses_append_json(link->addresses, &v);
+        r = addresses_append_json(link, /* serializing = */ false, &v);
         if (r < 0)
                 return r;
 
