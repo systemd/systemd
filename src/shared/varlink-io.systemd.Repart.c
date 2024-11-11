@@ -17,7 +17,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Configuration,
                 SD_VARLINK_FIELD_COMMENT("The block device or regular file to operate on. If possible, clients should prefer to use by-diskseq symlinks for block devices"),
-                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(node, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Paths to folders that contain static definition files")
                 SD_VARLINK_DEFINE_INPUT(static_definitions, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Controls how to handle disks that lack a partition table (i.e. are empty)"),

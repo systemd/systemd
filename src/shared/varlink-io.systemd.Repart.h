@@ -3,4 +3,4 @@
 
 #include "sd-varlink-idl.h"
 
-extern const VarlinkInterface vl_interface_io_systemd_repart;
+extern const VarlinkInterface vl_interface_io_systemd_Repart;
