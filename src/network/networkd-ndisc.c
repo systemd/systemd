@@ -2062,7 +2062,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route->nexthop.ifindex != link->ifindex)
+                if (!route_is_bound_to_link(route, link))
                         continue;
 
                 if (route->protocol == RTPROT_REDIRECT)
@@ -2198,7 +2198,7 @@ static int ndisc_setup_expire(Link *link) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route->nexthop.ifindex != link->ifindex)
+                if (!route_is_bound_to_link(route, link))
                         continue;
 
                 if (!route_exists(route))
@@ -2436,7 +2436,7 @@ static int ndisc_neighbor_handle_router_message(Link *link, sd_ndisc_neighbor *n
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route->nexthop.ifindex != link->ifindex)
+                if (!route_is_bound_to_link(route, link))
                         continue;
 
                 if (!in6_addr_equal(&route->provider.in6, &original_address))
@@ -2729,7 +2729,7 @@ int link_drop_ndisc_config(Link *link, Network *network) {
                         if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                                 continue;
 
-                        if (route->nexthop.ifindex != link->ifindex)
+                        if (!route_is_bound_to_link(route, link))
                                 continue;
 
                         if (route->protocol == RTPROT_REDIRECT)

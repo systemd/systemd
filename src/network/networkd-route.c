@@ -352,6 +352,18 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, &route->nexthop, ret);
 }
 
+bool route_is_bound_to_link(const Route *route, Link *link) {
+        assert(route);
+        assert(link);
+        assert(link->manager);
+
+        Link *route_link;
+        if (route_get_link(link->manager, route, &route_link) < 0)
+                return false;
+
+        return route_link->ifindex == link->ifindex;
+}
+
 int route_get_request(Manager *manager, const Route *route, Request **ret) {
         Request *req;
 
