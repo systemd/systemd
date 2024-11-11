@@ -40,7 +40,7 @@
     current location in the message <parameter>m</parameter> matches the specified
     <parameter>type</parameter> and <parameter>contents</parameter>. If non-zero, parameter
     <parameter>type</parameter> must be one of the types specified in
-    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If non-null, parameter <parameter>contents</parameter> must be a valid sequence of complete
     types. If both <parameter>type</parameter> and <parameter>contents</parameter> are specified
     <parameter>type</parameter> must be a container type.</para>
