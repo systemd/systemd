@@ -259,7 +259,7 @@ node /org/freedesktop/hostname1 {
     are not necessary. Use
     <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
     <filename>/etc/hostname</filename> (possibly with per-distribution fallbacks), and
-    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for that. For more information on these files and syscalls see the respective man pages.</para>
 
     <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
@@ -376,7 +376,7 @@ node /org/freedesktop/hostname1 {
 
     <para>To properly handle name lookups with changing local hostnames without having to edit
     <filename>/etc/hosts</filename>, we recommend using <filename>systemd-hostnamed</filename> in combination
-    with <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    with <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
     <para>Here are some recommendations to follow when generating a static (internet) hostname from a pretty

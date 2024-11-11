@@ -699,7 +699,7 @@ systemd-repart --make-ddi=sysext \
 systemd-sysext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
-      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
     </example>
 
   </refsect1>

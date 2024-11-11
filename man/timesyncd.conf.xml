@@ -84,7 +84,7 @@
         to a different server.</para>
 
         <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to 5 seconds.</para>
 
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
@@ -99,7 +99,7 @@
 
         <para>Each setting takes a time span value. The default unit is seconds, but other units may be
         specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         <varname>PollIntervalMinSec=</varname> defaults to 32 seconds and must not be smaller than
         16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
         larger than <varname>PollIntervalMinSec=</varname>.</para>
@@ -113,7 +113,7 @@
         are made.</para>
 
         <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to 30 seconds and must not be smaller than 1 second.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
@@ -127,7 +127,7 @@
         reboots.</para>
 
         <para>Takes a time interval value. The default unit is seconds, but other units may be specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to 60 seconds.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>

@@ -152,7 +152,7 @@
     in the extension image.</para>
 
     <para>The <command>systemd-confext</command> concept follows the same principle as the
-    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     functionality but instead of working on <filename>/usr</filename> and <filename>/opt</filename>,
     <command>confext</command> will extend only <filename>/etc</filename>. Files and directories contained
     in the confext images outside of the <filename>/etc/</filename> hierarchy are <emphasis>not</emphasis>
