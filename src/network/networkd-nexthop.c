@@ -917,6 +917,60 @@ int link_drop_nexthops(Link *link, bool only_static) {
         return r;
 }
 
+static void nexthop_forget_one(NextHop *nexthop) {
+        assert(nexthop);
+        assert(nexthop->manager);
+
+        Request *req;
+        if (nexthop_get_request_by_id(nexthop->manager, nexthop->id, &req) >= 0)
+                route_enter_removed(req->userdata);
+
+        nexthop_enter_removed(nexthop);
+        log_nexthop_debug(nexthop, "Forgetting silently removed", nexthop->manager);
+        nexthop_forget_dependents(nexthop, nexthop->manager);
+        nexthop_detach(nexthop);
+}
+
+void link_forget_nexthops(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->ifindex > 0);
+        assert(!FLAGS_SET(link->flags, IFF_UP));
+
+        /* See comments in link_forget_routes(). */
+
+        /* Remove all IPv4 nexthops. */
+        NextHop *nexthop;
+        HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
+                if (nexthop->ifindex != link->ifindex)
+                        continue;
+                if (nexthop->family != AF_INET)
+                        continue;
+
+                nexthop_forget_one(nexthop);
+        }
+
+        /* Remove all group nexthops their all members are removed in the above. */
+        HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
+                if (hashmap_isempty(nexthop->group))
+                        continue;
+
+                /* Update group members. */
+                struct nexthop_grp *nhg;
+                HASHMAP_FOREACH(nhg, nexthop->group) {
+                        if (nexthop_get_by_id(nexthop->manager, nhg->id, NULL) >= 0)
+                                continue;
+
+                        assert_se(hashmap_remove(nexthop->group, UINT32_TO_PTR(nhg->id)) == nhg);
+                }
+
+                if (!hashmap_isempty(nexthop->group))
+                        continue; /* At least one group member still exists. */
+
+                nexthop_forget_one(nexthop);
+        }
+}
+
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
         _cleanup_hashmap_free_free_ Hashmap *h = NULL;
         _cleanup_free_ struct nexthop_grp *group = NULL;

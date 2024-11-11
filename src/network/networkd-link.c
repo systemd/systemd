@@ -1888,6 +1888,7 @@ static int link_admin_state_up(Link *link) {
 static int link_admin_state_down(Link *link) {
         assert(link);
 
+        link_forget_nexthops(link);
         link_forget_routes(link);
 
         if (!link->network)
