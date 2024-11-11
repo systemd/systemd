@@ -562,7 +562,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>

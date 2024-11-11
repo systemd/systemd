@@ -138,7 +138,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

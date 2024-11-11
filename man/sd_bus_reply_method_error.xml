@@ -156,7 +156,7 @@
       </variablelist>
 
       <para>In addition, any error returned by
-      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       may be returned.</para>
     </refsect2>
   </refsect1>
