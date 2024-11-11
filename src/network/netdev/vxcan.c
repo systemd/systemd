@@ -124,4 +124,5 @@ const NetDevVTable vxcan_vtable = {
         .set_ifindex = netdev_vxcan_set_ifindex,
         .get_ifindex = netdev_vxcan_get_ifindex,
         .iftype = ARPHRD_CAN,
+        .keep_existing = true,
 };
