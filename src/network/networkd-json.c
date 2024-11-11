@@ -164,45 +164,58 @@ static int nexthop_group_build_json(NextHop *nexthop, sd_json_variant **ret) {
         return 0;
 }
 
-static int nexthop_append_json(NextHop *n, sd_json_variant **array) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *group = NULL;
-        _cleanup_free_ char *flags = NULL, *protocol = NULL, *state = NULL;
+static int nexthop_append_json(NextHop *n, bool serializing, sd_json_variant **array) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
         assert(n);
         assert(array);
 
-        r = route_flags_to_string_alloc(n->flags, &flags);
-        if (r < 0)
-                return r;
-
-        r = route_protocol_to_string_alloc(n->protocol, &protocol);
-        if (r < 0)
-                return r;
-
-        r = network_config_state_to_string_alloc(n->state, &state);
-        if (r < 0)
-                return r;
-
-        r = nexthop_group_build_json(n, &group);
-        if (r < 0)
-                return r;
-
-        return sd_json_variant_append_arraybo(
-                        array,
+        r = sd_json_buildo(
+                        &v,
                         SD_JSON_BUILD_PAIR_UNSIGNED("ID", n->id),
-                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw.address, n->family),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("Flags", n->flags),
-                        SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", n->protocol),
-                        SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("Blackhole", n->blackhole),
-                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Group", group),
+                        SD_JSON_BUILD_PAIR_INTEGER("Family", n->family),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
-                        SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
+                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &n->provider, n->family));
+        if (r < 0)
+                return r;
+
+        if (!serializing) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *group = NULL;
+                _cleanup_free_ char *flags = NULL, *protocol = NULL, *state = NULL;
+
+                r = route_flags_to_string_alloc(n->flags, &flags);
+                if (r < 0)
+                        return r;
+
+                r = route_protocol_to_string_alloc(n->protocol, &protocol);
+                if (r < 0)
+                        return r;
+
+                r = network_config_state_to_string_alloc(n->state, &state);
+                if (r < 0)
+                        return r;
+
+                r = nexthop_group_build_json(n, &group);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_merge_objectbo(
+                                &v,
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &n->gw.address, n->family),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Flags", n->flags),
+                                SD_JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Protocol", n->protocol),
+                                SD_JSON_BUILD_PAIR_STRING("ProtocolString", protocol),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("Blackhole", n->blackhole),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("Group", group),
+                                SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
+        }
+
+        return sd_json_variant_append_array(array, v);
 }
 
-static int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
+int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         NextHop *nexthop;
         int r;
@@ -211,10 +224,21 @@ static int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant *
         assert(v);
 
         HASHMAP_FOREACH(nexthop, manager->nexthops_by_id) {
-                if (nexthop->ifindex != ifindex)
-                        continue;
+                if (ifindex >= 0) {
+                        if (nexthop->ifindex != ifindex)
+                                continue;
+                } else {
+                        /* negative ifindex means we are serializing now. */
 
-                r = nexthop_append_json(nexthop, &array);
+                        if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                                continue;
+                        if (!nexthop_exists(nexthop))
+                                continue;
+
+                        log_nexthop_debug(nexthop, "Serializing", manager);
+                }
+
+                r = nexthop_append_json(nexthop, /* serializing = */ ifindex < 0, &array);
                 if (r < 0)
                         return r;
         }
