@@ -1290,7 +1290,7 @@ static int mount_overlayfs_with_op(
 
         int r;
         const char *top_layer = NULL;
-        int atfd = -1;
+        _cleanup_close_ int atfd = -EBADF;
 
         assert(op);
         assert(overlay_path);
@@ -1338,7 +1338,6 @@ static int mount_overlayfs_with_op(
 static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path, const char* hierarchy) {
         _cleanup_free_ char *f = NULL, *buf = NULL;
         int r;
-        int atfd = -1;
 
         assert(extensions);
         assert(meta_path);
@@ -1354,17 +1353,9 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (!buf)
                 return log_oom();
 
-        r = write_string_file(f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
+        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
-
-        atfd = open(f, O_CLOEXEC);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
 
         return 0;
 }
@@ -1373,7 +1364,6 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         _cleanup_free_ char *f = NULL;
         struct stat st;
         int r;
-        int atfd = -1;
 
         assert(meta_path);
         assert(overlay_path);
@@ -1392,17 +1382,9 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
          * least it won't crash or deadlock, as per the kernel docs about overlayfs:
          * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
-        r = write_string_file(f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE);
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
-
-        atfd = open(f, O_CLOEXEC);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
 
         return 0;
 }
@@ -1411,7 +1393,6 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         _cleanup_free_ char *escaped_work_dir_in_root = NULL, *f = NULL;
         char *work_dir_in_root = NULL;
         int r;
-        int atfd = -1;
 
         assert(meta_path);
 
@@ -1430,20 +1411,12 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         if (!f)
                 return log_oom();
 
-        atfd = open(f, O_CLOEXEC);
-        if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
-
         /* Paths can have newlines for whatever reason, so better escape them to really get a single
          * line file. */
         escaped_work_dir_in_root = cescape(work_dir_in_root);
         if (!escaped_work_dir_in_root)
                 return log_oom();
-        r = write_string_file(f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE);
+        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1459,7 +1432,7 @@ static int store_info_in_meta(
                 const char *hierarchy) {
         _cleanup_free_ char *f = NULL;
         int r;
-        int atfd = -1;
+        _cleanup_close_ int atfd = -EBADF;
 
         assert(extensions);
         assert(meta_path);
