@@ -181,6 +181,7 @@ shared_sources = files(
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
+        'varlink-io.systemd.Job.c',
         'varlink-io.systemd.Journal.c',
         'varlink-io.systemd.Machine.c',
         'varlink-io.systemd.MachineImage.c',
