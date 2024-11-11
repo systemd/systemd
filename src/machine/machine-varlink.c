@@ -12,6 +12,7 @@
 #include "json-util.h"
 #include "machine-varlink.h"
 #include "machine.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -569,4 +570,101 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         return sd_varlink_reply(link, v);
+}
+
+typedef struct MachineMountParameters {
+        const char *name;
+        PidRef pidref;
+        char *src, *dest;
+        bool read_only, mkdir;
+} MachineMountParameters;
+
+static void machine_mount_paramaters_done(MachineMountParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+        free(p->src);
+        free(p->dest);
+}
+
+int vl_method_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                { "source",              SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
+                { "destination",         SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineMountParameters, dest),      0                 },
+                { "readOnly",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },
+                { "makeFileOrDirectory", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, mkdir),     0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(machine_mount_paramaters_done) MachineMountParameters p = { .pidref = PIDREF_NULL };
+        MountInNamespaceFlags mount_flags = 0;
+        uid_t uid_shift;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* There is no need for extra validation since path_is_absolute() does path_is_valid() and path_is_absolute().*/
+        const char *dest = p.dest ?: p.src;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "bind", // TODO(ikruglov): mount seems a better verb here, but it's bind in DBus
+                                                 "src", p.src,
+                                                 "dest", dest),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = machine_get_uid_shift(machine, &uid_shift);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine UID shift: %m");
+        if (uid_shift != 0) {
+                log_debug_errno(EOPNOTSUPP, "Can't bind mount on container with user namespacing applied.");
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+        }
+
+        if (p.read_only)
+                mount_flags |= MOUNT_IN_NAMESPACE_READ_ONLY;
+        if (p.mkdir)
+                mount_flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
+
+        const char *propagate_directory = strjoina("/run/systemd/nspawn/propagate/", machine->name);
+        if (!propagate_directory)
+                return -ENOMEM;
+
+        /* TODO(ikruglov): base on implementation of mount_in_namespace() it
+         * feels better to convert this in an Operation() so we can apply
+         * `manager->n_operations >= OPERATIONS_MAX)`.  But it will require
+         * some surgery. */
+        r = bind_mount_in_namespace(
+                        &machine->leader,
+                        propagate_directory,
+                        "/run/host/incoming/",
+                        p.src,
+                        dest,
+                        mount_flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount %s on %s in machine's namespace: %m", p.src, dest);
+
+        return sd_varlink_reply(link, NULL);
 }
