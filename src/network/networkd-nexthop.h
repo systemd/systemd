@@ -60,6 +60,7 @@ static inline int link_drop_unmanaged_nexthops(Link *link) {
 static inline int link_drop_static_nexthops(Link *link) {
         return link_drop_nexthops(link, /* only_static = */ true);
 }
+void link_forget_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 
