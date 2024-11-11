@@ -196,11 +196,6 @@ static int ndisc_request_route(Route *route, Link *link) {
         assert(link->manager);
         assert(link->network);
 
-        route->source = NETWORK_CONFIG_SOURCE_NDISC;
-
-        if (!route->table_set)
-                route->table = link_get_ndisc_route_table(link);
-
         r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ndisc_quickack);
         if (r < 0)
                 return r;
@@ -283,6 +278,29 @@ static int ndisc_request_route(Route *route, Link *link) {
         return 0;
 }
 
+static void ndisc_route_prepare(Route *route, Link *link) {
+        assert(route);
+        assert(link);
+
+        route->source = NETWORK_CONFIG_SOURCE_NDISC;
+
+        if (!route->table_set)
+                route->table = link_get_ndisc_route_table(link);
+}
+
+static int ndisc_router_route_prepare(Route *route, Link *link, sd_ndisc_router *rt) {
+        assert(route);
+        assert(link);
+        assert(rt);
+
+        ndisc_route_prepare(route, link);
+
+        if (!route->protocol_set)
+                route->protocol = RTPROT_RA;
+
+        return sd_ndisc_router_get_sender_address(rt, &route->provider.in6);
+}
+
 static int ndisc_request_router_route(Route *route, Link *link, sd_ndisc_router *rt) {
         int r;
 
@@ -290,12 +308,9 @@ static int ndisc_request_router_route(Route *route, Link *link, sd_ndisc_router 
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_sender_address(rt, &route->provider.in6);
+        r = ndisc_router_route_prepare(route, link, rt);
         if (r < 0)
                 return r;
-
-        if (!route->protocol_set)
-                route->protocol = RTPROT_RA;
 
         return ndisc_request_route(route, link);
 }
@@ -306,9 +321,6 @@ static int ndisc_remove_route(Route *route, Link *link) {
         assert(route);
         assert(link);
         assert(link->manager);
-
-        if (!route->table_set)
-                route->table = link_get_ndisc_route_table(link);
 
         r = route_adjust_nexthops(route, link);
         if (r < 0)
@@ -351,6 +363,20 @@ static int ndisc_remove_route(Route *route, Link *link) {
         }
 
         return ret;
+}
+
+static int ndisc_remove_router_route(Route *route, Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(rt);
+
+        r = ndisc_router_route_prepare(route, link, rt);
+        if (r < 0)
+                return r;
+
+        return ndisc_remove_route(route, link);
 }
 
 static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
@@ -482,6 +508,8 @@ static int ndisc_remove_redirect_route(Link *link, sd_ndisc_redirect *rd) {
         r = ndisc_redirect_route_new(rd, &route);
         if (r < 0)
                 return r;
+
+        ndisc_route_prepare(route, link);
 
         return ndisc_remove_route(route, link);
 }
@@ -683,6 +711,8 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         if (r < 0)
                 return r;
 
+        ndisc_route_prepare(route, link);
+
         return ndisc_request_route(route, link);
 }
 
@@ -758,7 +788,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
         route->nexthop.family = AF_INET6;
         route->nexthop.gw.in6 = gateway;
 
-        r = ndisc_remove_route(route, link);
+        r = ndisc_remove_router_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to remove the default gateway configured by RA: %m");
 
@@ -778,7 +808,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
 
                 tmp->nexthop.gw.in6 = gateway;
 
-                r = ndisc_remove_route(tmp, link);
+                r = ndisc_remove_router_route(tmp, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not remove semi-static gateway: %m");
         }
@@ -1283,7 +1313,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
          *   received advertisement, reset its invalidation timer to the Valid Lifetime value in the Prefix
          *   Information option. If the new Lifetime value is zero, timeout the prefix immediately. */
         if (lifetime_usec == 0) {
-                r = ndisc_remove_route(route, link);
+                r = ndisc_remove_router_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to remove prefix route: %m");
         } else {
@@ -1421,7 +1451,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request additional route: %m");
         } else {
-                r = ndisc_remove_route(route, link);
+                r = ndisc_remove_router_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not remove additional route with zero lifetime: %m");
         }
