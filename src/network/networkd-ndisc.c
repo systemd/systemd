@@ -229,6 +229,9 @@ static int ndisc_request_route(Route *route, Link *link) {
                  * and also an existing pending request, then the source may be updated by the request. So,
                  * we first need to check the source of the requested route. */
                 if (route_get_request(link->manager, route, &req) >= 0) {
+                        route->pref = pref_original;
+                        ndisc_set_route_priority(link, route);
+
                         existing = ASSERT_PTR(req->userdata);
                         if (!route_can_update(existing, route)) {
                                 if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
@@ -243,8 +246,14 @@ static int ndisc_request_route(Route *route, Link *link) {
                         }
                 }
 
+                route->pref = pref;
+                ndisc_set_route_priority(link, route);
+
                 /* Then, check if a conflicting route exists. */
                 if (route_get(link->manager, route, &existing) >= 0) {
+                        route->pref = pref_original;
+                        ndisc_set_route_priority(link, route);
+
                         if (!route_can_update(existing, route)) {
                                 if (existing->source == NETWORK_CONFIG_SOURCE_STATIC) {
                                         log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, ignoring request.");
