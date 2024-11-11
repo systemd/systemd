@@ -4050,6 +4050,46 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(manage_foreign_routes=manage_foreign_routes):
                 self._test_route_static(manage_foreign_routes)
 
+    def test_route_static_issue_35047(self):
+        copy_network_unit(
+            '25-route-static-issue-35047.network',
+            '25-route-static-issue-35047.network.d/step1.conf',
+            '12-dummy.netdev',
+            copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertIn('192.0.2.2 proto kernel scope link src 192.0.2.1', output)
+        self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
+        self.assertIn('198.51.100.0/24 via 192.0.2.2 proto static', output)
+
+        check_output('ip link set dev dummy98 down')
+        self.wait_route_dropped('dummy98', '192.0.2.2 proto kernel scope link src 192.0.2.1', ipv='-4', table='all', timeout_sec=10)
+        self.wait_route_dropped('dummy98', 'local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', ipv='-4', table='all', timeout_sec=10)
+        self.wait_route_dropped('dummy98', '198.51.100.0/24 via 192.0.2.2 proto static', ipv='-4', table='all', timeout_sec=10)
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertNotIn('192.0.2.2', output)
+        self.assertNotIn('192.0.2.1', output)
+        self.assertNotIn('198.51.100.0/24', output)
+
+        remove_network_unit('25-route-static-issue-35047.network.d/step1.conf')
+        copy_network_unit('25-route-static-issue-35047.network.d/step2.conf')
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show table all dev dummy98')
+        output = check_output('ip -4 route show table all dev dummy98')
+        print(output)
+        self.assertIn('192.0.2.2 proto static scope link', output)
+        self.assertIn('local 192.0.2.1 table local proto kernel scope host src 192.0.2.1', output)
+        self.assertIn('198.51.100.0/24 via 192.0.2.2 proto static', output)
+
     @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
         copy_network_unit('25-route-via-ipv6.network', '12-dummy.netdev')
@@ -4798,11 +4838,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         # Remove nexthop with ID 20
         check_output('ip nexthop del id 20')
+
+        # Check the nexthop ID 20 is dropped from the group nexthop.
+        output = check_output('ip -0 nexthop list id 21')
+        print(output)
+        self.assertRegex(output, r'id 21 group 1,3')
+
+        # Remove nexthop with ID 21
+        check_output('ip nexthop del id 21')
         copy_network_unit('11-dummy.netdev', '25-nexthop-test1.network')
         networkctl_reload()
 
-        # 25-nexthop-test1.network requests a route with nexthop ID 21,
-        # which is silently removed by the kernel when nexthop with ID 20 is removed in the above,
+        # 25-nexthop-test1.network requests a route with nexthop ID 21, which is removed in the above,
         # hence test1 should be stuck in the configuring state.
         self.wait_operstate('test1', operstate='routable', setup_state='configuring')
 
@@ -4811,7 +4858,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = networkctl_status('test1')
         self.assertIn('State: routable (configuring)', output)
 
-        # Check if the route which needs nexthop 20 and 21 are forgotten.
+        # Check if the route which needs nexthop 21 are forgotten.
         output = networkctl_json()
         check_json(output)
         self.assertNotIn('"Destination":[10.10.10.14]', output)

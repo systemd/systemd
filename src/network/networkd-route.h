@@ -89,6 +89,8 @@ Route* route_ref(Route *route);
 Route* route_unref(Route *route);
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_unref);
 
+void route_detach(Route *route);
+
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
@@ -109,6 +111,7 @@ static inline int link_drop_static_routes(Link *link) {
 static inline int link_drop_unmanaged_routes(Link *link) {
         return link_drop_routes(link, false);
 }
+void link_forget_routes(Link *link);
 
 int link_request_route(
                 Link *link,
