@@ -3935,6 +3935,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
+                int mount_fd,
                 DissectedImage *dissected_image,
                 int fd_outer_socket,
                 int fd_inner_socket,
@@ -3988,6 +3989,10 @@ static int outer_child(
         r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
         if (r < 0)
                 return r;
+
+        if (mount_fd >= 0)
+                if (move_mount(mount_fd, "", AT_FDCWD, directory, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_error_errno(errno, "Failed to attach root directory: %m");
 
         if (dissected_image) {
                 /* If we are operating on a disk image, then mount its root directory now, but leave out the
@@ -5167,6 +5172,8 @@ static int load_oci_bundle(void) {
 }
 
 static int run_container(
+                const char *directory,
+                int mount_fd,
                 DissectedImage *dissected_image,
                 int userns_fd,
                 FDSet *fds,
@@ -5311,7 +5318,8 @@ static int run_container(
                 (void) reset_signal_mask();
 
                 r = outer_child(&barrier,
-                                arg_directory,
+                                directory,
+                                mount_fd,
                                 dissected_image,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
@@ -5928,17 +5936,18 @@ static int cant_be_in_netns(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool remove_directory = false, remove_image = false, veth_created = false, remove_tmprootdir = false;
-        _cleanup_close_ int master = -EBADF, userns_fd = -EBADF;
+        bool remove_directory = false, remove_image = false, veth_created = false;
+        _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         struct ExposeArgs expose_args = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
+        _cleanup_(rmdir_and_freep) char *tmprootdir = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
+        const char *rootdir = NULL;
         pid_t pid = 0;
 
         log_setup();
@@ -6036,13 +6045,24 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
 
-        if (arg_directory) {
-                assert(!arg_image);
+        if (!arg_privileged) {
+                /* if we are unprivileged, let's allocate a 64K userns first */
 
-                if (!arg_privileged) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Invoking container from plain directory tree is currently not supported if called without privileges.");
+                _cleanup_free_ char *userns_name = strjoin("nspawn-", arg_machine);
+                if (!userns_name) {
+                        r = log_oom();
                         goto finish;
                 }
+
+                userns_fd = nsresource_allocate_userns(userns_name, UINT64_C(0x10000));
+                if (userns_fd < 0) {
+                        r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
+                        goto finish;
+                }
+        }
+
+        if (arg_directory) {
+                assert(!arg_image);
 
                 /* Safety precaution: let's not allow running images from the live host OS image, as long as
                  * /var from the host will propagate into container dynamically (because bad things happen if
@@ -6213,6 +6233,15 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
+                if (!arg_privileged) {
+                        r = mountfsd_mount_directory(
+                                        arg_directory,
+                                        userns_fd,
+                                        determine_dissect_image_flags(),
+                                        &mount_fd);
+                        if (r < 0)
+                                goto finish;
+                }
         } else {
                 DissectImageFlags dissect_image_flags =
                         determine_dissect_image_flags();
@@ -6287,19 +6316,6 @@ static int run(int argc, char *argv[]) {
                                 dissect_image_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
                 }
 
-                if (!mkdtemp(tmprootdir)) {
-                        r = log_error_errno(errno, "Failed to create temporary directory: %m");
-                        goto finish;
-                }
-
-                remove_tmprootdir = true;
-
-                arg_directory = strdup(tmprootdir);
-                if (!arg_directory) {
-                        r = log_oom();
-                        goto finish;
-                }
-
                 if (arg_privileged) {
                         r = loop_device_make_by_path(
                                         arg_image,
@@ -6352,19 +6368,6 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 goto finish;
                 } else {
-                        _cleanup_free_ char *userns_name = strjoin("nspawn-", arg_machine);
-                        if (!userns_name) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        /* if we are unprivileged, let's allocate a 64K userns first */
-                        userns_fd = nsresource_allocate_userns(userns_name, UINT64_C(0x10000));
-                        if (userns_fd < 0) {
-                                r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
-                                goto finish;
-                        }
-
                         r = mountfsd_mount_image(
                                         arg_image,
                                         userns_fd,
@@ -6383,7 +6386,21 @@ static int run(int argc, char *argv[]) {
                         arg_architecture = dissected_image_architecture(dissected_image);
         }
 
-        r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
+        if (arg_directory && arg_privileged)
+                /* If we are privileged we can operate directly on the supplied root directory */
+                rootdir = arg_directory;
+        else {
+                /* Otherwise create a tempory directory we operate on */
+                r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &tmprootdir);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary directory: %m");
+                        goto finish;
+                }
+
+                rootdir = tmprootdir;
+        }
+
+        r = custom_mount_prepare_all(rootdir, arg_custom_mounts, arg_n_custom_mounts);
         if (r < 0)
                 goto finish;
 
@@ -6418,6 +6435,8 @@ static int run(int argc, char *argv[]) {
         }
         for (;;) {
                 r = run_container(
+                                rootdir,
+                                mount_fd,
                                 dissected_image,
                                 userns_fd,
                                 fds,
@@ -6458,11 +6477,6 @@ finish:
         if (remove_image && arg_image) {
                 if (unlink(arg_image) < 0)
                         log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
-        }
-
-        if (remove_tmprootdir) {
-                if (rmdir(tmprootdir) < 0)
-                        log_debug_errno(errno, "Can't remove temporary root directory '%s', ignoring: %m", tmprootdir);
         }
 
         if (arg_machine && arg_privileged) {
