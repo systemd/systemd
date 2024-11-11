@@ -5,3 +5,4 @@
 #include "sd-varlink.h"
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata);
+int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata);

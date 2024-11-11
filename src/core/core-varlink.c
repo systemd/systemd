@@ -4,6 +4,7 @@
 
 #include "core-varlink.h"
 #include "format-util.h"
+#include "job-varlink.h"
 #include "json-util.h"
 #include "manager-varlink.h"
 #include "mkdir-label.h"
@@ -11,6 +12,7 @@
 #include "user-util.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
@@ -594,13 +596,15 @@ int manager_setup_varlink_server(Manager *m) {
         sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface_many(s,
-                        &vl_interface_io_systemd_Manager);
+                        &vl_interface_io_systemd_Manager,
+                        &vl_interface_io_systemd_Job);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Manager.Describe", vl_method_describe_manager);
+                        "io.systemd.Manager.Describe", vl_method_describe_manager,
+                        "io.systemd.Job.List",         vl_method_list_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
@@ -649,7 +653,8 @@ static int manager_varlink_init_system(Manager *m) {
 
         if (!MANAGER_IS_TEST_RUN(m)) {
                 FOREACH_STRING(dir,
-                               "/run/systemd/userdb") {
+                               "/run/systemd/userdb",
+                               "/run/systemd/job") {
                         r = mkdir_p_label(dir, 0755);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to create dir '%s', ignoring: %m", dir);
@@ -658,7 +663,8 @@ static int manager_varlink_init_system(Manager *m) {
                 FOREACH_STRING(address,
                                "/run/systemd/userdb/io.systemd.DynamicUser",
                                VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
-                               "/run/systemd/io.systemd.Manager") {
+                               "/run/systemd/io.systemd.Manager",
+                               "/run/systemd/job/io.systemd.Job") {
                         /* We might have got sockets through deserialization. Do not bind to them twice. */
                         if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
                                 continue;
@@ -689,7 +695,8 @@ static int manager_varlink_init_user(Manager *m) {
         bool fresh = r > 0;
 
         FOREACH_STRING(a,
-                       "systemd/io.systemd.Manager") {
+                       "systemd/io.systemd.Manager",
+                       "systemd/job/io.systemd.Job") {
                 _cleanup_free_ char *address = NULL, *dir = NULL;
                 address = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], a);
                 if (!address)
