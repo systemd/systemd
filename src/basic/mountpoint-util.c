@@ -147,11 +147,10 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -EBADF;
-        char *p;
         int r;
 
-        assert(ret_mnt_id);
         assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+        assert(ret_mnt_id);
 
         if ((flags & AT_EMPTY_PATH) && isempty(filename))
                 xsprintf(path, "/proc/self/fdinfo/%i", fd);
@@ -164,16 +163,16 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
         }
 
         r = read_full_virtual_file(path, &fdinfo, NULL);
-        if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
-                return proc_mounted() > 0 ? -EOPNOTSUPP : -ENOSYS;
+        if (r == -ENOENT)
+                return proc_fd_enoent_errno();
         if (r < 0)
                 return r;
 
-        p = find_line_startswith(fdinfo, "mnt_id:");
-        if (!p) /* The mnt_id field is a relatively new addition */
-                return -EOPNOTSUPP;
+        char *p = find_line_startswith(fdinfo, "mnt_id:");
+        if (!p)
+                return -EBADMSG;
 
-        p += strspn(p, WHITESPACE);
+        p = skip_leading_chars(p, /* bad = */ NULL);
         p[strcspn(p, WHITESPACE)] = 0;
 
         return safe_atoi(p, ret_mnt_id);
