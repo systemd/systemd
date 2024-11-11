@@ -845,7 +845,7 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         assert(link);
 
         if (!netdev_is_managed(netdev))
-                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+                goto cancelled; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
 
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
@@ -854,6 +854,18 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         r = stacked_netdev_create(netdev, link, req);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
+
+        return 1;
+
+cancelled:
+        assert_se(TAKE_PTR(req->counter) == &link->create_stacked_netdev_messages);
+        link->create_stacked_netdev_messages--;
+
+        if (link->create_stacked_netdev_messages == 0) {
+                link->stacked_netdevs_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
+        }
 
         return 1;
 }
