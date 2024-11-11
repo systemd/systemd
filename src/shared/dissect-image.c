@@ -4231,15 +4231,15 @@ static void partition_fields_done(PartitionFields *f) {
         f->label = mfree(f->label);
 }
 
-typedef struct ReplyParameters {
+typedef struct MountImageReplyParameters {
         sd_json_variant *partitions;
         char *image_policy;
         uint64_t image_size;
         uint32_t sector_size;
         sd_id128_t image_uuid;
-} ReplyParameters;
+} MountImageReplyParameters;
 
-static void reply_parameters_done(ReplyParameters *p) {
+static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
         assert(p);
 
         p->image_policy = mfree(p->image_policy);
@@ -4256,14 +4256,14 @@ int mountfsd_mount_image(
                 DissectedImage **ret) {
 
 #if HAVE_BLKID
-        _cleanup_(reply_parameters_done) ReplyParameters p = {};
+        _cleanup_(mount_image_reply_parameters_done) MountImageReplyParameters p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "partitions",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct ReplyParameters, partitions),   SD_JSON_MANDATORY },
-                { "imagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct ReplyParameters, image_policy), 0              },
-                { "imageSize",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct ReplyParameters, image_size),   SD_JSON_MANDATORY },
-                { "sectorSize",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct ReplyParameters, sector_size),  SD_JSON_MANDATORY },
-                { "imageUuid",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct ReplyParameters, image_uuid),   0              },
+                { "partitions",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),   SD_JSON_MANDATORY },
+                { "imagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy), 0              },
+                { "imageSize",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),   SD_JSON_MANDATORY },
+                { "sectorSize",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),  SD_JSON_MANDATORY },
+                { "imageUuid",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),   0              },
                 {}
         };
 
