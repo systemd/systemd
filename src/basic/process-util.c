@@ -1460,8 +1460,8 @@ int safe_fork_full(
         bool block_signals = false, block_all = false, intermediary = false;
         int prio, r;
 
-        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
-        assert(!FLAGS_SET(flags, FORK_DETACH|FORK_WAIT));
+        assert(!FLAGS_SET(flags, FORK_DETACH) ||
+               (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
