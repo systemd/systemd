@@ -292,13 +292,11 @@ static int ndisc_request_router_route(Route *route, Link *link, sd_ndisc_router 
 }
 
 static int ndisc_remove_route(Route *route, Link *link) {
-        int r;
+        int r, ret = 0;
 
         assert(route);
         assert(link);
         assert(link->manager);
-
-        ndisc_set_route_priority(link, route);
 
         if (!route->table_set)
                 route->table = link_get_ndisc_route_table(link);
@@ -331,9 +329,7 @@ static int ndisc_remove_route(Route *route, Link *link) {
                         if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
                                 continue;
 
-                        r = route_remove_and_cancel(existing, link->manager);
-                        if (r < 0)
-                                return r;
+                        RET_GATHER(ret, route_remove_and_cancel(existing, link->manager));
                 }
 
                 /* Then, check if the route exists. */
@@ -341,13 +337,11 @@ static int ndisc_remove_route(Route *route, Link *link) {
                         if (existing->source == NETWORK_CONFIG_SOURCE_STATIC)
                                 continue;
 
-                        r = route_remove_and_cancel(existing, link->manager);
-                        if (r < 0)
-                                return r;
+                        RET_GATHER(ret, route_remove_and_cancel(existing, link->manager));
                 }
         }
 
-        return 0;
+        return ret;
 }
 
 static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
