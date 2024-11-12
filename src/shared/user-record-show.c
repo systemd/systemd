@@ -28,14 +28,19 @@ const char* user_record_state_color(const char *state) {
         return NULL;
 }
 
-static void dump_self_modifiable(const char *heading, char **field, const char **value) {
+static void dump_self_modifiable(
+                UserRecord *hr,
+                const char *heading,
+                char **field,
+                const char **value) {
+
         assert(heading);
 
         /* Helper function for printing the various self_modifiable_* fields from the user record */
 
         if (strv_isempty((char**) value))
                 /* Case 1: the array is explicitly set to be empty by the administrator */
-                printf("%13s %sDisabled by Administrator%s\n", heading, ansi_highlight_red(), ansi_normal());
+                printf("%13s %sdisabled by Administrator%s\n", heading, user_record_disposition(hr) == USER_REGULAR ? ansi_highlight_red() : ansi_normal(), ansi_normal());
         else if (!field)
                 /* Case 2: we have values, but the field is NULL. This means that we're using the defaults.
                  * We list them anyways, because they're security-sensitive to the administrator */
@@ -605,13 +610,16 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->service)
                 printf("     Service: %s\n", hr->service);
 
-        dump_self_modifiable("Self Modify:",
+        dump_self_modifiable(hr,
+                             "Self Modify:",
                              hr->self_modifiable_fields,
                              user_record_self_modifiable_fields(hr));
-        dump_self_modifiable("(Blobs)",
+        dump_self_modifiable(hr,
+                             "(Blobs)",
                              hr->self_modifiable_blobs,
                              user_record_self_modifiable_blobs(hr));
-        dump_self_modifiable("(Privileged)",
+        dump_self_modifiable(hr,
+                             "(Privileged)",
                              hr->self_modifiable_privileged,
                              user_record_self_modifiable_privileged(hr));
 }

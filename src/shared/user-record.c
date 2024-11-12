@@ -2136,7 +2136,7 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
         /* As a rule of thumb: a setting is safe if it cannot be used by a
          * user to give themselves some unfair advantage over other users on
          * a given system. */
-        static const char *const default_fields[] = {
+        static const char *const default_fields_regular[] = {
                 /* For display purposes */
                 "realName",
                 "emailAddress", /* Just the $EMAIL env var */
@@ -2162,29 +2162,45 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
                 "lastPasswordChangeUSec", /* Ditto, but for authentication methods */
                 NULL
         };
-
-        assert(h);
-
-        /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_fields ?: (const char**) default_fields;
-}
-
-const char** user_record_self_modifiable_blobs(UserRecord *h) {
-        static const char *const default_blobs[] = {
-                /* For display purposes */
-                "avatar",
-                "login-background",
+        static const char *const default_fields_other[] = {
                 NULL
         };
 
         assert(h);
 
         /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_blobs ?: (const char**) default_blobs;
+        if (h->self_modifiable_fields)
+                return (const char**) h->self_modifiable_fields;
+
+        return user_record_disposition(h) == USER_REGULAR ?
+                (const char**) default_fields_regular :
+                (const char**) default_fields_other;
+}
+
+const char** user_record_self_modifiable_blobs(UserRecord *h) {
+        static const char *const default_blobs_regular[] = {
+                /* For display purposes */
+                "avatar",
+                "login-background",
+                NULL
+        };
+        static const char *const default_blobs_other[] = {
+                NULL
+        };
+
+        assert(h);
+
+        /* Note that we intentionally distinguish between NULL and an empty array here */
+        if (h->self_modifiable_blobs)
+                return (const char**) h->self_modifiable_blobs;
+
+        return user_record_disposition(h) == USER_REGULAR ?
+                (const char**) default_blobs_regular :
+                (const char**) default_blobs_other;
 }
 
 const char** user_record_self_modifiable_privileged(UserRecord *h) {
-        static const char *const default_fields[] = {
+        static const char *const default_fields_regular[] = {
                 /* For display purposes */
                 "passwordHint",
 
@@ -2197,11 +2213,19 @@ const char** user_record_self_modifiable_privileged(UserRecord *h) {
                 "sshAuthorizedKeys", /* Basically just ~/.ssh/authorized_keys */
                 NULL
         };
+        static const char *const default_fields_other[] = {
+                NULL
+        };
 
         assert(h);
 
         /* Note that we intentionally distinguish between NULL and an empty array here */
-        return (const char**) h->self_modifiable_privileged ?: (const char**) default_fields;
+        if (h->self_modifiable_privileged)
+                return (const char**) h->self_modifiable_privileged;
+
+        return user_record_disposition(h) == USER_REGULAR ?
+                (const char**) default_fields_regular :
+                (const char**) default_fields_other;
 }
 
 static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_json_variant **target) {
