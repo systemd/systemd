@@ -531,7 +531,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAKE_ARCHIVE:
-
                         r = dlopen_libarchive();
                         if (r < 0)
                                 return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
@@ -1445,7 +1444,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (r < 0)
                         return r;
 
-                mounted_dir = TAKE_PTR(t);
+                root = mounted_dir = TAKE_PTR(t);
 
                 if (d) {
                         r = loop_device_flock(d, LOCK_UN);
@@ -1456,11 +1455,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 r = dissected_image_relinquish(m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
-        }
 
-        root = mounted_dir ?: arg_root;
-
-        dissected_image_close(m);
+                dissected_image_close(m);
+        } else
+                root = arg_root;
 
         switch (arg_action) {
 
