@@ -900,6 +900,7 @@ static int resolve_mutable_directory(
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
         const char *root = arg_root, *base = MUTABLE_EXTENSIONS_BASE_DIR;
         int r;
+        _cleanup_close_ int atfd = -EBADF;
 
         assert(hierarchy);
         assert(ret_resolved_mutable_directory);
@@ -944,6 +945,14 @@ static int resolve_mutable_directory(
                 r = mkdir_p(path_in_root, 0700);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
+
+                atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
+                if (atfd < 0)
+                        return log_error_errno(atfd, "Failed to open directory '%s': %m", path_in_root);
+
+                r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", path_in_root);
         }
 
         r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
@@ -1315,7 +1324,17 @@ static int mount_overlayfs_with_op(
                 r = mkdir_p(op->work_dir, 0700);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
+
+                atfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
+                if (atfd < 0)
+                        return log_error_errno(atfd, "Failed to open directory '%s': %m", op->work_dir);
+
+                r = mac_selinux_fix_full(atfd, NULL, op->hierarchy, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
+
                 top_layer = op->upper_dir;
+                log_info("upper dir: %s", op->upper_dir);
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
@@ -1450,7 +1469,7 @@ static int store_info_in_meta(
         if (r < 0)
                 return r;
 
-        atfd = open(f, O_CLOEXEC|O_PATH);
+        atfd = open(f, O_PATH|O_CLOEXEC);
         if (atfd < 0)
                 return log_error_errno(atfd, "Failed to open '%s': %m", f);
 
