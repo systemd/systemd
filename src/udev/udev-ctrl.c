@@ -292,7 +292,7 @@ int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdat
 
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) {
         UdevCtrlMessageWire ctrl_msg_wire = {
-                .version = "udev-" STRINGIFY(PROJECT_VERSION),
+                .version = "udev-" PROJECT_VERSION_STR,
                 .magic = UDEV_CTRL_MAGIC,
                 .type = type,
         };
