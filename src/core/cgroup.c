@@ -3126,6 +3126,49 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         return ret;
 }
 
+int unit_remove_subcgroup(Unit *u, const char *suffix_path) {
+        int r;
+
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        if (!unit_cgroup_delegate(u))
+                return -ENOMEDIUM;
+
+        r = unit_pick_cgroup_path(u);
+        if (r < 0)
+                return r;
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return -EOWNERDEAD;
+
+        _cleanup_free_ char *j = NULL;
+        bool delete_root;
+        const char *d;
+        if (empty_or_root(suffix_path)) {
+                d = empty_to_root(crt->cgroup_path);
+                delete_root = false; /* Don't attempt to delete the main cgroup of this unit */
+        } else {
+                j = path_join(crt->cgroup_path, suffix_path);
+                if (!j)
+                        return -ENOMEM;
+
+                d = j;
+                delete_root = true;
+        }
+
+        log_unit_debug(u, "Removing subcgroup '%s'...", d);
+
+        r = cg_trim_everywhere(u->manager->cgroup_supported, d, delete_root);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to fully %s cgroup '%s': %m", delete_root ? "remove" : "trim", d);
+
+        return 0;
+}
+
 static bool unit_has_mask_realized(
                 Unit *u,
                 CGroupMask target_mask,
