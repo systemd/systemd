@@ -72,4 +72,5 @@ const NetDevVTable bare_udp_vtable = {
         .fill_message_create = netdev_bare_udp_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .iftype = ARPHRD_NONE,
+        .keep_existing = true,
 };
