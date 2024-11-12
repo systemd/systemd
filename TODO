@@ -138,6 +138,16 @@ Features:
 * start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
   generically, so that image discovery recognizes bcachefs subvols too.
 
+* "systemd-export tar" should reuse the libarchive export code from systemd-dissect
+  --archive.
+
+* "systemd-import tar" should be moved to libarchive
+
+* foreign uid:
+  - add support to export-fs, import-fs, import-tar, export-tar
+  - add tool for deleting foreign UID held container images
+  - systemd-dissect should learn mappings, too, when doing mtree and such
+
 * format-table: introduce new cell type for strings with ansi sequences in
   them. display them in regular output mode (via strip_tab_ansi()), but
   suppress them in json mode.
