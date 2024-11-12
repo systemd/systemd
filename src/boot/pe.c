@@ -320,7 +320,7 @@ static void pe_locate_sections(
                                 /* device */ NULL,
                                 &hwids_section);
 
-                if (hwids_section.memory_offset != 0) {
+                if (PE_SECTION_VECTOR_IS_SET(&hwids_section)) {
                         hwids = (const uint8_t *) SIZE_TO_PTR(validate_base) + hwids_section.memory_offset;
 
                         EFI_STATUS err = chid_match(hwids, hwids_section.memory_size, &device);
@@ -328,8 +328,7 @@ static void pe_locate_sections(
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
                         }
-                } else
-                        log_info("HWIDs section is missing, no DT blob will be selected");
+                }
         }
 
         return pe_locate_sections_internal(
@@ -359,7 +358,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                         PTR_TO_SIZE(dos),
                         &vector);
 
-        if (vector.memory_size == 0) /* not found */
+        if (!PE_SECTION_VECTOR_IS_SET(&vector)) /* not found */
                 return 0;
 
         typedef struct {
