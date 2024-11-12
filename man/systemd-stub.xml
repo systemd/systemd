@@ -75,6 +75,9 @@
       <listitem><para>An optional <literal>.ucode</literal> section with an initrd containing microcode, to
       be handed to the kernel before any other initrd. This initrd must not be compressed.</para></listitem>
 
+      <listitem><para>An optional <literal>.fmw</literal> section with the firmware image.
+      </para></listitem>
+
       <listitem><para>An optional <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
