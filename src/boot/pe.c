@@ -328,8 +328,7 @@ static void pe_locate_sections(
                                 log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
                         }
-                } else
-                        log_info("HWIDs section is missing, no DT blob will be selected");
+                }
         }
 
         return pe_locate_sections_internal(
