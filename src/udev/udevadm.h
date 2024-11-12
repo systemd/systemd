@@ -19,6 +19,6 @@ int lock_main(int argc, char *argv[], void *userdata);
 
 static inline int print_version(void) {
         /* Dracut relies on the version being a single integer */
-        puts(STRINGIFY(PROJECT_VERSION));
+        puts(PROJECT_VERSION_STR);
         return 0;
 }
