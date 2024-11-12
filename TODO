@@ -2050,7 +2050,7 @@ Features:
     with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
   - ExtensionImages= deduplication for services is currently only applied to disk images without GPT envelope.
     This should be extended to work with proper DDIs too, as well as directory confext/sysext. Moreover,
-    system-wide confex/sysext should support this too.
+    system-wide confext/sysext should support this too.
   - Pin the mount namespace via FD by sending it back from sd-exec to the manager, and use it
     for live mounting, instead of doing it via PID
 
