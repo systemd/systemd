@@ -1927,12 +1927,15 @@ static int action_discover(void) {
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, img->name,
+                                TABLE_SET_COLOR, startswith(img->name, ".") ? ANSI_GREY : NULL,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_STRING, image_class_to_string(img->class),
                                 TABLE_BOOLEAN, img->read_only,
+                                TABLE_SET_COLOR, !img->read_only ? ANSI_HIGHLIGHT_GREEN : ANSI_HIGHLIGHT_RED,
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
-                                TABLE_SIZE, img->usage);
+                                TABLE_SIZE, img->usage,
+                                TABLE_SET_COLOR, img->usage <= 0 ? ANSI_HIGHLIGHT_RED : NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
