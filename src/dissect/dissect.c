@@ -98,6 +98,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 static bool arg_via_service = false;
 static uid_t arg_uid_base = UID_INVALID;
+static bool arg_all = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -155,6 +156,7 @@ static int help(void) {
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
+               "     --all                Show hidden images too\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -280,6 +282,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MTREE_HASH,
                 ARG_MAKE_ARCHIVE,
                 ARG_SHIFT,
+                ARG_ALL,
         };
 
         static const struct option options[] = {
@@ -314,6 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
                 { "make-archive",  no_argument,       NULL, ARG_MAKE_ARCHIVE  },
                 { "shift",         no_argument,       NULL, ARG_SHIFT         },
+                { "all",           no_argument,       NULL, ARG_ALL           },
                 {}
         };
 
@@ -547,6 +551,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SHIFT:
                         arg_action = ACTION_SHIFT;
+                        break;
+
+                case ARG_ALL:
+                        arg_all = true;
                         break;
 
                 case '?':
@@ -1913,7 +1921,7 @@ static int action_discover(void) {
 
         HASHMAP_FOREACH(img, images) {
 
-                if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
+                if (!arg_all && startswith(img->name, "."))
                         continue;
 
                 r = table_add_many(
