@@ -44,7 +44,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "selinux-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
