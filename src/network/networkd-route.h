@@ -100,6 +100,7 @@ int route_remove(Route *route, Manager *manager);
 int route_remove_and_cancel(Route *route, Manager *manager);
 
 int route_get(Manager *manager, const Route *route, Route **ret);
+bool route_is_bound_to_link(const Route *route, Link *link);
 int route_get_request(Manager *manager, const Route *route, Request **ret);
 
 bool route_can_update(const Route *existing, const Route *requesting);

@@ -129,6 +129,8 @@ struct Manager {
 
         unsigned reloading;
 
+        int serialization_fd;
+
         /* sysctl */
         int ip_forwarding[2];
 #if HAVE_VMLINUX_H
