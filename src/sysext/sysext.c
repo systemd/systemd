@@ -1334,7 +1334,6 @@ static int mount_overlayfs_with_op(
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
                 top_layer = op->upper_dir;
-                log_info("upper dir: %s", op->upper_dir);
         } else {
                 assert(!strv_isempty(op->lower_dirs));
                 top_layer = op->lower_dirs[0];
