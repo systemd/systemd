@@ -5106,15 +5106,15 @@ static int load_oci_bundle(void) {
 }
 
 static int run_container(
-               DissectedImage *dissected_image,
-               int userns_fd,
-               FDSet *fds,
-               char veth_name[IFNAMSIZ],
-               bool *veth_created,
-               struct ExposeArgs *expose_args,
-               int *master,
-               pid_t *pid,
-               int *ret) {
+                DissectedImage *dissected_image,
+                int userns_fd,
+                FDSet *fds,
+                char veth_name[IFNAMSIZ],
+                bool *veth_created,
+                struct ExposeArgs *expose_args,
+                int *master,
+                pid_t *pid,
+                int *ret) {
 
         static const struct sigaction sa = {
                 .sa_handler = nop_signal_handler,
