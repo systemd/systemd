@@ -96,6 +96,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 static bool arg_via_service = false;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+static bool arg_all = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -154,6 +155,7 @@ static int help(void) {
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
                "     --user               Discover user images\n"
                "     --system             Discover system images\n"
+               "     --all                Show hidden images too\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -279,6 +281,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAKE_ARCHIVE,
                 ARG_SYSTEM,
                 ARG_USER,
+                ARG_ALL,
         };
 
         static const struct option options[] = {
@@ -314,6 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "make-archive",  no_argument,       NULL, ARG_MAKE_ARCHIVE  },
                 { "system",        no_argument,       NULL, ARG_SYSTEM        },
                 { "user",          no_argument,       NULL, ARG_USER          },
+                { "all",           no_argument,       NULL, ARG_ALL           },
                 {}
         };
 
@@ -552,6 +556,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_USER:
                         user_scope_requested = true;
+                        break;
+
+                case ARG_ALL:
+                        arg_all = true;
                         break;
 
                 case '?':
@@ -1889,7 +1897,7 @@ static int action_discover(void) {
 
         HASHMAP_FOREACH(img, images) {
 
-                if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
+                if (!arg_all && startswith(img->name, "."))
                         continue;
 
                 r = table_add_many(
