@@ -1617,7 +1617,7 @@ static int become_shutdown(int objective, int retval) {
 
         xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_defaults.timeout_stop_usec);
 
-        const char* command_line[11] = {
+        const char* command_line[13] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 table[objective],
                 timeout,
@@ -1665,8 +1665,6 @@ static int become_shutdown(int objective, int retval) {
         xsprintf(exit_code, "--exit-code=%d", retval);
         command_line[pos++] = exit_code;
 
-        assert(pos < ELEMENTSOF(command_line));
-
         /* The watchdog: */
 
         if (objective == MANAGER_REBOOT)
@@ -1682,15 +1680,22 @@ static int become_shutdown(int objective, int retval) {
         r = watchdog_setup(watchdog_timer);
         watchdog_close(/* disarm= */ r < 0);
 
+        /* Tell the binary how often to ping, ignore failure */
+        char watchdog_timeout[STRLEN("--watchdog-timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")];
+        xsprintf(watchdog_timeout, "--watchdog-timeout=%" PRI_USEC "us", watchdog_timer);
+        command_line[pos++] = watchdog_timeout;
+
+        char watchdog_device[STRLEN("--watchdog-device=") + strlen(arg_watchdog_device) + 1];
+        if (arg_watchdog_device) {
+                xsprintf(watchdog_device, "--watchdog-device=%s", arg_watchdog_device);
+                command_line[pos++] = watchdog_device;
+        }
+
+        assert(pos < ELEMENTSOF(command_line));
+
         /* The environment block: */
 
         env_block = strv_copy(environ);
-
-        /* Tell the binary how often to ping, ignore failure */
-        (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
-
-        if (arg_watchdog_device)
-                (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
 
         /* Avoid the creation of new processes forked by the kernel; at this
          * point, we will not listen to the signals anyway */
