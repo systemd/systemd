@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_SYSUSERS') != 1
+        subdir_done()
+endif
+
 executables += [
         executable_template + {
                 'name' : 'systemd-sysusers',
                 'public' : true,
-                'conditions' : ['ENABLE_SYSUSERS'],
                 'sources' : files('sysusers.c'),
         },
         executable_template + {
                 'name' : 'systemd-sysusers.standalone',
                 'public' : have_standalone_binaries,
-                'conditions' : ['ENABLE_SYSUSERS'],
                 'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
