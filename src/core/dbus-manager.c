@@ -1088,7 +1088,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                         m,
                         name,
                         "start",
-                        N_("Authentication is required to start transient '$(unit)'."),
+                        N_("Authentication is required to start transient unit '$(unit)'."),
                         message,
                         error);
         if (r < 0)
