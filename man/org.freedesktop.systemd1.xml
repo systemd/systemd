@@ -1553,7 +1553,7 @@ node /org/freedesktop/systemd1 {
 
       <para>Similarly, <function>PresetUnitFiles()</function> enables/disables one or more unit files
       according to the preset policy. See
-      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
+      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
       information.</para>
 
       <para>Similarly, <function>MaskUnitFiles()</function> masks unit files and
@@ -4740,7 +4740,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>TimeoutStartUSec</varname>, <varname>TimeoutStopUSec</varname> and
       <varname>TimeoutAbortUSec</varname> contain the start, stop and abort timeouts, in microseconds. Note
       the slight difference in naming when compared to the matching unit file settings (see
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>7</manvolnum></citerefentry>):
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>):
       these bus properties strictly use microseconds (and thus are suffixed <varname>…USec</varname>) while
       the unit file settings default to a time unit of seconds (and thus are suffixed
       <varname>…Sec</varname>), unless a different unit is explicitly specified. This reflects that fact that
