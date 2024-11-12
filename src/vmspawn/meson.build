@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_VMSPAWN') != 1
+        subdir_done()
+endif
+
 libvmspawn_core_sources = files(
         'vmspawn-settings.c',
         'vmspawn-util.c',
@@ -7,6 +11,7 @@ libvmspawn_core_sources = files(
         'vmspawn-mount.c',
         'vmspawn-register.c',
 )
+
 libvmspawn_core = static_library(
         'vmspawn-core',
         libvmspawn_core_sources,
@@ -27,13 +32,11 @@ executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
                 'public' : true,
-                'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
                 'dependencies' : [libblkid]
         },
         vmspawn_test_template + {
-                'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('test-vmspawn-util.c'),
         },
 ]
