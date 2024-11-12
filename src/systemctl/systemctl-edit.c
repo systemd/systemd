@@ -50,7 +50,8 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, /* ok_notfound- */ arg_force,
+                                &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
                         printf("%s# Unit %s is masked%s.\n",
                                ansi_highlight_magenta(),
@@ -232,15 +233,33 @@ static int find_paths_to_edit(
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *name_prefix = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
+                bool imply_force = arg_force;
 
-                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, &cached_id_map, &cached_name_map, &path, &unit_paths);
+                /*
+                 * Try to see if we are looking for a dash-truncated drop-in (e.g. "app-gnome-firefox-.scope",
+                 * in which case behave as if --force was set implicitly (because this is likely what user
+                 * wants).
+                 * This is best-effort, so eat any errors unless -ENOMEM.
+                 */
+                if (!arg_full) {
+                        r = unit_name_to_prefix(*name, &name_prefix);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (name_prefix != NULL && endswith(name_prefix, "-"))
+                                imply_force = true;
+                }
+
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, /* ok_notfound= */ imply_force,
+                                &cached_id_map, &cached_name_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
 
                         log_debug_errno(r, "Unit '%s' was not loaded correctly, retrying client-side.", *name);
-                        r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ true, &cached_id_map, &cached_name_map, &path, &unit_paths);
+                        r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ true, /* ok_notfound= */ imply_force,
+                                        &cached_id_map, &cached_name_map, &path, &unit_paths);
                 }
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Unit '%s' masked, cannot edit.", *name);
@@ -248,7 +267,7 @@ static int find_paths_to_edit(
                         return r; /* Already logged by unit_find_paths() */
 
                 if (!path) {
-                        if (!arg_force)
+                        if (!imply_force)
                                 return log_info_errno(SYNTHETIC_ERRNO(ENOENT),
                                                       "Run 'systemctl edit%s --force --full %s' to create a new unit.",
                                                       arg_runtime_scope == RUNTIME_SCOPE_GLOBAL ? " --global" :
