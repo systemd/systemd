@@ -43,6 +43,9 @@ static EFI_STATUS acquire_rng(void *ret, size_t size) {
                 return EFI_UNSUPPORTED;
 
         err = rng->GetRNG(rng, NULL, size, ret);
+        /* On some systems the RNG might not be ready during early boot, handle gracefully and don't log. */
+        if (err == EFI_NOT_READY)
+                return err;
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to acquire RNG data: %m");
         return EFI_SUCCESS;
