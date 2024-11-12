@@ -136,9 +136,9 @@
         <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
-        aren't defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
-        synthesized if otherwise missing since they have special significance to the OS. When
-        <literal>no</literal> this synthesizing is turned off.</para>
+        aren't defined otherwise, as well as the user/groups for the "foreign" UID range. By default (or
+        <literal>yes</literal>) such records are implicitly synthesized if otherwise missing since they have
+        special significance to the OS. When <literal>no</literal> this synthesizing is turned off.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
