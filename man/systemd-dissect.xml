@@ -527,6 +527,15 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--all</option></term>
+
+        <listitem><para>If combined with <option>--discover</option>, also shows images that start with a
+        dot, i.e. hidden images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
