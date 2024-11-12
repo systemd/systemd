@@ -160,3 +160,13 @@ done
 varlinkctl info /run/systemd/io.systemd.Hostname
 varlinkctl introspect /run/systemd/io.systemd.Hostname io.systemd.Hostname
 varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
+
+# test io.system.Manager
+varlinkctl info /run/systemd/io.systemd.Manager
+varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+
+systemctl start user@4711
+varlinkctl info /run/user/4711/systemd/io.systemd.Manager
+varlinkctl introspect /run/user/4711/systemd/io.systemd.Manager
+varlinkctl call /run/user/4711/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
