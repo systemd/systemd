@@ -18,7 +18,6 @@
 #include "tmpfile-util.h"
 #include "verbs.h"
 
-static PagerFlags arg_pager_flags = 0;
 static char *arg_output = NULL;
 static char *arg_certificate = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
@@ -48,7 +47,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
                "     --output            Where to write the signed PE binary\n"
                "     --certificate=PATH|URI\n"
                "                         PEM certificate to use for signing, or a provider\n"
@@ -75,7 +73,6 @@ static int help(int argc, char *argv[], void *userdata) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
                 ARG_OUTPUT,
                 ARG_CERTIFICATE,
                 ARG_CERTIFICATE_SOURCE,
@@ -85,7 +82,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",               no_argument,       NULL, 'h'                    },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "output",             required_argument, NULL, ARG_OUTPUT             },
                 { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
@@ -109,10 +105,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
 
                 case ARG_OUTPUT:
                         r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_output);
