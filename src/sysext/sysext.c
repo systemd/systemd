@@ -1335,7 +1335,7 @@ static int mount_overlayfs_with_op(
         return 0;
 }
 
-static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path, const char* hierarchy) {
+static int write_extensions_file(ImageClass image_class, char **extensions, const char *meta_path, const char *hierarchy) {
         _cleanup_free_ char *f = NULL, *buf = NULL;
         int r;
 
@@ -1353,7 +1353,8 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (!buf)
                 return log_oom();
 
-        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
+        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
+        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
 
@@ -1382,7 +1383,8 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
          * least it won't crash or deadlock, as per the kernel docs about overlayfs:
          * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
+        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1416,7 +1418,8 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         escaped_work_dir_in_root = cescape(work_dir_in_root);
         if (!escaped_work_dir_in_root)
                 return log_oom();
-        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy);
+        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "work_dir");
+        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1447,7 +1450,7 @@ static int store_info_in_meta(
         if (r < 0)
                 return r;
 
-        atfd = open(f, O_CLOEXEC);
+        atfd = open(f, O_CLOEXEC|O_PATH);
         if (atfd < 0)
                 return log_error_errno(atfd, "Failed to open '%s': %m", f);
 
