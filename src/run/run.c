@@ -1038,7 +1038,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 } else if (emoji_enabled()) {
-                        arg_shell_prompt_prefix = strjoin(special_glyph(SPECIAL_GLYPH_SUPERHERO), " ");
+                        arg_shell_prompt_prefix = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_SUPERHERO : SPECIAL_GLYPH_IDCARD), " ");
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 }
