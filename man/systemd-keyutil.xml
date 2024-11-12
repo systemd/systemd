@@ -85,7 +85,7 @@
         by a specific provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>.
         The <option>--private-key=</option> option can take a path or a URI that will be passed to the
         OpenSSL engine or provider, as specified by <option>--private-key-source=</option> as a
-        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal></para>.
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
