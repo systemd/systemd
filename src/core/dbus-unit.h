@@ -22,6 +22,7 @@ int bus_unit_set_properties(Unit *u, sd_bus_message *message, UnitWriteFlags fla
 int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error *error);
