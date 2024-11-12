@@ -5,10 +5,12 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "pidref.h"
+
 #define AUDIT_SESSION_INVALID UINT32_MAX
 
-int audit_session_from_pid(pid_t pid, uint32_t *id);
-int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
+int audit_session_from_pid(const PidRef *pid, uint32_t *id);
+int audit_loginuid_from_pid(const PidRef *pid, uid_t *uid);
 
 bool use_audit(void);
 

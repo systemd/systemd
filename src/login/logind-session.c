@@ -254,7 +254,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
                         s->leader_fd_saved = true;
         }
 
-        (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
+        (void) audit_session_from_pid(&s->leader, &s->audit_id);
 
         return 1;
 }
