@@ -1686,6 +1686,7 @@ static int become_shutdown(int objective, int retval) {
 
         env_block = strv_copy(environ);
 
+        (void) strv_extend(&env_block, "WATCHDOG_PID=1");
         /* Tell the binary how often to ping, ignore failure */
         (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
 
