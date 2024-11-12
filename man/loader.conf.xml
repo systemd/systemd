@@ -399,6 +399,14 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>reboot-on-error</term>
+
+        <listitem><para>Takes a boolean argument. Enable or disable (the default) auto reboot in case the selected entry fails to start.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
