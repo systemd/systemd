@@ -36,6 +36,7 @@
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
@@ -56,16 +57,22 @@
 static const char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
+static usec_t arg_watchdog_timeout = USEC_INFINITY; /* default */
+static char *arg_watchdog_device = NULL;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 COMMON_GETOPT_ARGS,
                 SHUTDOWN_GETOPT_ARGS,
+                ARG_WATCHDOG_TIMEOUT,
+                ARG_WATCHDOG_DEVICE,
         };
 
         static const struct option options[] = {
                 COMMON_GETOPT_OPTIONS,
                 SHUTDOWN_GETOPT_OPTIONS,
+                { "watchdog-timeout",        required_argument, NULL, ARG_WATCHDOG_TIMEOUT  },
+                { "watchdog-device",         required_argument, NULL, ARG_WATCHDOG_DEVICE   },
                 {}
         };
 
@@ -98,7 +105,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOG_COLOR:
-
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
@@ -119,7 +125,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOG_TIME:
-
                         if (optarg) {
                                 r = log_show_time_from_string(optarg);
                                 if (r < 0)
@@ -141,6 +146,19 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse shutdown timeout %s, ignoring: %m", optarg);
 
+                        break;
+
+                case ARG_WATCHDOG_TIMEOUT:
+                        r = parse_sec(optarg, &arg_watchdog_timeout);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m", optarg);
+
+                        break;
+
+                case ARG_WATCHDOG_DEVICE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_watchdog_device);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse watchdog device '%s', ignoring: %m", optarg);
                         break;
 
                 case '\001':
@@ -313,26 +331,15 @@ static void bump_sysctl_printk_log_level(int min_level) {
 }
 
 static void init_watchdog(void) {
-        const char *s;
         int r;
 
-        s = getenv("WATCHDOG_DEVICE");
-        if (s) {
-                r = watchdog_set_device(s);
+        if (arg_watchdog_device) {
+                r = watchdog_set_device(arg_watchdog_device);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", s);
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
         }
 
-        s = getenv("WATCHDOG_USEC");
-        if (s) {
-                usec_t usec;
-
-                r = safe_atou64(s, &usec);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m", s);
-                else
-                        (void) watchdog_setup(usec);
-        }
+        (void) watchdog_setup(arg_watchdog_timeout);
 }
 
 static void notify_supervisor(void) {
