@@ -1587,6 +1587,29 @@ static int add_any_file(
         assert(j);
         assert(fd >= 0 || path);
 
+        if (path) {
+                f = ordered_hashmap_get(j->files, path);
+                if (f) {
+                        if (stat_inode_same(&f->last_stat, &st)) {
+                                /* We already track this file, under the same path and with the same
+                                 * device/inode numbers, it's hence really the same. Mark this file as seen
+                                 * in this generation. This is used to GC old files in process_q_overflow()
+                                 * to detect journal files that are still there and discern them from those
+                                 * which are gone. */
+
+                                f->last_seen_generation = j->generation;
+                                (void) journal_file_read_tail_timestamp(j, f);
+                                return 0;
+                        }
+
+                        /* So we tracked a file under this name, but it has a different inode/device. In that
+                         * case, it got replaced (probably due to rotation?), let's drop it hence from our
+                         * list. */
+                        remove_file_real(j, f);
+                        f = NULL;
+                }
+        }
+
         if (fd < 0) {
                 assert(path);  /* For gcc. */
                 if (j->toplevel_fd >= 0)
@@ -1617,29 +1640,6 @@ static int add_any_file(
         if (r < 0) {
                 log_debug_errno(r, "Refusing to open %s: %m", path ?: "fd");
                 goto error;
-        }
-
-        if (path) {
-                f = ordered_hashmap_get(j->files, path);
-                if (f) {
-                        if (stat_inode_same(&f->last_stat, &st)) {
-                                /* We already track this file, under the same path and with the same
-                                 * device/inode numbers, it's hence really the same. Mark this file as seen
-                                 * in this generation. This is used to GC old files in process_q_overflow()
-                                 * to detect journal files that are still there and discern them from those
-                                 * which are gone. */
-
-                                f->last_seen_generation = j->generation;
-                                (void) journal_file_read_tail_timestamp(j, f);
-                                return 0;
-                        }
-
-                        /* So we tracked a file under this name, but it has a different inode/device. In that
-                         * case, it got replaced (probably due to rotation?), let's drop it hence from our
-                         * list. */
-                        remove_file_real(j, f);
-                        f = NULL;
-                }
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
