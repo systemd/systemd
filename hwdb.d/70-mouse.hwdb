@@ -310,6 +310,10 @@ mouse:bluetooth:v047dp8019:name:Expert Wireless TB Mouse:*
  ID_INPUT_TRACKBALL=1
  MOUSE_DPI=400@125
 
+# Kensington SlimBlade Pro trackball (via Bluetooth)
+mouse:bluetooth:v047dp80d4:name:SlimBlade Pro:*
+ ID_INPUT_TRACKBALL=1
+
 ##########################################
 # Lenovo
 ##########################################
