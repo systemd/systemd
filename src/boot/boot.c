@@ -97,6 +97,7 @@ typedef struct {
         bool auto_poweroff;
         bool auto_reboot;
         bool reboot_for_bitlocker;
+        bool reboot_on_err;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
         bool use_saved_entry;
@@ -538,6 +539,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                  beep: %ls\n", yes_no(config->beep));
         printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("       reboot-on-error: %ls\n", yes_no(config->reboot_on_err));
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -1276,6 +1278,10 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
 
+                } else if (streq8(key, "reboot-on-error")) {
+                        if (!parse_boolean(value, &config->reboot_on_err))
+                                log_error("Error parsing 'reboot-on-error' config option, ignoring: %s", value);
+
                 } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
@@ -1305,6 +1311,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+
                 }
 }
 
@@ -2950,8 +2957,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 (void) process_random_seed(root_dir);
 
                 err = image_start(image, entry);
-                if (err != EFI_SUCCESS)
-                        return err;
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err, "Error starting image: %m");
+                        if (config.reboot_on_err)
+                                reboot_system();
+                        else
+                                return err;
+                }
 
                 menu = true;
                 config.timeout_sec = 0;
