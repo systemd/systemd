@@ -1115,7 +1115,13 @@ int pty_forward_set_title(PTYForward *f, const char *title) {
         if (f->out_buffer_size > 0)
                 return -EBUSY;
 
-        return free_and_strdup(&f->title, title);
+        /* Truncate the title to 128 chars, since some terminal emulators really don't like overly long ANSI
+         * sequences */
+        _cleanup_free_ char *ellipsized = ellipsize(title, 128, 66);
+        if (!ellipsized)
+                return -ENOMEM;
+
+        return free_and_replace(f->title, ellipsized);
 }
 
 int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
@@ -1135,7 +1141,7 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
         if (r < 0)
                 return -ENOMEM;
 
-        return free_and_replace(f->title, title);
+        return pty_forward_set_title(f, title);
 }
 
 int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {
