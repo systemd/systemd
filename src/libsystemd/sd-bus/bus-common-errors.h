@@ -4,6 +4,7 @@
 #include "bus-error.h"
 
 #define BUS_ERROR_NO_SUCH_UNIT                 "org.freedesktop.systemd1.NoSuchUnit"
+#define BUS_ERROR_NO_SUCH_PROCESS              "org.freedesktop.systemd1.NoSuchProcess"
 #define BUS_ERROR_NO_UNIT_FOR_PID              "org.freedesktop.systemd1.NoUnitForPID"
 #define BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID    "org.freedesktop.systemd1.NoUnitForInvocationID"
 #define BUS_ERROR_UNIT_EXISTS                  "org.freedesktop.systemd1.UnitExists"
@@ -65,8 +66,6 @@
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED  "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
 #define BUS_ERROR_NO_NTP_SUPPORT               "org.freedesktop.timedate1.NoNTPSupport"
-
-#define BUS_ERROR_NO_SUCH_PROCESS              "org.freedesktop.systemd1.NoSuchProcess"
 
 #define BUS_ERROR_NO_NAME_SERVERS              "org.freedesktop.resolve1.NoNameServers"
 #define BUS_ERROR_INVALID_REPLY                "org.freedesktop.resolve1.InvalidReply"
