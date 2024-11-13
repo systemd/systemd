@@ -2469,11 +2469,20 @@ static EFI_STATUS initrd_prepare(
                         return EFI_OUT_OF_RESOURCES;
         }
 
+#if defined(__i386__) || defined(__x86_64__)
         _cleanup_pages_ Pages pages = xmalloc_pages(
                 AllocateMaxAddress,
                 EfiLoaderData,
                 EFI_SIZE_TO_PAGES(size),
                 UINT32_MAX /* Below 4G boundary. */);
+#else
+        _cleanup_pages_ Pages pages = xmalloc_pages(
+                AllocateAnyPages,
+                EfiLoaderData,
+                EFI_SIZE_TO_PAGES(size),
+                0 /* Ignored. */);
+#endif
+
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {
