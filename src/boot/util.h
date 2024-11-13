@@ -99,6 +99,22 @@ static inline Pages xmalloc_pages(
         };
 }
 
+static inline Pages xmalloc_initrd_pages(size_t n_pages) {
+#if defined(__i386__) || defined(__x86_64__)
+        return xmalloc_pages(
+                        AllocateMaxAddress,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(n_pages),
+                        UINT32_MAX /* Below 4G boundary. */);
+#else
+        return xmalloc_pages(
+                        AllocateAnyPages,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(n_pages),
+                        0 /* Ignored. */);
+#endif
+}
+
 void convert_efi_path(char16_t *path);
 char16_t *xstr8_to_path(const char *stra);
 char16_t *mangle_stub_cmdline(char16_t *cmdline);
