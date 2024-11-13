@@ -947,7 +947,7 @@ static int resolve_mutable_directory(
 
                 atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
                 if (atfd < 0)
-                        return log_error_errno(atfd, "Failed to open directory '%s': %m", path_in_root);
+                        return log_error_errno(errno, "Failed to open directory '%s': %m", path_in_root);
 
                 r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
                 if (r < 0)
@@ -1313,7 +1313,7 @@ static int mount_overlayfs_with_op(
 
         atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
         if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open directory '%s': %m", meta_path);
+                return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
         r = mac_selinux_fix_full(atfd, NULL, op->hierarchy, 0);
         if (r < 0)
@@ -1326,7 +1326,7 @@ static int mount_overlayfs_with_op(
 
                 atfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
                 if (atfd < 0)
-                        return log_error_errno(atfd, "Failed to open directory '%s': %m", op->work_dir);
+                        return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
                 r = mac_selinux_fix_full(atfd, NULL, op->hierarchy, 0);
                 if (r < 0)
@@ -1469,7 +1469,7 @@ static int store_info_in_meta(
 
         atfd = open(f, O_PATH|O_CLOEXEC);
         if (atfd < 0)
-                return log_error_errno(atfd, "Failed to open '%s': %m", f);
+                return log_error_errno(errno, "Failed to open '%s': %m", f);
 
         r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
         if (r < 0)
