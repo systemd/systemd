@@ -636,15 +636,35 @@ finalize:
 
 static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
         assert(netdev);
+        assert(netdev->manager);
         assert(hw_addr);
 
         if (hw_addr->length <= 0)
                 return false;
 
-        if (!NETDEV_VTABLE(netdev)->can_set_mac)
+        if (NETDEV_VTABLE(netdev)->can_set_mac)
+                return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+
+        /* Default action: refuse to set MAC address when the netdev already exists and is running.
+         * See eth_prepare_mac_addr_change(), which is called by eth_mac_addr().
+         * Before ad72c4a06acc6762e84994ac2f722da7a07df34e and 0ec92a8f56ff07237dbe8af7c7a72aba7f957baf
+         * (both in v6.5), the kernel refuse to set MAC address for existing netdevs even if it is unchanged.
+         * Note, netdev kind with IFF_LIVE_ADDR_CHANGE can change MAC address even if it is already up.
+         * For such netdev kind, we should introduce can_set_mac(), and allow to set MAC address. */
+        Link *link;
+        if (link_get_by_index(netdev->manager, netdev->ifindex, &link) < 0)
                 return true;
 
-        return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+        /* The result of netif_running() is mapped to operstate and flags.
+         * See rtnl_fill_ifinfo() and dev_get_flags(). */
+        if (link->kernel_operstate != IF_OPER_DOWN ||
+            (link->flags & (IFF_RUNNING | IFF_LOWER_UP | IFF_DORMANT)) != 0)
+                return false;
+
+        if (hw_addr_equal(&link->hw_addr, hw_addr))
+                return false; /* Unchanged, not necessary to set. */
+
+        return true;
 }
 
 static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
