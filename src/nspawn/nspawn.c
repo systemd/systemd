@@ -106,6 +106,7 @@
 #include "sysctl-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -4142,9 +4143,39 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO &&
-            IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
+            IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_FOREIGN, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
                 _cleanup_strv_free_ char **dirs = NULL;
+                RemountIdmapping mapping;
+
+                switch (arg_userns_ownership) {
+                case USER_NAMESPACE_OWNERSHIP_MAP:
+                        mapping = REMOUNT_IDMAPPING_HOST_ROOT;
+                        break;
+
+                case USER_NAMESPACE_OWNERSHIP_FOREIGN:
+                        mapping = REMOUNT_IDMAPPING_FOREIGN_WITH_HOST_ROOT;
+                        break;
+
+                case USER_NAMESPACE_OWNERSHIP_AUTO: {
+                        struct stat st;
+
+                        if (lstat(directory, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat() container root directory '%s': %m", directory);
+
+                        r = stat_verify_directory(&st);
+                        if (r < 0)
+                                return log_error_errno(r, "Container root directory '%s' is not a directory: %m", directory);
+
+                        mapping = uid_is_foreign(st.st_uid) ?
+                                REMOUNT_IDMAPPING_FOREIGN_WITH_HOST_ROOT :
+                                REMOUNT_IDMAPPING_HOST_ROOT;
+                        break;
+                }
+
+                default:
+                        assert_not_reached();
+                }
 
                 if (arg_volatile_mode != VOLATILE_YES) {
                         r = strv_extend(&dirs, directory);
@@ -4163,7 +4194,13 @@ static int outer_child(
                                 return log_oom();
                 }
 
-                r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                r = remount_idmap(
+                                dirs,
+                                arg_uid_shift,
+                                arg_uid_range,
+                                /* host_owner= */ UID_INVALID,
+                                /* dest_owner= */ UID_INVALID,
+                                mapping);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the
