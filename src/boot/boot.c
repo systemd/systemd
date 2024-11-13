@@ -2469,7 +2469,7 @@ static EFI_STATUS initrd_prepare(
                         return EFI_OUT_OF_RESOURCES;
         }
 
-        _cleanup_pages_ Pages pages = initrd_alloc_pages(size);
+        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(size);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {

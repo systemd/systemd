@@ -6,7 +6,6 @@
 #include "efivars.h"
 #include "export-vars.h"
 #include "graphics.h"
-#include "initrd.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
 #include "measure.h"
@@ -115,7 +114,7 @@ static EFI_STATUS combine_initrds(
                 n += initrd_size;
         }
 
-        _cleanup_pages_ Pages pages = initrd_alloc_pages(n);
+        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(n);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         FOREACH_ARRAY(i, initrds, n_initrds) {
