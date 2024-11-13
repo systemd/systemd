@@ -1119,6 +1119,11 @@ static void netdev_tunnel_init(NetDev *netdev) {
                 t->ttl = DEFAULT_IPV6_TTL;
 }
 
+static bool tunnel_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        assert(IN_SET(netdev->kind, NETDEV_KIND_GRETAP, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_ERSPAN));
+        return true;
+}
+
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
         .init = netdev_tunnel_init,
@@ -1188,6 +1193,7 @@ const NetDevVTable gretap_vtable = {
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .needs_reconfigure = tunnel_needs_reconfigure,
+        .can_set_mac = tunnel_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
@@ -1213,6 +1219,7 @@ const NetDevVTable ip6gretap_vtable = {
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .needs_reconfigure = tunnel_needs_reconfigure,
+        .can_set_mac = tunnel_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
@@ -1238,6 +1245,7 @@ const NetDevVTable erspan_vtable = {
         .is_ready_to_create = netdev_tunnel_is_ready_to_create,
         .config_verify = netdev_tunnel_verify,
         .needs_reconfigure = tunnel_needs_reconfigure,
+        .can_set_mac = tunnel_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
