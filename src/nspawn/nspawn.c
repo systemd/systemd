@@ -2226,97 +2226,112 @@ static bool should_enable_fuse(void) {
         return true;
 }
 
+static int copy_devnode_one(const char *dest, const char *node) {
+        int r;
+
+        assert(dest);
+        assert(!isempty(node));
+
+        BLOCK_WITH_UMASK(0000);
+
+        _cleanup_free_ char *from = path_join("/dev/", node);
+        if (!from)
+                return log_oom();
+
+        _cleanup_free_ char *to = path_join(dest, from);
+        if (!to)
+                return log_oom();
+
+        struct stat st;
+        if (stat(from, &st) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat %s: %m", from);
+
+                log_debug_errno(errno, "Device node %s does not exist, cannot copy it, ignoring.", from);
+                return 0;
+        }
+        if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "%s is not a char or block device, cannot copy.", from);
+
+        /* Create the parent directory of the device node. Here, we assume that the path has at most one
+         * subdirectory under /dev/, e.g. /dev/net/tun. */
+        _cleanup_free_ char *parent = NULL;
+        r = path_extract_directory(from, &parent);
+        if (r >= 0) {
+                if (userns_mkdir(dest, parent, 0755, 0, 0) < 0)
+                        return log_error_errno(r, "Failed to create directory %s: %m", parent);
+        } else if (r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from %s: %m", from);
+
+        if (mknod(to, st.st_mode, st.st_rdev) < 0) {
+                /* Explicitly warn the user when /dev/ is already populated. */
+                if (errno == EEXIST)
+                        log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
+                if (!ERRNO_IS_PRIVILEGE(errno) || arg_uid_shift != 0)
+                        return log_error_errno(errno, "mknod(%s) failed: %m", to);
+
+                /* Some systems abusively restrict mknod but allow bind mounts. */
+                r = touch(to);
+                if (r < 0)
+                        return log_error_errno(r, "touch (%s) failed: %m", to);
+                r = mount_nofollow_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
+        } else {
+                r = userns_lchown(to, 0, 0);
+                if (r < 0)
+                        return log_error_errno(r, "chown() of device node %s failed: %m", to);
+        }
+
+        _cleanup_free_ char *dn = path_join("/dev", S_ISCHR(st.st_mode) ? "char" : "block");
+        if (!dn)
+                return log_oom();
+
+        r = userns_mkdir(dest, dn, 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s': %m", dn);
+
+        _cleanup_free_ char *sl = NULL;
+        if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
+                return log_oom();
+
+        _cleanup_free_ char *prefixed = path_join(dest, sl);
+        if (!prefixed)
+                return log_oom();
+
+        _cleanup_free_ char *t = path_join("..", node);
+        if (!t)
+                return log_oom();
+
+        if (symlink(t, prefixed) < 0)
+                log_debug_errno(errno, "Failed to symlink '%s' to '%s', ignoring: %m", t, prefixed);
+
+        return 0;
+}
+
 static int copy_devnodes(const char *dest, bool enable_fuse) {
-        _cleanup_strv_free_ char **devnodes = NULL;
         int r = 0;
 
         assert(dest);
 
-        devnodes = strv_new("null",
-                            "zero",
-                            "full",
-                            "random",
-                            "urandom",
-                            "tty",
-                            STRV_IFNOTNULL(enable_fuse ? "fuse" : NULL),
-                            "net/tun");
-        if (!devnodes)
-                return log_oom();
-
-        BLOCK_WITH_UMASK(0000);
-
-        /* Create /dev/net, so that we can create /dev/net/tun in it */
-        if (userns_mkdir(dest, "/dev/net", 0755, 0, 0) < 0)
-                return log_error_errno(r, "Failed to create /dev/net directory: %m");
-
-        STRV_FOREACH(d, devnodes) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
-                struct stat st;
-
-                from = path_join("/dev/", *d);
-                if (!from)
-                        return log_oom();
-
-                to = path_join(dest, from);
-                if (!to)
-                        return log_oom();
-
-                if (stat(from, &st) < 0) {
-
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to stat %s: %m", from);
-
-                } else if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "%s is not a char or block device, cannot copy.", from);
-                else {
-                        _cleanup_free_ char *sl = NULL, *prefixed = NULL, *dn = NULL, *t = NULL;
-
-                        if (mknod(to, st.st_mode, st.st_rdev) < 0) {
-                                /* Explicitly warn the user when /dev is already populated. */
-                                if (errno == EEXIST)
-                                        log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
-                                if (!ERRNO_IS_PRIVILEGE(errno) || arg_uid_shift != 0)
-                                        return log_error_errno(errno, "mknod(%s) failed: %m", to);
-
-                                /* Some systems abusively restrict mknod but allow bind mounts. */
-                                r = touch(to);
-                                if (r < 0)
-                                        return log_error_errno(r, "touch (%s) failed: %m", to);
-                                r = mount_nofollow_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
-                        } else {
-                                r = userns_lchown(to, 0, 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "chown() of device node %s failed: %m", to);
-                        }
-
-                        dn = path_join("/dev", S_ISCHR(st.st_mode) ? "char" : "block");
-                        if (!dn)
-                                return log_oom();
-
-                        r = userns_mkdir(dest, dn, 0755, 0, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create '%s': %m", dn);
-
-                        if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
-                                return log_oom();
-
-                        prefixed = path_join(dest, sl);
-                        if (!prefixed)
-                                return log_oom();
-
-                        t = path_join("..", *d);
-                        if (!t)
-                                return log_oom();
-
-                        if (symlink(t, prefixed) < 0)
-                                log_debug_errno(errno, "Failed to symlink '%s' to '%s': %m", t, prefixed);
-                }
+        FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
+                r = copy_devnode_one(dest, node);
+                if (r < 0)
+                        return r;
         }
 
-        return r;
+        if (enable_fuse) {
+                r = copy_devnode_one(dest, "fuse");
+                if (r < 0)
+                        return r;
+        }
+
+        r = copy_devnode_one(dest, "net/tun");
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int make_extra_nodes(const char *dest) {
