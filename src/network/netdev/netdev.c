@@ -662,9 +662,14 @@ static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
 static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
         int r;
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0)
-                return r;
+        if (netdev->ifindex <= 0) {
+                /* Set interface name when it is newly created. Otherwise, the kernel older than
+                 * bd039b5ea2a91ea707ee8539df26456bd5be80af (v6.2) will refuse the netlink message even if
+                 * the name is unchanged. */
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+                if (r < 0)
+                        return r;
+        }
 
         struct hw_addr_data hw_addr;
         r = netdev_generate_hw_addr(netdev, link, netdev->ifname, &netdev->hw_addr, &hw_addr);
