@@ -2211,7 +2211,8 @@ static bool should_enable_fuse(void) {
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_debug_errno(r, "Disabling FUSE: Kernel does not support the fsopen() family of syscalls: %m");
                 else
-                        log_warning_errno(r, "Disabling FUSE: Failed to determine FUSE version: %m");
+                        log_full_errno(ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Disabling FUSE: Failed to determine FUSE version: %m");
                 return false;
         }
 
