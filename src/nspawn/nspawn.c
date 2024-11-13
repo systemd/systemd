@@ -2245,7 +2245,7 @@ static int bind_mount_devnode(const char *from, const char *to) {
         return 0;
 }
 
-static int copy_devnode_one(const char *dest, const char *node) {
+static int copy_devnode_one(const char *dest, const char *node, bool ignore_mknod_failure) {
         int r;
 
         assert(dest);
@@ -2289,13 +2289,23 @@ static int copy_devnode_one(const char *dest, const char *node) {
                 if (r == -EEXIST)
                         log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
                 /* If arg_uid_shift != 0, then we cannot fall back to use bind mount. */
-                if (arg_uid_shift != 0)
+                if (arg_uid_shift != 0) {
+                        if (ignore_mknod_failure) {
+                                log_debug_errno(r, "Failed to mknod(%s), ignoring: %m", to);
+                                return 0;
+                        }
                         return log_error_errno(r, "Failed to mknod(%s): %m", to);
+                }
 
                 /* Some systems abusively restrict mknod but allow bind mounts. */
-                if (bind_mount_devnode(from, to) < 0)
+                if (bind_mount_devnode(from, to) < 0) {
                         /* use the original error code. */
+                        if (ignore_mknod_failure) {
+                                log_debug_errno(r, "Both mknod() and bind mount %s failed, ignoring: %m", to);
+                                return 0;
+                        }
                         return log_error_errno(r, "Both mknod() and bind mount %s failed: %m", to);
+                }
         } else {
                 /* mknod() succeeds, chown() it if necessary. */
                 r = userns_lchown(to, 0, 0);
@@ -2335,18 +2345,21 @@ static int copy_devnodes(const char *dest, bool enable_fuse) {
         assert(dest);
 
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node);
+                r = copy_devnode_one(dest, node, /* ignore_mknod_failure = */ false);
                 if (r < 0)
                         return r;
         }
 
         if (enable_fuse) {
-                r = copy_devnode_one(dest, "fuse");
+                r = copy_devnode_one(dest, "fuse", /* ignore_mknod_failure = */ false);
                 if (r < 0)
                         return r;
         }
 
-        r = copy_devnode_one(dest, "net/tun");
+        /* We unconditionally try to create /dev/net/tun, but let's ignore failure if --private-network is
+         * unspecified. The failure can be triggered when e.g. DevicePolicy= is set, but DeviceAllow= does
+         * not contains the device node, and --private-users=pick is specified. */
+        r = copy_devnode_one(dest, "net/tun", /* ignore_mknod_failure = */ !arg_private_network);
         if (r < 0)
                 return r;
 
