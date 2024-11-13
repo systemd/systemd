@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
+if conf.get('ENABLE_TMPFILES') != 1
+        subdir_done()
+endif
 
 files = [['README',               ''],
          ['home.conf',            ''],
@@ -19,9 +21,7 @@ files = [['README',               ''],
         ]
 
 foreach pair : files
-        if not enable_tmpfiles
-                # do nothing
-        elif pair[1] == '' or conf.get(pair[1]) == 1
+        if pair[1] == '' or conf.get(pair[1]) == 1
                 install_data(pair[0], install_dir : tmpfilesdir)
         else
                 message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
@@ -42,15 +42,13 @@ in_files = [
 ]
 
 foreach pair : in_files
-        if not enable_tmpfiles
-                # do nothing
-        elif pair[1] == '' or conf.get(pair[1]) == 1
+        if pair[1] == '' or conf.get(pair[1]) == 1
                 custom_target(
                         pair[0],
                         input : pair[0] + '.in',
                         output: pair[0],
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-                        install : enable_tmpfiles,
+                        install : true,
                         install_dir : tmpfilesdir)
         else
                 message('Not installing tmpfiles.d/@0@ because @1@ is @2@'
@@ -58,6 +56,6 @@ foreach pair : in_files
         endif
 endforeach
 
-if enable_tmpfiles and install_sysconfdir
+if install_sysconfdir
         install_emptydir(sysconfdir / 'tmpfiles.d')
 endif
