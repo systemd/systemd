@@ -3,13 +3,19 @@
 #include "sd-varlink.h"
 
 #include "core-varlink.h"
+#include "format-util.h"
+#include "job-varlink.h"
 #include "json-util.h"
+#include "manager-varlink.h"
 #include "mkdir-label.h"
 #include "strv.h"
 #include "user-util.h"
 #include "varlink-internal.h"
+#include "varlink-serialize.h"
+#include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.Manager.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -560,6 +566,23 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
 }
 
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(parameters);
+
+        if (sd_json_variant_elements(parameters) > 0)
+                return sd_varlink_error_invalid_parameter(link, parameters);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build manager JSON data: %m");
+
+        return sd_varlink_reply(link, v);
+}
+
 static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -579,34 +602,50 @@ int manager_setup_varlink_server(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return -EINVAL;
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
+        if (MANAGER_IS_SYSTEM(m))
+                flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        r = sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = sd_varlink_server_new(&s, flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
 
-        r = sd_varlink_server_add_interface_many(
-                        s,
-                        &vl_interface_io_systemd_UserDatabase,
-                        &vl_interface_io_systemd_ManagedOOM);
+        r = sd_varlink_server_add_interface_many(s,
+                        &vl_interface_io_systemd_Manager,
+                        &vl_interface_io_systemd_Job);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                        "io.systemd.Manager.Describe", vl_method_describe,
+                        "io.systemd.Job.List",         vl_method_list_jobs);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+        if (MANAGER_IS_SYSTEM(m)) {
+                r = sd_varlink_server_add_interface_many(
+                                s,
+                                &vl_interface_io_systemd_UserDatabase,
+                                &vl_interface_io_systemd_ManagedOOM);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
+
+                r = sd_varlink_server_bind_method_many(
+                                s,
+                                "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
+                                "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
+                                "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                                "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", vl_method_subscribe_managed_oom_cgroups);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+                r = sd_varlink_server_bind_disconnect(s, vl_disconnect);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+        }
 
         r = sd_varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
@@ -630,22 +669,20 @@ static int manager_varlink_init_system(Manager *m) {
         bool fresh = r > 0;
 
         if (!MANAGER_IS_TEST_RUN(m)) {
-                (void) mkdir_p_label("/run/systemd/userdb", 0755);
+                FOREACH_STRING(dir, "/run/systemd/userdb", "/run/systemd/job") {
+                        r = mkdir_p_label(dir, 0755);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to create dir '%s', ignoring: %m", dir);
+                }
 
-                FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
-                        if (!fresh) {
-                                /* We might have got sockets through deserialization. Do not bind to them twice. */
-
-                                bool found = false;
-                                LIST_FOREACH(sockets, ss, m->varlink_server->sockets)
-                                        if (path_equal(ss->address, address)) {
-                                                found = true;
-                                                break;
-                                        }
-
-                                if (found)
-                                        continue;
-                        }
+                FOREACH_STRING(address,
+                               "/run/systemd/userdb/io.systemd.DynamicUser",
+                               VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
+                               "/run/systemd/io.systemd.Manager",
+                               "/run/systemd/job/io.systemd.Job") {
+                        /* We might have got sockets through deserialization. Do not bind to them twice. */
+                        if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
+                                continue;
 
                         r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
                         if (r < 0)
@@ -657,6 +694,8 @@ static int manager_varlink_init_system(Manager *m) {
 }
 
 static int manager_varlink_init_user(Manager *m) {
+        int r;
+
         assert(m);
 
         if (!MANAGER_IS_USER(m))
@@ -664,6 +703,34 @@ static int manager_varlink_init_user(Manager *m) {
 
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
+
+        r = manager_setup_varlink_server(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up varlink server: %m");
+        bool fresh = r > 0;
+
+        FOREACH_STRING(a,
+                       "systemd/io.systemd.Manager",
+                       "systemd/job/io.systemd.Job") {
+                _cleanup_free_ char *address = NULL, *dir = NULL;
+                address = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], a);
+                if (!address)
+                        return -ENOMEM;
+                /* We might have got sockets through deserialization. Do not bind to them twice. */
+                if (fresh || !varlink_server_contains_socket(m->varlink_server, address)) {
+                        r = path_extract_directory(address, &dir);
+                        if (r < 0)
+                                 log_debug_errno(r, "Failed to extract directory from path '%s', ignoring: %m", address);
+
+                        r = mkdir_p_label(dir, 0755);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to create dir '%s', ignoring: %m", dir);
+
+                        r = sd_varlink_server_listen_address(m->varlink_server, address, 0666);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+                }
+        }
 
         return manager_varlink_managed_oom_connect(m);
 }
