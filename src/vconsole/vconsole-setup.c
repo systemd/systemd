@@ -258,6 +258,9 @@ static int toggle_utf8_sysfs(bool utf8) {
         return 0;
 }
 
+/* SYSTEMD_DEFAULT_KEYMAP must not be empty */
+assert_cc(STRLEN(SYSTEMD_DEFAULT_KEYMAP) > 0);
+
 static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         const char* args[8];
         unsigned i = 0;
@@ -271,8 +274,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
                 *keymap = empty_to_null(c->keymap) ?: SYSTEMD_DEFAULT_KEYMAP,
                 *keymap_toggle = empty_to_null(c->keymap_toggle);
 
-        /* An empty map means kernel map */
-        if (!keymap || streq(keymap, "@kernel"))
+        if (streq(keymap, "@kernel"))
                 return 0;
 
         args[i++] = KBD_LOADKEYS;
