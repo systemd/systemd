@@ -197,6 +197,10 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         return 0;
 }
 
+static bool vxlan_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        return true;
+}
+
 static bool vxlan_can_set_mtu(NetDev *netdev, uint32_t mtu) {
         assert(netdev);
 
@@ -452,6 +456,7 @@ const NetDevVTable vxlan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .is_ready_to_create = netdev_vxlan_is_ready_to_create,
         .config_verify = netdev_vxlan_verify,
+        .can_set_mac = vxlan_can_set_mac,
         .can_set_mtu = vxlan_can_set_mtu,
         .needs_reconfigure = vxlan_needs_reconfigure,
         .iftype = ARPHRD_ETHER,

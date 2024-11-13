@@ -4,10 +4,15 @@
 
 #include "dummy.h"
 
+static bool dummy_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        return true;
+}
+
 const NetDevVTable dummy_vtable = {
         .object_size = sizeof(Dummy),
         .sections = NETDEV_COMMON_SECTIONS,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .can_set_mac = dummy_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

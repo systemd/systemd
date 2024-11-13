@@ -281,12 +281,17 @@ static void bridge_init(NetDev *netdev) {
         b->ageing_time = USEC_INFINITY;
 }
 
+static bool bridge_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        return true;
+}
+
 const NetDevVTable bridge_vtable = {
         .object_size = sizeof(Bridge),
         .init = bridge_init,
         .sections = NETDEV_COMMON_SECTIONS "Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .can_set_mac = bridge_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
