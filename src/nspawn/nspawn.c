@@ -2183,6 +2183,7 @@ static int copy_devnodes(const char *dest) {
         NULSTR_FOREACH(d, devnodes) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
                 struct stat st;
+                bool ignore_mknod_failure = streq(d, "net/tun");
 
                 from = path_join("/dev/", d);
                 if (!from)
@@ -2207,16 +2208,31 @@ static int copy_devnodes(const char *dest) {
                                 /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
                                         log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
-                                if (!ERRNO_IS_PRIVILEGE(errno) || arg_uid_shift != 0)
+                                if (!ERRNO_IS_PRIVILEGE(errno) || arg_uid_shift != 0) {
+                                        if (ignore_mknod_failure) {
+                                                log_debug_errno(r, "mknod(%s) failed, ignoring: %m", to);
+                                                return 0;
+                                        }
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
+                                }
 
                                 /* Some systems abusively restrict mknod but allow bind mounts. */
                                 r = touch(to);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (ignore_mknod_failure) {
+                                                log_debug_errno(r, "touch (%s) failed, ignoring: %m", to);
+                                                return 0;
+                                        }
                                         return log_error_errno(r, "touch (%s) failed: %m", to);
+                                }
                                 r = mount_nofollow_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (ignore_mknod_failure) {
+                                                log_debug_errno(r, "Both mknod and bind mount (%s) failed, ignoring: %m", to);
+                                                return 0;
+                                        }
                                         return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
+                                }
                         } else {
                                 r = userns_lchown(to, 0, 0);
                                 if (r < 0)
