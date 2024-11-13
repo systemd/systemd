@@ -178,6 +178,7 @@ const NetDevVTable macvtap_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
 
 const NetDevVTable macvlan_vtable = {
@@ -189,4 +190,5 @@ const NetDevVTable macvlan_vtable = {
         .create_type = NETDEV_CREATE_STACKED,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
