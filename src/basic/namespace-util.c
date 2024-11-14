@@ -585,3 +585,110 @@ int is_idmapping_supported(const char *path) {
 
         return true;
 }
+
+static int uid_map_search_root(pid_t pid, const char *filename, uid_t *ret) {
+        int r;
+
+        assert(pid_is_valid(pid));
+        assert(filename);
+        assert(ret);
+
+        const char *p = procfs_file_alloca(pid, filename);
+        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                return proc_mounted() > 0 ? -EOPNOTSUPP : -ENOSYS;
+        }
+
+        for (;;) {
+                uid_t uid_base = UID_INVALID, uid_shift = UID_INVALID, uid_range = UID_INVALID;
+
+                errno = 0;
+                r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+                if (r == EOF)
+                        return errno_or_else(ENOMSG);
+                assert(r >= 0);
+                if (r != 3)
+                        return -EBADMSG;
+                if (uid_range <= 0)
+                        return -EBADMSG;
+
+                if (uid_base == 0)
+                        *ret = uid_shift;
+
+                return 0;
+        }
+}
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        ssize_t n;
+        char x;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-baseuns)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to fifo: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        uid_t uid;
+        r = uid_map_search_root(pid, "uid_map", &uid);
+        if (r < 0)
+                return r;
+
+        gid_t gid;
+        r = uid_map_search_root(pid, "gid_map", &gid);
+        if (r < 0)
+                return r;
+
+        if (!ret_gid && uid != gid)
+                return -ENOMSG;
+
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+
+        return 0;
+}
