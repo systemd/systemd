@@ -2,22 +2,56 @@
 #pragma once
 
 #include "efi.h"
-
 #include "chid-fundamental.h"
 
+/* A .hwids PE section consists of a series of 'Device' structures. A 'Device' structure binds a CHID to some
+ * resource, for now only Devicetree blobs. Designed to be extensible to other types of resources, should the
+ * need arise. The series of 'Device' structures is followed by some space for strings that can be referenced
+ * by offset by the Device structures. */
+
+enum {
+        DEVICE_TYPE_DEVICETREE = 0x1, /* A devicetree blob */
+
+        /* Maybe later additional types for:
+         *   - CoCo Bring-Your-Own-Firmware
+         *   - ACPI DSDT Overrides
+         *   - … */
+};
+
+#define DEVICE_SIZE_FROM_DESCRIPTOR(u) ((uint32_t) (u) & UINT32_C(0x0FFFFFFF))
+#define DEVICE_TYPE_FROM_DESCRIPTOR(u) ((uint32_t) (u) >> 28)
+#define DEVICE_MAKE_DESCRIPTOR(type, size) (((uint32_t) (size) | ((uint32_t) type << 28)))
+
+#define DEVICE_DESCRIPTOR_DEVICETREE DEVICE_MAKE_DESCRIPTOR(DEVICE_TYPE_DEVICETREE, sizeof(Device))
+#define DEVICE_DESCRIPTOR_EOL UINT32_C(0)
+
 typedef struct Device {
-        uint32_t struct_size;       /* = sizeof(struct Device), or 0 for EOL */
-        uint32_t name_offset;       /* nul-terminated string or 0 if not present */
-        uint32_t compatible_offset; /* nul-terminated string or 0 if not present */
+        uint32_t descriptor; /* The highest four bit encode the type of entry, the other 28 bit encode the
+                              * size of the structure. Use the macros above to generate or take apart this
+                              * field. */
         EFI_GUID chid;
+        union {
+                struct {
+                        /* These offsets are relative to the beginning of the .hwids PE section. */
+                        uint32_t name_offset;          /* nul-terminated string or 0 if not present */
+                        uint32_t compatible_offset;    /* nul-terminated string or 0 if not present */
+                } devicetree;
+                /* fields for other types… */
+        };
 } _packed_ Device;
 
 static inline const char* device_get_name(const void *base, const Device *device) {
-        return device->name_offset == 0 ? NULL : (const char *) ((const uint8_t *) base + device->name_offset);
+        if (device->descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                return NULL;
+
+        return device->devicetree.name_offset == 0 ? NULL : (const char *) ((const uint8_t *) base + device->devicetree.name_offset);
 }
 
 static inline const char* device_get_compatible(const void *base, const Device *device) {
-        return device->compatible_offset == 0 ? NULL : (const char *) ((const uint8_t *) base + device->compatible_offset);
+        if (device->descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                return NULL;
+
+        return device->devicetree.compatible_offset == 0 ? NULL : (const char *) ((const uint8_t *) base + device->devicetree.compatible_offset);
 }
 
 EFI_STATUS chid_match(const void *chids_buffer, size_t chids_length, const Device **ret_device);
