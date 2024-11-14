@@ -289,7 +289,8 @@ int write_string_file_full(
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
-                const struct timespec *ts) {
+                const struct timespec *ts,
+                const char *label_fn) {
 
         bool call_label_ops_post = false, made_file = false;
         _cleanup_fclose_ FILE *f = NULL;
@@ -321,7 +322,8 @@ int write_string_file_full(
         mode_t mode = write_string_file_flags_to_mode(flags);
 
         if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
-                r = label_ops_pre(dir_fd, fn, mode);
+                const char *lookup = label_fn ? label_fn : fn;
+                r = label_ops_pre(dir_fd, lookup, mode);
                 if (r < 0)
                         goto fail;
 
