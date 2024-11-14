@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('HAVE_LIBCRYPTSETUP') != 1
+        subdir_done()
+endif
+
 systemd_cryptenroll_sources = files(
         'cryptenroll-list.c',
         'cryptenroll-password.c',
@@ -24,7 +28,6 @@ executables += [
         executable_template + {
                 'name' : 'systemd-cryptenroll',
                 'public' : true,
-                'conditions' : ['HAVE_LIBCRYPTSETUP'],
                 'sources' : systemd_cryptenroll_sources,
                 'dependencies' : [
                         libcryptsetup,

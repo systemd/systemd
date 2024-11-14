@@ -2366,6 +2366,7 @@ subdir('src/fsck')
 subdir('src/fstab-generator')
 subdir('src/getty-generator')
 subdir('src/gpt-auto-generator')
+subdir('src/growfs')
 subdir('src/hibernate-resume')
 subdir('src/home')
 subdir('src/hostname')
@@ -2377,6 +2378,7 @@ subdir('src/integritysetup')
 subdir('src/journal')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
+subdir('src/keyutil')
 subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
@@ -2394,7 +2396,6 @@ subdir('src/nss-mymachines')
 subdir('src/nss-resolve')
 subdir('src/nss-systemd')
 subdir('src/oom')
-subdir('src/partition')
 subdir('src/path')
 subdir('src/pcrextend')
 subdir('src/pcrlock')
@@ -2404,6 +2405,7 @@ subdir('src/quotacheck')
 subdir('src/random-seed')
 subdir('src/rc-local-generator')
 subdir('src/remount-fs')
+subdir('src/repart')
 subdir('src/reply-password')
 subdir('src/resolve')
 subdir('src/rfkill')
@@ -2698,7 +2700,7 @@ endif
 
 mkosi_depends = public_programs
 
-foreach executable : ['systemd-journal-remote', 'systemd-measure']
+foreach executable : ['systemd-journal-remote', 'systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
         if executable in executables_by_name
                 mkosi_depends += [executables_by_name[executable]]
         endif

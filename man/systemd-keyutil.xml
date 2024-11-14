@@ -1,0 +1,105 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-keyutil"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-keyutil</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-keyutil</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-keyutil</refname>
+    <refpurpose>Perform various operations on private keys and X.509 certificates</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-keyutil</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-keyutil</command> can be used to perform various operations on private keys and
+    X.509 certificates.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>validate</option></term>
+
+        <listitem><para>Checks that we can load the private key and certificate specified with
+        <option>--private-key=</option> and <option>--certificate=</option> respectively.</para>
+
+        <para>As a side effect, if the private key is loaded from a PIN-protected hardware token, this
+        command can be used to cache the PIN in the kernel keyring. The
+        <varname>$SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC</varname> and
+        <varname>$SYSTEMD_ASK_PASSWORD_KEYRING_TYPE</varname> environment variables can be used to control
+        how long and in which kernel keyring the PIN is cached.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>public</command></term>
+
+        <listitem><para>This commands prints the public key in PEM format extracted from either the
+        certificate given with <option>--certificate=</option> or the private key given with
+        <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Set the private key and certificate to use. The <option>--certificate=</option>
+        option takes a path to a PEM encoded X.509 certificate or a URI that's passed to the OpenSSL provider
+        configured with <option>--certificate-source</option>. The <option>--certificate-source</option>
+        takes one of <literal>file</literal> or <literal>provider</literal>, with the latter being followed
+        by a specific provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>.
+        The <option>--private-key=</option> option can take a path or a URI that will be passed to the
+        OpenSSL engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

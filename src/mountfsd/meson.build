@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_MOUNTFSD') != 1
+        subdir_done()
+endif
+
 systemd_mountwork_sources = files(
         'mountwork.c',
 )
@@ -12,12 +16,10 @@ systemd_mountfsd_sources = files(
 executables += [
         libexec_template + {
                 'name' : 'systemd-mountfsd',
-                'conditions' : ['ENABLE_MOUNTFSD'],
                 'sources' : systemd_mountfsd_sources,
         },
         libexec_template + {
                 'name' : 'systemd-mountwork',
-                'conditions' : ['ENABLE_MOUNTFSD'],
                 'sources' : systemd_mountwork_sources,
         },
 ]

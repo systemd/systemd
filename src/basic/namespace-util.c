@@ -136,12 +136,14 @@ int namespace_open(
                 int *ret_userns_fd,
                 int *ret_root_fd) {
 
-        assert(pid >= 0);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
-        if (pid == 0)
-                pid = getpid_cached();
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return r;
 
-        return pidref_namespace_open(&PIDREF_MAKE_FROM_PID(pid), ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
+        return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {

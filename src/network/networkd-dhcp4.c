@@ -247,7 +247,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP4)
                         continue;
-                if (route->nexthop.ifindex != 0 && route->nexthop.ifindex != link->ifindex)
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
@@ -915,7 +915,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                 r = sd_dhcp_lease_get_lifetime_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: failed to get lifetime: %m");
@@ -1168,7 +1168,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1199,7 +1199,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_EXPIRED:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1214,7 +1214,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                         break;
                 case SD_DHCP_CLIENT_EVENT_IP_CHANGE:
-                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                        if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC)) {
                                 log_link_notice(link, "DHCPv4 connection considered critical, ignoring request to reconfigure it.");
                                 return 0;
                         }
@@ -1400,8 +1400,8 @@ static int dhcp4_set_request_address(Link *link) {
                 return sd_dhcp_client_set_request_address(link->dhcp_client, &link->network->dhcp_request_address);
         }
 
-        /* 3. If KeepConfiguration=dhcp, use a foreign dynamic address. */
-        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+        /* 3. If KeepConfiguration=dynamic, use a foreign dynamic address. */
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                 return 0;
 
         SET_FOREACH(a, link->addresses) {
@@ -1837,14 +1837,21 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
         int ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_dhcp4_enabled(link))
-                return 0; /* Currently DHCPv4 client is not enabled, there is nothing we need to drop. */
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        if (!FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4))
-                /* Currently enabled but will be disabled. Stop the client and drop the lease. */
+        if (!link_dhcp4_enabled(link)) {
+                /* DHCP client is disabled. Stop the client if it is running and drop the lease. */
                 ret = sd_dhcp_client_stop(link->dhcp_client);
+
+                /* Also explicitly drop DHCPv4 address and routes. Why? This is for the case when the DHCPv4
+                 * client was enabled on the previous invocation of networkd, but when it is restarted, a new
+                 * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
+                 * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
+                RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed
          * settings for the client may be different. Let's unref() the client. But do not unref() the lease.

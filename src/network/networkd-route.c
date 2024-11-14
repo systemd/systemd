@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if.h>
 #include <linux/ipv6_route.h>
 #include <linux/nexthop.h>
 
@@ -47,7 +48,7 @@ static Route* route_detach_impl(Route *route) {
         return NULL;
 }
 
-static void route_detach(Route *route) {
+void route_detach(Route *route) {
         route_unref(route_detach_impl(route));
 }
 
@@ -349,6 +350,18 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         }
 
         return route_nexthop_get_link(manager, &route->nexthop, ret);
+}
+
+bool route_is_bound_to_link(const Route *route, Link *link) {
+        assert(route);
+        assert(link);
+        assert(link->manager);
+
+        Link *route_link;
+        if (route_get_link(link->manager, route, &route_link) < 0)
+                return false;
+
+        return route_link->ifindex == link->ifindex;
 }
 
 int route_get_request(Manager *manager, const Route *route, Request **ret) {
@@ -1138,6 +1151,8 @@ static int process_route_one(
                         }
                 }
 
+                route_attach_to_nexthop(route);
+
                 route_enter_configured(route);
                 log_route_debug(route, is_new ? "Received new" : "Received remembered", manager);
 
@@ -1471,7 +1486,7 @@ int link_drop_routes(Link *link, bool only_static) {
                                         continue;
 
                                 if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
-                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                                         continue;
                         }
                 }
@@ -1536,6 +1551,37 @@ int link_drop_routes(Link *link, bool only_static) {
         }
 
         return r;
+}
+
+void link_forget_routes(Link *link) {
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(!FLAGS_SET(link->flags, IFF_UP));
+
+        /* When an interface went down, IPv4 non-local routes bound to the interface are silently removed by
+         * the kernel, without any notifications. Let's forget them in that case. Otherwise, when the link
+         * goes up later, the configuration order of routes may be confused by the nonexistent routes.
+         * See issue #35047. */
+
+        Route *route;
+        SET_FOREACH(route, link->manager->routes) {
+                // TODO: handle multipath routes
+                if (route->nexthop.ifindex != link->ifindex)
+                        continue;
+                if (route->family != AF_INET)
+                        continue;
+                // TODO: check RTN_NAT and RTN_XRESOLVE
+                if (!IN_SET(route->type, RTN_UNICAST, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
+                        continue;
+
+                Request *req;
+                if (route_get_request(link->manager, route, &req) >= 0)
+                        route_enter_removed(req->userdata);
+
+                route_enter_removed(route);
+                log_route_debug(route, "Forgetting silently removed", link->manager);
+                route_detach(route);
+        }
 }
 
 int network_add_ipv4ll_route(Network *network) {

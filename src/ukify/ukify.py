@@ -1016,8 +1016,8 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
-        measure_tool = find_tool('systemd-measure', '/usr/lib/systemd/systemd-measure')
-        cmd = [measure_tool, 'pcrpkey']
+        measure_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
+        cmd = [measure_tool, 'public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             # If we're using an engine or provider, the public key will be an X.509 certificate.
@@ -1025,11 +1025,11 @@ def make_uki(opts: UkifyConfig) -> None:
                 cmd += ['--certificate', opts.pcr_public_keys[0]]
                 if opts.certificate_provider:
                     cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
-            else:
-                cmd += ['--public-key', opts.pcr_public_keys[0]]
 
-            print('+', shell_join(cmd))
-            pcrpkey = subprocess.check_output(cmd)
+                print('+', shell_join(cmd))
+                pcrpkey = subprocess.check_output(cmd)
+            else:
+                pcrpkey = Path(opts.pcr_public_keys[0])
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
             cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
 

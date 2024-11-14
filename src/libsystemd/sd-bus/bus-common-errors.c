@@ -9,6 +9,7 @@
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_UNIT,                 ENOENT),
+        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_PROCESS,              ESRCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_UNIT_FOR_PID,              ESRCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID,    ENOENT),
         SD_BUS_ERROR_MAP(BUS_ERROR_UNIT_EXISTS,                  EEXIST),
@@ -64,8 +65,6 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_common_errors[] = {
 
         SD_BUS_ERROR_MAP(BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED,  EALREADY),
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_NTP_SUPPORT,               EOPNOTSUPP),
-
-        SD_BUS_ERROR_MAP(BUS_ERROR_NO_SUCH_PROCESS,              ESRCH),
 
         SD_BUS_ERROR_MAP(BUS_ERROR_NO_NAME_SERVERS,              ESRCH),
         SD_BUS_ERROR_MAP(BUS_ERROR_INVALID_REPLY,                EINVAL),

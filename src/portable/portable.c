@@ -671,7 +671,7 @@ static int extract_image_and_extensions(
                 if (r < 0)
                         return r;
                 if (isempty(id))
-                        return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s os-release metadata lacks the ID field", name_or_path);
+                        return sd_bus_error_set_errnof(error, ESTALE, "Image %s os-release metadata lacks the ID field", name_or_path);
 
                 if (prefixes) {
                         valid_prefixes = strv_split(prefixes, WHITESPACE);
@@ -715,7 +715,7 @@ static int extract_image_and_extensions(
                                 r = extension_release_validate(ext->path, id, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
 
                         if (r == 0)
-                                return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
+                                return sd_bus_error_set_errnof(error, ESTALE, "Image %s extension-release metadata does not match the root's", ext->path);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", ext->path);
                 }

@@ -903,7 +903,7 @@
         <term><option>tpm2-pcrlock=</option></term>
 
         <listitem><para>Takes an absolute path to a TPM2 pcrlock policy file, as produced by the
-        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         tool. This permits locking LUKS2 volumes to a local policy of allowed PCR values with
         variants. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>

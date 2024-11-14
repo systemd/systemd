@@ -307,7 +307,6 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         int r;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
-        manager_mark_routes(link->manager, NULL, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -330,7 +329,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
         } else if (sd_dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         if (link->dhcp6_messages == 0) {
                 link->dhcp6_configured = true;
@@ -377,7 +376,7 @@ static int dhcp6_lease_lost(Link *link) {
         log_link_info(link, "DHCPv6 lease lost");
 
         if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
 
@@ -845,14 +844,18 @@ int link_drop_dhcp6_config(Link *link, Network *network) {
         int ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_dhcp6_enabled(link))
-                return 0; /* Currently DHCPv6 client is not enabled, there is nothing we need to drop. */
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        if (!FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6))
-                /* Currently enabled but will be disabled. Stop the client and drop the lease. */
+        if (!link_dhcp6_enabled(link)) {
+                /* DHCPv6 client is disabled. Stop the client if it is running and drop the lease. */
                 ret = sd_dhcp6_client_stop(link->dhcp6_client);
+
+                /* Also explicitly drop DHCPv6 addresses and routes. See also link_drop_dhcp4_config(). */
+                RET_GATHER(ret, dhcp6_remove(link, /* only_marked = */ false));
+        }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed
          * settings for the client may be different. Let's unref() the client. But do not unref() the lease.

@@ -175,6 +175,8 @@ static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *u
 }
 
 static int ipv4ll_set_address(Link *link) {
+        int r;
+
         assert(link);
         assert(link->network);
         assert(link->ipv4ll);
@@ -193,6 +195,27 @@ static int ipv4ll_set_address(Link *link) {
         if (in4_addr_is_set(&link->network->ipv4ll_start_address))
                 return sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
 
+        /* 3. If KeepConfiguration=dynamic, use a foreign IPv4LL address. */
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
+                return 0;
+
+        SET_FOREACH(a, link->addresses) {
+                if (a->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                        continue;
+                if (a->family != AF_INET)
+                        continue;
+                if (!in4_addr_is_link_local_dynamic(&a->in_addr.in))
+                        continue;
+
+                r = sd_ipv4ll_set_address(link->ipv4ll, &a->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                /* Make sure the address is not removed by link_drop_unmanaged_addresses(). */
+                a->source = NETWORK_CONFIG_SOURCE_IPV4LL;
+                return 0;
+        }
+
         return 0;
 }
 
@@ -206,7 +229,7 @@ int ipv4ll_configure(Link *link) {
                 return 0;
 
         if (link->ipv4ll)
-                return -EBUSY;
+                return 0;
 
         r = sd_ipv4ll_new(&link->ipv4ll);
         if (r < 0)
@@ -246,18 +269,26 @@ int link_drop_ipv4ll_config(Link *link, Network *network) {
         int ret = 0;
 
         assert(link);
-        assert(network);
+        assert(link->network);
 
-        if (!link_ipv4ll_enabled(link))
-                return 0;
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        Network *saved = link->network;
-        link->network = network;
-        bool enabled = link_ipv4ll_enabled(link);
-        link->network = saved;
-
-        if (!enabled)
+        if (!link_ipv4ll_enabled(link)) {
+                /* The client is disabled. Stop if it is running, and drop the address. */
                 ret = sd_ipv4ll_stop(link->ipv4ll);
+
+                /* Also, explicitly drop the address for the case that this is called on start up.
+                 * See also comments in link_drop_dhcp4_config(). */
+                Address *a;
+                SET_FOREACH(a, link->addresses) {
+                        if (a->source != NETWORK_CONFIG_SOURCE_IPV4LL)
+                                continue;
+
+                        assert(a->family == AF_INET);
+                        RET_GATHER(ret, address_remove_and_cancel(a, link));
+                }
+        }
 
         link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
         return ret;

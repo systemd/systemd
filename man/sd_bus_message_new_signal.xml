@@ -56,7 +56,7 @@
     parameter. The signal will be sent to path <parameter>path</parameter>, on the interface
     <parameter>interface</parameter>, member <parameter>member</parameter>. When this message is
     sent, no reply is expected. See
-    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for a short description of the meaning of the <parameter>path</parameter>,
     <parameter>interface</parameter>, and <parameter>member</parameter> parameters.
     </para>
