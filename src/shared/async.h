@@ -20,6 +20,7 @@
  * for avoiding threads. */
 
 int asynchronous_sync(pid_t *ret_pid);
+int asynchronous_fsync(int fd, pid_t *ret_pid);
 int asynchronous_close(int fd);
 int asynchronous_rm_rf(const char *p, RemoveFlags flags);
 

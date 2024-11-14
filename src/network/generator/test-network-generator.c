@@ -283,12 +283,13 @@ int main(int argc, char *argv[]) {
                          "UseDNS=yes\n"
                          );
 
-        test_network_one("eth0", "vlan", "vlan99:eth0",
+        test_network_two("eth0", "vlan", "vlan99:eth0", "vlan", "vlan98:eth0",
                          "[Match]\n"
                          "Name=eth0\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "VLAN=vlan99\n"
+                         "VLAN=vlan98\n"
                          "\n[DHCP]\n"
                          );
 
@@ -328,11 +329,68 @@ int main(int argc, char *argv[]) {
                          "\n[DHCP]\n"
                          );
 
+        test_netdev_one("bridge99", "bridge", "bridge99:",
+                        "[NetDev]\n"
+                        "Kind=bridge\n"
+                        "Name=bridge99\n"
+                        );
+
+        test_netdev_one("bridge99", "bridge", "bridge99:,,,",
+                        "[NetDev]\n"
+                        "Kind=bridge\n"
+                        "Name=bridge99\n"
+                        );
+
+        test_netdev_one("bond99", "bond", "bond99:",
+                        "[NetDev]\n"
+                        "Kind=bond\n"
+                        "Name=bond99\n"
+                        );
+
+        test_netdev_one("bond99", "bond", "bond99::hogehoge:1530",
+                        "[NetDev]\n"
+                        "Kind=bond\n"
+                        "Name=bond99\n"
+                        "MTUBytes=1530\n"
+                        );
+
         test_netdev_one("bond99", "bond", "bond99:eth0,eth1::1530",
                         "[NetDev]\n"
                         "Kind=bond\n"
                         "Name=bond99\n"
                         "MTUBytes=1530\n"
+                        );
+
+        test_netdev_one("vlan123", "vlan", "vlan123:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=vlan123\n"
+                        "\n[VLAN]\n"
+                        "Id=123\n"
+                        );
+
+        test_netdev_one("vlan0013", "vlan", "vlan0013:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=vlan0013\n"
+                        "\n[VLAN]\n"
+                        "Id=11\n" /* 0013 (octal) -> 11 */
+                        );
+
+        test_netdev_one("eth0.123", "vlan", "eth0.123:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=eth0.123\n"
+                        "\n[VLAN]\n"
+                        "Id=123\n"
+                        );
+
+        test_netdev_one("eth0.0013", "vlan", "eth0.0013:eth0",
+                        "[NetDev]\n"
+                        "Kind=vlan\n"
+                        "Name=eth0.0013\n"
+                        "\n[VLAN]\n"
+                        "Id=11\n" /* 0013 (octal) -> 11 */
                         );
 
         test_link_one("hogehoge", "ifname", "hogehoge:00:11:22:33:44:55",

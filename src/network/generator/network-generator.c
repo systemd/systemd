@@ -14,6 +14,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "vlan-util.h"
 
 /*
   # .network
@@ -181,7 +182,7 @@ static Network *network_free(Network *network) {
         free(network->ifname);
         free(network->hostname);
         strv_free(network->dns);
-        free(network->vlan);
+        strv_free(network->vlan);
         free(network->bridge);
         free(network->bond);
 
@@ -532,7 +533,9 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -541,7 +544,7 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
                         return log_debug_errno(r, "Failed to create network for '%s': %m", ifname);
         }
 
-        return free_and_strdup(&network->vlan, value);
+        return strv_extend(&network->vlan, value);
 }
 
 static int network_set_bridge(Context *context, const char *ifname, const char *value) {
@@ -549,7 +552,9 @@ static int network_set_bridge(Context *context, const char *ifname, const char *
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -566,7 +571,9 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         int r;
 
         assert(context);
-        assert(ifname);
+
+        if (isempty(ifname))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network) {
@@ -866,7 +873,7 @@ static int parse_cmdline_ip(Context *context, const char *key, const char *value
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -895,7 +902,7 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
         /* rd.route=<net>/<netmask>:<gateway>[:<interface>] */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         if (value[0] == '[') {
                 p = strchr(value, ']');
@@ -938,7 +945,7 @@ static int parse_cmdline_nameserver(Context *context, const char *key, const cha
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         return network_set_dns(context, "", AF_UNSPEC, value);
 }
@@ -949,14 +956,29 @@ static int parse_cmdline_rd_peerdns(Context *context, const char *key, const cha
         assert(context);
         assert(key);
 
-        if (proc_cmdline_value_missing(key, value))
-                return network_set_dhcp_use_dns(context, "", true);
-
-        r = parse_boolean(value);
+        r = value ? parse_boolean(value) : true;
         if (r < 0)
                 return log_debug_errno(r, "Invalid boolean value '%s'", value);
 
         return network_set_dhcp_use_dns(context, "", r);
+}
+
+static int extract_vlan_id(const char *vlan_name, uint16_t *ret) {
+        assert(!isempty(vlan_name));
+        assert(ret);
+
+        /* From dracut.cmdline(7):
+         * We support the four styles of vlan names:
+         *   VLAN_PLUS_VID (vlan0005),
+         *   VLAN_PLUS_VID_NO_PAD (vlan5),
+         *   DEV_PLUS_VID (eth0.0005), and
+         *   DEV_PLUS_VID_NO_PAD (eth0.5). */
+
+        for (const char *p = vlan_name + strlen(vlan_name) - 1; p > vlan_name; p--)
+                if (!ascii_isdigit(*p))
+                        return parse_vlanid(p+1, ret);
+
+        return -EINVAL;
 }
 
 static int parse_cmdline_vlan(Context *context, const char *key, const char *value) {
@@ -968,7 +990,7 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -983,6 +1005,10 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
                         return log_debug_errno(r, "Failed to create VLAN device for '%s': %m", name);
         }
 
+        r = extract_vlan_id(name, &netdev->vlan_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse VLAN ID from VLAN device name '%s': %m", name);
+
         return network_set_vlan(context, p + 1, name);
 }
 
@@ -995,7 +1021,7 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1011,8 +1037,6 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         }
 
         p++;
-        if (isempty(p))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing slave interfaces for bridge '%s'", name);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -1038,7 +1062,7 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         assert(key);
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1059,9 +1083,6 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
                 slaves = value;
         else
                 slaves = strndupa_safe(value, p - value);
-
-        if (isempty(slaves))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing slave interfaces for bond '%s'", name);
 
         for (const char *q = slaves; ; ) {
                 _cleanup_free_ char *word = NULL;
@@ -1100,7 +1121,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
         /* ifname=<interface>:<MAC> */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         p = strchr(value, ':');
         if (!p)
@@ -1131,7 +1152,7 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         /* net.ifname_policy=policy1[,policy2,...][,<MAC>] */
 
         if (proc_cmdline_value_missing(key, value))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for '%s'", key);
+                return 0;
 
         for (const char *q = value; ; ) {
                 _cleanup_free_ char *word = NULL;
@@ -1329,8 +1350,8 @@ void network_dump(Network *network, FILE *f) {
                 STRV_FOREACH(dns, network->dns)
                         fprintf(f, "DNS=%s\n", *dns);
 
-        if (network->vlan)
-                fprintf(f, "VLAN=%s\n", network->vlan);
+        STRV_FOREACH(v, network->vlan)
+                fprintf(f, "VLAN=%s\n", *v);
 
         if (network->bridge)
                 fprintf(f, "Bridge=%s\n", network->bridge);
@@ -1366,6 +1387,13 @@ void netdev_dump(NetDev *netdev, FILE *f) {
 
         if (netdev->mtu > 0)
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", netdev->mtu);
+
+        if (streq(netdev->kind, "vlan")) {
+                fprintf(f,
+                        "\n[VLAN]\n"
+                        "Id=%u\n",
+                        netdev->vlan_id);
+        }
 }
 
 void link_dump(Link *link, FILE *f) {

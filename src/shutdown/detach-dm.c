@@ -15,7 +15,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "sync-util.h"
+#include "shutdown.h"
 
 typedef struct DeviceMapper {
         char *path;
@@ -93,7 +93,6 @@ static int dm_list_get(DeviceMapper **head) {
 
 static int delete_dm(DeviceMapper *m) {
         _cleanup_close_ int fd = -EBADF;
-        int r;
 
         assert(m);
         assert(major(m->devnum) != 0);
@@ -103,9 +102,11 @@ static int delete_dm(DeviceMapper *m) {
         if (fd < 0)
                 return -errno;
 
-        r = fsync_path_at(AT_FDCWD, m->path);
-        if (r < 0)
-                log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
+        _cleanup_close_ int block_fd = open(m->path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (block_fd < 0)
+                log_debug_errno(errno, "Failed to open DM block device %s for syncing, ignoring: %m", m->path);
+        else
+                (void) sync_with_progress(block_fd);
 
         return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {
