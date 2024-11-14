@@ -105,7 +105,6 @@ static NextHop* nexthop_free(NextHop *nexthop) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(NextHop, nexthop, nexthop_free);
-DEFINE_SECTION_CLEANUP_FUNCTIONS(NextHop, nexthop_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 nexthop_hash_ops,
@@ -123,7 +122,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 NextHop,
                 nexthop_detach);
 
-static int nexthop_new(NextHop **ret) {
+int nexthop_new(NextHop **ret) {
         _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
 
         nexthop = new(NextHop, 1);
@@ -339,7 +338,7 @@ static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         return -ENOENT;
 }
 
-static int nexthop_get_request_by_id(Manager *manager, uint32_t id, Request **ret) {
+int nexthop_get_request_by_id(Manager *manager, uint32_t id, Request **ret) {
         Request *req;
 
         assert(manager);
@@ -459,7 +458,7 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         return -EBUSY;
 }
 
-static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
+void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *manager) {
         _cleanup_free_ char *state = NULL, *group = NULL, *flags = NULL;
         struct nexthop_grp *nhg;
         Link *link = NULL;
@@ -569,6 +568,33 @@ int nexthop_remove(NextHop *nexthop, Manager *manager) {
         return 0;
 }
 
+int nexthop_remove_and_cancel(NextHop *nexthop, Manager *manager) {
+        _cleanup_(request_unrefp) Request *req = NULL;
+        bool waiting = false;
+
+        assert(nexthop);
+        assert(nexthop->id > 0);
+        assert(manager);
+
+        /* If the nexthop is remembered by the manager, then use the remembered object. */
+        (void) nexthop_get_by_id(manager, nexthop->id, &nexthop);
+
+        /* Cancel the request for the nexthop. If the request is already called but we have not received the
+         * notification about the request, then explicitly remove the nexthop. */
+        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0) {
+                request_ref(req); /* avoid the request freed by request_detach() */
+                waiting = req->waiting_reply;
+                request_detach(req);
+                nexthop_cancel_requesting(nexthop);
+        }
+
+        /* If we know that the nexthop will come or already exists, remove it. */
+        if (waiting || (nexthop->manager && nexthop_exists(nexthop)))
+                return nexthop_remove(nexthop, manager);
+
+        return 0;
+}
+
 static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -633,18 +659,31 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, NextHop *nexthop) {
+int nexthop_configure_handler_internal(sd_netlink_message *m, Link *link, const char *error_msg) {
         int r;
 
         assert(m);
         assert(link);
+        assert(error_msg);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
+                log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
-                return 1;
+                return 0;
         }
+
+        return 1;
+}
+
+static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, NextHop *nexthop) {
+        int r;
+
+        assert(link);
+
+        r = nexthop_configure_handler_internal(m, link, "Failed to set static nexthop");
+        if (r <= 0)
+                return r;
 
         if (link->static_nexthop_messages == 0) {
                 log_link_debug(link, "Nexthops set");
@@ -740,7 +779,12 @@ static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
         return 1;
 }
 
-static int link_request_nexthop(Link *link, const NextHop *nexthop) {
+int link_request_nexthop(
+                Link *link,
+                const NextHop *nexthop,
+                unsigned *message_counter,
+                nexthop_netlink_handler_t netlink_handler) {
+
         _cleanup_(nexthop_unrefp) NextHop *tmp = NULL;
         NextHop *existing = NULL;
         int r;
@@ -780,8 +824,8 @@ static int link_request_nexthop(Link *link, const NextHop *nexthop) {
                                     nexthop_hash_func,
                                     nexthop_compare_func,
                                     nexthop_process_request,
-                                    &link->static_nexthop_messages,
-                                    static_nexthop_handler,
+                                    message_counter,
+                                    netlink_handler,
                                     NULL);
         if (r <= 0)
                 return r;
@@ -807,7 +851,7 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
                 if (only_ipv4 && nh->family != AF_INET)
                         continue;
 
-                r = link_request_nexthop(link, nh);
+                r = link_request_nexthop(link, nh, &link->static_nexthop_messages, static_nexthop_handler);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request nexthop: %m");
         }
@@ -866,16 +910,17 @@ int link_drop_nexthops(Link *link, bool only_static) {
                 if (!nexthop_exists(nexthop))
                         continue;
 
-                if (only_static) {
-                        if (nexthop->source != NETWORK_CONFIG_SOURCE_STATIC)
+                if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN) {
+                        if (only_static)
                                 continue;
-                } else {
+
                         /* Do not mark foreign nexthop when KeepConfiguration= is enabled. */
-                        if (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
-                            link->network &&
+                        if (link->network &&
                             FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                                 continue;
-                }
+
+                } else if (nexthop->source != NETWORK_CONFIG_SOURCE_STATIC)
+                        continue; /* Ignore dynamically configurad nexthops. */
 
                 /* Ignore nexthops bound to other links. */
                 if (nexthop->ifindex > 0 && nexthop->ifindex != link->ifindex)
@@ -1106,6 +1151,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 NextHop *n = ASSERT_PTR(req->userdata);
 
                 nexthop->source = n->source;
+                nexthop->provider = n->provider;
         }
 
         r = sd_rtnl_message_get_family(message, &nexthop->family);
