@@ -6156,8 +6156,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address fe80::2 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
         self.wait_route_dropped('veth99', '2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route_dropped('veth99', '2002:da8:1:2:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route('veth99', '2002:da8:1:1:1a:2b:3c:4d via fe80::1 proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route('veth99', '2002:da8:1:2:1a:2b:3c:4d via fe80::2 proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d nhid [0-9]* via fe80::1 proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d nhid [0-9]* via fe80::2 proto redirect', ipv='-6', timeout_sec=10)
 
         # Send Neighbor Advertisement without the router flag to announce the default router is not available anymore.
         # Then, verify that all redirect routes and the default route are dropped.
@@ -6309,14 +6309,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
         self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 512', ipv='-6', timeout_sec=10)
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 2048', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 512', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 2048', ipv='-6', timeout_sec=10)
 
         print('### ip -6 route show dev client default')
         output = check_output('ip -6 route show dev client default')
         print(output)
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a99 proto ra metric 512 expires [0-9]*sec pref high')
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a98 proto ra metric 2048 expires [0-9]*sec pref low')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 512 expires [0-9]*sec pref high')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 2048 expires [0-9]*sec pref low')
 
         with open(os.path.join(network_unit_dir, '25-veth-client.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[Link]\nMACAddress=12:34:56:78:9a:01\n[IPv6AcceptRA]\nRouteMetric=100:200:300\n')
@@ -6326,14 +6326,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
         self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 100', ipv='-6', timeout_sec=10)
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 300', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300', ipv='-6', timeout_sec=10)
 
         print('### ip -6 route show dev client default')
         output = check_output('ip -6 route show dev client default')
         print(output)
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a99 proto ra metric 100 expires [0-9]*sec pref high')
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a98 proto ra metric 300 expires [0-9]*sec pref low')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100 expires [0-9]*sec pref high')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300 expires [0-9]*sec pref low')
         self.assertNotIn('metric 512', output)
         self.assertNotIn('metric 2048', output)
 
@@ -6341,20 +6341,41 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         remove_network_unit('25-veth-router-high.network', '25-veth-router-low.network')
         copy_network_unit('25-veth-router-high2.network', '25-veth-router-low2.network')
         networkctl_reload()
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 300', ipv='-6', timeout_sec=10)
-        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 100', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 300', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 100', ipv='-6', timeout_sec=10)
 
         print('### ip -6 route show dev client default')
         output = check_output('ip -6 route show dev client default')
         print(output)
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a99 proto ra metric 300 expires [0-9]*sec pref low')
-        self.assertRegex(output, r'default via fe80::1034:56ff:fe78:9a98 proto ra metric 100 expires [0-9]*sec pref high')
-        self.assertNotRegex(output, 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 100')
-        self.assertNotRegex(output, 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 300')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 300 expires [0-9]*sec pref low')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 100 expires [0-9]*sec pref high')
+        self.assertNotRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100')
+        self.assertNotRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300')
         self.assertNotIn('metric 512', output)
         self.assertNotIn('metric 2048', output)
 
-    def test_ndisc_vs_static_route(self):
+        # Use the same preference, and check if the two routes are not coalesced. See issue #33470.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high2.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=medium\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low2.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=medium\n')
+        networkctl_reload()
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200', ipv='-6', timeout_sec=10)
+
+        print('### ip -6 route show dev client default')
+        output = check_output('ip -6 route show dev client default')
+        print(output)
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200 expires [0-9]*sec pref medium')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200 expires [0-9]*sec pref medium')
+        self.assertNotIn('pref high', output)
+        self.assertNotIn('pref low', output)
+        self.assertNotIn('metric 512', output)
+        self.assertNotIn('metric 2048', output)
+
+    def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
+        if not manage_foreign_nexthops:
+            copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-static-route.network')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:degraded')
@@ -6364,19 +6385,48 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show dev veth99 default')
         print(output)
         self.assertIn('via fe80::1034:56ff:fe78:9abd proto static metric 256 pref medium', output)
-        self.assertNotIn('proto ra', output)
+        if manage_foreign_nexthops:
+            self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9abd proto ra metric 256 expires [0-9]*sec pref medium')
+        else:
+            self.assertNotIn('proto ra', output)
+
+        print('### ip -6 nexthop show dev veth99')
+        output = check_output('ip -6 nexthop show dev veth99')
+        print(output)
+        if manage_foreign_nexthops:
+            self.assertRegex(output, r'id [0-9]* via fe80::1034:56ff:fe78:9abd dev veth99 scope link proto ra')
+        else:
+            self.assertEqual(output, '')
 
         # Also check if the static route is protected from RA with zero lifetime
         with open(os.path.join(network_unit_dir, '25-ipv6-prefix.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[Network]\nIPv6SendRA=no\n')
         networkctl_reload() # This makes veth-peer being reconfigured, and send RA with zero lifetime
-        self.wait_route_dropped('veth99', 'default via fe80::1034:56ff:fe78:9abd proto ra metric 256', ipv='-6', timeout_sec=10)
+        self.wait_route_dropped('veth99', r'default (nhid [0-9]* |)via fe80::1034:56ff:fe78:9abd proto ra metric 256', ipv='-6', timeout_sec=10)
 
         print('### ip -6 route show dev veth99 default')
         output = check_output('ip -6 route show dev veth99 default')
         print(output)
         self.assertIn('via fe80::1034:56ff:fe78:9abd proto static metric 256 pref medium', output)
         self.assertNotIn('proto ra', output)
+
+        # Check if nexthop is removed.
+        print('### ip -6 nexthop show dev veth99')
+        output = check_output('ip -6 nexthop show dev veth99')
+        print(output)
+        self.assertEqual(output, '')
+
+    def test_ndisc_vs_static_route(self):
+        first = True
+        for manage_foreign_nexthops in [True, False]:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_ndisc_vs_static_route(manage_foreign_nexthops={manage_foreign_nexthops})')
+            with self.subTest(manage_foreign_nexthops=manage_foreign_nexthops):
+                self._test_ndisc_vs_static_route(manage_foreign_nexthops)
 
     # radvd supports captive portal since v2.20.
     # https://github.com/radvd-project/radvd/commit/791179a7f730decbddb2290ef0e34aa85d71b1bc
@@ -7277,10 +7327,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
 
-    def test_dhcp_keep_configuration_dhcp(self):
+    def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-veth-peer.network',
-                          '25-dhcp-client-keep-configuration-dhcp.network')
+                          '25-dhcp-client-keep-configuration-dynamic.network')
         start_networkd()
         self.wait_online('veth-peer:carrier')
         start_dnsmasq()
@@ -7312,7 +7362,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
                          'valid_lft forever preferred_lft forever')
 
-        with open(os.path.join(network_unit_dir, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a', encoding='utf-8') as f:
+        with open(os.path.join(network_unit_dir, '25-dhcp-client-keep-configuration-dynamic.network'), mode='a', encoding='utf-8') as f:
             f.write('[Network]\nDHCP=no\n')
 
         start_networkd()
@@ -7324,10 +7374,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
                          'valid_lft forever preferred_lft forever')
 
-    def test_dhcp_keep_configuration_dhcp_on_stop(self):
+    def test_dhcp_keep_configuration_dynamic_on_stop(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-veth-peer.network',
-                          '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
+                          '25-dhcp-client-keep-configuration-dynamic-on-stop.network')
         start_networkd()
         self.wait_online('veth-peer:carrier')
         start_dnsmasq()
@@ -8279,9 +8329,14 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         self.assertIn('2001:db8:0:1::/64 proto ra', output)
         self.assertNotIn('2001:db8:0:2::/64 proto ra', output)
         self.assertNotIn('2001:db8:0:3::/64 proto ra', output)
-        self.assertRegex(output, '2001:db0:fff::/64 via fe80::1034:56ff:fe78:9abc')
+        self.assertRegex(output, r'2001:db0:fff::/64 nhid [0-9]* via fe80::1034:56ff:fe78:9abc')
         self.assertNotIn('2001:db1:fff::/64', output)
         self.assertNotIn('2001:db2:fff::/64', output)
+
+        print('### ip -6 nexthop show dev veth-peer')
+        output = check_output('ip -6 nexthop show dev veth-peer')
+        print(output)
+        self.assertRegex(output, r'id [0-9]* via fe80::1034:56ff:fe78:9abc dev veth-peer scope link proto ra')
 
         print('### ip -6 address show dev veth99')
         output = check_output('ip -6 address show dev veth99')
@@ -8331,8 +8386,13 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('2001:db8:0:1::/64 proto ra', output)
         self.assertNotIn('2001:db8:0:2::/64 proto ra', output)
-        self.assertRegex(output, '2001:db0:fff::/64 via fe80::1034:56ff:fe78:9abc')
+        self.assertRegex(output, r'2001:db0:fff::/64 nhid [0-9]* via fe80::1034:56ff:fe78:9abc')
         self.assertNotIn('2001:db1:fff::/64', output)
+
+        print('### ip -6 nexthop show dev veth-peer')
+        output = check_output('ip -6 nexthop show dev veth-peer')
+        print(output)
+        self.assertRegex(output, r'id [0-9]* via fe80::1034:56ff:fe78:9abc dev veth-peer scope link proto ra')
 
         print('### ip -6 address show dev veth99')
         output = check_output('ip -6 address show dev veth99')
