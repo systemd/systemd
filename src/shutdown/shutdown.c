@@ -316,6 +316,24 @@ static void init_watchdog(void) {
         const char *s;
         int r;
 
+        s = getenv("WATCHDOG_PID");
+        if (!s) {
+                log_warning("WATCHDOG_PID not set, skipping watchdog initialization");
+                return;
+        }
+
+        pid_t pid;
+        r = parse_pid(s, &pid);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse WATCHDOG_PID '%s', skipping watchdog initialization: %m", s);
+                return;
+        }
+
+        if (pid != 1) {
+                log_warning("WATCHDOG_PID (%s) != 1, skipping watchdog initialization", s);
+                return;
+        }
+
         s = getenv("WATCHDOG_DEVICE");
         if (s) {
                 r = watchdog_set_device(s);
