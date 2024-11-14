@@ -1453,7 +1453,6 @@ static int store_info_in_meta(
                 const char *hierarchy) {
         _cleanup_free_ char *f = NULL;
         int r;
-        _cleanup_close_ int atfd = -EBADF;
 
         assert(extensions);
         assert(meta_path);
@@ -1468,11 +1467,7 @@ static int store_info_in_meta(
         if (r < 0)
                 return r;
 
-        atfd = open(f, O_PATH|O_CLOEXEC);
-        if (atfd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", f);
-
-        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+        r = mac_selinux_fix_recursive(f, hierarchy);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", f);
 
@@ -1578,10 +1573,6 @@ static int merge_hierarchy(
         r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path);
         if (r < 0)
                 return r;
-        r = mac_selinux_fix_recursive(overlay_path, hierarchy);
-        if (r < 0)
-                return r;
-
 
         r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir, op->hierarchy);
         if (r < 0)

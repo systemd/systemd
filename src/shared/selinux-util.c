@@ -131,26 +131,29 @@ int mac_selinux_fix_recursive(const char *root_path, const char *label_path) {
 
         dir = take_fdopendir(&atfd);
         if (!dir)
-                return log_error_errno(errno, "Failed to open directory steam for '%s': %m", root_path);
+                return log_error_errno(errno, "Failed to open directory stream for '%s': %m", root_path);
 
         FOREACH_DIRENT(de, dir, break) {
                 const char *file_path = path_join(root_path, de->d_name);
                 const char *label_lookup = path_join(label_path, de->d_name);
                 if (de->d_type == DT_DIR) {
-                        mac_selinux_fix_recursive(file_path, label_lookup);
-                        continue;
+                        r = mac_selinux_fix_recursive(file_path, label_lookup);
+                        if (r < 0)
+                                return r;
                 }
+                if (de->d_type != DT_REG)
+                        continue;
+                _cleanup_close_ int fd = -EBADF;
 
-                atfd = open(file_path, O_PATH|O_CLOEXEC);
+                fd = open(file_path, O_PATH|O_CLOEXEC);
 
-                if (atfd < 0)
-                        return log_error_errno(errno, "Failed to open file '%s': %m", label_lookup);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open file '%s': %m", file_path);
 
-                r = mac_selinux_fix_full(atfd, NULL, label_lookup, 0);
+                r = mac_selinux_fix_full(fd, NULL, label_lookup, 0);
 
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", file_path);
-
         }
 
 #endif
