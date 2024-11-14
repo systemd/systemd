@@ -19,6 +19,8 @@ test_append_files() {
     instmods mac80211_hwsim
     # for IPMasquerade=
     instmods "=net/netfilter"
+    # For /dev/net/tun
+    instmods tun
     generate_module_dependencies
     # For unprivileged mountfsd.
     if command -v openssl >/dev/null 2>&1; then
