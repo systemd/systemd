@@ -2848,7 +2848,7 @@ static int reset_audit_loginuid(void) {
         if (!arg_privileged)
                 return 0;
 
-        r = read_one_line_file("/proc/self/loginuid", &p);
+        r = read_virtual_file("/proc/self/loginuid", SIZE_MAX, &p, /* ret_size= */ NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
