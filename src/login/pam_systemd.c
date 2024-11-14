@@ -997,6 +997,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
         incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
 
+        if (streq_ptr(class, "none"))
+                goto success;
+
         if (streq_ptr(service, "systemd-user")) {
                 /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
                  * 'manager' if not set, simply for robustness reasons. */

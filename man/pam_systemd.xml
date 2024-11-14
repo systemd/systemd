@@ -143,6 +143,10 @@
                 <entry><constant>manager-early</constant></entry>
                 <entry>Similar to <constant>manager</constant>, but for the root user. Compare with the <constant>user</constant> vs. <constant>user-early</constant> situation. (Added in v256.)</entry>
               </row>
+              <row>
+                <entry><constant>none</constant></entry>
+                <entry>Disables logind for this session. No user manager and no session scope will be created (Added in v257.)</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
