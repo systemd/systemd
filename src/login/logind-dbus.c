@@ -863,6 +863,27 @@ static int create_session(
         if (!uid_is_valid(uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
 
+        if (isempty(type))
+                t = _SESSION_TYPE_INVALID;
+        else {
+                t = session_type_from_string(type);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid session type %s", type);
+        }
+
+        if (isempty(class))
+                c = _SESSION_CLASS_INVALID;
+        else {
+                c = session_class_from_string(class);
+                if (c < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid session class %s", class);
+                if (c == SESSION_NONE)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Refusing session class %s", class);
+        }
+
         if (flags != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
 
@@ -881,24 +902,6 @@ static int create_session(
 
         if (leader.pid == 1 || pidref_is_self(&leader))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
-
-        if (isempty(type))
-                t = _SESSION_TYPE_INVALID;
-        else {
-                t = session_type_from_string(type);
-                if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session type %s", type);
-        }
-
-        if (isempty(class))
-                c = _SESSION_CLASS_INVALID;
-        else {
-                c = session_class_from_string(class);
-                if (c < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session class %s", class);
-        }
 
         if (isempty(desktop))
                 desktop = NULL;
