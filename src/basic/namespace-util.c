@@ -22,6 +22,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "uid-range.h"
 #include "user-util.h"
 
 const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
@@ -635,4 +636,75 @@ int is_idmapping_supported(const char *path) {
                 return log_debug_errno(r, "Failed to set mount attribute to '%s', cannot determine if ID-mapping is supported: %m", path);
 
         return true;
+}
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        ssize_t n;
+        char x;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-baseuns)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to pipe: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        uid_t uid;
+        r = uid_map_search_root(pid, "uid_map", &uid);
+        if (r < 0)
+                return r;
+
+        gid_t gid;
+        r = uid_map_search_root(pid, "gid_map", &gid);
+        if (r < 0)
+                return r;
+
+        if (!ret_gid && uid != gid)
+                return -EUCLEAN;
+
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+
+        return 0;
 }
