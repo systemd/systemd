@@ -3,6 +3,12 @@
 set -eux
 set -o pipefail
 
+if systemd-analyze compare-versions "$(nvme --version | grep libnvme | awk '{print $3}')" eq 1.11; then
+    # See: https://github.com/linux-nvme/nvme-cli/issues/2573
+    echo "nvme-cli is broken and requires TLS support in the kernel" >/skipped
+    exit 77
+fi
+
 /usr/lib/systemd/systemd-storagetm --list-devices
 
 modprobe -v nvmet-tcp
