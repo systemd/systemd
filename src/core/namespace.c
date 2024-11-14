@@ -590,7 +590,7 @@ static int append_extensions(
                         .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
-                        .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
+                        .verity = TAKE_GENERIC(verity, VERITY_SETTINGS_DEFAULT),
                 };
         }
 
