@@ -24,6 +24,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dn
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_llmnr_support, "s", Link, link_get_llmnr_support, resolve_support_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_mdns_support, "s", Link, link_get_mdns_support, resolve_support_to_string);
+static BUS_DEFINE_PROPERTY_GET(property_get_default_route, "b", Link, link_get_default_route);
 
 static int property_get_dns_over_tls_mode(
                 sd_bus *bus,
@@ -158,30 +159,6 @@ static int property_get_domains(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_default_route(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = ASSERT_PTR(userdata);
-
-        assert(reply);
-
-        /* Return what is configured, if there's something configured */
-        if (l->default_route >= 0)
-                return sd_bus_message_append(reply, "b", l->default_route);
-
-        /* Otherwise report what is in effect */
-        if (l->unicast_scope)
-                return sd_bus_message_append(reply, "b", dns_scope_is_default_route(l->unicast_scope));
-
-        return sd_bus_message_append(reply, "b", false);
 }
 
 static int property_get_scopes_mask(
