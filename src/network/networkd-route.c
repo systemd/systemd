@@ -1486,7 +1486,7 @@ int link_drop_routes(Link *link, bool only_static) {
                                         continue;
 
                                 if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
-                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
                                         continue;
                         }
                 }
