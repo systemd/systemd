@@ -193,6 +193,27 @@ class NetworkdTestingUtilities:
 class BridgeTest(NetworkdTestingUtilities, unittest.TestCase):
     """Provide common methods for testing networkd against servers."""
 
+    def wait_online(self):
+        try:
+            subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface', 'port1', '--interface', 'port2', '--timeout=10'])
+        except (AssertionError, subprocess.CalledProcessError):
+            # show networkd status, journal, and DHCP server log on failure
+            print('---- interface status ----')
+            sys.stdout.flush()
+            subprocess.call(['ip', 'a', 'show', 'dev', 'mybridge'])
+            subprocess.call(['ip', 'a', 'show', 'dev', 'port1'])
+            subprocess.call(['ip', 'a', 'show', 'dev', 'port2'])
+            print('---- networkctl status ----')
+            sys.stdout.flush()
+            rc = subprocess.call(['networkctl', '-n', '0', 'status', 'mybridge', 'port1', 'port2'])
+            if rc != 0:
+                print(f"'networkctl status' exited with an unexpected code {rc}")
+            print('---- journal ----')
+            subprocess.check_output(['journalctl', '--sync'])
+            sys.stdout.flush()
+            subprocess.call(['journalctl', '-b', '--no-pager', '--quiet', '-I', '-u', 'systemd-networkd.service'])
+            raise
+
     def setUp(self):
         self.write_network('50-port1.netdev', '''\
 [NetDev]
@@ -233,6 +254,7 @@ Gateway=192.168.250.1
 ''')
         subprocess.call(['systemctl', 'reset-failed', 'systemd-networkd', 'systemd-resolved'])
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.wait_online()
 
     def tearDown(self):
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
@@ -255,8 +277,7 @@ Priority=28
 ''')
         subprocess.check_call(['ip', 'link', 'set', 'dev', 'port1', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
-        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
-                               'port1', '--timeout=5'])
+        self.wait_online()
         self.assertEqual(self.read_attr('port1', 'brport/priority'), '28')
 
     def test_bridge_port_priority_set_zero(self):
@@ -268,8 +289,7 @@ Priority=0
 ''')
         subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
-        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
-                               'port2', '--timeout=5'])
+        self.wait_online()
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
     def test_bridge_port_property(self):
@@ -288,8 +308,7 @@ Priority=23
 ''')
         subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
-        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
-                               'port2', '--timeout=5'])
+        self.wait_online()
 
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '23')
         self.assertEqual(self.read_attr('port2', 'brport/hairpin_mode'), '1')
