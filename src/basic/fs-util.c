@@ -1141,7 +1141,9 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
 
         if (isempty(path)) {
-                assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                if (FLAGS_SET(open_flags, O_CREAT|O_EXCL))
+                        return -EEXIST;
+
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
