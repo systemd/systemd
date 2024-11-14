@@ -227,6 +227,28 @@ TEST(namespace_is_init) {
         }
 }
 
+TEST(userns_get_base_uid) {
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = userns_acquire("0 1 1", "0 2 1");
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                return (void) log_tests_skipped("userns is not supported");
+        if (ERRNO_IS_NEG_PRIVILEGE(fd))
+                return (void) log_tests_skipped("lacking userns privileges");
+
+        uid_t base_uid, base_gid;
+        ASSERT_OK(userns_get_base_uid(fd, &base_uid, &base_gid));
+        ASSERT_EQ(base_uid, 1U);
+        ASSERT_EQ(base_gid, 2U);
+
+        fd = safe_close(fd);
+
+        fd = userns_acquire_empty();
+        ASSERT_OK(fd);
+
+        ASSERT_ERROR(userns_get_base_uid(fd, &base_uid, &base_gid), ENOMSG);
+}
+
 static int intro(void) {
         if (!have_namespaces())
                 return log_tests_skipped("Don't have namespace support or lacking privileges");
