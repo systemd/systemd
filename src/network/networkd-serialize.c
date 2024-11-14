@@ -11,6 +11,7 @@
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-nexthop.h"
 #include "networkd-route.h"
 #include "networkd-serialize.h"
 
@@ -46,6 +47,10 @@ int manager_serialize(Manager *manager) {
         }
 
         r = json_variant_set_field_non_null(&v, "Interfaces", array);
+        if (r < 0)
+                return r;
+
+        r = nexthops_append_json(manager, /* ifindex = */ -1, &v);
         if (r < 0)
                 return r;
 
@@ -230,6 +235,63 @@ static int manager_deserialize_link(Manager *manager, sd_json_variant *v) {
         return ret;
 }
 
+typedef struct NextHopParam {
+        uint32_t id;
+        int family;
+        NetworkConfigSource source;
+        struct iovec provider;
+} NextHopParam;
+
+static void nexthop_param_done(NextHopParam *p) {
+        assert(p);
+
+        iovec_done(&p->provider);
+}
+
+static int manager_deserialize_nexthop(Manager *manager, sd_json_variant *v) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ID",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,             offsetof(NextHopParam, id),        SD_JSON_MANDATORY },
+                { "Family",         _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_address_family,        offsetof(NextHopParam, family),    SD_JSON_MANDATORY },
+                { "ConfigSource",   SD_JSON_VARIANT_STRING,        json_dispatch_network_config_source, offsetof(NextHopParam, source),    SD_JSON_MANDATORY },
+                { "ConfigProvider", SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec,      offsetof(NextHopParam, provider),  0                 },
+                {},
+        };
+
+        int r;
+
+        assert(manager);
+        assert(v);
+
+        _cleanup_(nexthop_param_done) NextHopParam p = {};
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dispatch nexthop from json variant: %m");
+
+        if (p.id == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Dispatched nexthop ID is zero.");
+
+        if (p.provider.iov_len != 0 && p.provider.iov_len != FAMILY_ADDRESS_SIZE(p.family))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Dispatched provider address size (%zu) is incompatible with the family (%s).",
+                                       p.provider.iov_len, af_to_ipv4_ipv6(p.family));
+
+        NextHop *nexthop;
+        r = nexthop_get_by_id(manager, p.id, &nexthop);
+        if (r < 0) {
+                log_debug_errno(r, "Cannot find deserialized nexthop (ID=%"PRIu32"): %m", p.id);
+                return 0; /* Already removed? */
+        }
+
+        if (nexthop->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                return 0; /* Huh?? Already deserialized?? */
+
+        nexthop->source = p.source;
+        memcpy_safe(&nexthop->provider, p.provider.iov_base, p.provider.iov_len);
+
+        log_nexthop_debug(nexthop, "Deserialized", manager);
+        return 0;
+}
+
 typedef struct RouteParam {
         Route route;
 
@@ -394,6 +456,9 @@ int manager_deserialize(Manager *manager) {
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(v, "Interfaces"))
                 RET_GATHER(ret, manager_deserialize_link(manager, i));
+
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(v, "NextHops"))
+                RET_GATHER(ret, manager_deserialize_nexthop(manager, i));
 
         JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(v, "Routes"))
                 RET_GATHER(ret, manager_deserialize_route(manager, i));
