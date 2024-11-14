@@ -400,7 +400,7 @@ int netdev_enter_ready(NetDev *netdev) {
         assert(netdev);
         assert(netdev->ifname);
 
-        if (netdev->state != NETDEV_STATE_CREATING)
+        if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_CREATING))
                 return 0;
 
         netdev->state = NETDEV_STATE_READY;
@@ -432,18 +432,17 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -EEXIST)
-                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
-        else if (r < 0) {
-                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+        if (r >= 0)
+                log_netdev_debug(netdev, "Created.");
+        else if (r == -EEXIST && netdev->ifindex > 0)
+                log_netdev_debug(netdev, "Already exists.");
+        else {
+                log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
                 netdev_enter_failed(netdev);
-
-                return 1;
+                return 0;
         }
 
-        log_netdev_debug(netdev, "Created");
-
-        return 1;
+        return netdev_enter_ready(netdev);
 }
 
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
@@ -464,8 +463,6 @@ int netdev_set_ifindex_internal(NetDev *netdev, int ifindex) {
 }
 
 static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex) {
-        int r;
-
         assert(netdev);
         assert(name);
         assert(ifindex > 0);
@@ -478,11 +475,7 @@ static int netdev_set_ifindex_impl(NetDev *netdev, const char *name, int ifindex
                                                 "Received netlink message with unexpected interface name %s (ifindex=%i).",
                                                 name, ifindex);
 
-        r = netdev_set_ifindex_internal(netdev, ifindex);
-        if (r <= 0)
-                return r;
-
-        return netdev_enter_ready(netdev);
+        return netdev_set_ifindex_internal(netdev, ifindex);
 }
 
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
@@ -636,15 +629,32 @@ finalize:
 
 static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
         assert(netdev);
+        assert(netdev->manager);
         assert(hw_addr);
 
         if (hw_addr->length <= 0)
                 return false;
 
-        if (!NETDEV_VTABLE(netdev)->can_set_mac)
-                return true;
+        Link *link;
+        if (link_get_by_index(netdev->manager, netdev->ifindex, &link) < 0)
+                return true; /* The netdev does not exist yet. We can set MAC address. */
 
-        return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+        if (hw_addr_equal(&link->hw_addr, hw_addr))
+                return false; /* Unchanged, not necessary to set. */
+
+        /* Soem netdevs refuse to update MAC address even if the interface is not running, e.g. ipvlan.
+         * Some other netdevs have the IFF_LIVE_ADDR_CHANGE flag and can update update MAC address even if
+         * the interface is running, e.g. dummy. For those cases, use custom checkers. */
+        if (NETDEV_VTABLE(netdev)->can_set_mac)
+                return NETDEV_VTABLE(netdev)->can_set_mac(netdev, hw_addr);
+
+        /* Before ad72c4a06acc6762e84994ac2f722da7a07df34e and 0ec92a8f56ff07237dbe8af7c7a72aba7f957baf
+         * (both in v6.5), the kernel refuse to set MAC address for existing netdevs even if it is unchanged.
+         * So, by default, do not update MAC address if the it is running. See eth_prepare_mac_addr_change(),
+         * which is called by eth_mac_addr(). Note, the result of netif_running() is mapped to operstate
+         * and flags. See rtnl_fill_ifinfo() and dev_get_flags(). */
+        return link->kernel_operstate == IF_OPER_DOWN &&
+                (link->flags & (IFF_RUNNING | IFF_LOWER_UP | IFF_DORMANT)) == 0;
 }
 
 static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
@@ -653,18 +663,35 @@ static bool netdev_can_set_mtu(NetDev *netdev, uint32_t mtu) {
         if (mtu <= 0)
                 return false;
 
-        if (!NETDEV_VTABLE(netdev)->can_set_mtu)
-                return true;
+        Link *link;
+        if (link_get_by_index(netdev->manager, netdev->ifindex, &link) < 0)
+                return true; /* The netdev does not exist yet. We can set MTU. */
 
-        return NETDEV_VTABLE(netdev)->can_set_mtu(netdev, mtu);
+        if (mtu < link->min_mtu || link->max_mtu < mtu)
+                return false; /* The MTU is out of range. */
+
+        if (link->mtu == mtu)
+                return false; /* Unchanged, not necessary to set. */
+
+        /* Some netdevs cannot change MTU, e.g. vxlan. Let's use the custom checkers in such cases. */
+        if (NETDEV_VTABLE(netdev)->can_set_mtu)
+                return NETDEV_VTABLE(netdev)->can_set_mtu(netdev, mtu);
+
+        /* By default, allow to update the MTU. */
+        return true;
 }
 
 static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message *m) {
         int r;
 
-        r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
-        if (r < 0)
-                return r;
+        if (netdev->ifindex <= 0) {
+                /* Set interface name when it is newly created. Otherwise, the kernel older than
+                 * bd039b5ea2a91ea707ee8539df26456bd5be80af (v6.2) will refuse the netlink message even if
+                 * the name is unchanged. */
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, netdev->ifname);
+                if (r < 0)
+                        return r;
+        }
 
         struct hw_addr_data hw_addr;
         r = netdev_generate_hw_addr(netdev, link, netdev->ifname, &netdev->hw_addr, &hw_addr);
@@ -827,7 +854,16 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
         assert(link);
 
         if (!netdev_is_managed(netdev))
-                return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+                goto cancelled; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
+
+        if (NETDEV_VTABLE(netdev)->keep_existing && netdev->ifindex > 0) {
+                /* Already exists, and the netdev does not support updating, entering the ready state. */
+                r = netdev_enter_ready(netdev);
+                if (r < 0)
+                        return r;
+
+                goto cancelled;
+        }
 
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
@@ -838,20 +874,40 @@ static int stacked_netdev_process_request(Request *req, Link *link, void *userda
                 return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
 
         return 1;
+
+cancelled:
+        assert_se(TAKE_PTR(req->counter) == &link->create_stacked_netdev_messages);
+        link->create_stacked_netdev_messages--;
+
+        if (link->create_stacked_netdev_messages == 0) {
+                link->stacked_netdevs_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+                link_check_ready(link);
+        }
+
+        return 1;
 }
 
 static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
         assert(m);
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not create stacked netdev");
+        if (r >= 0)
+                log_netdev_debug(netdev, "Created.");
+        else if (r == -EEXIST && netdev->ifindex > 0)
+                log_netdev_debug(netdev, "Already exists.");
+        else {
+                log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
+                netdev_enter_failed(netdev);
                 link_enter_failed(link);
                 return 0;
         }
+
+        (void) netdev_enter_ready(netdev);
 
         if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
@@ -901,6 +957,15 @@ static int independent_netdev_process_request(Request *req, Link *link, void *us
         if (!netdev_is_managed(netdev))
                 return 1; /* Already detached, due to e.g. reloading .netdev files, cancelling the request. */
 
+        if (NETDEV_VTABLE(netdev)->keep_existing && netdev->ifindex > 0) {
+                /* Already exists, and the netdev does not support updating, entering the ready state. */
+                r = netdev_enter_ready(netdev);
+                if (r < 0)
+                        return r;
+
+                return 1; /* Skip this request. */
+        }
+
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)
                 return r;
@@ -930,21 +995,9 @@ static int netdev_request_to_create(NetDev *netdev) {
         if (netdev->state != NETDEV_STATE_LOADING)
                 return 0; /* Already configured (at least tried previously). Not necessary to reconfigure. */
 
-        r = netdev_is_ready_to_create(netdev, NULL);
+        r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
         if (r < 0)
-                return r;
-        if (r > 0) {
-                /* If the netdev has no dependency, then create it now. */
-                r = independent_netdev_create(netdev);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
-
-        } else {
-                /* Otherwise, wait for the dependencies being resolved. */
-                r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
-                if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
-        }
+                return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
 
         return 0;
 }
