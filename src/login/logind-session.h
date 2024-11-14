@@ -191,7 +191,7 @@ int session_finalize(Session *s);
 int session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
-int session_kill(Session *s, KillWhom whom, int signo);
+int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error);
 
 SessionState session_get_state(Session *u);
 

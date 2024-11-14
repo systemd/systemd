@@ -360,7 +360,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_kill(s, whom, signo);
+        r = session_kill(s, whom, signo, error);
         if (r < 0)
                 return r;
 
