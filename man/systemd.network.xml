@@ -1286,21 +1286,21 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>KeepConfiguration=</varname></term>
         <listitem>
-          <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
-          <literal>dhcp</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
-          will not drop static addresses and routes on starting up process. When set to
-          <literal>dhcp-on-stop</literal>, <command>systemd-networkd</command> will not drop addresses
-          and routes on stopping the daemon. When <literal>dhcp</literal>,
-          the addresses and routes provided by a DHCP server will never be dropped even if the DHCP
-          lease expires. This is contrary to the DHCP specification, but may be the best choice if,
-          e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
-          implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
-          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
-          <literal>dhcp-on-stop</literal> when <command>systemd-networkd</command> is running in
-          initrd, <literal>yes</literal> when the root filesystem is a network filesystem, and
-          <literal>no</literal> otherwise.</para>
+          <para>Takes a boolean or one of <literal>static</literal>, <literal>dynamic-on-stop</literal>, and
+          <literal>dynamic</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
+          will not drop statically configured addresses and routes on starting up process. When
+          <literal>dynamic-on-stop</literal>, the dynamically configurad addresses and routes, such as
+          DHCPv4, DHCPv6, SLAAC, and IPv4 link-local address, will not be dropped when
+          <command>systemd-networkd</command> is being stopped. When <literal>dynamic</literal>, the
+          dynamically configured addresses and routes will never be dropped, and the lifetime of DHCPv4
+          leases will be ignored. This is contrary to the DHCP specification, but may be the best choice if,
+          e.g., the root filesystem relies on this connection. The setting <literal>dynamic</literal> implies
+          <literal>dynamic-on-stop</literal>, and <literal>yes</literal> implies <literal>dynamic</literal>
+          and <literal>static</literal>. Defaults to <literal>dynamic-on-stop</literal> when
+          <command>systemd-networkd</command> is running in initrd, <literal>yes</literal> when the root
+          filesystem is a network filesystem, and <literal>no</literal> otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v243"/>
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
     </variablelist>

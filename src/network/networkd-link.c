@@ -369,23 +369,41 @@ void link_set_state(Link *link, LinkState state) {
         link_dirty(link);
 }
 
-int link_stop_engines(Link *link, bool may_keep_dhcp) {
+int link_stop_engines(Link *link, bool may_keep_dynamic) {
         int r, ret = 0;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->event);
 
-        bool keep_dhcp =
-                may_keep_dhcp &&
+        bool keep_dynamic =
+                may_keep_dynamic &&
                 link->network &&
                 (link->manager->state == MANAGER_RESTARTING ||
-                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+                 FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC_ON_STOP));
 
-        if (!keep_dhcp) {
+        if (!keep_dynamic) {
                 r = sd_dhcp_client_stop(link->dhcp_client);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
+
+                r = sd_ipv4ll_stop(link->ipv4ll);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
+
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
+
+                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
+
+                r = ndisc_stop(link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
+
+                ndisc_flush(link);
         }
 
         r = sd_dhcp_server_stop(link->dhcp_server);
@@ -400,27 +418,9 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Tx: %m"));
 
-        r = sd_ipv4ll_stop(link->ipv4ll);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
-
         r = ipv4acd_stop(link);
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 ACD client: %m"));
-
-        r = sd_dhcp6_client_stop(link->dhcp6_client);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
-
-        r = dhcp_pd_remove(link, /* only_marked = */ false);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
-
-        r = ndisc_stop(link);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
-
-        ndisc_flush(link);
 
         r = sd_radv_stop(link->radv);
         if (r < 0)
@@ -449,7 +449,7 @@ void link_enter_failed(Link *link) {
                 return;
 
 stop:
-        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -1339,7 +1339,7 @@ static void link_enter_unmanaged(Link *link) {
         log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                       "Unmanaging interface.");
 
-        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
         (void) link_drop_requests(link);
         (void) link_drop_static_config(link);
 
@@ -1410,10 +1410,10 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         /* Then, apply new .network file */
         link->network = network_ref(network);
 
-        if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DHCP) ||
+        if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) ||
             !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {
                 /* To make 'networkctl reconfigure INTERFACE' work safely for an interface whose new .network
-                 * file has KeepConfiguration=dhcp or yes, even if a clean reconfiguration is requested,
+                 * file has KeepConfiguration=dynamic or yes, even if a clean reconfiguration is requested,
                  * drop only unnecessary or possibly being changed dynamic configurations here. */
                 r = link_drop_dynamic_config(link, old_network);
                 if (r < 0)
@@ -1799,7 +1799,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (!link->network)
                 return ret;
 
-        RET_GATHER(ret, link_stop_engines(link, false));
+        RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic = */ false));
         RET_GATHER(ret, link_drop_static_config(link));
 
         return ret;
