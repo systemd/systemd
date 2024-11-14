@@ -663,7 +663,7 @@ def find_tool(
     if shutil.which(name) is not None:
         return name
 
-    if fallback is None:
+    if fallback is None or (shutil.which(fallback) is None and not os.path.exists(fallback)):
         raise ValueError(msg.format(name=name))
 
     return fallback
@@ -1148,30 +1148,59 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
-        measure_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
-        cmd = [measure_tool, 'public']
+        try:
+            measure_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
+            cmd = [measure_tool, 'public']
 
-        if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
-            # If we're using an engine or provider, the public key will be an X.509 certificate.
-            if opts.signing_engine or opts.signing_provider:
-                cmd += ['--certificate', opts.pcr_public_keys[0]]
-                if opts.certificate_provider:
-                    cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
+            if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
+                # If we're using an engine or provider, the public key will be an X.509 certificate.
+                if opts.signing_engine or opts.signing_provider:
+                    cmd += ['--certificate', opts.pcr_public_keys[0]]
+                    if opts.certificate_provider:
+                        cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
+
+                    print('+', shell_join(cmd))
+                    pcrpkey = subprocess.check_output(cmd)
+                else:
+                    pcrpkey = Path(opts.pcr_public_keys[0])
+            elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
+                cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
+
+                if opts.signing_engine:
+                    cmd += ['--private-key-source', f'engine:{opts.signing_engine}']
+                if opts.signing_provider:
+                    cmd += ['--private-key-source', f'provider:{opts.signing_provider}']
 
                 print('+', shell_join(cmd))
                 pcrpkey = subprocess.check_output(cmd)
-            else:
-                pcrpkey = Path(opts.pcr_public_keys[0])
-        elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
-
-            if opts.signing_engine:
-                cmd += ['--private-key-source', f'engine:{opts.signing_engine}']
-            if opts.signing_provider:
-                cmd += ['--private-key-source', f'provider:{opts.signing_provider}']
-
-            print('+', shell_join(cmd))
-            pcrpkey = subprocess.check_output(cmd)
+        except ValueError:
+            # We don't have systemd-keyutil available, fallback to the crypto library
+            if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
+                pcrpkey = opts.pcr_public_keys[0]
+                # If we are getting a certificate when using an engine or provider, we need to convert it to
+                # public key format.
+                if (opts.signing_engine or opts.signing_provider) and Path(pcrpkey).exists():
+                    from cryptography.hazmat.primitives import serialization
+                    from cryptography.x509 import load_pem_x509_certificate
+                    try:
+                        cert = load_pem_x509_certificate(Path(pcrpkey).read_bytes())
+                    except ValueError:
+                        raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
+                    else:
+                        pcrpkey = cert.public_key().public_bytes(
+                            encoding=serialization.Encoding.PEM,
+                            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                        )
+            elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
+                from cryptography.hazmat.primitives import serialization
+                privkey = serialization.load_pem_private_key(
+                    Path(opts.pcr_private_keys[0]).read_bytes(),
+                    password=None,
+                )
+                pcrpkey = privkey.public_key().public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
 
     hwids = None
 
