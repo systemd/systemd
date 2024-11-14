@@ -370,7 +370,7 @@ static int stack_directory_open_and_lock(
 
         *ret_dirpath = TAKE_PTR(dirpath);
         *ret_dirfd = TAKE_FD(dirfd);
-        *ret_lockfile = TAKE_GENERIC(lockfile, LockFile, LOCK_FILE_INIT);
+        *ret_lockfile = TAKE_GENERIC(lockfile, LOCK_FILE_INIT);
         return 0;
 }
 

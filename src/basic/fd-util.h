@@ -100,7 +100,7 @@ static inline int make_null_stdio(void) {
 }
 
 /* Like TAKE_PTR() but for file descriptors, resetting them to -EBADF */
-#define TAKE_FD(fd) TAKE_GENERIC(fd, int, -EBADF)
+#define TAKE_FD(fd) TAKE_GENERIC(fd, -EBADF)
 
 /* Like free_and_replace(), but for file descriptors */
 #define close_and_replace(a, b)                 \
