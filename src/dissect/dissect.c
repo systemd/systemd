@@ -2090,6 +2090,16 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
+        if (arg_root) {
+                r = path_pick_update_warn(
+                                &arg_root,
+                                &pick_filter_image_dir,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                /* ret_result= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
         switch (arg_action) {
         case ACTION_UMOUNT:
                 return action_umount(arg_path);
