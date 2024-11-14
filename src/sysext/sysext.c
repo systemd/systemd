@@ -45,6 +45,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "sort-util.h"
+#include "selinux-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -1577,6 +1578,10 @@ static int merge_hierarchy(
         r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path);
         if (r < 0)
                 return r;
+        r = mac_selinux_fix_recursive(overlay_path, hierarchy);
+        if (r < 0)
+                return r;
+
 
         r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir, op->hierarchy);
         if (r < 0)

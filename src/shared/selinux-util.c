@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dirent-util.h"
+#include "fileio.h"
+#include <errno.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
@@ -103,6 +107,54 @@ void mac_selinux_retest(void) {
 #if HAVE_SELINUX
         cached_use = -1;
 #endif
+}
+
+int mac_selinux_fix_recursive(const char *root_path, const char *label_path) {
+        assert(root_path);
+        assert(path_is_absolute(root_path));
+        assert(label_path);
+        assert(path_is_absolute(label_path));
+#if HAVE_SELINUX
+        _cleanup_close_ int atfd = -EBADF;
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r;
+
+        atfd = open(root_path, O_DIRECTORY|O_CLOEXEC);
+        if (atfd < 0)
+                return log_error_errno(errno, "Failed to open directory '%s': %m", root_path);
+
+        r = mac_selinux_fix_full(atfd, NULL, label_path, 0);
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", root_path);
+
+
+        dir = take_fdopendir(&atfd);
+        if (!dir)
+                return log_error_errno(errno, "Failed to open directory steam for '%s': %m", root_path);
+
+        FOREACH_DIRENT(de, dir, break) {
+                const char *file_path = path_join(root_path, de->d_name);
+                const char *label_lookup = path_join(label_path, de->d_name);
+                if (de->d_type == DT_DIR) {
+                        mac_selinux_fix_recursive(file_path, label_lookup);
+                        continue;
+                }
+
+                atfd = open(file_path, O_PATH|O_CLOEXEC);
+
+                if (atfd < 0)
+                        return log_error_errno(errno, "Failed to open file '%s': %m", label_lookup);
+
+                r = mac_selinux_fix_full(atfd, NULL, label_lookup, 0);
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", file_path);
+
+        }
+
+#endif
+        return 0;
 }
 
 #if HAVE_SELINUX
