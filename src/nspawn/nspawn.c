@@ -1809,8 +1809,8 @@ static int verify_network_interfaces_initialized(void) {
         return 0;
 }
 
-int userns_lchown(const char *p, uid_t uid, gid_t gid) {
-        assert(p);
+static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
+        assert(fd >= 0 || fd == AT_FDCWD);
 
         if (arg_userns_mode == USER_NAMESPACE_NO)
                 return 0;
@@ -1832,21 +1832,31 @@ int userns_lchown(const char *p, uid_t uid, gid_t gid) {
                         return -EOVERFLOW;
         }
 
-        return RET_NERRNO(lchown(p, uid, gid));
+        return RET_NERRNO(fchownat(fd, strempty(fname), uid, gid, flags));
+}
+
+int userns_lchown(const char *path, uid_t uid, gid_t gid) {
+        return userns_chown_at(AT_FDCWD, path, uid, gid, AT_SYMLINK_NOFOLLOW);
 }
 
 int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        const char *q;
         int r;
 
-        q = prefix_roota(root, path);
-        r = RET_NERRNO(mkdir(q, mode));
-        if (r == -EEXIST)
-                return 0;
+        assert(path);
+
+        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_free_ char *dname = NULL;
+        r = chase(path, root, CHASE_PARENT|CHASE_PREFIX_ROOT|CHASE_EXTRACT_FILENAME, &dname, &parent_fd);
         if (r < 0)
                 return r;
 
-        return userns_lchown(q, uid, gid);
+        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
+        if (dir_fd == -EEXIST)
+                return 0;
+        if (dir_fd < 0)
+                return dir_fd;
+
+        return userns_chown_at(dir_fd, /* fname= */ NULL, uid, gid, AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
 }
 
 static const char *timezone_from_path(const char *path) {
