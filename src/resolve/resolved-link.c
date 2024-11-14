@@ -14,6 +14,7 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
+#include "resolved-dns-scope.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
@@ -299,6 +300,12 @@ static int link_update_dns_servers(Link *l) {
         }
 
         dns_server_unlink_marked(l->dns_servers);
+
+        LIST_FOREACH(servers, s, l->dns_servers)
+                /* If the link state changed, we should re-check if DNS servers
+                 * are accessible. */
+                dns_server_reset_accessible(s);
+
         return 0;
 
 clear:
@@ -829,6 +836,20 @@ ResolveSupport link_get_mdns_support(Link *link) {
         /* This provides the effective mDNS support level for the link, instead of the 'internal' per-link setting. */
 
         return MIN(link->mdns_support, link->manager->mdns_support);
+}
+
+bool link_get_default_route(Link *l) {
+        assert(l);
+
+        /* Return what is configured, if there's something configured */
+        if (l->default_route >= 0)
+                return l->default_route;
+
+        /* Otherwise report what is in effect */
+        if (l->unicast_scope)
+                return dns_scope_is_default_route(l->unicast_scope);
+
+        return false;
 }
 
 int link_address_new(Link *l,
