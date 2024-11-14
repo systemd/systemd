@@ -24,6 +24,16 @@ typedef enum DeviceEnumerationType {
         _DEVICE_ENUMERATION_TYPE_INVALID = -EINVAL,
 } DeviceEnumerationType;
 
+typedef enum MatchFlag {
+        MATCH_NONE        = 0,
+        MATCH_SYSNAME     = 1u << 0,
+        MATCH_SUBSYSTEM   = 1u << 1,
+        MATCH_PARENT      = 1u << 2,
+        MATCH_TAG         = 1u << 3,
+
+        MATCH_ALL         = (1u << 4) - 1,
+} MatchFlag;
+
 struct sd_device_enumerator {
         unsigned n_ref;
 
@@ -46,6 +56,7 @@ struct sd_device_enumerator {
         Set *match_tag;
         Set *match_parent;
         MatchInitializedType match_initialized;
+        MatchFlag            parent_match_flags;
 };
 
 _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
@@ -61,6 +72,7 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
                 .n_ref = 1,
                 .type = _DEVICE_ENUMERATION_TYPE_INVALID,
                 .match_initialized = MATCH_INITIALIZED_COMPAT,
+                .parent_match_flags = MATCH_ALL,
         };
 
         *ret = TAKE_PTR(enumerator);
@@ -270,6 +282,13 @@ _public_ int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enum
         enumerator->match_initialized = MATCH_INITIALIZED_ALL;
 
         enumerator->scan_uptodate = false;
+
+        return 1;
+}
+_public_ int sd_device_enumerator_add_all_parents(sd_device_enumerator *enumerator) {
+        assert_return(enumerator, -EINVAL);
+
+        enumerator->parent_match_flags = MATCH_NONE;
 
         return 1;
 }
@@ -567,15 +586,6 @@ static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsys
         return set_fnmatch(enumerator->match_subsystem, enumerator->nomatch_subsystem, subsystem);
 }
 
-typedef enum MatchFlag {
-        MATCH_SYSNAME     = 1u << 0,
-        MATCH_SUBSYSTEM   = 1u << 1,
-        MATCH_PARENT      = 1u << 2,
-        MATCH_TAG         = 1u << 3,
-
-        MATCH_ALL         = (1u << 4) - 1,
-} MatchFlag;
-
 static int test_matches(
                 sd_device_enumerator *enumerator,
                 sd_device *device,
@@ -743,7 +753,7 @@ static int enumerator_scan_dir_and_add_devices(
                 /* Also include all potentially matching parent devices in the enumeration. These are things
                  * like root busses — e.g. /sys/devices/pci0000:00/ or /sys/devices/pnp0/, which ar not
                  * linked from /sys/class/ or /sys/bus/, hence pick them up explicitly here. */
-                k = enumerator_add_parent_devices(enumerator, device, MATCH_ALL);
+                k = enumerator_add_parent_devices(enumerator, device, enumerator->parent_match_flags);
                 if (k < 0)
                         r = k;
         }
