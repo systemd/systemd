@@ -2636,6 +2636,14 @@ endif
 
 #####################################################################
 
+ukify_depends = []
+
+foreach executable : ['systemd-measure', 'systemd-sbsign', 'systemd-keyutil']
+        if executable in executables_by_name
+                ukify_depends += [executables_by_name[executable]]
+        endif
+endforeach
+
 ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
@@ -2643,6 +2651,7 @@ ukify = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_ukify,
         install_mode : 'rwxr-xr-x',
+        depends : ukify_depends,
         install_dir : bindir)
 if want_ukify
         public_programs += ukify
@@ -2662,7 +2671,7 @@ endif
 
 mkosi_depends = public_programs
 
-foreach executable : ['systemd-journal-remote', 'systemd-measure']
+foreach executable : ['systemd-journal-remote']
         if executable in executables_by_name
                 mkosi_depends += [executables_by_name[executable]]
         endif
