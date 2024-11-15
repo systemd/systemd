@@ -846,7 +846,6 @@ static uint64_t pick_default_capability_ambient_set(
 }
 
 typedef struct SessionContext {
-        const uid_t uid;
         const char *service;
         const char *type;
         const char *class;
@@ -868,6 +867,7 @@ typedef struct SessionContext {
 static int create_session_message(
                 sd_bus *bus,
                 pam_handle_t *handle,
+                UserRecord *ur,
                 const SessionContext *context,
                 bool avoid_pidfd,
                 sd_bus_message **ret) {
@@ -878,6 +878,7 @@ static int create_session_message(
 
         assert(bus);
         assert(handle);
+        assert(ur);
         assert(context);
         assert(ret);
 
@@ -893,7 +894,7 @@ static int create_session_message(
 
         r = sd_bus_message_append(m,
                                   pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
-                                  (uint32_t) context->uid,
+                                  (uint32_t) ur->uid,
                                   pidfd >= 0 ? pidfd : 0,
                                   context->service,
                                   context->type,
@@ -1120,7 +1121,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
 
         const SessionContext context = {
-                .uid = ur->uid,
                 .service = service,
                 .type = type,
                 .class = class,
@@ -1141,6 +1141,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = create_session_message(bus,
                                    handle,
+                                   ur,
                                    &context,
                                    /* avoid_pidfd = */ false,
                                    &m);
@@ -1156,6 +1157,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 m = sd_bus_message_unref(m);
                 r = create_session_message(bus,
                                            handle,
+                                           ur,
                                            &context,
                                            /* avoid_pidfd = */ true,
                                            &m);
