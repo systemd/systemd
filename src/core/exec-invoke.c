@@ -2103,6 +2103,23 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
+                 * this is the same UID/GID map as the init user namespace and there are various applications
+                 * (i.e. systemd's running_in_userns()) that check whether they are in a user namespace by
+                 * comparing uid_map/gid_map to `0 0 UINT32_MAX`. Thus, we still map all UIDs/GIDs but do it
+                 * using two extents to differentiate the new user namespace from the init namespace:
+                 *   0 0 1
+                 *   1 1 UINT32_MAX - 1
+                 *
+                 * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
+                 * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
+                 * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
+                 * use these UIDs/GIDs so we need to map them. */
+                r = asprintf(&uid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", UINT32_MAX - 1);
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2122,6 +2139,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                r = asprintf(&gid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", UINT32_MAX - 1);
+                if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
