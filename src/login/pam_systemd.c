@@ -948,6 +948,27 @@ static int create_session_message(
         return 0;
 }
 
+static int import_shell_credentials(pam_handle_t *handle) {
+
+        static const char *const propagate[] = {
+                "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
+                "shell.prompt.suffix", "SHELL_PROMPT_SUFFIX",
+                "shell.welcome",       "SHELL_WELCOME",
+                NULL
+        };
+        int r;
+
+        assert(handle);
+
+        STRV_FOREACH_PAIR(k, v, propagate) {
+                r = propagate_credential_to_environment(handle, *k, *v);
+                if (r != PAM_SUCCESS)
+                        return r;
+        }
+
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -1234,19 +1255,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        static const char *const propagate[] = {
-                "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
-                "shell.prompt.suffix", "SHELL_PROMPT_SUFFIX",
-                "shell.welcome",       "SHELL_WELCOME",
-                NULL
-        };
-
-        STRV_FOREACH_PAIR(k, v, propagate) {
-                r = propagate_credential_to_environment(handle, *k, *v);
-                if (r != PAM_SUCCESS)
-                        return r;
-        }
-
         if (vtnr > 0) {
                 char buf[DECIMAL_STR_MAX(vtnr)];
                 sprintf(buf, "%u", vtnr);
@@ -1272,6 +1280,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
 success:
+        r = import_shell_credentials(handle);
+        if (r != PAM_SUCCESS)
+                return r;
+
         if (default_capability_ambient_set == UINT64_MAX)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, service, seat);
 
