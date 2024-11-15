@@ -390,116 +390,107 @@ static int export_legacy_dbus_address(
 }
 
 static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
+        assert(handle);
+        assert(m);
+
         if (isempty(limit))
-                return PAM_SUCCESS;
+                return 0;
 
-        if (streq(limit, "infinity")) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", UINT64_MAX);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-
-                return PAM_SUCCESS;
-        }
+        if (streq(limit, "infinity"))
+                return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", UINT64_MAX);
 
         r = parse_permyriad(limit);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", UINT32_SCALE_FROM_PERMYRIAD(r));
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+        if (r >= 0)
+                return sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", UINT32_SCALE_FROM_PERMYRIAD(r));
 
-                return PAM_SUCCESS;
-        }
-
+        uint64_t val;
         r = parse_size(limit, 1024, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-
+        if (r < 0) {
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
                 return PAM_SUCCESS;
         }
 
-        pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
 }
 
 static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        usec_t val;
         int r;
+
+        assert(handle);
+        assert(m);
 
         /* No need to parse "infinity" here, it will be set by default later in scope_init() */
         if (isempty(limit) || streq(limit, "infinity"))
-                return PAM_SUCCESS;
+                return 0;
 
+        usec_t val;
         r = parse_sec(limit, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-        } else
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
+                return 0;
+        }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
 }
 
 static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
+
+        assert(handle);
+        assert(m);
 
         /* No need to parse "infinity" here, it will be set unconditionally later in manager_start_scope() */
         if (isempty(limit) || streq(limit, "infinity"))
-                return PAM_SUCCESS;
+                return 0;
 
+        uint64_t val;
         r = safe_atou64(limit, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-        } else
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max, ignoring: %s", limit);
+                return 0;
+        }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
 }
 
 static int append_session_cpu_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
-        if (isempty(limit))
-                return PAM_SUCCESS;
+        assert(handle);
+        assert(m);
 
+        if (isempty(limit))
+                return 0;
+
+        uint64_t val;
         r = cg_cpu_weight_parse(limit, &val);
-        if (r < 0)
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
-        else {
-                r = sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+                return 0;
         }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
 }
 
 static int append_session_io_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
-        if (isempty(limit))
-                return PAM_SUCCESS;
+        assert(handle);
+        assert(m);
 
+        if (isempty(limit))
+                return 0;
+
+        uint64_t val;
         r = cg_weight_parse(limit, &val);
-        if (r < 0)
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
-        else {
-                r = sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+                return 0;
         }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
 }
 
 static const char* getenv_harder(pam_handle_t *handle, const char *key, const char *fallback) {
@@ -893,21 +884,22 @@ static int create_session_message(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m,
-                                  pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
-                                  (uint32_t) ur->uid,
-                                  pidfd >= 0 ? pidfd : 0,
-                                  context->service,
-                                  context->type,
-                                  context->class,
-                                  context->desktop,
-                                  context->seat,
-                                  context->vtnr,
-                                  context->tty,
-                                  context->display,
-                                  context->remote,
-                                  context->remote_user,
-                                  context->remote_host);
+        r = sd_bus_message_append(
+                        m,
+                        pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
+                        (uint32_t) ur->uid,
+                        pidfd >= 0 ? pidfd : 0,
+                        context->service,
+                        context->type,
+                        context->class,
+                        context->desktop,
+                        context->seat,
+                        context->vtnr,
+                        context->tty,
+                        context->display,
+                        context->remote,
+                        context->remote_user,
+                        context->remote_host);
         if (r < 0)
                 return r;
 
@@ -922,23 +914,23 @@ static int create_session_message(
                 return r;
 
         r = append_session_memory_max(handle, m, context->memory_max);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_runtime_max_sec(handle, m, context->runtime_max_sec);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_tasks_max(handle, m, context->tasks_max);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_cpu_weight(handle, m, context->cpu_weight);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_io_weight(handle, m, context->io_weight);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = sd_bus_message_close_container(m);
