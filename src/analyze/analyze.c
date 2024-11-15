@@ -18,6 +18,7 @@
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
 #include "analyze-cat-config.h"
+#include "analyze-chid.h"
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
 #include "analyze-critical-chain.h"
@@ -219,6 +220,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  filesystems [NAME...]      List known filesystems\n"
                "  architectures [NAME...]    List known architectures\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
+               "  chid                       List local CHIDs\n"
                "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
@@ -691,6 +693,7 @@ static int run(int argc, char *argv[]) {
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
                 { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
+                { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
                 {}
         };
 
