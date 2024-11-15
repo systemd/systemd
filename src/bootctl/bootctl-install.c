@@ -299,7 +299,6 @@ static const char *const esp_subdirs[] = {
         "EFI/BOOT",
         "loader",
         "loader/keys",
-        "loader/keys/auto",
         NULL
 };
 
@@ -614,6 +613,10 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
         if (dercertsz < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X.509 certificate to DER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
+
+        r = mkdir_one(esp, "loader/keys/auto");
+        if (r < 0)
+                return r;
 
         _cleanup_close_ int keys_fd = chase_and_open("loader/keys/auto", esp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, NULL);
         if (keys_fd < 0)
@@ -1286,6 +1289,10 @@ int verb_remove(int argc, char *argv[], void *userdata) {
                 if (q < 0 && r >= 0)
                         r = q;
         }
+
+        q = rmdir_one(arg_esp_path, "/loader/keys/auto");
+        if (q < 0 && r >= 0)
+                r = q;
 
         q = remove_subdirs(arg_esp_path, esp_subdirs);
         if (q < 0 && r >= 0)
