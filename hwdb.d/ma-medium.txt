@@ -770,12 +770,6 @@ C00000-CFFFFF     (base 16)		HANGZHOU ZHONGKEJIGUANG TECHNOLOGY CO., LTD
 				HANGZHOU  Zhejiang  310018
 				CN
 
-2C-69-1D   (hex)		SPEEDTECH CORP.
-400000-4FFFFF     (base 16)		SPEEDTECH CORP.
-				No. 568, Sec. 1, Minsheng N. Rd., Guishan Dist., Taoyuan City 338, Taiwan
-				Taoyuan    338
-				TW
-
 2C-69-1D   (hex)		IBM
 800000-8FFFFF     (base 16)		IBM
 				9000 South Rita Rd
@@ -6787,6 +6781,30 @@ AC-EF-92   (hex)		CEER NATIONAL AUTOMOTIVE COMPANY
 				No.1 hangqi Rd, Damaiwan Industrial Zone, Hangtou, Pudong, New Area, Shanghai 201316, China
 				Shanghai    201316
 				CN
+
+0C-47-A9   (hex)		Shenzhen Hahappylife Innovations Electronics Technology Co.,Ltd
+600000-6FFFFF     (base 16)		Shenzhen Hahappylife Innovations Electronics Technology Co.,Ltd
+				103, Bldg1, Meicheng Ind Park, No.4, Xinhe St, Ma’antang Community, Bantian St, Longgang Dist
+				Shenzhen  Guangdong  518000
+				CN
+
+EC-74-CD   (hex)		Bosch (zhuhai) Security Systems Company, Ltd.
+A00000-AFFFFF     (base 16)		Bosch (zhuhai) Security Systems Company, Ltd.
+				20 Ji Chang Bei Road, Qingwan Industrial Estate, | Sanzao Town, Jinwan District
+				Zhuhai  Guangdong  519040
+				CN
+
+0C-47-A9   (hex)		Shanghai Sigen New Energy Technology Co., Ltd
+900000-9FFFFF     (base 16)		Shanghai Sigen New Energy Technology Co., Ltd
+				Room 514 The 5th Floor, No.175 Weizhan Road China (Shanghai) Plilot Free Trade Zone
+				Shanghai    201306
+				CN
+
+2C-69-1D   (hex)		SPEEDTECH CORP. JIO
+400000-4FFFFF     (base 16)		SPEEDTECH CORP. JIO
+				No. 568, Sec. 1, Minsheng N. Rd., Guishan Dist., Taoyuan City 338, Taiwan
+				Taoyuan    338
+				TW
 
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
@@ -13071,6 +13089,18 @@ D00000-DFFFFF     (base 16)		DIG_LINK
 A00000-AFFFFF     (base 16)		Lens Technology (Xiangtan) Co.,Ltd
 				16 Baishi West Road, Xiangtan Economic and Technological Development Zone
 				Xiangtan  Hunan  411100
+				CN
+
+EC-74-CD   (hex)		Shenzhen Ting-Shine Technology Co., Ltd.
+D00000-DFFFFF     (base 16)		Shenzhen Ting-Shine Technology Co., Ltd.
+				No. 148, Huarong Road, Longhua District, Shenzhen
+				Shenzhen  Guangdong  518083
+				CN
+
+EC-74-CD   (hex)		iSolution Technologies Co.,Ltd.
+300000-3FFFFF     (base 16)		iSolution Technologies Co.,Ltd.
+				5F,Bldg #6, Zhongguan Honghualing Industrial South Park
+				Shenzhen  Guangdong  518055
 				CN
 
 B8-4C-87   (hex)		Altronix , Corp
@@ -19862,6 +19892,48 @@ AC-EF-92   (hex)		JiZhiKang (Beijing) Technology Co., Ltd
 				Beijing    100176
 				CN
 
+0C-47-A9   (hex)		HONGKONG STONEOIM TECHNOLOGY LIMITED
+300000-3FFFFF     (base 16)		HONGKONG STONEOIM TECHNOLOGY LIMITED
+				UNIT 1507C,15/F,EASTCORE 398 KWUN TONG ROAD KWUN TONG KL
+				hongkong  hongkong  999077
+				HK
+
+0C-47-A9   (hex)		Annapurna labs
+200000-2FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+0C-47-A9   (hex)		BGResearch
+E00000-EFFFFF     (base 16)		BGResearch
+				5, The Business Centre, Harvard Way, Kimbolton, 
+				Huntingdon.  Cambridgeshire  PE28 0NJ
+				GB
+
+EC-74-CD   (hex)		Platypus
+600000-6FFFFF     (base 16)		Platypus
+				6, Wonteo-ro 110beon-gil, Jungwon-gu
+				Gyeonggi-do   Seongnam-si  13360
+				KR
+
+EC-74-CD   (hex)		Sound Health Systems
+900000-9FFFFF     (base 16)		Sound Health Systems
+				650B Fremont Ave #65
+				Los Altos  CA  94024
+				US
+
+EC-74-CD   (hex)		Hitachi Rail GTS Austria GmbH
+B00000-BFFFFF     (base 16)		Hitachi Rail GTS Austria GmbH
+				Handelskai 92
+				Vienna    1200
+				AT
+
+EC-74-CD   (hex)		Standard Backhaul Communications
+500000-5FFFFF     (base 16)		Standard Backhaul Communications
+				333 South Highland Ave
+				Briarcliff Manor    10510
+				US
+
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
 				Via Santorelli, 8
@@ -26458,6 +26530,12 @@ C00000-CFFFFF     (base 16)		Senix
 
 0C-47-A9   (hex)		Private
 400000-4FFFFF     (base 16)		Private
+
+0C-47-A9   (hex)		Honest Networks LLC
+800000-8FFFFF     (base 16)		Honest Networks LLC
+				15 Maiden LnSte 1101
+				New York  NY  10038
+				US
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -33206,8 +33284,20 @@ C00000-CFFFFF     (base 16)		Annapurna labs
 				Mail box 15123  Haifa  3508409
 				IL
 
+0C-47-A9   (hex)		Everon Co., Ltd.
+500000-5FFFFF     (base 16)		Everon Co., Ltd.
+				3F.Pine Avenue B, 100, Eulji-ro, Jung-gu
+				Seoul    04551
+				KR
+
 0C-47-A9   (hex)		Shenzhen Hebang Electronic Co., Ltd
 B00000-BFFFFF     (base 16)		Shenzhen Hebang Electronic Co., Ltd
 				2nd Floor West, Bldg B, Kelunte Low Carbon Industry Park, Huarong Road, Dalang, Longhua District
 				Shenzhen    518000
 				CN
+
+EC-74-CD   (hex)		TRANS AUDIO VIDEO SRL
+800000-8FFFFF     (base 16)		TRANS AUDIO VIDEO SRL
+				Viale Melvin Jones 12
+				Caserta  CE  81100
+				IT
