@@ -2019,9 +2019,6 @@ acpi:DEL*:
 acpi:DEM*:
  ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
 
-acpi:DEM*:
- ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
-
 acpi:DEN*:
  ID_VENDOR_FROM_DATABASE=Densitron Computers Ltd
 
