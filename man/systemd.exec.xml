@@ -2009,8 +2009,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
-        <literal>identity</literal>. Defaults to false. If enabled, sets up a new user namespace for the
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal>, <literal>identity</literal>,
+        or <literal>full</literal>. Defaults to false. If enabled, sets up a new user namespace for the
         executed processes and configures a user and group mapping. If set to a true value or
         <literal>self</literal>, a minimal user and group mapping is configured that maps the
         <literal>root</literal> user and group as well as the unit's own user and group to themselves and
@@ -2025,6 +2025,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <literal>nobody</literal> user and group, respectively. While this does not provide UID/GID isolation,
         since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
         often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
+
+        <para>If the parameter is <literal>full</literal>, user namespacing is set up with an identity
+        mapping for all UIDs/GIDs. Similar to <literal>identity</literal>, this does not provide UID/GID
+        isolation, but it does provide process capability isolation.</para>
 
         <para>If this mode is enabled, all unit processes are run without privileges in the host user
         namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
