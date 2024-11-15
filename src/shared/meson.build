@@ -193,6 +193,7 @@ shared_sources = files(
         'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Monitor.c',
+        'varlink-io.systemd.Unit.c',
         'varlink-io.systemd.UserDatabase.c',
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.service.c',
