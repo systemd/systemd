@@ -934,6 +934,15 @@ testcase_11_nft() {
 
 # Test resolvectl show-server-state
 testcase_12_resolvectl2() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/reload.conf
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN
+
     run resolvectl show-server-state
     grep -qF "10.0.0.1" "$RUN_OUT"
     grep -qF "Interface" "$RUN_OUT"
@@ -994,6 +1003,75 @@ testcase_12_resolvectl2() {
 
     # Check if resolved exits cleanly.
     restart_resolved
+}
+
+# Test io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+testcase_13_varlink_subscribe_dns_configuration() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        restart_resolved
+    }
+
+    trap cleanup RETURN
+
+    local unit
+    local tmpfile
+
+    unit="subscribe-dns-configuration-$(systemd-id128 new -u).service"
+    tmpfile=$(mktemp)
+
+    # Clear global and per-interface DNS before monitoring the configuration change.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS="
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+    resolvectl dns dns0 ""
+
+    # Start the call to io.systemd.Resolve.Monitor.SubscribeDNSConfiguration
+    systemd-run -u "$unit" -p "Type=exec" -p "StandardOutput=truncate:$tmpfile" \
+        varlinkctl call --more --timeout=5 --graceful=io.systemd.TimedOut /run/systemd/resolve/io.systemd.Resolve.Monitor io.systemd.Resolve.Monitor.SubscribeDNSConfiguration '{}'
+
+    # Update the global configuration.
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNS=8.8.8.8"
+        echo "Domains=lan"
+    } > /run/systemd/resolved.conf.d/global-dns.conf
+    systemctl reload systemd-resolved.service
+
+    # Update a link configuration.
+    resolvectl dns dns0 8.8.4.4 1.1.1.1
+
+    # Wait for the monitor to exit gracefully.
+    while systemctl --quiet is-active "$unit"; do
+        sleep 0.5
+    done
+
+    # Hack to remove the "Method call returned expected error" line from the output.
+    sed -i '/^Method call.*returned expected error/d' "$tmpfile"
+
+    # Check that an initial reply was given with the settings applied BEFORE the monitor started.
+    grep -qF \
+        '{"global":{"servers":[],"domains":[]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == null) | {"global": {servers: .servers, domains: .searchDomains}}' "$tmpfile")
+    grep -qF \
+        '{"dns0":{"servers":[],"domains":[]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0") | {"dns0": {servers: .servers, domains: .searchDomains}}' "$tmpfile")
+
+    # Check that the global configuration change was reflected.
+    grep -qF \
+        '{"global":{"servers":[[8,8,8,8]],"domains":["lan"]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == null) | {"global":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
+
+    # Check that the link configuration change was reflected.
+    grep -qF \
+        '{"dns0":{"servers":[[8,8,4,4],[1,1,1,1]],"domains":[]}}' \
+        <(jq -cr --seq  '.configuration[] | select(.ifname == "dns0") | {"dns0":{servers: [.servers[] | .address], domains: [.searchDomains[] | .name]}}' "$tmpfile")
 }
 
 # PRE-SETUP
