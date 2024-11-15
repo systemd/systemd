@@ -399,6 +399,15 @@ CHANGES WITH 257 in spe:
           be extended, and a --measure-base= switch to support measurement
           of multi-profile UKIs.
 
+        * ukify gained a --certificate-provider switch to use an OpenSSL
+          provider to load the certificate used to sign artifacts, instead of
+          having to provide the path to a file on disk.
+
+        * bootctl, systemd-keyutil, systemd-measure, systemd-repart, and
+          systemd-sbsign gained a new --certificate-source switch that allows
+          loading the X.509 certificate from an OpenSSL provider instead of a
+          file system path.
+
         * systemd-boot's menu will now react to volume up/down rocker presses
           the same way as to arrow up/down presses: they move the menu item up
           or down. This is useful on device form factors that have only a
@@ -436,6 +445,9 @@ CHANGES WITH 257 in spe:
           EFI binaries (PE) for Secure Boot. This tool supports OpenSSL engines
           and providers, with pin caching support for PKCS11. ukify supports it
           as an alternative to sbsigntool and pesign.
+
+        * A new systemd-keyutil tool has been added, that can be used to perform
+          various operations on private keys and X.509 certificates.
 
         The journal:
 
