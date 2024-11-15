@@ -100,6 +100,13 @@ static inline Pages xmalloc_pages(
 }
 
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
+        /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we allocate
+         * memory for the initrds below the 4G boundary on x86, since we don't know early enough which
+         * protocol we'll use to ultimately boot the kernel. This restriction is somewhat obsolete, since
+         * these days we generally prefer the kernel's newer EFI entrypoint instead, which has no such
+         * limitations. On other architectures we do not bother with any restriction on this, in particular
+         * as some of them don't even have RAM mapped to such low addresses. */
+
 #if defined(__i386__) || defined(__x86_64__)
         return xmalloc_pages(
                         AllocateMaxAddress,
