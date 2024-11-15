@@ -7457,6 +7457,24 @@ D04000-D04FFF     (base 16)		Plenty Unlimited Inc
 				HongKong    999077
 				HK
 
+8C-1F-64   (hex)		KRYFS TECHNOLOGIES PRIVATE LIMITED
+206000-206FFF     (base 16)		KRYFS TECHNOLOGIES PRIVATE LIMITED
+				SURVEY NO 231 KHERDI MAIN ROAD NEAR HPCL KHERDI SILVASSA
+				SILVASSA  DADRA AND NAGAR HAVELI  396230
+				IN
+
+8C-1F-64   (hex)		Matrixspace
+806000-806FFF     (base 16)		Matrixspace
+				1721 Moon Lake BlvdSTE 200
+				Hoffman Estates  IL  60169
+				US
+
+8C-1F-64   (hex)		ENERGY POWER PRODUCTS LIMITED
+41B000-41BFFF     (base 16)		ENERGY POWER PRODUCTS LIMITED
+				7/F, Room 701, Lucky Centre, 165-171,  Wanchai Road
+				Wanchai    000000
+				HK
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -22361,6 +22379,12 @@ A8C000-A8CFFF     (base 16)		Elektronik Art
 				Lublin  Lublin  20234
 				PL
 
+8C-1F-64   (hex)		Anduril Imaging
+763000-763FFF     (base 16)		Anduril Imaging
+				83 Hartwell Ave 
+				Lexington  MA  02421
+				US
+
 8C-1F-64   (hex)		Wuhan YiValley Opto-electric technology Co.,Ltd
 175000-175FFF     (base 16)		Wuhan YiValley Opto-electric technology Co.,Ltd
 				A104,1st stage Juxian Building, Hongshan internatinoal enterprise center
@@ -22377,12 +22401,6 @@ A8C000-A8CFFF     (base 16)		Elektronik Art
 C60000-C60FFF     (base 16)		Intelligent Security Systems (ISS)
 				1480 US Highway 9 North Suite 202
 				Woodbridge  NJ  07095
-				US
-
-8C-1F-64   (hex)		Anduril Imaging
-763000-763FFF     (base 16)		Anduril Imaging
-				83 Hartwell Ave 
-				Lexington  MA  02421
 				US
 
 8C-1F-64   (hex)		Flow Power
@@ -29885,11 +29903,41 @@ BA7000-BA7FFF     (base 16)		iLensys Technologies PVT LTD
 				Thiruvananthapuram  KERALA  695014
 				IN
 
+8C-1F-64   (hex)		Potter Electric Signal Company
+FDF000-FDFFFF     (base 16)		Potter Electric Signal Company
+				5757 Phantom Drive
+				Hazelwood  MO  63042
+				US
+
 8C-1F-64   (hex)		Hurry-tech
 F19000-F19FFF     (base 16)		Hurry-tech
 				Greenland  Central Plaza ,Building 1 of Yard 9,Room 601
 				Beijing  Beijing  100089
 				CN
+
+8C-1F-64   (hex)		Transit Solutions, LLC.
+1BC000-1BCFFF     (base 16)		Transit Solutions, LLC.
+				114 West Grandview Avenue
+				Zelienople  PA  16063
+				US
+
+8C-1F-64   (hex)		Ceranext Ltd
+394000-394FFF     (base 16)		Ceranext Ltd
+				25-27 Demostheni Severi ,Metropolis Tower,Building B',1080 Cyprus
+				Nicosia    1080
+				CY
+
+8C-1F-64   (hex)		SiFive Inc
+E88000-E88FFF     (base 16)		SiFive Inc
+				2625 Augustine DriveSuite 101
+				Santa Clara  CA  95054
+				US
+
+8C-1F-64   (hex)		Makel Elektrik Malzemeleri A.Ş.
+9B8000-9B8FFF     (base 16)		Makel Elektrik Malzemeleri A.Ş.
+				Osmangazi Mah.Mareşal Fevzi Çakmak Cad. No:38 KIRAÇ / Esenyurt
+				ESENYURT  İstanbul  34522
+				TR
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -37294,3 +37342,9 @@ BD9000-BD9FFF     (base 16)		WATTS
 				C. Valportillo Segunda, 8 bis
 				Alcobendas  Madrid  28108
 				ES
+
+8C-1F-64   (hex)		Mediana Co., Ltd.
+159000-159FFF     (base 16)		Mediana Co., Ltd.
+				132, Donghwagongdan-ro, Munmak-eup
+				Wonju-si  Gangwon-do  26365
+				KR
