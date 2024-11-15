@@ -24,6 +24,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dn
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_llmnr_support, "s", Link, link_get_llmnr_support, resolve_support_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_mdns_support, "s", Link, link_get_mdns_support, resolve_support_to_string);
+static BUS_DEFINE_PROPERTY_GET(property_get_default_route, "b", Link, link_get_default_route);
 
 static int property_get_dns_over_tls_mode(
                 sd_bus *bus,
@@ -160,30 +161,6 @@ static int property_get_domains(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_default_route(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = ASSERT_PTR(userdata);
-
-        assert(reply);
-
-        /* Return what is configured, if there's something configured */
-        if (l->default_route >= 0)
-                return sd_bus_message_append(reply, "b", l->default_route);
-
-        /* Otherwise report what is in effect */
-        if (l->unicast_scope)
-                return sd_bus_message_append(reply, "b", dns_scope_is_default_route(l->unicast_scope));
-
-        return sd_bus_message_append(reply, "b", false);
-}
-
 static int property_get_scopes_mask(
                 sd_bus *bus,
                 const char *path,
@@ -293,6 +270,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
                 (void) manager_send_changed(l->manager, "DNS");
+                (void) manager_send_dns_configuration_changed(l->manager);
 
                 if (j)
                         log_link_info(l, "Bus client set DNS server list to: %s", j);
@@ -768,6 +746,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
         (void) manager_send_changed(l->manager, "DNS");
+        (void) manager_send_dns_configuration_changed(l->manager);
 
         return sd_bus_reply_method_return(message, NULL);
 }
