@@ -13,8 +13,11 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
+#include "unit-varlink.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-internal.h"
+#include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -610,6 +613,7 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Manager,
+                        &vl_interface_io_systemd_Unit,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add interfaces to varlink server: %m");
@@ -617,6 +621,7 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
+                        "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
@@ -669,7 +674,8 @@ static int manager_varlink_init_system(Manager *m) {
                 FOREACH_STRING(address,
                                "/run/systemd/userdb/io.systemd.DynamicUser",
                                VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
-                               "/run/systemd/io.systemd.Manager") {
+                               "/run/systemd/io.systemd.Manager",
+                               "/run/systemd/unit/io.systemd.Unit") {
                         /* We might have got sockets through deserialization. Do not bind to them twice. */
                         if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
                                 continue;
@@ -700,7 +706,8 @@ static int manager_varlink_init_user(Manager *m) {
         bool fresh = r > 0;
 
         FOREACH_STRING(a,
-                       "systemd/io.systemd.Manager") {
+                       "systemd/io.systemd.Manager",
+                       "systemd/unit/io.systemd.Unit") {
                 _cleanup_free_ char *address = NULL;
                 address = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], a);
                 if (!address)
