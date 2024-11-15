@@ -542,11 +542,31 @@ static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallb
 
         r = parse_boolean(v);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Boolean environment variable value of '%s' is not valid: %s", key, v);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse environment variable value '%s' of '%s', falling back to using '%s'.", v, key, true_false(fallback));
                 return fallback;
         }
 
         return r;
+}
+
+static uint32_t getenv_harder_uint32(pam_handle_t *handle, const char *key, uint32_t fallback) {
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        const char *v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        uint32_t u;
+        r = safe_atou32(v, &u);
+        if (r < 0) {
+                pam_syslog(handle, LOG_WARNING, "Failed to parse environment variable value '%s' of '%s' as unsigned integer, falling back to using %" PRIu32 ".", v, key, fallback);
+                return fallback;
+        }
+
+        return u;
 }
 
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
@@ -946,7 +966,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *remote_user = NULL, *remote_host = NULL,
                 *seat = NULL,
                 *type = NULL, *class = NULL,
-                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
+                *class_pam = NULL, *type_pam = NULL, *desktop = NULL, *desktop_pam = NULL,
                 *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
         uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -991,7 +1011,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
-        cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
+        vtnr = getenv_harder_uint32(handle, "XDG_VTNR", 0);
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
@@ -1035,10 +1055,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         } else if (tty)
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 tty = skip_dev_prefix(tty);
-
-        /* If this fails vtnr will be 0, that's intended */
-        if (!isempty(cvtnr))
-                (void) safe_atou32(cvtnr, &vtnr);
 
         if (!isempty(display) && !vtnr) {
                 if (isempty(seat))
