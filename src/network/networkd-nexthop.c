@@ -968,7 +968,7 @@ static void nexthop_forget_one(NextHop *nexthop) {
 
         Request *req;
         if (nexthop_get_request_by_id(nexthop->manager, nexthop->id, &req) >= 0)
-                route_enter_removed(req->userdata);
+                nexthop_enter_removed(req->userdata);
 
         nexthop_enter_removed(nexthop);
         log_nexthop_debug(nexthop, "Forgetting silently removed", nexthop->manager);
