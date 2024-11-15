@@ -25,6 +25,7 @@
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
@@ -195,6 +196,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_MachineImage);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Manager);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Unit);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
