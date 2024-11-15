@@ -847,7 +847,6 @@ static uint64_t pick_default_capability_ambient_set(
 
 typedef struct SessionContext {
         const uid_t uid;
-        const pid_t pid;
         const char *service;
         const char *type;
         const char *class;
@@ -895,7 +894,7 @@ static int create_session_message(
         r = sd_bus_message_append(m,
                                   pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
                                   (uint32_t) context->uid,
-                                  pidfd >= 0 ? pidfd : context->pid,
+                                  pidfd >= 0 ? pidfd : 0,
                                   context->service,
                                   context->type,
                                   context->class,
@@ -1122,7 +1121,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         const SessionContext context = {
                 .uid = ur->uid,
-                .pid = 0,
                 .service = service,
                 .type = type,
                 .class = class,
