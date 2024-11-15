@@ -1002,23 +1002,30 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
     )
 
 
-# Keep in sync with EFI_GUID (src/boot/efi/efi.h)
+# Keep in sync with EFI_GUID (src/boot/efi.h)
 # uint32_t Data1, uint16_t Data2, uint16_t Data3, uint8_t Data4[8]
 EFI_GUID = tuple[int, int, int, tuple[int, int, int, int, int, int, int, int]]
 EFI_GUID_STRUCT_SIZE = 4 + 2 + 2 + 1 * 8
 
-# Keep in sync with Device (src/boot/efi/chid.h)
-# uint32_t struct_size, uint32_t name_offset, uint32_t compatible_offset, EFI_GUID chid
-DEVICE_STRUCT_SIZE = 4 + 4 + 4 + EFI_GUID_STRUCT_SIZE
+# Keep in sync with Device (DEVICE_TYPE_DEVICETREE) from src/boot/chid.h
+# uint32_t descriptor, EFI_GUID chid, uint32_t name_offset, uint32_t compatible_offset
+DEVICE_STRUCT_SIZE = 4 + EFI_GUID_STRUCT_SIZE + 4 + 4
 NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
+DEVICE_TYPE_DEVICETREE = 1
 
+def device_make_descriptor(device_type: int, size: int) -> int:
+    return (size) | (device_type << 28)
 
 def pack_device(offsets: dict[str, int], name: str, compatible: str, chids: list[EFI_GUID]) -> bytes:
     data = b''
 
     for data1, data2, data3, data4 in chids:
         data += struct.pack(
-            '<IIIIHH8B', DEVICE_STRUCT_SIZE, offsets[name], offsets[compatible], data1, data2, data3, *data4
+            '<IIHH8BII',
+            device_make_descriptor(DEVICE_TYPE_DEVICETREE, DEVICE_STRUCT_SIZE),
+            data1, data2, data3, *data4,
+            offsets[name],
+            offsets[compatible]
         )
 
     assert len(data) == DEVICE_STRUCT_SIZE * len(chids)
