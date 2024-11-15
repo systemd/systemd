@@ -1260,11 +1260,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         SessionContext c = {};
         r = pam_get_item_many(
                         handle,
-                        PAM_SERVICE, &c.service,
+                        PAM_SERVICE,  &c.service,
                         PAM_XDISPLAY, &c.display,
-                        PAM_TTY, &c.tty,
-                        PAM_RUSER, &c.remote_user,
-                        PAM_RHOST, &c.remote_host);
+                        PAM_TTY,      &c.tty,
+                        PAM_RUSER,    &c.remote_user,
+                        PAM_RHOST,    &c.remote_host);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
@@ -1275,21 +1275,15 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
         c.incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
 
-        r = pam_get_data(handle, "systemd.memory_max", (const void **)&c.memory_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.memory_max data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.tasks_max",  (const void **)&c.tasks_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.tasks_max data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.cpu_weight", (const void **)&c.cpu_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.cpu_weight data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.io_weight",  (const void **)&c.io_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.io_weight data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&c.runtime_max_sec);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
+        r = pam_get_data_many(
+                        handle,
+                        "systemd.memory_max",      &c.memory_max,
+                        "systemd.tasks_max",       &c.tasks_max,
+                        "systemd.cpu_weight",      &c.cpu_weight,
+                        "systemd.io_weight",       &c.io_weight,
+                        "systemd.runtime_max_sec", &c.runtime_max_sec);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM data: @PAMERR@");
 
         session_context_mangle(handle, &c, ur, debug);
 
