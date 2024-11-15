@@ -61,7 +61,7 @@ static void get_chid(const char16_t *const smbios_fields[static _CHID_SMBIOS_FIE
         ret_chid->Data4[0] = (ret_chid->Data4[0] & UINT8_C(0x3f)) | UINT8_C(0x80);
 }
 
-static const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
+const uint32_t chid_smbios_table[CHID_TYPES_MAX] = {
         [3] = (UINT32_C(1) << CHID_SMBIOS_MANUFACTURER) |
               (UINT32_C(1) << CHID_SMBIOS_FAMILY) |
               (UINT32_C(1) << CHID_SMBIOS_PRODUCT_NAME) |
