@@ -407,7 +407,7 @@ bool manager_is_inhibited(
                 Inhibitor **ret_offending) {
 
         Inhibitor *i, *offending = NULL;
-        struct dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        struct dual_timestamp ts = DUAL_TIMESTAMP_INFINITY;
         bool inhibited = false;
 
         assert(m);
