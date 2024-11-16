@@ -411,6 +411,10 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
+        /* Initialize the baseline timestamp with the time the manager got initialized to avoid reporting
+         * unreasonable large idle periods starting with the Unix epoch. */
+        ts = m->init_ts;
+
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
