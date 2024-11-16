@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <linux/vt.h>
 
@@ -407,9 +408,21 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         Session *s;
         bool idle_hint;
-        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp ts;
+        struct sysinfo info;
+        int r;
+        usec_t boot_usec;
 
         assert(m);
+
+        r = sysinfo(&info);
+        if (r) {
+                log_warning_errno(r, "Failed to get system uptime: %m");
+                ts = DUAL_TIMESTAMP_NULL;
+        } else {
+                boot_usec = now(CLOCK_REALTIME) - (info.uptime * 1000000);
+                dual_timestamp_from_realtime(&ts, boot_usec);
+        }
 
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
 
