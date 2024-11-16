@@ -104,6 +104,8 @@ static int manager_new(Manager **ret) {
 
         (void) sd_event_set_watchdog(m->event, true);
 
+        dual_timestamp_now(&m->init_ts);
+
         manager_reset_config(m);
 
         *ret = TAKE_PTR(m);

@@ -141,6 +141,8 @@ struct Manager {
 
         char *efi_loader_entry_one_shot;
         struct stat efi_loader_entry_one_shot_stat;
+
+        dual_timestamp init_ts;
 };
 
 void manager_reset_config(Manager *m);
