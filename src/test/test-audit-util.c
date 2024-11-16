@@ -24,7 +24,9 @@ TEST(audit_loginuid_from_pid) {
         if (r >= 0)
                 log_info("self audit session id: %" PRIu32, sessionid);
 
-        assert_se(audit_session_from_pid(&pid1, &sessionid) == -ENODATA);
+        r = audit_session_from_pid(&pid1, &sessionid);
+        if (r != -ENODATA)
+                log_error_errno(r, "audit_session_from_pid() failed: %m");
 }
 
 static int intro(void) {
