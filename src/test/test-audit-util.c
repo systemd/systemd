@@ -2,6 +2,7 @@
 
 #include "audit-util.h"
 #include "tests.h"
+#include "virt.h"
 
 TEST(audit_loginuid_from_pid) {
         _cleanup_(pidref_done) PidRef self = PIDREF_NULL, pid1 = PIDREF_NULL;
@@ -23,6 +24,9 @@ TEST(audit_loginuid_from_pid) {
         assert_se(r >= 0 || r == -ENODATA);
         if (r >= 0)
                 log_info("self audit session id: %" PRIu32, sessionid);
+
+        if (running_in_chroot() > 0)
+                return; /* Debian package build in chroot, next assert will fail, skip */
 
         assert_se(audit_session_from_pid(&pid1, &sessionid) == -ENODATA);
 }
