@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Yaron Shahrabani <sh.yaron@gmail.com>, 2023.
+# Yaron Shahrabani <sh.yaron@gmail.com>, 2023, 2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2023-11-22 00:01+0000\n"
+"PO-Revision-Date: 2024-11-17 15:48+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
-"master/he/>\n"
+"main/he/>\n"
 "Language: he\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && "
 "n % 10 == 0) ? 2 : 3));\n"
-"X-Generator: Weblate 5.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -106,14 +106,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "נדרש אימות כדי לעדכן אזור בית למשתמש."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "עדכון אזור בית"
+msgstr "עדכון אזור הבית שלך"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "נדרש אימות כדי לעדכן אזור בית למשתמש."
+msgstr "נדרש אימות כדי לעדכן את אזור הבית שלך."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -133,14 +131,12 @@ msgid ""
 msgstr "נדרש אימות כדי להחליף סיסמה של אזור בית למשתמש."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "יצירת אזור בית"
+msgstr "הפעלת אזור בית"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "נדרש אימות כדי ליצור אזור בית למשתמש."
+msgstr "נדרש אימות כדי להפעיל אזור בית של משתמש."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -351,40 +347,32 @@ msgid "Authentication is required to get system description."
 msgstr "נדרש אימות כדי למשוך את תיאור המערכת."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "לייבא מכונה וירטואלית או דמות של מכולה (container image)"
+msgstr "ייבוא דמות כונן"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr ""
-"נדרש אימות כדי לייבא מכונה וירטואלית או דמות של מכולה (container image)"
+msgstr "נדרש אימות כדי לייבא דמות."
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "ייצוא מכונה וירטואלית או דמות של מכולה (container image)"
+msgstr "ייצוא דמות כונן"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr ""
-"נדרש אימות כדי לייצא מכונה וירטואלית או דמות של מכולה (container image)"
+msgstr "נדרש אימות כדי לייצא דמות כונן."
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "הורדת מכונה וירטואלית או דמות מכולה"
+msgstr "הורדת דמות כונן"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "נדרש אימות כדי להוריד מכונה וירטואלית או דמות מכולה"
+msgstr "נדרש אימות כדי להוריד דמות כונן."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "ביטול העברה של דמות כונן"
 
 #: src/import/org.freedesktop.import1.policy:53
 #, fuzzy
