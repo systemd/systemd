@@ -15,9 +15,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-09 20:13+0000\n"
-"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
-"memory@weblate.org>\n"
+"PO-Revision-Date: 2024-11-17 15:48+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -187,9 +186,11 @@ msgstr ""
 "benötigte Speichermedium oder Dateisystem ein."
 
 #: src/home/pam_systemd_home.c:298
-#, fuzzy, c-format
+#, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "Zu häufige Loginversuche für %s. Bitte später erneut probieren."
+msgstr ""
+"Zu viele Anmeldeversuche für Benutzer %s, versuchen Sie es später noch "
+"einmal."
 
 #: src/home/pam_systemd_home.c:310
 msgid "Password: "
@@ -1198,9 +1199,8 @@ msgid "Dump cache"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "Legitimierung ist zum Festlegen von Domains notwendig."
+msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
@@ -1269,11 +1269,8 @@ msgstr "Optionale Funktionen verwalten"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
-"Arbeitsstationen notwendig."
+msgstr "Legitimierung ist zur Verwaltung optionaler Funktionen erforderlich"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
