@@ -1086,6 +1086,139 @@ DNS=127.0.0.1
             self.show_journal('systemd-timedated.service')
             self.fail(f'Timezone: {tz}, expected: Pacific/Honolulu')
 
+    def do_test_wait_online_dns(
+        self,
+        iface,
+        global_dns='',
+        fallback_dns='',
+        expect_timeout=False
+    ):
+        if expect_timeout:
+            timeout = 5
+        else:
+            timeout = 10
+
+        # Unless given, clear global DNS configuration
+        conf = '/run/systemd/resolved.conf.d/global-dns.conf'
+        os.makedirs(os.path.dirname(conf), exist_ok=True)
+        with open(conf, 'w') as f:
+            f.write((
+                '[Resolve]\n'
+                f'DNS={global_dns}\n'
+                f'FallbackDNS={fallback_dns}\n'
+            ))
+        self.addCleanup(os.remove, conf)
+        subprocess.check_call(
+            ['systemctl', 'reload', 'systemd-resolved']
+        )
+
+        self.start_unit('systemd-networkd')
+
+        env = os.environ.copy()
+        env['SYSTEMD_LOG_LEVEL'] = 'debug'
+        env['SYSTEMD_LOG_TARGET'] = 'console'
+        r = subprocess.run(
+            [NETWORKD_WAIT_ONLINE, '--dns', '--interface', iface, f'--timeout={timeout}'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        if expect_timeout:
+            self.assertNotEqual(
+                r.returncode,
+                0,
+                f'Command succeeded unexpectedly:\n{r.stderr.decode()}'
+            )
+            self.assertRegex(
+                r.stderr.decode(),
+                rf'{iface}: No link-specific DNS server is accessible',
+                f'Missing expected log message:\n{r.stderr.decode()}'
+            )
+        else:
+            self.assertEqual(
+                r.returncode,
+                0,
+                f'Command timed out:\n{r.stderr.decode()}'
+            )
+
+    def test_wait_online_dns(self):
+        ''' test systemd-networkd-wait-online with --dns '''
+        self.write_network(
+            self.config,
+            (
+                '[Match]\n'
+                f'Name={self.iface}\n'
+                '[Network]\n'
+                'DHCP=ipv4\n'
+            )
+        )
+        self.create_iface()
+        self.do_test_wait_online_dns(self.iface)
+
+    def test_wait_online_dns_global(self):
+        '''
+        test systemd-networkd-wait-online with --dns, expect pass due to global DNS
+        '''
+
+        # Explicitly set DNSDefaultRoute=no, and allow global DNS to be used.
+        self.write_network(
+            self.config,
+            (
+                '[Match]\n'
+                f'Name={self.iface}\n'
+                '[Network]\n'
+                'DHCP=ipv4\n'
+                'DNSDefaultRoute=no\n'
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+        self.create_iface()
+        self.do_test_wait_online_dns(self.iface, global_dns='192.168.5.1')
+
+    def test_wait_online_dns_expect_timeout(self):
+        ''' test systemd-networkd-wait-online with --dns, and expect timeout '''
+
+        # Explicitly set DNSDefaultRoute=yes, and require link-specific DNS to be used.
+        self.write_network(
+            self.config,
+            (
+                '[Match]\n'
+                f'Name={self.iface}\n'
+                '[Network]\n'
+                'DHCP=ipv4\n'
+                'DNSDefaultRoute=yes\n'
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+        self.create_iface()
+        self.do_test_wait_online_dns(self.iface, expect_timeout=True)
+
+    def test_wait_online_dns_expect_timeout_global(self):
+        '''
+        test systemd-networkd-wait-online with --dns, and expect timeout
+        despite global DNS
+        '''
+
+        # Configure Domains=~., and expect timeout despite global DNS servers
+        # being available.
+        self.write_network(
+            self.config,
+            (
+                '[Match]\n'
+                f'Name={self.iface}\n'
+                '[Network]\n'
+                'DHCP=ipv4\n'
+                'Domains=~.\n'
+                '[DHCPv4]\n'
+                'UseDNS=no\n'
+            )
+        )
+        self.create_iface()
+        self.do_test_wait_online_dns(self.iface, expect_timeout=True, global_dns='192.168.5.1')
+
 
 class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
     """Test [Match] sections in .network files.
