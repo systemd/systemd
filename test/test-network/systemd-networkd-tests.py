@@ -6454,6 +6454,24 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.check_router_preference('01', 200, 'medium', 200, 'medium')
 
+        # Use route options to configure default routes.
+        # The preference specified in the RA header should be ignored. See issue #33468.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=high\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6SendRA]\nRouterPreference=low\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\n')
+        networkctl_reload()
+        self.check_router_preference('01', 200, 'medium', 200, 'medium')
+
+        # Set zero lifetime to the route options.
+        # The preference specified in the RA header should be used.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        networkctl_reload()
+        self.check_router_preference('01', 100, 'high', 300, 'low')
+
     def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
             copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
