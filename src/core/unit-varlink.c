@@ -13,6 +13,7 @@
 #include "ioprio-util.h"
 #include "ip-protocol-list.h"
 #include "path.h"
+#include "scope.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "signal-util.h"
@@ -1304,6 +1305,16 @@ static int path_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_RATELIMIT("TriggerLimit", &p->trigger_limit));
 }
 
+static int scope_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Scope *s = ASSERT_PTR(SCOPE(userdata));
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_STRING("OOMPolicy", oom_policy_to_string(s->oom_policy)),
+                        JSON_BUILD_PAIR_FINITE_USEC("RuntimeMaxUSec", s->runtime_max_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("RuntimeRandomizedExtraUSec", s->runtime_rand_extra_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimeoutStopUSec", s->timeout_stop_usec));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -1313,7 +1324,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_DEVICE] = NULL,
                 [UNIT_MOUNT] = mount_context_build_json,
                 [UNIT_PATH] = path_context_build_json,
-                [UNIT_SCOPE] = NULL,
+                [UNIT_SCOPE] = scope_context_build_json,
                 [UNIT_SERVICE] = NULL,
                 [UNIT_SLICE] = NULL,
                 [UNIT_SOCKET] = NULL,
