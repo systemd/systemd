@@ -2045,10 +2045,6 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
         are <literal>root</literal>, <literal>nobody</literal> and the unit's own user and group.</para>
 
-        <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
-        available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
-
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
