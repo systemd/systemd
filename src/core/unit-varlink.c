@@ -3,9 +3,11 @@
 #include "sd-json.h"
 
 #include "af-list.h"
+#include "automount.h"
 #include "cap-list.h"
 #include "exec-credential.h"
 #include "json-util.h"
+#include "mount.h"
 #include "mountpoint-util.h"
 #include "in-addr-prefix-util.h"
 #include "ioprio-util.h"
@@ -1204,10 +1206,94 @@ static int kill_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_STRING("WatchdogSignal", signal_to_string(c->watchdog_signal)));
 }
 
+static int automount_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Automount *a = ASSERT_PTR(AUTOMOUNT(userdata));
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_STRING("Where", a->where),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ExtraOptions", a->extra_options),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("DirectoryMode", a->directory_mode),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimeoutIdleUSec", a->timeout_idle_usec));
+}
+
+static int mount_what_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
+        _cleanup_free_ char *escaped = NULL;
+
+        escaped = mount_get_what_escaped(m);
+        if (!escaped)
+                return -ENOMEM;
+
+        return sd_json_variant_new_string(ASSERT_PTR(ret), escaped);
+}
+
+static int mount_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Mount *m = MOUNT(ASSERT_PTR(userdata));
+        _cleanup_free_ char *escaped = NULL;
+
+        escaped = mount_get_options_escaped(m);
+        if (!escaped)
+                return -ENOMEM;
+        if (isempty(escaped))
+                return 0;
+
+        return sd_json_variant_new_string(ASSERT_PTR(ret), escaped);
+}
+
+static int exec_command_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecCommand *cmd = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **flags = NULL;
+        int r;
+
+        if (strv_isempty(cmd->argv))
+                return 0;
+
+        r = exec_command_flags_to_strv(cmd->flags, &flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert exec command flags to string: %m");
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                SD_JSON_BUILD_PAIR_STRING("path", cmd->path),
+                JSON_BUILD_PAIR_STRV_NON_EMPTY("arguments", cmd->argv),
+                JSON_BUILD_PAIR_STRV_NON_EMPTY("flags", flags));
+}
+
+static int mount_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Mount *m = MOUNT(ASSERT_PTR(userdata));
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_CALLBACK("What", mount_what_build_json, m),
+                        SD_JSON_BUILD_PAIR_STRING("Where", m->where),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Type", mount_get_fstype(m)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Options", mount_options_build_json, m),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("SloppyOptions", m->sloppy_options),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LazyUnmount", m->lazy_unmount),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadWriteOnly", m->read_write_only),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ForceUnmount", m->force_unmount),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("DirectoryMode", m->directory_mode),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimeoutUSec", m->timeout_usec),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecMount", exec_command_build_json, &m->exec_command[MOUNT_EXEC_MOUNT]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecUnmount", exec_command_build_json, &m->exec_command[MOUNT_EXEC_UNMOUNT]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecRemount", exec_command_build_json, &m->exec_command[MOUNT_EXEC_REMOUNT]));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
 static int unit_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        static const sd_json_build_callback_t callbacks[] = {
+                [UNIT_AUTOMOUNT] = automount_context_build_json,
+                [UNIT_DEVICE] = NULL,
+                [UNIT_MOUNT] = mount_context_build_json,
+                [UNIT_PATH] = NULL,
+                [UNIT_SCOPE] = NULL,
+                [UNIT_SERVICE] = NULL,
+                [UNIT_SLICE] = NULL,
+                [UNIT_SOCKET] = NULL,
+                [UNIT_SWAP] = NULL,
+                [UNIT_TARGET] = NULL,
+                [UNIT_TIMER] = NULL,
+        };
+
         Unit *u = ASSERT_PTR(userdata);
 
         return sd_json_buildo(ASSERT_PTR(ret),
@@ -1276,7 +1362,8 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_STRING("CollectMode", collect_mode_to_string(u->collect_mode)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", cgroup_context_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), callbacks[u->type], u));
 }
 
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
