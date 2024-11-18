@@ -642,7 +642,7 @@ static bool netdev_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_add
         if (hw_addr_equal(&link->hw_addr, hw_addr))
                 return false; /* Unchanged, not necessary to set. */
 
-        /* Soem netdevs refuse to update MAC address even if the interface is not running, e.g. ipvlan.
+        /* Some netdevs refuse to update MAC address even if the interface is not running, e.g. ipvlan.
          * Some other netdevs have the IFF_LIVE_ADDR_CHANGE flag and can update update MAC address even if
          * the interface is running, e.g. dummy. For those cases, use custom checkers. */
         if (NETDEV_VTABLE(netdev)->can_set_mac)
