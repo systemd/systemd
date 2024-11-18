@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [[ "$1" == "clangd" ]]; then
-    exec "$@"
-fi
-
 if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
