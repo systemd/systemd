@@ -31,6 +31,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "main-func.h"
+#include "osc-context.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2194,7 +2195,14 @@ static int start_transient_service(sd_bus *bus) {
                 if (!c.bus_path)
                         return log_oom();
 
+                _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
                 if (pty_fd >= 0) {
+                        if (!terminal_is_dumb() && arg_exec_user) {
+                                r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
