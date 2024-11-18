@@ -3471,20 +3471,16 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                const char *home,
-                int *exit_status) {
+                const char *home) {
 
         const char *wd;
         int r;
 
         assert(context);
-        assert(exit_status);
 
         if (context->working_directory_home) {
-                if (!home) {
-                        *exit_status = EXIT_CHDIR;
+                if (!home)
                         return -ENXIO;
-                }
 
                 wd = home;
         } else
@@ -3503,13 +3499,7 @@ static int apply_working_directory(
                 if (r >= 0)
                         r = RET_NERRNO(fchdir(dfd));
         }
-
-        if (r < 0 && !context->working_directory_missing_ok) {
-                *exit_status = EXIT_CHDIR;
-                return r;
-        }
-
-        return 0;
+        return context->working_directory_missing_ok ? 0 : r;
 }
 
 static int apply_root_directory(
@@ -5382,9 +5372,11 @@ int exec_invoke(
          * running this service might have the correct privilege to change to the working directory. Also, it
          * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
          * the cwd cannot be used to pin directories outside of the sandbox. */
-        r = apply_working_directory(context, params, runtime, home, exit_status);
-        if (r < 0)
+        r = apply_working_directory(context, params, runtime, home);
+        if (r < 0) {
+                *exit_status = EXIT_CHDIR;
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
+        }
 
         if (needs_sandboxing) {
                 /* Apply other MAC contexts late, but before seccomp syscall filtering, as those should really be last to
