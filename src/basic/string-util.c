@@ -801,7 +801,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         /* There are three kinds of OSC terminators: \x07, \x1b\x5c or \x9c. We only support
                          * the first two, because the last one is a valid UTF-8 codepoint and hence creates
                          * an ambiguity (many Terminal emulators refuse to support it as well). */
-                        if (eot || (!IN_SET(*i, '\x07', '\x1b') && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* EOT or invalid chars in sequence */
+                        if (eot || (!IN_SET(*i, '\x07', '\x1b') && !osc_char_is_valid(*i))) { /* EOT or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
