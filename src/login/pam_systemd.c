@@ -18,6 +18,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "bus-common-errors.h"
@@ -35,6 +38,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "json-util.h"
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
@@ -1022,6 +1026,16 @@ static void session_context_mangle(
         c->remote = !isempty(c->remote_host) && !is_localhost(c->remote_host);
 }
 
+static bool can_use_varlink(const SessionContext *c) {
+        /* Since PID 1 currently doesn't do Varlink right now, we cannot directly set properties for the
+         * scope, for now.  */
+        return !c->memory_max &&
+                !c->runtime_max_sec &&
+                !c->tasks_max &&
+                !c->cpu_weight &&
+                !c->io_weight;
+}
+
 static int register_session(
                 pam_handle_t *handle,
                 SessionContext *c,
@@ -1029,13 +1043,6 @@ static int register_session(
                 bool debug,
                 char **ret_seat) {
 
-        /* Let's release the D-Bus connection once this function exits, after all the session might live
-         * quite a long time, and we are not going to process the bus connection in that time, so let's
-         * better close before the daemon kicks us off because we are not processing anything. */
-        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(handle);
@@ -1044,13 +1051,10 @@ static int register_session(
         assert(ret_seat);
 
         /* Make most of this a NOP on non-logind systems */
-        if (!logind_running())
-                goto skip;
-
-        /* Talk to logind over the message bus */
-        r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
-        if (r != PAM_SUCCESS)
-                return r;
+        if (!logind_running()) {
+                *ret_seat = NULL;
+                return PAM_SUCCESS;
+        }
 
         pam_debug_syslog(handle, debug,
                          "Asking logind to create session: "
@@ -1065,68 +1069,187 @@ static int register_session(
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
                          strna(c->memory_max), strna(c->tasks_max), strna(c->cpu_weight), strna(c->io_weight), strna(c->runtime_max_sec));
 
-        r = create_session_message(
-                        bus,
-                        handle,
-                        ur,
-                        c,
-                        /* avoid_pidfd = */ false,
-                        &m);
-        if (r < 0)
-                return pam_bus_log_create_error(handle, r);
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL; /* similar */
+        const char *id = NULL, *object_path = NULL, *runtime_path = NULL, *real_seat = NULL;
+        int session_fd = -EBADF, existing = false;
+        uint32_t original_uid = UID_INVALID, real_vtnr = 0;
 
-        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
-        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                sd_bus_error_free(&error);
-                pam_debug_syslog(handle, debug,
-                                 "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
+        bool done = false;
+        if (can_use_varlink(c)) {
 
-                m = sd_bus_message_unref(m);
-                r = create_session_message(bus,
-                                           handle,
-                                           ur,
-                                           c,
-                                           /* avoid_pidfd = */ true,
-                                           &m);
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                else {
+                        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to enable input fd passing on Varlink socket: %m");
+
+                        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to enable output fd passing on Varlink socket: %m");
+
+                        r = sd_varlink_set_relative_timeout(vl, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC);
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to set relative timeout on Varlink socket: %m");
+
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        r = pidref_set_self(&pidref);
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to acquire PID reference on ourselves: %m");
+
+                        sd_json_variant *vreply = NULL;
+                        const char *error_id = NULL;
+                        r = sd_varlink_callbo(
+                                        vl,
+                                        "io.systemd.Login.CreateSession",
+                                        &vreply,
+                                        &error_id,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", ur->uid),
+                                        JSON_BUILD_PAIR_PIDREF("PID", &pidref),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", c->service),
+                                        SD_JSON_BUILD_PAIR("Type", JSON_BUILD_STRING_UNDERSCORIFY(c->type)),
+                                        SD_JSON_BUILD_PAIR("Class", JSON_BUILD_STRING_UNDERSCORIFY(c->class)),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Desktop", c->desktop),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Seat", c->seat),
+                                        SD_JSON_BUILD_PAIR_CONDITION(c->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(c->vtnr)),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("TTY", c->tty),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", c->display),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("Remote", c->remote),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", c->remote_user),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r,
+                                                        "Failed to register session: %s", error_id);
+                        if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
+                                /* We are already in a session, don't do anything */
+                                pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
+                                *ret_seat = NULL;
+                                return PAM_SUCCESS;
+                        }
+                        if (error_id)
+                                return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
+                                                        "Failed to issue CreateSession() varlink call: %s", error_id);
+
+                        struct {
+                                const char *id;
+                                const char *runtime_path;
+                                unsigned session_fd_idx;
+                                uid_t uid;
+                                const char *seat;
+                                unsigned vtnr;
+                                bool existing;
+                        } p = {
+                                .session_fd_idx = UINT_MAX,
+                                .uid = UID_INVALID,
+                        };
+
+                        static const sd_json_dispatch_field dispatch_table[] = {
+                                { "Id",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, id),             SD_JSON_MANDATORY },
+                                { "RuntimePath",           SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      voffsetof(p, runtime_path),   SD_JSON_MANDATORY },
+                                { "SessionFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, session_fd_idx), SD_JSON_MANDATORY },
+                                { "UID",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      voffsetof(p, uid),            SD_JSON_MANDATORY },
+                                { "Seat",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, seat),           0                 },
+                                { "VTNr",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         voffsetof(p, vtnr),           0                 },
+                                {}
+                        };
+
+                        r = sd_json_dispatch(vreply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse CreateSession() reply: %m");
+
+                        session_fd = sd_varlink_peek_fd(vl, p.session_fd_idx);
+                        if (session_fd < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, session_fd, "Failed to extract session fd from CreateSession() reply: %m");
+
+                        id = p.id;
+                        runtime_path = p.runtime_path;
+                        original_uid = p.uid;
+                        real_seat = p.seat;
+                        real_vtnr = p.vtnr;
+                        existing = false; /* Even on D-Bus logind only returns false these days */
+
+                        done = true;
+                }
+        }
+
+        if (!done) {
+                /* Let's release the D-Bus connection once we are done here, after all the session might live
+                 * quite a long time, and we are not going to process the bus connection in that time, so
+                 * let's better close before the daemon kicks us off because we are not processing
+                 * anything. */
+                _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                /* Talk to logind over the message bus */
+                r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                r = create_session_message(
+                                bus,
+                                handle,
+                                ur,
+                                c,
+                                /* avoid_pidfd = */ false,
+                                &m);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
-        }
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
-                        /* We are already in a session, don't do anything */
+                if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        sd_bus_error_free(&error);
                         pam_debug_syslog(handle, debug,
-                                         "Not creating session: %s", bus_error_message(&error, r));
-                        goto skip;
+                                         "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
+
+                        m = sd_bus_message_unref(m);
+                        r = create_session_message(bus,
+                                                   handle,
+                                                   ur,
+                                                   c,
+                                                   /* avoid_pidfd = */ true,
+                                                   &m);
+                        if (r < 0)
+                                return pam_bus_log_create_error(handle, r);
+
+                        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+                }
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
+                                /* We are already in a session, don't do anything */
+                                pam_debug_syslog(handle, debug,
+                                                 "Not creating session: %s", bus_error_message(&error, r));
+                                *ret_seat = NULL;
+                                return PAM_SUCCESS;
+                        }
+
+                        pam_syslog(handle, LOG_ERR,
+                                   "Failed to create session: %s", bus_error_message(&error, r));
+                        return PAM_SESSION_ERR;
                 }
 
-                pam_syslog(handle, LOG_ERR,
-                           "Failed to create session: %s", bus_error_message(&error, r));
-                return PAM_SESSION_ERR;
+                r = sd_bus_message_read(
+                                reply,
+                                "soshusub",
+                                &id,
+                                &object_path,
+                                &runtime_path,
+                                &session_fd,
+                                &original_uid,
+                                &real_seat,
+                                &real_vtnr,
+                                &existing);
+                if (r < 0)
+                        return pam_bus_log_parse_error(handle, r);
         }
-
-        const char *id, *object_path, *runtime_path, *real_seat;
-        int session_fd = -EBADF, existing;
-        uint32_t original_uid, real_vtnr;
-        r = sd_bus_message_read(
-                        reply,
-                        "soshusub",
-                        &id,
-                        &object_path,
-                        &runtime_path,
-                        &session_fd,
-                        &original_uid,
-                        &real_seat,
-                        &real_vtnr,
-                        &existing);
-        if (r < 0)
-                return pam_bus_log_parse_error(handle, r);
 
         pam_debug_syslog(handle, debug,
                          "Reply from logind: "
                          "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
-                         id, object_path, runtime_path, session_fd, real_seat, real_vtnr, original_uid);
+                         id, strna(object_path), runtime_path, session_fd, real_seat, real_vtnr, original_uid);
 
         /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
          * shall be added. */
@@ -1191,17 +1314,16 @@ static int register_session(
 
         /* Everything worked, hence let's patch in the data we learned. Since 'real_set' points into the
          * D-Bus message, let's copy it and return it as a buffer */
-        char *rs = strdup(real_seat);
-        if (!rs)
-                return pam_log_oom(handle);
+        char *rs = NULL;
+        if (real_seat) {
+                rs = strdup(real_seat);
+                if (!rs)
+                        return pam_log_oom(handle);
+        }
 
         c->seat = *ret_seat = rs;
         c->vtnr = real_vtnr;
 
-        return PAM_SUCCESS;
-
-skip:
-        *ret_seat = NULL;
         return PAM_SUCCESS;
 }
 
@@ -1337,20 +1459,47 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                bool done = false;
 
-                /* Before we go and close the FIFO we need to tell logind that this is a clean session
-                 * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
-
-                r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, NULL);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
-                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
-                                                    "Failed to release session: %s", bus_error_message(&error, r));
+                        log_debug_errno(r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                else {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *vreply = NULL;
+                        const char *error_id = NULL;
+                        r = sd_varlink_callbo(
+                                        vl,
+                                        "io.systemd.Login.ReleaseSession",
+                                        /* ret_reply= */ NULL,
+                                        &error_id,
+                                        SD_JSON_BUILD_PAIR_STRING("Id", id));
+                        if (r < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to register session: %s", error_id);
+                        if (error_id)
+                                return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
+                                                        "Failed to issue ReleaseSession() varlink call: %s", error_id);
+
+                        done = true;
+                }
+
+                if (!done) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
+                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                        /* Before we go and close the FIFO we need to tell logind that this is a clean session
+                         * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
+
+                        r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
+                        if (r != PAM_SUCCESS)
+                                return r;
+
+                        r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
+                        if (r < 0)
+                                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
+                                                            "Failed to release session: %s", bus_error_message(&error, r));
+                }
         }
 
         /* Note that we are knowingly leaking the FIFO fd here. This way, logind can watch us die. If we
