@@ -15,7 +15,7 @@ TEST(cescape) {
 TEST(xescape) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
+        assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", /* bad= */ NULL));
         ASSERT_STREQ(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb");
 }
 
