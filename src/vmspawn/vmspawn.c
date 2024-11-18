@@ -2182,6 +2182,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
+        r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+
         /* Exit when the child exits */
         (void) event_add_child_pidref(event, NULL, &child_pidref, WEXITED, on_child_exit, NULL);
 
