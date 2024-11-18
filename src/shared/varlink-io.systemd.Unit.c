@@ -809,6 +809,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SwapContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.swap.html#What="),
+                SD_VARLINK_DEFINE_FIELD(What, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.swap.html#Priority="),
+                SD_VARLINK_DEFINE_FIELD(Priority, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.swap.html#Options="),
+                SD_VARLINK_DEFINE_FIELD(Options, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.swap.html#TimeoutSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecActivate, ExecCommand, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecDeactivate, ExecCommand, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
@@ -949,7 +962,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The Path context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Scope context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The Swap context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -1004,6 +1019,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_PathSpecContext,
                 &vl_type_PathContext,
                 &vl_type_ScopeContext,
+                &vl_type_SwapContext,
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
