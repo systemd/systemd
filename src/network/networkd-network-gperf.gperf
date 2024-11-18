@@ -406,7 +406,7 @@ IPv6SendRA.ReachableTimeSec,                 config_parse_router_uint32_msec_use
 IPv6SendRA.RetransmitSec,                    config_parse_router_uint32_msec_usec,                     0,                             offsetof(Network, router_retransmit_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
+IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
 IPv6SendRA.HopLimit,                         config_parse_uint8,                                       0,                             offsetof(Network, router_hop_limit)
 IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
 IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
