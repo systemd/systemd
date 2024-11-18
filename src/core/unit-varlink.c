@@ -12,6 +12,7 @@
 #include "in-addr-prefix-util.h"
 #include "ioprio-util.h"
 #include "ip-protocol-list.h"
+#include "path.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "signal-util.h"
@@ -1274,6 +1275,36 @@ static int mount_context_build_json(sd_json_variant **ret, const char *name, voi
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExecRemount", exec_command_build_json, &m->exec_command[MOUNT_EXEC_REMOUNT]));
 }
 
+static int path_specs_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        PathSpec *specs = userdata;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(spec, k, specs) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("type", path_type_to_string(k->type)),
+                                SD_JSON_BUILD_PAIR_STRING("path", k->path));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int path_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Path *p = ASSERT_PTR(PATH(userdata));
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Paths", path_specs_build_json, p->specs),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Unit", UNIT_TRIGGER(UNIT(p)) ? UNIT_TRIGGER(UNIT(p))->id : NULL),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("MakeDirectory", p->make_directory),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("DirectoryMode", p->directory_mode),
+                        JSON_BUILD_PAIR_RATELIMIT("TriggerLimit", &p->trigger_limit));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -1282,7 +1313,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_AUTOMOUNT] = automount_context_build_json,
                 [UNIT_DEVICE] = NULL,
                 [UNIT_MOUNT] = mount_context_build_json,
-                [UNIT_PATH] = NULL,
+                [UNIT_PATH] = path_context_build_json,
                 [UNIT_SCOPE] = NULL,
                 [UNIT_SERVICE] = NULL,
                 [UNIT_SLICE] = NULL,
