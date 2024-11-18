@@ -1712,10 +1712,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
-        if (r == -EOPNOTSUPP) {
-                log_link_debug_errno(link, r, "Received route prefix with unsupported preference, ignoring: %m");
-                return 0;
-        }
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
