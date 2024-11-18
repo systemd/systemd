@@ -858,7 +858,7 @@ static int get_fixed_user(
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
+        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER);
         if (r < 0)
                 return r;
 
