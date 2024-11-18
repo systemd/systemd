@@ -36,6 +36,14 @@ static inline int parse_gid(const char *s, gid_t *ret_gid) {
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
 
+bool is_nologin_shell(const char *shell);
+const char* default_root_shell_at(int rfd);
+const char* default_root_shell(const char *root);
+
+static inline bool shell_is_placeholder(const char *shell) {
+        return isempty(shell) || is_nologin_shell(shell);
+}
+
 typedef enum UserCredsFlags {
         USER_CREDS_PREFER_NSS    = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
         USER_CREDS_ALLOW_MISSING = 1 << 1,  /* if a numeric UID string is resolved, be OK if there's no record for it */
@@ -124,10 +132,6 @@ int putgrent_sane(const struct group *gr, FILE *stream);
 int fgetsgent_sane(FILE *stream, struct sgrp **sg);
 int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
-
-bool is_nologin_shell(const char *shell);
-const char* default_root_shell_at(int rfd);
-const char* default_root_shell(const char *root);
 
 int is_this_me(const char *username);
 
