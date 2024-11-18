@@ -778,6 +778,26 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecRemount, ExecCommand, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PathSpecContext,
+                SD_VARLINK_FIELD_COMMENT("Path spec type"),
+                SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Path"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PathContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html#PathExists="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Paths, PathSpecContext, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html#Unit="),
+                SD_VARLINK_DEFINE_FIELD(Unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html#MakeDirectory="),
+                SD_VARLINK_DEFINE_FIELD(MakeDirectory, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html#DirectoryMode="),
+                SD_VARLINK_DEFINE_FIELD(DirectoryMode, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.path.html#TriggerLimitIntervalSec="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TriggerLimit, RateLimit, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
@@ -914,7 +934,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The Automount context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Mount context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The Path context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Path, PathContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -966,6 +988,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_AutomountContext,
                 &vl_type_ExecCommand,
                 &vl_type_MountContext,
+                &vl_type_PathSpecContext,
+                &vl_type_PathContext,
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
