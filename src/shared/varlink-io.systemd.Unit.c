@@ -718,6 +718,23 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(SameProcessGroup, SD_VARLINK_BOOL, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                KillContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#KillMode="),
+                SD_VARLINK_DEFINE_FIELD(KillMode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#KillSignal="),
+                SD_VARLINK_DEFINE_FIELD(KillSignal, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#RestartKillSignal="),
+                SD_VARLINK_DEFINE_FIELD(RestartKillSignal, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#SendSIGHUP="),
+                SD_VARLINK_DEFINE_FIELD(SendSIGHUP, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#SendSIGKILL="),
+                SD_VARLINK_DEFINE_FIELD(SendSIGKILL, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#FinalKillSignal="),
+                SD_VARLINK_DEFINE_FIELD(FinalKillSignal, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html#WatchdogSignal="),
+                SD_VARLINK_DEFINE_FIELD(WatchdogSignal, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
@@ -848,7 +865,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The kill context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -896,6 +915,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_TemporaryFilesystem,
                 &vl_type_ResourceLimit,
                 &vl_type_ExecContext,
+                &vl_type_KillContext,
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
