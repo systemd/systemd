@@ -45,9 +45,10 @@ static inline bool shell_is_placeholder(const char *shell) {
 }
 
 typedef enum UserCredsFlags {
-        USER_CREDS_PREFER_NSS    = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
-        USER_CREDS_ALLOW_MISSING = 1 << 1,  /* if a numeric UID string is resolved, be OK if there's no record for it */
-        USER_CREDS_CLEAN         = 1 << 2,  /* try to clean up shell and home fields with invalid data */
+        USER_CREDS_PREFER_NSS           = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
+        USER_CREDS_ALLOW_MISSING        = 1 << 1,  /* if a numeric UID string is resolved, be OK if there's no record for it */
+        USER_CREDS_CLEAN                = 1 << 2,  /* try to clean up shell and home fields with invalid data */
+        USER_CREDS_SUPPRESS_PLACEHOLDER = 1 << 3,  /* suppress home and/or shell fields if value is placeholder (root/empty/nologin) */
 } UserCredsFlags;
 
 int get_user_creds(const char **username, uid_t *ret_uid, gid_t *ret_gid, const char **ret_home, const char **ret_shell, UserCredsFlags flags);
