@@ -267,7 +267,7 @@ class UkifyConfig:
     signing_engine: Optional[str]
     signing_provider: Optional[str]
     certificate_provider: Optional[str]
-    signtool: Optional[type['SignTool']]
+    signtool: Optional[str]
     splash: Optional[Path]
     stub: Path
     summary: bool
@@ -465,6 +465,18 @@ class SignTool:
     @staticmethod
     def verify(opts: UkifyConfig) -> bool:
         raise NotImplementedError()
+
+    @staticmethod
+    def get(name) -> type['SignTool']:
+        match name:
+            case 'pesign':
+                return PeSign
+            case 'sbsign':
+                return SbSign
+            case 'systemd-sbsign':
+                return SystemdSbSign
+            case _:
+                raise ValueError(f'Invalid sign tool: {name!r}')
 
 
 class PeSign(SignTool):
@@ -1141,15 +1153,16 @@ def make_uki(opts: UkifyConfig) -> None:
 
     if opts.linux and sign_args_present:
         assert opts.signtool is not None
+        signtool = SignTool.get(opts.signtool)
 
         if not sign_kernel:
             # figure out if we should sign the kernel
-            sign_kernel = opts.signtool.verify(opts)
+            sign_kernel = signtool.verify(opts)
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
             linux = Path(linux_signed.name)
-            opts.signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
+            signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -1310,7 +1323,9 @@ def make_uki(opts: UkifyConfig) -> None:
 
     if sign_args_present:
         assert opts.signtool is not None
-        opts.signtool.sign(os.fspath(unsigned_output), os.fspath(opts.output), opts)
+        signtool = SignTool.get(opts.signtool)
+
+        signtool.sign(os.fspath(unsigned_output), os.fspath(opts.output), opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
@@ -1663,26 +1678,6 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-class SignToolAction(argparse.Action):
-    def __call__(
-        self,
-        parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None] = None,
-        option_string: Optional[str] = None,
-    ) -> None:
-        if values is None:
-            setattr(namespace, 'signtool', None)
-        elif values == 'sbsign':
-            setattr(namespace, 'signtool', SbSign)
-        elif values == 'pesign':
-            setattr(namespace, 'signtool', PeSign)
-        elif values == 'systemd-sbsign':
-            setattr(namespace, 'signtool', SystemdSbSign)
-        else:
-            raise ValueError(f"Unknown signtool '{values}' (this is unreachable)")
-
-
 VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
@@ -1856,7 +1851,6 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--signtool',
         choices=('sbsign', 'pesign', 'systemd-sbsign'),
-        action=SignToolAction,
         dest='signtool',
         help=(
             'whether to use sbsign or pesign. It will also be inferred by the other '
@@ -2173,24 +2167,24 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
-        if opts.signtool and opts.signtool not in (SbSign, SystemdSbSign):
+        if opts.signtool and opts.signtool not in ('sbsign', 'systemd-sbsign'):
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
         if not opts.signtool:
-            opts.signtool = SbSign
+            opts.signtool = 'sbsign'
     elif bool(opts.sb_cert_name):
         # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
-        if opts.signtool and opts.signtool != PeSign:
+        if opts.signtool and opts.signtool != 'pesign':
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name='
             )
-        opts.signtool = PeSign
+        opts.signtool = 'pesign'
 
-    if opts.signing_provider and opts.signtool != SystemdSbSign:
+    if opts.signing_provider and opts.signtool != 'systemd-sbsign':
         raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
 
-    if opts.certificate_provider and opts.signtool != SystemdSbSign:
+    if opts.certificate_provider and opts.signtool != 'systemd-sbsign':
         raise ValueError('--certificate-provider= can only be used with--signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
