@@ -129,6 +129,16 @@ Deprecations and removals:
 
 Features:
 
+* maybe introduce an OSC sequence that signals when we ask for a password, so
+  that terminal emulators can maybe connect a password manager or so, and
+  highlight things specially.
+
+* Port pidref_namespace_open() to use PIDFD_GET_MNT_NAMESPACE and related
+  ioctls to get nsfds directly from pidfds.
+
+* start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
+  generically, so that image discovery recognizes bcachefs subvols too.
+
 * format-table: introduce new cell type for strings with ansi sequences in
   them. display them in regular output mode (via strip_tab_ansi()), but
   suppress them in json mode.
