@@ -19,6 +19,7 @@
 #include "signal-util.h"
 #include "syslog-util.h"
 #include "swap.h"
+#include "timer.h"
 #include "unit.h"
 #include "unit-varlink.h"
 #include "varlink-common.h"
@@ -1328,6 +1329,81 @@ static int swap_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_CALLBACK("ExecDeactivate", exec_command_build_json, &s->exec_command[SWAP_EXEC_DEACTIVATE]));
 }
 
+static int monotonic_timers_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        TimerValue *values = userdata;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(value, value, values) {
+                _cleanup_free_ char *usec = NULL;
+
+                if (value->base == TIMER_CALENDAR)
+                        continue;
+
+                usec = timer_base_to_usec_string(value->base);
+                if (!usec)
+                        return -ENOMEM;
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("base", usec),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("value", value->value),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("nextElapse", value->next_elapse));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int calendar_timers_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        TimerValue *values = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(value, value, values) {
+                _cleanup_free_ char *buf = NULL;
+
+                if (value->base != TIMER_CALENDAR)
+                        continue;
+
+                r = calendar_spec_to_string(value->calendar_spec, &buf);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to convert calendar spec into string: %m");
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("base", timer_base_to_string(value->base)),
+                                SD_JSON_BUILD_PAIR_STRING("value", buf),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("nextElapse", value->next_elapse));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int timer_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Timer *t = ASSERT_PTR(TIMER(userdata));
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MonotonicTimers", monotonic_timers_build_json, t->values),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CalendarTimers", calendar_timers_build_json, t->values),
+                        JSON_BUILD_PAIR_FINITE_USEC("AccuracyUSec", t->accuracy_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("RandomizedDelayUSec", t->random_usec),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("FixedRandomDelay", t->fixed_random_delay),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("OnClockChange", t->on_clock_change),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("OnTimezoneChange", t->on_timezone_change),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Unit", UNIT_TRIGGER(UNIT(t)) ? UNIT_TRIGGER(UNIT(t))->id : NULL),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Persistent", t->persistent),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("WakeSystem", t->wake_system),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RemainAfterElapse", t->remain_after_elapse));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -1343,7 +1419,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_SOCKET] = NULL,
                 [UNIT_SWAP] = swap_context_build_json,
                 [UNIT_TARGET] = NULL,
-                [UNIT_TIMER] = NULL,
+                [UNIT_TIMER] = timer_context_build_json,
         };
 
         Unit *u = ASSERT_PTR(userdata);
