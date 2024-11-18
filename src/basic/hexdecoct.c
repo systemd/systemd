@@ -866,6 +866,9 @@ void hexdump(FILE *f, const void *p, size_t s) {
 
         assert(b || s == 0);
 
+        if (s == SIZE_MAX)
+                s = strlen(p);
+
         if (!f)
                 f = stdout;
 

@@ -994,6 +994,21 @@ TEST(pid_get_start_time) {
         ASSERT_GE(start_time2, start_time);
 }
 
+TEST(getpidfdid_cached) {
+        int r;
+
+        log_info("pid=" PID_FMT, getpid_cached());
+
+        uint64_t id;
+        r = getpidfdid_cached(&id);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_info("pidfdid not supported");
+        else {
+                assert(r >= 0);
+                log_info("pidfdid=%" PRIu64, id);
+        }
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;

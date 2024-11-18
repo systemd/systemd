@@ -47,6 +47,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "netif-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -2185,8 +2186,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Exit when the child exits */
         (void) event_add_child_pidref(event, NULL, &child_pidref, WEXITED, on_child_exit, NULL);
 
+        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         if (master >= 0) {
+                if (!terminal_is_dumb()) {
+                        r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
