@@ -5,6 +5,7 @@ systemd_oomd_sources = files(
         'oomd-manager.c',
         'oomd-util.c',
         'oomd.c',
+        'oomd-conf.c'
 )
 
 executables += [
