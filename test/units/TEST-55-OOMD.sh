@@ -264,6 +264,40 @@ EOF
     systemctl daemon-reload
 }
 
+testcase_reload() {
+    # Check if the oomd.conf drop-in config is loaded.
+    assert_in 'Swap Used Limit: 90.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Limit: 60.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+
+    # Test oomd reload
+    mkdir -p /run/systemd/oomd.conf.d/
+    {
+        echo "[OOM]"
+        echo "SwapUsedLimit=80%"
+        echo "DefaultMemoryPressureLimit=55%"
+        echo "DefaultMemoryPressureDurationSec=5s"
+    } >/run/systemd/oomd.conf.d/99-oomd-test.conf
+
+    systemctl reload systemd-oomd.service
+    assert_in 'Swap Used Limit: 80.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Limit: 55.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Duration: 5s' "$(oomctl)"
+
+    # Set back to default via reload
+    mkdir -p /run/systemd/oomd.conf.d/
+    {
+        echo "[OOM]"
+        echo "DefaultMemoryPressureDurationSec=2s"
+    } >/run/systemd/oomd.conf.d/99-oomd-test.conf
+
+    systemctl reload systemd-oomd.service
+
+    assert_in 'Swap Used Limit: 90.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Limit: 60.00%' "$(oomctl)"
+    assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+}
+
 run_testcases
 
 systemd-analyze log-level info
