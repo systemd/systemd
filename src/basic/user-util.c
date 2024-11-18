@@ -321,10 +321,9 @@ int get_user_creds(
 
         if (ret_shell)
                 *ret_shell = (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
-                              (isempty(p->pw_shell) ||
+                              (shell_is_placeholder(p->pw_shell) ||
                                !path_is_valid(p->pw_shell) ||
-                               !path_is_absolute(p->pw_shell) ||
-                               is_nologin_shell(p->pw_shell))) ? NULL : p->pw_shell;
+                               !path_is_absolute(p->pw_shell))) ? NULL : p->pw_shell;
 
         if (patch_username)
                 *username = p->pw_name;
