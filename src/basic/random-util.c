@@ -23,6 +23,7 @@
 #include "missing_syscall.h"
 #include "missing_threads.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "sha256.h"
@@ -39,6 +40,7 @@ static void fallback_random_bytes(void *p, size_t n) {
                 uint64_t call_id, block_id;
                 usec_t stamp_mono, stamp_real;
                 pid_t pid, tid;
+                uint64_t pidfdid;
                 uint8_t auxval[16];
         } state = {
                 /* Arbitrary domain separation to prevent other usage of AT_RANDOM from clashing. */
@@ -51,6 +53,7 @@ static void fallback_random_bytes(void *p, size_t n) {
 
         memcpy(state.label, "systemd fallback random bytes v1", sizeof(state.label));
         memcpy(state.auxval, ULONG_TO_PTR(getauxval(AT_RANDOM)), sizeof(state.auxval));
+        (void) pidfd_get_inode_id_self_cached(&state.pidfdid);
 
         while (n > 0) {
                 struct sha256_ctx ctx;
