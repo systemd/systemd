@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
@@ -2208,6 +2209,48 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
+static int parse_version(const char *filename, char **ret) {
+        const char *start, *last_dot_after_underscore;
+
+        assert(filename);
+
+        /* Find the last occurrences of '_'. This will mark the start of the extension version. */
+        start = strrchr(filename, '_');
+        if (!start) {
+                /* If no underscore found, assign "none" and return success.
+                * This is for cases where there are no versions in the filename like 'image.raw'. */
+                *ret = strdup("none");
+                return *ret ? 0 : -ENOMEM;
+        }
+        start ++;
+
+        last_dot_after_underscore = strrchr(start, '.');
+        if (!last_dot_after_underscore) {
+                /* If no dot found, treat everything after '_' as the version */
+                *ret = strdup(start);
+                return *ret ? 0 : -ENOMEM;
+        }
+
+        if (last_dot_after_underscore[1] && isdigit(last_dot_after_underscore[1])) {
+                /* If the last dot is followed by a digit, the version is everything after the underscore
+                * This is for cases where the extension name is like so: image_0.1 */
+                *ret = strdup(start);
+        }
+        else if (last_dot_after_underscore[1] && isalpha(last_dot_after_underscore[1])) {
+                /* If the last dot is followed by a letter, the version is between the first '_' and the last dot
+                * This is for cases where the extension name is like so: image_0.1.raw (version is 0.1)
+                * or image_1.raw (version is 1) */
+                size_t length = last_dot_after_underscore - start;
+                *ret = strndup(start, length);
+        }
+        else {
+                /* In all other cases assign "n/a" to version */
+                *ret = strdup("n/a");
+        }
+
+        return *ret ? 0 : -ENOMEM;
+}
+
 static int verb_list(int argc, char **argv, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -2227,14 +2270,28 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return 0;
         }
 
-        t = table_new("name", "type", "path", "time");
+        t = table_new("name", "version", "type", "path", "time");
         if (!t)
                 return log_oom();
 
         HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *image_name = NULL, *version = NULL;
+
+                /* Get the absolute file name with version info for logging. */
+                r = path_extract_filename(img->path, &image_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", img->path);
+
+                /* Using the above, extract just the version part from the image name */
+                r = parse_version(image_name, &version);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get version for the extension '%s': %m", image_name);
+                assert(version);
+
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, img->name,
+                                TABLE_STRING, version,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
