@@ -444,9 +444,8 @@ TEST(gid_lists_ops) {
         assert_se(nresult >= 0);
         assert_se(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult) == 0);
 
-        nresult = getgroups_alloc(&gids);
-        assert_se(nresult >= 0 || nresult == -EINVAL || nresult == -ENOMEM);
-        assert_se(gids);
+        ASSERT_OK(nresult = getgroups_alloc(&gids));
+        assert_se(gids || nresult == 0);
 }
 
 TEST(parse_uid_range) {
