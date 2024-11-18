@@ -2180,3 +2180,33 @@ int config_parse_ip_protocol(
         *proto = r;
         return 1; /* done. */
 }
+
+int config_parse_loadavg(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        loadavg_t *i = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        r = parse_permyriad(rvalue);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        r = store_loadavg_fixed_point(r / 100, r % 100, i);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        return 1; /* done. */
+}
