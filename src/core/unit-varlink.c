@@ -12,6 +12,7 @@
 #include "ip-protocol-list.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
+#include "signal-util.h"
 #include "syslog-util.h"
 #include "unit.h"
 #include "unit-varlink.h"
@@ -1181,6 +1182,25 @@ static int exec_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("NonBlocking", c->non_blocking));
 }
 
+static int kill_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        KillContext *c;
+
+        assert(ret);
+
+        c = unit_get_kill_context(ASSERT_PTR(userdata));
+        if (!c)
+                return 0;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_STRING("KillMode", kill_mode_to_string(c->kill_mode)),
+                        SD_JSON_BUILD_PAIR_STRING("KillSignal", signal_to_string(c->kill_signal)),
+                        SD_JSON_BUILD_PAIR_STRING("RestartKillSignal", signal_to_string(restart_kill_signal(c))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("SendSIGHUP", c->send_sighup),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("SendSIGKILL", c->send_sigkill),
+                        SD_JSON_BUILD_PAIR_STRING("FinalKillSignal", signal_to_string(c->final_kill_signal)),
+                        SD_JSON_BUILD_PAIR_STRING("WatchdogSignal", signal_to_string(c->watchdog_signal)));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -1252,7 +1272,8 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootArgument", u->reboot_arg),
                         SD_JSON_BUILD_PAIR_STRING("CollectMode", collect_mode_to_string(u->collect_mode)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", cgroup_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u));
 }
 
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
