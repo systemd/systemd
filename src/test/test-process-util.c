@@ -28,6 +28,7 @@
 #include "missing_syscall.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "rlimit-util.h"
@@ -1063,6 +1064,21 @@ TEST(pidref_from_same_root_fs) {
 
         ASSERT_OK_ZERO(pidref_from_same_root_fs(&self, &child2));
         ASSERT_OK_ZERO(pidref_from_same_root_fs(&child2, &self));
+}
+
+TEST(pidfd_get_inode_id_self_cached) {
+        int r;
+
+        log_info("pid=" PID_FMT, getpid_cached());
+
+        uint64_t id;
+        r = pidfd_get_inode_id_self_cached(&id);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_info("pidfdid not supported");
+        else {
+                assert(r >= 0);
+                log_info("pidfdid=%" PRIu64, id);
+        }
 }
 
 static int intro(void) {
