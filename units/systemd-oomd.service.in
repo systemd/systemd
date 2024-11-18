@@ -53,7 +53,7 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-Type=notify
+Type=notify-reload
 User=systemd-oom
 {{SERVICE_WATCHDOG}}
 
