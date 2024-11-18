@@ -20,14 +20,13 @@ Conflicts=emergency.target
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
 
-[Service]
-Type=oneshot
-
-ExecStart={{LIBEXECDIR}}/systemd-sysroot-fstab-check
-
 # We want to enqueue initrd-cleanup.service/start after we finished the part
-# above. It can't be part of the initial transaction, because non-oneshot units
+# below. It can't be part of the initial transaction, because non-oneshot units
 # use Conflicts=initrd-cleanup.service to be terminated before we switch root.
 # Effectively, initrd-parse-etc.service acts as a synchronization point after
 # which cleanup of the initrd processes starts.
-ExecStart=systemctl --no-block start initrd-cleanup.service
+OnSuccess=initrd-cleanup.service
+
+[Service]
+Type=oneshot
+ExecStart={{LIBEXECDIR}}/systemd-sysroot-fstab-check
