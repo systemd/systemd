@@ -18,6 +18,7 @@
 #include "securebits-util.h"
 #include "signal-util.h"
 #include "syslog-util.h"
+#include "swap.h"
 #include "unit.h"
 #include "unit-varlink.h"
 #include "varlink-common.h"
@@ -1315,6 +1316,18 @@ static int scope_context_build_json(sd_json_variant **ret, const char *name, voi
                         JSON_BUILD_PAIR_FINITE_USEC("TimeoutStopUSec", s->timeout_stop_usec));
 }
 
+static int swap_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        Swap *s = ASSERT_PTR(SWAP(userdata));
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        SD_JSON_BUILD_PAIR_STRING("What", s->what),
+                        SD_JSON_BUILD_PAIR_INTEGER("Priority", swap_get_priority(s)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Options", swap_get_options(s)),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimeoutUSec", s->timeout_usec),
+                        SD_JSON_BUILD_PAIR_CALLBACK("ExecActivate", exec_command_build_json, &s->exec_command[SWAP_EXEC_ACTIVATE]),
+                        SD_JSON_BUILD_PAIR_CALLBACK("ExecDeactivate", exec_command_build_json, &s->exec_command[SWAP_EXEC_DEACTIVATE]));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -1328,7 +1341,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                 [UNIT_SERVICE] = NULL,
                 [UNIT_SLICE] = NULL,
                 [UNIT_SOCKET] = NULL,
-                [UNIT_SWAP] = NULL,
+                [UNIT_SWAP] = swap_context_build_json,
                 [UNIT_TARGET] = NULL,
                 [UNIT_TIMER] = NULL,
         };
