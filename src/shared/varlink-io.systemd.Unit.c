@@ -244,6 +244,480 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(MemoryPressureThresholdUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                EnvironmentFile,
+                SD_VARLINK_FIELD_COMMENT("The path to the environment file"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether failure to read the environment file is fatal or not"),
+                SD_VARLINK_DEFINE_FIELD(graceful, SD_VARLINK_BOOL, 0));
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                WorkingDirectory,
+                SD_VARLINK_FIELD_COMMENT("The path to the working directory"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the path to the working directory is allowed to not exist"),
+                SD_VARLINK_DEFINE_FIELD(missingOK, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PartitionMountOptions,
+                SD_VARLINK_FIELD_COMMENT("The partition designator to which the options apply"),
+                SD_VARLINK_DEFINE_FIELD(partitionDesignator, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options for this partition"),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExtensionImage,
+                SD_VARLINK_FIELD_COMMENT("The path to the extension image"),
+                SD_VARLINK_DEFINE_FIELD(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether failure to find the extension image is considered fatal"),
+                SD_VARLINK_DEFINE_FIELD(ignoreEnoent, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options to use for the partitions of the extension image"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mountOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                MountImage,
+                SD_VARLINK_FIELD_COMMENT("The path to the image to mount"),
+                SD_VARLINK_DEFINE_FIELD(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The destination path where to mount the image"),
+                SD_VARLINK_DEFINE_FIELD(destination, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether failure to find the image is considered fatal"),
+                SD_VARLINK_DEFINE_FIELD(ignoreEnoent, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options to use for the partitions of the image"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mountOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                LogFilterPattern,
+                SD_VARLINK_FIELD_COMMENT("Whether this pattern is an allow pattern"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The filtering pattern"),
+                SD_VARLINK_DEFINE_FIELD(pattern, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SetCredential,
+                SD_VARLINK_FIELD_COMMENT("The credential ID"),
+                SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The credential value encoded in base64"),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                LoadCredential,
+                SD_VARLINK_FIELD_COMMENT("The credential ID"),
+                SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The credential path"),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ImportCredential,
+                SD_VARLINK_FIELD_COMMENT("The glob pattern to find credentials"),
+                SD_VARLINK_DEFINE_FIELD(glob, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The rename pattern to which matching credentials should be renamed"),
+                SD_VARLINK_DEFINE_FIELD(rename, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SELinuxContext,
+                SD_VARLINK_FIELD_COMMENT("Whether failure to set the SELinux context is ignored"),
+                SD_VARLINK_DEFINE_FIELD(ignore, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The SELinux context"),
+                SD_VARLINK_DEFINE_FIELD(context, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                AppArmorProfile,
+                SD_VARLINK_FIELD_COMMENT("Whether failure to configure the apparmor profile will be ignored"),
+                SD_VARLINK_DEFINE_FIELD(ignore, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The AppArmor profile"),
+                SD_VARLINK_DEFINE_FIELD(profile, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SmackProcessLabel,
+                SD_VARLINK_FIELD_COMMENT("Whether failure to configure the smack process label will be ignored"),
+                SD_VARLINK_DEFINE_FIELD(ignore, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The smack process label"),
+                SD_VARLINK_DEFINE_FIELD(label, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SystemCallList,
+                SD_VARLINK_FIELD_COMMENT("Whether the list of system calls is an allow list"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The list of system calls"),
+                SD_VARLINK_DEFINE_FIELD(systemCalls, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                AddressFamilyList,
+                SD_VARLINK_FIELD_COMMENT("Whether the list of address families is an allow list"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The list of address families"),
+                SD_VARLINK_DEFINE_FIELD(addressFamilies, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecDirectory,
+                SD_VARLINK_FIELD_COMMENT("The path to the directory"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The access mode of the directory"),
+                SD_VARLINK_DEFINE_FIELD(mode, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("A list of symlinks pointing to the directory"),
+                SD_VARLINK_DEFINE_FIELD(symlinks, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                FilesystemList,
+                SD_VARLINK_FIELD_COMMENT("Whether the list of filesystems is an allow list"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The list of filesystems"),
+                SD_VARLINK_DEFINE_FIELD(filesystems, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BindPath,
+                SD_VARLINK_FIELD_COMMENT("The mount source path"),
+                SD_VARLINK_DEFINE_FIELD(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount destination path"),
+                SD_VARLINK_DEFINE_FIELD(destination, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether a missing source path should be ignored"),
+                SD_VARLINK_DEFINE_FIELD(ignoreEnoent, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Mount options"),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TemporaryFilesystem,
+                SD_VARLINK_FIELD_COMMENT("The destination path where the temporary filesystem should be mounted"),
+                SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options for the temporary filesystem"),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExecContext,
+
+                /* Paths
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Paths */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ExecSearchPath="),
+                SD_VARLINK_DEFINE_FIELD(ExecSearchPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#WorkingDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(WorkingDirectory, WorkingDirectory, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootDirectory="),
+                SD_VARLINK_DEFINE_FIELD(RootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootImage="),
+                SD_VARLINK_DEFINE_FIELD(RootImage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootImageOptions="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RootImageOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootEphemeral="),
+                SD_VARLINK_DEFINE_FIELD(RootEphemeral, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootHash="),
+                SD_VARLINK_DEFINE_FIELD(RootHash, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootHash="),
+                SD_VARLINK_DEFINE_FIELD(RootHashPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootHashSignature="),
+                SD_VARLINK_DEFINE_FIELD(RootHashSignature, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootHashSignature="),
+                SD_VARLINK_DEFINE_FIELD(RootHashSignaturePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootVerity="),
+                SD_VARLINK_DEFINE_FIELD(RootVerity, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootImagePolicy="),
+                SD_VARLINK_DEFINE_FIELD(RootImagePolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootImagePolicy="),
+                SD_VARLINK_DEFINE_FIELD(MountImagePolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RootImagePolicy="),
+                SD_VARLINK_DEFINE_FIELD(ExtensionImagePolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#MountAPIVFS="),
+                SD_VARLINK_DEFINE_FIELD(MountAPIVFS, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectProc="),
+                SD_VARLINK_DEFINE_FIELD(ProtectProc, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProcSubset="),
+                SD_VARLINK_DEFINE_FIELD(ProcSubset, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#BindPaths="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BindPaths, BindPath, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#BindPaths="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BindReadOnlyPaths, BindPath, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#MountImages="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MountImages, MountImage, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ExtensionImages="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExtensionImages, ExtensionImage, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ExtensionDirectories="),
+                SD_VARLINK_DEFINE_FIELD(ExtensionDirectories, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* User/Group Identity
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#User/Group%20Identity */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#User="),
+                SD_VARLINK_DEFINE_FIELD(User, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#User="),
+                SD_VARLINK_DEFINE_FIELD(Group, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#DynamicUser="),
+                SD_VARLINK_DEFINE_FIELD(DynamicUser, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SupplementaryGroups="),
+                SD_VARLINK_DEFINE_FIELD(SupplementaryGroups, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SetLoginEnvironment="),
+                SD_VARLINK_DEFINE_FIELD(SetLoginEnvironment, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PAMName="),
+                SD_VARLINK_DEFINE_FIELD(PAMName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
+                /* Capabilities
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Capabilities */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CapabilityBoundingSet="),
+                SD_VARLINK_DEFINE_FIELD(CapabilityBoundingSet, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#AmbientCapabilities="),
+                SD_VARLINK_DEFINE_FIELD(AmbientCapabilities, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Security
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Security */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#NoNewPrivileges="),
+                SD_VARLINK_DEFINE_FIELD(NoNewPrivileges, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SecureBits="),
+                SD_VARLINK_DEFINE_FIELD(SecureBits, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Mandatory Access Control
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Mandatory%20Access%20Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SELinuxContext="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SELinuxContext, SELinuxContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#AppArmorProfile="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(AppArmorProfile, AppArmorProfile, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SmackProcessLabel="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SmackProcessLabel, SmackProcessLabel, SD_VARLINK_NULLABLE),
+
+                /* Process Properties
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process%20Properties */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitCPU, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitFSIZE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitDATA, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitSTACK, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitCORE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitRSS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitNOFILE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitAS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitNPROC, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitMEMLOCK, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitLOCKS, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitSIGPENDING, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitMSGQUEUE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitNICE, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitRTPRIO, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LimitCPU="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LimitRTTIME, ResourceLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#UMask="),
+                SD_VARLINK_DEFINE_FIELD(UMask, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CoredumpFilter="),
+                SD_VARLINK_DEFINE_FIELD(CoredumpFilter, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#KeyringMode="),
+                SD_VARLINK_DEFINE_FIELD(KeyringMode, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#OOMScoreAdjust="),
+                SD_VARLINK_DEFINE_FIELD(OOMScoreAdjust, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TimerSlackNSec="),
+                SD_VARLINK_DEFINE_FIELD(TimerSlackNSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Personality="),
+                SD_VARLINK_DEFINE_FIELD(Personality, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#IgnoreSIGPIPE="),
+                SD_VARLINK_DEFINE_FIELD(IgnoreSIGPIPE, SD_VARLINK_BOOL, 0),
+
+                /* Scheduling
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Scheduling */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Nice="),
+                SD_VARLINK_DEFINE_FIELD(Nice, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CPUSchedulingPolicy="),
+                SD_VARLINK_DEFINE_FIELD(CPUSchedulingPolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CPUSchedulingPriority="),
+                SD_VARLINK_DEFINE_FIELD(CPUSchedulingPriority, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CPUSchedulingResetOnFork="),
+                SD_VARLINK_DEFINE_FIELD(CPUSchedulingResetOnFork, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#CPUAffinity="),
+                SD_VARLINK_DEFINE_FIELD(CPUAffinity, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether the CPU affinity for this unit comes from NUMA"),
+                SD_VARLINK_DEFINE_FIELD(CPUAffinityFromNUMA, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#NUMAPolicy="),
+                SD_VARLINK_DEFINE_FIELD(NUMAPolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#NUMAMask="),
+                SD_VARLINK_DEFINE_FIELD(NUMAMask, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#IOSchedulingClass="),
+                SD_VARLINK_DEFINE_FIELD(IOSchedulingClass, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#IOSchedulingPriority="),
+                SD_VARLINK_DEFINE_FIELD(IOSchedulingPriority, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+
+                /* Sandboxing
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Sandboxing */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectSystem="),
+                SD_VARLINK_DEFINE_FIELD(ProtectSystem, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectHome="),
+                SD_VARLINK_DEFINE_FIELD(ProtectHome, SD_VARLINK_STRING, 0),
+
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RuntimeDirectory, ExecDirectory, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(StateDirectory, ExecDirectory, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CacheDirectory, ExecDirectory, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogsDirectory, ExecDirectory, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectory="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ConfigurationDirectory, ExecDirectory, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RuntimeDirectoryPreserve="),
+                SD_VARLINK_DEFINE_FIELD(RuntimeDirectoryPreserve, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TimeoutCleanSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutCleanUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ReadWritePaths="),
+                SD_VARLINK_DEFINE_FIELD(ReadWritePaths, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ReadWritePaths="),
+                SD_VARLINK_DEFINE_FIELD(ReadOnlyPaths, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ReadWritePaths="),
+                SD_VARLINK_DEFINE_FIELD(InaccessiblePaths, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ReadWritePaths="),
+                SD_VARLINK_DEFINE_FIELD(ExecPaths, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ReadWritePaths="),
+                SD_VARLINK_DEFINE_FIELD(NoExecPaths, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TemporaryFileSystem="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(TemporaryFileSystem, TemporaryFilesystem, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateTmp="),
+                SD_VARLINK_DEFINE_FIELD(PrivateTmp, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateDevices="),
+                SD_VARLINK_DEFINE_FIELD(PrivateDevices, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateNetwork="),
+                SD_VARLINK_DEFINE_FIELD(PrivateNetwork, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#NetworkNamespacePath="),
+                SD_VARLINK_DEFINE_FIELD(NetworkNamespacePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateIPC="),
+                SD_VARLINK_DEFINE_FIELD(PrivateIPC, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#IPCNamespacePath="),
+                SD_VARLINK_DEFINE_FIELD(IPCNamespacePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#MemoryKSM="),
+                SD_VARLINK_DEFINE_FIELD(MemoryKSM, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateUsers="),
+                SD_VARLINK_DEFINE_FIELD(PrivateUsers, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectHostname="),
+                SD_VARLINK_DEFINE_FIELD(ProtectHostname, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectClock="),
+                SD_VARLINK_DEFINE_FIELD(ProtectClock, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectKernelTunables="),
+                SD_VARLINK_DEFINE_FIELD(ProtectKernelTunables, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectKernelModules="),
+                SD_VARLINK_DEFINE_FIELD(ProtectKernelModules, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectKernelLogs="),
+                SD_VARLINK_DEFINE_FIELD(ProtectKernelLogs, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ProtectControlGroups="),
+                SD_VARLINK_DEFINE_FIELD(ProtectControlGroups, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RestrictAddressFamilies="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictAddressFamilies, AddressFamilyList, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RestrictFileSystems="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictFilesystems, FilesystemList, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RestrictNamespaces="),
+                SD_VARLINK_DEFINE_FIELD(RestrictNamespaces, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LockPersonality="),
+                SD_VARLINK_DEFINE_FIELD(LockPersonality, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#MemoryDenyWriteExecute="),
+                SD_VARLINK_DEFINE_FIELD(MemoryDenyWriteExecute, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RestrictRealtime="),
+                SD_VARLINK_DEFINE_FIELD(RestrictRealtime, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#RestrictSUIDSGID="),
+                SD_VARLINK_DEFINE_FIELD(RestrictSUIDSGID, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether to remove all System V and POSIX IPC objects owned by the user and group this unit runs under"),
+                SD_VARLINK_DEFINE_FIELD(RemoveIPC, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PrivateMounts="),
+                SD_VARLINK_DEFINE_FIELD(PrivateMounts, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#MountFlags="),
+                SD_VARLINK_DEFINE_FIELD(MountFlags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+
+                /* System Call Filtering
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20Call%20Filtering */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SystemCallFilter="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SystemCallFilter, SystemCallList, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SystemCallErrorNumber="),
+                SD_VARLINK_DEFINE_FIELD(SystemCallErrorNumber, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SystemCallArchitectures="),
+                SD_VARLINK_DEFINE_FIELD(SystemCallArchitectures, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SystemCallLog="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SystemCallLog, SystemCallList, SD_VARLINK_NULLABLE),
+
+                /* Environment
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Environment */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Environment="),
+                SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_MAP|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#EnvironmentFile="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(EnvironmentFiles, EnvironmentFile, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#PassEnvironment="),
+                SD_VARLINK_DEFINE_FIELD(PassEnvironment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#UnsetEnvironment="),
+                SD_VARLINK_DEFINE_FIELD(UnsetEnvironment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* Logging and Standard Input/Output
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Logging%20and%20Standard%20Input/Output */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#StandardInput="),
+                SD_VARLINK_DEFINE_FIELD(StandardInput, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#StandardOutput="),
+                SD_VARLINK_DEFINE_FIELD(StandardOutput, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#StandardError="),
+                SD_VARLINK_DEFINE_FIELD(StandardError, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The file descriptor name to connect standard input to"),
+                SD_VARLINK_DEFINE_FIELD(StandardInputFileDescriptorName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The file descriptor name to connect standard output to"),
+                SD_VARLINK_DEFINE_FIELD(StandardOutputFileDescriptorName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The file descriptor name to connect standard error to"),
+                SD_VARLINK_DEFINE_FIELD(StandardErrorFileDescriptorName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#StandardInputText="),
+                SD_VARLINK_DEFINE_FIELD(StandardInputData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogLevelMax="),
+                SD_VARLINK_DEFINE_FIELD(LogLevelMax, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogExtraFields="),
+                SD_VARLINK_DEFINE_FIELD(LogExtraFields, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogRateLimitIntervalSec="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogRateLimit, RateLimit, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogFilterPatterns="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogFilterPatterns, LogFilterPattern, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LogNamespace="),
+                SD_VARLINK_DEFINE_FIELD(LogNamespace, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogIdentifier="),
+                SD_VARLINK_DEFINE_FIELD(SyslogIdentifier, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogFacility="),
+                SD_VARLINK_DEFINE_FIELD(SyslogFacility, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogLevel="),
+                SD_VARLINK_DEFINE_FIELD(SyslogLevel, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SyslogLevelPrefix="),
+                SD_VARLINK_DEFINE_FIELD(SyslogLevelPrefix, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYPath="),
+                SD_VARLINK_DEFINE_FIELD(TTYPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYReset="),
+                SD_VARLINK_DEFINE_FIELD(TTYReset, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYVHangup="),
+                SD_VARLINK_DEFINE_FIELD(TTYVHangup, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYRows="),
+                SD_VARLINK_DEFINE_FIELD(TTYRows, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYRows="),
+                SD_VARLINK_DEFINE_FIELD(TTYColumns, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#TTYVTDisallocate="),
+                SD_VARLINK_DEFINE_FIELD(TTYVTDisallocate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+
+                /* Credentials
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Credentials */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LoadCredential=ID:PATH"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LoadCredential, LoadCredential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#LoadCredential=ID:PATH"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LoadCredentialEncrypted, LoadCredential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#ImportCredential=GLOB"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ImportCredential, ImportCredential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SetCredential=ID:VALUE"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SetCredential, SetCredential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#SetCredential=ID:VALUE"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(SetCredentialEncrypted, SetCredential, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+
+                /* System V Compatibility
+                 * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20V%20Compatibility */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#UtmpIdentifier="),
+                SD_VARLINK_DEFINE_FIELD(UtmpIdentifier, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#UtmpMode="),
+                SD_VARLINK_DEFINE_FIELD(UtmpMode, SD_VARLINK_STRING, 0),
+
+                /* Others */
+                SD_VARLINK_FIELD_COMMENT("Whether to make all file descriptors passed via socket activation nonblocking"),
+                SD_VARLINK_DEFINE_FIELD(NonBlocking, SD_VARLINK_BOOL, 0),
+                /* sameProcessGroup can't be configured in unit files. */
+                SD_VARLINK_DEFINE_FIELD(SameProcessGroup, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
@@ -372,7 +846,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html#CollectMode="),
                 SD_VARLINK_DEFINE_FIELD(CollectMode, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -400,6 +876,26 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_CGroupRestrictNetworkInterfaces,
                 &vl_type_CGroupNFTSet,
                 &vl_type_CGroupContext,
+                &vl_type_EnvironmentFile,
+                &vl_type_WorkingDirectory,
+                &vl_type_PartitionMountOptions,
+                &vl_type_ExtensionImage,
+                &vl_type_MountImage,
+                &vl_type_LogFilterPattern,
+                &vl_type_SetCredential,
+                &vl_type_LoadCredential,
+                &vl_type_ImportCredential,
+                &vl_type_SELinuxContext,
+                &vl_type_AppArmorProfile,
+                &vl_type_SmackProcessLabel,
+                &vl_type_SystemCallList,
+                &vl_type_AddressFamilyList,
+                &vl_type_ExecDirectory,
+                &vl_type_FilesystemList,
+                &vl_type_BindPath,
+                &vl_type_TemporaryFilesystem,
+                &vl_type_ResourceLimit,
+                &vl_type_ExecContext,
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);

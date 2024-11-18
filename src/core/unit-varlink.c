@@ -3,9 +3,16 @@
 #include "sd-json.h"
 
 #include "af-list.h"
+#include "cap-list.h"
+#include "exec-credential.h"
 #include "json-util.h"
+#include "mountpoint-util.h"
 #include "in-addr-prefix-util.h"
+#include "ioprio-util.h"
 #include "ip-protocol-list.h"
+#include "seccomp-util.h"
+#include "securebits-util.h"
+#include "syslog-util.h"
 #include "unit.h"
 #include "unit-varlink.h"
 #include "varlink-common.h"
@@ -411,6 +418,770 @@ static int cgroup_context_build_json(sd_json_variant **ret, const char *name, vo
                         JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->memory_pressure_threshold_usec));
 }
 
+static int environment_files_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        char **environment_files = userdata;
+        int r;
+
+        assert(ret);
+
+        STRV_FOREACH(j, environment_files) {
+                const char *fn = *j;
+                if (isempty(fn))
+                        continue;
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("path", fn[0] == '-' ? fn + 1 : fn),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("graceful", fn[0] == '-'));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int working_directory_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+        const char *wd = c->working_directory_home ? "~" : c->working_directory;
+        if (!wd)
+                return 0;
+
+        assert(ret);
+
+        return sd_json_buildo(ret,
+                SD_JSON_BUILD_PAIR_STRING("path", wd),
+                SD_JSON_BUILD_PAIR_BOOLEAN("missingOK", c->working_directory_missing_ok));
+}
+
+static int root_image_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        MountOptions *root_image_options = userdata;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(mount_options, m, root_image_options) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
+                                SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int extension_images_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < c->n_extension_images; i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
+
+                LIST_FOREACH(mount_options, m, c->extension_images[i].mount_options) {
+                        r = sd_json_variant_append_arraybo(&mo,
+                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
+                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("source", c->extension_images[i].source),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("ignoreEnoent", c->extension_images[i].ignore_enoent),
+                                SD_JSON_BUILD_PAIR_VARIANT("mountOptions", mo));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int mount_images_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < c->n_mount_images; i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
+
+                LIST_FOREACH(mount_options, m, c->mount_images[i].mount_options) {
+                        r = sd_json_variant_append_arraybo(&mo,
+                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
+                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("source", c->mount_images[i].source),
+                                SD_JSON_BUILD_PAIR_STRING("destination", c->mount_images[i].destination),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("ignoreEnoent", c->mount_images[i].ignore_enoent),
+                                SD_JSON_BUILD_PAIR_VARIANT("mountOptions", mo));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int ioprio_class_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!c->ioprio_set)
+                return 0;
+
+        r = ioprio_class_to_string_alloc(ioprio_prio_class(exec_context_get_effective_ioprio(c)), &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert IOPrio class to string: %m");
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int cpu_sched_class_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!c->cpu_sched_set)
+                return 0;
+
+        r = sched_policy_to_string_alloc(exec_context_get_cpu_sched_policy(c), &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert shed policy to string: %m");
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int cpu_affinity_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        if (exec_context_get_cpu_affinity_from_numa(c)) {
+                _cleanup_(cpu_set_reset) CPUSet s = {};
+
+                r = numa_to_cpu_set(&c->numa_policy, &s);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to call numa_to_cpu_set(): %m");
+
+                return cpu_set_build_json(ret, /* name= */ NULL, &s);
+        }
+
+        return cpu_set_build_json(ret, /* name= */ NULL, &c->cpu_set);
+}
+
+static int numa_policy_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        int t = numa_policy_get_type(&c->numa_policy);
+        if (!mpol_is_valid(t))
+                return 0;
+
+        return sd_json_variant_new_string(ret, mpol_to_string(t));
+}
+
+static int numa_mask_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        int t = numa_policy_get_type(&c->numa_policy);
+        if (!mpol_is_valid(t))
+                return 0;
+
+        return cpu_set_build_json(ret, /* name= */ NULL, &c->numa_policy.nodes);
+}
+
+static int log_level_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        int log_level = PTR_TO_INT(userdata);
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (log_level < 0)
+                return 0;
+
+        r = log_level_to_string_alloc(log_level, &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert log level to string: %m");
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int syslog_facility_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        int log_facility = PTR_TO_INT(userdata);
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = log_facility_unshifted_to_string_alloc(log_facility << 3, &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert log facility to string: %m");
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int log_extra_fields_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < c->n_log_extra_fields; i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *s = NULL;
+
+                r = sd_json_variant_new_stringn(&s, c->log_extra_fields[i].iov_base, c->log_extra_fields[i].iov_len);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&v, s);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int log_filter_patterns_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        const char *pattern;
+        int r;
+
+        SET_FOREACH(pattern, c->log_filter_allowed_patterns) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("isAllowPattern", true),
+                                SD_JSON_BUILD_PAIR_STRING("pattern", pattern));
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(pattern, c->log_filter_denied_patterns) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_BOOLEAN("isAllowPattern", false),
+                                SD_JSON_BUILD_PAIR_STRING("pattern", pattern));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int secure_bits_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        int secure_bits = PTR_TO_INT(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = secure_bits_to_string_alloc(secure_bits, &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert secure bits to string: %m");
+
+        if (strlen(s) == 0)
+                return 0;
+
+        l = strv_split(s, NULL);
+        if (!l)
+                return -ENOMEM;
+
+        return sd_json_variant_new_array_strv(ret, l);
+}
+
+static int capability_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        uint64_t *capability_set = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        r = capability_set_to_strv(*capability_set, &l);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert capability set to string[]: %m");
+
+        if (strv_length(l) == 0)
+                return 0;
+
+        return sd_json_variant_new_array_strv(ret, l);
+}
+
+static int set_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Hashmap *set_credentials = userdata;
+        ExecSetCredential *sc;
+        int r;
+
+        assert(ret);
+
+        HASHMAP_FOREACH(sc, set_credentials) {
+                if (sc->encrypted != streq(name, "setCredentialEncrypted"))
+                        continue;
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("id", sc->id),
+                                SD_JSON_BUILD_PAIR_BASE64("value", sc->data, sc->size));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int load_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Hashmap *load_credentials = userdata;
+        ExecLoadCredential *lc;
+        int r;
+
+        assert(ret);
+
+        HASHMAP_FOREACH(lc, load_credentials) {
+                if (lc->encrypted != streq(name, "loadCredentialEncrypted"))
+                        continue;
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("id", lc->id),
+                                SD_JSON_BUILD_PAIR_STRING("path", lc->path));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int import_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        OrderedSet *import_credentials = userdata;
+        ExecImportCredential *ic;
+        int r;
+
+        assert(ret);
+
+        ORDERED_SET_FOREACH(ic, import_credentials) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("glob", ic->glob),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("rename", ic->rename));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int syscall_filter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        l = exec_context_get_syscall_filter(c);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->syscall_allow_list),
+                        SD_JSON_BUILD_PAIR_STRV("systemCalls", l));
+}
+
+static int syscall_archs_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        l = exec_context_get_syscall_archs(c);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_variant_new_array_strv(ret, l);
+}
+
+static int syscall_error_number_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        int syscall_error_number = c->syscall_errno;
+        if (syscall_error_number == 0)
+                return 0;
+        if (syscall_error_number == SECCOMP_ERROR_NUMBER_KILL)
+                return sd_json_variant_new_string(ret, "kill");
+        if (errno_to_name(syscall_error_number))
+                return sd_json_variant_new_string(ret, errno_to_name(syscall_error_number));
+
+        char buf[DECIMAL_STR_MAX(int) + 1];
+        xsprintf(buf, "%i", syscall_error_number);
+
+        return sd_json_variant_new_string(ret, buf);
+}
+
+static int syscall_log_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        l = exec_context_get_syscall_log(c);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->syscall_allow_list),
+                        SD_JSON_BUILD_PAIR_STRV("systemCalls", l));
+}
+
+static int address_families_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        l = exec_context_get_address_families(c);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->address_families_allow_list),
+                        SD_JSON_BUILD_PAIR_STRV("addressFamilies", l));
+}
+
+static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecDirectory *exec_dir = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        FOREACH_ARRAY(dir, exec_dir->items, exec_dir->n_items) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("path", dir->path),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("mode", exec_dir->mode),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", dir->symlinks));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int namespace_flags_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        r = namespace_flags_to_strv(c->restrict_namespaces, &l);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert namespace flags to string[]: %m");
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_variant_new_array_strv(ret, l);
+}
+
+static int restrict_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(ret);
+
+        l = exec_context_get_restrict_filesystems(c);
+        if (!l)
+                return -ENOMEM;
+
+        if (strv_isempty(l))
+                return 0;
+
+        return sd_json_buildo(ret,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->restrict_filesystems_allow_list),
+                        SD_JSON_BUILD_PAIR_STRV("filesystems", l));
+}
+
+static int bind_paths_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        bool ro = strstr(name, "ReadOnly");
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < c->n_bind_mounts; i++) {
+                if (ro != c->bind_mounts[i].read_only)
+                        continue;
+
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("source", c->bind_mounts[i].source),
+                                SD_JSON_BUILD_PAIR_STRING("destination", c->bind_mounts[i].destination),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("ignoreEnoent", c->bind_mounts[i].ignore_enoent),
+                                SD_JSON_BUILD_PAIR_STRV("options", STRV_MAKE(c->bind_mounts[i].recursive ? "rbind" : "norbind")));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int temporary_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        FOREACH_ARRAY(t, c->temporary_filesystems, c->n_temporary_filesystems) {
+                r = sd_json_variant_append_arraybo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("path", t->path),
+                                SD_JSON_BUILD_PAIR_STRING("options", t->options));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int image_policy_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_free_ char *s = NULL;
+        ImagePolicy *policy = userdata;
+        int r;
+
+        assert(ret);
+
+        r = image_policy_to_string(policy ?: &image_policy_service, /* simplify= */ true, &s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert image policy to string: %m");
+
+        return sd_json_variant_new_string(ret, s);
+}
+
+static int exec_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecContext *c;
+
+        c = unit_get_exec_context(ASSERT_PTR(userdata));
+        if (!c)
+                return 0;
+
+        return sd_json_buildo(ASSERT_PTR(ret),
+                        /* Paths */
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ExecSearchPath", c->exec_search_path),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("WorkingDirectory", working_directory_build_json, c),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootDirectory", c->root_directory),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootImage", c->root_image),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RootImageOptions", root_image_options_build_json, c->root_image_options),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RootEphemeral", c->root_ephemeral),
+                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHash", c->root_hash, c->root_hash_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootHashPath", c->root_hash_path),
+                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHashSignature", c->root_hash_sig, c->root_hash_sig_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootHashSignaturePath", c->root_hash_sig_path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootVerity", c->root_verity),
+                        SD_JSON_BUILD_PAIR_CALLBACK("RootImagePolicy", image_policy_build_json, c->root_image_policy),
+                        SD_JSON_BUILD_PAIR_CALLBACK("MountImagePolicy", image_policy_build_json, c->mount_image_policy),
+                        SD_JSON_BUILD_PAIR_CALLBACK("ExtensionImagePolicy", image_policy_build_json, c->extension_image_policy),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MountAPIVFS", c->mount_apivfs),
+                        SD_JSON_BUILD_PAIR_STRING("ProtectProc", protect_proc_to_string(c->protect_proc)),
+                        SD_JSON_BUILD_PAIR_STRING("ProcSubset", proc_subset_to_string(c->proc_subset)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("BindPaths", bind_paths_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("BindReadOnlyPaths", bind_paths_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("MountImages", mount_images_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ExtensionImages", extension_images_build_json, c),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ExtensionDirectories", c->extension_directories),
+
+                        /* User/Group Identity */
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("User", c->user),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Group", c->group),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DynamicUser", c->dynamic_user),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("SupplementaryGroups", c->supplementary_groups),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("SetLoginEnvironment", c->set_login_environment),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PAMName", c->pam_name),
+
+                        /* Capabilities */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CapabilityBoundingSet", capability_set_build_json, &c->capability_bounding_set),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("AmbientCapabilities", capability_set_build_json, &c->capability_ambient_set),
+
+                        /* Security */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NoNewPrivileges", c->no_new_privileges),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SecureBits", secure_bits_build_json, INT_TO_PTR(c->secure_bits)),
+
+                        /* Mandatory Access Control */
+                        SD_JSON_BUILD_PAIR_CONDITION(!!c->selinux_context, "SELinuxContext",
+                                        SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("Ignore", c->selinux_context_ignore),
+                                                SD_JSON_BUILD_PAIR_STRING("Context", c->selinux_context))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!c->apparmor_profile, "AppArmorProfile",
+                                        SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("Ignore", c->apparmor_profile_ignore),
+                                                SD_JSON_BUILD_PAIR_STRING("Profile", c->apparmor_profile))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!c->smack_process_label, "SmackProcessLabel",
+                                        SD_JSON_BUILD_OBJECT(
+                                                SD_JSON_BUILD_PAIR_BOOLEAN("Ignore", c->smack_process_label_ignore),
+                                                SD_JSON_BUILD_PAIR_STRING("Label", c->smack_process_label))),
+
+                        /* Process Properties */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitCPU", rlimit_build_json, c->rlimit[RLIMIT_CPU]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitFSIZE", rlimit_build_json, c->rlimit[RLIMIT_FSIZE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitDATA", rlimit_build_json, c->rlimit[RLIMIT_DATA]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitSTACK", rlimit_build_json, c->rlimit[RLIMIT_STACK]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitCORE", rlimit_build_json, c->rlimit[RLIMIT_CORE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitRSS", rlimit_build_json, c->rlimit[RLIMIT_RSS]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitNOFILE", rlimit_build_json, c->rlimit[RLIMIT_NOFILE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitAS", rlimit_build_json, c->rlimit[RLIMIT_AS]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitNPROC", rlimit_build_json, c->rlimit[RLIMIT_NPROC]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitMEMLOCK", rlimit_build_json, c->rlimit[RLIMIT_MEMLOCK]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitLOCKS", rlimit_build_json, c->rlimit[RLIMIT_LOCKS]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitSIGPENDING", rlimit_build_json, c->rlimit[RLIMIT_SIGPENDING]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitMSGQUEUE", rlimit_build_json, c->rlimit[RLIMIT_MSGQUEUE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitNICE", rlimit_build_json, c->rlimit[RLIMIT_NICE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitRTPRIO", rlimit_build_json, c->rlimit[RLIMIT_RTPRIO]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LimitRTTIME", rlimit_build_json, c->rlimit[RLIMIT_RTTIME]),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("UMask", c->umask),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->coredump_filter_set, "CoredumpFilter", exec_context_get_coredump_filter(c)),
+                        SD_JSON_BUILD_PAIR_STRING("KeyringMode", exec_keyring_mode_to_string(c->keyring_mode)),
+                        JSON_BUILD_PAIR_CONDITION_INTEGER(c->oom_score_adjust_set, "OOMScoreAdjust", exec_context_get_oom_score_adjust(c)),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("TimerSlackNSec", c->timer_slack_nsec, NSEC_INFINITY),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Personality", personality_to_string(c->personality)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", c->ignore_sigpipe),
+
+                        /* Scheduling */
+                        JSON_BUILD_PAIR_CONDITION_INTEGER(c->nice_set, "Nice", exec_context_get_nice(c)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CPUSchedulingPolicy", cpu_sched_class_build_json, c),
+                        JSON_BUILD_PAIR_CONDITION_INTEGER(c->cpu_sched_set, "CPUSchedulingPriority", exec_context_get_cpu_sched_priority(c)),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(c->cpu_sched_set, "CPUSchedulingResetOnFork", c->cpu_sched_reset_on_fork),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CPUAffinity", cpu_affinity_build_json, c),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(!!c->cpu_set.set, "CPUAffinityFromNUMA", exec_context_get_cpu_affinity_from_numa(c)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("NUMAPolicy", numa_policy_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("NUMAMask", numa_mask_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOSchedulingClass", ioprio_class_build_json, c),
+                        JSON_BUILD_PAIR_CONDITION_INTEGER(c->ioprio_set, "IOSchedulingPriority", ioprio_prio_data(exec_context_get_effective_ioprio(c))),
+
+                        /* Sandboxing */
+                        SD_JSON_BUILD_PAIR_STRING("ProtectSystem", protect_system_to_string(c->protect_system)),
+                        SD_JSON_BUILD_PAIR_STRING("ProtectHome", protect_home_to_string(c->protect_home)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RuntimeDirectory", exec_dir_build_json, &c->directories[EXEC_DIRECTORY_RUNTIME]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("StateDirectory", exec_dir_build_json, &c->directories[EXEC_DIRECTORY_STATE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CacheDirectory", exec_dir_build_json, &c->directories[EXEC_DIRECTORY_CACHE]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogsDirectory", exec_dir_build_json, &c->directories[EXEC_DIRECTORY_LOGS]),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ConfigurationDirectory", exec_dir_build_json, &c->directories[EXEC_DIRECTORY_CONFIGURATION]),
+                        SD_JSON_BUILD_PAIR_STRING("RuntimeDirectoryPreserve", exec_preserve_mode_to_string(c->runtime_directory_preserve_mode)),
+                        JSON_BUILD_PAIR_FINITE_USEC("TimeoutCleanUSec", c->timeout_clean_usec),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ReadWritePaths", c->read_write_paths),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ReadOnlyPaths", c->read_only_paths),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("InaccessiblePaths", c->inaccessible_paths),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("ExecPaths", c->exec_paths),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("NoExecPaths", c->no_exec_paths),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("TemporaryFileSystem", temporary_filesystems_build_json, c),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PrivateTmp", c->private_tmp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PrivateDevices", c->private_devices),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PrivateNetwork", c->private_network),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("NetworkNamespacePath", c->network_namespace_path),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PrivateIPC", c->private_ipc),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("IPCNamespacePath", c->ipc_namespace_path),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PrivateUsers", c->private_users),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectHostname", c->protect_hostname),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectClock", c->protect_clock),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectKernelTunables", c->protect_kernel_tunables),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectKernelModules", c->protect_kernel_modules),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectKernelLogs", c->protect_kernel_logs),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ProtectControlGroups", c->protect_control_groups),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictAddressFamilies", address_families_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictFileSystems", restrict_filesystems_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictNamespaces", namespace_flags_build_json, c),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LockPersonality", c->lock_personality),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("MemoryDenyWriteExecute", c->memory_deny_write_execute),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RestrictRealtime", c->restrict_realtime),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RestrictSUIDSGID", c->restrict_suid_sgid),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RemoveIPC", c->remove_ipc),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("PrivateMounts", c->private_mounts),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("MountFlags", mount_propagation_flag_to_string(c->mount_propagation_flag)),
+
+                        /* System Call Filtering */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallFilter", syscall_filter_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallErrorNumber", syscall_error_number_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallArchitectures", syscall_archs_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallLog", syscall_log_build_json, c),
+
+                        /* Environment */
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", c->environment),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("EnvironmentFiles", environment_files_build_json, c->environment_files),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("PassEnvironment", c->pass_environment),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("UnsetEnvironment", c->unset_environment),
+
+                        /* Logging and Standard Input/Output */
+                        SD_JSON_BUILD_PAIR_STRING("StandardInput", exec_input_to_string(c->std_input)),
+                        SD_JSON_BUILD_PAIR_STRING("StandardOutput", exec_output_to_string(c->std_output)),
+                        SD_JSON_BUILD_PAIR_STRING("StandardError", exec_output_to_string(c->std_error)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("StandardInputFileDescriptorName", exec_context_fdname(c, STDIN_FILENO)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("StandardOutputFileDescriptorName", exec_context_fdname(c, STDOUT_FILENO)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("StandardErrorFileDescriptorName", exec_context_fdname(c, STDERR_FILENO)),
+                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("StandardInputData", c->stdin_data, c->stdin_data_size),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogLevelMax", log_level_build_json, INT_TO_PTR(c->log_level_max)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogExtraFields", log_extra_fields_build_json, c),
+                        JSON_BUILD_PAIR_RATELIMIT_ENABLED("LogRateLimit", &c->log_ratelimit),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LogFilterPatterns", log_filter_patterns_build_json, c),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("LogNamespace", c->log_namespace),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SyslogIdentifier", c->syslog_identifier),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SyslogFacility", syslog_facility_build_json, INT_TO_PTR(LOG_FAC(c->syslog_priority))),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SyslogLevel", log_level_build_json, INT_TO_PTR(LOG_PRI(c->syslog_priority))),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("SyslogLevelPrefix", c->syslog_level_prefix),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("TTYPath", c->tty_path),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(!!c->tty_path, "TTYReset", c->tty_reset),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(!!c->tty_path, "TTYVHangup", c->tty_vhangup),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(!!c->tty_path, "TTYRows", c->tty_rows),
+                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(!!c->tty_path, "TTYColumns", c->tty_cols),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(!!c->tty_path, "TTYVTDisallocate", c->tty_vt_disallocate),
+
+                        /* Credentials */
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LoadCredential", load_credential_build_json, c->load_credentials),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("LoadCredentialEncrypted", load_credential_build_json, c->load_credentials),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("ImportCredential", import_credential_build_json, c->import_credentials),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SetCredential", set_credential_build_json, c->set_credentials),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("SetCredentialEncrypted", set_credential_build_json, c->set_credentials),
+
+                        /* System V Compatibility */
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UtmpIdentifier", c->utmp_id),
+                        SD_JSON_BUILD_PAIR_STRING("UtmpMode", exec_utmp_mode_to_string(c->utmp_mode)),
+
+                        /* Others */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("SameProcessGroup", c->same_pgrp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NonBlocking", c->non_blocking));
+}
+
 #define JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY(name, value) \
         JSON_BUILD_STRING_FROM_TABLE_ABOVE_MIN(name, value, EMERGENCY_ACTION_NONE, emergency_action_to_string(value))
 
@@ -481,7 +1252,8 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_EMERGENCY_ACTION_NON_EMPTY("SuccessActionExitStatus", u->success_action_exit_status),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RebootArgument", u->reboot_arg),
                         SD_JSON_BUILD_PAIR_STRING("CollectMode", collect_mode_to_string(u->collect_mode)),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", cgroup_context_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", cgroup_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u));
 }
 
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
