@@ -1134,6 +1134,37 @@ int config_parse_route_prefix_lifetime(
         return 0;
 }
 
+int config_parse_route_prefix_preference(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        r = route_prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = config_parse_router_preference(unit, filename, line, section, section_line,
+                                           lvalue, ltype, rvalue, &p->route.preference, NULL);
+        if (r <= 0)
+                return r;
+
+        TAKE_PTR(p);
+        return 0;
+}
+
 int config_parse_pref64_prefix(
                 const char *unit,
                 const char *filename,
