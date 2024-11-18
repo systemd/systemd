@@ -4,15 +4,17 @@
 #include "sd-json.h"
 
 #include "bus-log-control-api.h"
-#include "bus-util.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "json-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "oomd-conf.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
@@ -120,6 +122,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 if (r < 0 && r != -EEXIST)
                         log_debug_errno(r, "Failed to insert message, ignoring: %m");
 
+                // TODO: Given that these values are updated dynamically on every invocation, it is okay not to handle this as part of reload.
                 /* Always update the limit in case it was changed. For non-memory pressure detection the value is
                  * ignored so always updating it here is not a problem. */
                 ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
@@ -648,6 +651,26 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        (void) notify_reloading();
+
+        r = manager_set_defaults(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set default values on reload: %m");
+
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse config file on reload: %m");
+        else
+                log_info("Config file reloaded.");
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -658,11 +681,23 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
+        r = manager_set_defaults(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set default values on reload: %m");
+
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse configuration file: %m");
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 
         (void) sd_event_set_watchdog(m->event, true);
+
+        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        if (r < 0)
+                return r;
 
         r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
@@ -754,35 +789,13 @@ static int manager_varlink_init(Manager *m, int fd) {
 int manager_start(
                 Manager *m,
                 bool dry_run,
-                int swap_used_limit_permyriad,
-                int mem_pressure_limit_permyriad,
-                usec_t mem_pressure_usec,
                 int fd) {
 
-        unsigned long l, f;
         int r;
 
         assert(m);
 
         m->dry_run = dry_run;
-
-        m->swap_used_limit_permyriad = swap_used_limit_permyriad >= 0 ? swap_used_limit_permyriad : DEFAULT_SWAP_USED_LIMIT_PERCENT * 100;
-        assert(m->swap_used_limit_permyriad <= 10000);
-
-        if (mem_pressure_limit_permyriad >= 0) {
-                assert(mem_pressure_limit_permyriad <= 10000);
-
-                l = mem_pressure_limit_permyriad / 100;
-                f = mem_pressure_limit_permyriad % 100;
-        } else {
-                l = DEFAULT_MEM_PRESSURE_LIMIT_PERCENT;
-                f = 0;
-        }
-        r = store_loadavg_fixed_point(l, f, &m->default_mem_pressure_limit);
-        if (r < 0)
-                return r;
-
-        m->default_mem_pressure_duration_usec = mem_pressure_usec;
 
         r = manager_connect_bus(m);
         if (r < 0)
