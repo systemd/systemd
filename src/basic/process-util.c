@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <linux/magic.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
@@ -11,6 +12,9 @@
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/pidfd.h>
+#endif
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -40,6 +44,7 @@
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
@@ -2261,4 +2266,43 @@ _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
                 log_debug_errno(r, "Failed to write errno to errno_fd=%d: %m", errno_fd);
 
         _exit(EXIT_FAILURE);
+}
+
+int getpidfdid_cached(uint64_t *ret) {
+        static uint64_t cached = 0;
+        static int initialized = 0;
+        int r;
+
+        assert(ret);
+
+        if (initialized > 0) {
+                *ret = cached;
+                return 0;
+        }
+        if (initialized < 0)
+                return initialized;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (initialized = -EOPNOTSUPP);
+
+                return -errno;
+        }
+
+        r = fd_is_fs_type(fd, PID_FS_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return (initialized = -EOPNOTSUPP);
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+        if (st.st_ino == 0)
+                return (initialized = -EOPNOTSUPP);
+
+        *ret = cached = st.st_ino;
+        initialized = 1;
+        return 0;
 }
