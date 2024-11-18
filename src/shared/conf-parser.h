@@ -313,6 +313,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_calendar);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_loadavg);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
