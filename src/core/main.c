@@ -45,6 +45,7 @@
 #include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -57,6 +58,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
@@ -73,6 +75,7 @@
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "os-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -2380,6 +2383,38 @@ static void log_execution_mode(bool *ret_first_boot) {
         *ret_first_boot = first_boot;
 }
 
+static int write_boot_or_shutdown_osc(bool boot) {
+        int r;
+
+        if (getenv_terminal_is_dumb())
+                return 0;
+
+        const char *type = boot ? "boot" : "shutdown";
+
+        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
+
+        _cleanup_free_ char *seq = NULL;
+        if (boot)
+                r = osc_context_open_boot(&seq);
+        else
+                r = osc_context_close(SD_ID128_ALLF, &seq);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire %s OSC sequence, ignoring: %m", type);
+
+        r = loop_write(fd, seq, strlen(seq));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write %s OSC sequence, ignoring: %m", type);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *h = cescape(seq);
+                log_debug("OSC sequence for %s successfully written: %s", type, strna(h));
+        }
+
+        return 0;
+}
+
 static int initialize_runtime(
                 bool skip_setup,
                 bool first_boot,
@@ -2437,6 +2472,8 @@ static int initialize_runtime(
                         bump_file_max_and_nr_open();
 
                         write_container_id();
+
+                        (void) write_boot_or_shutdown_osc(/* boot= */ true);
 
                         /* Copy os-release to the propagate directory, so that we update it for services running
                          * under RootDirectory=/RootImage= when we do a soft reboot. */
@@ -3426,6 +3463,8 @@ finish:
                 __lsan_do_leak_check();
         }
 #endif
+
+        (void) write_boot_or_shutdown_osc(/* boot= */ false);
 
         if (r < 0)
                 (void) sd_notifyf(/* unset_environment= */ false,
