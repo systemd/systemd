@@ -1610,7 +1610,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         uint8_t flags, prefixlen;
         struct in6_addr a;
         int r;
@@ -1618,6 +1618,14 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         assert(link);
         assert(link->network);
         assert(rt);
+
+        usec_t lifetime_usec;
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         r = sd_ndisc_router_prefix_get_address(rt, &a);
         if (r < 0)
@@ -1664,7 +1672,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         _cleanup_(route_unrefp) Route *route = NULL;
         uint8_t preference, prefixlen;
         struct in6_addr gateway, dst;
@@ -1679,6 +1687,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_route_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get route lifetime from RA: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         r = sd_ndisc_router_route_get_address(rt, &dst);
         if (r < 0)
@@ -1712,10 +1723,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
-        if (r == -EOPNOTSUPP) {
-                log_link_debug_errno(link, r, "Received route prefix with unsupported preference, ignoring: %m");
-                return 0;
-        }
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
@@ -1759,7 +1766,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_rdnss_compare_func,
                 free);
 
-static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         usec_t lifetime_usec;
         const struct in6_addr *a;
         struct in6_addr router;
@@ -1780,6 +1787,9 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_rdnss_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get RDNSS lifetime: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
         if (n < 0)
@@ -1851,7 +1861,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_dnssl_compare_func,
                 free);
 
-static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         char **l;
         usec_t lifetime_usec;
         struct in6_addr router;
@@ -1872,6 +1882,9 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_dnssl_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get DNSSL lifetime: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
         if (r < 0)
@@ -1953,7 +1966,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_captive_portal_compare_func,
                 ndisc_captive_portal_free);
 
-static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *new_entry = NULL;
         _cleanup_free_ char *captive_portal = NULL;
         const char *uri;
@@ -1979,6 +1992,9 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         r = sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         r = sd_ndisc_router_get_captive_portal(rt, &uri);
         if (r < 0)
@@ -2068,7 +2084,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_pref64_compare_func,
                 mfree);
 
-static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         _cleanup_free_ NDiscPREF64 *new_entry = NULL;
         usec_t lifetime_usec;
         struct in6_addr a, router;
@@ -2098,6 +2114,9 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_prefix64_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get pref64 prefix lifetime: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         if (lifetime_usec == 0) {
                 free(set_remove(link->ndisc_pref64,
@@ -2217,7 +2236,7 @@ static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
         return 0;
 }
 
-static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         int r;
 
         assert(link);
@@ -2239,6 +2258,9 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        if ((lifetime_usec == 0) != zero_lifetime)
+                return 0;
 
         r = sd_ndisc_router_encrypted_dns_get_resolver(rt, &res);
         if (r < 0)
@@ -2292,7 +2314,7 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         size_t n_captive_portal = 0;
         int r;
 
@@ -2314,19 +2336,19 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
                 switch (type) {
                 case SD_NDISC_OPTION_PREFIX_INFORMATION:
-                        r = ndisc_router_process_prefix(link, rt);
+                        r = ndisc_router_process_prefix(link, rt, zero_lifetime);
                         break;
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
-                        r = ndisc_router_process_route(link, rt);
+                        r = ndisc_router_process_route(link, rt, zero_lifetime);
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        r = ndisc_router_process_rdnss(link, rt);
+                        r = ndisc_router_process_rdnss(link, rt, zero_lifetime);
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        r = ndisc_router_process_dnssl(link, rt);
+                        r = ndisc_router_process_dnssl(link, rt, zero_lifetime);
                         break;
                 case SD_NDISC_OPTION_CAPTIVE_PORTAL:
                         if (n_captive_portal > 0) {
@@ -2336,15 +2358,15 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                                 n_captive_portal++;
                                 continue;
                         }
-                        r = ndisc_router_process_captive_portal(link, rt);
+                        r = ndisc_router_process_captive_portal(link, rt, zero_lifetime);
                         if (r > 0)
                                 n_captive_portal++;
                         break;
                 case SD_NDISC_OPTION_PREF64:
-                        r = ndisc_router_process_pref64(link, rt);
+                        r = ndisc_router_process_pref64(link, rt, zero_lifetime);
                         break;
                 case SD_NDISC_OPTION_ENCRYPTED_DNS:
-                        r = ndisc_router_process_encrypted_dns(link, rt);
+                        r = ndisc_router_process_encrypted_dns(link, rt, zero_lifetime);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
@@ -2652,10 +2674,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        r = ndisc_router_process_default(link, rt);
-        if (r < 0)
-                return r;
-
         r = ndisc_router_process_reachable_time(link, rt);
         if (r < 0)
                 return r;
@@ -2672,7 +2690,15 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        r = ndisc_router_process_options(link, rt);
+        r = ndisc_router_process_options(link, rt, /* zero_lifetime = */ true);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_default(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_options(link, rt, /* zero_lifetime = */ false);
         if (r < 0)
                 return r;
 
