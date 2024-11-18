@@ -855,10 +855,7 @@ static int get_fixed_user(
         assert(user_or_uid);
         assert(ret_username);
 
-        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
-         * (i.e. are "/" or "/bin/nologin"). */
-
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER);
+        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
         if (r < 0)
                 return r;
 
@@ -1883,7 +1880,10 @@ static int build_environment(
                 }
         }
 
-        if (home && set_user_login_env) {
+        /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
+         * (i.e. are "/" or "/bin/nologin"). */
+
+        if (home && set_user_login_env && !empty_or_root(home)) {
                 x = strjoin("HOME=", home);
                 if (!x)
                         return -ENOMEM;
@@ -1892,7 +1892,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (shell && set_user_login_env) {
+        if (shell && set_user_login_env && !shell_is_placeholder(shell)) {
                 x = strjoin("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
@@ -3785,7 +3785,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (!c->working_directory_home)
                 return 0;
 
-        if (c->dynamic_user)
+        if (c->dynamic_user || (c->user && is_this_me(c->user) <= 0))
                 return -EADDRNOTAVAIL;
 
         r = get_home_dir(ret_buf);
@@ -4543,7 +4543,7 @@ int exec_invoke(
         r = acquire_home(context, &home, &home_buffer);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
-                return log_exec_error_errno(context, params, r, "Failed to determine $HOME for user: %m");
+                return log_exec_error_errno(context, params, r, "Failed to determine $HOME for the invoking user: %m");
         }
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
