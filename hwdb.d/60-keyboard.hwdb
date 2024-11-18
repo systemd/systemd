@@ -1044,6 +1044,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
  KEYBOARD_KEY_b4=prog1
 
+# Lenovo common (ThinkPad P/T 14 G5+, IdeaPad Pro 5 14)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:*
+ KEYBOARD_KEY_6e=f23
+
 # Lenovo IdeaPad
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:*
