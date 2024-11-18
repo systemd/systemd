@@ -822,6 +822,37 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecDeactivate, ExecCommand, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TimerSpecContext,
+                SD_VARLINK_DEFINE_FIELD(base, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(nextElapse, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                TimerContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#OnActiveSec="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MonotonicTimers, TimerSpecContext, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#OnCalendar="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CalendarTimers, TimerSpecContext, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#AccuracySec="),
+                SD_VARLINK_DEFINE_FIELD(AccuracyUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#RandomizedDelaySec="),
+                SD_VARLINK_DEFINE_FIELD(RandomizedDelayUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#FixedRandomDelay="),
+                SD_VARLINK_DEFINE_FIELD(FixedRandomDelay, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#OnClockChange="),
+                SD_VARLINK_DEFINE_FIELD(OnClockChange, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#OnClockChange="),
+                SD_VARLINK_DEFINE_FIELD(OnTimezoneChange, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#Unit="),
+                SD_VARLINK_DEFINE_FIELD(Unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#Persistent="),
+                SD_VARLINK_DEFINE_FIELD(Persistent, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#WakeSystem="),
+                SD_VARLINK_DEFINE_FIELD(WakeSystem, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html#RemainAfterElapse="),
+                SD_VARLINK_DEFINE_FIELD(WakeSystem, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, 0),
@@ -964,7 +995,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The Scope context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Scope, ScopeContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Swap context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Swap, SwapContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The Timer context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
 
@@ -1020,6 +1053,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_PathContext,
                 &vl_type_ScopeContext,
                 &vl_type_SwapContext,
+                &vl_type_TimerSpecContext,
+                &vl_type_TimerContext,
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit);
