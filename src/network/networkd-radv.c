@@ -1511,25 +1511,18 @@ int config_parse_router_preference(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        uint8_t *preference = ASSERT_PTR(data);
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(rvalue, "high"))
-                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
-        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
-                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
+        if (isempty(rvalue) || STR_IN_SET(rvalue, "medium", "normal", "default"))
+                *preference = SD_NDISC_PREFERENCE_MEDIUM;
+        else if (streq(rvalue, "high"))
+                *preference = SD_NDISC_PREFERENCE_HIGH;
         else if (streq(rvalue, "low"))
-                network->router_preference = SD_NDISC_PREFERENCE_LOW;
+                *preference = SD_NDISC_PREFERENCE_LOW;
         else
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid router preference, ignoring assignment: %s", rvalue);
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
-        return 0;
+        return 1;
 }
 
 int config_parse_router_home_agent_lifetime(
