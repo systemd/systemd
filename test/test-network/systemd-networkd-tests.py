@@ -6476,6 +6476,46 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertNotIn('metric 512', output)
         self.assertNotIn('metric 2048', output)
 
+        # Use route options to configure default routes. See issue #33468.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high2.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\nPreference=low\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low2.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6RoutePrefix]\nRoute=::/0\nLifetimeSec=1200\nPreference=high\n')
+        networkctl_reload()
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300', ipv='-6', timeout_sec=10)
+
+        print('### ip -6 route show dev client default')
+        output = check_output('ip -6 route show dev client default')
+        print(output)
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 100 expires [0-9]*sec pref high')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 300 expires [0-9]*sec pref low')
+        self.assertNotIn('pref medium', output)
+        self.assertNotIn('metric 200', output)
+        self.assertNotIn('metric 512', output)
+        self.assertNotIn('metric 2048', output)
+
+        # Set zero lifetime to the route options
+        with open(os.path.join(network_unit_dir, '25-veth-router-high2.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low2.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        networkctl_reload()
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200', ipv='-6', timeout_sec=10)
+        self.wait_route('client', r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200', ipv='-6', timeout_sec=10)
+
+        print('### ip -6 route show dev client default')
+        output = check_output('ip -6 route show dev client default')
+        print(output)
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a99 proto ra metric 200 expires [0-9]*sec pref medium')
+        self.assertRegex(output, r'default nhid [0-9]* via fe80::1034:56ff:fe78:9a98 proto ra metric 200 expires [0-9]*sec pref medium')
+        self.assertNotIn('pref high', output)
+        self.assertNotIn('pref low', output)
+        self.assertNotIn('metric 100', output)
+        self.assertNotIn('metric 300', output)
+        self.assertNotIn('metric 512', output)
+        self.assertNotIn('metric 2048', output)
+
     def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
             copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
