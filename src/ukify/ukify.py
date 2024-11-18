@@ -1583,6 +1583,17 @@ class ConfigItem:
             return False
         raise ValueError('f"Invalid boolean literal: {s!r}')
 
+    @staticmethod
+    def parse_sign_tool(s: str) -> Union[SbSign, PeSign, SystemdSbSign]:
+        "Parse sign tool name"
+        if s == 'sbsign':
+            return SbSign
+        if s == 'pesign':
+            return PeSign
+        if s == 'systemd-sbsign':
+            return SystemdSbSign
+        raise ValueError(f'Invalid sign tool: {s!r}')
+
     # arguments for argparse.ArgumentParser.add_argument()
     name: Union[str, tuple[str, str]]
     dest: Optional[str] = None
@@ -1635,6 +1646,8 @@ class ConfigItem:
             # --foo and --no-foo, and no argument is parsed. But in the config
             # file, we have Foo=yes or Foo=no.
             conv = self.parse_boolean
+        elif self.action == SignToolAction:
+            conv = self.parse_sign_tool
         elif self.type:
             conv = self.type
         else:
