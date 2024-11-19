@@ -28,21 +28,28 @@ const char* user_record_state_color(const char *state) {
         return NULL;
 }
 
-static void dump_self_modifiable(const char *heading, char **field, const char **value) {
+static void dump_self_modifiable(
+                const char *heading,
+                char **field,
+                const char **value) {
+
         assert(heading);
 
         /* Helper function for printing the various self_modifiable_* fields from the user record */
 
-        if (strv_isempty((char**) value))
-                /* Case 1: the array is explicitly set to be empty by the administrator */
-                printf("%13s %sDisabled by Administrator%s\n", heading, ansi_highlight_red(), ansi_normal());
+        if (!value)
+                /* Case 1: no value is set and no default either */
+                printf("%13s %snone%s\n", heading, ansi_highlight(), ansi_normal());
+        else if (strv_isempty((char**) value))
+                /* Case 2: the array is explicitly set to empty by the administrator */
+                printf("%13s %sdisabled by administrator%s\n", heading, ansi_highlight_red(), ansi_normal());
         else if (!field)
-                /* Case 2: we have values, but the field is NULL. This means that we're using the defaults.
+                /* Case 3: we have values, but the field is NULL. This means that we're using the defaults.
                  * We list them anyways, because they're security-sensitive to the administrator */
                 STRV_FOREACH(i, value)
                         printf("%13s %s%s%s\n", i == value ? heading : "", ansi_grey(), *i, ansi_normal());
         else
-                /* Case 3: we have a list provided by the administrator */
+                /* Case 4: we have a list provided by the administrator */
                 STRV_FOREACH(i, value)
                         printf("%13s %s\n", i == value ? heading : "", *i);
 }

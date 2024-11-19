@@ -9,7 +9,7 @@
         ({                                      \
                 typeof(ret) _r = (ret);         \
                 user_record_unref(*_r);         \
-                assert_se(user_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__)) >= 0); \
+                assert_se(user_record_build((ret), SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("disposition", "regular"), __VA_ARGS__)) >= 0); \
                 0;                              \
         })
 
