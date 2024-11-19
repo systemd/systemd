@@ -150,6 +150,8 @@ struct Session {
         sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
         sd_bus_message *upgrade_message;  /* The D-Bus message used to upgrade the session class user-incomplete → user, which we haven't responded to yet */
 
+        sd_varlink *create_link; /* The Varlink connection used to create session, which we haven't responded to yet */
+
         /* Set up when a client requested to release the session via the bus */
         sd_event_source *timer_event_source;
 
