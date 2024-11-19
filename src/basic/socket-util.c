@@ -975,6 +975,28 @@ int getpeerpidfd(int fd) {
         return pidfd;
 }
 
+int getpeerpidref(int fd, PidRef *ret) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        int pidfd = getpeerpidfd(fd);
+        if (pidfd < 0)  {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(pidfd))
+                        return pidfd;
+
+                struct ucred ucred;
+                r = getpeercred(fd, &ucred);
+                if (r < 0)
+                        return r;
+
+                return pidref_set_pid(ret, ucred.pid);
+        }
+
+        return pidref_set_pidfd_consume(ret, pidfd);
+}
+
 ssize_t send_many_fds_iov_sa(
                 int transport_fd,
                 int *fds_array, size_t n_fds_array,
