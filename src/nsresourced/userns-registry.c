@@ -558,16 +558,9 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         if (parent_fd < 0)
                 return log_debug_errno(errno, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
 
-        /* Safety check, never leave cgroupfs */
-        r = fd_is_fs_type(parent_fd, CGROUP2_SUPER_MAGIC);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if parent directory of cgroup %" PRIu64 " is still a cgroup, ignoring: %m", cgroup_id);
-        if (!r)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Parent directory of cgroup %" PRIu64 " is not a cgroup, refusing.", cgroup_id);
-
         cgroup_fd = safe_close(cgroup_fd);
 
-        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_CHMOD);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove delegated cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
