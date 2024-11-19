@@ -429,7 +429,7 @@ int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
-        if (pidref->pid == 1 || pidref->pid == getpid_cached())
+        if (pidref->pid == 1 || pidref_is_self(pidref))
                 return -ECHILD;
 
         siginfo_t si = {};
