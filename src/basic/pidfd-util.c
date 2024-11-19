@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -31,6 +32,34 @@ static int pidfd_check_pidfs(void) {
         }
 
         return (is_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
+}
+
+int pidfd_get_namespace(int fd, unsigned long ns_type_flag) {
+        static bool cached_supported = true;
+
+        assert(fd >= 0);
+
+        /* If we know ahead of time that pidfs is unavailable, shortcut things. But otherwise we don't
+         * call pidfd_check_pidfs() here, which is kinda extraneous and our own cache is required
+         * anyways (pidfs is introduced in kernel 6.9 while ioctl support there is added in 6.12). */
+        if (is_pidfs == 0 || !cached_supported)
+                return -EOPNOTSUPP;
+
+        int nsfd = ioctl(fd, ns_type_flag);
+        if (nsfd < 0) {
+                /* ERRNO_IS_(IOCTL_)NOT_SUPPORTED cannot be used here, because kernel returns -EOPNOTSUPP
+                 * if the NS is disabled at build time. */
+                if (IN_SET(errno, ENOTTY, EINVAL)) {
+                        cached_supported = false;
+                        return -EOPNOTSUPP;
+                }
+                if (errno == EOPNOTSUPP) /* Translate to something more distinguishable */
+                        return -ENOPKG;
+
+                return -errno;
+        }
+
+        return nsfd;
 }
 
 int pidfd_get_pid(int fd, pid_t *ret) {
