@@ -286,7 +286,9 @@ int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_
 int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);
 
 int cg_pid_get_session(pid_t pid, char **ret_session);
+int cg_pidref_get_session(const PidRef *pidref, char **ret_session);
 int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
+int cg_pidref_get_owner_uid(const PidRef *pidref, uid_t *ret_uid);
 int cg_pid_get_unit(pid_t pid, char **ret_unit);
 int cg_pidref_get_unit(const PidRef *pidref, char **ret);
 int cg_pid_get_user_unit(pid_t pid, char **ret_unit);
