@@ -68,19 +68,31 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
         return nsfd;
 }
 
-int pidfd_get_pid(int fd, pid_t *ret) {
+static int pidfd_get_info(int fd, struct pidfd_info *info) {
+        static bool cached_supported = true;
+
+        assert(fd >= 0);
+        assert(info);
+
+        if (have_pidfs == 0 || !cached_supported)
+                return -EOPNOTSUPP;
+
+        if (ioctl(fd, PIDFD_GET_INFO, info) < 0) {
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno)) {
+                        cached_supported = false;
+                        return -EOPNOTSUPP;
+                }
+
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int pidfd_get_pid_fdinfo(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         int r;
-
-        /* Converts a pidfd into a pid. Well known errors:
-         *
-         *    -EBADF   → fd invalid
-         *    -ENOSYS  → /proc/ not mounted
-         *    -ENOTTY  → fd valid, but not a pidfd
-         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
-         *    -ESRCH   → fd valid, but process is already reaped
-         */
 
         assert(fd >= 0);
 
@@ -105,6 +117,49 @@ int pidfd_get_pid(int fd, pid_t *ret) {
                 return -ESRCH;   /* refers to reaped process? */
 
         return parse_pid(p, ret);
+}
+
+static int pidfd_get_pid_ioctl(int fd, pid_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_PID };
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_get_info(fd, &info);
+        if (r < 0)
+                return r;
+
+        assert(FLAGS_SET(info.mask, PIDFD_INFO_PID));
+
+        if (ret)
+                *ret = info.pid;
+        return 0;
+}
+
+int pidfd_get_pid(int fd, pid_t *ret) {
+        int r;
+
+        /* Converts a pidfd into a pid. We try ioctl(PIDFD_GET_INFO) (kernel 6.13+) first,
+         * /proc/self/fdinfo/ as fallback. Well known errors:
+         *
+         *    -EBADF   → fd invalid
+         *    -ESRCH   → fd valid, but process is already reaped
+         *
+         * pidfd_get_pid_fdinfo() might additionally fail for other reasons:
+         *
+         *    -ENOSYS  → /proc/ not mounted
+         *    -ENOTTY  → fd valid, but not a pidfd
+         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
+         *               (when using PIDFD_GET_INFO this is indistinguishable from -ESRCH)
+         */
+
+        assert(fd >= 0);
+
+        r = pidfd_get_pid_ioctl(fd, ret);
+        if (r != -EOPNOTSUPP)
+                return r;
+
+        return pidfd_get_pid_fdinfo(fd, ret);
 }
 
 int pidfd_verify_pid(int pidfd, pid_t pid) {
