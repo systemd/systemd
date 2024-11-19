@@ -85,6 +85,8 @@ static int get_sender_session(
         const char *name;
         int r;
 
+        assert(m);
+
         /* Acquire the sender's session. This first checks if the sending process is inside a session itself,
          * and returns that. If not and 'consult_display' is true, this returns the display session of the
          * owning user of the caller. */
@@ -828,8 +830,8 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int create_session(
+                Manager *m,
                 sd_bus_message *message,
-                void *userdata,
                 sd_bus_error *error,
                 uid_t uid,
                 pid_t leader_pid,
@@ -848,7 +850,6 @@ static int create_session(
                 uint64_t flags) {
 
         _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
-        Manager *m = ASSERT_PTR(userdata);
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         uint32_t audit_id = 0;
@@ -858,6 +859,7 @@ static int create_session(
         SessionClass c;
         int r;
 
+        assert(m);
         assert(message);
 
         if (!uid_is_valid(uid))
@@ -1176,8 +1178,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 return r;
 
         return create_session(
-                        message,
                         userdata,
+                        message,
                         error,
                         uid,
                         leader_pid,
@@ -1224,8 +1226,8 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                 return r;
 
         return create_session(
-                        message,
                         userdata,
+                        message,
                         error,
                         uid,
                         /* leader_pid = */ 0,
