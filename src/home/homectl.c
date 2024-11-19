@@ -760,16 +760,16 @@ static int inspect_homes(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         char **args = strv_skip(argv, 1);
-        if (strv_isempty(args)) {
+        if (args) {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, inspect_home(bus, *arg));
+                return r;
+        } else {
                 _cleanup_free_ char *myself = getusername_malloc();
                 if (!myself)
                         return log_oom();
 
                 return inspect_home(bus, myself);
-        } else {
-                STRV_FOREACH(arg, args)
-                        RET_GATHER(r, inspect_home(bus, *arg));
-                return r;
         }
 }
 
@@ -818,17 +818,17 @@ static int authenticate_homes(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         char **args = strv_skip(argv, 1);
-        if (strv_isempty(args)) {
+        if (args) {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, authenticate_home(bus, *arg));
+
+                return r;
+        } else {
                 _cleanup_free_ char *myself = getusername_malloc();
                 if (!myself)
                         return log_oom();
 
                 return authenticate_home(bus, myself);
-        } else {
-                STRV_FOREACH(arg, args)
-                        RET_GATHER(r, authenticate_home(bus, *arg));
-
-                return r;
         }
 }
 
