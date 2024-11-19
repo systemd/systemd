@@ -161,11 +161,15 @@ static const MountEntry protect_kernel_tunables_proc_table[] = {
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                MOUNT_READ_ONLY,           false },
-        { "/sys/fs/bpf",         MOUNT_READ_ONLY,           true  },
         { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
         { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
         { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
         { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
+};
+
+/* PrivateBPF= option */
+static const MountEntry private_bpf_no_table[] = {
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
 };
 
 /* ProtectKernelModules= option */
@@ -922,6 +926,26 @@ static int append_protect_system(MountList *ml, ProtectSystem protect_system, bo
         case PROTECT_SYSTEM_FULL:
                 return append_static_mounts(ml, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
 
+        default:
+                assert_not_reached();
+        }
+}
+
+static int append_private_bpf(
+                MountList *ml,
+                PrivateBPF private_bpf,
+                bool protect_kernel_tunables,
+                bool ignore_protect) {
+
+        assert(ml);
+
+        switch (private_bpf) {
+        case PRIVATE_BPF_NO:
+                if (protect_kernel_tunables)
+                        return append_static_mounts(ml, private_bpf_no_table, ELEMENTSOF(private_bpf_no_table), ignore_protect);
+                return 0;
+        case PRIVATE_BPF_YES:
+                return 0;
         default:
                 assert_not_reached();
         }
@@ -2151,6 +2175,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_bpf != PRIVATE_BPF_NO ||
                 p->private_pids != PRIVATE_PIDS_NO;
 }
 
@@ -2650,6 +2675,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         r = append_protect_system(&ml, p->protect_system, false);
+        if (r < 0)
+                return r;
+
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false);
         if (r < 0)
                 return r;
 
@@ -3887,6 +3916,13 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+
+static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
+        [PRIVATE_BPF_NO]    = "no",
+        [PRIVATE_BPF_YES]   = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",
