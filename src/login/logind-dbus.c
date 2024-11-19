@@ -879,7 +879,7 @@ static int create_session(
         if (r < 0)
                 return r;
 
-        if (leader.pid == 1 || leader.pid == getpid_cached())
+        if (leader.pid == 1 || pidref_is_self(&leader))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
