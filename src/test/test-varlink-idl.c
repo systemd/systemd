@@ -15,6 +15,7 @@
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.ManagedOOM.h"
@@ -199,6 +200,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_AskPassword);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Udev);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Login);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
