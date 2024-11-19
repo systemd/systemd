@@ -26,6 +26,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "logarithm.h"
 #include "lookup3.h"
 #include "memory-util.h"
 #include "missing_threads.h"
@@ -91,6 +92,132 @@
 #ifdef __clang__
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
+
+/* This is a little LRU cache of checked objects per JournalFile when opened O_RDONLY.
+ * It reduces the pressure on journal_file_move_to_object() and its descendants like mmap_cache_fd_get(),
+ * while avoiding some repeated object checking as well as keeping frequently accessed objects
+ * of similar size local to one another in memory.
+ */
+typedef struct CachedObject CachedObject;
+struct CachedObject {
+        LIST_FIELDS(CachedObject, by_bucket);
+        LIST_FIELDS(CachedObject, by_lru);
+        uint64_t offset;
+        uint8_t order;
+        uint8_t object[];
+};
+
+#define OBJECT_CACHE_N_BUCKETS  512 /* must be a power of two */
+#define OBJECT_CACHE_PER_ORDER  32
+
+#define OBJECT_CACHE_HASH(offset) (offset & (OBJECT_CACHE_N_BUCKETS - 1))
+
+typedef struct ObjectCache {
+        CachedObject *buckets[OBJECT_CACHE_N_BUCKETS];
+
+        struct {
+                LIST_HEAD(CachedObject, lru);
+                CachedObject *lru_tail;
+                void *mem;
+        } orders[16];
+} ObjectCache;
+
+static ObjectCache * object_cache_free(ObjectCache *oc) {
+        if (!oc)
+                return NULL;
+
+        for (int i = 0; i < 16; i++)
+                free(oc->orders[i].mem);
+
+        return mfree(oc);
+}
+
+static ObjectCache * object_cache_new(void) {
+        ObjectCache *oc;
+
+        oc = new0(ObjectCache, 1);
+        if (!oc)
+                return NULL;
+
+        for (int i = 0, size = 2; i < 16; i++) {
+                size_t osize = ALIGN8(sizeof(CachedObject) + size);
+                uint8_t *m;
+
+                m = oc->orders[i].mem = malloc0(osize * OBJECT_CACHE_PER_ORDER);
+                if (!m)
+                        return object_cache_free(oc);
+
+                for (size_t j = 0; j < OBJECT_CACHE_PER_ORDER; j++, m += osize) {
+                        CachedObject *c = (void *)m;
+
+                        LIST_PREPEND(by_lru, oc->orders[i].lru, c);
+                        c->order = i;
+                }
+                oc->orders[i].lru_tail = LIST_FIND_TAIL(by_lru, oc->orders[i].lru);
+
+                size <<= 1;
+        }
+
+        return oc;
+}
+
+static inline Object * object_cache_get(ObjectCache *oc, uint64_t offset) {
+        uint64_t bucket;
+
+        assert(oc);
+        assert(offset);
+
+        bucket = OBJECT_CACHE_HASH(offset);
+        LIST_FOREACH(by_bucket, c, oc->buckets[bucket]) {
+                if (c->offset == offset) {
+                        /* found the object, bump it up to the LRU head */
+                        if (oc->orders[c->order].lru_tail == c)
+                                oc->orders[c->order].lru_tail = c->by_lru_prev;
+
+                        LIST_REMOVE(by_lru, oc->orders[c->order].lru, c);
+                        LIST_PREPEND(by_lru, oc->orders[c->order].lru, c);
+
+                        return (Object *)c->object;
+                }
+        }
+
+        return NULL;
+}
+
+static int object_cache_put(ObjectCache *oc, uint64_t offset, uint64_t size, void *o) {
+        unsigned l2_size;
+        uint64_t bucket;
+        CachedObject *c;
+
+        assert(oc);
+        assert(offset);
+
+        if (size > UINT16_MAX) /* let mmap-cache handle large objects */
+                return 0;
+
+        l2_size = log2u64(size);
+        bucket = OBJECT_CACHE_HASH(offset);
+
+        c = oc->orders[l2_size].lru_tail;
+        if (c->offset) {
+                uint64_t old_bucket = OBJECT_CACHE_HASH(c->offset);
+
+                if (bucket != old_bucket) { /* move to the new bucket */
+                        LIST_REMOVE(by_bucket, oc->buckets[old_bucket], c);
+                        LIST_PREPEND(by_bucket, oc->buckets[bucket], c);
+                }
+        } else {
+                LIST_PREPEND(by_bucket, oc->buckets[bucket], c);
+        }
+        oc->orders[c->order].lru_tail = c->by_lru_prev;
+        LIST_REMOVE(by_lru, oc->orders[l2_size].lru, c);
+        LIST_PREPEND(by_lru, oc->orders[l2_size].lru, c);
+
+        c->offset = offset;
+        memcpy(c->object, o, size);
+
+        return 0;
+}
 
 static int mmap_prot_from_open_flags(int flags) {
         switch (flags & O_ACCMODE) {
@@ -286,6 +413,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
+
+        object_cache_free(f->object_cache);
 
         if (f->close_fd)
                 safe_close(f->fd);
@@ -1078,10 +1207,22 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
-        int r;
+        uint64_t size;
         Object *o;
+        int r;
 
         assert(f);
+
+        /* objects in the object cache are already checked and can be blindly used */
+        if (f->object_cache) {
+                o = object_cache_get(f->object_cache, offset);
+                if (o) {
+                        if (ret)
+                                *ret = o;
+
+                        return 0;
+                }
+        }
 
         /* Even if this function fails, it may clear, overwrite, or alter previously cached entries with the
          * same type. After this function has been called, all previously read objects with the same type may
@@ -1109,7 +1250,8 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
+        size = le64toh(READ_NOW(o->object.size));
+        r = journal_file_move_to(f, type, false, offset, size, (void**) &o);
         if (r < 0)
                 return r;
 
@@ -1120,6 +1262,13 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         r = check_object(f, o, offset);
         if (r < 0)
                 return r;
+
+        if (f->object_cache) {
+                r = object_cache_put(f->object_cache, offset, size, o);
+                if (r < 0)
+                        log_info_errno(r, "Failed to cache object %" PRIu64 "[%" PRIu64 "]: %m",
+                                        offset, size);
+        }
 
         if (ret)
                 *ret = o;
@@ -4156,6 +4305,12 @@ int journal_file_open(
         r = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags), &f->cache_fd);
         if (r < 0)
                 goto fail;
+
+        if ((open_flags & O_ACCMODE) == O_RDONLY) {
+                f->object_cache = object_cache_new();
+                if (!f->object_cache)
+                        log_info("Failed to create ObjectCache, performance may suffer");
+        }
 
         if (newly_created) {
                 (void) journal_file_warn_btrfs(f);
