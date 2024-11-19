@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -11,6 +12,31 @@
 #include "path-util.h"
 #include "pidfd-util.h"
 #include "string-util.h"
+
+int pidfd_get_namespace(int fd, unsigned int ns_type_flag) {
+        static bool cached_supported = true;
+
+        assert(fd >= 0);
+
+        if (!cached_supported)
+                return -EOPNOTSUPP;
+
+        int nsfd = ioctl(fd, ns_type_flag);
+        if (nsfd < 0) {
+                /* ERRNO_IS_(IOCTL_)NOT_SUPPORTED cannot be used here, because kernel returns -EOPNOTSUPP
+                 * if the NS is disabled at build time. */
+                if (IN_SET(errno, ENOTTY, EINVAL)) {
+                        cached_supported = false;
+                        return -EOPNOTSUPP;
+                }
+                if (errno == EOPNOTSUPP) /* Translate to something more distinguishable */
+                        return -ENOPKG;
+
+                return -errno;
+        }
+
+        return nsfd;
+}
 
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
