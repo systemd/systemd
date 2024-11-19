@@ -80,6 +80,8 @@ void manager_reset_config(Manager *m) {
         m->stop_idle_session_usec = USEC_INFINITY;
 
         m->maintenance_time = calendar_spec_free(m->maintenance_time);
+
+        dual_timestamp_now(&m->init_ts);
 }
 
 int manager_parse_config_file(Manager *m) {
@@ -410,6 +412,10 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
         assert(m);
+
+        // Initialize the baseline timestamp with the time the manager got initialized, so that we do not
+        // report unreasonable large idle periods starting with the unix epoch.
+        ts = m->init_ts;
 
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
 
