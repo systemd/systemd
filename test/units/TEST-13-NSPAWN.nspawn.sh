@@ -1023,6 +1023,35 @@ testcase_check_os_release() {
     rm -fr "$root" "$base"
 }
 
+testcase_check_usr() {
+    local base common_opts root
+
+    base="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_usr_base.XXX)"
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_usr.XXX)"
+    create_dummy_container "$base"
+    cp -d "$base"/{bin,sbin,lib,lib64} "$root/"
+    common_opts=(
+        --pipe
+        --register=no
+        --volatile=overlay
+        --directory="$root"
+        --bind-ro="$base/usr:/usr"
+    )
+
+    # Might be needed to find libraries
+    if [ -f "$base/etc/ld.so.cache" ]; then
+        common_opts+=("--bind-ro=$base/etc/ld.so.cache:/etc/ld.so.cache")
+    fi
+
+    # /usr is bind-mounted but missing in root directory
+    (! systemd-nspawn "${common_opts[@]}")
+    (! SYSTEMD_NSPAWN_CHECK_USR=1 systemd-nspawn "${common_opts[@]}")
+    (! SYSTEMD_NSPAWN_CHECK_USR=foo systemd-nspawn "${common_opts[@]}")
+    SYSTEMD_NSPAWN_CHECK_USR=0 systemd-nspawn "${common_opts[@]}"
+
+    rm -fr "$root" "$base"
+}
+
 testcase_ip_masquerade() {
     local root
 

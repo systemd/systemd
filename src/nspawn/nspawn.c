@@ -3500,6 +3500,38 @@ static int inner_child(
         if (r < 0)
                 return r;
 
+        if (arg_start_mode == START_BOOT) {
+                int check_os_release, is_os_tree;
+
+                check_os_release = getenv_bool("SYSTEMD_NSPAWN_CHECK_OS_RELEASE");
+                if (check_os_release < 0 && check_os_release != -ENXIO) {
+                        return log_error_errno(check_os_release, "Failed to parse $SYSTEMD_NSPAWN_CHECK_OS_RELEASE: %m");
+                }
+
+                is_os_tree = path_is_os_tree("/");
+                if (is_os_tree == 0 && check_os_release == 0)
+                        log_debug("Root tree is missing an os-release file, continuing anyway.");
+                else if (is_os_tree <= 0) {
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Root tree doesn't look correct (os-release file is missing). Refusing.");
+                }
+        } else {
+                int check_usr, is_usr_present;
+
+                check_usr = getenv_bool("SYSTEMD_NSPAWN_CHECK_USR");
+                if (check_usr < 0 && check_usr != -ENXIO) {
+                        return log_error_errno(check_usr, "Failed to parse $SYSTEMD_NSPAWN_CHECK_USR: %m");
+                }
+
+                is_usr_present = access_nofollow("/usr", F_OK) >= 0;
+                if (is_usr_present == 0 && check_usr == 0)
+                        log_debug("Root tree is missing a /usr directory, continuing anyway.");
+                else if (is_usr_present == 0) {
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Root tree doesn't look correct (/usr/ directory is missing). Refusing.");
+                }
+        }
+
         if (setsid() < 0)
                 return log_error_errno(errno, "setsid() failed: %m");
 
@@ -6158,56 +6190,6 @@ static int run(int argc, char *argv[]) {
                                                  "Populated %s from template %s.", arg_directory, arg_template);
                         }
                 }
-
-                if (arg_start_mode == START_BOOT) {
-                        _cleanup_free_ char *b = NULL;
-                        const char *p;
-                        int check_os_release, is_os_tree;
-
-                        if (arg_pivot_root_new) {
-                                b = path_join(arg_directory, arg_pivot_root_new);
-                                if (!b) {
-                                        r = log_oom();
-                                        goto finish;
-                                }
-
-                                p = b;
-                        } else
-                                p = arg_directory;
-
-                        check_os_release = getenv_bool("SYSTEMD_NSPAWN_CHECK_OS_RELEASE");
-                        if (check_os_release < 0 && check_os_release != -ENXIO) {
-                                r = log_error_errno(check_os_release, "Failed to parse $SYSTEMD_NSPAWN_CHECK_OS_RELEASE: %m");
-                                goto finish;
-                        }
-
-                        is_os_tree = path_is_os_tree(p);
-                        if (is_os_tree == 0 && check_os_release == 0)
-                                log_debug("Directory %s is missing an os-release file, continuing anyway.", p);
-                        else if (is_os_tree <= 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", p);
-                                goto finish;
-                        }
-                } else {
-                        _cleanup_free_ char *p = NULL;
-
-                        if (arg_pivot_root_new)
-                                p = path_join(arg_directory, arg_pivot_root_new, "/usr/");
-                        else
-                                p = path_join(arg_directory, "/usr/");
-                        if (!p) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        if (access_nofollow(p, F_OK) < 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
-                                goto finish;
-                        }
-                }
-
         } else {
                 DissectImageFlags dissect_image_flags =
                         determine_dissect_image_flags();
