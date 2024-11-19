@@ -2244,6 +2244,29 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+_noreturn_ static void bpffs_helper(int parent_fd) {
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        int r;
+
+        fs_fd = receive_one_fd(parent_fd, 0);
+        if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        mnt_fd = fsmount(fs_fd, 0, 0);
+        if (mnt_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = send_one_fd(parent_fd, mnt_fd, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        exit(EXIT_SUCCESS);
+}
+
 _noreturn_ static void sd_userns(int errno_pipe[2], int unshare_ready_fd,
                                  char *uid_map, char *gid_map, bool allow_setgroups) {
         _cleanup_close_ int fd = -EBADF;
@@ -3634,6 +3657,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4642,6 +4666,8 @@ int exec_invoke(
         int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        _cleanup_close_pair_ int token_fds[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t bpftoken_pid = 0;
 
         assert(command);
         assert(context);
@@ -5334,6 +5360,18 @@ int exec_invoke(
                 }
         }
 
+        if (context->private_bpf) {
+                r = socketpair(AF_UNIX, SOCK_SEQPACKET, 0, token_fds);
+                if (r < 0)
+                        return r;
+
+                r = safe_fork("(bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &bpftoken_pid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        bpffs_helper(token_fds[1]);
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_context_needs_cap_sys_admin(context)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -5434,6 +5472,32 @@ int exec_invoke(
                         exit_status);
         if (r < 0)
                 return r;
+
+        if (context->private_bpf) {
+                _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+
+                fs_fd = fsopen("bpf", 0);
+                if (fs_fd < 0)
+                        return fs_fd;
+
+                r = send_one_fd(token_fds[0], fs_fd, 0);
+                if (r < 0)
+                        return r;
+
+                r = wait_for_terminate_and_check("(bpffs)", TAKE_PID(bpftoken_pid), 0);
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
+                        return -EIO;
+
+                mnt_fd = receive_one_fd(token_fds[0], 0);
+                if (mnt_fd < 0)
+                        return fs_fd;
+
+                r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+                if (r < 0)
+                        return r;
+        }
 
         /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
          * shall execute. */

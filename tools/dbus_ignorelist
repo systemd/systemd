@@ -904,6 +904,7 @@ org.freedesktop.systemd1.Mount.Options
 org.freedesktop.systemd1.Mount.PAMName
 org.freedesktop.systemd1.Mount.PassEnvironment
 org.freedesktop.systemd1.Mount.Personality
+org.freedesktop.systemd1.Mount.PrivateBPF
 org.freedesktop.systemd1.Mount.PrivateDevices
 org.freedesktop.systemd1.Mount.PrivateIPC
 org.freedesktop.systemd1.Mount.PrivateMounts
@@ -1286,6 +1287,7 @@ org.freedesktop.systemd1.Service.PAMName
 org.freedesktop.systemd1.Service.PIDFile
 org.freedesktop.systemd1.Service.PassEnvironment
 org.freedesktop.systemd1.Service.Personality
+org.freedesktop.systemd1.Service.PrivateBPF
 org.freedesktop.systemd1.Service.PrivateDevices
 org.freedesktop.systemd1.Service.PrivateIPC
 org.freedesktop.systemd1.Service.PrivateMounts
@@ -1665,6 +1667,7 @@ org.freedesktop.systemd1.Socket.PassSecurity
 org.freedesktop.systemd1.Socket.Personality
 org.freedesktop.systemd1.Socket.PipeSize
 org.freedesktop.systemd1.Socket.Priority
+org.freedesktop.systemd1.Socket.PrivateBPF
 org.freedesktop.systemd1.Socket.PrivateDevices
 org.freedesktop.systemd1.Socket.PrivateIPC
 org.freedesktop.systemd1.Socket.PrivateMounts
@@ -1936,6 +1939,7 @@ org.freedesktop.systemd1.Swap.PAMName
 org.freedesktop.systemd1.Swap.PassEnvironment
 org.freedesktop.systemd1.Swap.Personality
 org.freedesktop.systemd1.Swap.Priority
+org.freedesktop.systemd1.Swap.PrivateBPF
 org.freedesktop.systemd1.Swap.PrivateDevices
 org.freedesktop.systemd1.Swap.PrivateIPC
 org.freedesktop.systemd1.Swap.PrivateMounts
