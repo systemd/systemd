@@ -2263,11 +2263,36 @@ static void sd_userns(int errno_pipe[2], int unshare_ready_fd, uint64_t *c, char
         _exit(EXIT_SUCCESS);
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
+static void sd_bpffs(int parent_fd)
+{
+        int fs_fd, mnt_fd;
+        int r;
+
+        fs_fd = receive_one_fd(parent_fd, 0);
+        if (fs_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        mnt_fd = fsmount(fs_fd, 0, 0);
+        if (mnt_fd < 0)
+                _exit(EXIT_FAILURE);
+
+        r = send_one_fd(parent_fd, mnt_fd, 0);
+        if (r < 0)
+                _exit(EXIT_FAILURE);
+
+        safe_close(fs_fd);
+        _exit(EXIT_SUCCESS);
+}
+
+static int setup_private_users(PrivateUsers private_users, PrivateBPF private_bpf, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR, token_fds[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(sigkill_waitp) pid_t pid = 0, pid2 = 0;
         uint64_t c = 1;
         ssize_t n;
         int r;
@@ -2370,10 +2395,26 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (r == 0)
                 sd_userns(errno_pipe, unshare_ready_fd, &c, uid_map, gid_map, allow_setgroups);
 
+        if (private_bpf == PRIVATE_BPF_TOKEN) {
+                r = socketpair(AF_UNIX, SOCK_STREAM, 0, token_fds);
+                if (r < 0)
+                        return r;
+
+                r = safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid2);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        sd_bpffs(token_fds[1]);
+        }
+
         errno_pipe[1] = safe_close(errno_pipe[1]);
 
         if (unshare(CLONE_NEWUSER) < 0)
                 return log_debug_errno(errno, "Failed to unshare user namespace: %m");
+
+        /* To obtain a BPF token we need to own the mount namespace, so unshare it again */
+        if (private_bpf == PRIVATE_BPF_TOKEN && unshare(CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to unshare mount namespace: %m");
 
         /* Let the child know that the namespace is ready now */
         if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
@@ -2396,6 +2437,46 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 return r;
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
+
+        if (private_bpf == PRIVATE_BPF_TOKEN) {
+                int fs_fd;
+
+                fs_fd = fsopen("bpf", 0);
+                if (fs_fd < 0)
+                        return fs_fd;
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", "any", 0);
+                if (r < 0)
+                        return r;
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", "any", 0);
+                if (r < 0)
+                        return r;
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", "any", 0);
+                if (r < 0)
+                        return r;
+
+                r = fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", "any", 0);
+                if (r < 0)
+                        return r;
+
+                r = send_one_fd(token_fds[0], fs_fd, 0);
+                if (r < 0)
+                        return r;
+
+                close(fs_fd);
+
+                fs_fd = receive_one_fd(token_fds[0], 0);
+                if (fs_fd < 0)
+                        return fs_fd;
+
+                r = wait_for_terminate_and_check("(sd-bpffs)", TAKE_PID(pid2), 0);
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
+                        return -EIO;
+        }
 
         return 1;
 }
@@ -3588,6 +3669,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : false,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -5129,7 +5211,7 @@ int exec_invoke(
 
                 /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
                  * unprivileged user namespaces. */
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
+                r = setup_private_users(pu, context->private_bpf, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5299,7 +5381,7 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
+                r = setup_private_users(context->private_users, context->private_bpf, saved_uid, saved_gid, uid, gid,
                                         /* allow_setgroups= */ context->private_users == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
