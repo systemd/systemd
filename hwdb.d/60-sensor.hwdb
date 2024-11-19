@@ -376,11 +376,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svncube:pni7:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-# Cube i7 Stylus, i7 Stylus I8L Model, i7 Book (i16) and Mix Plus (i18B)
+# Cube i7 Stylus, i7 Stylus I8L Model, i7 Book (i16) and Mix Plus (i18B/i18D)
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni7Stylus:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni8-L:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni16:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni18B:*
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnALLDOCUBE:pni18D:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # Cube iWork 10 Flagship
