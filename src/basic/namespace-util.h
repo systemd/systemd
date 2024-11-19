@@ -23,11 +23,15 @@ enum NamespaceType {
 extern const struct namespace_info {
         const char *proc_name;
         const char *proc_path;
-        unsigned int clone_flag;
+        unsigned long clone_flag;
+        unsigned long pidfd_get_ns_ioctl_cmd;
         ino_t root_inode;
 } namespace_info[_NAMESPACE_TYPE_MAX + 1];
 
 NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
+
+int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
+int namespace_open_by_type(NamespaceType type);
 
 int pidref_namespace_open(
                 const PidRef *pidref,
@@ -78,7 +82,5 @@ int netns_acquire(void);
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
-
-int namespace_open_by_type(NamespaceType type);
 
 int is_idmapping_supported(const char *path);
