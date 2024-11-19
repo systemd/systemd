@@ -829,6 +829,52 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int manager_choose_session_id(
+                Manager *m,
+                PidRef *leader,
+                char **ret_id) {
+
+        int r;
+
+        assert(m);
+        assert(pidref_is_set(leader));
+        assert(ret_id);
+
+        /* Try to keep our session IDs and the audit session IDs in sync */
+        _cleanup_free_ char *id = NULL;
+        uint32_t audit_id = AUDIT_SESSION_INVALID;
+        r = audit_session_from_pid(leader, &audit_id);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read audit session ID of process " PID_FMT ", ignoring: %m", leader->pid);
+        else {
+                if (asprintf(&id, "%"PRIu32, audit_id) < 0)
+                        return -ENOMEM;
+
+                /* Wut? There's already a session by this name and we didn't find it above? Weird, then let's
+                 * not trust the audit data and let's better register a new ID */
+                if (hashmap_contains(m->sessions, id)) {
+                        log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
+                        id = mfree(id);
+                }
+        }
+
+        if (!id)
+                do {
+                        id = mfree(id);
+
+                        if (asprintf(&id, "c%" PRIu64, ++m->session_counter) < 0)
+                                return -ENOMEM;
+
+                } while (hashmap_contains(m->sessions, id));
+
+        /* The generated names should not clash with 'auto' or 'self' */
+        assert(!SESSION_IS_SELF(id));
+        assert(!SESSION_IS_AUTO(id));
+
+        *ret_id = TAKE_PTR(id);
+        return 0;
+}
+
 static int create_session(
                 Manager *m,
                 sd_bus_message *message,
@@ -852,7 +898,6 @@ static int create_session(
         _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
-        uint32_t audit_id = 0;
         User *user = NULL;
         Seat *seat = NULL;
         SessionType t;
@@ -1008,35 +1053,9 @@ static int create_session(
                                          "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.",
                                          m->sessions_max);
 
-        (void) audit_session_from_pid(&leader, &audit_id);
-        if (audit_session_is_valid(audit_id)) {
-                /* Keep our session IDs and the audit session IDs in sync */
-
-                if (asprintf(&id, "%"PRIu32, audit_id) < 0)
-                        return -ENOMEM;
-
-                /* Wut? There's already a session by this name and we didn't find it above? Weird, then let's
-                 * not trust the audit data and let's better register a new ID */
-                if (hashmap_contains(m->sessions, id)) {
-                        log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
-                        audit_id = AUDIT_SESSION_INVALID;
-                        id = mfree(id);
-                }
-        }
-
-        if (!id) {
-                do {
-                        id = mfree(id);
-
-                        if (asprintf(&id, "c%" PRIu64, ++m->session_counter) < 0)
-                                return -ENOMEM;
-
-                } while (hashmap_contains(m->sessions, id));
-        }
-
-        /* The generated names should not clash with 'auto' or 'self' */
-        assert(!SESSION_IS_SELF(id));
-        assert(!SESSION_IS_AUTO(id));
+        r = manager_choose_session_id(m, &leader, &id);
+        if (r < 0)
+                return r;
 
         /* If we are not watching utmp already, try again */
         manager_reconnect_utmp(m);
