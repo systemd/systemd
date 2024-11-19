@@ -216,6 +216,10 @@ bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
 void session_drop_controller(Session *s);
 
+bool session_job_pending(Session *s);
+
+int session_send_create_reply(Session *s, const sd_bus_error *error);
+
 static inline bool SESSION_IS_SELF(const char *name) {
         return isempty(name) || streq(name, "self");
 }
