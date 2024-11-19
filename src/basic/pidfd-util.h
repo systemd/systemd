@@ -12,4 +12,8 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_flag);
 int pidfd_get_pid(int fd, pid_t *ret);
 int pidfd_verify_pid(int pidfd, pid_t pid);
 
+int pidfd_get_ppid(int fd, pid_t *ret);
+int pidfd_get_uid(int fd, uid_t *ret);
+int pidfd_get_cgroupid(int fd, uint64_t *ret);
+
 int pidfd_get_inode_id(int fd, uint64_t *ret);
