@@ -7,10 +7,31 @@
 #include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
+
+static int have_pidfs = -1;
+
+static int pidfd_check_pidfs(void) {
+
+        if (have_pidfs >= 0)
+                return have_pidfs;
+
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (have_pidfs = false);
+
+                return -errno;
+        }
+
+        return (have_pidfs = fd_is_fs_type(fd, PID_FS_MAGIC));
+}
 
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
@@ -63,4 +84,24 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
                 return r;
 
         return current_pid != pid ? -ESRCH : 0;
+}
+
+int pidfd_get_inode_id(int fd, uint64_t *ret) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_check_pidfs();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (ret)
+                *ret = (uint64_t) st.st_ino;
+        return 0;
 }
