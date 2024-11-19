@@ -72,6 +72,28 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         return fd;
 }
 
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
+        _cleanup_close_ int cgfd = -EBADF;
+        int r;
+
+        cgfd = cg_cgroupid_open(cgroupfs_fd, id);
+        if (cgfd < 0)
+                return cgfd;
+
+        _cleanup_free_ char *path = NULL;
+
+        r = fd_get_path(cgfd, &path);
+        if (r < 0)
+                return r;
+
+        if (isempty(path_startswith(path, "/sys/fs/cgroup/"));
+                return -EINVAL;
+
+        if (ret)
+                *ret = TAKE_PTR(path);
+        return 0;
+}
+
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
