@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sysexits.h>
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
@@ -2270,6 +2271,92 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
         return 0;
 }
 
+static int bpffs_prepare(
+                int *ret_pipe_fd,
+                PidRef *ret_pid) {
+
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        int r;
+
+        assert(ret_pipe_fd);
+        assert(ret_pid);
+
+        r = socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pipe_fds);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        r = pidref_safe_fork("(sd-bpffs)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, ret_pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork: %m");
+        if (r == 0) {
+                _cleanup_close_ int fs_fd = -EBADF;
+
+                fs_fd = receive_one_fd(pipe_fds[0], 0);
+                if (fs_fd < 0) {
+                        log_debug_errno(fs_fd, "Failed to receive_one_fd from parent: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = send_one_fd(pipe_fds[0], fs_fd, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send_one_fd to child: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        *ret_pipe_fd = TAKE_FD(pipe_fds[1]);
+
+        return 0;
+}
+
+static int bpffs_finalize(int pipe_fd, PidRef *pid) {
+        _cleanup_close_ int fs_fd = -EBADF, fs_fd2 = -EBADF, mnt_fd = -EBADF;
+        int r;
+
+        assert(pipe_fd >= 0);
+        assert(pid);
+
+        fs_fd = fsopen("bpf", 0);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to fsopen: %m");
+
+        r = send_one_fd(pipe_fd, fs_fd, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send_one_fd to child: %m");
+
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pid, /* flags = */ 0);
+        TAKE_PIDREF(*pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to pidref_wait_for_terminate_and_check: %m");
+        if (r != EXIT_SUCCESS) {
+                /* If something strange happened with the child, let's consider this fatal, too */
+                log_debug("Bogus return code from child: %d", r);
+                return -EIO;
+        }
+
+        fs_fd2 = receive_one_fd(pipe_fd, /* flags = */ 0);
+        if (fs_fd2 < 0)
+                return log_debug_errno(fs_fd2, "Failed to receive_one_fd from child: %m");
+
+        mnt_fd = fsmount(fs_fd2, 0, 0);
+        if (mnt_fd < 0) {
+                log_debug_errno(errno, "Failed to fsmount: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = move_mount(mnt_fd, "", AT_FDCWD, "/sys/fs/bpf", MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move_mount: %m");
+
+        return 0;
+}
+
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -3595,6 +3682,7 @@ static int apply_mount_namespace(
                 .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
+                .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4691,8 +4779,9 @@ int exec_invoke(
         int secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
-        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
+        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET, bpffs_socket_fd = -EBADF;
         size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pid = PIDREF_NULL;
 
         assert(command);
         assert(context);
@@ -5408,6 +5497,23 @@ int exec_invoke(
                 }
         }
 
+        if (context->private_bpf != PRIVATE_BPF_NO) {
+                /* To create a BPF token, the bpffs has to be mounted with the fsopen()/fsmount() API.
+                 * More specifically, fsopen() must be called within the user namespace, then all the
+                 * fsconfig() and fsmount() as priviledged user.
+                 * To do this, we split the code into a bpffs_prepare() and bpffs_finalize() functions,
+                 * the first runs as priviledged user the second as unpriviledged one, and they coordinate
+                 * by sending messages and filedescriptors via a socket pair.
+                 * This is the kernel sample doing this:
+                 * https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/token.c
+                 */
+                r = bpffs_prepare(&bpffs_socket_fd, &bpffs_pid);
+                if (r < 0) {
+                        *exit_status = EXIT_BPF;
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
+                }
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -5517,6 +5623,14 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return r;
+                }
+        }
+
+        if (context->private_bpf != PRIVATE_BPF_NO) {
+                r = bpffs_finalize(bpffs_socket_fd, &bpffs_pid);
+                if (r < 0) {
+                        *exit_status = EXIT_BPF;
+                        return log_error_errno(r, "Failed to mount bpffs in bpffs_finalize(): %m");
                 }
         }
 
