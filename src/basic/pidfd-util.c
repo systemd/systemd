@@ -8,11 +8,13 @@
 #include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "missing_pidfd.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 static bool pidfd_get_info_supported = true;
@@ -108,4 +110,28 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
                 return r;
 
         return current_pid != pid ? -ESRCH : 0;
+}
+
+int pidfd_get_inode_id(int fd, uint64_t *ret) {
+        static int cached_supported = -1;
+        int r;
+
+        assert(fd >= 0);
+
+        if (cached_supported < 0) {
+                cached_supported = fd_is_fs_type(fd, PID_FS_MAGIC);
+                if (cached_supported < 0)
+                        return cached_supported;
+        }
+        if (cached_supported == 0)
+                return -EOPNOTSUPP;
+
+        struct stat st;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (ret)
+                *ret = (uint64_t) st.st_ino;
+        return 0;
 }
