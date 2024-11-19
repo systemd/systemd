@@ -183,6 +183,8 @@ typedef enum CGroupUnified {
 int cg_path_open(const char *controller, const char *path);
 int cg_cgroupid_open(int fsfd, uint64_t id);
 
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
+
 typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
         CGROUP_IGNORE_SELF        = 1 << 1,
