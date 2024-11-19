@@ -691,45 +691,40 @@ static void dump_home_record(UserRecord *hr) {
         }
 }
 
-static char **mangle_user_list(char **list, char ***ret_allocated) {
-        _cleanup_free_ char *myself = NULL;
+static int mangle_user_list(char **list, char ***ret) {
         char **l;
 
-        if (!strv_isempty(list)) {
-                *ret_allocated = NULL;
-                return list;
-        }
+        if (strv_isempty(list)) {
+                _cleanup_free_ char *myself = NULL;
 
-        myself = getusername_malloc();
-        if (!myself)
-                return NULL;
+                myself = getusername_malloc();
+                if (!myself)
+                        return log_oom();
 
-        l = new(char*, 2);
+                l = strv_new(myself);
+        } else
+                l = strv_copy(list);
         if (!l)
-                return NULL;
+                return log_oom();
 
-        l[0] = TAKE_PTR(myself);
-        l[1] = NULL;
-
-        *ret_allocated = l;
-        return l;
+        *ret = l;
+        return 0;
 }
 
 static int inspect_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
+        _cleanup_strv_free_ char **items = NULL;
         int r, ret = 0;
-        char **items;
 
-        pager_open(arg_pager_flags);
+        r = mangle_user_list(strv_skip(argv, 1), &items);
+        if (r < 0)
+                return r;
 
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        pager_open(arg_pager_flags);
 
         STRV_FOREACH(i, items) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -800,13 +795,12 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
 
 static int authenticate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
+        _cleanup_strv_free_ char **items = NULL;
         int r, ret = 0;
-        char **items;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        r = mangle_user_list(strv_skip(argv, 1), &items);
+        if (r < 0)
+                return r;
 
         r = acquire_bus(&bus);
         if (r < 0)
