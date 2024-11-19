@@ -152,11 +152,13 @@ static int do_execute(
                 }
 
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *args = NULL;
-                        if (argv)
-                                args = quote_command_line(strv_skip(argv, 1), SHELL_ESCAPE_EMPTY);
+                        _cleanup_free_ char *s = NULL;
 
-                        log_debug("About to execute %s%s%s", t, argv ? " " : "", argv ? strnull(args) : "");
+                        char **args = strv_skip(argv, 1);
+                        if (args)
+                                s = quote_command_line(args, SHELL_ESCAPE_EMPTY);
+
+                        log_debug("About to execute %s%s%s", t, args ? " " : "", args ? strnull(s) : "");
                 }
 
                 if (FLAGS_SET(flags, EXEC_DIR_WARN_WORLD_WRITABLE)) {
