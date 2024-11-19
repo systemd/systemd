@@ -1402,6 +1402,26 @@ int cg_pid_get_session(pid_t pid, char **ret_session) {
         return cg_path_get_session(cgroup, ret_session);
 }
 
+int cg_pidref_get_session(const PidRef *pidref, char **ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        _cleanup_free_ char *session = NULL;
+        r = cg_pid_get_session(pidref->pid, &session);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(session);
+        return 0;
+}
+
 int cg_path_get_owner_uid(const char *path, uid_t *ret_uid) {
         _cleanup_free_ char *slice = NULL;
         char *start, *end;
@@ -1437,6 +1457,27 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid) {
                 return r;
 
         return cg_path_get_owner_uid(cgroup, ret_uid);
+}
+
+int cg_pidref_get_owner_uid(const PidRef *pidref, uid_t *ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        uid_t uid;
+        r = cg_pid_get_owner_uid(pidref->pid, &uid);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = uid;
+
+        return 0;
 }
 
 int cg_path_get_slice(const char *p, char **ret_slice) {
