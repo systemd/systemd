@@ -421,7 +421,7 @@
         <term><varname>rd.systemd.verity=</varname></term>
         <term><varname>systemd.verity_root_data=</varname></term>
         <term><varname>systemd.verity_root_hash=</varname></term>
-        <term><varname>systemd.verity.root_options=</varname></term>
+        <term><varname>systemd.verity_root_options=</varname></term>
         <term><varname>usrhash=</varname></term>
         <term><varname>systemd.verity_usr_data=</varname></term>
         <term><varname>systemd.verity_usr_hash=</varname></term>
