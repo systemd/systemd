@@ -550,8 +550,6 @@ static int tree(int argc, char **argv, void *userdata) {
         char **args = strv_skip(argv, 1);
         if (args)
                 STRV_FOREACH(arg, args) {
-                        int q;
-
                         if (arg != args)
                                 puts("");
 
@@ -560,9 +558,7 @@ static int tree(int argc, char **argv, void *userdata) {
                                 printf("Service %s%s%s:\n", ansi_highlight(), *arg, ansi_normal());
                         }
 
-                        q = tree_one(bus, *arg);
-                        if (q < 0 && r >= 0)
-                                r = q;
+                        RET_GATHER(r, tree_one(bus, *arg));
                 }
         else {
                 _cleanup_strv_free_ char **names = NULL;
@@ -574,8 +570,6 @@ static int tree(int argc, char **argv, void *userdata) {
                 pager_open(arg_pager_flags);
 
                 STRV_FOREACH(name, names) {
-                        int q;
-
                         if (!arg_unique && (*name)[0] == ':')
                                 continue;
 
@@ -587,9 +581,7 @@ static int tree(int argc, char **argv, void *userdata) {
 
                         printf("Service %s%s%s:\n", ansi_highlight(), *name, ansi_normal());
 
-                        q = tree_one(bus, *name);
-                        if (q < 0 && r >= 0)
-                                r = q;
+                        RET_GATHER(r, tree_one(bus, *name));
                 }
         }
 
