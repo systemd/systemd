@@ -912,7 +912,7 @@ static bool session_job_pending(Session *s) {
                (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) && s->user->service_manager_job);
 }
 
-int session_send_create_reply(Session *s, sd_bus_error *error) {
+int session_send_create_reply(Session *s, const sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
@@ -968,7 +968,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                         false);
 }
 
-int session_send_upgrade_reply(Session *s, sd_bus_error *error) {
+int session_send_upgrade_reply(Session *s, const sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         assert(s);
 
