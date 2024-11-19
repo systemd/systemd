@@ -170,6 +170,60 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
         return current_pid != pid ? -ESRCH : 0;
 }
 
+int pidfd_get_ppid(int fd, pid_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_PID };
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_get_info(fd, &info);
+        if (r < 0)
+                return r;
+
+        assert(FLAGS_SET(info.mask, PIDFD_INFO_PID));
+
+        if (info.ppid == 0)
+                return -EADDRNOTAVAIL;
+
+        if (ret)
+                *ret = info.ppid;
+        return 0;
+}
+
+int pidfd_get_uid(int fd, uid_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_CREDS };
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_get_info(fd, &info);
+        if (r < 0)
+                return r;
+
+        assert(FLAGS_SET(info.mask, PIDFD_INFO_CREDS));
+
+        if (ret)
+                *ret = info.ruid;
+        return 0;
+}
+
+int pidfd_get_cgroupid(int fd, uint64_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_CGROUPID };
+        int r;
+
+        assert(fd >= 0);
+
+        r = pidfd_get_info(fd, &info);
+        if (r < 0)
+                return r;
+
+        assert(FLAGS_SET(info.mask, PIDFD_INFO_CGROUPID));
+
+        if (ret)
+                *ret = info.cgroupid;
+        return 0;
+}
+
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
         int r;
 
