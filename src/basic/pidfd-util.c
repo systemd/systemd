@@ -112,6 +112,31 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
         return current_pid != pid ? -ESRCH : 0;
 }
 
+int pidfd_get_cgroupid(int fd, uint64_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_CGROUP };
+
+        assert(fd >= 0);
+
+        if (!pidfd_get_info_supported)
+                return -EOPNOTSUPP;
+
+        if (ioctl(fd, PIDFD_GET_INFO, &info) < 0) {
+                if (ERRNO_IS_PIDFD_IOCTL_NOT_SUPPORTED(errno)) {
+                        pidfd_get_info_supported = false;
+                        return -EOPNOTSUPP;
+                }
+
+                return -errno;
+        }
+
+        if (!FLAGS_SET(info.mask, PIDFD_INFO_CGROUP))
+                return -ENODATA;
+
+        if (ret)
+                *ret = info.cgroupid;
+        return 0;
+}
+
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
         static int cached_supported = -1;
         int r;
