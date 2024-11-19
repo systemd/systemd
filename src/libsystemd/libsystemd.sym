@@ -1039,6 +1039,7 @@ global:
         sd_varlink_server_set_exit_on_idle;
         sd_varlink_server_set_userdata;
         sd_varlink_server_shutdown;
+        sd_varlink_server_unref;
         sd_varlink_set_allow_fd_passing_input;
         sd_varlink_set_allow_fd_passing_output;
         sd_varlink_set_description;
