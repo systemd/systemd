@@ -334,46 +334,46 @@ _public_ int sd_pidfd_get_cgroup(int pidfd, char **ret_cgroup) {
         return 0;
 }
 
-_public_ int sd_peer_get_session(int fd, char **session) {
-        struct ucred ucred = UCRED_INVALID;
+_public_ int sd_peer_get_session(int fd, char **ret) {
         int r;
 
         assert_return(fd >= 0, -EBADF);
-        assert_return(session, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_session(ucred.pid, session);
+        return cg_pidref_get_session(&pidref, ret);
 }
 
-_public_ int sd_peer_get_owner_uid(int fd, uid_t *uid) {
-        struct ucred ucred;
+_public_ int sd_peer_get_owner_uid(int fd, uid_t *ret) {
         int r;
 
         assert_return(fd >= 0, -EBADF);
-        assert_return(uid, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_owner_uid(ucred.pid, uid);
+        return cg_pidref_get_owner_uid(&pidref, ret);
 }
 
-_public_ int sd_peer_get_unit(int fd, char **unit) {
-        struct ucred ucred;
+_public_ int sd_peer_get_unit(int fd, char **ret) {
         int r;
 
         assert_return(fd >= 0, -EBADF);
-        assert_return(unit, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_unit(ucred.pid, unit);
+        return cg_pidref_get_unit(&pidref, ret);
 }
 
 _public_ int sd_peer_get_user_unit(int fd, char **unit) {
