@@ -183,6 +183,10 @@ typedef enum CGroupUnified {
 int cg_path_open(const char *controller, const char *path);
 int cg_cgroupid_open(int fsfd, uint64_t id);
 
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
+int cg_path_get_cgroupid(const char *path, uint64_t *ret);
+int cg_fd_get_cgroupid(int fd, uint64_t *ret);
+
 typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
         CGROUP_IGNORE_SELF        = 1 << 1,
@@ -265,8 +269,6 @@ int cg_is_empty_recursive(const char *controller, const char *path);
 
 int cg_get_root_path(char **path);
 
-int cg_path_get_cgroupid(const char *path, uint64_t *ret);
-int cg_fd_get_cgroupid(int fd, uint64_t *ret);
 int cg_path_get_session(const char *path, char **ret_session);
 int cg_path_get_owner_uid(const char *path, uid_t *ret_uid);
 int cg_path_get_unit(const char *path, char **ret_unit);
