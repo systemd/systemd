@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "missing_network.h"
 #include "missing_socket.h"
+#include "pidref.h"
 #include "sparse-endian.h"
 
 union sockaddr_union {
@@ -154,6 +155,7 @@ int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 int getpeerpidfd(int fd);
+int getpeerpidref(int fd, PidRef *ret);
 
 ssize_t send_many_fds_iov_sa(
                 int transport_fd,
