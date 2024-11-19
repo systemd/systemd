@@ -1152,7 +1152,7 @@ static int create_session(
          * all is complete - or wait again. */
         r = session_send_create_reply(session, /* error= */ NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
         return 1;
 
