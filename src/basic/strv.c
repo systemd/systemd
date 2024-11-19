@@ -956,14 +956,16 @@ bool strv_fnmatch_full(
 }
 
 char** strv_skip(char **l, size_t n) {
-
         while (n > 0) {
                 if (strv_isempty(l))
-                        return l;
+                        return NULL;
 
                 l++, n--;
         }
 
+        /* To simplify callers, always return NULL instead of a zero-item array. */
+        if (strv_isempty(l))
+                return NULL;
         return l;
 }
 
