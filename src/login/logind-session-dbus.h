@@ -15,7 +15,7 @@ int session_send_changed(Session *s, const char *properties, ...) _sentinel_;
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
-int session_send_create_reply(Session *s, const sd_bus_error *error);
+int session_send_create_reply_bus(Session *s, const sd_bus_error *error);
 int session_send_upgrade_reply(Session *s, const sd_bus_error *error);
 
 int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
