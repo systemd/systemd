@@ -24,11 +24,12 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "logind.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
-#include "logind.h"
+#include "logind-varlink.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
@@ -153,6 +154,8 @@ static Manager* manager_free(Manager *m) {
                 (void) unlink_or_warn("/run/nologin");
 
         hashmap_free(m->polkit_registry);
+
+        manager_varlink_done(m);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -1112,6 +1115,10 @@ static int manager_startup(Manager *m) {
 
         /* Connect to the bus */
         r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
+        r = manager_varlink_init(m);
         if (r < 0)
                 return r;
 
