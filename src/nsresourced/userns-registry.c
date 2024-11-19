@@ -525,49 +525,20 @@ int userns_info_add_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id) {
 }
 
 static int userns_destroy_cgroup(uint64_t cgroup_id) {
-        _cleanup_close_ int cgroup_fd = -EBADF, parent_fd = -EBADF;
+        _cleanup_free_ char *path = NULL;
         int r;
 
-        cgroup_fd = cg_cgroupid_open(/* cgroupfsfd= */ -EBADF, cgroup_id);
-        if (cgroup_fd == -ESTALE) {
-                log_debug_errno(cgroup_fd, "Control group %" PRIu64 " already gone, ignoring: %m", cgroup_id);
+        r = cg_path_from_cgroupid(/* cgroupfs_fd = */ -EBADF, cgroup_id, &path);
+        if (r == -ESTALE) {
+                log_debug_errno(r, "Control group %" PRIu64 " already gone, ignoring.", cgroup_id);
                 return 0;
         }
-        if (cgroup_fd < 0)
-                return log_debug_errno(errno, "Failed to open cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
-
-        _cleanup_free_ char *path = NULL;
-        r = fd_get_path(cgroup_fd, &path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get path of cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
-        const char *e = path_startswith(path, "/sys/fs/cgroup/");
-        if (!e)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Got cgroup path that doesn't start with /sys/fs/cgroup/, refusing: %s", path);
-        if (isempty(e))
-                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Got root cgroup path, which can't be right, refusing.");
+        log_debug("Destroying cgroup %" PRIu64 " (%s)", cgroup_id, path);
 
-        log_debug("Path of cgroup %" PRIu64 " is: %s", cgroup_id, path);
-
-        _cleanup_free_ char *fname = NULL;
-        r = path_extract_filename(path, &fname);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to extract name of cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
-
-        parent_fd = openat(cgroup_fd, "..", O_CLOEXEC|O_DIRECTORY);
-        if (parent_fd < 0)
-                return log_debug_errno(errno, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
-
-        /* Safety check, never leave cgroupfs */
-        r = fd_is_fs_type(parent_fd, CGROUP2_SUPER_MAGIC);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if parent directory of cgroup %" PRIu64 " is still a cgroup, ignoring: %m", cgroup_id);
-        if (!r)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Parent directory of cgroup %" PRIu64 " is not a cgroup, refusing.", cgroup_id);
-
-        cgroup_fd = safe_close(cgroup_fd);
-
-        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        r = rm_rf(path, REMOVE_ROOT|REMOVE_ONLY_DIRECTORIES|REMOVE_CHMOD);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove delegated cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
