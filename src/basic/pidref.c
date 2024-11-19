@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
-
 #include "errno-util.h"
 #include "fd-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
 #include "missing_wait.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
