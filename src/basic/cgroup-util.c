@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
@@ -873,6 +874,16 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+
+        if (pidref->fd >= 0) {
+                uint64_t cgroup_id;
+
+                r = pidfd_get_cgroupid(pidref->fd, &cgroup_id);
+                if (r >= 0)
+                        return cg_path_from_cgroupid(/* cgroupfs_fd = */ -EBADF, cgroup_id, ret_path);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
 
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
