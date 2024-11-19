@@ -22,6 +22,11 @@ trap at_exit EXIT
 
 systemctl service-log-level systemd-machined debug
 systemctl service-log-level systemd-importd debug
+# per request in https://github.com/systemd/systemd/pull/35117
+systemctl edit --runtime --stdin 'systemd-nspawn@.service' --drop-in=debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
 
 # Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
