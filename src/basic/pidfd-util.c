@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -13,19 +14,17 @@
 #include "pidfd-util.h"
 #include "string-util.h"
 
-int pidfd_get_pid(int fd, pid_t *ret) {
+static bool pidfd_get_info_supported = true;
+
+static bool ERRNO_IS_NEG_PIDFD_IOCTL_NOT_SUPPORTED(intmax_t r) {
+        return IN_SET(r, -ENOTTY, -EINVAL);
+}
+_DEFINE_ABS_WRAPPER(PIDFD_IOCTL_NOT_SUPPORTED);
+
+static int pidfd_get_pid_fdinfo(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         int r;
-
-        /* Converts a pidfd into a pid. Well known errors:
-         *
-         *    -EBADF   → fd invalid
-         *    -ENOSYS  → /proc/ not mounted
-         *    -ENOTTY  → fd valid, but not a pidfd
-         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
-         *    -ESRCH   → fd valid, but process is already reaped
-         */
 
         assert(fd >= 0);
 
@@ -50,6 +49,50 @@ int pidfd_get_pid(int fd, pid_t *ret) {
                 return -ESRCH;   /* refers to reaped process? */
 
         return parse_pid(p, ret);
+}
+
+static int pidfd_get_pid_ioctl(int fd, pid_t *ret) {
+        struct pidfd_info info = { .mask = PIDFD_INFO_PID };
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, PIDFD_GET_INFO, &info) < 0)
+                return -errno;
+
+        assert(FLAGS_SET(info.mask, PIDFD_INFO_PID));
+
+        if (ret)
+                *ret = info.pid;
+        return 0;
+}
+
+int pidfd_get_pid(int fd, pid_t *ret) {
+        int r;
+
+        /* Converts a pidfd into a pid. We try ioctl(PIDFD_GET_INFO) (kernel 6.13+) first,
+         * /proc/self/fdinfo/ as fallback. Well known errors:
+         *
+         *    -EBADF   → fd invalid
+         *    -ESRCH   → fd valid, but process is already reaped
+         *
+         * pidfd_get_pid_fdinfo() might additionally fail for other reasons:
+         *
+         *    -ENOSYS  → /proc/ not mounted
+         *    -ENOTTY  → fd valid, but not a pidfd
+         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
+         */
+
+        assert(fd >= 0);
+
+        if (pidfd_get_info_supported) {
+                r = pidfd_get_pid_ioctl(fd, ret);
+                if (!ERRNO_IS_NEG_PIDFD_IOCTL_NOT_SUPPORTED(r))
+                        return r;
+
+                pidfd_get_info_supported = false;
+        }
+
+        return pidfd_get_pid_fdinfo(fd, ret);
 }
 
 int pidfd_verify_pid(int pidfd, pid_t pid) {
