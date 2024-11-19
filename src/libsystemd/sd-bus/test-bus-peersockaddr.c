@@ -81,7 +81,7 @@ static void *server(void *p) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 assert_se(pidref_set_pidfd_take(&pidref, pidfd) >= 0);
-                assert_se(pidref.pid == getpid_cached());
+                assert_se(pidref_is_self(&pidref));
         }
 
         const gid_t *gl = NULL;
