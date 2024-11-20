@@ -1815,9 +1815,6 @@ int namespace_fork(
 int set_oom_score_adjust(int value) {
         char t[DECIMAL_STR_MAX(int)];
 
-        if (!oom_score_adjust_is_valid(value))
-                return -EINVAL;
-
         xsprintf(t, "%i", value);
 
         return write_string_file("/proc/self/oom_score_adj", t,
@@ -1834,16 +1831,11 @@ int get_oom_score_adjust(int *ret) {
 
         delete_trailing_chars(t, WHITESPACE);
 
-        r = safe_atoi(t, &a);
-        if (r < 0)
-                return r;
-
-        if (!oom_score_adjust_is_valid(a))
-                return -ENODATA;
+        assert_se(safe_atoi(t, &a) >= 0);
+        assert_se(oom_score_adjust_is_valid(a));
 
         if (ret)
                 *ret = a;
-
         return 0;
 }
 
