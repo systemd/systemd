@@ -133,17 +133,7 @@ static int verb_show(int argc, char **argv, void *userdata) {
         int r;
 
         argv = strv_skip(argv, 1);
-        if (strv_isempty(argv)) {
-                if (!sd_id128_is_null(arg_app))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "'show --app-specific=' can only be used with explicit UUID input.");
-
-                for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
-                        r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
-                        if (r < 0)
-                                return r;
-                }
-        } else
+        if (argv)
                 STRV_FOREACH(p, argv) {
                         sd_id128_t uuid;
                         const char *id = NULL;
@@ -171,6 +161,17 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+        else {
+                if (!sd_id128_is_null(arg_app))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "'show --app-specific=' can only be used with explicit UUID input.");
+
+                for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
+                        r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (table) {
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
