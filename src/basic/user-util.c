@@ -532,12 +532,11 @@ int getgroups_alloc(gid_t** gids) {
         int ngroups = 8;
         unsigned attempt = 0;
 
-        allocated = new(gid_t, ngroups);
-        if (!allocated)
-                return -ENOMEM;
-        p = allocated;
-
         for (;;) {
+                p = allocated = new(gid_t, ngroups);
+                if (!allocated)
+                        return -ENOMEM;
+
                 ngroups = getgroups(ngroups, p);
                 if (ngroups >= 0)
                         break;
@@ -557,10 +556,6 @@ int getgroups_alloc(gid_t** gids) {
                         return false;
 
                 free(allocated);
-
-                p = allocated = new(gid_t, ngroups);
-                if (!allocated)
-                        return -ENOMEM;
         }
 
         *gids = TAKE_PTR(p);
