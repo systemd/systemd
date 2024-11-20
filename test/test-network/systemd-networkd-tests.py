@@ -6406,11 +6406,11 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         for i in [100, 200, 300, 512, 1024, 2048]:
             if i not in [metric_1, metric_2]:
-                self.assertNotIn(f'{i}', output)
+                self.assertNotIn(f'metric {i} ', output)
 
         for i in ['low', 'medium', 'high']:
             if i not in [preference_1, preference_2]:
-                self.assertNotIn(f'{i}', output)
+                self.assertNotIn(f'pref {i}', output)
 
     def test_router_preference(self):
         copy_network_unit('25-veth-client.netdev',
