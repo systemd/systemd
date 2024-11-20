@@ -399,9 +399,8 @@ static int pidref_is_active_session(Manager *m, const PidRef *pid) {
 bool manager_is_inhibited(
                 Manager *m,
                 InhibitWhat w,
-                bool block,
                 dual_timestamp *since,
-                bool ignore_inactive,
+                ManagerIsInhibitedFlags flags,
                 uid_t uid_to_ignore,
                 Inhibitor **ret_offending) {
 
@@ -420,11 +419,11 @@ bool manager_is_inhibited(
                 if (!(i->what & w))
                         continue;
 
-                if ((block && !IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK)) ||
-                    (!block && i->mode != INHIBIT_DELAY))
+                if ((flags & MANAGER_IS_INHIBITED_CHECK_DELAY) != (i->mode == INHIBIT_DELAY))
                         continue;
 
-                if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
+                if ((flags & MANAGER_IS_INHIBITED_IGNORE_INACTIVE) &&
+                    pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
                 if (i->mode == INHIBIT_BLOCK_WEAK &&
