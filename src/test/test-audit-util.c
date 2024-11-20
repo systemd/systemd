@@ -26,7 +26,12 @@ TEST(audit_loginuid_from_pid) {
         if (r >= 0)
                 log_info("self audit session id: %" PRIu32, sessionid);
 
-        ASSERT_ERROR(audit_session_from_pid(&pid1, &sessionid), ENODATA);
+        /* pid1 at build time does not necessarily have to be systemd, it could be anything and be in any
+         * state outside of our control, so print a log message instead of asserting. As a specific example,
+         * on the Debian buildd network the stub pid1 is not systemd, and has a sessionid */
+        r = audit_session_from_pid(&pid1, &sessionid);
+        if (r != -ENODATA)
+                log_error("audit_session_from_pid on pid1 unexpectedly returned %d instead of -ENODATA", r);
 }
 
 static int intro(void) {
