@@ -1226,12 +1226,12 @@ int pid_from_same_root_fs(pid_t pid) {
 }
 
 bool is_main_thread(void) {
-        static thread_local int cached = 0;
+        static thread_local int cached = -1;
 
-        if (_unlikely_(cached == 0))
-                cached = getpid_cached() == gettid() ? 1 : -1;
+        if (cached < 0)
+                cached = getpid_cached() == gettid();
 
-        return cached > 0;
+        return cached;
 }
 
 bool oom_score_adjust_is_valid(int oa) {
