@@ -69,7 +69,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         ASSERT_OK(pid_get_cmdline(pid, 1, 0, &d));
         log_info("PID"PID_FMT" cmdline truncated to 1: '%s'", pid, d);
 
-        r = get_process_ppid(pid, &e);
+        r = pid_get_ppid(pid, &e);
         if (pid == 1)
                 ASSERT_ERROR(r, EADDRNOTAVAIL);
         else
@@ -813,18 +813,18 @@ TEST(setpriority_closest) {
         }
 }
 
-TEST(get_process_ppid) {
+TEST(pid_get_ppid) {
         uint64_t limit;
         int r;
 
-        ASSERT_ERROR(get_process_ppid(1, NULL), EADDRNOTAVAIL);
+        ASSERT_ERROR(pid_get_ppid(1, NULL), EADDRNOTAVAIL);
 
         /* the process with the PID above the global limit definitely doesn't exist. Verify that */
         ASSERT_OK(procfs_get_pid_max(&limit));
         log_debug("kernel.pid_max = %"PRIu64, limit);
 
         if (limit < INT_MAX) {
-                r = get_process_ppid(limit + 1, NULL);
+                r = pid_get_ppid(limit + 1, NULL);
                 log_debug_errno(r, "get_process_limit(%"PRIu64") → %d/%m", limit + 1, r);
                 assert(r == -ESRCH);
         }
@@ -833,7 +833,7 @@ TEST(get_process_ppid) {
                 _cleanup_free_ char *c1 = NULL, *c2 = NULL;
                 pid_t ppid;
 
-                r = get_process_ppid(pid, &ppid);
+                r = pid_get_ppid(pid, &ppid);
                 if (r == -EADDRNOTAVAIL) {
                         log_info("No further parent PID");
                         break;
