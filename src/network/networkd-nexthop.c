@@ -493,8 +493,11 @@ static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
         /* If a nexthop is removed, the kernel silently removes routes that depend on the removed nexthop.
          * Let's forget them. */
 
-        Route *route;
-        SET_FOREACH(route, nexthop->routes) {
+        for (;;) {
+                _cleanup_(route_unrefp) Route *route = set_steal_first(nexthop->routes);
+                if (!route)
+                        break;
+
                 Request *req;
                 if (route_get_request(manager, route, &req) >= 0)
                         route_enter_removed(req->userdata);
@@ -503,6 +506,8 @@ static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
                 log_route_debug(route, "Forgetting silently removed", manager);
                 route_detach(route);
         }
+
+        nexthop->routes = set_free(nexthop->routes);
 }
 
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
