@@ -1199,10 +1199,12 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         else
                 nexthop->ifindex = (int) ifindex;
 
-        /* All blackhole or group nexthops are managed by Manager. Note that the linux kernel does not
-         * set NHA_OID attribute when NHA_BLACKHOLE or NHA_GROUP is set. Just for safety. */
-        if (!nexthop_bound_to_link(nexthop))
+        /* The linux kernel does not set NHA_OID attribute when NHA_BLACKHOLE or NHA_GROUP is set.
+         * But let's check that for safety. */
+        if (!nexthop_bound_to_link(nexthop) && nexthop->ifindex != 0) {
+                log_debug("rtnl: received blackhole or group nexthop with NHA_OIF attribute, ignoring the attribute.");
                 nexthop->ifindex = 0;
+        }
 
         nexthop_enter_configured(nexthop);
         if (req)
