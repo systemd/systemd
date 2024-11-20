@@ -78,7 +78,7 @@ static NextHop* nexthop_detach_impl(NextHop *nexthop) {
 
                 nexthop_detach_from_group_members(nexthop);
 
-                hashmap_remove(nexthop->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id));
+                assert_se(hashmap_remove(nexthop->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id)) == nexthop);
                 nexthop->manager = NULL;
                 return nexthop;
         }
