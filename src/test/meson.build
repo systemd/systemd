@@ -46,7 +46,6 @@ simple_tests += files(
         'test-alloc-util.c',
         'test-architecture.c',
         'test-argv-util.c',
-        'test-audit-util.c',
         'test-barrier.c',
         'test-bitfield.c',
         'test-bitmap.c',
