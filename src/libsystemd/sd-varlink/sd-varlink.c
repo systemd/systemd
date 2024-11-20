@@ -1698,7 +1698,8 @@ _public_ int sd_varlink_get_events(sd_varlink *v) {
                 ret |= EPOLLIN;
 
         if (!v->write_disconnected &&
-            v->output_buffer_size > 0)
+            (v->output_queue ||
+             v->output_buffer_size > 0))
                 ret |= EPOLLOUT;
 
         return ret;
