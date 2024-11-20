@@ -460,6 +460,23 @@ void log_route_debug(const Route *route, const char *str, Manager *manager) {
                        strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
 }
 
+static void route_forget(Manager *manager, Route *route, const char *msg) {
+        assert(manager);
+        assert(route);
+        assert(msg);
+
+        Request *req;
+        if (route_get_request(manager, route, &req) >= 0)
+                route_enter_removed(req->userdata);
+
+        if (!route->manager && route_get(manager, route, &route) < 0)
+                return;
+
+        route_enter_removed(route);
+        log_route_debug(route, msg, manager);
+        route_detach(route);
+}
+
 static int route_set_netlink_message(const Route *route, sd_netlink_message *m) {
         int r;
 
@@ -564,16 +581,8 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveR
                                        LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop route, ignoring");
 
-                if (route->manager) {
-                        /* If the route cannot be removed, then assume the route is already removed. */
-                        log_route_debug(route, "Forgetting", manager);
-
-                        Request *req;
-                        if (route_get_request(manager, route, &req) >= 0)
-                                route_enter_removed(req->userdata);
-
-                        route_detach(route);
-                }
+                /* If the route cannot be removed, then assume the route is already removed. */
+                route_forget(manager, route, "Forgetting");
         }
 
         return 1;
@@ -1088,7 +1097,6 @@ static int process_route_one(
                 Route *tmp,
                 const struct rta_cacheinfo *cacheinfo) {
 
-        Request *req = NULL;
         Route *route = NULL;
         Link *link = NULL;
         bool is_new = false, update_dhcp4;
@@ -1099,13 +1107,15 @@ static int process_route_one(
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
         (void) route_get(manager, tmp, &route);
-        (void) route_get_request(manager, tmp, &req);
         (void) route_get_link(manager, tmp, &link);
 
         update_dhcp4 = link && tmp->family == AF_INET6 && tmp->dst_prefixlen == 0;
 
         switch (type) {
         case RTM_NEWROUTE:
+                Request *req = NULL;
+                (void) route_get_request(manager, tmp, &req);
+
                 if (!route) {
                         if (!manager->manage_foreign_routes && !(req && req->waiting_reply)) {
                                 route_enter_configured(tmp);
@@ -1161,18 +1171,12 @@ static int process_route_one(
                 break;
 
         case RTM_DELROUTE:
-                if (route) {
-                        route_enter_removed(route);
-                        log_route_debug(route, "Forgetting removed", manager);
-                        route_detach(route);
-                } else
+                if (route)
+                        route_forget(manager, route, "Forgetting removed");
+                else
                         log_route_debug(tmp,
                                         manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received",
                                         manager);
-
-                if (req)
-                        route_enter_removed(req->userdata);
-
                 break;
 
         default:
@@ -1574,13 +1578,7 @@ void link_forget_routes(Link *link) {
                 if (!IN_SET(route->type, RTN_UNICAST, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
                         continue;
 
-                Request *req;
-                if (route_get_request(link->manager, route, &req) >= 0)
-                        route_enter_removed(req->userdata);
-
-                route_enter_removed(route);
-                log_route_debug(route, "Forgetting silently removed", link->manager);
-                route_detach(route);
+                route_forget(link->manager, route, "Forgetting silently removed");
         }
 }
 
