@@ -3,7 +3,7 @@
 #include "audit-util.h"
 #include "tests.h"
 
-TEST(audit_loginuid_from_pid) {
+TEST(audit_loginuid_from_pid, .sd_booted = true) {
         _cleanup_(pidref_done) PidRef self = PIDREF_NULL, pid1 = PIDREF_NULL;
         int r;
 
