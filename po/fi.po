@@ -3,12 +3,13 @@
 # Finnish translation of systemd.
 # Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022, 2023.
 # Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024.
+# Jiri Grönroos <jiri.gronroos@iki.fi>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-09-12 13:43+0000\n"
-"Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
+"PO-Revision-Date: 2024-11-20 19:13+0000\n"
+"Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
 "Language: fi\n"
@@ -16,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -112,14 +113,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Todennus vaaditaan käyttäjän kotialueen päivittämiseksi."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
 msgstr "Päivitä kotialue"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Todennus vaaditaan käyttäjän kotialueen päivittämiseksi."
+msgstr "Todennus vaaditaan kotialueen päivittämiseksi."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1174,14 +1173,11 @@ msgstr "Todennus vaaditaan vanhojen järjestelmäpäivitysten puhdistamiseen."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Hallitse valinnaisia ominaisuuksia"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Todennus vaaditaan aktiivisten istuntojen, käyttäjien ja paikkojen "
-"hallintaan."
+msgstr "Todennus vaaditaan valinnaisten ominaisuuksien hallintaan"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
