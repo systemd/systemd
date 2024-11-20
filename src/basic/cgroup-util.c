@@ -803,6 +803,10 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                 if (!path)
                         return -ENOMEM;
 
+                /* Refuse cgroup paths from outside our cgroup namespace */
+                if (startswith(path, "/../"))
+                        return -EUNATCH;
+
                 /* Truncate suffix indicating the process is a zombie */
                 e = endswith(path, " (deleted)");
                 if (e)

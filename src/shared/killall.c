@@ -46,13 +46,17 @@ static bool argv_has_at(pid_t pid) {
         return c == '@';
 }
 
-static bool is_survivor_cgroup(const PidRef *pid) {
+static bool is_in_survivor_cgroup(const PidRef *pid) {
         _cleanup_free_ char *cgroup_path = NULL;
         int r;
 
         assert(pidref_is_set(pid));
 
         r = cg_pidref_get_path(/* root= */ NULL, pid, &cgroup_path);
+        if (r == -EUNATCH) {
+                log_warning_errno(r, "Process " PID_FMT " appears to originate in foreign namespace, ignoring.", pid->pid);
+                return true;
+        }
         if (r < 0) {
                 log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid->pid);
                 return false;
@@ -86,7 +90,7 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
                 return true; /* also ignore processes where we can't determine this */
 
         /* Ignore processes that are part of a cgroup marked with the user.survive_final_kill_signal xattr */
-        if (is_survivor_cgroup(pid))
+        if (is_in_survivor_cgroup(pid))
                 return true;
 
         r = pidref_get_uid(pid, &uid);
