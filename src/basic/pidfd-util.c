@@ -159,7 +159,7 @@ int pidfd_get_ppid(int fd, pid_t *ret) {
 
         assert(FLAGS_SET(info.mask, PIDFD_INFO_PID));
 
-        if (info.ppid == 0)
+        if (info.ppid == 0) /* See comments in pid_get_ppid() */
                 return -EADDRNOTAVAIL;
 
         if (ret)
