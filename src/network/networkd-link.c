@@ -1443,6 +1443,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 }
 
 typedef struct LinkReconfigurationData {
+        Manager *manager;
         Link *link;
         LinkReconfigurationFlag flags;
         sd_bus_message *message;
@@ -1473,6 +1474,12 @@ static void link_reconfiguration_data_destroy_callback(LinkReconfigurationData *
                 }
 
                 if (!data->counter || *data->counter <= 0) {
+                        /* Update the state files before replying the bus method. Otherwise,
+                         * systemd-networkd-wait-online following networkctl reload/reconfigure may read an
+                         * outdated state file and wrongly handle an interface is already in the configured
+                         * state. */
+                        (void) manager_clean_all(data->manager);
+
                         r = sd_bus_reply_method_return(data->message, NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reply for DBus method, ignoring: %m");
@@ -1521,6 +1528,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
         }
 
         *data = (LinkReconfigurationData) {
+                .manager = link->manager,
                 .link = link_ref(link),
                 .flags = flags,
                 .message = sd_bus_message_ref(message), /* message may be NULL, but _ref() works fine. */
