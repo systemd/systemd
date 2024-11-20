@@ -74,12 +74,8 @@ int journal_acquire_boot(sd_journal *j) {
 
         assert(j);
 
-        if (!arg_boot) {
-                /* Clear relevant field for safety. */
-                arg_boot_id = SD_ID128_NULL;
-                arg_boot_offset = 0;
+        if (!arg_boot)
                 return 0;
-        }
 
         /* Take a shortcut and use the current boot_id, which we can do very quickly.
          * We can do this only when the logs are coming from the current machine,
