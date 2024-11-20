@@ -349,7 +349,7 @@ int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
         for (;;) {
                 pid_t ppid;
 
-                r = get_process_ppid(pid, &ppid);
+                r = pid_get_ppid(pid, &ppid);
                 if (r < 0)
                         return r;
 
