@@ -1931,7 +1931,12 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, /* block= */ false, NULL, false, false, 0, &offending)) {
+        if (manager_is_inhibited(manager,
+                                 manager->delayed_action->inhibit_what,
+                                 NULL,
+                                 MANAGER_IS_INHIBITED_CHECK_DELAY,
+                                 UID_INVALID,
+                                 &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 if (!timeout)
@@ -2033,7 +2038,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, a->inhibit_what, /* block= */ false, NULL, false, false, 0, NULL);
+                manager_is_inhibited(m, a->inhibit_what, NULL, MANAGER_IS_INHIBITED_CHECK_DELAY, UID_INVALID, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -2077,7 +2082,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, &offending);
+        blocked = manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, &offending);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2820,7 +2825,7 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, NULL);
 
         if (check_unit_state && a->target) {
                 _cleanup_free_ char *load_state = NULL;
