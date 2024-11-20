@@ -402,8 +402,7 @@ bool manager_is_inhibited(
                 bool block,
                 dual_timestamp *since,
                 bool ignore_inactive,
-                bool ignore_uid,
-                uid_t uid,
+                uid_t uid_to_ignore,
                 Inhibitor **ret_offending) {
 
         Inhibitor *i, *offending = NULL;
@@ -428,11 +427,12 @@ bool manager_is_inhibited(
                 if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
-                if (i->mode == INHIBIT_BLOCK_WEAK && ignore_uid && i->uid == uid)
+                if (i->mode == INHIBIT_BLOCK_WEAK &&
+                    uid_is_valid(uid_to_ignore) &&
+                    uid_to_ignore == i->uid)
                         continue;
 
-                if (!inhibited ||
-                    i->since.monotonic < ts.monotonic)
+                if (!inhibited || i->since.monotonic < ts.monotonic)
                         ts = i->since;
 
                 inhibited = true;
