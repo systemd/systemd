@@ -1708,7 +1708,8 @@ int varlink_get_events(Varlink *v) {
                 ret |= EPOLLIN;
 
         if (!v->write_disconnected &&
-            v->output_buffer_size > 0)
+            (v->output_queue ||
+             v->output_buffer_size > 0))
                 ret |= EPOLLOUT;
 
         return ret;
