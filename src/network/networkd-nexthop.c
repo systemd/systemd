@@ -261,6 +261,8 @@ static int nexthop_dup(const NextHop *src, NextHop **ret) {
         dest->network = NULL;
         dest->section = NULL;
         dest->group = NULL;
+        dest->nexthops = NULL;
+        dest->routes = NULL;
 
         HASHMAP_FOREACH(nhg, src->group) {
                 _cleanup_free_ struct nexthop_grp *g = NULL;
