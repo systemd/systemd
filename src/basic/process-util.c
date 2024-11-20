@@ -48,6 +48,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -403,7 +404,7 @@ int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
         for (;;) {
                 pid_t ppid;
 
-                r = get_process_ppid(pid, &ppid);
+                r = pid_get_ppid(pid, &ppid);
                 if (r < 0)
                         return r;
 
@@ -600,7 +601,6 @@ int pid_get_uid(pid_t pid, uid_t *ret) {
 }
 
 int pidref_get_uid(const PidRef *pid, uid_t *ret) {
-        uid_t uid;
         int r;
 
         if (!pidref_is_set(pid))
@@ -608,6 +608,14 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 
         if (pidref_is_remote(pid))
                 return -EREMOTE;
+
+        if (pid->fd >= 0) {
+                r = pidfd_get_uid(pid->fd, ret);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        uid_t uid;
 
         r = pid_get_uid(pid->pid, &uid);
         if (r < 0)
@@ -694,7 +702,7 @@ int get_process_environ(pid_t pid, char **ret) {
         return 0;
 }
 
-int get_process_ppid(pid_t pid, pid_t *ret) {
+int pid_get_ppid(pid_t pid, pid_t *ret) {
         _cleanup_free_ char *line = NULL;
         unsigned long ppid;
         const char *p;
@@ -746,6 +754,36 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         if (ret)
                 *ret = (pid_t) ppid;
 
+        return 0;
+}
+
+int pidref_get_ppid(const PidRef *pidref, pid_t *ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        if (pidref->fd >= 0) {
+                r = pidfd_get_ppid(pidref->fd, ret);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        pid_t ppid;
+
+        r = pid_get_ppid(pidref->pid, ret ? &ppid : NULL);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = ppid;
         return 0;
 }
 
@@ -1089,25 +1127,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         return 0;
 }
 
-int pid_is_my_child(pid_t pid) {
-        pid_t ppid;
-        int r;
-
-        if (pid < 0)
-                return -ESRCH;
-
-        if (pid <= 1)
-                return false;
-
-        r = get_process_ppid(pid, &ppid);
-        if (r < 0)
-                return r;
-
-        return ppid == getpid_cached();
-}
-
 int pidref_is_my_child(const PidRef *pid) {
-        int r, result;
+        int r;
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
@@ -1115,15 +1136,25 @@ int pidref_is_my_child(const PidRef *pid) {
         if (pidref_is_remote(pid))
                 return -EREMOTE;
 
-        result = pid_is_my_child(pid->pid);
-        if (result < 0)
-                return result;
+        if (pid.pid == 1)
+                return false;
 
-        r = pidref_verify(pid);
+        pid_t ppid;
+
+        r = pidref_get_ppid(pid, &ppid);
         if (r < 0)
                 return r;
 
-        return result;
+        return ppid == getpid_cached();
+}
+
+int pid_is_my_child(pid_t pid) {
+        assert(pid >= 0);
+
+        if (pid == 0)
+                return false;
+
+        return pidref_is_my_child(&PIDREF_MAKE_FROM_PID(pid));
 }
 
 int pid_is_unwaited(pid_t pid) {
