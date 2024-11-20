@@ -3218,7 +3218,13 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return((flags & ~(SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE)) == 0, -EINVAL);
+        assert_return((flags & ~(SD_VARLINK_SERVER_ROOT_ONLY|
+                                 SD_VARLINK_SERVER_MYSELF_ONLY|
+                                 SD_VARLINK_SERVER_ACCOUNT_UID|
+                                 SD_VARLINK_SERVER_INHERIT_USERDATA|
+                                 SD_VARLINK_SERVER_INPUT_SENSITIVE|
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
+                                 SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3398,6 +3404,9 @@ _public_ int sd_varlink_server_add_connection_pair(
         _cleanup_free_ char *desc = NULL;
         if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
                 v->description = TAKE_PTR(desc);
+
+        (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
+        (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
 
         /* Link up the server and the connection, and take reference in both directions. Note that the
          * reference on the connection is left dangling. It will be dropped when the connection is closed,
