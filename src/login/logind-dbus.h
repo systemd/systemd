@@ -47,4 +47,21 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *erro
 
 void manager_load_scheduled_shutdown(Manager *m);
 
+int manager_create_session(
+                Manager *m,
+                uid_t uid,
+                PidRef *leader,
+                const char *service,
+                SessionType type,
+                SessionClass class,
+                const char *desktop,
+                Seat *seat,
+                unsigned vtnr,
+                const char *tty,
+                const char *display,
+                bool remote,
+                const char *remote_user,
+                const char *remote_host,
+                Session **ret_session);
+
 extern const BusObjectImplementation manager_object;
