@@ -16,6 +16,7 @@ enum {
          *   - CoCo Bring-Your-Own-Firmware
          *   - ACPI DSDT Overrides
          *   - … */
+        DEVICE_TYPE_MAX,
 };
 
 #define DEVICE_SIZE_FROM_DESCRIPTOR(u) ((uint32_t) (u) & UINT32_C(0x0FFFFFFF))
@@ -23,6 +24,7 @@ enum {
 #define DEVICE_MAKE_DESCRIPTOR(type, size) (((uint32_t) (size) | ((uint32_t) type << 28)))
 
 #define DEVICE_DESCRIPTOR_DEVICETREE DEVICE_MAKE_DESCRIPTOR(DEVICE_TYPE_DEVICETREE, sizeof(Device))
+#define DEVICE_DESCRIPTOR_MAX DEVICE_MAKE_DESCRIPTOR(DEVICE_TYPE_MAX, sizeof(Device))
 #define DEVICE_DESCRIPTOR_EOL UINT32_C(0)
 
 typedef struct Device {
