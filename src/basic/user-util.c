@@ -467,9 +467,12 @@ char* gid_to_name(gid_t gid) {
 }
 
 static bool gid_list_has(const gid_t *list, size_t size, gid_t val) {
-        for (size_t i = 0; i < size; i++)
-                if (list[i] == val)
+        assert(list || size == 0);
+
+        FOREACH_ARRAY(i, list, size)
+                if (*i == val)
                         return true;
+
         return false;
 }
 
