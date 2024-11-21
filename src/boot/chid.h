@@ -16,6 +16,7 @@ enum {
          *   - CoCo Bring-Your-Own-Firmware
          *   - ACPI DSDT Overrides
          *   - … */
+        _DEVICE_TYPE_MAX,
 };
 
 #define DEVICE_SIZE_FROM_DESCRIPTOR(u) ((uint32_t) (u) & UINT32_C(0x0FFFFFFF))
