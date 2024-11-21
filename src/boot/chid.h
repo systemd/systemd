@@ -11,11 +11,13 @@
 
 enum {
         DEVICE_TYPE_DEVICETREE = 0x1, /* A devicetree blob */
+        DEVICE_TYPE_EFIFW, /* an efi firmware blob */
 
         /* Maybe later additional types for:
          *   - CoCo Bring-Your-Own-Firmware
          *   - ACPI DSDT Overrides
          *   - … */
+        _DEVICE_TYPE_MAX,
 };
 
 #define DEVICE_SIZE_FROM_DESCRIPTOR(u) ((uint32_t) (u) & UINT32_C(0x0FFFFFFF))
@@ -23,6 +25,7 @@ enum {
 #define DEVICE_MAKE_DESCRIPTOR(type, size) (((uint32_t) (size) | ((uint32_t) type << 28)))
 
 #define DEVICE_DESCRIPTOR_DEVICETREE DEVICE_MAKE_DESCRIPTOR(DEVICE_TYPE_DEVICETREE, sizeof(Device))
+#define DEVICE_DESCRIPTOR_EFIFW DEVICE_MAKE_DESCRIPTOR(DEVICE_TYPE_EFIFW, sizeof(Device))
 #define DEVICE_DESCRIPTOR_EOL UINT32_C(0)
 
 typedef struct Device {
@@ -36,6 +39,13 @@ typedef struct Device {
                         uint32_t name_offset;          /* nul-terminated string or 0 if not present */
                         uint32_t compatible_offset;    /* nul-terminated string or 0 if not present */
                 } devicetree;
+                struct {
+                        /* Offsets are relative to the beginning of the .hwids PE section. */
+                        uint32_t id_offset;           /* an identifier for the firmware blob */
+                        uint32_t metadata_offset;     /* firmware metadata */
+                        uint32_t compatible_offset;    /* nul-terminated string or 0 if not present */
+                } efifw;
+
                 /* fields for other descriptor types… */
         };
 } _packed_ Device;
@@ -45,16 +55,19 @@ assert_cc(offsetof(Device, descriptor) == 0);
 assert_cc(offsetof(Device, chid) == 4);
 assert_cc(offsetof(Device, devicetree.name_offset) == 20);
 assert_cc(offsetof(Device, devicetree.compatible_offset) == 24);
-assert_cc(sizeof(Device) == 28);
+assert_cc(offsetof(Device, efifw.id_offset) == 20);
+assert_cc(offsetof(Device, efifw.metadata_offset) == 24);
+assert_cc(offsetof(Device, efifw.compatible_offset) == 28);
+assert_cc(sizeof(Device) == 32);
 
-static inline const char* device_get_name(const void *base, const Device *device) {
+static inline const char* device_get_devicetree_name(const void *base, const Device *device) {
         if (device->descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
                 return NULL;
 
         return device->devicetree.name_offset == 0 ? NULL : (const char *) ((const uint8_t *) base + device->devicetree.name_offset);
 }
 
-static inline const char* device_get_compatible(const void *base, const Device *device) {
+static inline const char* device_get_devicetree_compatible(const void *base, const Device *device) {
         if (device->descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
                 return NULL;
 
