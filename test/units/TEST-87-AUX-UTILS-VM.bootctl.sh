@@ -3,11 +3,6 @@
 set -eux
 set -o pipefail
 
-if systemd-detect-virt --quiet --container; then
-    echo "running on container, skipping."
-    exit 0
-fi
-
 if ! command -v bootctl >/dev/null; then
     echo "bootctl not found, skipping."
     exit 0
@@ -23,6 +18,8 @@ fi
 
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+
+(! systemd-detect-virt -cq)
 
 basic_tests() {
     bootctl "$@" --help
