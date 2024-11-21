@@ -1440,8 +1440,8 @@ evdev:input:b0003v046DpC309*
 
 # Logitech MX Keys for Mac
 evdev:input:b0003v046Dp4092*
- KEYBOARD_KEY_70035=102nd
- KEYBOARD_KEY_70064=grave
+ KEYBOARD_KEY_70035=102nd                               # '<' key
+ KEYBOARD_KEY_70064=grave                               # '^' key
 
 ###########################################################
 # Maxdata
