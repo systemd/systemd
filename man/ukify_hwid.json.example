@@ -1,4 +1,5 @@
 {
+    "type": "devicetree",
     "name": "Example Laptop 16 Gen 7",
     "compatible": "example,laptop-16-g7",
     "hwids": [
