@@ -799,7 +799,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                                 continue;
                 }
 
-                char *path = strdup(e + 1);
+                _cleanup_free_ char *path = strdup(e + 1);
                 if (!path)
                         return -ENOMEM;
 
@@ -812,7 +812,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                 if (e)
                         *e = 0;
 
-                *ret_path = path;
+                *ret_path = TAKE_PTR(path);
                 return 0;
         }
 }
