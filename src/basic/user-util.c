@@ -551,9 +551,6 @@ int getgroups_alloc(gid_t** gids) {
                 ngroups = getgroups(0, NULL);
                 if (ngroups < 0)
                         return -errno;
-                if (ngroups == 0)
-                        return false;
-
                 free(p);
         }
 
