@@ -674,6 +674,7 @@ static Virtualization detect_container_files(void) {
 Virtualization detect_container(void) {
         static thread_local Virtualization cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL, *o = NULL, *p = NULL;
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
         const char *e = NULL;
         Virtualization v;
         int r;
@@ -795,6 +796,35 @@ check_files:
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to detect cgroup namespace: %m");
+
+        /* Finally, the root pid namespace has an hardcoded inode number of 0xEFFFFFFC since kernel 3.8, so
+         * if all else fails we can check the inode number of our pid namespace and compare it. */
+        r = pidref_set_self(&self);
+        if (r < 0)
+                log_debug_errno(r, "Failed to set up PID ref, ignoring: %m");
+        else {
+                _cleanup_close_ int pidns_fd = -1;
+
+                r = pidref_namespace_open(
+                                &self,
+                                &pidns_fd,
+                                /* ret_mntns_fd= */ NULL,
+                                /* ret_netns_fd= */ NULL,
+                                /* ret_userns_fd= */ NULL,
+                                /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to open PID namespace, ignoring: %m");
+                else if (pidns_fd >= 0) {
+                        struct stat st;
+
+                        if (fstat(pidns_fd, &st) < 0)
+                                log_debug_errno(errno, "Failed to fstat pid namespace fd, ignoring: %m");
+                        else if ((uint64_t) st.st_ino != 0xEFFFFFFC) {
+                                v = VIRTUALIZATION_CONTAINER_OTHER;
+                                goto finish;
+                        }
+                }
+        }
 
         /* If none of that worked, give up, assume no container manager. */
         v = VIRTUALIZATION_NONE;
