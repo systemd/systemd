@@ -645,6 +645,16 @@ static int running_in_cgroupns(void) {
         }
 }
 
+static int running_in_pidns(void) {
+        int r;
+
+        r = namespace_is_init(NAMESPACE_PID);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to test if in root PID namespace, ignoring: %m");
+
+        return !r;
+}
+
 static Virtualization detect_container_files(void) {
         static const struct {
                 const char *file_path;
@@ -790,11 +800,20 @@ check_files:
 
         r = running_in_cgroupns();
         if (r > 0) {
+                log_debug("Running in a cgroup namespace, assuming unknown container manager.");
                 v = VIRTUALIZATION_CONTAINER_OTHER;
                 goto finish;
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to detect cgroup namespace: %m");
+
+        /* Finally, the root pid namespace has an hardcoded inode number of 0xEFFFFFFC since kernel 3.8, so
+         * if all else fails we can check the inode number of our pid namespace and compare it. */
+        if (running_in_pidns() > 0) {
+                log_debug("Running in a pid namespace, assuming unknown container manager.");
+                v = VIRTUALIZATION_CONTAINER_OTHER;
+                goto finish;
+        }
 
         /* If none of that worked, give up, assume no container manager. */
         v = VIRTUALIZATION_NONE;
