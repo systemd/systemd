@@ -38,19 +38,12 @@ __get_tpm2_devices() {
     done
 }
 
-__get_block_devices() {
-    local i
-    for i in /dev/*; do
-        [ -b "$i" ] && printf '%s\n' "$i"
-    done
-}
-
 _systemd_cryptenroll() {
     local comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-h --help --version
-                     --password --recovery-key'
+                     --password --recovery-key --list-devices'
         [ARG]='--unlock-key-file
                --unlock-fido2-device
                --unlock-tpm2-device
@@ -116,7 +109,7 @@ _systemd_cryptenroll() {
         return 0
     fi
 
-    comps=$(__get_block_devices)
+    comps=$(systemd-cryptenroll --list-devices)
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
     return 0
 }
