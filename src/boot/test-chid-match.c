@@ -61,8 +61,8 @@ TEST(chid_match) {
                 /* Match and check */
                 ASSERT_EQ(chid_match(hwids_section_data, hwids_section_len, &dev), EFI_SUCCESS);
                 ASSERT_NOT_NULL(dev);
-                ASSERT_STREQ(device_get_name(hwids_section_data, dev), results[i].name);
-                ASSERT_STREQ(device_get_compatible(hwids_section_data, dev), results[i].compatible);
+                ASSERT_STREQ(device_get_devicetree_name(hwids_section_data, dev), results[i].name);
+                ASSERT_STREQ(device_get_devicetree_compatible(hwids_section_data, dev), results[i].compatible);
         }
 }
 
