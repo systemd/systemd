@@ -5,3 +5,5 @@ set -o pipefail
 
 SYSTEMD_IN_CHROOT=1 systemd-detect-virt --chroot
 (! SYSTEMD_IN_CHROOT=0 systemd-detect-virt --chroot)
+
+unshare --mount-proc --fork --user --pid systemd-detect-virt --container
