@@ -19,12 +19,9 @@ at_exit() {
     rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT" "$MAKE_STACKTRACE_DUMP"
 }
 
-trap at_exit EXIT
+(! systemd-detect-virt -cq)
 
-if systemd-detect-virt -cq; then
-    echo "Running in a container, skipping the systemd-coredump test..."
-    exit 0
-fi
+trap at_exit EXIT
 
 # To make all coredump entries stored in system.journal.
 journalctl --rotate
@@ -81,7 +78,7 @@ timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN |
 
 if cgroupfs_supports_user_xattrs; then
     # Make sure we can forward crashes back to containers
-    CONTAINER="TEST-74-AUX-UTILS-container"
+    CONTAINER="TEST-87-AUX-UTILS-VM-container"
 
     mkdir -p "/var/lib/machines/$CONTAINER"
     mkdir -p "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d"
