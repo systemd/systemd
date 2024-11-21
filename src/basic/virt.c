@@ -24,6 +24,10 @@
 #include "uid-range.h"
 #include "virt.h"
 
+/* Root namespace inode number, as per include/linux/proc_ns.h in the kernel source tree, since v3.8:
+ * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=98f842e675f96ffac96e6c50315790912b2812be */
+#define PROC_PID_INIT_INO UINT64_C(0xEFFFFFFC)
+
 enum {
       SMBIOS_VM_BIT_SET,
       SMBIOS_VM_BIT_UNSET,
@@ -645,6 +649,20 @@ static int running_in_cgroupns(void) {
         }
 }
 
+static int running_in_pidns(void) {
+        _cleanup_close_ int pidns_fd = -EBADF;
+        struct stat st;
+
+        pidns_fd = namespace_open_by_type(NAMESPACE_PID);
+        if (pidns_fd < 0)
+                return log_debug_errno(pidns_fd, "Failed to open PID namespace, ignoring: %m");
+
+        if (fstat(pidns_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to fstat pid namespace fd, ignoring: %m");
+
+        return (uint64_t) st.st_ino != PROC_PID_INIT_INO;
+}
+
 static Virtualization detect_container_files(void) {
         static const struct {
                 const char *file_path;
@@ -795,6 +813,13 @@ check_files:
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to detect cgroup namespace: %m");
+
+        /* Finally, the root pid namespace has an hardcoded inode number of 0xEFFFFFFC since kernel 3.8, so
+         * if all else fails we can check the inode number of our pid namespace and compare it. */
+        if (running_in_pidns() > 0) {
+                v = VIRTUALIZATION_CONTAINER_OTHER;
+                goto finish;
+        }
 
         /* If none of that worked, give up, assume no container manager. */
         v = VIRTUALIZATION_NONE;
