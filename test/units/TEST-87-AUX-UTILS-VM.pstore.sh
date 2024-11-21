@@ -5,10 +5,7 @@ set -o pipefail
 
 systemctl log-level info
 
-if systemd-detect-virt -cq; then
-    echo "Running in a container, skipping the systemd-pstore test..."
-    exit 0
-fi
+(! systemd-detect-virt -cq)
 
 DUMMY_DMESG_0="$(mktemp)"
 cat >"$DUMMY_DMESG_0" <<\EOF
