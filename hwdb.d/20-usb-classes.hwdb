@@ -57,7 +57,7 @@ usb:v*p*d*dc02dsc05*
  ID_USB_SUBCLASS_FROM_DATABASE=CAPI Control
 
 usb:v*p*d*dc02dsc06*
- ID_USB_SUBCLASS_FROM_DATABASE=Ethernet Networking
+ ID_USB_SUBCLASS_FROM_DATABASE=Ethernet Networking (ECM)
 
 usb:v*p*d*dc02dsc07*
  ID_USB_SUBCLASS_FROM_DATABASE=ATM Networking
