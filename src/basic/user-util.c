@@ -529,9 +529,8 @@ int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t
 int getgroups_alloc(gid_t** gids) {
         _cleanup_free_  gid_t *p = NULL;
         int ngroups = 8;
-        unsigned attempt = 0;
 
-        for (;;) {
+        for (unsigned attempt = 0;;) {
                 p = new(gid_t, ngroups);
                 if (!p)
                         return -ENOMEM;
