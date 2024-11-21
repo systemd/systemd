@@ -1209,12 +1209,47 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Socket, SocketContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchUnit);
+static SD_VARLINK_DEFINE_ERROR(RequestedByDependencyOnly);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("Configuration of unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Context, UnitContext, 0));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                JobMode,
+                SD_VARLINK_FIELD_COMMENT("Fail if a conflicting job is already queued"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(fail),
+                SD_VARLINK_FIELD_COMMENT("Replace an existing conflicting job"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(replace),
+                SD_VARLINK_FIELD_COMMENT("Like 'replace' + produce irreversible jobs"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(replace_irreversibly),
+                SD_VARLINK_FIELD_COMMENT("Start a unit, and stop all others"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(isolate),
+                SD_VARLINK_FIELD_COMMENT("Flush out all other queued jobs when queueing this one"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(flush),
+                SD_VARLINK_FIELD_COMMENT("Ignore both requirement and ordering dependencies"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ignore_dependencies),
+                SD_VARLINK_FIELD_COMMENT("Ignore requirement dependencies"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ignore_requirements),
+                SD_VARLINK_FIELD_COMMENT("Adds TRIGGERED_BY dependencies to the same transaction "),
+                SD_VARLINK_DEFINE_ENUM_VALUE(triggering),
+                SD_VARLINK_FIELD_COMMENT("A 'start' job for the specified unit becomes 'restart' for depending units"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(restart_dependencies));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Start,
+                SD_VARLINK_FIELD_COMMENT("Name of a unit to activate"),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("There are three possible values: 'fail', 'replace', 'replace_irreversibly', 'isolate', 'flush', 'ignore_dependencies', 'ignore_requirements', 'triggering', and 'restart_dependencies'. Please see description for each of the modes."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, 0),
+                SD_VARLINK_FIELD_COMMENT("The job ID"),
+                SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The unit associated with the job"),
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The job type"),
+                SD_VARLINK_DEFINE_OUTPUT(jobType, SD_VARLINK_STRING, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
@@ -1270,5 +1305,11 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SocketListenContext,
                 &vl_type_SocketContext,
                 &vl_type_UnitContext,
+                SD_VARLINK_SYMBOL_COMMENT("Enqeues a start job, and possibly depending jobs"),
+                &vl_method_Start,
+                SD_VARLINK_SYMBOL_COMMENT("A enum field defining job start mode"),
+                &vl_type_JobMode,
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
-                &vl_error_NoSuchUnit);
+                &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("Operation refused, unit may be requested by dependency only (it is configured to refuse manual start/stop)."),
+                &vl_error_RequestedByDependencyOnly);

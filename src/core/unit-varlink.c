@@ -4,10 +4,15 @@
 
 #include "af-list.h"
 #include "automount.h"
+#include "bus-error.h"
+#include "bus-polkit.h"
 #include "cap-list.h"
+#include "dbus-job.h"
 #include "exec-credential.h"
 #include "exit-status.h"
+#include "job.h"
 #include "json-util.h"
+#include "manager.h"
 #include "mount.h"
 #include "mountpoint-util.h"
 #include "in-addr-prefix-util.h"
@@ -17,9 +22,11 @@
 #include "scope.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
+#include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "special.h"
 #include "syslog-util.h"
 #include "swap.h"
 #include "timer.h"
@@ -1761,5 +1768,111 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (previous)
                 return list_unit_one(link, previous, /* more = */ false);
 
-        return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
+        return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", NULL);
+}
+
+typedef struct UnitStartParameters {
+        const char *name;
+        JobMode mode;
+} UnitStartParameters;
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_job_mode, JobMode, job_mode_from_string);
+
+int vl_method_start_unit(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(UnitStartParameters, name), SD_JSON_MANDATORY },
+                { "mode", SD_JSON_VARIANT_STRING, json_dispatch_job_mode,        offsetof(UnitStartParameters, mode), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        UnitStartParameters p = { .mode = _JOB_MODE_INVALID };
+        Unit *unit;
+        Job *job;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = manager_load_unit(manager, p.name, /* path= */ NULL, &error, &unit);
+        if (r == -EINVAL) {
+                log_debug_errno(r, "Failed to load unit: %s", bus_error_message(&error, r));
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load unit '%s': %s", p.name, bus_error_message(&error, r));
+
+        r = mac_selinux_access_check_varlink(unit, link, job_type_to_access_method(JOB_START), &error);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                /* mapping from SD_BUS_ERROR_ACCESS_DENIED */
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to perform SELinux check: %s", bus_error_message(&error, r));
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->api_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) STRV_MAKE("unit", unit->id,
+                                                 "verb", job_type_to_string(JOB_START),
+                                                 "polkit.message", "Authentication is required to start '$(unit)'.",
+                                                 "polkit.gettext_domain", GETTEXT_PACKAGE),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (unit->refuse_manual_start)
+                return sd_varlink_error(link, "io.systemd.Unit.RequestedByDependencyOnly", NULL);
+
+        // TODO is it necessary here? or should it be varlink equvivalent?
+        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
+         * job enqueuing early.
+         *
+         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
+         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
+         * to start Type=dbus services even when dbus is inactive. */
+
+        /* FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) { */
+                /* Unit *dbus = manager_get_unit(unit->manager, dbus_unit); */
+                /* if (dbus && unit_stop_pending(dbus)) */
+                        /* return -1; // TODO Operation for unit %s refused, D-Bus is shutting down. */
+        /* } */
+
+        r = manager_add_job_full(
+                        unit->manager,
+                        JOB_START,
+                        unit,
+                        p.mode,
+                        /* extra_flags = */ 0,
+                        /* affected = */ NULL,
+                        &error,
+                        &job);
+        if (r == -EPERM || r == -EINVAL) {
+                /* mapping from BUS_ERROR_NO_ISOLATION and SD_BUS_ERROR_INVALID_ARGS */
+                log_debug_errno(r, "Failed to start unit: %s", bus_error_message(&error, r));
+                return sd_varlink_error_invalid_parameter_name(link, "mode");
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to start unit: %s", bus_error_message(&error, r));
+
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(job, true);
+
+        r = sd_json_buildo(&v,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("id", job->id),
+                        SD_JSON_BUILD_PAIR_STRING("unit", job->unit->id),
+                        SD_JSON_BUILD_PAIR_STRING("jobType", job_type_to_string(job->type)));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
 }

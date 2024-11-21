@@ -604,7 +604,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
-                        "io.systemd.Unit.List",        vl_method_list_units);
+                        "io.systemd.Unit.List",        vl_method_list_units,
+                        "io.systemd.Unit.Start",       vl_method_start_unit);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
 
