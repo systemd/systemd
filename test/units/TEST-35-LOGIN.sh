@@ -739,6 +739,10 @@ EOF
     systemctl stop user@"$uid".service
 }
 
+testcase_varlink() {
+    varlinkctl introspect /run/systemd/io.systemd.Login
+}
+
 setup_test_user
 test_write_dropin
 run_testcases
