@@ -182,10 +182,8 @@ static int switch_root_initramfs(void) {
  *  Writeback
  *  Dirty
  *
- * Return true if the sum of these fields is greater than the previous
- * value input. For all other issues, report the failure and indicate that
- * the sync is not making progress.
- */
+ * Return true if the sum of these fields is changed from the previous value input. For all other issues,
+ * report the failure and indicate that the sync is not making progress. */
 static int sync_making_progress(unsigned long long *prev_dirty) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned long long val = 0;
@@ -211,15 +209,13 @@ static int sync_making_progress(unsigned long long *prev_dirty) {
                         continue;
 
                 errno = 0;
-                if (sscanf(line, "%*s %llu %*s", &ull) != 1) {
-                        log_warning_errno(errno_or_else(EIO), "Failed to parse /proc/meminfo field, ignoring: %m");
-                        return false;
-                }
+                if (sscanf(line, "%*s %llu %*s", &ull) != 1)
+                        return log_warning_errno(errno_or_else(EIO), "Failed to parse /proc/meminfo field: %m");
 
                 val += ull;
         }
 
-        r = *prev_dirty > val;
+        r = *prev_dirty != val;
         *prev_dirty = val;
         return r;
 }
