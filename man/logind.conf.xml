@@ -409,6 +409,21 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>EnableWallMessages=</varname></term>
+
+        <listitem>
+          <para>
+            Controls whether
+            <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+            messages should be sent to the terminals of all currently logged in users upon shutdown or
+            reboot. Defaults to <literal>yes</literal>, and can be changed at runtime via the DBus
+            <literal>EnableWallMessages</literal> and <literal>WallMessagePrefix</literal> properties.
+          </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
