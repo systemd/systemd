@@ -527,17 +527,14 @@ int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t
 }
 
 int getgroups_alloc(gid_t** gids) {
-        gid_t *allocated;
         _cleanup_free_  gid_t *p = NULL;
         int ngroups = 8;
-        unsigned attempt = 0;
 
-        allocated = new(gid_t, ngroups);
-        if (!allocated)
-                return -ENOMEM;
-        p = allocated;
+        for (unsigned attempt = 0;;) {
+                p = new(gid_t, ngroups);
+                if (!p)
+                        return -ENOMEM;
 
-        for (;;) {
                 ngroups = getgroups(ngroups, p);
                 if (ngroups >= 0)
                         break;
@@ -553,14 +550,7 @@ int getgroups_alloc(gid_t** gids) {
                 ngroups = getgroups(0, NULL);
                 if (ngroups < 0)
                         return -errno;
-                if (ngroups == 0)
-                        return false;
-
-                free(allocated);
-
-                p = allocated = new(gid_t, ngroups);
-                if (!allocated)
-                        return -ENOMEM;
+                free(p);
         }
 
         *gids = TAKE_PTR(p);
