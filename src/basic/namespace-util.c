@@ -531,6 +531,10 @@ int is_idmapping_supported(const char *path) {
         userns_fd = userns_acquire(uid_map, gid_map);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd) || ERRNO_IS_NEG_PRIVILEGE(userns_fd))
                 return false;
+        if (userns_fd == -ENOSPC) {
+                log_debug_errno(userns_fd, "Failed to acquire new user namespace, user.max_user_namespaces seems to be exhausted or maybe even zero, assuming ID-mapping is not supported: %m");
+                return false;
+        }
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "ID-mapping supported namespace acquire failed for '%s' : %m", path);
 
