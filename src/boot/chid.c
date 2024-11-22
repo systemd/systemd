@@ -113,7 +113,7 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device 
 
                 if (devices[n_devices].descriptor == DEVICE_DESCRIPTOR_EOL)
                         break;
-                if (devices[n_devices].descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                if (DEVICE_TYPE_FROM_DESCRIPTOR(devices[n_devices].descriptor) >= _DEVICE_TYPE_MAX)
                         return EFI_UNSUPPORTED;
                 n_devices++;
         }
