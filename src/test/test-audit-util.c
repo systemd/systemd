@@ -2,6 +2,7 @@
 
 #include "audit-util.h"
 #include "tests.h"
+#include "virt.h"
 
 TEST(audit_loginuid_from_pid) {
         _cleanup_(pidref_done) PidRef self = PIDREF_NULL, pid1 = PIDREF_NULL;
@@ -26,7 +27,20 @@ TEST(audit_loginuid_from_pid) {
         if (r >= 0)
                 log_info("self audit session id: %" PRIu32, sessionid);
 
-        ASSERT_ERROR(audit_session_from_pid(&pid1, &sessionid), ENODATA);
+        /* pid1 at build time does not necessarily have to be systemd, it could be anything and be in any
+         * state outside of our control, as any custom-built, unknown and weird container manager stub pid1
+         * might be in use. So assert only on known container solutions (or VMs, or bare-metal), and print
+         * a loud warning and complain, asking to fix the audit setup of the container manager, if it is an
+         * unknown one. As a specific example, on the Debian buildd network the stub pid1 is not systemd,
+         * and has a sessionid. */
+        r = audit_session_from_pid(&pid1, &sessionid);
+        if (detect_container() != VIRTUALIZATION_CONTAINER_OTHER)
+                ASSERT_ERROR(r, ENODATA);
+        else if (r != -ENODATA)
+                log_error("audit_session_from_pid on pid1 unexpectedly returned %d instead of -ENODATA. "
+                          "This likely suggests that the container manager under which this test is run "
+                          "has incorrectly set up the audit subsystem, as the stub pid1 is not supposed to "
+                          "have an audit session id, and it should be fixed.", r);
 }
 
 static int intro(void) {
