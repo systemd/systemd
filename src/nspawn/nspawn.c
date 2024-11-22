@@ -4654,7 +4654,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid != inner_child_pid) {
-                log_debug("Received notify message without valid credentials. Ignoring.");
+                log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
 
