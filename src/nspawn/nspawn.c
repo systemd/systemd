@@ -2280,10 +2280,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
         r = path_extract_directory(from, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract directory from %s: %m", from);
-        if (!path_equal(parent, "/dev/")) {
-                if (userns_mkdir(dest, parent, 0755, 0, 0) < 0)
-                        return log_error_errno(r, "Failed to create directory %s: %m", parent);
-        }
+        r = userns_mkdir(dest, parent, 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory %s: %m", parent);
 
         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                 r = -errno; /* Save the original error code. */
