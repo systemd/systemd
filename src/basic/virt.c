@@ -585,6 +585,14 @@ static int running_in_cgroupns(void) {
         if (!cg_ns_supported())
                 return false;
 
+        r = namespace_is_init(NAMESPACE_CGROUP);
+        if (r < 0)
+                log_debug_errno(r, "Failed to test if in root cgroup namespace, ignoring: %m");
+        else if (r > 0)
+                return false;
+
+        // FIXME: We really should drop the heuristics below.
+
         r = cg_all_unified();
         if (r < 0)
                 return r;
@@ -881,6 +889,14 @@ static int userns_has_mapping(const char *name) {
 int running_in_userns(void) {
         _cleanup_free_ char *line = NULL;
         int r;
+
+        r = namespace_is_init(NAMESPACE_USER);
+        if (r < 0)
+                log_debug_errno(r, "Failed to test if in root user namespace, ignoring: %m");
+        else if (r > 0)
+                return false;
+
+        // FIXME: We really should drop the heuristics below.
 
         r = userns_has_mapping("/proc/self/uid_map");
         if (r != 0)
