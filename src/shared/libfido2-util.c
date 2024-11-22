@@ -45,21 +45,21 @@ DLSYM_PROTOTYPE(fido_cred_set_rp) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_type) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_user) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_uv) = NULL;
+DLSYM_PROTOTYPE(fido_dev_close) = NULL;
 DLSYM_PROTOTYPE(fido_dev_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_assert) = NULL;
 DLSYM_PROTOTYPE(fido_dev_get_cbor_info) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_free) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manifest) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_manufacturer_string) = NULL;
-DLSYM_PROTOTYPE(fido_dev_info_product_string) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_new) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_path) = NULL;
+DLSYM_PROTOTYPE(fido_dev_info_product_string) = NULL;
 DLSYM_PROTOTYPE(fido_dev_info_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_dev_is_fido2) = NULL;
 DLSYM_PROTOTYPE(fido_dev_make_cred) = NULL;
 DLSYM_PROTOTYPE(fido_dev_new) = NULL;
 DLSYM_PROTOTYPE(fido_dev_open) = NULL;
-DLSYM_PROTOTYPE(fido_dev_close) = NULL;
 DLSYM_PROTOTYPE(fido_init) = NULL;
 DLSYM_PROTOTYPE(fido_set_log_handler) = NULL;
 DLSYM_PROTOTYPE(fido_strerr) = NULL;
@@ -108,6 +108,7 @@ int dlopen_libfido2(void) {
                         DLSYM_ARG(fido_cred_set_type),
                         DLSYM_ARG(fido_cred_set_user),
                         DLSYM_ARG(fido_cred_set_uv),
+                        DLSYM_ARG(fido_dev_close),
                         DLSYM_ARG(fido_dev_free),
                         DLSYM_ARG(fido_dev_get_assert),
                         DLSYM_ARG(fido_dev_get_cbor_info),
@@ -122,7 +123,6 @@ int dlopen_libfido2(void) {
                         DLSYM_ARG(fido_dev_make_cred),
                         DLSYM_ARG(fido_dev_new),
                         DLSYM_ARG(fido_dev_open),
-                        DLSYM_ARG(fido_dev_close),
                         DLSYM_ARG(fido_init),
                         DLSYM_ARG(fido_set_log_handler),
                         DLSYM_ARG(fido_strerr));
@@ -903,7 +903,7 @@ int fido2_generate_hmac_hash(
                                        "Token action timeout. (User didn't interact with token quickly enough.)");
         if (r == FIDO_ERR_UNSUPPORTED_ALGORITHM)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                        "Token doesn't support credential algorithm %s.", fido2_algorithm_to_string(cred_alg));
+                                       "Token doesn't support credential algorithm %s.", fido2_algorithm_to_string(cred_alg));
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to generate FIDO2 credential: %s", sym_fido_strerr(r));
@@ -1100,6 +1100,7 @@ static int check_device_is_fido2_with_hmac_secret(const char *path) {
 int fido2_list_devices(void) {
 #if HAVE_LIBFIDO2
         _cleanup_(table_unrefp) Table *t = NULL;
+
         size_t allocated = 64, found = 0;
         fido_dev_info_t *di = NULL;
         int r;
