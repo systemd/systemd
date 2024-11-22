@@ -408,9 +408,25 @@ int netns_acquire(void) {
         return TAKE_FD(netns_fd);
 }
 
+static int pid_namespace_stat(pid_t pid, NamespaceType type, struct stat *ret) {
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+        assert(ret);
+
+        const char *p = pid_namespace_path(pid, type);
+        if (stat(p, ret) < 0) {
+                if (errno == ENOENT)
+                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
+
+                return -errno;
+        }
+
+        return 0;
+}
+
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        const char *ns_path;
         struct stat ns_st1, ns_st2;
+        int r;
 
         if (pid1 == 0)
                 pid1 = getpid_cached();
@@ -421,13 +437,13 @@ int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
         if (pid1 == pid2)
                 return 1;
 
-        ns_path = pid_namespace_path(pid1, type);
-        if (stat(ns_path, &ns_st1) < 0)
-                return -errno;
+        r = pid_namespace_stat(pid1, type, &ns_st1);
+        if (r < 0)
+                return r;
 
-        ns_path = pid_namespace_path(pid2, type);
-        if (stat(ns_path, &ns_st2) < 0)
-                return -errno;
+        r = pid_namespace_stat(pid2, type, &ns_st2);
+        if (r < 0)
+                return r;
 
         return stat_inode_same(&ns_st1, &ns_st2);
 }
@@ -495,13 +511,8 @@ int namespace_is_init(NamespaceType type) {
         if (namespace_info[type].root_inode == 0)
                 return -EBADR; /* Cannot answer this question */
 
-        const char *p = pid_namespace_path(0, type);
-
         struct stat st;
-        r = RET_NERRNO(stat(p, &st));
-        if (r == -ENOENT)
-                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
-                return proc_mounted() == 0 ? -ENOSYS : true;
+        r = pid_namespace_stat(0, type, &st);
         if (r < 0)
                 return r;
 
@@ -509,7 +520,7 @@ int namespace_is_init(NamespaceType type) {
 }
 
 int is_our_namespace(int fd, NamespaceType request_type) {
-        int clone_flag;
+        int r, clone_flag;
 
         assert(fd >= 0);
 
@@ -528,13 +539,9 @@ int is_our_namespace(int fd, NamespaceType request_type) {
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
 
-        const char *p = pid_namespace_path(0, found_type);
-        if (stat(p, &st_ours) < 0) {
-                if (errno == ENOENT)
-                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
-
-                return -errno;
-        }
+        r = pid_namespace_stat(0, found_type, &st_ours);
+        if (r < 0)
+                return r;
 
         return stat_inode_same(&st_ours, &st_fd);
 }
