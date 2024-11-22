@@ -959,11 +959,15 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
                                '--service-type=notify', script])
 
         # wait until devices got created
-        for _ in range(50):
-            out = subprocess.check_output(['ip', 'a', 'show', 'dev', self.if_router])
-            if b'state UP' in out and b'scope global' in out:
+        for _ in range(40):
+            ret = subprocess.run(['ip', 'a', 'show', 'dev', self.if_router],
+                                 universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if ret.returncode == 0 and 'state UP' in ret.stdout and 'scope global' in ret.stdout:
                 break
-            time.sleep(0.1)
+            time.sleep(0.5)
+        else:
+            subprocess.call(['ip', 'a', 'show', 'dev', self.if_router])
+            self.fail('Timed out waiting for {ifr} activated.'.format(ifr=self.if_router))
 
     def shutdown_iface(self):
         '''Remove test interface and stop DHCP server'''
