@@ -178,7 +178,7 @@ static const struct {
 };
 
 static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
-        int r;
+        int r, n_added = 0;
 
         assert(table);
 
@@ -248,9 +248,11 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_INT, 1); /* sort after any other entry with the same UID */
                 if (r < 0)
                         return table_log_add_error(r);
+
+                n_added += 2;
         }
 
-        return ELEMENTSOF(uid_range_table) * 2;
+        return n_added;
 }
 
 static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
@@ -539,7 +541,7 @@ static int show_group(GroupRecord *gr, Table *table) {
 }
 
 static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
-        int r;
+        int r, n_added = 0;
 
         assert(table);
 
@@ -603,9 +605,11 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_INT, 1); /* sort after any other entry with the same GID */
                 if (r < 0)
                         return table_log_add_error(r);
+
+                n_added += 2;
         }
 
-        return ELEMENTSOF(uid_range_table) * 2;
+        return n_added;
 }
 
 static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
