@@ -70,7 +70,7 @@ def main():
     shell = bool(int(os.getenv("TEST_SHELL", "0")))
 
     if shell and not sys.stderr.isatty():
-        print(f"--interactive must be passed to meson test to use TEST_SHELL=1", file=sys.stderr)
+        print("--interactive must be passed to meson test to use TEST_SHELL=1", file=sys.stderr)
         exit(1)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
@@ -84,7 +84,7 @@ def main():
 
     if not shell:
         dropin += textwrap.dedent(
-            f"""
+            """
             [Unit]
             SuccessAction=exit
             SuccessActionExitStatus=123
