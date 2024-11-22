@@ -531,20 +531,24 @@ int is_idmapping_supported(const char *path) {
         userns_fd = userns_acquire(uid_map, gid_map);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd) || ERRNO_IS_NEG_PRIVILEGE(userns_fd))
                 return false;
+        if (userns_fd == -ENOSPC) {
+                log_debug_errno(userns_fd, "Failed to acquire new user namespace, user.max_user_namespaces seems to be exhausted or maybe even zero, assuming ID-mapping is not supported: %m");
+                return false;
+        }
         if (userns_fd < 0)
-                return log_debug_errno(userns_fd, "ID-mapping supported namespace acquire failed for '%s' : %m", path);
+                return log_debug_errno(userns_fd, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
 
         dir_fd = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
         if (ERRNO_IS_NEG_NOT_SUPPORTED(dir_fd))
                 return false;
         if (dir_fd < 0)
-                return log_debug_errno(dir_fd, "ID-mapping supported open failed for '%s' : %m", path);
+                return log_debug_errno(dir_fd, "Failed to open '%s', cannot determine if ID-mapping is supported: %m", path);
 
         mount_fd = RET_NERRNO(open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
         if (ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd) || ERRNO_IS_NEG_PRIVILEGE(mount_fd) || mount_fd == -EINVAL)
                 return false;
         if (mount_fd < 0)
-                return log_debug_errno(mount_fd, "ID-mapping supported open_tree failed for '%s' : %m", path);
+                return log_debug_errno(mount_fd, "Failed to open mount tree '%s', cannot determine if ID-mapping is supported: %m", path);
 
         r = RET_NERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
                        &(struct mount_attr) {
@@ -554,7 +558,7 @@ int is_idmapping_supported(const char *path) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r) || r == -EINVAL)
                 return false;
         if (r < 0)
-                return log_debug_errno(r, "ID-mapping supported setattr failed for '%s' : %m", path);
+                return log_debug_errno(r, "Failed to set mount attribute to '%s', cannot determine if ID-mapping is supported: %m", path);
 
         return true;
 }
