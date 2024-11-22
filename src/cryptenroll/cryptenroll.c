@@ -193,7 +193,7 @@ static int help(void) {
                "\n%3$sSimple Enrollment:%4$s\n"
                "     --password        Enroll a user-supplied password\n"
                "     --recovery-key    Enroll a recovery key\n"
-               "\n%3$sPKCS11 Enrollment:%4$s\n"
+               "\n%3$sPKCS#11 Enrollment:%4$s\n"
                "     --pkcs11-token-uri=URI\n"
                "                       Specify PKCS#11 security token URI\n"
                "\n%3$sFIDO2 Enrollment:%4$s\n"
