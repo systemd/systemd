@@ -213,6 +213,20 @@ TEST(idmapping_supported) {
         assert_se(is_idmapping_supported("/etc") >= 0);
 }
 
+TEST(namespace_is_init) {
+        int r;
+
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++) {
+                r = namespace_is_init(t);
+                if (r == -EBADR)
+                        log_info_errno(r, "In root namespace of type '%s': don't know", namespace_info[t].proc_name);
+                else if (r < 0)
+                        log_warning_errno(r, "In root namespace of type '%s' check failed, ignoring: %m", namespace_info[t].proc_name);
+                else
+                        log_info("In root namespace of type '%s': %s", namespace_info[t].proc_name, yes_no(r));
+        }
+}
+
 static int intro(void) {
         if (!have_namespaces())
                 return log_tests_skipped("Don't have namespace support");
