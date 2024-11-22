@@ -2,13 +2,19 @@
 #pragma once
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "manager.h"
 
 int mac_selinux_access_check_internal(sd_bus_message *message, const char *unit_path, const char *unit_label, const char *permission, const char *function, sd_bus_error *error);
+
+int mac_selinux_access_check_varlink_internal(sd_varlink *link, const char *unit_path, const char *unit_context, const char *permission, const char *function, sd_bus_error *error);
 
 #define mac_selinux_access_check(message, permission, error) \
         mac_selinux_access_check_internal((message), NULL, NULL, (permission), __func__, (error))
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         mac_selinux_access_check_internal((message), (unit)->fragment_path, (unit)->access_selinux_context, (permission), __func__, (error))
+
+#define mac_selinux_access_check_varlink(unit, link, permission, error) \
+        mac_selinux_access_check_varlink_internal((link), (unit)->fragment_path, (unit)->access_selinux_context, (permission), __func__, (error))

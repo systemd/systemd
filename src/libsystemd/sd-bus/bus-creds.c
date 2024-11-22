@@ -144,7 +144,7 @@ sd_bus_creds* bus_creds_new(void) {
         return c;
 }
 
-static int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask) {
+int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         int r;
 
