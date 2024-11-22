@@ -1074,7 +1074,13 @@ int fido2_generate_hmac_hash(
 #endif
 
 #if HAVE_LIBFIDO2
-static int check_device_is_fido2_with_hmac_secret(const char *path) {
+static int check_device_is_fido2_with_hmac_secret(
+                const char *path,
+                bool *ret_has_rk,
+                bool *ret_has_client_pin,
+                bool *ret_has_up,
+                bool *ret_has_uv) {
+
         _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         int r;
 
@@ -1087,7 +1093,7 @@ static int check_device_is_fido2_with_hmac_secret(const char *path) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
 
-        r = verify_features(d, path, LOG_DEBUG, NULL, NULL, NULL, NULL);
+        r = verify_features(d, path, LOG_DEBUG, ret_has_rk, ret_has_client_pin, ret_has_up, ret_has_uv);
         if (r == -ENODEV) /* Not a FIDO2 device, or not implementing 'hmac-secret' */
                 return false;
         if (r < 0)
@@ -1100,7 +1106,6 @@ static int check_device_is_fido2_with_hmac_secret(const char *path) {
 int fido2_list_devices(void) {
 #if HAVE_LIBFIDO2
         _cleanup_(table_unrefp) Table *t = NULL;
-
         size_t allocated = 64, found = 0;
         fido_dev_info_t *di = NULL;
         int r;
@@ -1125,7 +1130,7 @@ int fido2_list_devices(void) {
                 goto finish;
         }
 
-        t = table_new("path", "manufacturer", "product");
+        t = table_new("path", "manufacturer", "product", "rk", "clientpin", "up", "uv");
         if (!t) {
                 r = log_oom();
                 goto finish;
@@ -1133,6 +1138,7 @@ int fido2_list_devices(void) {
 
         for (size_t i = 0; i < found; i++) {
                 const fido_dev_info_t *entry;
+                bool has_rk, has_client_pin, has_up, has_uv;
 
                 entry = sym_fido_dev_info_ptr(di, i);
                 if (!entry) {
@@ -1141,7 +1147,7 @@ int fido2_list_devices(void) {
                         goto finish;
                 }
 
-                r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry));
+                r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry), &has_rk, &has_client_pin, &has_up, &has_uv);
                 if (r < 0)
                         goto finish;
                 if (!r)
@@ -1151,7 +1157,11 @@ int fido2_list_devices(void) {
                                 t,
                                 TABLE_PATH, sym_fido_dev_info_path(entry),
                                 TABLE_STRING, sym_fido_dev_info_manufacturer_string(entry),
-                                TABLE_STRING, sym_fido_dev_info_product_string(entry));
+                                TABLE_STRING, sym_fido_dev_info_product_string(entry),
+                                TABLE_STRING, yes_no(has_rk),
+                                TABLE_STRING, yes_no(has_client_pin),
+                                TABLE_STRING, yes_no(has_up),
+                                TABLE_STRING, yes_no(has_uv));
                 if (r < 0) {
                         table_log_add_error(r);
                         goto finish;
@@ -1214,7 +1224,7 @@ int fido2_find_device_auto(char **ret) {
                 goto finish;
         }
 
-        r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry));
+        r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry), NULL, NULL, NULL, NULL);
         if (r < 0)
                 goto finish;
         if (!r) {
