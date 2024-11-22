@@ -16,7 +16,7 @@ int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret) {
 
         int pidfd = sd_varlink_get_peer_pidfd(v);
         if (pidfd < 0) {
-                if (!ERRNO_IS_NEG_NOT_SUPPORTED(pidfd))
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(pidfd) && pidfd != -EINVAL)
                         return pidfd;
 
                 pid_t pid;

@@ -899,62 +899,40 @@ int session_send_lock_all(Manager *m, bool lock) {
         return r;
 }
 
-static bool session_job_pending(Session *s) {
-        assert(s);
-        assert(s->user);
-
-        /* Check if we have some jobs enqueued and not finished yet. Each time we get JobRemoved signal about
-         * relevant units, session_send_create_reply and hence us is called (see match_job_removed).
-         * Note that we don't care about job result here. */
-
-        return s->scope_job ||
-               s->user->runtime_dir_job ||
-               (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) && s->user->service_manager_job);
-}
-
-int session_send_create_reply(Session *s, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
-        _cleanup_close_ int fifo_fd = -EBADF;
-        _cleanup_free_ char *p = NULL;
-
+int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
         assert(s);
 
-        /* This is called after the session scope and the user service were successfully created, and finishes where
-         * bus_manager_create_session() left off. */
+        /* This is called after the session scope and the user service were successfully created, and
+         * finishes where manager_create_session() left off. */
 
-        if (!s->create_message)
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = TAKE_PTR(s->create_message);
+        if (!c)
                 return 0;
 
-        /* If error occurred, return it immediately. Otherwise let's wait for all jobs to finish before
-         * continuing. */
-        if (!sd_bus_error_is_set(error) && session_job_pending(s))
-                return 0;
-
-        c = TAKE_PTR(s->create_message);
-        if (error)
+        if (sd_bus_error_is_set(error))
                 return sd_bus_reply_method_error(c, error);
 
-        fifo_fd = session_create_fifo(s);
+        _cleanup_close_ int fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);
 
-        p = session_bus_path(s);
+        _cleanup_free_ char *p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
 
-        log_debug("Sending reply about created session: "
-                  "id=%s object_path=%s uid=%u runtime_path=%s "
+        log_debug("Sending D-Bus reply about created session: "
+                  "id=%s object_path=%s uid=" UID_FMT " runtime_path=%s "
                   "session_fd=%d seat=%s vtnr=%u",
                   s->id,
                   p,
-                  (uint32_t) s->user->user_record->uid,
+                  s->user->user_record->uid,
                   s->user->runtime_path,
                   fifo_fd,
                   s->seat ? s->seat->id : "",
-                  (uint32_t) s->vtnr);
+                  s->vtnr);
 
         return sd_bus_reply_method_return(
                         c, "soshusub",
@@ -968,7 +946,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                         false);
 }
 
-int session_send_upgrade_reply(Session *s, sd_bus_error *error) {
+int session_send_upgrade_reply(Session *s, const sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         assert(s);
 
