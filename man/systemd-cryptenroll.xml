@@ -363,21 +363,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fido2-credential-algorithm=<replaceable>STRING</replaceable></option></term>
-        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
-        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
-        and <literal>eddsa</literal>.</para>
-
-        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
-        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
-        EDDSA over Curve25519 with SHA-512.</para>
-
-        <para>Note that your authenticator may choose not to support some algorithms.</para>
-
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--fido2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Enroll a FIDO2 security token that implements the <literal>hmac-secret</literal>
@@ -401,6 +386,21 @@
         <filename>/etc/crypttab</filename> line.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-credential-algorithm=<replaceable>STRING</replaceable></option></term>
+        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
+        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
+        and <literal>eddsa</literal>.</para>
+
+        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
+        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
+        EDDSA over Curve25519 with SHA-512.</para>
+
+        <para>Note that your authenticator may choose not to support some algorithms.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
