@@ -960,10 +960,13 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
 
         # wait until devices got created
         for _ in range(50):
-            out = subprocess.check_output(['ip', 'a', 'show', 'dev', self.if_router])
-            if b'state UP' in out and b'scope global' in out:
+            if subprocess.run(['ip', 'link', 'show', 'dev', self.if_router],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
                 break
             time.sleep(0.1)
+        else:
+            subprocess.call(['ip', 'link', 'show', 'dev', self.if_router])
+            self.fail('Timed out waiting for {ifr} created.'.format(ifr=self.if_router))
 
     def shutdown_iface(self):
         '''Remove test interface and stop DHCP server'''
