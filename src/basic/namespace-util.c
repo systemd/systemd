@@ -62,6 +62,9 @@ int pidref_namespace_open(
 
         assert(pidref_is_set(pidref));
 
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
         if (ret_pidns_fd) {
                 const char *pidns;
 
