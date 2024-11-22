@@ -22,9 +22,12 @@
 #include "util.h"
 
 /* Validate the descriptor macros a bit that they match our expectations */
-assert_cc(DEVICE_DESCRIPTOR_DEVICETREE == UINT32_C(0x1000001C));
+assert_cc(DEVICE_DESCRIPTOR_DEVICETREE == UINT32_C(0x10000020));
+assert_cc(DEVICE_DESCRIPTOR_EFIFW == UINT32_C(0x20000020));
 assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == sizeof(Device));
 assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == DEVICE_TYPE_DEVICETREE);
+assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_EFIFW) == sizeof(Device));
+assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_EFIFW) == DEVICE_TYPE_EFIFW);
 
 /**
  * smbios_to_hashable_string() - Convert ascii smbios string to stripped char16_t.
@@ -113,7 +116,7 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device 
 
                 if (devices[n_devices].descriptor == DEVICE_DESCRIPTOR_EOL)
                         break;
-                if (devices[n_devices].descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                if (DEVICE_TYPE_FROM_DESCRIPTOR(devices[n_devices].descriptor) >= _DEVICE_TYPE_MAX)
                         return EFI_UNSUPPORTED;
                 n_devices++;
         }
