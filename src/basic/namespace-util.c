@@ -60,7 +60,13 @@ int pidref_namespace_open(
                 userns_fd = -EBADF, root_fd = -EBADF;
         int r;
 
-        assert(pidref_is_set(pidref));
+        assert(pidref);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         if (ret_pidns_fd) {
                 const char *pidns;
