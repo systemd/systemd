@@ -13,7 +13,7 @@
 
 d /run/lock 0755 root root -
 L /var/lock - - - - ../run/lock
-{% if CREATE_LOG_DIRS %}
+{% if HAVE_SYSV_COMPAT and CREATE_LOG_DIRS %}
 L$ /var/log/README - - - - ../..{{DOC_DIR}}/README.logs
 {% endif %}
 
