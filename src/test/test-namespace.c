@@ -229,7 +229,7 @@ TEST(namespace_is_init) {
 
 static int intro(void) {
         if (!have_namespaces())
-                return log_tests_skipped("Don't have namespace support");
+                return log_tests_skipped("Don't have namespace support or lacking privileges");
 
         return EXIT_SUCCESS;
 }
