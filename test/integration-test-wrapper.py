@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import sys
 import textwrap
+import re
 from pathlib import Path
 
 
@@ -32,6 +33,55 @@ FailureAction=exit
 [Service]
 ExecStart=false
 """
+
+
+def dump_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
+    # Collect executable paths of all coredumps and filter out the expected ones.
+    # The following are excluded:
+    #   sleep/bash - intentional SIGABRT caused by TEST-57
+    #   systemd-notify - intermittent (and intentional) SIGABRT caused by TEST-59
+    #   test-execute - intentional coredump in TEST-02
+    #   test(-usr)?-dump - intentional coredumps from systemd-coredump tests in TEST-74
+    exclude_regex = re.compile("/(bash|sleep|systemd-notify|test-execute|test(-usr)?-dump)")
+
+    coredumps = json.loads(
+        subprocess.run(
+            [
+                args.mkosi,
+                "--directory", os.fspath(args.meson_source_dir),
+                "--forward-journal", journal_file,
+                "coredumpctl",
+                "--json=short",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+        ).stdout
+    )
+
+    coredumps = [coredump for coredump in coredumps if not exclude_regex.search(coredump["exe"])]
+
+    if not coredumps:
+        return False
+
+    for coredump in coredumps:
+        print()
+
+        subprocess.run(
+            [
+                args.mkosi,
+                "--directory", os.fspath(args.meson_source_dir),
+                "--forward-journal", journal_file,
+                "coredumpctl",
+                "info",
+                coredump["exe"],
+            ],
+            check=True,
+        )
+
+        print()
+
+    return True
 
 
 def main():
@@ -70,7 +120,7 @@ def main():
     shell = bool(int(os.getenv("TEST_SHELL", "0")))
 
     if shell and not sys.stderr.isatty():
-        print(f"--interactive must be passed to meson test to use TEST_SHELL=1", file=sys.stderr)
+        print("--interactive must be passed to meson test to use TEST_SHELL=1", file=sys.stderr)
         exit(1)
 
     name = args.name + (f"-{i}" if (i := os.getenv("MESON_TEST_ITERATION")) else "")
@@ -84,7 +134,7 @@ def main():
 
     if not shell:
         dropin += textwrap.dedent(
-            f"""
+            """
             [Unit]
             SuccessAction=exit
             SuccessActionExitStatus=123
@@ -107,7 +157,9 @@ def main():
             """
         )
 
-    journal_file = None
+    journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
+    journal_file.unlink(missing_ok=True)
+
     if not sys.stderr.isatty():
         dropin += textwrap.dedent(
             """
@@ -115,9 +167,6 @@ def main():
             FailureAction=exit
             """
         )
-
-        journal_file = (args.meson_build_dir / (f"test/journal/{name}.journal")).absolute()
-        journal_file.unlink(missing_ok=True)
     elif not shell:
         dropin += textwrap.dedent(
             """
@@ -183,40 +232,41 @@ def main():
             print(f"Test {args.name} failed due to QEMU crash (error 247), ignoring", file=sys.stderr)
             exit(77)
 
-    if journal_file and (keep_journal == "0" or (result.returncode in (args.exit_code, 77) and keep_journal == "fail")):
+    coredumps = dump_coredumps(args, journal_file)
+
+    if keep_journal == "0" or (keep_journal == "fail" and result.returncode in (args.exit_code, 77) and not coredumps):
         journal_file.unlink(missing_ok=True)
 
-    if shell or result.returncode in (args.exit_code, 77):
+    if shell or (result.returncode in (args.exit_code, 77) and not coredumps):
         exit(0 if shell or result.returncode == args.exit_code else 77)
 
-    if journal_file:
-        ops = []
+    ops = []
 
-        if os.getenv("GITHUB_ACTIONS"):
-            id = os.environ["GITHUB_RUN_ID"]
-            iteration = os.environ["GITHUB_RUN_ATTEMPT"]
-            j = json.loads(
-                subprocess.run(
-                    [
-                        args.mkosi,
-                        "--directory", os.fspath(args.meson_source_dir),
-                        "--json",
-                        "summary",
-                    ],
-                    stdout=subprocess.PIPE,
-                    text=True,
-                ).stdout
-            )
-            distribution = j["Images"][-1]["Distribution"]
-            release = j["Images"][-1]["Release"]
-            artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
-            ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
-            journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
+    if os.getenv("GITHUB_ACTIONS"):
+        id = os.environ["GITHUB_RUN_ID"]
+        iteration = os.environ["GITHUB_RUN_ATTEMPT"]
+        j = json.loads(
+            subprocess.run(
+                [
+                    args.mkosi,
+                    "--directory", os.fspath(args.meson_source_dir),
+                    "--json",
+                    "summary",
+                ],
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout
+        )
+        distribution = j["Images"][-1]["Distribution"]
+        release = j["Images"][-1]["Release"]
+        artifact = f"ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals"
+        ops += [f"gh run download {id} --name {artifact} -D ci/{artifact}"]
+        journal_file = Path(f"ci/{artifact}/test/journal/{name}.journal")
 
-        ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info"]
+    ops += [f"journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info"]
 
-        print("Test failed, relevant logs can be viewed with: \n\n"
-              f"{(' && '.join(ops))}\n", file=sys.stderr)
+    print("Test failed, relevant logs can be viewed with: \n\n"
+            f"{(' && '.join(ops))}\n", file=sys.stderr)
 
     # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
     exit(result.returncode or 1)

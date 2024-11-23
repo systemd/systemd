@@ -965,7 +965,9 @@ static int dump_list(int argc, char **argv, void *userdata) {
                 if (!arg_field && n_found <= 0) {
                         if (!arg_quiet)
                                 log_notice("No coredumps found.");
-                        return -ESRCH;
+
+                        if (!sd_json_format_enabled(arg_json_format_flags))
+                                return -ESRCH;
                 }
         }
 
