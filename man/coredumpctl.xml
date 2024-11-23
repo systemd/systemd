@@ -391,7 +391,7 @@
     <title>Exit status</title>
     <para>On success, 0 is returned; otherwise, a non-zero failure
     code is returned. Not finding any matching core dumps is treated as
-    failure.
+    failure unless JSON output is enabled.
     </para>
   </refsect1>
 
