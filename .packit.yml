@@ -53,12 +53,12 @@ jobs:
   - fedora-rawhide-i386
   - fedora-rawhide-ppc64le
   - fedora-rawhide-s390x
-  - fedora-rawhide-x86_64
+  - fedora-41-x86_64
 
 - job: tests
   trigger: pull_request
-  fmf_url: https://src.fedoraproject.org/tests/systemd
-  fmf_ref: main
+  fmf_url: https://github.com/bluca/systemd-packit
+  fmf_ref: mkosi
   tmt_plan: ci
   targets:
-  - fedora-rawhide-x86_64
+  - fedora-41-x86_64
