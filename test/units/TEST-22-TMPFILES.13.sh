@@ -5,6 +5,8 @@
 #
 set -eux
 
+export SYSTEMD_LOG_LEVEL="debug"
+
 rm -f  /{usr/lib,etc}/tmpfiles.d/{L,w}-*.conf
 rm -fr /tmp/precedence/{L,w}
 
@@ -21,7 +23,7 @@ cat >/usr/lib/tmpfiles.d/L-z.conf<<EOF
 L+ /tmp/precedence/L - - - - /usr/lib/tmpfiles.d/L-z.conf
 EOF
 
-systemd-tmpfiles --create
+strace systemd-tmpfiles --create
 test "$(readlink /tmp/precedence/L)" = "/usr/lib/tmpfiles.d/L-z.conf"
 
 # Files in /etc should override those in /usr
