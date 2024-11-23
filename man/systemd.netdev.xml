@@ -34,10 +34,16 @@
     for a general description of the syntax.</para>
 
     <para>The main Virtual Network Device file must have the extension <filename>.netdev</filename>;
-    other extensions are ignored. Virtual network devices are created as soon as networkd is
-    started. If a netdev with the specified name already exists, networkd will use that as-is rather
-    than create its own. Note that the settings of the pre-existing netdev will not be changed by
-    networkd.</para>
+    other extensions are ignored. Virtual network devices are created as soon as
+    <command>systemd-networkd</command> is started if possible. If a netdev with the specified name already
+    exists, <command>systemd-networkd</command> will try to update the config if the kind of the existing
+    netdev is equivalent to the requested one, otherwise (e.g. when bridge device <filename>foo</filename>
+    exists but bonding device with the same name is configured in a .netdev file) use the existing netdev
+    as-is rather than replacing with the requested netdev. Note, several settings (e.g. vlan ID) cannot be
+    changed after the netdev is created. To change such settings, it is necessary to first remove the
+    existing netdev, and then run <command>networkctl reload</command> command or restart
+    <command>systemd-networkd</command>. See also
+    <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>The <filename>.netdev</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
