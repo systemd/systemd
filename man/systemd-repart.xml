@@ -569,7 +569,7 @@
         (sysext, see
         <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details), configuration extension (confext) or <ulink
-        url="https://systemd.io/PORTABLE_SERVICES">portable service</ulink>. The generated image will consist
+        url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>. The generated image will consist
         of a signed Verity <literal>erofs</literal> file system as root partition. In this mode of operation
         the partition definitions in <filename>/usr/lib/repart.d/*.conf</filename> and related directories
         are not read, and <option>--definitions=</option> is not supported, as appropriate definitions for
@@ -605,10 +605,11 @@
       <varlistentry>
         <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
-        <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
-        <option>--root=</option> or in the host's root directory if neither is specified. Disabled by
-        default.</para>
+        <listitem><para>Specifies a path where to write
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        entries for the mountpoints configured with <option>MountPoint=</option> in the root directory
+        specified with <option>--copy-source=</option> or <option>--root=</option> or in the host's root
+        directory if neither is specified. Disabled by default.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -680,7 +681,7 @@ systemd-confext refresh</programlisting>
       <title>Generate a system extension image and sign it via PKCS11</title>
 
       <para>The following creates a system extension DDI (sysext) for an
-      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11:</para>
 
       <programlisting>mkdir -p tree/usr/lib/extension-release.d
 echo "Hello World" >tree/usr/foo
