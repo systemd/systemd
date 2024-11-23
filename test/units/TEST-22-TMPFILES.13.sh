@@ -5,6 +5,8 @@
 #
 set -eux
 
+export SYSTEMD_LOG_LEVEL="debug"
+
 rm -f  /{usr/lib,etc}/tmpfiles.d/{L,w}-*.conf
 rm -fr /tmp/precedence/{L,w}
 
