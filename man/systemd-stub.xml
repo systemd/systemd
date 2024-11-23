@@ -91,6 +91,15 @@
       the same matching procedure. If a match is found, that <literal>.dtbauto</literal> section will be
       loaded and will override <varname>.dtb</varname> if present.</para></listitem>
 
+      <listitem><para>Zero or more <literal>.efifwauto</literal> sections for the firmware image. It works
+      in many ways similar to <varname>.dtbauto</varname> sections. <filename>systemd-stub</filename>
+      will always use the first matching one. The match is performed by first selecting the most appropriate
+      entry in the <varname>.hwids</varname> section based on the hardware IDs supplied by SMBIOS (see below).
+      If a suitable entry is found, the <varname>compatible</varname> string from that entry will be used to
+      perform the matching procedure for firmware blobs in <varname>.efifwauto</varname> section. The first
+      matching firmware will be loaded.
+      </para></listitem>
+
       <listitem><para>Zero or more <literal>.hwids</literal> sections with hardware IDs of the machines to
       match DeviceTrees. <filename>systemd-stub</filename> will use the SMBIOS data to calculate hardware IDs
       of the machine (as per <ulink
