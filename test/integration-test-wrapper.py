@@ -32,7 +32,7 @@ ExecStart=false
 """
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mkosi', required=True)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
@@ -184,7 +184,8 @@ def main():
 
     # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
     if args.vm and result.returncode == 247 and args.exit_code != 247:
-        journal_file.unlink(missing_ok=True)
+        if journal_file:
+            journal_file.unlink(missing_ok=True)
         result = subprocess.run(cmd)
         if args.vm and result.returncode == 247 and args.exit_code != 247:
             print(
