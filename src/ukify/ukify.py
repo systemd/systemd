@@ -467,7 +467,7 @@ class SignTool:
         raise NotImplementedError()
 
     @staticmethod
-    def from_string(name) -> type['SignTool']:
+    def from_string(name: str) -> type['SignTool']:
         if name == 'pesign':
             return PeSign
         elif name == 'sbsign':
