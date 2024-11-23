@@ -7625,6 +7625,11 @@ static int context_minimize(Context *context) {
                         if (fstat(fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
+                        if ((uint64_t) st.st_size > partition_max_size(context, p))
+                                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                                       "Minimal partition size of %s filesystem of partition %s exceeds configured maximum size (%s > %s)",
+                                                       p->format, strna(hint), FORMAT_BYTES(st.st_size), FORMAT_BYTES(partition_max_size(context, p)));
+
                         log_info("Minimal partition size of %s filesystem of partition %s is %s",
                                  p->format, strna(hint), FORMAT_BYTES(st.st_size));
 
@@ -7661,8 +7666,12 @@ static int context_minimize(Context *context) {
                  * fool-proof. */
                 uint64_t heuristic = streq(p->format, "xfs") ? fsz : fsz / 2;
                 fsz = round_up_size(fsz + heuristic, context->grain_size);
-                if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
-                        fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
+                fsz = MAX(partition_min_size(context, p), fsz);
+
+                if (fsz > partition_max_size(context, p))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "Minimal partition size of %s filesystem of partition %s exceeds configured maximum size (%s > %s)",
+                                               p->format, strna(hint), FORMAT_BYTES(fsz), FORMAT_BYTES(partition_max_size(context, p)));
 
                 log_info("Minimal partition size of %s filesystem of partition %s is %s",
                          p->format, strna(hint), FORMAT_BYTES(fsz));
