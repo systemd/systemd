@@ -378,7 +378,7 @@
 
         <listitem><para>Takes a comma- or colon-separated list of languages preferred by the user, ordered
         by descending priority. The <varname>$LANG</varname> and <varname>$LANGUAGE</varname> environment
-        variables are initialized from this value on login, and thus values suitible for these environment
+        variables are initialized from this value on login, and thus values suitable for these environment
         variables are accepted here, for example <option>--language=de_DE.UTF-8</option>. This option may
         be used more than once, in which case the language lists are concatenated.</para>
 

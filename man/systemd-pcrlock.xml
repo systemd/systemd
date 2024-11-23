@@ -106,7 +106,7 @@
 
         <listitem><para>This reads the combined TPM2 event log and writes it to STDOUT in <ulink
         url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log
-        Format (CEL-JSON)</ulink> format.</para>
+        Format (CEL-JSON)</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -387,8 +387,10 @@
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on a kernel initrd cpio
         archive. This is useful for predicting measurements the Linux kernel makes to PCR 9
-        ("kernel-initrd"). Do not use for <command>systemd-stub</command> UKIs, as the initrd is combined
-        dynamically from various sources and hence does not take a single input, like this command.</para>
+        ("kernel-initrd"). Do not use for
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        UKIs, as the initrd is combined dynamically from various sources and hence does not take a single
+        input, like this command.</para>
 
         <para>This writes/removes the file
         <filename>/var/lib/pcrlock.d/720-kernel-initrd.pcrlock/generated.pcrlock</filename>.</para>
@@ -521,7 +523,7 @@
       <varlistentry>
         <term><option>--pcrlock=</option></term>
 
-        <listitem><para>Takes a file system path as argument. If specified overrides where to write the
+        <listitem><para>Takes a file system path as argument. If specified, configures where to write the
         generated pcrlock data to. Honoured by the various <command>lock-*</command> commands. If not
         specified, a default path is generally used, as documented above.</para>
 
@@ -531,7 +533,7 @@
       <varlistentry>
         <term><option>--policy=</option></term>
 
-        <listitem><para>Takes a file system path as argument. If specified overrides where to write pcrlock
+        <listitem><para>Takes a file system path as argument. If specified, configures where to write pcrlock
         policy metadata to. If not specified defaults to
         <filename>/var/lib/systemd/pcrlock.json</filename>.</para>
 

@@ -45,7 +45,7 @@
     file descriptors must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal>
     respectively.</para>
 
-    <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the
+    <para>Note: on Ubuntu/Debian derivatives <command>systemd-vmspawn</command> requires the user to be in the
     <literal>kvm</literal> group to use the VSOCK options.</para>
   </refsect1>
 
@@ -420,7 +420,8 @@
           for more information.</para>
 
           <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
-          may also be useful if the VM has a particularly old version of <command>sshd</command>.</para>
+          may also be useful if the VM has a particularly old version of
+          <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
