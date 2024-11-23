@@ -209,7 +209,7 @@
       images to the initrd. See
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on configuration extension images. The generated <command>cpio</command> archive containing
-      these system extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+      these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as

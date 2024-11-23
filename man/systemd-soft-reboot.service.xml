@@ -139,7 +139,8 @@ DefaultDependencies=no</programlisting>
       <varname>Conflicts=umount.target</varname>)</para></listitem>
 
       <listitem><para>If the unit publishes a service over D-Bus, the connection needs to be re-established
-      after soft-reboot as the D-Bus broker will be stopped and then started again. When using the sd-bus
+      after soft-reboot as the D-Bus broker will be stopped and then started again. When using the
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       library this can be achieved by adapting the following example.
       <programlisting><xi:include href="sd_bus_service_reconnect.c" parse="text"/></programlisting>
       </para></listitem>
