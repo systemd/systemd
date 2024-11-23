@@ -3964,6 +3964,7 @@ int mount_image_privately_interactively(
         r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
         if (r < 0)
                 return r;
+sleep(1);
 
         r = detach_mount_namespace();
         if (r < 0)
