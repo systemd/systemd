@@ -46,7 +46,7 @@
 
     <para>If the specified path does not reference a <literal>.v/</literal> path (i.e. neither the final
     component ends in <literal>.v</literal>, nor the penultimate does or the final one does contain a triple
-    underscore) it specified path is written unmodified to standard output.</para>
+    underscore) its specified path is written unmodified to standard output.</para>
   </refsect1>
 
   <refsect1>
