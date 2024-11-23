@@ -52,7 +52,7 @@
     <para>User processes may be started by the <filename>user@.service</filename> instance, in which
     case they will be part of that unit in the system hierarchy. They may also be started elsewhere,
     for example by
-    <citerefentry project='die-net'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> or a
+    <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> or a
     display manager like <command>gdm</command>, in which case they form a .scope unit (see
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
     Both <filename>user@<replaceable>UID</replaceable>.service</filename> and the scope units are
@@ -145,7 +145,7 @@ Control group /:
 …</programlisting>
       <para>User with UID 1000 is logged in using <command>gdm</command> (<filename
       index="false">session-4.scope</filename>) and
-      <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       (<filename index="false">session-19.scope</filename>), and also has a user manager instance
       running (<filename index="false">user@1000.service</filename>).  User with UID 1001 is logged
       in using <command>ssh</command> (<filename index="false">session-20.scope</filename>) and
