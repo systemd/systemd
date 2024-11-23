@@ -896,7 +896,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>Configures restrictions on the ability of unit processes to invoke <citerefentry
           project='man-pages'><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry> on a
-          socket. Both allow and deny rules may defined that restrict which addresses a socket may be bound
+          socket. Both allow and deny rules to be defined that restrict which addresses a socket may be bound
           to.</para>
 
           <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>,
@@ -1673,7 +1673,8 @@ DeviceAllow=/dev/loop-control
         <para>When <command>systemd-coredump</command> is handling a coredump for a process from a container,
         if the container's leader process is a descendant of a cgroup with <varname>CoredumpReceive=yes</varname>
         and <varname>Delegate=yes</varname>, then <command>systemd-coredump</command> will attempt to forward
-        the coredump to <command>systemd-coredump</command> within the container.</para>
+        the coredump to <command>systemd-coredump</command> within the container. See also
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
