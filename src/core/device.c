@@ -189,13 +189,16 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
         if (FLAGS_SET(now, DEVICE_FOUND_UDEV))
                 /* When the device is known to udev we consider it plugged. */
                 device_set_state(d, DEVICE_PLUGGED);
-        else if (now != DEVICE_NOT_FOUND && !FLAGS_SET(previous, DEVICE_FOUND_UDEV))
+        else if (now != DEVICE_NOT_FOUND)
                 /* If the device has not been seen by udev yet, but is now referenced by the kernel, then we assume the
-                 * kernel knows it now, and udev might soon too. */
+                 * kernel knows it now, and udev might soon too.
+                 *
+                 * If the device was previously seen by udev and now is only referenced from the kernel, its possible
+                 * udev is restarting or reloading its configuration. Put the device in the tentative state and udev
+                 * will move it into the proper state. */
                 device_set_state(d, DEVICE_TENTATIVE);
         else
-                /* If nobody sees the device, or if the device was previously seen by udev and now is only referenced
-                 * from the kernel, then we consider the device is gone, the kernel just hasn't noticed it yet. */
+                /* If nobody sees the device, then we consider the device is gone. */
                 device_set_state(d, DEVICE_DEAD);
 }
 
