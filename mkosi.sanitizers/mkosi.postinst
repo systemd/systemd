@@ -57,6 +57,8 @@ wrap=(
     delv
     dhcpd
     dig
+    dnf
+    dnf5
     dmsetup
     dnsmasq
     findmnt
