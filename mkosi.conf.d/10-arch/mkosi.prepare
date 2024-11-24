@@ -8,28 +8,18 @@ fi
 
 mapfile -t PACKAGES < <(jq --raw-output .VolatilePackages[] <"$MKOSI_CONFIG")
 
-DEPS=""
-
-for PACKAGE in "${PACKAGES[@]}"; do
-    DEPS="$DEPS $(
-        pacman --sync --info "$PACKAGE" |
-            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
-            sed --quiet 's/^Depends On *: //p' # Filter out everything except "Depends On:" line and fetch dependencies from it.
-    )"
-
-    DEPS="$DEPS $(
-        pacman --sync --info "$PACKAGE" |
-            sed '1,/^$/d' | # Only keep result from first repository (delete everything after first blank line).
-            sed --quiet '/Optional Deps/,/Conflicts With/{/Conflicts With/!p}' | # Get every line from "Optional Deps" (inclusive) until "Conflicts With" (exclusive).
-            sed 's/Optional Deps *: //' | # Drop "Optional Deps :" from first line.
-            sed 's/ *\(.*\):.*/\1/' | # Drop descriptions (everything after first colon for all lines).
-            tr '\n' ' ' # Transform newlines to whitespace.
-    )"
-done
+DEPS="$(pacman --sync --print-format %D "${PACKAGES[@]}")"
+# The optional dependencies are printed with their description as a whitespace delimited list, so we grep out
+# everything that ends with a colon to get the actual dependencies without descriptions, and then remove the
+# colon with sed.
+DEPS="$DEPS $(
+    pacman --sync --print-format %O "${PACKAGES[@]}" |
+        grep --only-matching --extended-regexp "[0-9a-zA-Z\-]+:" |
+        sed 's/.$//'
+)"
 
 echo "$DEPS" |
-    xargs | # Remove extra whitespace.
     tr ' ' '\n' |
-    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" --regexp None | # systemd packages will be installed later on.
+    grep --extended-regexp --invert-match --regexp "$(IFS=\| ; echo "${PACKAGES[*]}")" | # systemd packages will be installed later on.
     sort --unique |
     xargs --delimiter '\n' --no-run-if-empty mkosi-install
