@@ -5,6 +5,7 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'storage': 'persistent',
                 'vm' : true,
+                'coredump-exclude-regex' : '/(test-usr-dump|test-dump|bash)$',
         },
 ]
 
