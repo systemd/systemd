@@ -764,6 +764,9 @@ CHANGES WITH 257 in spe:
           other cases EnterNamespace= might be an suitable approach to acquire
           symbolized backtraces.)
 
+        Special thanks to Nick Owens for bringing attention to and testing
+        fixes for issue #34516.
+
         Contributions from: 12paper, A. Wilcox, Abderrahim Kitouni,
         Adrian Vovk, Alain Greppin, Allison Karlitskaya, Alyssa Ross,
         Anders Jonsson, Andika Triwidada, Andres Beltran, Anouk Ceyssens,
