@@ -16,6 +16,7 @@
 #include "udev-trace.h"
 
 typedef struct Spawn {
+        UdevWorker *worker;
         sd_device *device;
         const char *cmd;
         pid_t pid;
@@ -151,11 +152,27 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
         return 1;
 }
 
+static int on_spawn_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Spawn *spawn = ASSERT_PTR(userdata);
+
+        DEVICE_TRACE_POINT(spawn_sigterm, spawn->device, spawn->cmd);
+
+        log_device_error(spawn->device, "Worker process received SIGTERM, killing spawned process '%s' ["PID_FMT"].",
+                         spawn->cmd, spawn->pid);
+
+        (void) kill_and_sigcont(spawn->pid, SIGTERM);
+
+        /* terminate the main event source of the worker. Note, the spawn->worker may be NULL in tests. */
+        if (spawn->worker)
+                (void) sd_event_exit(spawn->worker->event, 0);
+
+        return 1;
+}
+
 static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *sigchld_source = NULL;
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stdout_source = NULL;
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stderr_source = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source
+                *sigchld_source = NULL, *stdout_source = NULL, *stderr_source = NULL, *sigterm_source = NULL;
         int r;
 
         assert(spawn);
@@ -201,8 +218,18 @@ static int spawn_wait(Spawn *spawn) {
         r = sd_event_add_child(e, &sigchld_source, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
         if (r < 0)
                 return log_device_debug_errno(spawn->device, r, "Failed to create sigchild event source: %m");
+
         /* SIGCHLD should be processed after IO is complete */
         r = sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1);
+        if (r < 0)
+                return log_device_debug_errno(spawn->device, r, "Failed to set priority to sigchild event source: %m");
+
+        r = sd_event_add_signal(e, &sigterm_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_spawn_sigterm, spawn);
+        if (r < 0)
+                return log_device_debug_errno(spawn->device, r, "Failed to set SIGTERM event: %m");
+
+        /* SIGTERM should be processed with higher priorities with the others. */
+        r = sd_event_source_set_priority(sigterm_source, SD_EVENT_PRIORITY_NORMAL - 1);
         if (r < 0)
                 return log_device_debug_errno(spawn->device, r, "Failed to set priority to sigchild event source: %m");
 
@@ -238,6 +265,10 @@ int udev_event_spawn(
                         *ret_truncated = false;
                 return 0;
         }
+
+        if (event->worker && sd_event_get_exit_code(event->worker->event, NULL) >= 0)
+                return log_device_debug_errno(event->dev, SYNTHETIC_ERRNO(EIO),
+                                              "The main event loop of the worker process already terminating, skipping execution of '%s'.", cmd);
 
         int timeout_signal = event->worker ? event->worker->timeout_signal : SIGKILL;
         usec_t timeout_usec = event->worker ? event->worker->timeout_usec : DEFAULT_WORKER_TIMEOUT_USEC;
@@ -304,6 +335,7 @@ int udev_event_spawn(
         errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
         spawn = (Spawn) {
+                .worker = event->worker,
                 .device = event->dev,
                 .cmd = cmd,
                 .pid = pid,
