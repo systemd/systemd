@@ -56,10 +56,8 @@ grep -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
 systemctl stop testsleep.service
 rm -f /run/udev/udev.conf.d/timeout.conf
 rm -f /run/udev/rules.d/99-testsuite.rules
-# Forcibly kills sleep command invoked by the udev rule before restarting,
-# otherwise systemctl restart below will takes longer.
-killall -KILL sleep
-systemctl restart systemd-udevd.service
+# Check if udevd can be restarted within a reasonably short time.
+timeout 10 systemctl restart systemd-udevd.service
 ip link del "$IFNAME"
 
 exit 0
