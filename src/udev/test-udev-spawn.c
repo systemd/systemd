@@ -10,7 +10,7 @@
 
 #define BUF_SIZE 1024
 
-static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size) {
+static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size, int expected) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_(udev_event_freep) UdevEvent *event = NULL;
 
@@ -18,9 +18,36 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
         ASSERT_NOT_NULL(event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN));
-        ASSERT_OK_ZERO(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL));
+        ASSERT_EQ(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL), expected);
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_PIDFD"));
+}
+
+static void test_event_spawn_sleep_child(bool with_pidfd) {
+        _cleanup_free_ char *cmd = NULL;
+
+        log_debug("/* %s(%s) */", __func__, yes_no(with_pidfd));
+
+        ASSERT_OK(find_executable("sleep", &cmd));
+        ASSERT_NOT_NULL(strextend_with_separator(&cmd, " ", "1h"));
+
+        test_event_spawn_core(with_pidfd, cmd, NULL, 0, -EIO);
+}
+
+static void test_event_spawn_sleep(bool with_pidfd) {
+        PidRef pidref;
+        int r;
+
+        r = pidref_safe_fork("(test-worker)", FORK_LOG, &pidref);
+        ASSERT_OK(r);
+        if (r == 0) {
+                test_event_spawn_sleep_child(with_pidfd);
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(usleep_safe(USEC_PER_SEC));
+        ASSERT_OK(pidref_kill(&pidref, SIGTERM));
+        ASSERT_OK(wait_for_terminate_with_timeout(pidref.pid, 10 * USEC_PER_SEC));
 }
 
 static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
@@ -34,7 +61,7 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
         ASSERT_NOT_NULL(strextend_with_separator(&cmd, " ", "/sys/class/net/lo/uevent"));
 
         test_event_spawn_core(with_pidfd, cmd, result_buf,
-                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
+                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size, 0);
 
         ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
         strv_print(lines);
@@ -55,7 +82,7 @@ static void test_event_spawn_self(const char *self, const char *arg, bool with_p
         /* 'self' may contain spaces, hence needs to be quoted. */
         ASSERT_NOT_NULL(cmd = strjoin("'", self, "' ", arg));
 
-        test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE);
+        test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE, 0);
 
         ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
         strv_print(lines);
@@ -114,5 +141,7 @@ int main(int argc, char *argv[]) {
         test_event_spawn_self(self, "test2", true);
         test_event_spawn_self(self, "test2", false);
 
+        test_event_spawn_sleep(true);
+        test_event_spawn_sleep(false);
         return 0;
 }
