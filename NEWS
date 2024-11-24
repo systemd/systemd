@@ -819,6 +819,9 @@ CHANGES WITH 257 in spe:
         rhellstrom, rindeal, samuelvw01, sinus-x, tfg13, vdovhanych, xujing,
         Łukasz Stelmach, Štěpán Němec, Дамјан Георгиевски
 
+        Special thanks to Nick Owens for bringing attention to and testing
+        fixes for issue #35322.
+
         — Edinburgh, 2024-11-15
 
 CHANGES WITH 256:
