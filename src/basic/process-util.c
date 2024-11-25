@@ -102,8 +102,8 @@ int pid_get_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
-        assert(ret);
         assert(pid >= 0);
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
@@ -142,6 +142,9 @@ int pidref_get_comm(const PidRef *pid, char **ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_comm(pid->pid, &comm);
         if (r < 0)
@@ -289,6 +292,9 @@ int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlag
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         r = pid_get_cmdline(pid->pid, max_columns, flags, &s);
         if (r < 0)
                 return r;
@@ -330,6 +336,9 @@ int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char *
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_cmdline_strv(pid->pid, flags, &args);
         if (r < 0)
@@ -477,6 +486,9 @@ int pidref_is_kernel_thread(const PidRef *pid) {
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         result = pid_is_kernel_thread(pid->pid);
         if (result < 0)
                 return result;
@@ -593,6 +605,9 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_uid(pid->pid, &uid);
         if (r < 0)
@@ -793,6 +808,9 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_start_time(pid->pid, ret ? &t : NULL);
         if (r < 0)
@@ -1093,6 +1111,9 @@ int pidref_is_my_child(const PidRef *pid) {
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         result = pid_is_my_child(pid->pid);
         if (result < 0)
                 return result;
@@ -1127,6 +1148,9 @@ int pidref_is_unwaited(const PidRef *pid) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         if (pid->pid == 1 || pidref_is_self(pid))
                 return true;
@@ -1168,6 +1192,9 @@ int pidref_is_alive(const PidRef *pidref) {
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         result = pid_is_alive(pidref->pid);
         if (result < 0) {

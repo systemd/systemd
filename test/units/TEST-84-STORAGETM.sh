@@ -3,6 +3,14 @@
 set -eux
 set -o pipefail
 
+if systemd-analyze compare-versions "$(nvme --version | grep libnvme | awk '{print $3}')" eq 1.11; then
+    if grep -q "CONFIG_NVME_TCP_TLS is not set" "/boot/config-$(uname -r)" 2>/dev/null || grep -q "CONFIG_NVME_TCP_TLS is not set" "/usr/lib/modules/$(uname -r)/config" 2>/dev/null; then
+        # See: https://github.com/linux-nvme/nvme-cli/issues/2573
+        echo "nvme-cli is broken and requires TLS support in the kernel" >/skipped
+        exit 77
+    fi
+fi
+
 /usr/lib/systemd/systemd-storagetm --list-devices
 
 modprobe -v nvmet-tcp

@@ -477,7 +477,8 @@ static int custom_mount_check_all(void) {
                 if (path_equal(m->destination, "/") && arg_userns_mode != USER_NAMESPACE_NO) {
                         if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_OFF)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--private-users-ownership=own may not be combined with custom root mounts.");
+                                                       "--private-users-ownership=%s may not be combined with custom root mounts.",
+                                                       user_namespace_ownership_to_string(arg_userns_ownership));
                         if (arg_uid_shift == UID_INVALID)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--private-users with automatic UID shift may not be combined with custom root mounts.");
@@ -2279,10 +2280,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
         r = path_extract_directory(from, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract directory from %s: %m", from);
-        if (!path_equal(parent, "/dev/")) {
-                if (userns_mkdir(dest, parent, 0755, 0, 0) < 0)
-                        return log_error_errno(r, "Failed to create directory %s: %m", parent);
-        }
+        r = userns_mkdir(dest, parent, 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory %s: %m", parent);
 
         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                 r = -errno; /* Save the original error code. */
@@ -4653,7 +4653,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid != inner_child_pid) {
-                log_debug("Received notify message without valid credentials. Ignoring.");
+                log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
 

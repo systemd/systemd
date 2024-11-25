@@ -1437,7 +1437,7 @@
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal></para>
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its

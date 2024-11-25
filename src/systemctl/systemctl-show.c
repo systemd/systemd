@@ -724,7 +724,7 @@ static void print_status_info(
                 printf("      Tasks: %" PRIu64, i->tasks_current);
 
                 if (i->tasks_max != UINT64_MAX)
-                        printf(" (limit: %" PRIu64 ")\n", i->tasks_max);
+                        printf("%s (limit: %" PRIu64 ")%s\n", ansi_grey(), i->tasks_max, ansi_normal());
                 else
                         printf("\n");
         }

@@ -99,15 +99,15 @@ int main(void) {
         printf("Found %zu symbols from source files.\\n", j);
 
         for (i = 0; symbols_from_sym[i].name; i++) {
-                struct symbol*n = bsearch(symbols_from_sym+i, symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
+                struct symbol *n = bsearch(symbols_from_sym+i, symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
                 if (!n)
                         printf("Found in symbol file, but not in sources: %s\\n", symbols_from_sym[i].name);
         }
 
         for (j = 0; symbols_from_source[j].name; j++) {
-                struct symbol*n = bsearch(symbols_from_source+j, symbols_from_source, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
+                struct symbol *n = bsearch(symbols_from_source+j, symbols_from_sym, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
                 if (!n)
-                        printf("Found in sources, but not in symbol file: %s\\n", symbols_from_source[i].name);
+                        printf("Found in sources, but not in symbol file: %s\\n", symbols_from_source[j].name);
         }
 
         return i == j ? EXIT_SUCCESS : EXIT_FAILURE;

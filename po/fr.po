@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"PO-Revision-Date: 2024-11-23 10:38+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -360,8 +360,8 @@ msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
-"Une authentification est requise pour définir le nom d'hôte local de manière "
-"statique, ainsi que le nom d'hôte familier."
+"Une authentification est requise pour définir le nom d'hôte local configuré "
+"de manière statique, ainsi que le nom d'hôte convivial."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -1258,7 +1258,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr "Gérer les fonctionnalités en option"
+msgstr "Gérer les fonctionnalités facultatives"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 msgid "Authentication is required to manage optional features"

@@ -1689,6 +1689,11 @@ static int become_shutdown(int objective, int retval) {
         /* Tell the binary how often to ping, ignore failure */
         (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
 
+        /* Make sure that tools that look for $WATCHDOG_USEC (and might get started by the exitrd) don't get
+         * confused by the variable, because the sd_watchdog_enabled() protocol uses the same variable for
+         * the same purposes. */
+        (void) strv_extendf(&env_block, "WATCHDOG_PID=" PID_FMT, getpid_cached());
+
         if (arg_watchdog_device)
                 (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
 

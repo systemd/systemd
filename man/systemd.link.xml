@@ -378,7 +378,7 @@
 
           <para>This setting is useful to configure the <literal>ID_NET_MANAGED_BY=</literal> property which
           declares which network management service shall manage the interface, which is respected by
-          systemd-networkd and others. Use
+          <command>systemd-networkd</command> and others. Use
           <programlisting>Property=ID_NET_MANAGED_BY=io.systemd.Network</programlisting>
           to declare explicitly that <command>systemd-networkd</command> shall manage the interface, or set
           the property to something else to declare explicitly it shall not do so. See
@@ -974,10 +974,10 @@
         <listitem>
           <para>Configures Receive Packet Steering (RPS) list of CPUs to which RPS may forward traffic.
           Takes a list of CPU indices or ranges separated by either whitespace or commas. Alternatively,
-          takes the special value <literal>all</literal> in which will include all available CPUs in the mask.
+          takes the special value <literal>all</literal>, which will include all available CPUs in the mask.
           CPU ranges are specified by the lower and upper CPU indices separated by a dash (e.g. <literal>2-6</literal>).
-          This option may be specified more than once, in which case the specified CPU affinity masks are merged.
-          If an empty string is assigned, the mask is reset, all assignments prior to this will have no effect.
+          This option may be specified more than once, in which case the specified list of CPU ranges are merged.
+          If an empty string is assigned, the list is reset, all assignments prior to this will have no effect.
           Defaults to unset and RPS CPU list is unchanged. To disable RPS when it was previously enabled, use the
           special value <literal>disable</literal>.</para>
 

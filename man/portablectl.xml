@@ -48,7 +48,7 @@
     and transfer them as a whole between systems. When these images are attached to the local system, the contained units
     may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
     depending on the selected configuration. For more details, see
-    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.</para>
+    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.</para>
 
     <para>Portable service images may be of the following kinds:</para>
 
@@ -417,7 +417,7 @@
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Images can be block images, btrfs subvolumes or directories. For more information on portable
         services with extensions, see the <literal>Extension Images</literal> paragraph on
-        <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.
+        <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>.
         </para>
 
         <para>Note that the same extensions have to be specified, in the same order, when attaching

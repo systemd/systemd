@@ -799,16 +799,20 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                                 continue;
                 }
 
-                char *path = strdup(e + 1);
+                _cleanup_free_ char *path = strdup(e + 1);
                 if (!path)
                         return -ENOMEM;
+
+                /* Refuse cgroup paths from outside our cgroup namespace */
+                if (startswith(path, "/../"))
+                        return -EUNATCH;
 
                 /* Truncate suffix indicating the process is a zombie */
                 e = endswith(path, " (deleted)");
                 if (e)
                         *e = 0;
 
-                *ret_path = path;
+                *ret_path = TAKE_PTR(path);
                 return 0;
         }
 }

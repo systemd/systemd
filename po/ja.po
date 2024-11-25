@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-18 12:55+0900\n"
 "PO-Revision-Date: 2021-09-09 03:04+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -106,14 +106,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "ユーザのホーム領域の更新には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
 msgstr "ホーム領域の更新"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "ユーザのホーム領域の更新には認証が必要です。"
+msgstr "ホーム領域の更新には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1120,12 +1118,11 @@ msgstr "過去のシステム更新を削除するには認証が必要です。
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "任意の機能の管理"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr "アクティブなセッションやユーザ，シートを管理するには認証が必要です。"
+msgstr "任意の機能を管理するには認証が必要です。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"

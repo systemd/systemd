@@ -606,7 +606,8 @@
         <varname>Subvolumes=</varname>.</para>
 
         <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
-        <literal>btrfs</literal>.</para>
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
         since btrfs-progs 6.11 or newer.</para>
@@ -686,7 +687,7 @@
 
         <listitem><para>Configures the data block size of the generated verity hash partition. Must be between 512 and
         4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
-        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        block device sector size, or 4K if <command>systemd-repart</command> is not operating on a block device.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -697,7 +698,7 @@
 
         <listitem><para>Configures the hash block size of the generated verity hash partition. Must be between 512 and
         4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
-        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        block device sector size, or 4K if <command>systemd-repart</command> is not operating on a block device.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -807,7 +808,9 @@
         mount options. These fields correspond to the second and fourth column of the
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         format. This setting may be specified multiple times to mount the partition multiple times. This can
-        be used to add mounts for different btrfs subvolumes located on the same btrfs partition.</para>
+        be used to add mounts for different
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        subvolumes located on the same btrfs partition.</para>
 
         <para>Note that this setting is only taken into account when <option>--generate-fstab=</option> is
         specified on the <command>systemd-repart</command> command line.</para>
@@ -818,7 +821,7 @@
       <varlistentry>
         <term><varname>EncryptedVolume=</varname></term>
 
-        <listitem><para>Specify how the encrypted partition should be set up. Takes at least one and at most
+        <listitem><para>Specifies how the encrypted partition should be set up. Takes at least one and at most
         three fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
         volume name under <filename>/dev/mapper/</filename>. If not specified, <literal>luks-UUID</literal>
         will be used where <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile
@@ -837,13 +840,14 @@
       <varlistentry>
         <term><varname>Compression=</varname></term>
 
-        <listitem><para>Specify the compression algorithm to use for the filesystem configured with
+        <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
         <varname>Format=</varname>. Takes a single argument specifying the compression algorithm.</para>
 
         <para>Note that this setting is only taken into account when the filesystem configured with
-        <varname>Format=</varname> supports compression (btrfs, squashfs, erofs). Here's an incomplete list
-        of compression algorithms supported by the filesystems known to
-        <command>systemd-repart</command>:</para>
+        <varname>Format=</varname> supports compression (
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        squashfs, erofs). Here's an incomplete list of compression algorithms supported by the filesystems
+        known to <command>systemd-repart</command>:</para>
 
         <table>
           <title>File System Compression Algorithms</title>
@@ -883,7 +887,7 @@
       <varlistentry>
         <term><varname>CompressionLevel=</varname></term>
 
-        <listitem><para>Specify the compression level to use for the filesystem configured with
+        <listitem><para>Specifies the compression level to use for the filesystem configured with
         <varname>Format=</varname>. Takes a single argument specifying the compression level to use for the
         configured compression algorithm. The possible compression levels and their meaning are filesystem
         specific (refer to the filesystem's documentation for the exact meaning of a particular compression

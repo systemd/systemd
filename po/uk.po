@@ -4,11 +4,12 @@
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 # Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024.
+# Dmytro Markevych <hotr1pak@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-06 14:42+0000\n"
-"PO-Revision-Date: 2024-08-24 10:36+0000\n"
+"PO-Revision-Date: 2024-11-21 19:38+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -118,14 +119,12 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Оновлення домашньої теки"
+msgstr "Оновлення домашньої області"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
+msgstr "Для оновлення домашньої області слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -1212,14 +1211,11 @@ msgstr "Для вилучення застарілих оновлень сист
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Керування додатковими функціями"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features"
-msgstr ""
-"Для того, щоб керувати сеансами, користувачами і робочими місцями, слід "
-"пройти розпізнавання."
+msgstr "Для керування додатковими можливостями слід пройти розпізнавання"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
