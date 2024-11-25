@@ -536,6 +536,8 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
                 }
         }
 
+        log_debug("Successfully switched root to '%s'.", path);
+
         /* Finally, let's establish the requested propagation flags. */
         if (mount_propagation_flag == 0)
                 return 0;
