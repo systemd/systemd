@@ -3943,7 +3943,7 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int fd = -EBADF, mntns_fd = -EBADF;
+        _cleanup_close_ int mntns_fd = -EBADF;
         bool idmap = false, enable_fuse;
         const char *p;
         pid_t pid;
@@ -4376,6 +4376,7 @@ static int outer_child(
          * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
+        _cleanup_close_ int notify_fd = -EBADF;
         if (arg_privileged) {
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
                  * bind mounts available in systemd services inside the container that create a new mount
@@ -4411,11 +4412,11 @@ static int outer_child(
                                 return r;
                 }
 
-                fd = setup_notify_child(NULL);
+                notify_fd = setup_notify_child(NULL);
         } else
-                fd = setup_notify_child(directory);
-        if (fd < 0)
-                return fd;
+                notify_fd = setup_notify_child(directory);
+        if (notify_fd < 0)
+                return notify_fd;
 
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
@@ -4480,7 +4481,7 @@ static int outer_child(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending machine ID.");
 
-        l = send_one_fd(fd_outer_socket, fd, 0);
+        l = send_one_fd(fd_outer_socket, notify_fd, 0);
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
