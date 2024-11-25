@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
+#include "missing_namespace.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
@@ -23,17 +24,17 @@
 #include "user-util.h"
 
 const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
-        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,                          },
-        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                             },
-        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,                             },
+        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP, PROC_CGROUP_INIT_INO     },
+        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,    PROC_IPC_INIT_INO        },
+        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,    0                        },
         /* So, the mount namespace flag is called CLONE_NEWNS for historical
          * reasons. Let's expose it here under a more explanatory name: "mnt".
          * This is in-line with how the kernel exposes namespaces in /proc/$PID/ns. */
-        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,                              },
-        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,                             },
-        [NAMESPACE_USER]   =  { "user",   "ns/user",   CLONE_NEWUSER,                            },
-        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,                             },
-        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,                            },
+        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,     0                        },
+        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,    PROC_PID_INIT_INO        },
+        [NAMESPACE_USER]   =  { "user",   "ns/user",   CLONE_NEWUSER,   PROC_USER_INIT_INO       },
+        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,    PROC_UTS_INIT_INO        },
+        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,   PROC_TIME_INIT_INO       },
         { /* Allow callers to iterate over the array without using _NAMESPACE_TYPE_MAX. */       },
 };
 
@@ -477,6 +478,28 @@ int namespace_open_by_type(NamespaceType type) {
                 return -ENOSYS;
 
         return fd;
+}
+
+int namespace_is_init(NamespaceType type) {
+        int r;
+
+        assert(type >= 0);
+        assert(type <= _NAMESPACE_TYPE_MAX);
+
+        if (namespace_info[type].root_inode == 0)
+                return -EBADR; /* Cannot answer this question */
+
+        const char *p = pid_namespace_path(0, type);
+
+        struct stat st;
+        r = RET_NERRNO(stat(p, &st));
+        if (r == -ENOENT)
+                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
+                return proc_mounted() == 0 ? -ENOSYS : true;
+        if (r < 0)
+                return r;
+
+        return st.st_ino == namespace_info[type].root_inode;
 }
 
 int is_our_namespace(int fd, NamespaceType request_type) {
