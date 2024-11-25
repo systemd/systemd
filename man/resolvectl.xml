@@ -485,7 +485,7 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If
         true, rules regarding routing of single-label names are relaxed. Defaults to false. By default,
-        lookups of single label names are assumed to refer to local hosts to be resolved via local resolution
+        lookups of single-label names are assumed to refer to local hosts to be resolved via local resolution
         such as LLMNR or via search domain qualification and are not routed to upstream servers as is. If
         this option is enabled these rules are disabled and the queries are routed upstream anyway. Also see
         the <varname>ResolveUnicastSingleLabel=</varname> option in

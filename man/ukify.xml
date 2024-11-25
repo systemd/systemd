@@ -220,7 +220,8 @@
           <para>For the <command>inspect</command> verb, the second syntax is used.
           The section <replaceable>NAME</replaceable> will be inspected (if found).
           If the second argument is <literal>text</literal>, the contents will be printed.
-          If the third argument is given, the contents will be saved to file <replaceable>PATH</replaceable>.
+          If the third argument is given, the contents will be saved to the file named
+          <replaceable>PATH</replaceable>.
           </para>
 
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
