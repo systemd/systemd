@@ -29,6 +29,7 @@ typedef enum UserNamespaceMode {
         USER_NAMESPACE_NO,
         USER_NAMESPACE_FIXED,
         USER_NAMESPACE_PICK,
+        USER_NAMESPACE_MANAGED,
         _USER_NAMESPACE_MODE_MAX,
         _USER_NAMESPACE_MODE_INVALID = -EINVAL,
 } UserNamespaceMode;
