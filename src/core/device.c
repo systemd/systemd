@@ -874,14 +874,15 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
         return 0;
 }
 
-static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set **not_ready_units) {
+static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units, Set **ret_not_ready_units) {
+        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
         const char *syspath, *devname = NULL;
         int r;
 
         assert(m);
         assert(dev);
-        assert(ready_units);
-        assert(not_ready_units);
+        assert(ret_ready_units);
+        assert(ret_not_ready_units);
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
@@ -901,13 +902,13 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
                 /* Add the main unit named after the syspath. If this one fails, don't bother with the rest,
                  * as this one shall be the main device unit the others just follow. (Compare with how
                  * device_following() is implemented, see below, which looks for the sysfs device.) */
-                r = device_setup_unit(m, dev, syspath, /* main = */ true, ready_units);
+                r = device_setup_unit(m, dev, syspath, /* main = */ true, &ready_units);
                 if (r < 0)
                         return r;
 
                 /* Add an additional unit for the device node */
                 if (sd_device_get_devname(dev, &devname) >= 0)
-                        (void) device_setup_unit(m, dev, devname, /* main = */ false, ready_units);
+                        (void) device_setup_unit(m, dev, devname, /* main = */ false, &ready_units);
 
         } else {
                 Unit *u;
@@ -915,28 +916,30 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
                 /* If the device exists but not ready, then save the units and unset udev bits later. */
 
                 if (device_by_path(m, syspath, &u) >= 0) {
-                        r = set_ensure_put(not_ready_units, NULL, DEVICE(u));
+                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
                 }
 
                 if (sd_device_get_devname(dev, &devname) >= 0 &&
                     device_by_path(m, devname, &u) >= 0) {
-                        r = set_ensure_put(not_ready_units, NULL, DEVICE(u));
+                        r = set_ensure_put(&not_ready_units, NULL, DEVICE(u));
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to store unit, ignoring: %m");
                 }
         }
 
         /* Next, add/update additional .device units point to aliases and symlinks. */
-        (void) device_setup_extra_units(m, dev, ready_units, not_ready_units);
+        (void) device_setup_extra_units(m, dev, &ready_units, &not_ready_units);
 
         /* Safety check: no unit should be in ready_units and not_ready_units simultaneously. */
         Unit *u;
-        SET_FOREACH(u, *not_ready_units)
-                if (set_remove(*ready_units, u))
+        SET_FOREACH(u, not_ready_units)
+                if (set_remove(ready_units, u))
                         log_unit_error(u, "Cannot activate and deactivate the unit simultaneously. Deactivating.");
 
+        *ret_ready_units = TAKE_PTR(ready_units);
+        *ret_not_ready_units = TAKE_PTR(not_ready_units);
         return 0;
 }
 
@@ -1097,7 +1100,6 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
-        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
         Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
         const char *sysfs;
@@ -1150,6 +1152,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
          * change events */
         ready = device_is_ready(dev);
 
+        _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
         (void) device_setup_units(m, dev, &ready_units, &not_ready_units);
 
         if (action == SD_DEVICE_REMOVE) {
