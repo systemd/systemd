@@ -1764,7 +1764,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid namespacing settings. Mounting sysfs with --private-users requires --private-network.");
 
         if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write mounts.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write API VFS mounts.");
 
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
@@ -3710,7 +3710,7 @@ static int inner_child(
                         return log_error_errno(errno, "Failed to acquire controlling TTY: %m");
         }
 
-        log_debug("Inner child completed, invoking payload.");
+        log_debug("Inner child finished, invoking payload.");
 
         /* Now, explicitly close the log, so that we then can close all remaining fds. Closing the log explicitly first
          * has the benefit that the logging subsystem knows about it, and is thus ready to be reopened should we need
