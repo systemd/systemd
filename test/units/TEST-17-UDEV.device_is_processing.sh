@@ -31,18 +31,50 @@ cat >/run/udev/udev.conf.d/timeout.conf <<EOF
 event_timeout=1h
 EOF
 
+# First, test 'add' event.
 mkdir -p /run/udev/rules.d/
 cat >/run/udev/rules.d/99-testsuite.rules <<EOF
-SUBSYSTEM=="net", ACTION=="change", KERNEL=="${IFNAME}", OPTIONS="log_level=debug", RUN+="/usr/bin/sleep 1000"
+SUBSYSTEM=="net", ACTION=="add", KERNEL=="${IFNAME}", OPTIONS="log_level=debug", RUN+="/usr/bin/sleep 1000"
 EOF
 
 systemctl restart systemd-udevd.service
 
 ip link add "$IFNAME" type dummy
 IFINDEX=$(ip -json link show "$IFNAME" | jq '.[].ifindex')
-udevadm wait --timeout 10 "/sys/class/net/${IFNAME}"
-# Check if the database file is created.
-[[ -e "/run/udev/data/n${IFINDEX}" ]]
+timeout 30 bash -c "until [[ -e /run/udev/data/n${IFINDEX} ]] && grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
+
+(! systemctl is-active "sys-devices-virtual-net-${IFNAME}.device")
+(! systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device")
+
+for _ in {1..3}; do
+    systemctl daemon-reexec
+    (! systemctl is-active "sys-devices-virtual-net-${IFNAME}.device")
+    (! systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device")
+done
+
+for _ in {1..3}; do
+    systemctl daemon-reload
+    (! systemctl is-active "sys-devices-virtual-net-${IFNAME}.device")
+    (! systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device")
+done
+
+# Check if the reexec and reload have finished during processing the event.
+grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
+
+# Forcibly kill sleep command ivoked by the udev rule to finish processing the add event.
+killall sleep
+udevadm settle --timeout=20
+
+# Check if ID_PROCESSING flag is unset, and the device units are active.
+(! grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}")
+systemctl is-active "sys-devices-virtual-net-${IFNAME}.device"
+systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device"
+
+# Next, test 'change' event.
+cat >/run/udev/rules.d/99-testsuite.rules <<EOF
+SUBSYSTEM=="net", ACTION=="change", KERNEL=="${IFNAME}", OPTIONS="log_level=debug", RUN+="/usr/bin/sleep 1000"
+EOF
+udevadm control --reload
 
 systemd-run \
     -p After="sys-subsystem-net-devices-${IFNAME}.device" \
@@ -50,22 +82,29 @@ systemd-run \
     -u testsleep.service \
     sleep 1h
 
-timeout 10 bash -c 'until systemctl is-active testsleep.service; do sleep .5; done'
-
 udevadm trigger "/sys/class/net/${IFNAME}"
-timeout 30 bash -c "until grep -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
+timeout 30 bash -c "until grep -q -F 'ID_PROCESSING=1' /run/udev/data/n${IFINDEX}; do sleep .5; done"
+
+# Check if the service and device units are still active even ID_PROCESSING flag is set.
+systemctl is-active testsleep.service
+systemctl is-active "sys-devices-virtual-net-${IFNAME}.device"
+systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device"
 
 for _ in {1..3}; do
     systemctl daemon-reexec
     systemctl is-active testsleep.service
+    systemctl is-active "sys-devices-virtual-net-${IFNAME}.device"
+    systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device"
 done
 
 for _ in {1..3}; do
     systemctl daemon-reload
     systemctl is-active testsleep.service
+    systemctl is-active "sys-devices-virtual-net-${IFNAME}.device"
+    systemctl is-active "sys-subsystem-net-devices-${IFNAME}.device"
 done
 
 # Check if the reexec and reload have finished during processing the event.
-grep -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
+grep -q -F 'ID_PROCESSING=1' "/run/udev/data/n${IFINDEX}"
 
 exit 0
