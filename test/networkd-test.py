@@ -248,6 +248,7 @@ Bridge=mybridge
 [Match]
 Name=mybridge
 [Network]
+IPv6AcceptRA=no
 DNS=192.168.250.1
 Address=192.168.250.33/24
 Gateway=192.168.250.1
@@ -540,6 +541,7 @@ MACAddress=12:34:56:78:9a:bc
 [Match]
 Name=dummy0
 [Network]
+IPv6AcceptRA=no
 Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company
@@ -573,6 +575,7 @@ MACAddress=12:34:56:78:9a:bc
         self.write_network('50-myvpn.network', '''[Match]
 Name=dummy0
 [Network]
+IPv6AcceptRA=no
 Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company ~.
@@ -927,6 +930,7 @@ cat <<EOF >/run/systemd/network/50-test.network
 Name={ifr}
 
 [Network]
+IPv6AcceptRA=no
 Address=192.168.5.1/24
 {addr6}
 DHCPServer=yes
@@ -1006,6 +1010,7 @@ MACAddress=12:34:56:78:9a:bc
 [Match]
 Name=dummy0
 [Network]
+IPv6AcceptRA=no
 Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= one two three four five six seven eight nine ten
@@ -1035,6 +1040,7 @@ MACAddress=12:34:56:78:9a:bc
 [Match]
 Name=dummy0
 [Network]
+IPv6AcceptRA=no
 Address=192.168.42.100/24
 DNS=192.168.42.1
 ''')
@@ -1107,7 +1113,12 @@ class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
     def test_basic_matching(self):
         """Verify the Name= line works throughout this class."""
         self.add_veth_pair('test_if1', 'fake_if2')
-        self.write_network('50-test.network', "[Match]\nName=test_*\n[Network]")
+        self.write_network('50-test.network', '''\
+[Match]
+Name=test_*
+[Network]
+IPv6AcceptRA=no
+''')
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
         self.assert_link_states(test_if1='managed', fake_if2='unmanaged')
 
@@ -1118,11 +1129,13 @@ class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
         mac = '00:01:02:03:98:99'
         self.add_veth_pair('test_veth', 'test_peer',
                            ['addr', mac], ['addr', mac])
-        self.write_network('50-no-veth.network', """\
+        self.write_network('50-no-veth.network', '''\
 [Match]
 MACAddress={}
 Name=!nonexistent *peer*
-[Network]""".format(mac))
+[Network]
+IPv6AcceptRA=no
+'''.format(mac))
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
         self.assert_link_states(test_veth='managed', test_peer='unmanaged')
 
