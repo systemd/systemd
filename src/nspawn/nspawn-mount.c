@@ -475,7 +475,8 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (!full)
                 return log_oom();
 
-        (void) mkdir(full, 0755);
+        if (mkdir(full, 0755) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create directory '%s': %m", full);
 
         if (FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO))
                 extra_flags |= MS_RDONLY;
