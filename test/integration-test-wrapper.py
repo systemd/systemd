@@ -6,6 +6,7 @@
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -32,6 +33,59 @@ ExecStart=false
 """
 
 
+def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
+    # Collect executable paths of all coredumps and filter out the expected ones.
+
+    if args.coredump_exclude_regex:
+        exclude_regex = re.compile(args.coredump_exclude_regex)
+    else:
+        exclude_regex = None
+
+    result = subprocess.run(
+        [
+            args.mkosi,
+            '--directory', os.fspath(args.meson_source_dir),
+            '--extra-search-path', os.fspath(args.meson_build_dir),
+            'sandbox',
+            'coredumpctl',
+            '--file', journal_file,
+            '--json=short',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+    # coredumpctl returns a non-zero exit status if there are no coredumps.
+    if result.returncode != 0:
+        return False
+
+    coredumps = json.loads(result.stdout)
+
+    coredumps = [
+        coredump for coredump in coredumps if not exclude_regex or not exclude_regex.search(coredump['exe'])
+    ]
+
+    if not coredumps:
+        return False
+
+    subprocess.run(
+        [
+            args.mkosi,
+            '--directory', os.fspath(args.meson_source_dir),
+            '--extra-search-path', os.fspath(args.meson_build_dir),
+            'sandbox',
+            'coredumpctl',
+            '--file', journal_file,
+            '--no-pager',
+            'info',
+            *(coredump['exe'] for coredump in coredumps),
+        ],
+        check=True,
+    )  # fmt: skip
+
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mkosi', required=True)
@@ -44,6 +98,7 @@ def main() -> None:
     parser.add_argument('--slow', action=argparse.BooleanOptionalAction)
     parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--exit-code', required=True, type=int)
+    parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -114,7 +169,9 @@ def main() -> None:
             """
         )
 
-    journal_file = None
+    journal_file = (args.meson_build_dir / (f'test/journal/{name}.journal')).absolute()
+    journal_file.unlink(missing_ok=True)
+
     if not sys.stderr.isatty():
         dropin += textwrap.dedent(
             """
@@ -122,9 +179,6 @@ def main() -> None:
             FailureAction=exit
             """
         )
-
-        journal_file = (args.meson_build_dir / (f'test/journal/{name}.journal')).absolute()
-        journal_file.unlink(missing_ok=True)
     elif not shell:
         dropin += textwrap.dedent(
             """
@@ -194,44 +248,42 @@ def main() -> None:
             )
             exit(77)
 
-    if journal_file and (
-        keep_journal == '0' or (result.returncode in (args.exit_code, 77) and keep_journal == 'fail')
+    coredumps = process_coredumps(args, journal_file)
+
+    if keep_journal == '0' or (
+        keep_journal == 'fail' and result.returncode in (args.exit_code, 77) and not coredumps
     ):
         journal_file.unlink(missing_ok=True)
 
-    if shell or result.returncode in (args.exit_code, 77):
+    if shell or (result.returncode in (args.exit_code, 77) and not coredumps):
         exit(0 if shell or result.returncode == args.exit_code else 77)
 
-    if journal_file:
-        ops = []
+    ops = []
 
-        if os.getenv('GITHUB_ACTIONS'):
-            id = os.environ['GITHUB_RUN_ID']
-            iteration = os.environ['GITHUB_RUN_ATTEMPT']
-            j = json.loads(
-                subprocess.run(
-                    [
-                        args.mkosi,
-                        '--directory', os.fspath(args.meson_source_dir),
-                        '--json',
-                        'summary',
-                    ],
-                    stdout=subprocess.PIPE,
-                    text=True,
-                ).stdout
-            )  # fmt: skip
-            distribution = j['Images'][-1]['Distribution']
-            release = j['Images'][-1]['Release']
-            artifact = f'ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals'
-            ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
-            journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
+    if os.getenv('GITHUB_ACTIONS'):
+        id = os.environ['GITHUB_RUN_ID']
+        iteration = os.environ['GITHUB_RUN_ATTEMPT']
+        j = json.loads(
+            subprocess.run(
+                [
+                    args.mkosi,
+                    '--directory', os.fspath(args.meson_source_dir),
+                    '--json',
+                    'summary',
+                ],
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout
+        )  # fmt: skip
+        distribution = j['Images'][-1]['Distribution']
+        release = j['Images'][-1]['Release']
+        artifact = f'ci-mkosi-{id}-{iteration}-{distribution}-{release}-failed-test-journals'
+        ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
+        journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
-        ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
+    ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-        print(
-            "Test failed, relevant logs can be viewed with: \n\n" f"{(' && '.join(ops))}\n",
-            file=sys.stderr,
-        )
+    print("Test failed, relevant logs can be viewed with: \n\n" f"{(' && '.join(ops))}\n", file=sys.stderr)
 
     # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
     exit(result.returncode or 1)
