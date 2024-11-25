@@ -261,6 +261,8 @@ static int nexthop_dup(const NextHop *src, NextHop **ret) {
         dest->network = NULL;
         dest->section = NULL;
         dest->group = NULL;
+        dest->nexthops = NULL;
+        dest->routes = NULL;
 
         HASHMAP_FOREACH(nhg, src->group) {
                 _cleanup_free_ struct nexthop_grp *g = NULL;
@@ -491,8 +493,11 @@ static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
         /* If a nexthop is removed, the kernel silently removes routes that depend on the removed nexthop.
          * Let's forget them. */
 
-        Route *route;
-        SET_FOREACH(route, nexthop->routes) {
+        for (;;) {
+                _cleanup_(route_unrefp) Route *route = set_steal_first(nexthop->routes);
+                if (!route)
+                        break;
+
                 Request *req;
                 if (route_get_request(manager, route, &req) >= 0)
                         route_enter_removed(req->userdata);
@@ -501,6 +506,26 @@ static void nexthop_forget_dependents(NextHop *nexthop, Manager *manager) {
                 log_route_debug(route, "Forgetting silently removed", manager);
                 route_detach(route);
         }
+
+        nexthop->routes = set_free(nexthop->routes);
+}
+
+static void nexthop_forget(Manager *manager, NextHop *nexthop, const char *msg) {
+        assert(manager);
+        assert(nexthop);
+        assert(msg);
+
+        Request *req;
+        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
+                nexthop_enter_removed(req->userdata);
+
+        if (!nexthop->manager && nexthop_get_by_id(manager, nexthop->id, &nexthop) < 0)
+                return;
+
+        nexthop_enter_removed(nexthop);
+        log_nexthop_debug(nexthop, msg, manager);
+        nexthop_forget_dependents(nexthop, nexthop->manager);
+        nexthop_detach(nexthop);
 }
 
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
@@ -518,18 +543,8 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                                        (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop nexthop, ignoring");
 
-                nexthop_forget_dependents(nexthop, manager);
-
-                if (nexthop->manager) {
-                        /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
-                        log_nexthop_debug(nexthop, "Forgetting", manager);
-
-                        Request *req;
-                        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
-                                nexthop_enter_removed(req->userdata);
-
-                        nexthop_detach(nexthop);
-                }
+                /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
+                nexthop_forget(manager, nexthop, "Forgetting");
         }
 
         return 1;
@@ -962,20 +977,6 @@ int link_drop_nexthops(Link *link, bool only_static) {
         return r;
 }
 
-static void nexthop_forget_one(NextHop *nexthop) {
-        assert(nexthop);
-        assert(nexthop->manager);
-
-        Request *req;
-        if (nexthop_get_request_by_id(nexthop->manager, nexthop->id, &req) >= 0)
-                nexthop_enter_removed(req->userdata);
-
-        nexthop_enter_removed(nexthop);
-        log_nexthop_debug(nexthop, "Forgetting silently removed", nexthop->manager);
-        nexthop_forget_dependents(nexthop, nexthop->manager);
-        nexthop_detach(nexthop);
-}
-
 void link_forget_nexthops(Link *link) {
         assert(link);
         assert(link->manager);
@@ -992,7 +993,7 @@ void link_forget_nexthops(Link *link) {
                 if (nexthop->family != AF_INET)
                         continue;
 
-                nexthop_forget_one(nexthop);
+                nexthop_forget(link->manager, nexthop, "Forgetting silently removed");
         }
 
         /* Remove all group nexthops their all members are removed in the above. */
@@ -1013,7 +1014,7 @@ void link_forget_nexthops(Link *link) {
                 if (!hashmap_isempty(nexthop->group))
                         continue; /* At least one group member still exists. */
 
-                nexthop_forget_one(nexthop);
+                nexthop_forget(link->manager, nexthop, "Forgetting silently removed");
         }
 }
 
@@ -1077,11 +1078,6 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        uint16_t type;
-        uint32_t id, ifindex;
-        NextHop *nexthop = NULL;
-        Request *req = NULL;
-        bool is_new = false;
         int r;
 
         assert(rtnl);
@@ -1096,6 +1092,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
+        uint16_t type;
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
@@ -1105,6 +1102,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
+        uint32_t id;
         r = sd_netlink_message_read_u32(message, NHA_ID, &id);
         if (r == -ENODATA) {
                 log_warning_errno(r, "rtnl: received nexthop message without NHA_ID attribute, ignoring: %m");
@@ -1117,25 +1115,20 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
+        NextHop *nexthop = NULL;
         (void) nexthop_get_by_id(m, id, &nexthop);
-        (void) nexthop_get_request_by_id(m, id, &req);
 
         if (type == RTM_DELNEXTHOP) {
-                if (nexthop) {
-                        nexthop_enter_removed(nexthop);
-                        log_nexthop_debug(nexthop, "Forgetting removed", m);
-                        nexthop_forget_dependents(nexthop, m);
-                        nexthop_detach(nexthop);
-                } else
+                if (nexthop)
+                        nexthop_forget(m, nexthop, "Forgetting removed");
+                else
                         log_nexthop_debug(&(const NextHop) { .id = id }, "Kernel removed unknown", m);
-
-                if (req)
-                        nexthop_enter_removed(req->userdata);
 
                 return 0;
         }
 
         /* If we did not know the nexthop, then save it. */
+        bool is_new = false;
         if (!nexthop) {
                 r = nexthop_add_new(m, id, &nexthop);
                 if (r < 0) {
@@ -1147,6 +1140,8 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         /* Also update information that cannot be obtained through netlink notification. */
+        Request *req = NULL;
+        (void) nexthop_get_request_by_id(m, id, &req);
         if (req && req->waiting_reply) {
                 NextHop *n = ASSERT_PTR(req->userdata);
 
@@ -1182,6 +1177,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         else
                 nexthop->blackhole = r;
 
+        uint32_t ifindex;
         r = sd_netlink_message_read_u32(message, NHA_OIF, &ifindex);
         if (r == -ENODATA)
                 nexthop->ifindex = 0;
@@ -1192,10 +1188,12 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         else
                 nexthop->ifindex = (int) ifindex;
 
-        /* All blackhole or group nexthops are managed by Manager. Note that the linux kernel does not
-         * set NHA_OID attribute when NHA_BLACKHOLE or NHA_GROUP is set. Just for safety. */
-        if (!nexthop_bound_to_link(nexthop))
+        /* The linux kernel does not set NHA_OID attribute when NHA_BLACKHOLE or NHA_GROUP is set.
+         * But let's check that for safety. */
+        if (!nexthop_bound_to_link(nexthop) && nexthop->ifindex != 0) {
+                log_debug("rtnl: received blackhole or group nexthop with NHA_OIF attribute, ignoring the attribute.");
                 nexthop->ifindex = 0;
+        }
 
         nexthop_enter_configured(nexthop);
         if (req)
