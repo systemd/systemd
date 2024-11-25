@@ -854,6 +854,7 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
                 r = link_request_nexthop(link, nh, &link->static_nexthop_messages, static_nexthop_handler);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request nexthop: %m");
+                assert(false);
         }
 
         if (link->static_nexthop_messages == 0) {
