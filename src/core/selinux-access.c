@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "audit-fd.h"
+#include "bus-creds.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
@@ -23,6 +24,7 @@
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "varlink-util.h"
 
 static bool initialized = false;
 
@@ -174,23 +176,22 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_access_check_internal(
-                sd_bus_message *message,
+
+static int mac_selinux_access_check_implementation(
+                sd_bus_creds *creds,
                 const char *unit_path,
                 const char *unit_context,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
-
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass, *scon, *acon;
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
         bool enforce;
-        int r = 0;
+        int r;
 
-        assert(message);
+        assert(creds);
         assert(permission);
         assert(function);
 
@@ -200,16 +201,6 @@ int mac_selinux_access_check_internal(
 
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
         enforce = mac_selinux_enforcing();
-
-        r = sd_bus_query_sender_creds(
-                        message,
-                        SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
-                        SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
-                        SD_BUS_CREDS_SELINUX_CONTEXT|
-                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
-                        &creds);
-        if (r < 0)
-                return r;
 
         /* The SELinux context is something we really should have gotten directly from the message or sender,
          * and not be an augmented field. If it was augmented we cannot use it for authorization, since this
@@ -271,6 +262,84 @@ int mac_selinux_access_check_internal(
         return enforce ? r : 0;
 }
 
+int mac_selinux_access_check_internal(
+                sd_bus_message *message,
+                const char *unit_path,
+                const char *unit_context,
+                const char *permission,
+                const char *function,
+                sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        int r;
+
+        assert(message);
+
+        /* this is not necessary but provides an early exit if SELinux is not in use */
+        r = access_init(error);
+        if (r <= 0)
+                return r;
+
+        r = sd_bus_query_sender_creds(
+                        message,
+                        SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
+                        SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
+                        SD_BUS_CREDS_SELINUX_CONTEXT|
+                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
+                        &creds);
+        if (r < 0)
+                return r;
+
+        return mac_selinux_access_check_implementation(
+                creds,
+                unit_path,
+                unit_context,
+                permission,
+                function,
+                error);
+}
+
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const char *unit_path,
+                const char *unit_context,
+                const char *permission,
+                const char *function,
+                sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        int r;
+
+        assert(link);
+
+        /* this is not necessary but provides an early exit if SELinux is not in use */
+        r = access_init(error);
+        if (r <= 0)
+                return r;
+
+        r = varlink_get_peer_pidref(link, &peer);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get peer pidref: %m");
+        if (r == 0) /* if we couldn't get a pidfd this returns == 0 */
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Failed to get peer pidfd, cannot securely authenticate.");
+
+        r = bus_creds_new_from_pidref(
+                        &creds,
+                        &peer,
+                        SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
+                        SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
+                        SD_BUS_CREDS_SELINUX_CONTEXT|
+                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get credentials from peer: %m");
+
+        return mac_selinux_access_check_implementation(
+                creds,
+                unit_path,
+                unit_context,
+                permission,
+                function,
+                error);
+}
 #else /* HAVE_SELINUX */
 
 int mac_selinux_access_check_internal(
@@ -281,6 +350,14 @@ int mac_selinux_access_check_internal(
                 const char *function,
                 sd_bus_error *error) {
 
+        return 0;
+}
+int mac_selinux_access_check_varlink_internal(
+                sd_varlink *link,
+                const char *unit_path,
+                const char *unit_context,
+                const char *permission,
+                const char *function) {
         return 0;
 }
 
