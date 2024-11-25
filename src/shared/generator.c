@@ -833,6 +833,10 @@ int generator_write_cryptsetup_unit_section(
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "IgnoreOnIsolate=true\n");
 
+        /* Ensure confexts can be used to customize unlocking disks */
+        if (in_initrd() && !dir_is_empty("/.extra/confext/", /* ignore_hidden_or_backup= */ true))
+                fprintf(f, "After=systemd-confext.service\n");
+
         return 0;
 }
 
@@ -906,6 +910,10 @@ int generator_write_veritysetup_unit_section(
                 "After=veritysetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
+
+        /* Ensure confexts can be used to customize setting up disks */
+        if (in_initrd() && !dir_is_empty("/.extra/confext/", /* ignore_hidden_or_backup= */ true))
+                fprintf(f, "After=systemd-confext.service\n");
 
         return 0;
 }
