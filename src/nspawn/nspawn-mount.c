@@ -1405,7 +1405,7 @@ done:
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS "/run/host/proc"
 #define NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS "/run/host/sys"
 
-int pin_fully_visible_fs(void) {
+int pin_fully_visible_api_fs(void) {
         int r;
 
         (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, 0755);
@@ -1422,7 +1422,7 @@ int pin_fully_visible_fs(void) {
         return 0;
 }
 
-static int do_wipe_fully_visible_fs(void) {
+static int do_wipe_fully_visible_api_fs(void) {
         if (umount2(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, MNT_DETACH) < 0)
                 return log_error_errno(errno, "Failed to unmount temporary proc: %m");
 
@@ -1438,7 +1438,7 @@ static int do_wipe_fully_visible_fs(void) {
         return 0;
 }
 
-int wipe_fully_visible_fs(int mntns_fd) {
+int wipe_fully_visible_api_fs(int mntns_fd) {
         _cleanup_close_ int orig_mntns_fd = -EBADF;
         int r, rr;
 
@@ -1459,7 +1459,7 @@ int wipe_fully_visible_fs(int mntns_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enter mount namespace: %m");
 
-        rr = do_wipe_fully_visible_fs();
+        rr = do_wipe_fully_visible_api_fs();
 
         r = namespace_enter(/* pidns_fd = */ -EBADF,
                             orig_mntns_fd,
