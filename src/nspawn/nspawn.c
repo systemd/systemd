@@ -139,7 +139,7 @@ static char *arg_hostname = NULL;    /* The name the payload sees by default */
 static const char *arg_selinux_context = NULL;
 static const char *arg_selinux_apifs_context = NULL;
 static char *arg_slice = NULL;
-static bool arg_private_network = false;
+static bool arg_private_network; /* initialized depending on arg_privileged in run() */
 static bool arg_read_only = false;
 static StartMode arg_start_mode = START_PID1;
 static bool arg_ephemeral = false;
@@ -197,7 +197,7 @@ static VolatileMode arg_volatile_mode = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
 static sd_bus_message *arg_property_message = NULL;
-static UserNamespaceMode arg_userns_mode = USER_NAMESPACE_NO;
+static UserNamespaceMode arg_userns_mode; /* initialized depending on arg_privileged in run() */
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
 static int arg_kill_signal = 0;
@@ -369,7 +369,7 @@ static int help(void) {
                "                            the service unit nspawn is running in\n"
                "\n%3$sUser Namespacing:%4$s\n"
                "     --private-users=no     Run without user namespacing\n"
-               "     --private-users=yes|pick|identity\n"
+               "     --private-users=yes|pick|identity|managed\n"
                "                            Run within user namespace, autoselect UID/GID range\n"
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                            Similar, but with user configured UID/GID range\n"
@@ -518,7 +518,7 @@ static int detect_unified_cgroup_hierarchy_from_environment(void) {
 static int detect_unified_cgroup_hierarchy_from_image(const char *directory) {
         int r;
 
-        if (!arg_privileged) {
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 /* We only support the unified mode when running unprivileged */
                 arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_ALL;
                 return 0;
@@ -1257,6 +1257,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                                 arg_uid_shift = 0;
                                 arg_uid_range = UINT32_C(0x10000);
+                        } else if (streq(optarg, "managed")) {
+                                /* managed: User namespace on, and acquire it from systemd-nsresourced */
+                                arg_userns_mode = USER_NAMESPACE_MANAGED;
+                                arg_uid_shift = UID_INVALID;
+                                arg_uid_range = UINT32_C(0x10000);
                         } else {
                                 /* anything else: User namespacing on, UID range is explicitly configured */
                                 r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
@@ -1271,9 +1276,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'U':
                         if (userns_supported()) {
-                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
-                                                                        * implied by USER_NAMESPACE_PICK
-                                                                        * further down. */
+                                /* Note that arg_userns_ownership is implied by USER_NAMESPACE_PICK further down. */
+                                arg_userns_mode = arg_privileged ? USER_NAMESPACE_PICK : USER_NAMESPACE_MANAGED;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
 
@@ -1656,14 +1660,23 @@ static int parse_argv(int argc, char *argv[]) {
 static int verify_arguments(void) {
         int r;
 
-        SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged);
+        SET_FLAG(arg_mount_settings, MOUNT_UNMANAGED, arg_userns_mode != USER_NAMESPACE_MANAGED);
 
-        if (!arg_privileged) {
-                if (!arg_private_network) {
-                        log_notice("Automatically implying --private-network, since mounting /sys/ in an unprivileged user namespaces requires network namespacing.");
-                        arg_private_network = true;
-                }
-        }
+        /* We can mount selinuxfs only if we are privileged and can do so before userns. In managed mode we
+         * have to enter the userns earlier, hence cannot do that. */
+        /* SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged); */
+        SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_userns_mode != USER_NAMESPACE_MANAGED);
+
+        SET_FLAG(arg_mount_settings, MOUNT_USE_USERNS, arg_userns_mode != USER_NAMESPACE_NO);
+
+        if (arg_private_network)
+                SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, arg_private_network);
+
+        if (!arg_privileged && arg_userns_mode != USER_NAMESPACE_MANAGED)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unprivileged operation requires managed user namespaces, as otherwise no UID range can be acquired.");
+
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED && !arg_private_network)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unprivileged operation requires private networking, as otherwise /sys/ may not be mounted.");
 
         if (arg_start_mode == START_PID2 && arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
                 /* If we are running the stub init in the container, we don't need to look at what the init
@@ -1684,12 +1697,6 @@ static int verify_arguments(void) {
                         arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_NONE;
         }
 
-        if (arg_userns_mode != USER_NAMESPACE_NO)
-                arg_mount_settings |= MOUNT_USE_USERNS;
-
-        if (arg_private_network)
-                arg_mount_settings |= MOUNT_APPLY_APIVFS_NETNS;
-
         if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
             !(arg_clone_ns_flags & CLONE_NEWUTS)) {
                 arg_register = false;
@@ -1699,8 +1706,7 @@ static int verify_arguments(void) {
 
         if (arg_userns_ownership < 0)
                 arg_userns_ownership =
-                        arg_userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_AUTO :
-                                                                 USER_NAMESPACE_OWNERSHIP_OFF;
+                        IN_SET(arg_userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_MANAGED) ? USER_NAMESPACE_OWNERSHIP_AUTO : USER_NAMESPACE_OWNERSHIP_OFF;
 
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
@@ -1809,10 +1815,18 @@ static int verify_network_interfaces_initialized(void) {
         return 0;
 }
 
+static int in_child_chown(void) {
+        /* Returns true when chown()ing inodes we create inside the outer child is required. Basically, we
+         * need the chowning when we implement userns ourselves. If userns is off we don#t need to chown(),
+         * obviously. And if we are in managed mode we already entered the userns, and hence don#t need to
+         * manually chown either. */
+        return IN_SET(arg_userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_FIXED);
+}
+
 static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
         assert(fd >= 0 || fd == AT_FDCWD);
 
-        if (arg_userns_mode == USER_NAMESPACE_NO)
+        if (!in_child_chown())
                 return 0;
 
         if (uid == UID_INVALID && gid == GID_INVALID)
@@ -2295,18 +2309,24 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory %s: %m", parent);
 
-        if (mknod(to, st.st_mode, st.st_rdev) < 0) {
-                r = -errno; /* Save the original error code. */
+        r = RET_NERRNO(mknod(to, st.st_mode, st.st_rdev));
+        if (r < 0) {
                 /* Explicitly warn the user when /dev/ is already populated. */
                 if (r == -EEXIST)
                         log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
+
                 /* If arg_uid_shift != 0, then we cannot fall back to use bind mount. */
-                if (arg_uid_shift != 0) {
+                if (!(arg_userns_mode == USER_NAMESPACE_NO ||
+                      (arg_userns_mode == USER_NAMESPACE_FIXED && arg_uid_shift == 0))) {
                         if (ignore_mknod_failure) {
                                 log_debug_errno(r, "Failed to mknod(%s), ignoring: %m", to);
                                 return 0;
                         }
-                        return log_error_errno(r, "Failed to mknod(%s): %m", to);
+
+                        if (arg_userns_mode != USER_NAMESPACE_MANAGED || !ERRNO_IS_NEG_PRIVILEGE(r))
+                                return log_error_errno(r, "Failed to mknod(%s): %m", to);
+
+                        log_debug_errno(r, "Failed to create device node '%s' and running in managed mode, resorting to bind mount: %m", to);
                 }
 
                 /* Some systems abusively restrict mknod but allow bind mounts. */
@@ -2402,7 +2422,7 @@ static int make_extra_nodes(const char *dest) {
         return 0;
 }
 
-static int setup_pts(const char *dest) {
+static int setup_pts(const char *dest, uid_t chown_uid) {
         _cleanup_free_ char *options = NULL;
         const char *p;
         int r;
@@ -2411,13 +2431,13 @@ static int setup_pts(const char *dest) {
         if (arg_selinux_apifs_context)
                 (void) asprintf(&options,
                                 "newinstance,ptmxmode=0666,mode=" STRINGIFY(TTY_MODE) ",gid=" GID_FMT ",context=\"%s\"",
-                                arg_uid_shift + TTY_GID,
+                                chown_uid + TTY_GID,
                                 arg_selinux_apifs_context);
         else
 #endif
                 (void) asprintf(&options,
                                 "newinstance,ptmxmode=0666,mode=" STRINGIFY(TTY_MODE) ",gid=" GID_FMT,
-                                arg_uid_shift + TTY_GID);
+                                chown_uid + TTY_GID);
 
         if (!options)
                 return log_oom();
@@ -2854,7 +2874,9 @@ static int reset_audit_loginuid(void) {
         if ((arg_clone_ns_flags & CLONE_NEWPID) == 0)
                 return 0;
 
-        if (!arg_privileged)
+        /* if we are in managed userns mode, then we are already in our userns, hence we cannot reset the
+         * loginuid anyway, hence don't bother */
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED)
                 return 0;
 
         r = read_virtual_file("/proc/self/loginuid", SIZE_MAX, &p, /* ret_size= */ NULL);
@@ -2886,7 +2908,7 @@ static int mount_tunnel_dig(const char *root) {
         const char *p, *q;
         int r;
 
-        if (!arg_privileged) {
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 log_debug("Not digging mount tunnel, because running unprivileged.");
                 return 0;
         }
@@ -2919,7 +2941,7 @@ static int mount_tunnel_dig(const char *root) {
 static int mount_tunnel_open(void) {
         int r;
 
-        if (!arg_privileged) {
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 log_debug("Not opening up mount tunnel, because running unprivileged.");
                 return 0;
         }
@@ -3266,6 +3288,12 @@ static int chase_and_update(char **p, unsigned flags) {
 static int determine_uid_shift(const char *directory) {
         assert(directory);
 
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
+                /* In managed mode we should already know the UID shift */
+                assert(uid_is_valid(arg_uid_shift));
+                return 0;
+        }
+
         if (arg_userns_mode == USER_NAMESPACE_NO) {
                 arg_uid_shift = 0;
                 return 0;
@@ -3446,7 +3474,7 @@ static int inner_child(
         if (!arg_network_namespace_path && arg_private_network) {
                 _cleanup_close_ int netns_fd = -EBADF;
 
-                if (arg_privileged)
+                if (arg_userns_mode != USER_NAMESPACE_MANAGED)
                         if (unshare(CLONE_NEWNET) < 0)
                                 return log_error_errno(errno, "Failed to unshare network namespace: %m");
 
@@ -3462,8 +3490,10 @@ static int inner_child(
                 (void) barrier_place(barrier); /* #3 */
         }
 
-        if (arg_privileged) {
-                r = mount_sysfs(NULL, arg_mount_settings);
+        if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
+                log_notice("BEFORE");
+                r = mount_sysfs(NULL, arg_mount_settings | MOUNT_IN_USERNS);
+                log_notice("AFTER");
                 if (r < 0)
                         return r;
         }
@@ -3816,7 +3846,7 @@ static int setup_unix_export_dir_outside(char **ret) {
 
         assert(ret);
 
-        if (!arg_privileged) {
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 log_debug("Not digging socket tunnel, because running unprivileged.");
                 return 0;
         }
@@ -3873,7 +3903,7 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
 
         assert(directory);
 
-        if (!arg_privileged)
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED)
                 return 0;
 
         assert(unix_export_path);
@@ -3927,7 +3957,9 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
-                (arg_console_mode == CONSOLE_INTERACTIVE ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0);
+                (arg_console_mode == CONSOLE_INTERACTIVE ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
+                ((arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_FOREIGN) ? DISSECT_IMAGE_FOREIGN_UID :
+                 (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
 static int outer_child(
@@ -3943,7 +3975,6 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int mntns_fd = -EBADF;
         bool idmap = false, enable_fuse;
         const char *p;
         pid_t pid;
@@ -3953,9 +3984,9 @@ static int outer_child(
         /* This is the "outer" child process, i.e the one forked off by the container manager itself.  Its
          * namespace situation is:
          *
-         *  - CLONE_NEWNS   : already has its own (created by clone() if arg_privileged, or unshare() if !arg_unprivileged)
-         *  - CLONE_NEWUSER : if  arg_privileged: still in the host's
-         *                    if !arg_privileged: already has its own (created by nsresource_allocate_userns()->setns(userns_fd))
+         *  - CLONE_NEWUSER : if not in USER_NAMESPACE_MANAGED mode: still in the host's
+         *                    if USER_NAMESPACE_MANAGED mode: already has its own (created by nsresource_allocate_userns()->setns(userns_fd))
+         *  - CLONE_NEWNS   : already has its own (created by clone() if not USER_NAMESPACE_MANAGED, or unshare() otherwise)
          *  - CLONE_NEWPID  : still in the host's
          *  - CLONE_NEWUTS  : still in the host's
          *  - CLONE_NEWIPC  : still in the host's
@@ -4019,7 +4050,21 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        /* If we do userns on our own, we need to chown() all files ourselves before. Otherwise, if userns is
+         * off or we are in managed mode we already have the userns applied, hence don't need to chown
+         * anything */
+        uid_t chown_uid, chown_range;
+        if (in_child_chown()) {
+                chown_uid = arg_uid_shift;
+                chown_range = arg_uid_range;
+        } else {
+                chown_uid = 0;
+                chown_range = UINT32_C(0x10000);
+        }
+
         if (arg_userns_mode != USER_NAMESPACE_NO) {
+                _cleanup_close_ int mntns_fd = -EBADF;
+
                 r = namespace_open(0,
                                    /* ret_pidns_fd = */ NULL,
                                    &mntns_fd,
@@ -4053,6 +4098,9 @@ static int outer_child(
                         if (l != sizeof(arg_uid_shift))
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                        "Short read while receiving UID shift.");
+
+                        if (in_child_chown())
+                                chown_uid = arg_uid_shift;
                 }
 
                 log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
@@ -4082,7 +4130,7 @@ static int outer_child(
         r = setup_volatile_mode(
                         directory,
                         arg_volatile_mode,
-                        arg_uid_shift,
+                        chown_uid,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -4090,8 +4138,8 @@ static int outer_child(
         r = bind_user_prepare(
                         directory,
                         arg_bind_user,
-                        arg_uid_shift,
-                        arg_uid_range,
+                        chown_uid,
+                        chown_range,
                         &arg_custom_mounts, &arg_n_custom_mounts,
                         &bind_user_context);
         if (r < 0)
@@ -4122,16 +4170,16 @@ static int outer_child(
                         directory,
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        arg_uid_shift,
-                        arg_uid_range,
+                        chown_uid,
+                        chown_range,
                         arg_selinux_apifs_context,
                         MOUNT_ROOT_ONLY);
         if (r < 0)
                 return r;
 
-        if (arg_userns_mode != USER_NAMESPACE_NO &&
+        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED) &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_FOREIGN, USER_NAMESPACE_OWNERSHIP_AUTO) &&
-            arg_uid_shift != 0) {
+            chown_uid != 0) {
                 _cleanup_strv_free_ char **dirs = NULL;
                 RemountIdmapping mapping;
 
@@ -4183,8 +4231,8 @@ static int outer_child(
 
                 r = remount_idmap(
                                 dirs,
-                                arg_uid_shift,
-                                arg_uid_range,
+                                chown_uid,
+                                chown_range,
                                 /* host_owner= */ UID_INVALID,
                                 /* dest_owner= */ UID_INVALID,
                                 mapping);
@@ -4209,7 +4257,7 @@ static int outer_child(
         r = setup_volatile_mode_after_remount_idmap(
                         directory,
                         arg_volatile_mode,
-                        arg_uid_shift,
+                        chown_uid,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -4219,8 +4267,8 @@ static int outer_child(
                 r = dissected_image_mount_and_warn(
                                 dissected_image,
                                 directory,
-                                arg_uid_shift,
-                                arg_uid_range,
+                                chown_uid,
+                                chown_range,
                                 /* userns_fd= */ -EBADF,
                                 determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
@@ -4244,11 +4292,14 @@ static int outer_child(
                                                "Short write while sending cgroup mode.");
         }
 
-        r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
+        r = recursive_chown(directory, chown_uid, chown_range);
         if (r < 0)
                 return r;
 
-        r = base_filesystem_create(directory, arg_uid_shift, (gid_t) arg_uid_shift);
+        r = base_filesystem_create(
+                        directory,
+                        chown_uid,
+                        (gid_t) chown_uid);
         if (r < 0)
                 return r;
 
@@ -4261,7 +4312,7 @@ static int outer_child(
 
         r = mount_all(directory,
                       arg_mount_settings,
-                      arg_uid_shift,
+                      chown_uid,
                       arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -4279,16 +4330,16 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        (void) dev_setup(directory, arg_uid_shift, arg_uid_shift);
+        (void) dev_setup(directory, chown_uid, chown_uid);
 
         p = prefix_roota(directory, "/run/host");
-        (void) make_inaccessible_nodes(p, arg_uid_shift, arg_uid_shift);
+        (void) make_inaccessible_nodes(p, chown_uid, chown_uid);
 
         r = setup_unix_export_host_inside(directory, unix_export_path);
         if (r < 0)
                 return r;
 
-        r = setup_pts(directory);
+        r = setup_pts(directory, chown_uid);
         if (r < 0)
                 return r;
 
@@ -4312,8 +4363,8 @@ static int outer_child(
                         directory,
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        arg_uid_shift,
-                        arg_uid_range,
+                        chown_uid,
+                        chown_range,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY);
         if (r < 0)
@@ -4348,8 +4399,8 @@ static int outer_child(
                                 directory,
                                 arg_unified_cgroup_hierarchy,
                                 arg_userns_mode != USER_NAMESPACE_NO,
-                                arg_uid_shift,
-                                arg_uid_range,
+                                chown_uid,
+                                chown_range,
                                 arg_selinux_apifs_context,
                                 false);
                 if (r < 0)
@@ -4365,7 +4416,7 @@ static int outer_child(
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
         _cleanup_close_ int notify_fd = -EBADF;
-        if (arg_privileged) {
+        if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
                  * bind mounts available in systemd services inside the container that create a new mount
                  * namespace.  See https://github.com/systemd/systemd/issues/3860 Further submounts (such as
@@ -4408,8 +4459,8 @@ static int outer_child(
 
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
-                        (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0) |
-                        ((arg_private_network && !arg_privileged) ? CLONE_NEWNET : 0));
+                        (IN_SET(arg_userns_mode, USER_NAMESPACE_FIXED, USER_NAMESPACE_PICK) ? CLONE_NEWUSER : 0) |
+                        ((arg_private_network && arg_userns_mode == USER_NAMESPACE_MANAGED) ? CLONE_NEWNET : 0));
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
@@ -4428,7 +4479,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                if (!arg_privileged) {
+                if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                         /* In unprivileged operation, sysfs + procfs are special, we'll have to mount them
                          * inside the inner namespaces, but before we switch root. Hence do so here. */
                         _cleanup_free_ char *j = path_join(directory, "/proc");
@@ -5289,9 +5340,8 @@ static int run_container(
                                                "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
 
-        if (arg_privileged) {
+        if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 assert(userns_fd < 0);
-
                 /* If we have no user namespace then we'll clone and create a new mount namespace right-away. */
 
                 *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
@@ -5301,7 +5351,6 @@ static int run_container(
                                                ", do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in)" : "");
         } else {
                 assert(userns_fd >= 0);
-
                 /* If we have a user namespace then we'll clone() first, and then join the user namespace,
                  * and then open the mount namespace, so that it is owned by the user namespace */
 
@@ -5458,9 +5507,11 @@ static int run_container(
                 if (!barrier_place_and_sync(&barrier)) /* #1 */
                         return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-                r = setup_uid_map(*pid, bind_user_uid, n_bind_user_uid);
-                if (r < 0)
-                        return r;
+                if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
+                        r = setup_uid_map(*pid, bind_user_uid, n_bind_user_uid);
+                        if (r < 0)
+                                return r;
+                }
 
                 (void) barrier_place(&barrier); /* #2 */
         }
@@ -5484,7 +5535,7 @@ static int run_container(
                         return r;
 
                 if (arg_network_veth) {
-                        if (arg_privileged) {
+                        if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                                 r = setup_veth(arg_machine, *pid, veth_name,
                                                arg_network_bridge || arg_network_zone, &arg_network_provided_mac);
                                 if (r < 0)
@@ -5622,7 +5673,7 @@ static int run_container(
                         arg_unified_cgroup_hierarchy,
                         arg_uid_shift,
                         userns_fd,
-                        arg_privileged);
+                        arg_userns_mode);
         if (r < 0)
                 return r;
 
@@ -5664,7 +5715,7 @@ static int run_container(
         if (!barrier_sync(&barrier)) /* #5.1 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-        if (arg_userns_mode != USER_NAMESPACE_NO) {
+        if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
                 r = wipe_fully_visible_api_fs(mntns_fd);
                 if (r < 0)
                         return r;
@@ -5791,7 +5842,7 @@ static int run_container(
 
         fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
-        if (arg_private_network && arg_privileged) {
+        if (arg_private_network && arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 r = move_back_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
@@ -5956,6 +6007,16 @@ static int cant_be_in_netns(void) {
         return 0;
 }
 
+static void initialize_defaults(void) {
+        arg_privileged = getuid() == 0;
+
+        /* If running unprivileged default to systemd-nsresourced operation */
+        arg_userns_mode = arg_privileged ? USER_NAMESPACE_NO : USER_NAMESPACE_MANAGED;
+
+        /* Imply private networking for unprivileged operation, since kernel otherwise refuses mounting sysfs */
+        arg_private_network = !arg_privileged;
+}
+
 static int run(int argc, char *argv[]) {
         bool remove_directory = false, remove_image = false, veth_created = false;
         _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
@@ -5973,7 +6034,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        arg_privileged = getuid() == 0;
+        initialize_defaults();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -6030,7 +6091,7 @@ static int run(int argc, char *argv[]) {
         /* Reapply environment settings. */
         (void) detect_unified_cgroup_hierarchy_from_environment();
 
-        if (!arg_privileged) {
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 r = cg_all_unified();
                 if (r < 0) {
                         log_error_errno(r, "Failed to determine if we are in unified cgroupv2 mode: %m");
@@ -6066,8 +6127,8 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
 
-        if (!arg_privileged) {
-                /* if we are unprivileged, let's allocate a 64K userns first */
+        if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
+                /* Let's allocate a 64K userns first, if managed mode is chosen */
 
                 _cleanup_free_ char *userns_name = strjoin("nspawn-", arg_machine);
                 if (!userns_name) {
@@ -6080,6 +6141,14 @@ static int run(int argc, char *argv[]) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
                 }
+
+                r = userns_get_base_uid(userns_fd, &arg_uid_shift, /* ret_gid= */ NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine UID shift from userns: %m");
+                        goto finish;
+                }
+
+                arg_uid_range = UINT32_C(0x10000);
         }
 
         if (arg_directory) {
@@ -6254,7 +6323,7 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
-                if (!arg_privileged) {
+                if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                         r = mountfsd_mount_directory(
                                         arg_directory,
                                         userns_fd,
@@ -6337,7 +6406,7 @@ static int run(int argc, char *argv[]) {
                                 dissect_image_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
                 }
 
-                if (arg_privileged) {
+                if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                         r = loop_device_make_by_path(
                                         arg_image,
                                         arg_read_only ? O_RDONLY : O_RDWR,
@@ -6407,8 +6476,9 @@ static int run(int argc, char *argv[]) {
                         arg_architecture = dissected_image_architecture(dissected_image);
         }
 
-        if (arg_directory && arg_privileged)
-                /* If we are privileged we can operate directly on the supplied root directory */
+        if (arg_directory && !path_is_root(arg_directory) && arg_userns_mode != USER_NAMESPACE_MANAGED)
+                /* If we are privileged we can operate directly on the supplied root directory, unless it is
+                 * the host's own root directory. */
                 rootdir = arg_directory;
         else {
                 /* Otherwise create a tempory directory we operate on */
@@ -6500,7 +6570,7 @@ finish:
                         log_warning_errno(errno, "Can't remove image file '%s', ignoring: %m", arg_image);
         }
 
-        if (arg_machine && arg_privileged) {
+        if (arg_machine && arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 const char *p;
 
                 p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
@@ -6514,7 +6584,7 @@ finish:
         expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET,  &expose_args.address4);
         expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET6, &expose_args.address6);
 
-        if (arg_privileged) {
+        if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 if (veth_created)
                         (void) remove_veth_links(veth_name, arg_network_veth_extra);
                 (void) remove_bridge(arg_network_zone);

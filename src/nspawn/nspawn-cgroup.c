@@ -117,7 +117,7 @@ int create_subcgroup(
                 CGroupUnified unified_requested,
                 uid_t uid_shift,
                 int userns_fd,
-                bool privileged) {
+                UserNamespaceMode userns_mode) {
 
         _cleanup_free_ char *cgroup = NULL, *payload = NULL;
         CGroupMask supported;
@@ -161,14 +161,14 @@ int create_subcgroup(
         if (!payload)
                 return log_oom();
 
-        if (privileged)
+        if (userns_mode != USER_NAMESPACE_MANAGED)
                 r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
         else
                 r = cg_create(SYSTEMD_CGROUP_CONTROLLER, payload);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
-        if (privileged) {
+        if (userns_mode != USER_NAMESPACE_MANAGED) {
                 _cleanup_free_ char *fs = NULL;
                 r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, payload, NULL, &fs);
                 if (r < 0)
