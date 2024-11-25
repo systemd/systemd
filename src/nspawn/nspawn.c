@@ -3989,9 +3989,13 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (mount_fd >= 0)
+        if (mount_fd >= 0) {
                 if (move_mount(mount_fd, "", AT_FDCWD, directory, MOVE_MOUNT_F_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "Failed to attach root directory: %m");
+
+                mount_fd = safe_close(mount_fd);
+                log_debug("Successfully attached root directory to '%s'.", directory);
+        }
 
         if (dissected_image) {
                 /* If we are operating on a disk image, then mount its root directory now, but leave out the
