@@ -914,7 +914,7 @@ matrix_run_one() {
                        --boot; then
         [[ "$IS_USERNS_SUPPORTED" == "yes" && "$api_vfs_writable" == "network" ]] && return 1
     else
-        [[ "$IS_USERNS_SUPPORTED" == "no" && "$api_vfs_writable" = "network" ]] && return 1
+        [[ "$IS_USERNS_SUPPORTED" == "no" && "$api_vfs_writable" == "network" ]] && return 1
     fi
 
     if SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$cgroupsv2" SYSTEMD_NSPAWN_USE_CGNS="$use_cgns" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$api_vfs_writable" \
@@ -1264,6 +1264,39 @@ testcase_dev_net_tun() {
     test_tun 1 0 --ephemeral --directory="$root" --private-users=pick --private-network
 
     rm -fr "$root"
+}
+
+testcase_unpriv_dir() {
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.unpriv.XXX)"
+    create_dummy_container "$root"
+
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=no bash -c 'echo foobar')" "foobar"
+
+    # Use an image owned by some freshly acquired container user
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=pick --private-users-ownership=chown bash -c 'echo foobar')" "foobar"
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=yes --private-users-ownership=chown bash -c 'echo foobar')" "foobar"
+
+    # Now move back to root owned, and try to use fs idmapping
+    systemd-dissect --shift "$root" 0
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=no --private-users-ownership=no bash -c 'echo foobar')" "foobar"
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=pick --private-users-ownership=map bash -c 'echo foobar')" "foobar"
+
+    # Use an image owned by the foreign UID range first via direct mapping, and than via the managed uid logic
+    systemd-dissect --shift "$root" foreign
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=pick --private-users-ownership=foreign bash -c 'echo foobar')" "foobar"
+    assert_eq "$(systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
+
+    # Test unprivileged operation
+    chown testuser:testuser "$root/.."
+
+    ls -al "/var/lib/machines"
+    ls -al "$root"
+
+    assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-users=managed --private-network bash -c 'echo foobar')" "foobar"
+    assert_eq "$(run0 --pipe -u testuser systemd-nspawn --pipe --register=no -D "$root" --private-network bash -c 'echo foobar')" "foobar"
+    chown root:root "$root/.."
+
+    rm -rf "$root"
 }
 
 run_testcases
