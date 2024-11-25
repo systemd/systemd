@@ -4408,7 +4408,7 @@ static int outer_child(
                          * Note, the inner child wouldn't be able to unmount the instances on its own since
                          * it doesn't own the originating mount namespace. IOW, the outer child needs to do
                          * this. */
-                        r = pin_fully_visible_fs();
+                        r = pin_fully_visible_api_fs();
                         if (r < 0)
                                 return r;
                 }
@@ -5679,7 +5679,7 @@ static int run_container(
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                r = wipe_fully_visible_fs(mntns_fd);
+                r = wipe_fully_visible_api_fs(mntns_fd);
                 if (r < 0)
                         return r;
                 mntns_fd = safe_close(mntns_fd);
