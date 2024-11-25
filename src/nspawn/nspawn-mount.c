@@ -1409,6 +1409,8 @@ done:
 int pin_fully_visible_fs(void) {
         int r;
 
+        log_debug("Pinning fully visible API FS");
+
         (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, 0755);
         (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, 0755);
 
@@ -1442,6 +1444,8 @@ static int do_wipe_fully_visible_fs(void) {
 int wipe_fully_visible_fs(int mntns_fd) {
         _cleanup_close_ int orig_mntns_fd = -EBADF;
         int r, rr;
+
+        log_debug("Wiping fully visible API FS");
 
         r = namespace_open(0,
                            /* ret_pidns_fd = */ NULL,
