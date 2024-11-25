@@ -2579,10 +2579,9 @@ static int setup_credentials(const char *root) {
                 if (fchmod(fd, world_readable ? 0444 : 0400) < 0)
                         return log_error_errno(errno, "Failed to adjust access mode of %s: %m", j);
 
-                if (arg_userns_mode != USER_NAMESPACE_NO) {
+                if (arg_userns_mode != USER_NAMESPACE_NO)
                         if (fchown(fd, arg_uid_shift, arg_uid_shift) < 0)
                                 return log_error_errno(errno, "Failed to adjust ownership of %s: %m", j);
-                }
         }
 
         if (chmod(q, world_readable ? 0555 : 0500) < 0)
@@ -3447,10 +3446,9 @@ static int inner_child(
         if (!arg_network_namespace_path && arg_private_network) {
                 _cleanup_close_ int netns_fd = -EBADF;
 
-                if (arg_privileged) {
+                if (arg_privileged)
                         if (unshare(CLONE_NEWNET) < 0)
                                 return log_error_errno(errno, "Failed to unshare network namespace: %m");
-                }
 
                 netns_fd = namespace_open_by_type(NAMESPACE_NET);
                 if (netns_fd < 0)
@@ -5127,7 +5125,7 @@ static int load_settings(void) {
                 return 0;
 
         /* We first look in the admin's directories in /etc and /run */
-        if (arg_privileged) {
+        if (arg_privileged)
                 FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                         _cleanup_free_ char *j = NULL;
 
@@ -5149,7 +5147,6 @@ static int load_settings(void) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", j);
                 }
-        }
 
         if (!f) {
                 /* After that, let's look for a file next to the
