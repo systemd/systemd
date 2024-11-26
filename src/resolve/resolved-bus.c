@@ -1858,7 +1858,7 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 }
 
 static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
 
         assert(t);
 
@@ -1870,11 +1870,11 @@ static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
 
 static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+        _cleanup_(dnssd_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         const char *id, *name_template, *type;
         _cleanup_free_ char *path = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
         uid_t euid;
         int r;
@@ -1884,7 +1884,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        service = new0(DnssdService, 1);
+        service = new0(DnssdRegisteredService, 1);
         if (!service)
                 return log_oom();
 
@@ -2046,7 +2046,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
 
 static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         const char *path;
         int r;
 
