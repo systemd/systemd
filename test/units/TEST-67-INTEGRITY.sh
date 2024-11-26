@@ -32,6 +32,17 @@ ${DM_NAME} ${loop} - integrity-algorithm=$1
 EOF
 }
 
+# FIXME:
+# There is no ordering restriction between underlying loopback block devices and DM devices.
+# Hence, we may get wrong device node symlinks. To workaround that issue, let's decrease the
+# priority for loopback block devices.
+mkdir -p /run/udev/rules.d/
+cat >/run/udev/rules.d/99-priority.conf <<EOF
+KERNEL=="loop*", SUBSYSTEM=="block", OPTIONS+="link_priority=-10"
+EOF
+
+udevadm control --reload
+
 image_dir="$(mktemp -d -t -p / integrity.tmp.XXXXXX)"
 if [ -z "${image_dir}" ] || [ ! -d "${image_dir}" ]; then
     echo "mktemp under / failed"
@@ -91,13 +102,7 @@ do
 
     # Check the signature on the FS to ensure we can retrieve it and that is matches
     if [ -e "${FULL_DM_DEV_NAME}" ]; then
-        # If a separate device is used for the metadata storage, then blkid will return one of the loop devices
-        if [ "${separate_data}" -eq 1 ]; then
-            dev_name="$(integritysetup status ${DM_NAME} | grep '^\s*device:' | awk '{print $2}')"
-        else
-            dev_name="${FULL_DM_DEV_NAME}"
-        fi
-        if [ "${dev_name}" != "$(blkid -U "${FS_UUID}")" ]; then
+        if [ "$(blkid -U "${FS_UUID}")" != "${FULL_DM_DEV_NAME}" ]; then
             echo "Failed to locate FS with matching UUID!"
             exit 1
         fi
