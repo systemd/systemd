@@ -61,7 +61,10 @@
     <literal>systemd-run0</literal> PAM stack.</para>
 
     <para>Note that <command>run0</command> is implemented as an alternative multi-call invocation of
-    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>. That is,
+    <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
+    behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
+    <command>systemd-run</command>.</para>
   </refsect1>
 
   <refsect1>
