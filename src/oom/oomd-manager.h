@@ -66,7 +66,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_new(Manager **ret);
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit_permyriad, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec, int fd);
+int manager_start(Manager *m, bool dry_run, int fd);
 
 int manager_get_dump_string(Manager *m, char **ret);
 
