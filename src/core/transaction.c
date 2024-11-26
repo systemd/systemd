@@ -383,6 +383,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
                                 log_oom();
 
+                        /* Mark every unit along the cycle */
+                        k->unit->was_on_dependency_cycle = true;
+
                         if (!delete && hashmap_contains(tr->jobs, k->unit) && !job_matters_to_anchor(k))
                                 /* Ok, we can drop this one, so let's do so. */
                                 delete = k;

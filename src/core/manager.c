@@ -3857,7 +3857,7 @@ static void log_taint_string(Manager *m) {
 
         m->taint_logged = true; /* only check for taint once */
 
-        _cleanup_free_ char *taint = taint_string();
+        _cleanup_free_ char *taint = taint_string(m);
         if (isempty(taint))
                 return;
 
@@ -5300,6 +5300,16 @@ int manager_allocate_idle_pipe(Manager *m) {
         }
 
         return 1;
+}
+
+bool manager_was_dependency_cycle(const Manager *m) {
+        const Unit *u;
+
+        HASHMAP_FOREACH(u, m->units)
+                if (u->was_on_dependency_cycle)
+                        return true;
+
+        return false;
 }
 
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
