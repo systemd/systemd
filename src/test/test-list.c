@@ -20,10 +20,10 @@ int main(int argc, const char *argv[]) {
         ASSERT_NULL(head);
         ASSERT_NULL(head2);
 
-        for (i = 0; i < ELEMENTSOF(items); i++) {
-                LIST_INIT(item_list, &items[i]);
-                assert_se(LIST_JUST_US(item_list, &items[i]));
-                assert_se(LIST_PREPEND(item_list, head, &items[i]) == &items[i]);
+        FOREACH_ELEMENT(item, items) {
+                LIST_INIT(item_list, item);
+                assert_se(LIST_JUST_US(item_list, item));
+                assert_se(LIST_PREPEND(item_list, head, item) == item);
         }
 
         i = 0;
@@ -183,9 +183,9 @@ int main(int argc, const char *argv[]) {
 
         ASSERT_NULL(head);
 
-        for (i = 0; i < ELEMENTSOF(items); i++) {
-                assert_se(LIST_JUST_US(item_list, &items[i]));
-                assert_se(LIST_APPEND(item_list, head, &items[i]) == &items[i]);
+        FOREACH_ELEMENT(item, items) {
+                assert_se(LIST_JUST_US(item_list, item));
+                assert_se(LIST_APPEND(item_list, head, item) == item);
         }
 
         assert_se(!LIST_JUST_US(item_list, head));
@@ -200,15 +200,15 @@ int main(int argc, const char *argv[]) {
         assert_se(items[2].item_list_prev == &items[1]);
         assert_se(items[3].item_list_prev == &items[2]);
 
-        for (i = 0; i < ELEMENTSOF(items); i++)
-                assert_se(LIST_REMOVE(item_list, head, &items[i]) == &items[i]);
+        FOREACH_ELEMENT(item, items)
+                assert_se(LIST_REMOVE(item_list, head, item) == item);
 
         ASSERT_NULL(head);
 
-        for (i = 0; i < ELEMENTSOF(items) / 2; i++) {
-                LIST_INIT(item_list, &items[i]);
-                assert_se(LIST_JUST_US(item_list, &items[i]));
-                assert_se(LIST_PREPEND(item_list, head, &items[i]) == &items[i]);
+        FOREACH_ARRAY(item, items, ELEMENTSOF(items) / 2) {
+                LIST_INIT(item_list, item);
+                assert_se(LIST_JUST_US(item_list, item));
+                assert_se(LIST_PREPEND(item_list, head, item) == item);
         }
 
         for (i = ELEMENTSOF(items) / 2; i < ELEMENTSOF(items); i++) {
@@ -244,8 +244,8 @@ int main(int argc, const char *argv[]) {
         ASSERT_NULL(head2);
         assert_se(head);
 
-        for (i = 0; i < ELEMENTSOF(items); i++)
-                assert_se(LIST_REMOVE(item_list, head, &items[i]) == &items[i]);
+        FOREACH_ELEMENT(item, items)
+                assert_se(LIST_REMOVE(item_list, head, item) == item);
 
         ASSERT_NULL(head);
 

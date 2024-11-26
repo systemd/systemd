@@ -462,10 +462,6 @@ static int dns_stub_finish_reply_packet(
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
-        /* Don't set the CD bit unless DO is on, too */
-        if (!edns0_do)
-                cd = false;
-
         /* Note that we allow the AD bit to be set even if client didn't signal DO, as per RFC 6840, section
          * 5.7 */
 
@@ -631,7 +627,7 @@ static int dns_stub_send_reply(
                         !!q->request_packet->opt,
                         edns0_do,
                         (DNS_PACKET_AD(q->request_packet) || DNS_PACKET_DO(q->request_packet)) && dns_query_fully_authenticated(q),
-                        DNS_PACKET_CD(q->request_packet),
+                        FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                         q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
                         dns_packet_has_nsid_request(q->request_packet) > 0 && !q->stub_listener_extra);
         if (r < 0)
@@ -686,6 +682,7 @@ static int dns_stub_patch_bypass_reply_packet(
                 DnsPacket **ret,       /* Where to place the patched packet */
                 DnsPacket *original,   /* The packet to patch */
                 DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
+                bool validated,
                 bool authenticated) {
         _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
         int r;
@@ -726,9 +723,14 @@ static int dns_stub_patch_bypass_reply_packet(
                 DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
         }
 
+        /* Patch the cd bit to reflect the state of validation: set when both we and the upstream
+         * resolver have checking disabled. */
+        DNS_PACKET_HEADER(c)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(c)->flags),
+                                DNS_PACKET_FLAG_CD, DNS_PACKET_CD(original) && !validated));
+
         /* Ensure we don't pass along an untrusted ad flag for bypass packets */
-        if (!authenticated)
-                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) & ~DNS_PACKET_FLAG_AD);
+        DNS_PACKET_HEADER(c)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(c)->flags),
+                                DNS_PACKET_FLAG_AD, authenticated));
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -751,6 +753,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
 
                         r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
+                                        /* validated = */ !FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                                         FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
                         if (r < 0)
                                 log_debug_errno(r, "Failed to patch bypass reply packet: %m");
@@ -982,7 +985,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   protocol_flags|
                                   SD_RESOLVED_NO_CNAME|
                                   SD_RESOLVED_NO_SEARCH|
-                                  SD_RESOLVED_NO_VALIDATE|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
                                   SD_RESOLVED_CLAMP_TTL|
                                   SD_RESOLVED_RELAX_SINGLE_LABEL);
@@ -990,6 +993,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   protocol_flags|
                                   SD_RESOLVED_NO_SEARCH|
+                                  (DNS_PACKET_CD(p) ? SD_RESOLVED_NO_VALIDATE | SD_RESOLVED_NO_CACHE : 0)|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
         if (r < 0) {
@@ -1372,23 +1376,23 @@ int manager_dns_stub_start(Manager *m) {
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
                           "UDP/TCP");
 
-                for (size_t i = 0; i < ELEMENTSOF(stub_sockets); i++) {
+                FOREACH_ELEMENT(s, stub_sockets) {
                         union in_addr_union a = {
-                                .in.s_addr = htobe32(stub_sockets[i].addr),
+                                .in.s_addr = htobe32(s->addr),
                         };
 
-                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP && stub_sockets[i].socket_type == SOCK_STREAM)
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP && s->socket_type == SOCK_STREAM)
                                 continue;
-                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP && stub_sockets[i].socket_type == SOCK_DGRAM)
+                        if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP && s->socket_type == SOCK_DGRAM)
                                 continue;
 
-                        r = manager_dns_stub_fd(m, AF_INET, &a, stub_sockets[i].socket_type);
+                        r = manager_dns_stub_fd(m, AF_INET, &a, s->socket_type);
                         if (r < 0) {
                                 _cleanup_free_ char *busy_socket = NULL;
 
                                 if (asprintf(&busy_socket,
                                              "%s socket " IPV4_ADDRESS_FMT_STR ":53",
-                                             stub_sockets[i].socket_type == SOCK_DGRAM ? "UDP" : "TCP",
+                                             s->socket_type == SOCK_DGRAM ? "UDP" : "TCP",
                                              IPV4_ADDRESS_FMT_VAL(a.in)) < 0)
                                         return log_oom();
 

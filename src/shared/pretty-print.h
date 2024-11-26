@@ -54,9 +54,10 @@ int terminal_tint_color(double hue, char **ret);
 bool shall_tint_background(void);
 
 void draw_progress_bar(const char *prefix, double percentage);
+int draw_progress_barf(double percentage, const char *prefixf, ...) _printf_(2, 3);
 void clear_progress_bar(const char *prefix);
-void draw_progress_bar_impl(const char *prefix, double percentage);
-void clear_progress_bar_impl(const char *prefix);
+void draw_progress_bar_unbuffered(const char *prefix, double percentage);
+void clear_progress_bar_unbuffered(const char *prefix);
 
 static inline FILE* enable_buffering(FILE *f, char *buffer, size_t size) {
         assert(f);

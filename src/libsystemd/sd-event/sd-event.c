@@ -4573,7 +4573,7 @@ static int epoll_wait_usec(
         /* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast
          * to other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this
          * is not that obvious to implement given the libc and kernel definitions differ in the last
-         * argument. Moreover, the only reason to use it is the more accurate time-outs (which is not a
+         * argument. Moreover, the only reason to use it is the more accurate timeouts (which is not a
          * biggie), let's hence rely on glibc's definitions, and fallback to epoll_pwait() when that's
          * missing. */
 
@@ -4858,13 +4858,13 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
 static void event_log_delays(sd_event *e) {
         char b[ELEMENTSOF(e->delays) * DECIMAL_STR_MAX(unsigned) + 1], *p;
-        size_t l, i;
+        size_t l;
 
         p = b;
         l = sizeof(b);
-        for (i = 0; i < ELEMENTSOF(e->delays); i++) {
-                l = strpcpyf(&p, l, "%u ", e->delays[i]);
-                e->delays[i] = 0;
+        FOREACH_ELEMENT(delay, e->delays) {
+                l = strpcpyf(&p, l, "%u ", *delay);
+                *delay = 0;
         }
         log_debug("Event loop iterations: %s", b);
 }
@@ -5258,6 +5258,9 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
         int r;
 
         assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(!event_origin_changed(e), -ECHILD);
 
         if (b) {
                 /* We want to maintain pointers to these event sources, so that we can destroy them when told
@@ -5269,7 +5272,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                         if (r < 0)
                                 return r;
 
-                        assert(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
                         change = true;
                 }
 
@@ -5277,26 +5280,26 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                         r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
                         if (r < 0) {
                                 if (change) {
-                                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                                        assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
                                         e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
                                 }
 
                                 return r;
                         }
 
-                        assert(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
                         change = true;
                 }
 
         } else {
                 if (e->sigint_event_source) {
-                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
                         e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
                         change = true;
                 }
 
                 if (e->sigterm_event_source) {
-                        assert(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
+                        assert_se(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
                         e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
                         change = true;
                 }

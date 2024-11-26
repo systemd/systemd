@@ -291,10 +291,33 @@
       <varlistentry>
         <term>MAINPID=…</term>
 
-        <listitem><para>The main process ID (PID) of the service, in case the service manager did not fork
-        off the process itself. Example: <literal>MAINPID=4711</literal>.</para>
+        <listitem><para>Change the main process ID (PID) of the service. This is especially useful in the case
+        where the real main process isn't directly forked off by the service manager.
+        Example: <literal>MAINPID=4711</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>MAINPIDFDID=…</term>
+
+        <listitem><para>The pidfd inode number of the new main process (specified through <varname>MAINPID=</varname>).
+        This information can be acquired through
+        <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        on the pidfd and is used to identify the process in a race-free fashion. Alternatively,
+        a pidfd can be sent directly to the service manager (see <varname>MAINPIDFD=1</varname> below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>MAINPIDFD=1</term>
+
+        <listitem><para>Similar to <varname>MAINPID=</varname> with <varname>MAINPIDFDID=</varname>, but
+        the process is referenced directly by the pidfd passed to the service manager. This is useful
+        if pidfd id is not supported on the system. Exactly one fd is expected for this notification.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -476,6 +499,26 @@
     successfully. Specifically, no error is returned when a file descriptor is attempted to be stored using
     <varname>FDSTORE=1</varname> but the service is not actually configured to permit storing of file
     descriptors (see above).</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-E2BIG</constant></term>
+
+          <listitem><para>More file descriptors passed at once than the system allows. On Linux the number of
+          file descriptors that may be passed across <constant>AF_UNIX</constant> sockets at once is 253, see
+          <citerefentry
+          project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+          details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -589,7 +632,7 @@ sd_notifyf(0, "STATUS=Failed to start up: %s\n"
 sd_notify(0, "READY=1");
 /* set timeout to 5 seconds */
 sd_notify_barrier(0, 5 * 1000000);
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 

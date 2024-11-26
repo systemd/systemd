@@ -1214,4 +1214,56 @@ testcase_unpriv_fuse() {
                   bash -c 'cat <>/dev/fuse' 2>&1)" == *'cat: -: Operation not permitted' ]]
 }
 
+test_tun() {
+    local expect=${1?}
+    local exists=${2?}
+    local command command_exists command_not_exists
+    shift 2
+
+    command_exists='[[ -c /dev/net/tun ]]; [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]; [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]'
+    command_not_exists='[[ ! -e /dev/net/tun ]]'
+
+    if [[ "$exists" == 0 ]]; then
+        command="$command_not_exists"
+    else
+        command="$command_exists"
+    fi
+
+    systemd-nspawn "$@" bash -xec "$command_exists"
+
+    # check if the owner of the host device is unchanged, see issue #34243.
+    [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]
+    [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]
+
+    # Without DeviceAllow= for /dev/net/tun, see issue #35116.
+    assert_rc \
+        "$expect" \
+        systemd-run --pty --wait -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
+        systemd-nspawn "$@" bash -xec "$command"
+
+    [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]
+    [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]
+}
+
+testcase_dev_net_tun() {
+    local root
+
+    if [[ ! -c /dev/net/tun ]]; then
+        echo "/dev/net/tun does not exist, skipping tests"
+        return 0
+    fi
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.tun.XXX)"
+    create_dummy_container "$root"
+
+    test_tun 0 1 --ephemeral --directory="$root" --private-users=no
+    test_tun 0 1 --ephemeral --directory="$root" --private-users=yes
+    test_tun 0 0 --ephemeral --directory="$root" --private-users=pick
+    test_tun 0 1 --ephemeral --directory="$root" --private-users=no   --private-network
+    test_tun 0 1 --ephemeral --directory="$root" --private-users=yes  --private-network
+    test_tun 1 0 --ephemeral --directory="$root" --private-users=pick --private-network
+
+    rm -fr "$root"
+}
+
 run_testcases

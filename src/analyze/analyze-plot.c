@@ -168,7 +168,9 @@ static void plot_tooltip(const UnitTimes *ut) {
         assert(ut->name);
 
         svg("%s:\n", ut->name);
-
+        svg("Activating: %"PRI_USEC".%.3"PRI_USEC"\n", ut->activating / USEC_PER_SEC, ut->activating % USEC_PER_SEC);
+        svg("Activated: %"PRI_USEC".%.3"PRI_USEC"\n", ut->activated / USEC_PER_SEC, ut->activated % USEC_PER_SEC);
+        
         UnitDependency i;
         FOREACH_ARGUMENT(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
                 if (!strv_isempty(ut->deps[i])) {
@@ -417,7 +419,7 @@ static int show_table(Table *table, const char *word) {
         if (!table_isempty(table)) {
                 table_set_header(table, arg_legend);
 
-                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                if (sd_json_format_enabled(arg_json_format_flags))
                         r = table_print_json(table, NULL, arg_json_format_flags | SD_JSON_FORMAT_COLOR_AUTO);
                 else
                         r = table_print(table, NULL);
@@ -494,7 +496,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
 
         typesafe_qsort(times, n, compare_unit_start);
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) || arg_table)
+        if (sd_json_format_enabled(arg_json_format_flags) || arg_table)
                 r = produce_plot_as_text(times, boot);
         else
                 r = produce_plot_as_svg(times, host, boot, pretty_times);

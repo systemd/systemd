@@ -6,11 +6,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "fileio.h"
-#include "fileio-label.h"
 #include "fs-util.h"
-#include "main-func.h"
 #include "log.h"
+#include "main-func.h"
+#include "reboot-util.h"
 #include "selinux-util.h"
 #include "string-util.h"
 

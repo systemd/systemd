@@ -14,7 +14,7 @@ TEST(progress_bar) {
 
         for (double d = 0; d <= 100; d += 0.5) {
                 usleep_safe(random_u64_range(20 * USEC_PER_MSEC));
-                draw_progress_bar(PROGRESS_PREFIX, d);
+                draw_progress_barf(d, PROGRESS_PREFIX "[" PID_FMT "]", getpid_cached());
 
                 if (!paused && d >= 50) {
                         clear_progress_bar(PROGRESS_PREFIX);
@@ -25,9 +25,9 @@ TEST(progress_bar) {
                 }
         }
 
-        draw_progress_bar(PROGRESS_PREFIX, 100);
+        draw_progress_barf(100, PROGRESS_PREFIX "[" PID_FMT "]", getpid_cached());
         usleep_safe(300 * MSEC_PER_SEC);
-        clear_progress_bar(PROGRESS_PREFIX);
+        clear_progress_bar(PROGRESS_PREFIX "[0123456789]" );
         fputs("Done.\n", stdout);
 }
 

@@ -201,14 +201,17 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 case ACTION_KEXEC:
                 case ACTION_HALT:
                 case ACTION_SOFT_REBOOT:
-                        if (arg_when == 0)
+                        if (arg_when == 0) {
                                 r = logind_reboot(a);
-                        else
+                                if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                                        /* The latter indicates that the requested operation requires auth,
+                                         * is not supported or already in progress, in which cases we ignore the error. */
+                                        return r;
+                        } else {
                                 r = logind_schedule_shutdown(a);
-                        if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
-                                /* The latter indicates that the requested operation requires auth,
-                                 * is not supported or already in progress, in which cases we ignore the error. */
-                                return r;
+                                if (r != -ENOSYS)
+                                        return r;
+                        }
 
                         /* On all other errors, try low-level operation. In order to minimize the difference
                          * between operation with and without logind, we explicitly enable non-blocking mode

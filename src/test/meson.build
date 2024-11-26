@@ -46,6 +46,7 @@ simple_tests += files(
         'test-alloc-util.c',
         'test-architecture.c',
         'test-argv-util.c',
+        'test-audit-util.c',
         'test-barrier.c',
         'test-bitfield.c',
         'test-bitmap.c',
@@ -58,6 +59,7 @@ simple_tests += files(
         'test-cgroup-util.c',
         'test-cgroup.c',
         'test-chase.c',
+        'test-chid.c',
         'test-clock.c',
         'test-color-util.c',
         'test-compare-operator.c',
@@ -183,6 +185,7 @@ simple_tests += files(
         'test-umask-util.c',
         'test-unaligned.c',
         'test-unit-file.c',
+        'test-user-record.c',
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
@@ -378,7 +381,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-progress-bar.c'),
-                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-qrcode-util.c'),

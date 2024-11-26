@@ -142,11 +142,13 @@ endif
 ############################################################
 
 if install_tests
-        foreach script : ['integration-test-setup.sh', 'run-unit-tests.py']
-                install_data(script,
-                             install_mode : 'rwxr-xr-x',
-                             install_dir : testsdir)
-        endforeach
+        install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
+
+        install_data('integration-test-setup.sh',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testdata_dir)
 endif
 
 ############################################################
@@ -295,6 +297,7 @@ integration_test_template = {
         'qemu-args' : [],
         'exit-code' : 123,
         'vm' : false,
+        'coredump-exclude-regex' : '',
 }
 testdata_subdirs = [
         'auxv',
@@ -389,6 +392,7 @@ foreach integration_test : integration_tests
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
                 '--exit-code', integration_test['exit-code'].to_string(),
+                '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
         ]
 
         if 'unit' in integration_test

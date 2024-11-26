@@ -68,7 +68,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
         SD_VARLINK_SERVER_ROOT_ONLY        = 1 << 0, /* Only accessible by root */
         SD_VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         SD_VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
-        SD_VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
+        SD_VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from sd_varlink_server userdata */
         SD_VARLINK_SERVER_INPUT_SENSITIVE  = 1 << 4, /* Automatically mark all connection input as sensitive */
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;

@@ -328,6 +328,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_usec(f, "exec-cgroup-context-managed-oom-memory-pressure-duration-usec", c->moom_mem_pressure_duration_usec);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-cgroup-context-managed-oom-preference", managed_oom_preference_to_string(c->moom_preference));
         if (r < 0)
                 return r;
@@ -781,6 +785,10 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         c->moom_preference = managed_oom_preference_from_string(val);
                         if (c->moom_preference < 0)
                                 return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-memory-pressure-duration-usec="))) {
+                        r = deserialize_usec(val, &c->moom_mem_pressure_duration_usec);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-watch="))) {
                         c->memory_pressure_watch = cgroup_pressure_watch_from_string(val);
                         if (c->memory_pressure_watch < 0)
@@ -1383,6 +1391,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_fd(f, fds, "exec-parameters-pidref-transport-fd", p->pidref_transport_fd);
+        if (r < 0)
+                return r;
+
         if (c && exec_context_restrict_filesystems_set(c)) {
                 r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_restrict_fs_map_fd);
                 if (r < 0)
@@ -1652,6 +1664,14 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         close_and_replace(p->handoff_timestamp_fd, fd);
+                } else if ((val = startswith(l, "exec-parameters-pidref-transport-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                continue;
+
+                        close_and_replace(p->pidref_transport_fd, fd);
                 } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
                         int fd;
 
@@ -1902,7 +1922,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-protect-control-groups", c->protect_control_groups);
+        r = serialize_item(f, "exec-context-protect-control-groups", protect_control_groups_to_string(c->protect_control_groups));
         if (r < 0)
                 return r;
 
@@ -1915,6 +1935,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 
         r = serialize_bool_elide(f, "exec-context-private-ipc", c->private_ipc);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-context-private-pids", private_pids_to_string(c->private_pids));
         if (r < 0)
                 return r;
 
@@ -1990,7 +2014,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         if (!strextend(&value, " ", path_escaped))
                                 return log_oom_debug();
 
-                        if (!strextend(&value, ":", yes_no(i->only_create)))
+                        if (!strextend(&value, ":", yes_no(FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))))
+                                return log_oom_debug();
+
+                        if (!strextend(&value, ":", yes_no(FLAGS_SET(i->flags, EXEC_DIRECTORY_READ_ONLY))))
                                 return log_oom_debug();
 
                         STRV_FOREACH(d, i->symlinks) {
@@ -2784,7 +2811,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->protect_clock = r;
                 } else if ((val = startswith(l, "exec-context-protect-control-groups="))) {
-                        r = parse_boolean(val);
+                        r = protect_control_groups_from_string(val);
                         if (r < 0)
                                 return r;
                         c->protect_control_groups = r;
@@ -2802,6 +2829,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->private_ipc = r;
+                } else if ((val = startswith(l, "exec-context-private-pids="))) {
+                        c->private_pids = private_pids_from_string(val);
+                        if (c->private_pids < 0)
+                                return -EINVAL;
                 } else if ((val = startswith(l, "exec-context-remove-ipc="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -2885,7 +2916,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
 
                         for (;;) {
-                                _cleanup_free_ char *tuple = NULL, *path = NULL, *only_create = NULL;
+                                _cleanup_free_ char *tuple = NULL, *path = NULL, *only_create = NULL, *read_only = NULL;
+                                ExecDirectoryFlags exec_directory_flags = 0;
                                 const char *p;
 
                                 /* Use EXTRACT_UNESCAPE_RELAX here, as we unescape the colons in subsequent calls */
@@ -2896,20 +2928,27 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                         break;
 
                                 p = tuple;
-                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create);
+                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create, &read_only);
                                 if (r < 0)
                                         return r;
                                 if (r < 2)
                                         continue;
 
-                                r = exec_directory_add(&c->directories[dt], path, NULL);
-                                if (r < 0)
-                                        return r;
-
                                 r = parse_boolean(only_create);
                                 if (r < 0)
                                         return r;
-                                c->directories[dt].items[c->directories[dt].n_items - 1].only_create = r;
+                                if (r > 0)
+                                        exec_directory_flags |= EXEC_DIRECTORY_ONLY_CREATE;
+
+                                r = parse_boolean(read_only);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        exec_directory_flags |= EXEC_DIRECTORY_READ_ONLY;
+
+                                r = exec_directory_add(&c->directories[dt], path, /* symlink= */ NULL, exec_directory_flags);
+                                if (r < 0)
+                                        return r;
 
                                 if (isempty(p))
                                         continue;

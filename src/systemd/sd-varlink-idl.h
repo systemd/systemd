@@ -18,7 +18,6 @@
 ***/
 
 #include <errno.h>
-#include <stdbool.h>
 #include <stdio.h>
 
 #include "sd-json.h"
@@ -61,7 +60,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_flags_t) {
 } sd_varlink_symbol_flags_t;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_type_t) {
-        _SD_VARLINK_FIELD_TYPE_END_MARKER = 0, /* zero type means: this is the last entry in the fields[] array of VarlinkSymbol */
+        _SD_VARLINK_FIELD_TYPE_END_MARKER = 0, /* zero type means: this is the last entry in the fields[] array of sd_varlink_symbol */
         SD_VARLINK_STRUCT,
         SD_VARLINK_ENUM,
         SD_VARLINK_NAMED_TYPE,

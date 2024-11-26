@@ -265,7 +265,7 @@
       send them out over the network using the usual rules for multi-label name routing <footnote><para>For
       example, if <filename>/etc/resolv.conf</filename> has <programlisting>nameserver 127.0.0.53
 search foobar.com barbar.com
-      </programlisting>and we look up <literal>localhost</literal>, <filename>nss-dns</filename> will send
+</programlisting>and we look up <literal>localhost</literal>, <filename>nss-dns</filename> will send
       the following queries to <filename>systemd-resolved</filename> listening on 127.0.0.53:53: first
       <literal>localhost.foobar.com</literal>, then <literal>localhost.barbar.com</literal>, and finally
       <literal>localhost</literal>. If (hopefully) the first two queries fail,
@@ -343,10 +343,10 @@ search foobar.com barbar.com
       <listitem><para><command>systemd-resolved</command> maintains the
       <filename>/run/systemd/resolve/stub-resolv.conf</filename> file for compatibility with traditional
       Linux programs. This file lists the 127.0.0.53 DNS stub (see above) as the only DNS server. It also
-      contains a list of search domains that are in use by systemd-resolved. The list of search domains is
-      always kept up-to-date. Note that <filename>/run/systemd/resolve/stub-resolv.conf</filename> should not
-      be used directly by applications, but only through a symlink from
-      <filename>/etc/resolv.conf</filename>. This file may be symlinked from
+      contains a list of search domains that are in use by <command>systemd-resolved</command>. The list of
+      search domains is always kept up-to-date. Note that
+      <filename>/run/systemd/resolve/stub-resolv.conf</filename> should not be used directly by applications,
+      but only through a symlink from <filename>/etc/resolv.conf</filename>. This file may be symlinked from
       <filename>/etc/resolv.conf</filename> in order to connect all local clients that bypass local DNS APIs
       to <command>systemd-resolved</command> with correct search domains settings. This mode of operation is
       recommended.</para></listitem>
@@ -516,6 +516,7 @@ search foobar.com barbar.com
       <member><citerefentry project='man-pages'><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

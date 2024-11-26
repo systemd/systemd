@@ -1,0 +1,338 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysupdate.features" conditional='ENABLE_SYSUPDATE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysupdate.features</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysupdate.features</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysupdate.features</refname>
+    <refpurpose>Definition Files for Optional Features</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/sysupdate.d/*.feature</filename></member>
+      <member><filename>/run/sysupdate.d/*.feature</filename></member>
+      <member><filename>/usr/local/lib/sysupdate.d/*.feature</filename></member>
+      <member><filename>/usr/lib/sysupdate.d/*.feature</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>"Optional Features" are functionality provided by
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    that allow a distribution to define sets of
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    transfer definitions that are intended to be enabled or disabled by the system administrator.</para>
+
+    <para>When a feature is enabled, transfers belonging to it will be considered when checking for and
+    downloading updates, when vacuuming, and in all other situations.
+    In effect, transfers belonging to a feature will always be updated in lock-step with the rest of their
+    target.
+    This is the primary difference an Optional Feature and a <command>systemd-sysupdate</command> component.
+    When a feature is disabled, its transfers will not be considered when checking for and downloading updates,
+    but <command>systemd-sysupdate</command> will still consider them while vacuuming and in other situations
+    where it needs to determine ownership over previously downloaded system resources.
+    <command>systemd-sysupdate</command> will clean up all instances of the feature's transfers whenever it
+    is disabled, effectively uninstalling it.</para>
+
+    <para>Optional Features are described by <filename>sysupdate.d/*.feature</filename> files, which are
+    defined below.
+    Transfers can declare that they belong to a feature via the <varname>Features=</varname> setting.
+    Feature definitions support drop-in files, which are most commonly used to override the
+    <varname>Enabled=</varname> setting).
+    They can also be masked out to hide the availability of the feature entirely.</para>
+
+    <para>Each <filename>*.feature</filename> file contains one section: [Feature].</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Feature] Section Options</title>
+
+    <para>This section defines general properties of this feature.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Description=</varname></term>
+
+        <listitem><para>A short human readable description of this feature.
+        This may be used as a label for this feature, so the string should meaningfully identify the feature
+        among the features available in <filename>sysupdate.d/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Documentation=</varname></term>
+
+        <listitem><para>A user-presentable URL to documentation about this feature.
+        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AppStream=</varname></term>
+
+        <listitem><para>A URL to an
+        <ulink url="https://www.freedesktop.org/software/appstream/docs/chap-CatalogData.html">AppStream catalog</ulink>
+        XML file.
+        This may be used by software centers (such as GNOME Software or KDE Discover) to present rich
+        metadata about this feature.
+        This includes display names, chagnelogs, icons, and more.
+        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Enabled=</varname></term>
+
+        <listitem><para>Whether or not this feature is enabled. If unspecified, the feature is disabled
+        by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>Documentation=</varname> and <varname>AppStream=</varname>
+    settings. The following expansions are understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Development Tools for Image-Based OS</title>
+
+      <para>We'll use the hypothetical "foobarOS" described in
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> as our
+      example base OS.
+      The vast majority of foobarOS's users have no need for a compiler, build system, debugger, and other
+      such development tools to be part of their OS.
+      However, the developers of foobarOS itself need this build tooling to be available.
+      So, foobarOS needs to provide a system extension image (see
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+      containing these development tools, and this image must be updated in lock-step with the underlying
+      base OS.
+      This is a great use case for an optional OS feature, so let's define one:
+      </para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/devel.feature
+[Feature]
+Description=Development Tools
+Documentation=https://developer.example.com/foobarOS/getting-started
+Enabled=false
+</programlisting></para>
+
+      <para>The above defines the <literal>devel</literal> feature, and disables it by default.
+      Now let's a define a transfer that's associated with this feature:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/50-devel.transfer
+[Transfer]
+Features=devel
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_devel.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=foobarOS_@v_devel.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para>With these two files, we have created a feature called <literal>devel</literal> that, when
+      enabled, will download and decompress the appropriate version of
+      <literal>https://download.example.com/foobarOS_@v_devel.raw.xz</literal> into
+      <literal>/var/lib/extensions/foobarOS_@v_devel.raw</literal> during each OS update.</para>
+
+      <para>The developers of foobarOS can enable the <literal>devel</literal> feature on their workstations
+      by creating the following drop-in:</para>
+
+      <para><programlisting># /etc/sysupdate.d/devel.feature.d/enable.conf
+[Feature]
+Enabled=true
+</programlisting></para>
+    </example>
+
+    <example>
+      <title>Proprietary Drivers</title>
+
+      <para>Suppose that many of foobarOS's users have a GPU manufactured by the MVISUAL corporation.
+      Due to lack of documentation and difficulty in reverse-engineering the hardware, the open-source
+      drivers for MVISUAL GPUs are unable to make proper use of available graphics and compute performance.
+      MVISUAL provides a redistributable proprietary driver for their cards, and foobarOS's developers
+      distribute them to address their users' needs.</para>
+
+      <para>MVISUAL's driver has a couple different parts that must be installed for it to function: a UKI
+      addon to configure the kernel command-line, an initrd system extension image to add the MVISUAL kernel
+      module into the initrd, and a regular system extension image to add the proprietary OpenGL and Vulkan
+      userspace drivers.
+      All of these should be version-locked to the core OS.</para>
+
+      <para>Let's start by defining an optional feature named <literal>mvisual-driver</literal>:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/mvisual-driver.feature
+[Feature]
+Description=MVISUAL Proprietary GPU Driver
+Documentation=https://support.example.com/foobarOS/mvisual
+AppStream=https://metadata.example.com/mvisual-driver-%A.xml.gz
+</programlisting></para>
+
+      <para>Note that we define AppStream metadata for this feature, because we want software centers to
+      present it to end-users.
+      Next, let's define the corresponding transfers:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/50-mvisual-userspace.transfer
+[Transfer]
+Features=mvisual-driver
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_mvisual_userspace.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=foobarOS_@v_mvisual.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/70-mvisual-initrd.transfer
+[Transfer]
+Features=mvisual-driver
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_mvisual_initrd.raw.xz
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=foobarOS_@v.efi.extra.d/foobarOS_mvisual.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/90-mvisual-addon.transfer
+[Transfer]
+Features=mvisual-driver
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_mvisual_addon.efi.xz
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=foobarOS_@v.efi.extra.d/foobarOS_mvisual.addon.efi
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+    </example>
+
+    <example>
+      <title>Intersecting Features</title>
+
+      <para>Suppose that MVISUAL releases special tooling to help a distribution developer troubleshoot
+      crashes in their proprietary driver.
+      Let's define a transfer:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.d/50-mvisual-debugger.transfer
+[Transfer]
+RequisiteFeatures=devel mvisual-driver
+ProtectVersion=%A
+
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=foobarOS_@v_devel.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=foobarOS_@v_devel.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para>This transfer will be used only if both the <literal>devel</literal> and
+      <literal>mvisual-driver</literal> features are enabled.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -542,7 +542,6 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 #define DECLARE_NOALLOC_SECTION(name, text)   \
         asm(".pushsection " name ",\"S\"\n\t" \
             ".ascii " STRINGIFY(text) "\n\t"  \
-            ".zero 1\n\t"                     \
             ".popsection\n")
 
 #ifdef SBAT_DISTRO

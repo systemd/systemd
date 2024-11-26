@@ -342,7 +342,7 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret, uint16_
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_NEWLINK)
+        if (nlmsg_type == RTM_NEWLINK && ifindex == 0)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
         else if (nlmsg_type == RTM_NEWLINKPROP)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL | NLM_F_APPEND;

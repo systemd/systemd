@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -113,6 +114,24 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (link->dhcp_lease && link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
+                sd_dns_resolver *resolvers;
+
+                r = sd_dhcp_lease_get_dnr(link->dhcp_lease, &resolvers);
+                if (r >= 0) {
+                        struct in_addr_full **dot_servers;
+                        size_t n = 0;
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+
+                        r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
+                        if (r < 0)
+                                return r;
+                        r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (link->dhcp6_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 const struct in6_addr *addresses;
 
@@ -124,11 +143,48 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (link->dhcp6_lease && link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                sd_dns_resolver *resolvers;
+
+                r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
+                if (r >= 0 ) {
+                        struct in_addr_full **dot_servers;
+                        size_t n = 0;
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+
+                        r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
+                        if (r < 0)
+                                return r;
+
+                        r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                 NDiscRDNSS *a;
 
                 SET_FOREACH(a, link->ndisc_rdnss) {
                         r = ordered_set_put_in6_addrv(s, &a->address, 1);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_NDISC)) {
+                NDiscDNR *a;
+
+                SET_FOREACH(a, link->ndisc_dnr) {
+                        struct in_addr_full **dot_servers = NULL;
+                        size_t n = 0;
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+
+                        r = dns_resolvers_to_dot_addrs(&a->resolver, 1, &dot_servers, &n);
+                        if (r < 0)
+                                return r;
+
+                        r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
                         if (r < 0)
                                 return r;
                 }
@@ -522,6 +578,64 @@ static void serialize_addresses(
                 fputc('\n', f);
 }
 
+static void serialize_resolvers(
+                FILE *f,
+                const char *lvalue,
+                bool *space,
+                sd_dhcp_lease *lease,
+                bool conditional,
+                sd_dhcp6_lease *lease6,
+                bool conditional6) {
+
+        bool _space = false;
+        if (!space)
+                space = &_space;
+
+        if (lvalue)
+                fprintf(f, "%s=", lvalue);
+
+        if (lease && conditional) {
+                sd_dns_resolver *resolvers;
+                _cleanup_strv_free_ char **names = NULL;
+                int r;
+
+                r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+                if (r < 0 && r != -ENODATA)
+                        log_warning_errno(r, "Failed to get DNR from DHCP lease, ignoring: %m");
+
+                if (r > 0) {
+                        r = dns_resolvers_to_dot_strv(resolvers, r, &names);
+                        if (r < 0)
+                                return (void) log_warning_errno(r, "Failed to get DoT servers from DHCP DNR, ignoring: %m");
+                        if (r > 0)
+                                fputstrv(f, names, NULL, space);
+                }
+        }
+
+        if (lease6 && conditional6) {
+                sd_dns_resolver *resolvers;
+                _cleanup_strv_free_ char **names = NULL;
+                int r;
+
+                r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
+                if (r < 0 && r != -ENODATA)
+                        log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
+
+                if (r > 0) {
+                        r = dns_resolvers_to_dot_strv(resolvers, r, &names);
+                        if (r < 0)
+                                return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
+                        if (r > 0)
+                                fputstrv(f, names, NULL, space);
+                }
+        }
+
+        if (lvalue)
+                fputc('\n', f);
+
+        return;
+}
+
 static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, UseDomains use_domains) {
         bool space = false;
         const char *p;
@@ -664,6 +778,21 @@ static int link_save(Link *link) {
                 else {
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
+
+                        /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
+                         * know how to handle such a server so for now Do53 service is required, and
+                         * assumed. */
+                        serialize_resolvers(f, NULL, &space,
+                                            link->dhcp_lease,
+                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4),
+                                            link->dhcp6_lease,
+                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6));
+
+                        if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_NDISC)) {
+                                NDiscDNR *dnr;
+                                SET_FOREACH(dnr, link->ndisc_dnr)
+                                        serialize_dnr(f, &dnr->resolver, 1, &space);
+                        }
 
                         serialize_addresses(f, NULL, &space,
                                             NULL,
@@ -822,6 +951,11 @@ void link_dirty(Link *link) {
 
         assert(link);
         assert(link->manager);
+
+        /* When the manager is in MANAGER_STOPPED, it is not necessary to update state files anymore, as they
+         * will be removed soon anyway. Moreover, we cannot call link_ref() in that case. */
+        if (link->manager->state == MANAGER_STOPPED)
+                return;
 
         /* The serialized state in /run is no longer up-to-date. */
 

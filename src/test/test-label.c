@@ -43,7 +43,7 @@ static int pre_labelling_func(int dir_fd, const char *path, mode_t mode) {
         return 0;
 }
 
-static int post_labelling_func(int dir_fd, const char *path) {
+static int post_labelling_func(int dir_fd, const char *path, bool created) {
        int r;
 
         /* assume label policies that restrict certain labels */
@@ -140,17 +140,17 @@ TEST(label_ops_post) {
         text1 = "Add initial texts to file for testing label operations to file1\n";
 
         assert(labelling_op(fd, text1, "file1.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file1.txt") == 0);
+        assert_se(label_ops_post(fd, "file1.txt", true) == 0);
         assert_se(strlen(text1) == (size_t)buf.st_size);
         text2 = "Add text2 data to file2\n";
 
         assert(labelling_op(fd, text2, "file2.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file2.txt") == 0);
+        assert_se(label_ops_post(fd, "file2.txt", true) == 0);
         assert_se(strlen(text2) == (size_t)buf.st_size);
-        assert_se(label_ops_post(fd, "file3.txt") == -ENOENT);
-        assert_se(label_ops_post(fd, "/abcd") == -ENOENT);
-        assert_se(label_ops_post(fd, "/restricted_directory") == -EACCES);
-        assert_se(label_ops_post(fd, "") == -EINVAL);
+        assert_se(label_ops_post(fd, "file3.txt", true) == -ENOENT);
+        assert_se(label_ops_post(fd, "/abcd", true) == -ENOENT);
+        assert_se(label_ops_post(fd, "/restricted_directory", true) == -EACCES);
+        assert_se(label_ops_post(fd, "", true) == -EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO)

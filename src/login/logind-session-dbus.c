@@ -109,6 +109,40 @@ static int property_get_idle_hint(
         return sd_bus_message_append(reply, "b", session_get_idle_hint(s, NULL) > 0);
 }
 
+static int property_get_can_idle(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "b", SESSION_CLASS_CAN_IDLE(s->class));
+}
+
+static int property_get_can_lock(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "b", SESSION_CLASS_CAN_LOCK(s->class));
+}
+
 static int property_get_idle_since_hint(
                 sd_bus *bus,
                 const char *path,
@@ -326,7 +360,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_kill(s, whom, signo);
+        r = session_kill(s, whom, signo, error);
         if (r < 0)
                 return r;
 
@@ -855,14 +889,11 @@ int session_send_lock_all(Manager *m, bool lock) {
         assert(m);
 
         HASHMAP_FOREACH(session, m->sessions) {
-                int k;
 
                 if (!SESSION_CLASS_CAN_LOCK(session->class))
                         continue;
 
-                k = session_send_lock(session, lock);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, session_send_lock(session, lock));
         }
 
         return r;
@@ -983,6 +1014,8 @@ static const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CanIdle", "b", property_get_can_idle, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanLock", "b", property_get_can_lock, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockedHint", "b", property_get_locked_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD("Terminate",

@@ -21,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-nspawn</refname>
-    <refpurpose>Spawn a command or OS in a light-weight container</refpurpose>
+    <refpurpose>Spawn a command or OS in a lightweight container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -43,11 +43,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-nspawn</command> may be used to run a command or OS in a light-weight namespace
+    <para><command>systemd-nspawn</command> may be used to run a command or OS in a lightweight namespace
     container. In many ways it is similar to <citerefentry
     project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but more powerful
-    since it fully virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems and
-    the host and domain name.</para>
+    since it virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems, and
+    the host and domain names.</para>
 
     <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
     using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
@@ -59,11 +59,14 @@
     project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
     may be used to boot full Linux-based operating systems in a container.</para>
 
-    <para><command>systemd-nspawn</command> limits access to various kernel interfaces in the container to read-only,
-    such as <filename>/sys/</filename>, <filename>/proc/sys/</filename> or <filename>/sys/fs/selinux/</filename>. The
-    host's network interfaces and the system clock may not be changed from within the container. Device nodes may not
-    be created. The host system cannot be rebooted and kernel modules may not be loaded from within the
-    container.</para>
+    <para><command>systemd-nspawn</command> limits access to various kernel interfaces in the container to
+    read-only, such as <filename>/sys/</filename>, <filename>/proc/sys/</filename>, or
+    <filename>/sys/fs/selinux/</filename>. The host's network interfaces and the system clock may not be
+    changed from within the container. Device nodes may not be created. The host system cannot be rebooted
+    and kernel modules may not be loaded from within the container. <emphasis>This sandbox can easily be
+    circumvented from within the container if user namespaces are not used</emphasis>. This means that
+    untrusted code must always be run in a user namespace, see the discussion of the
+    <option>--private-users=</option> option below.</para>
 
     <para>Use a tool like <citerefentry
     project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>, <citerefentry
@@ -100,8 +103,8 @@
     template unit file, making it usually unnecessary to alter this template file directly.</para>
 
     <para>Note that <command>systemd-nspawn</command> will mount file systems private to the container to
-    <filename>/dev/</filename>, <filename>/run/</filename> and similar. These will not be visible outside of the
-    container, and their contents will be lost when the container exits.</para>
+    <filename>/dev/</filename>, <filename>/run/</filename>, and similar. These will not be visible outside of
+    the container, and their contents will be lost when the container exits.</para>
 
     <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
     processes in them see each other. The PID namespace separation of the two containers is complete and the containers
@@ -137,7 +140,7 @@
     <para>When running in unprivileged mode, some needed functionality is provided via
     <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+    <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -810,17 +813,6 @@
           range. In this mode, the number of UIDs/GIDs assigned to the container is 65536, and the owner
           UID/GID of the root directory must be a multiple of 65536.</para></listitem>
 
-          <listitem><para>If the parameter is <literal>no</literal>, user namespacing is turned off. This is
-          the default.</para>
-          </listitem>
-
-          <listitem><para>If the parameter is <literal>identity</literal>, user namespacing is employed with
-          an identity mapping for the first 65536 UIDs/GIDs. This is mostly equivalent to
-          <option>--private-users=0:65536</option>. While it does not provide UID/GID isolation, since all
-          host and container UIDs/GIDs are chosen identically it does provide process capability isolation,
-          and hence is often a good choice if proper user namespacing with distinct UID maps is not
-          appropriate.</para></listitem>
-
           <listitem><para>The special value <literal>pick</literal> turns on user namespacing. In this case
           the UID/GID range is automatically chosen. As first step, the file owner UID/GID of the root
           directory of the container's directory tree is read, and it is checked that no other container is
@@ -837,22 +829,35 @@
           for it, and thus in the (possibly expensive) file ownership adjustment operation. However,
           subsequent invocations of the container will be cheap (unless of course the picked UID/GID range is
           assigned to a different use by then).</para></listitem>
+
+          <listitem><para>If the parameter is <literal>no</literal>, user namespacing is turned off. This is
+          the default when <command>systemd-nspawn</command> is invoked directly. (Note that the
+          <filename>systemd-nspawn@.service</filename> unit enables private users.) This option is not
+          secure and must not be used to run untrusted code.</para></listitem>
+
+          <listitem><para>If the parameter is <literal>identity</literal>, user namespacing is employed with
+          an identity mapping for the first 65536 UIDs/GIDs. This is mostly equivalent to
+          <option>--private-users=0:65536</option>. While it does not provide UID/GID isolation, since all
+          host and container UIDs/GIDs are chosen identically it does provide process capability isolation,
+          but may be useful if proper user namespacing with distinct UID maps is not possible. This option is
+          not secure and must not be used to run untrusted code.</para></listitem>
         </orderedlist>
 
-        <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable UID/GID range in the
-        container covers 16 bit. For best security, do not assign overlapping UID/GID ranges to multiple containers. It is
-        hence a good idea to use the upper 16 bit of the host 32-bit UIDs/GIDs as container identifier, while the lower 16
-        bit encode the container UID/GID used. This is in fact the behavior enforced by the
-        <option>--private-users=pick</option> option.</para>
+        <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable
+        UID/GID range in the container covers 16 bits. For best security, do not assign overlapping UID/GID
+        ranges to multiple containers. It is hence a good idea to use the upper 16 bit of the host 32-bit
+        UIDs/GIDs as container identifier, while the lower 16 bits encode the container UID/GID used. This is
+        in fact the behavior enforced by the <option>--private-users=pick</option> option.</para>
 
-        <para>When user namespaces are used, the GID range assigned to each container is always chosen identical to the
-        UID range.</para>
+        <para>When user namespaces are used, the GID range assigned to each container is always chosen
+        identical to the UID range.</para>
 
-        <para>In most cases, using <option>--private-users=pick</option> is the recommended option as it enhances
-        container security massively and operates fully automatically in most cases.</para>
+        <para>In most cases, using <option>--private-users=pick</option> is the recommended option as user
+        namespacing is required for security, and this option massively enhances container security while
+        operating fully automatically in most cases.</para>
 
         <para>Note that the picked UID/GID range is not written to <filename>/etc/passwd</filename> or
-        <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently anywhere,
+        <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently,
         except in the file ownership of the files and directories of the container.</para>
 
         <para>Note that when user namespacing is used file ownership on disk reflects this, and all of the container's

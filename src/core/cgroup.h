@@ -126,9 +126,9 @@ struct CGroupSocketBindItem {
 };
 
 typedef enum CGroupPressureWatch {
-        CGROUP_PRESSURE_WATCH_OFF,      /* → tells the service payload explicitly not to watch for memory pressure */
+        CGROUP_PRESSURE_WATCH_NO,       /* → tells the service payload explicitly not to watch for memory pressure */
+        CGROUP_PRESSURE_WATCH_YES,
         CGROUP_PRESSURE_WATCH_AUTO,     /* → on if memory account is on anyway for the unit, otherwise off */
-        CGROUP_PRESSURE_WATCH_ON,
         CGROUP_PRESSURE_WATCH_SKIP,     /* → doesn't set up memory pressure watch, but also doesn't explicitly tell payload to avoid it */
         _CGROUP_PRESSURE_WATCH_MAX,
         _CGROUP_PRESSURE_WATCH_INVALID = -EINVAL,
@@ -236,6 +236,7 @@ struct CGroupContext {
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
         uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
+        usec_t moom_mem_pressure_duration_usec;
         ManagedOOMPreference moom_preference;
 
         /* Memory pressure logic */
@@ -402,7 +403,7 @@ void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head);
 static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
         assert(c);
 
-        return c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_ON ||
+        return c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_YES ||
                 (c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_AUTO && c->memory_accounting);
 }
 

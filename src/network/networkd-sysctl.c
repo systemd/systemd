@@ -408,6 +408,18 @@ static int link_set_ipv4_rp_filter(Link *link) {
         return sysctl_write_ip_property_int(AF_INET, link->ifname, "rp_filter", link->network->ipv4_rp_filter, manager_get_sysctl_shadow(link->manager));
 }
 
+static int link_set_ipv4_force_igmp_version(Link *link) {
+        assert(link);
+
+        if (!link_is_configured_for_family(link, AF_INET))
+                return 0;
+
+        if (link->network->ipv4_force_igmp_version < 0)
+                return 0;
+
+        return sysctl_write_ip_property_int(AF_INET, link->ifname, "force_igmp_version", link->network->ipv4_force_igmp_version, manager_get_sysctl_shadow(link->manager));
+}
+
 static int link_set_ipv6_privacy_extensions(Link *link) {
         IPv6PrivacyExtensions val;
 
@@ -723,6 +735,10 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 reverse path filtering for interface, ignoring: %m");
 
+        r = link_set_ipv4_force_igmp_version(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 force igmp version, ignoring: %m");
+
         r = link_set_ipv4_promote_secondaries(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot enable promote_secondaries for interface, ignoring: %m");
@@ -770,3 +786,13 @@ int config_parse_ip_forward_deprecated(
                    "and the same settings in .network files for per-interface setting.");
         return 0;
 }
+
+static const char* const ipv4_force_igmp_version_table[_IPV4_FORCE_IGMP_VERSION_MAX] = {
+        [IPV4_FORCE_IGMP_VERSION_NO] = "no",
+        [IPV4_FORCE_IGMP_VERSION_1]  = "v1",
+        [IPV4_FORCE_IGMP_VERSION_2]  = "v2",
+        [IPV4_FORCE_IGMP_VERSION_3]  = "v3",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ipv4_force_igmp_version, IPv4ForceIgmpVersion);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv4_force_igmp_version, ipv4_force_igmp_version, IPv4ForceIgmpVersion);

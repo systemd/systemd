@@ -37,6 +37,7 @@ struct OomdCGroupContext {
         loadavg_t mem_pressure_limit;
         usec_t mem_pressure_limit_hit_start;
         usec_t last_had_mem_reclaim;
+        usec_t mem_pressure_duration_usec;
 };
 
 struct OomdSystemContext {
@@ -53,12 +54,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
  * key: cgroup paths -> value: OomdCGroupContext. */
 
 /* Scans all the OomdCGroupContexts in `h` and returns 1 and a set of pointers to those OomdCGroupContexts in `ret`
- * if any of them have exceeded their supplied memory pressure limits for the `duration` length of time.
+ * if any of them have exceeded their supplied memory pressure limits for the `ctx->mem_pressure_duration_usec` length of time.
  * `mem_pressure_limit_hit_start` is updated accordingly for the first time the limit is exceeded, and when it returns
  * below the limit.
- * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `duration`.
+ * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `ctx->mem_pressure_duration_usec`.
  * Returns -ENOMEM for allocation errors. */
-int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret);
+int oomd_pressure_above(Hashmap *h, Set **ret);
 
 /* Returns true if the amount of memory available (see proc(5)) is below the permyriad of memory specified by `threshold_permyriad`. */
 bool oomd_mem_available_below(const OomdSystemContext *ctx, int threshold_permyriad);

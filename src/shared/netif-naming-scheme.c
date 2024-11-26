@@ -35,9 +35,9 @@ const NamingScheme* naming_scheme_from_name(const char *name) {
          * the table like any other name. After iterating through the table, we check for "latest" again,
          * which means that if not mapped explicitly, it maps to the last defined entry, whatever that is. */
 
-        for (size_t i = 0; i < ELEMENTSOF(naming_schemes); i++)
-                if (streq(naming_schemes[i].name, name))
-                        return naming_schemes + i;
+        FOREACH_ELEMENT(scheme, naming_schemes)
+                if (streq(scheme->name, name))
+                        return scheme;
 
         if (streq(name, "latest"))
                 return naming_schemes + ELEMENTSOF(naming_schemes) - 1;

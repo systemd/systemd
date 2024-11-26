@@ -102,6 +102,9 @@ acpi:DMST*:
 acpi:DNBK*:
  ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
+acpi:DSHR*:
+ ID_VENDOR_FROM_DATABASE=3mdeb
+
 acpi:DSUO*:
  ID_VENDOR_FROM_DATABASE=Shenzhen DSO Microelectronics Co.,Ltd.
 
@@ -188,6 +191,9 @@ acpi:ILIT*:
 
 acpi:IMPJ*:
  ID_VENDOR_FROM_DATABASE=Impinj
+
+acpi:INIT*:
+ ID_VENDOR_FROM_DATABASE=INIT - Innovative Informatikanwendungen GmbH
 
 acpi:INSY*:
  ID_VENDOR_FROM_DATABASE=Insyde Software
@@ -309,6 +315,9 @@ acpi:RKCP*:
 acpi:RPIL*:
  ID_VENDOR_FROM_DATABASE=Raspberry Pi
 
+acpi:RSCV*:
+ ID_VENDOR_FROM_DATABASE=RISC-V International
+
 acpi:RVOS*:
  ID_VENDOR_FROM_DATABASE=Rivos Inc.
 
@@ -317,6 +326,9 @@ acpi:RZSN*:
 
 acpi:SECC*:
  ID_VENDOR_FROM_DATABASE=Seiko Epson Corporation
+
+acpi:SGSN*:
+ ID_VENDOR_FROM_DATABASE=SigmaSense, LLC
 
 acpi:SHRP*:
  ID_VENDOR_FROM_DATABASE=Sharp Corporation
@@ -359,6 +371,9 @@ acpi:VAIO*:
 
 acpi:VFSI*:
  ID_VENDOR_FROM_DATABASE=Validity Sensors, Inc
+
+acpi:VNTN*:
+ ID_VENDOR_FROM_DATABASE=Ventana Micro Systems
 
 acpi:VSHY*:
  ID_VENDOR_FROM_DATABASE=Vishay Intertechnology, Inc.
@@ -488,6 +503,9 @@ acpi:ADD*:
 
 acpi:ADE*:
  ID_VENDOR_FROM_DATABASE=Arithmos, Inc.
+
+acpi:ADG*:
+ ID_VENDOR_FROM_DATABASE=Airdrop Gaming LLC
 
 acpi:ADH*:
  ID_VENDOR_FROM_DATABASE=Aerodata Holdings Ltd
@@ -1524,6 +1542,9 @@ acpi:CHY*:
 acpi:CIC*:
  ID_VENDOR_FROM_DATABASE=Comm. Intelligence Corporation
 
+acpi:CID*:
+ ID_VENDOR_FROM_DATABASE=Indicates an identity defined by CTS/DID Standards other than EDID
+
 acpi:CIE*:
  ID_VENDOR_FROM_DATABASE=Convergent Engineering, Inc.
 
@@ -1998,9 +2019,6 @@ acpi:DEL*:
 acpi:DEM*:
  ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
 
-acpi:DEM*:
- ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
-
 acpi:DEN*:
  ID_VENDOR_FROM_DATABASE=Densitron Computers Ltd
 
@@ -2249,6 +2267,9 @@ acpi:DTK*:
 
 acpi:DTL*:
  ID_VENDOR_FROM_DATABASE=e-Net Inc
+
+acpi:DTM*:
+ ID_VENDOR_FROM_DATABASE=Daten Tecnologia
 
 acpi:DTN*:
  ID_VENDOR_FROM_DATABASE=Datang  Telephone Co
@@ -4139,6 +4160,9 @@ acpi:LAS*:
 
 acpi:LAV*:
  ID_VENDOR_FROM_DATABASE=Lava Computer MFG Inc
+
+acpi:LBC*:
+ ID_VENDOR_FROM_DATABASE=LABAU Technology Corp.
 
 acpi:LBO*:
  ID_VENDOR_FROM_DATABASE=Lubosoft
@@ -6417,6 +6441,9 @@ acpi:SHR*:
 acpi:SHT*:
  ID_VENDOR_FROM_DATABASE=Shin Ho Tech
 
+acpi:SHU*:
+ ID_VENDOR_FROM_DATABASE=Shure Inc.
+
 acpi:SIA*:
  ID_VENDOR_FROM_DATABASE=SIEMENS AG
 
@@ -7943,6 +7970,9 @@ acpi:XIT*:
 
 acpi:XLX*:
  ID_VENDOR_FROM_DATABASE=Xilinx, Inc.
+
+acpi:XMI*:
+ ID_VENDOR_FROM_DATABASE=Xiaomi Corporation
 
 acpi:XMM*:
  ID_VENDOR_FROM_DATABASE=C3PO S.L.

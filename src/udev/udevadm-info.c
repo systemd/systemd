@@ -274,6 +274,8 @@ static int print_device_chain_in_json(sd_device *device) {
 
         assert(device);
 
+        arg_json_format_flags |=SD_JSON_FORMAT_SEQ;
+
         r = print_all_attributes_in_json(device, /* is_parent = */ false);
         if (r < 0)
                 return r;
@@ -453,9 +455,7 @@ static int export_devices(sd_device_enumerator *e) {
         pager_open(arg_pager_flags);
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
-                        (void) print_record(d, NULL);
-                else {
+                if (sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(d, &v);
@@ -463,7 +463,8 @@ static int export_devices(sd_device_enumerator *e) {
                                 return r;
 
                         (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-                }
+                } else
+                        (void) print_record(d, NULL);
 
         return 0;
 }
@@ -629,9 +630,7 @@ static int query_device(QueryType query, sd_device* device) {
                 return 0;
 
         case QUERY_ALL:
-                if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
-                        return print_record(device, NULL);
-                else {
+                if (sd_json_format_enabled(arg_json_format_flags))  {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         r = record_to_json(device, &v);
@@ -639,7 +638,8 @@ static int query_device(QueryType query, sd_device* device) {
                                 return r;
 
                         (void) sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-                }
+                } else
+                        return print_record(device, NULL);
 
                 return 0;
 
@@ -1229,10 +1229,10 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (action == ACTION_QUERY)
                         r = query_device(query, device);
                 else if (action == ACTION_ATTRIBUTE_WALK) {
-                        if (arg_json_format_flags & SD_JSON_FORMAT_OFF)
-                                r = print_device_chain(device);
-                        else
+                        if (sd_json_format_enabled(arg_json_format_flags))
                                 r = print_device_chain_in_json(device);
+                        else
+                                r = print_device_chain(device);
                 } else if (action == ACTION_TREE)
                         r = print_tree(device);
                 else

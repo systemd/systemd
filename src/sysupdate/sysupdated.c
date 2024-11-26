@@ -13,6 +13,7 @@
 #include "bus-util.h"
 #include "common-signal.h"
 #include "discover-image.h"
+#include "dropin.h"
 #include "env-util.h"
 #include "escape.h"
 #include "event-util.h"
@@ -30,6 +31,8 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysupdate-util.h"
+
+#define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
 typedef struct Manager {
         sd_event *event;
@@ -85,6 +88,7 @@ typedef enum JobType {
         JOB_CHECK_NEW,
         JOB_UPDATE,
         JOB_VACUUM,
+        JOB_DESCRIBE_FEATURE,
         _JOB_TYPE_MAX,
         _JOB_TYPE_INVALID = -EINVAL,
 } JobType;
@@ -104,6 +108,7 @@ struct Job {
         JobType type;
         bool offline;
         char *version; /* Passed into sysupdate for JOB_DESCRIBE and JOB_UPDATE */
+        char *feature; /* Passed into sysupdate for JOB_DESCRIBE_FEATURE */
 
         unsigned progress_percent;
 
@@ -131,11 +136,12 @@ static const char* const target_class_table[_TARGET_CLASS_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
-        [JOB_LIST]      = "list",
-        [JOB_DESCRIBE]  = "describe",
-        [JOB_CHECK_NEW] = "check-new",
-        [JOB_UPDATE]    = "update",
-        [JOB_VACUUM]    = "vacuum",
+        [JOB_LIST]             = "list",
+        [JOB_DESCRIBE]         = "describe",
+        [JOB_CHECK_NEW]        = "check-new",
+        [JOB_UPDATE]           = "update",
+        [JOB_VACUUM]           = "vacuum",
+        [JOB_DESCRIBE_FEATURE] = "describe-feature",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(job_type, JobType);
@@ -149,6 +155,7 @@ static Job *job_free(Job *j) {
 
         free(j->object_path);
         free(j->version);
+        free(j->feature);
 
         sd_json_variant_unref(j->json);
 
@@ -440,8 +447,8 @@ static int job_start(Job *j) {
                         NULL, /* maybe --verify=no */
                         NULL, /* maybe --component=, --root=, or --image= */
                         NULL, /* maybe --offline */
-                        NULL, /* list, check-new, update, vacuum */
-                        NULL, /* maybe version (for list, update) */
+                        NULL, /* list, check-new, update, vacuum, features */
+                        NULL, /* maybe version (for list, update), maybe feature (features) */
                         NULL
                 };
                 size_t k = 2;
@@ -491,6 +498,12 @@ static int job_start(Job *j) {
 
                 case JOB_VACUUM:
                         cmd[k++] = "vacuum";
+                        break;
+
+                case JOB_DESCRIBE_FEATURE:
+                        cmd[k++] = "features";
+                        assert(!isempty(j->feature));
+                        cmd[k++] = j->feature;
                         break;
 
                 default:
@@ -573,20 +586,26 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
                 action = "org.freedesktop.sysupdate1.vacuum";
                 break;
 
+        case JOB_DESCRIBE_FEATURE:
+                action = NULL;
+                break;
+
         default:
                 assert_not_reached();
         }
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        action,
-                        /* details= */ NULL,
-                        &j->manager->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (action) {
+                r = bus_verify_polkit_async(
+                                msg,
+                                action,
+                                /* details= */ NULL,
+                                &j->manager->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = job_cancel(j);
         if (r < 0)
@@ -695,7 +714,6 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops, char, string_hash_func, s
 
 static int target_new(Manager *m, TargetClass class, const char *name, const char *path, Target **ret) {
         _cleanup_(target_freep) Target *t = NULL;
-        int r;
 
         assert(m);
         assert(ret);
@@ -724,10 +742,6 @@ static int target_new(Manager *m, TargetClass class, const char *name, const cha
                 t->id = strjoin(target_class_to_string(class), ":", name);
         if (!t->id)
                 return -ENOMEM;
-
-        r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
-        if (r < 0)
-                return r;
 
         *ret = TAKE_PTR(t);
         return 0;
@@ -917,6 +931,8 @@ static int target_method_describe_finish(
                 sd_bus_error *error) {
         _cleanup_free_ char *text = NULL;
         int r;
+
+        /* NOTE: This is also reused by target_method_describe_feature */
 
         assert(json);
 
@@ -1132,7 +1148,7 @@ static int target_method_vacuum_finish(
                 sd_bus_error *error) {
 
         sd_json_variant *v;
-        uint64_t instances;
+        uint64_t instances, disabled;
 
         assert(json);
 
@@ -1144,7 +1160,15 @@ static int target_method_vacuum_finish(
         instances = sd_json_variant_unsigned(v);
         assert(instances <= UINT32_MAX);
 
-        return sd_bus_reply_method_return(msg, "u", (uint32_t) instances);
+        v = sd_json_variant_by_key(json, "disabledTransfers");
+        if (!v)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Missing key 'disabledTransfers'");
+        if (!sd_json_variant_is_unsigned(v))
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "vacuum", "Key 'disabledTransfers' should be an unsigned int");
+        disabled = sd_json_variant_unsigned(v);
+        assert(disabled <= UINT32_MAX);
+
+        return sd_bus_reply_method_return(msg, "uu", (uint32_t) instances, (uint32_t) disabled);
 }
 
 static int target_method_vacuum(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1215,13 +1239,13 @@ static int target_get_appstream(Target *t, char ***ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to run 'systemd-sysupdate list': %m");
 
-        appstream_url_json = sd_json_variant_by_key(v, "appstream_urls");
+        appstream_url_json = sd_json_variant_by_key(v, "appstreamUrls");
         if (!appstream_url_json)
-                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'appstream_urls'");
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'appstreamUrls'");
 
         r = sd_json_variant_strv(appstream_url_json, ret);
         if (r < 0)
-                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'appstream_urls' should be strv");
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Key 'appstreamUrls' should be strv");
 
         return 0;
 }
@@ -1245,6 +1269,167 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
                 return r;
 
         return sd_bus_send(NULL, reply, NULL);
+}
+
+static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        sd_json_variant *v;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "t", &flags);
+        if (r < 0)
+                return r;
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        r = sysupdate_run_simple(&json, t, "features", NULL);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(json, "features");
+        if (!v)
+                return -EINVAL;
+        r = sd_json_variant_strv(v, &features);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(msg, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, features);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        Target *t = ASSERT_PTR(userdata);
+        _cleanup_(job_freep) Job *j = NULL;
+        const char *feature;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "st", &feature, &flags);
+        if (r < 0)
+                return r;
+
+        if (isempty(feature))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Feature must be specified");
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        r = job_new(JOB_DESCRIBE_FEATURE, t, msg, target_method_describe_finish, &j);
+        if (r < 0)
+                return r;
+
+        j->feature = strdup(feature);
+        if (!j->feature)
+                return log_oom();
+
+        r = job_start(j);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to start job: %m");
+        TAKE_PTR(j); /* Avoid job from being killed & freed */
+
+        return 1;
+}
+
+static bool feature_name_is_valid(const char *name) {
+        if (isempty(name))
+                return false;
+
+        if (!ascii_is_valid(name))
+                return false;
+
+        if (!filename_is_valid(strjoina(name, ".feature.d")))
+                return false;
+
+        return true;
+}
+
+static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *feature_ext = NULL;
+        Target *t = ASSERT_PTR(userdata);
+        const char *feature;
+        uint64_t flags;
+        int32_t enabled;
+        int r;
+
+        assert(msg);
+
+        if (t->class != TARGET_HOST)
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_NOT_SUPPORTED,
+                                                  "For now, features can only be managed on the host system.");
+
+        r = sd_bus_message_read(msg, "sit", &feature, &enabled, &flags);
+        if (r < 0)
+                return r;
+        if (!feature_name_is_valid(feature))
+                return sd_bus_reply_method_errorf(msg,
+                                                  SD_BUS_ERROR_INVALID_ARGS,
+                                                  "The specified feature is invalid");
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        if (!endswith(feature, ".feature")) {
+                feature_ext = strjoin(feature, ".feature");
+                if (!feature_ext)
+                        return -ENOMEM;
+                feature = feature_ext;
+        }
+
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "feature", feature,
+                "enabled", enabled >= 0 ? true_false(enabled) : "unset",
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                msg,
+                "org.freedesktop.sysupdate1.manage-features",
+                details,
+                &t->manager->polkit_registry,
+                error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        /* We assume that no sysadmin will name their config 50-systemd-sysupdate-enabled.conf */
+        if (enabled < 0) { /* Reset -> delete the drop-in file */
+                _cleanup_free_ char *path = NULL;
+
+                r = drop_in_file(SYSCONF_DIR "/sysupdate.d", feature, 50, FEATURES_DROPIN_NAME, NULL, &path);
+                if (r < 0)
+                        return r;
+
+                if (unlink(path) < 0)
+                        return -errno;
+        } else { /* otherwise, create the drop-in with the right settings */
+                r = write_drop_in_format(SYSCONF_DIR "/sysupdate.d", feature, 50, FEATURES_DROPIN_NAME,
+                                         "# Generated via org.freedesktop.sysupdate1 D-Bus interface\n\n"
+                                         "[Feature]\n"
+                                         "Enabled=%s\n",
+                                         yes_no(enabled));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_reply_method_return(msg, NULL);
 }
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
@@ -1397,7 +1582,7 @@ static const sd_bus_vtable target_vtable[] = {
 
         SD_BUS_METHOD_WITH_ARGS("Vacuum",
                                 SD_BUS_NO_ARGS,
-                                SD_BUS_RESULT("u", count),
+                                SD_BUS_RESULT("u", instances, "u", disabled_transfers),
                                 target_method_vacuum,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
@@ -1411,6 +1596,24 @@ static const sd_bus_vtable target_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", version),
                                 target_method_get_version,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("ListFeatures",
+                                SD_BUS_ARGS("t", flags),
+                                SD_BUS_RESULT("as", features),
+                                target_method_list_features,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("DescribeFeature",
+                                SD_BUS_ARGS("s", feature, "t", flags),
+                                SD_BUS_RESULT("s", json),
+                                target_method_describe_feature,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("SetFeatureEnabled",
+                                SD_BUS_ARGS("s", feature, "i", enabled, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                target_method_set_feature_enabled,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
@@ -1597,7 +1800,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                Target *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
 
                 if (IMAGE_IS_HOST(image))
@@ -1615,6 +1818,11 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;
@@ -1623,7 +1831,6 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
 static int manager_enumerate_components(Manager *m) {
         _cleanup_strv_free_ char **components = NULL;
         bool have_default;
-        Target *t;
         int r;
 
         r = target_list_components(NULL, &components, &have_default);
@@ -1631,13 +1838,21 @@ static int manager_enumerate_components(Manager *m) {
                 return r;
 
         if (have_default) {
+                _cleanup_(target_freep) Target *t = NULL;
+
                 r = target_new(m, TARGET_HOST, "host", "sysupdate.d", &t);
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         STRV_FOREACH(component, components) {
                 _cleanup_free_ char *path = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
                 path = strjoin("sysupdate.", *component, ".d");
                 if (!path)
@@ -1646,6 +1861,11 @@ static int manager_enumerate_components(Manager *m) {
                 r = target_new(m, TARGET_COMPONENT, *component, path, &t);
                 if (r < 0)
                         return r;
+
+                r = hashmap_ensure_put(&m->targets, &target_hash_ops, t->id, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
         }
 
         return 0;

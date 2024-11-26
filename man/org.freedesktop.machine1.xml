@@ -183,7 +183,7 @@ node /org/freedesktop/machine1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method UnregisterMachine is not documented!-->
 
@@ -531,7 +531,7 @@ node /org/freedesktop/machine1/machine/rawhide {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetUIDShift is not documented!-->
 
@@ -651,7 +651,7 @@ node /org/freedesktop/machine1/machine/rawhide {
       <para><varname>Leader</varname> is the PID of the leader process of the machine.</para>
 
       <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
-      based on virtualized hardware) or "container" (for light-weight userspace virtualization sharing the
+      based on virtualized hardware) or "container" (for lightweight userspace virtualization sharing the
       same kernel as the host).</para>
 
       <para><varname>RootDirectory</varname> is the root directory of the container if it is known and
@@ -687,7 +687,7 @@ node /org/freedesktop/machine1/machine/rawhide {
 $ gdbus introspect --system \
   --dest org.freedesktop.machine1 \
   --object-path /org/freedesktop/machine1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -697,7 +697,7 @@ $ gdbus introspect --system \
 $ gdbus introspect --system \
   --dest org.freedesktop.machine1 \
   --object-path /org/freedesktop/machine1/machine/rawhide
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
@@ -718,5 +718,14 @@ $ gdbus introspect --system \
       <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>
       and <varname>SSHPrivateKeyPath</varname> were added in version 256.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

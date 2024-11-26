@@ -11,9 +11,9 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-29 13:33+0000\n"
-"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -117,28 +117,36 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Autentisering krävs för att uppdatera en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Uppdatera din hemarea"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "Autentisering krävs för att uppdatera din hemarea."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Ändra storlek på en hemarea"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr "Autentisering krävs för att ändra storlek på en hemarea."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Ändra lösenord för en hemarea"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktivera en hemarea"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr "Autentisering krävs för att aktivera en användares hemarea."
 
@@ -1158,7 +1166,15 @@ msgstr "Rensa gamla systemuppdateringar"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Autentisering krävs för att ränsa gamla systemuppdateringar."
+msgstr "Autentisering krävs för att rensa gamla systemuppdateringar."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Hantera valfria funktioner"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features"
+msgstr "Autentisering krävs för att hantera valfria funktioner"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1202,23 +1218,23 @@ msgstr ""
 "Autentisering krävs för att kontrollera huruvida synkronisering av "
 "nätverkstid ska vara aktiverat."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentisering krävs för att starta \"$(unit)\"."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentisering krävs för att stoppa \"$(unit)\"."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1226,17 +1242,17 @@ msgstr ""
 "Autentisering krävs för att skicka en UNIX-signal till processerna i "
 "”$(unit)”."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
 "\"$(unit)\"."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1244,7 +1260,7 @@ msgstr ""
 "Autentisering krävs för att radera filer och kataloger associerade med "
 "”$(unit)”."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

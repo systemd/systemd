@@ -56,9 +56,9 @@ int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope) {
              hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
 
         return log_error_errno(r,
-                               r == hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                               r == hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
-                                                "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
+                               hint_vars ? "Failed to connect to %s scope bus via %s transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                               hint_addr ? "Failed to connect to %s scope bus via %s transport: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                           "Failed to connect to %s scope bus via %s transport: %m", runtime_scope_to_string(scope), bus_transport_to_string(transport));
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
@@ -259,7 +259,7 @@ int bus_connect_user_systemd(sd_bus **ret_bus) {
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return -ENXIO;
+                return -ENOMEDIUM;
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -439,6 +439,7 @@ int bus_connect_transport(
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
+
                         r = sd_bus_default_system(&bus);
                         break;
 
@@ -496,6 +497,8 @@ int bus_connect_transport_systemd(
                 RuntimeScope runtime_scope,
                 sd_bus **ret_bus) {
 
+        int r;
+
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(ret_bus);
@@ -508,7 +511,17 @@ int bus_connect_transport_systemd(
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        return bus_connect_user_systemd(ret_bus);
+                        r = bus_connect_user_systemd(ret_bus);
+                        /* We used to always fall back to the user session bus if we couldn't connect to the
+                         * private manager bus. To keep compat with existing code that was setting
+                         * DBUS_SESSION_BUS_ADDRESS without setting XDG_RUNTIME_DIR, connect to the user
+                         * session bus if DBUS_SESSION_BUS_ADDRESS is set and XDG_RUNTIME_DIR isn't. */
+                        if (r == -ENOMEDIUM && secure_getenv("DBUS_SESSION_BUS_ADDRESS")) {
+                                log_debug_errno(r, "$XDG_RUNTIME_DIR not set, unable to connect to private bus. Falling back to session bus.");
+                                r = sd_bus_default_user(ret_bus);
+                        }
+
+                        return r;
 
                 case RUNTIME_SCOPE_SYSTEM:
                         if (sd_booted() <= 0)

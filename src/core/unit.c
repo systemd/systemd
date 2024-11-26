@@ -29,7 +29,6 @@
 #include "exec-credential.h"
 #include "execute.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "id128-util.h"
@@ -2044,7 +2043,11 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (state == UNIT_RELOADING)
+        if (IN_SET(state, UNIT_RELOADING, UNIT_REFRESHING))
+                /* "refreshing" means some resources in the unit namespace is being updated. Unlike reload,
+                 * the unit processes aren't made aware of refresh. Let's put the job back to queue
+                 * in both cases, as refresh typically takes place before reload and it's better to wait
+                 * for it rather than failing. */
                 return -EAGAIN;
 
         if (state != UNIT_ACTIVE)
@@ -2214,16 +2217,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2235,7 +2238,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
@@ -2266,7 +2269,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
                 if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
 
-                r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, job_mode, &error, /* ret = */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue %s%s job, ignoring: %s",
                                                dependency_name, other->id, bus_error_message(&error, r));
@@ -4234,6 +4237,9 @@ static int unit_verify_contexts(const Unit *u) {
             exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
+        if (exec_needs_pid_namespace(ec) && !UNIT_VTABLE(u)->notify_pidref)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
@@ -4620,7 +4626,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
                         return r;
         }
 
-        r = write_string_file_atomic_label(q, wrapped);
+        r = write_string_file(q, wrapped, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return r;
 
@@ -5399,6 +5405,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];
         p->handoff_timestamp_fd = u->manager->handoff_timestamp_fds[1];
+        if (UNIT_VTABLE(u)->notify_pidref)
+                p->pidref_transport_fd = u->manager->pidref_transport_fds[1];
 
         p->cgroup_id = crt ? crt->cgroup_id : 0;
         p->invocation_id = u->invocation_id;
@@ -6393,27 +6401,22 @@ Condition *unit_find_failed_condition(Unit *u) {
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
 }
 
-int unit_can_live_mount(const Unit *u, sd_bus_error *error) {
+int unit_can_live_mount(Unit *u, sd_bus_error *error) {
         assert(u);
 
-        if (!UNIT_VTABLE(u)->live_mount) {
-                log_unit_debug(u, "Live mounting not supported for unit type '%s'", unit_type_to_string(u->type));
+        if (!UNIT_VTABLE(u)->live_mount)
                 return sd_bus_error_setf(
                                 error,
-                                SD_BUS_ERROR_INVALID_ARGS,
-                                "Live mounting for unit '%s' cannot be scheduled: live mounting not supported for unit type '%s'",
-                                u->id,
+                                SD_BUS_ERROR_NOT_SUPPORTED,
+                                "Live mounting not supported by unit type '%s'",
                                 unit_type_to_string(u->type));
-        }
 
-        if (u->load_state != UNIT_LOADED) {
-                log_unit_debug(u, "Unit not loaded");
+        if (u->load_state != UNIT_LOADED)
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_NO_SUCH_UNIT,
-                                "Live mounting for unit '%s' cannot be scheduled: unit not loaded",
+                                "Unit '%s' not loaded, cannot live mount",
                                 u->id);
-        }
 
         if (!UNIT_VTABLE(u)->can_live_mount)
                 return 0;
@@ -6434,7 +6437,7 @@ int unit_live_mount(
         assert(UNIT_VTABLE(u)->live_mount);
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
-                log_unit_debug(u, "Unit not active");
+                log_unit_debug(u, "Unit not active, cannot perform live mount.");
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_UNIT_INACTIVE,
@@ -6445,7 +6448,7 @@ int unit_live_mount(
         }
 
         if (unit_active_state(u) == UNIT_REFRESHING) {
-                log_unit_debug(u, "Unit already live mounting");
+                log_unit_debug(u, "Unit already live mounting, refusing further requests.");
                 return sd_bus_error_setf(
                                 error,
                                 BUS_ERROR_UNIT_BUSY,

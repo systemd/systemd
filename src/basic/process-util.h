@@ -166,7 +166,7 @@ int must_be_root(void);
 
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata);
 
-/* 💣 Note that FORK_NEW_USERNS, FORK_NEW_MOUNTNS, or FORK_NEW_NETNS should not be called in threaded
+/* 💣 Note that FORK_NEW_USERNS, FORK_NEW_MOUNTNS, FORK_NEW_NETNS or FORK_NEW_PIDNS should not be called in threaded
  * programs, because they cause us to use raw_clone() which does not synchronize the glibc malloc() locks,
  * and thus will cause deadlocks if the parent uses threads and the child does memory allocations. Hence: if
  * the parent is threaded these flags may not be used. These flags cannot be used if the parent uses threads
@@ -181,18 +181,19 @@ typedef enum ForkFlags {
         FORK_REOPEN_LOG         = 1 <<  6, /* Reopen log connection */
         FORK_LOG                = 1 <<  7, /* Log above LOG_DEBUG log level about failures */
         FORK_WAIT               = 1 <<  8, /* Wait until child exited */
-        FORK_NEW_MOUNTNS        = 1 <<  9, /* Run child in its own mount namespace                               💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
-        FORK_MOUNTNS_SLAVE      = 1 << 10, /* Make child's mount namespace MS_SLAVE */
-        FORK_PRIVATE_TMP        = 1 << 11, /* Mount new /tmp/ in the child (combine with FORK_NEW_MOUNTNS!) */
-        FORK_RLIMIT_NOFILE_SAFE = 1 << 12, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
-        FORK_STDOUT_TO_STDERR   = 1 << 13, /* Make stdout a copy of stderr */
-        FORK_FLUSH_STDIO        = 1 << 14, /* fflush() stdout (and stderr) before forking */
-        FORK_NEW_USERNS         = 1 << 15, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
-        FORK_CLOEXEC_OFF        = 1 << 16, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
-        FORK_KEEP_NOTIFY_SOCKET = 1 << 17, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
-        FORK_DETACH             = 1 << 18, /* Double fork if needed to ensure PID1/subreaper is parent */
-        FORK_NEW_NETNS          = 1 << 19, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
-        FORK_PACK_FDS           = 1 << 20, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
+        FORK_MOUNTNS_SLAVE      = 1 <<  9, /* Make child's mount namespace MS_SLAVE */
+        FORK_PRIVATE_TMP        = 1 << 10, /* Mount new /tmp/ in the child (combine with FORK_NEW_MOUNTNS!) */
+        FORK_RLIMIT_NOFILE_SAFE = 1 << 11, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
+        FORK_STDOUT_TO_STDERR   = 1 << 12, /* Make stdout a copy of stderr */
+        FORK_FLUSH_STDIO        = 1 << 13, /* fflush() stdout (and stderr) before forking */
+        FORK_CLOEXEC_OFF        = 1 << 14, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
+        FORK_KEEP_NOTIFY_SOCKET = 1 << 15, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
+        FORK_DETACH             = 1 << 16, /* Double fork if needed to ensure PID1/subreaper is parent */
+        FORK_PACK_FDS           = 1 << 17, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
+        FORK_NEW_MOUNTNS        = 1 << 18, /* Run child in its own mount namespace                               💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_NEW_USERNS         = 1 << 19, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
 } ForkFlags;
 
 int safe_fork_full(
@@ -272,3 +273,5 @@ int posix_spawn_wrapper(
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);
 int proc_dir_read_pidref(DIR *d, PidRef *ret);
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int error);

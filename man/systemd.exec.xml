@@ -893,8 +893,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Mandatory Access Control</title>
 
-    <xi:include href="system-only.xml" xpointer="plural"/>
-
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -921,6 +919,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
         is not enabled. This setting does not affect commands prefixed with <literal>+</literal>.</para>
 
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
         <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
@@ -938,6 +938,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>The value may be prefixed by <literal>-</literal>, in which case all errors will be ignored. An empty
         value may be specified to unset previous assignments. This does not affect commands prefixed with
         <literal>+</literal>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
@@ -1431,6 +1433,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         set. This setting cannot ensure protection in all cases. In general it has the same limitations as
         <varname>ReadOnlyPaths=</varname>, see below. Defaults to off.</para>
 
+        <para>Note that if <varname>ProtectSystem=</varname> is set to <literal>strict</literal> and
+        <varname>PrivateTmp=</varname> is enabled, then <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> will be writable.</para>
+
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
@@ -1476,6 +1482,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         below the locations defined in the following table. Also, the corresponding environment variable will
         be defined with the full paths of the directories. If multiple directories are set, then in the
         environment variable the paths are concatenated with colon (<literal>:</literal>).</para>
+
+        <para>If <varname>DynamicUser=</varname> is used, and if the kernel version supports
+        <ulink url="https://lwn.net/Articles/896255/">id-mapped mounts</ulink>, the specified directories will
+        be owned by "nobody" in the host namespace and will be mapped to (and will be owned by) the service's
+        UID/GID in its own namespace. For backward compatibility, existing directories created without id-mapped
+        mounts will be kept untouched.</para>
+
         <table>
           <title>Automatic directory creation and environment variables</title>
           <tgroup cols='4'>
@@ -1561,12 +1574,18 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>
-        and <varname>LogsDirectory=</varname>  optionally support a second parameter, separated by <literal>:</literal>.
-        The second parameter will be interpreted as a destination path that will be created as a symlink to the directory.
-        The symlinks will be created after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname>
-        options have been set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by
-        using the same first parameter, but a different second parameter.</para>
+        <para><varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname>  optionally support two
+        more parameters, separated by <literal>:</literal>. The second parameter will be interpreted as a
+        destination path that will be created as a symlink to the directory. The symlinks will be created
+        after any <varname>BindPaths=</varname> or <varname>TemporaryFileSystem=</varname> options have been
+        set up, to make ephemeral symlinking possible. The same source can have multiple symlinks, by using
+        the same first parameter, but a different second parameter. The third parameter is a flags field,
+        and since v257 can take a value of <constant>ro</constant> to make the directory read only for the
+        service. This is also supported for <varname>ConfigurationDirectory=</varname>. If multiple symlinks
+        are set up, the directory will be read only if at least one is configured to be read only. To pass a
+        flag without a destination symlink, the second parameter can be empty, for example:
+        <programlisting>ConfigurationDirectory=foo::ro</programlisting></para>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
@@ -1964,6 +1983,30 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivatePIDs=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to false. If enabled, sets up a new PID namespace
+        for the executed processes. Each executed process is now PID 1 - the init process - in the new namespace.
+        <filename>/proc/</filename> is mounted such that only processes in the PID namespace are visible.
+        If <varname>PrivatePIDs=</varname> is set, <varname>MountAPIVFS=yes</varname> is implied.</para>
+
+        <para><varname>PrivatePIDs=</varname> is only supported for service units. This setting is not supported
+        with <varname>Type=forking</varname> since the kernel will kill all processes in the PID namespace if
+        the init process terminates.</para>
+
+        <para>This setting will be ignored if the kernel does not support PID namespaces.</para>
+
+        <para>Note unprivileged user services (i.e. a service run by the per-user instance of the service manager)
+        will fail with <varname>PrivatePIDs=yes</varname> if <filename>/proc/</filename> is masked
+        (i.e. <filename>/proc/kmsg</filename> is over-mounted with <constant>tmpfs</constant> like
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> does).
+        This is due to a kernel restriction not allowing unprivileged user namespaces to mount a less restrictive
+        instance of <filename>/proc/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
@@ -2117,14 +2160,22 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectControlGroups=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, the Linux Control Groups (<citerefentry
-        project='man-pages'><refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
+        <listitem><para>Takes a boolean argument or the special values <literal>private</literal> or
+        <literal>strict</literal>. If true, the Linux Control Groups (<citerefentry project='man-pages'>
+        <refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
         accessible through <filename>/sys/fs/cgroup/</filename> will be made read-only to all processes of the
-        unit. Except for container managers no services should require write access to the control groups hierarchies;
-        it is hence recommended to turn this on for most services. For this setting the same restrictions regarding
-        mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
-        above. Defaults to off. If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname>
-        is implied.</para>
+        unit. If set to <literal>private</literal>, the unit will run in a cgroup namespace with a private
+        writable mount of <filename>/sys/fs/cgroup/</filename>. If set to <literal>strict</literal>, the unit
+        will run in a cgroup namespace with a private read-only mount of <filename>/sys/fs/cgroup/</filename>.
+        Defaults to off. If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname>
+        is implied. Note <literal>private</literal> and <literal>strict</literal> are downgraded to false and
+        true respectively unless the system is using the unified control group hierarchy and the kernel supports
+        cgroup namespaces.</para>
+
+        <para>Except for container managers no services should require write access to the control groups hierarchies;
+        it is hence recommended to set <varname>ProtectControlGroups=</varname> to true or <literal>strict</literal>
+        for most services. For this setting the same restrictions regarding mount propagation and privileges apply
+        as for <varname>ReadOnlyPaths=</varname> and related settings, see above.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
@@ -4671,7 +4722,7 @@ OnFailure=myhandler.service
 
 [Service]
 ExecStart=/bin/myprogram
-        </programlisting>
+</programlisting>
 
         <para>A service <filename index="false">mysuccess.service</filename> which can trigger an
         <varname>OnSuccess=</varname> dependency.</para>
@@ -4683,7 +4734,7 @@ OnSuccess=myhandler.service
 
 [Service]
 ExecStart=/bin/mysecondprogram
-        </programlisting>
+</programlisting>
 
         <para>A service <filename index="false">myhandler.service</filename> which can be triggered
         by any of the above services.</para>
@@ -4694,7 +4745,7 @@ Description=Acts on service failing or succeeding
 
 [Service]
 ExecStart=/bin/bash -c "echo $MONITOR_SERVICE_RESULT $MONITOR_EXIT_CODE $MONITOR_EXIT_STATUS $MONITOR_INVOCATION_ID $MONITOR_UNIT"
-        </programlisting>
+</programlisting>
 
         <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
         then <filename index="false">myhandler.service</filename> would be triggered and the
@@ -4706,7 +4757,7 @@ MONITOR_EXIT_CODE=exited
 MONITOR_EXIT_STATUS=1
 MONITOR_INVOCATION_ID=cc8fdc149b2b4ca698d4f259f4054236
 MONITOR_UNIT=myfailer.service
-        </programlisting>
+</programlisting>
 
         <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
         then <filename index="false">myhandler.service</filename> would be triggered and the
@@ -4718,7 +4769,7 @@ MONITOR_EXIT_CODE=exited
 MONITOR_EXIT_STATUS=0
 MONITOR_INVOCATION_ID=6ab9af147b8c4a3ebe36e7a5f8611697
 MONITOR_UNIT=mysuccess.service
-        </programlisting>
+</programlisting>
 
     </example>
 

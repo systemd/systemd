@@ -274,8 +274,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                                        "Failed to remount '%s' read-only: %m",
                                        m->path);
 
-                (void) write(pfd[1], &r, sizeof(r)); /* try to send errno up */
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                report_errno_and_exit(pfd[1], r);
         }
 
         pfd[1] = safe_close(pfd[1]);
@@ -337,8 +336,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
                                 log_umount_blockers(m->path);
                 }
 
-                (void) write(pfd[1], &r, sizeof(r)); /* try to send errno up */
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                report_errno_and_exit(pfd[1], r);
         }
 
         pfd[1] = safe_close(pfd[1]);

@@ -1864,7 +1864,7 @@ int bus_unit_queue_job_one(
                         return -ENOMEM;
         }
 
-        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
+        r = manager_add_job_full(u->manager, type, u, mode, /* extra_flags = */ 0, affected, error, &j);
         if (r < 0)
                 return r;
 

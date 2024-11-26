@@ -104,8 +104,8 @@ jobs:
             relabel: yes
 
     steps:
-      - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
-      - uses: systemd/mkosi@2a35f9958bc6b82d95d1eac02dc245e9bb068765
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: systemd/mkosi@0825cca8084674ec8fa27502134b1bc601f79e0c
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location

@@ -220,9 +220,9 @@ static int synthesize_user_creds(
                 if (ret_gid)
                         *ret_gid = GID_NOBODY;
                 if (ret_home)
-                        *ret_home = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/";
+                        *ret_home = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/";
                 if (ret_shell)
-                        *ret_shell = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : NOLOGIN;
+                        *ret_shell = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN;
 
                 return 0;
         }
@@ -244,6 +244,7 @@ int get_user_creds(
 
         assert(username);
         assert(*username);
+        assert((ret_home || ret_shell) || !(flags & (USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_CLEAN)));
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
             (!ret_home && !ret_shell)) {
@@ -315,17 +316,14 @@ int get_user_creds(
 
         if (ret_home)
                 /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
-                *ret_home = (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
-                             (empty_or_root(p->pw_dir) ||
-                              !path_is_valid(p->pw_dir) ||
-                              !path_is_absolute(p->pw_dir))) ? NULL : p->pw_dir;
+                *ret_home = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && empty_or_root(p->pw_dir)) ||
+                            (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_dir) || !path_is_absolute(p->pw_dir)))
+                            ? NULL : p->pw_dir;
 
         if (ret_shell)
-                *ret_shell = (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
-                              (isempty(p->pw_shell) ||
-                               !path_is_valid(p->pw_shell) ||
-                               !path_is_absolute(p->pw_shell) ||
-                               is_nologin_shell(p->pw_shell))) ? NULL : p->pw_shell;
+                *ret_shell = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && shell_is_placeholder(p->pw_shell)) ||
+                             (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_shell) || !path_is_absolute(p->pw_shell)))
+                             ? NULL : p->pw_shell;
 
         if (patch_username)
                 *username = p->pw_name;
@@ -882,6 +880,17 @@ bool valid_home(const char *p) {
                 return false;
 
         return true;
+}
+
+bool valid_shell(const char *p) {
+        /* We have the same requirements, so just piggy-back on the home check.
+         *
+         * Let's ignore /etc/shells because this is only applicable to real and not system users. It is also
+         * incompatible with the idea of empty /etc/. */
+        if (!valid_home(p))
+                return false;
+
+        return !endswith(p, "/"); /* one additional restriction: shells may not be dirs */
 }
 
 int maybe_setgroups(size_t size, const gid_t *list) {

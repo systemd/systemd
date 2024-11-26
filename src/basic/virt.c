@@ -83,10 +83,10 @@ static Virtualization detect_vm_cpuid(void) {
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
-                for (size_t i = 0; i < ELEMENTSOF(vm_table); i++)
+                FOREACH_ELEMENT(vm, vm_table)
                         if (memcmp_nn(sig.text, sizeof(sig.text),
-                                      vm_table[i].sig, sizeof(vm_table[i].sig)) == 0)
-                                return vm_table[i].id;
+                                      vm->sig, sizeof(vm->sig)) == 0)
+                                return vm->id;
 
                 log_debug("Unknown virtualization with CPUID=%s. Add to vm_table[]?", sig.text);
                 return VIRTUALIZATION_VM_OTHER;
@@ -202,10 +202,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
                         return r;
                 }
 
-                for (size_t i = 0; i < ELEMENTSOF(dmi_vendor_table); i++)
-                        if (startswith(s, dmi_vendor_table[i].vendor)) {
+                FOREACH_ELEMENT(dmi_vendor, dmi_vendor_table)
+                        if (startswith(s, dmi_vendor->vendor)) {
                                 log_debug("Virtualization %s found in DMI (%s)", s, *vendor);
-                                return dmi_vendor_table[i].id;
+                                return dmi_vendor->id;
                         }
         }
         log_debug("No virtualization found in DMI vendor table.");
@@ -585,6 +585,14 @@ static int running_in_cgroupns(void) {
         if (!cg_ns_supported())
                 return false;
 
+        r = namespace_is_init(NAMESPACE_CGROUP);
+        if (r < 0)
+                log_debug_errno(r, "Failed to test if in root cgroup namespace, ignoring: %m");
+        else if (r > 0)
+                return false;
+
+        // FIXME: We really should drop the heuristics below.
+
         r = cg_all_unified();
         if (r < 0)
                 return r;
@@ -645,6 +653,16 @@ static int running_in_cgroupns(void) {
         }
 }
 
+static int running_in_pidns(void) {
+        int r;
+
+        r = namespace_is_init(NAMESPACE_PID);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to test if in root PID namespace, ignoring: %m");
+
+        return !r;
+}
+
 static Virtualization detect_container_files(void) {
         static const struct {
                 const char *file_path;
@@ -658,14 +676,14 @@ static Virtualization detect_container_files(void) {
                 { "/.dockerenv",        VIRTUALIZATION_DOCKER },
         };
 
-        for (size_t i = 0; i < ELEMENTSOF(container_file_table); i++) {
-                if (access(container_file_table[i].file_path, F_OK) >= 0)
-                        return container_file_table[i].id;
+        FOREACH_ELEMENT(file, container_file_table) {
+                if (access(file->file_path, F_OK) >= 0)
+                        return file->id;
 
                 if (errno != ENOENT)
                         log_debug_errno(errno,
                                         "Checking if %s exists failed, ignoring: %m",
-                                        container_file_table[i].file_path);
+                                        file->file_path);
         }
 
         return VIRTUALIZATION_NONE;
@@ -790,11 +808,20 @@ check_files:
 
         r = running_in_cgroupns();
         if (r > 0) {
+                log_debug("Running in a cgroup namespace, assuming unknown container manager.");
                 v = VIRTUALIZATION_CONTAINER_OTHER;
                 goto finish;
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to detect cgroup namespace: %m");
+
+        /* Finally, the root pid namespace has an hardcoded inode number of 0xEFFFFFFC since kernel 3.8, so
+         * if all else fails we can check the inode number of our pid namespace and compare it. */
+        if (running_in_pidns() > 0) {
+                log_debug("Running in a pid namespace, assuming unknown container manager.");
+                v = VIRTUALIZATION_CONTAINER_OTHER;
+                goto finish;
+        }
 
         /* If none of that worked, give up, assume no container manager. */
         v = VIRTUALIZATION_NONE;
@@ -862,6 +889,14 @@ static int userns_has_mapping(const char *name) {
 int running_in_userns(void) {
         _cleanup_free_ char *line = NULL;
         int r;
+
+        r = namespace_is_init(NAMESPACE_USER);
+        if (r < 0)
+                log_debug_errno(r, "Failed to test if in root user namespace, ignoring: %m");
+        else if (r > 0)
+                return false;
+
+        // FIXME: We really should drop the heuristics below.
 
         r = userns_has_mapping("/proc/self/uid_map");
         if (r != 0)

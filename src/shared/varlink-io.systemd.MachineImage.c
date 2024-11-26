@@ -5,13 +5,22 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.MachineImage.h"
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                AcquireMetadata,
+                SD_VARLINK_FIELD_COMMENT("Do not include metadata in the output"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("Include metadata in the output"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("Include metadata in the output, but gracefully eat up errors"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(graceful));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
                 SD_VARLINK_FIELD_COMMENT("If non-null the name of a image to report details on."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true the output will include image metadata fields such as 'machineInfo' and 'OSRelease'."),
-                SD_VARLINK_DEFINE_INPUT(acquireMetadata, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(acquireMetadata, AcquireMetadata, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("Name of the image"),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
@@ -44,26 +53,50 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("OS release information of an image. It contains an array of key value pairs read from the os-release(5) file in the image."),
                 SD_VARLINK_DEFINE_OUTPUT(OSRelease, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
 
+#define VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS           \
+        SD_VARLINK_FIELD_COMMENT("The name of an image"),       \
+        SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),    \
+        VARLINK_DEFINE_POLKIT_INPUT
+
 static SD_VARLINK_DEFINE_METHOD(
                 Update,
-                SD_VARLINK_FIELD_COMMENT("The name of a image to update."),
-                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS,
                 SD_VARLINK_FIELD_COMMENT("If non-null the new name of the image"),
                 SD_VARLINK_DEFINE_INPUT(newName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null value of the read-only flag of the image"),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If non-null value of image quota limit"),
-                SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
+                SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Clone,
+                VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("The new name of the image"),
+                SD_VARLINK_DEFINE_INPUT(newName, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If non-null value of the read-only flag of the image"),
+                SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Remove,
+                VARLINK_DEFINE_IMAGE_LOOKUP_AND_POLKIT_FIELDS);
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchImage);
+static SD_VARLINK_DEFINE_ERROR(TooManyOperations);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MachineImage,
                 "io.systemd.MachineImage",
+                SD_VARLINK_SYMBOL_COMMENT("A enum field allowing to gracefully get metadata"),
+                &vl_type_AcquireMetadata,
                 SD_VARLINK_SYMBOL_COMMENT("List images"),
                 &vl_method_List,
                 SD_VARLINK_SYMBOL_COMMENT("Update image allowing to rename or toggle read-only flag"),
                 &vl_method_Update,
+                SD_VARLINK_SYMBOL_COMMENT("Clone image"),
+                &vl_method_Clone,
+                SD_VARLINK_SYMBOL_COMMENT("Remove image"),
+                &vl_method_Remove,
                 SD_VARLINK_SYMBOL_COMMENT("No matching image exists"),
-                &vl_error_NoSuchImage);
+                &vl_error_NoSuchImage,
+                SD_VARLINK_SYMBOL_COMMENT("Too many ongoing background operations"),
+                &vl_error_TooManyOperations);

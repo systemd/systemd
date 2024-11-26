@@ -25,6 +25,10 @@
         "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
         "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
+TEST(colors_enabled) {
+        log_info("colors_enabled: %s", yes_no(colors_enabled()));
+}
+
 TEST(default_term_for_tty) {
         puts(default_term_for_tty("/dev/tty23"));
         puts(default_term_for_tty("/dev/ttyS23"));
@@ -126,8 +130,8 @@ static const Color colors[] = {
 };
 
 TEST(colors) {
-        for (size_t i = 0; i < ELEMENTSOF(colors); i++)
-                printf("<%s%s%s>\n", colors[i].func(), colors[i].name, ansi_normal());
+        FOREACH_ELEMENT(color, colors)
+                printf("<%s%s%s>\n", colors->func(), color->name, ansi_normal());
 }
 
 TEST(text) {
@@ -212,14 +216,13 @@ TEST(terminal_fix_size) {
 
 TEST(terminal_is_pty_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        _cleanup_free_ char *peer = NULL;
         int r;
 
-        fd1 = openpt_allocate(O_RDWR, &peer);
+        fd1 = openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL);
         assert_se(fd1 >= 0);
         assert_se(terminal_is_pty_fd(fd1) > 0);
 
-        fd2 = open_terminal(peer, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        fd2 = pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(fd2 >= 0);
         assert_se(terminal_is_pty_fd(fd2) > 0);
 
@@ -289,6 +292,26 @@ TEST(terminal_reset_defensive) {
         r = terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
         if (r < 0)
                 log_notice_errno(r, "Failed to reset terminal: %m");
+}
+
+TEST(pty_open_peer) {
+        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        _cleanup_free_ char *pty_path = NULL;
+
+        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+        assert(pty_fd >= 0);
+        assert(pty_path);
+
+        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        assert(peer_fd >= 0);
+
+        static const char x[] = { 'x', '\n' };
+        assert(write(pty_fd, x, sizeof(x)) == 2);
+
+        char buf[3];
+        assert(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
+        assert(buf[0] == x[0]);
+        assert(buf[1] == x[1]);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

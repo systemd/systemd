@@ -254,6 +254,10 @@ static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static bool geneve_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        return true;
+}
+
 static void geneve_init(NetDev *netdev) {
         Geneve *v = GENEVE(netdev);
 
@@ -272,6 +276,7 @@ const NetDevVTable geneve_vtable = {
         .fill_message_create = netdev_geneve_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_geneve_verify,
+        .can_set_mac = geneve_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

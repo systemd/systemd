@@ -42,8 +42,8 @@ If such a lock is taken the operation will fail (but still may be overridden if 
 The InhibitDelayMaxSec= setting in [logind.conf(5)](http://www.freedesktop.org/software/systemd/man/logind.conf.html) controls the timeout for this. This is intended to be used by applications which need a synchronous way to execute actions before system suspend but shall not be allowed to block suspend indefinitely.
 This mode is only available for _sleep_ and _shutdown_ locks.
 
-3. _block-weak_ and _delay-weak_ that work as the non-weak counterparts, but that in addition may be ignored
-automatically and silently under certain circumstances, unlike the formers which are always respected.
+3. _block-weak_ that works as its non-weak counterpart, but that in addition may be ignored
+automatically and silently under certain circumstances, unlike the former which is always respected.
 
 Inhibitor locks are taken via the Inhibit() D-Bus call on the logind Manager object:
 

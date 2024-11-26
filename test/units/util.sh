@@ -6,15 +6,26 @@
 # shellcheck disable=SC2034
 [[ -e /var/tmp/.systemd_reboot_count ]] && REBOOT_COUNT="$(</var/tmp/.systemd_reboot_count)" || REBOOT_COUNT=0
 
-assert_true() {(
+assert_ok() {(
     set +ex
 
     local rc
 
     "$@"
     rc=$?
-    if [[ $rc -ne 0 ]]; then
+    if [[ "$rc" -ne 0 ]]; then
         echo "FAIL: command '$*' failed with exit code $rc" >&2
+        exit 1
+    fi
+)}
+
+assert_fail() {(
+    set +ex
+
+    local rc
+
+    if "$@"; then
+        echo "FAIL: command '$*' unexpectedly succeeded" >&2
         exit 1
     fi
 )}
@@ -24,6 +35,15 @@ assert_eq() {(
 
     if [[ "${1?}" != "${2?}" ]]; then
         echo "FAIL: expected: '$2' actual: '$1'" >&2
+        exit 1
+    fi
+)}
+
+assert_neq() {(
+    set +ex
+
+    if [[ "${1?}" = "${2?}" ]]; then
+        echo "FAIL: not expected: '$2' actual: '$1'" >&2
         exit 1
     fi
 )}

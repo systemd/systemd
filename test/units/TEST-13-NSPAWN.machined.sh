@@ -22,6 +22,11 @@ trap at_exit EXIT
 
 systemctl service-log-level systemd-machined debug
 systemctl service-log-level systemd-importd debug
+# per request in https://github.com/systemd/systemd/pull/35117
+systemctl edit --runtime --stdin 'systemd-nspawn@.service' --drop-in=debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
 
 # Mount temporary directory over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
@@ -39,10 +44,10 @@ cat >/var/lib/machines/long-running/sbin/init <<\EOF
 
 PID=0
 
-trap "touch /terminate; kill $PID" RTMIN+3
-trap "touch /poweroff" RTMIN+4
-trap "touch /reboot" INT
-trap "touch /trap" TRAP
+trap 'touch /terminate; kill 0' RTMIN+3
+trap 'touch /poweroff' RTMIN+4
+trap 'touch /reboot' INT
+trap 'touch /trap' TRAP
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -278,13 +283,13 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 # sending TRAP signal
 rm -f /var/lib/machines/long-running/trap
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Kill '{"name":"long-running", "whom": "leader", "signal": 5}'
-timeout 30 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+timeout 120 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
 
 # test io.systemd.Machine.Terminate
 long_running_machine_start
 rm -f /var/lib/machines/long-running/terminate
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Terminate '{"name":"long-running"}'
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
 timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"long-running\"}'; do sleep 0.5; done"
 
 # test io.systemd.Machine.Register
@@ -302,11 +307,95 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep -q 'non-existent'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unregister '{"name": "registered-container"}'
 
+# test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
+create_dummy_container "/var/lib/machines/container-without-os-release"
+cat >>/var/lib/machines/container-without-os-release/sbin/init <<\EOF
+ip link add hoge type dummy
+ip link set hoge up
+ip address add 192.0.2.1/24 dev hoge
+
+PID=0
+
+trap 'kill 0' RTMIN+3
+trap 'kill $PID' EXIT
+
+# We need to wait for the sleep process asynchronously in order to allow
+# bash to process signals
+sleep infinity &
+
+# notify that the process is ready
+touch /ready
+
+PID=$!
+while :; do
+    wait || :
+done
+EOF
+machinectl start "container-without-os-release"
+timeout 30 bash -c "until test -e /var/lib/machines/container-without-os-release/ready; do sleep .5; done"
+rm -f /var/lib/machines/container-without-os-release/etc/os-release /var/lib/machines/container-without-os-release/usr/lib/os-release
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "yes"}')
+output=$(varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": "container-without-os-release", "acquireMetadata": "graceful"}')
+assert_eq "$(echo "$output" | jq --seq .name | tr -d \\036)" '"container-without-os-release"'
+assert_eq "$(echo "$output" | jq --seq .class | tr -d \\036)" '"container"'
+assert_eq "$(echo "$output" | jq --seq .service | tr -d \\036)" '"systemd-nspawn"'
+assert_eq "$(echo "$output" | jq --seq .rootDirectory | tr -d \\036)" '"/var/lib/machines/container-without-os-release"'
+assert_eq "$(echo "$output" | jq --seq .unit | tr -d \\036)" '"systemd-nspawn@container-without-os-release.service"'
+assert_eq "$(echo "$output" | jq --seq .addresses[0].family | tr -d \\036)" '2'
+assert_eq "$(echo "$output" | jq --seq .addresses[0].address[0] | tr -d \\036)" '192'
+assert_eq "$(echo "$output" | jq --seq .addresses[0].address[1] | tr -d \\036)" '0'
+assert_eq "$(echo "$output" | jq --seq .addresses[0].address[2] | tr -d \\036)" '2'
+assert_eq "$(echo "$output" | jq --seq .addresses[0].address[3] | tr -d \\036)" '1'
+# test for listing multiple machines.
+long_running_machine_start
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{}'
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "no"}'
+varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "graceful"}'
+# check if machined does not try to send anything after error message
+journalctl --sync
+TS="$(date '+%H:%M:%S')"
+(! varlinkctl --more call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"acquireMetadata": "yes"}')
+journalctl --sync
+(! journalctl -u systemd-machined.service --since="$TS" --grep 'Connection busy')
+# terminate machines
+machinectl terminate container-without-os-release
+machinectl terminate long-running
+# wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
+timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
+systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
+
+(ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'OSRelease'
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'acquireUIDShift')
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'UIDShift'
+
+# test io.systemd.Machine.Open
+
+# Reducing log level here is to work-around check in end.service (end.sh). Read https://github.com/systemd/systemd/pull/34867 for more details
+systemctl service-log-level systemd-machined info
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host"}')
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": ""}')
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": null}')
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "foo"}')
+systemctl service-log-level systemd-machined debug
+
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "tty"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "login"}'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
+
+rm -f /tmp/none-existent-file
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
+timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
+grep -q "BAR" /tmp/none-existent-file
+
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep '.host'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}'
-varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running", "acquireMetadata": true}' | grep 'OSRelease'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running", "acquireMetadata": "yes"}' | grep 'OSRelease'
 
 # test io.systemd.MachineImage.Update
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Update '{"name":"long-running", "newName": "long-running-renamed", "readOnly": true}'
@@ -316,3 +405,12 @@ varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineI
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Update '{"name":"long-running-renamed", "newName": "long-running", "readOnly": false}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}'
 varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running"}' | jq '.readOnly' | grep 'false'
+
+# test io.systemd.MachineImage.Clone
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Clone '{"name":"long-running", "newName": "long-running-cloned", "readOnly": true}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}'
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}' | jq '.readOnly' | grep 'true'
+
+# test io.systemd.MachineImage.Remove
+varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.Remove '{"name":"long-running-cloned"}'
+(! varlinkctl call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{"name":"long-running-cloned"}')

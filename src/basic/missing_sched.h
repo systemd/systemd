@@ -6,6 +6,7 @@
 
 #include "macro.h"
 
+/* 5e2bec7c2248ae27c5b16cd97215ae05c1d39179 (4.6) */
 #ifndef CLONE_NEWCGROUP
 #  define CLONE_NEWCGROUP 0x02000000
 #else

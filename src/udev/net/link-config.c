@@ -228,7 +228,6 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
         _cleanup_free_ char *name = NULL;
         const char *dropin_dirname;
-        size_t i;
         int r;
 
         assert(ctx);
@@ -267,8 +266,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .sr_iov_num_vfs = UINT32_MAX,
         };
 
-        for (i = 0; i < ELEMENTSOF(config->features); i++)
-                config->features[i] = -1;
+        FOREACH_ELEMENT(feature, config->features)
+                *feature = -1;
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(

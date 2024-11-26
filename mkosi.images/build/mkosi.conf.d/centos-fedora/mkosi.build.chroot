@@ -34,7 +34,7 @@ COMMON_MACRO_OVERRIDES=(
 )
 
 # TODO: Drop -U_FORTIFY_SOURCE when we switch to CentOS Stream 10.
-MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
+MKOSI_CFLAGS="-O0 -g -Wp,-U_FORTIFY_SOURCE"
 if ((WITH_DEBUG)); then
     MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=/usr/src/debug/systemd"
 fi
@@ -52,6 +52,11 @@ MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
 if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
 fi
+
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.rpm
+)
 
 IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
@@ -73,7 +78,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     $( ((WITH_DOCS))  || echo "--without=docs") \
     --define "_topdir /var/tmp" \
     --define "_sourcedir $PWD/pkg/$PKG_SUBDIR" \
-    --define "_rpmdir $OUTPUTDIR" \
+    --define "_rpmdir $BUILDDIR" \
     ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
     --define "_binary_payload w.ufdio" \
@@ -101,12 +106,6 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --noclean \
     "pkg/$PKG_SUBDIR/systemd.spec"
 
-(
-    shopt -s nullglob
-    rm -f "$BUILDDIR"/*.rpm
-)
-
-cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
-cp "$OUTPUTDIR"/*.rpm "$BUILDDIR"
+cp "$BUILDDIR"/*.rpm "$PACKAGEDIR"
 
 make_sysext_unsigned /var/tmp/BUILD/*/BUILDROOT

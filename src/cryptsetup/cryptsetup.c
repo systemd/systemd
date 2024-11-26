@@ -1294,7 +1294,7 @@ static int run_security_device_monitor(
         assert(event);
         assert(monitor);
 
-        /* Runs the event loop for the device monitor until either something happens, or the time-out is
+        /* Runs the event loop for the device monitor until either something happens, or the timeout is
          * hit. */
 
         for (;;) {
@@ -1471,8 +1471,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
-                const void *key_data,
-                size_t key_data_size,
+                const struct iovec *key_data,
                 usec_t until,
                 uint32_t flags,
                 bool pass_volume_key) {
@@ -1489,7 +1488,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         assert(name);
         assert(arg_fido2_device || arg_fido2_device_auto);
 
-        if (arg_fido2_cid && !key_file && !key_data)
+        if (arg_fido2_cid && !key_file && !iovec_is_set(key_data))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
@@ -1513,7 +1512,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 arg_fido2_rp_id,
                                                 arg_fido2_cid, arg_fido2_cid_size,
                                                 key_file, arg_keyfile_size, arg_keyfile_offset,
-                                                key_data, key_data_size,
+                                                key_data,
                                                 until,
                                                 arg_fido2_manual_flags,
                                                 "cryptsetup.fido2-pin",
@@ -1623,8 +1622,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
-                const void *key_data,
-                size_t key_data_size,
+                const struct iovec *key_data,
                 usec_t until,
                 uint32_t flags,
                 bool pass_volume_key) {
@@ -1635,6 +1633,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ void *discovered_key = NULL;
+        struct iovec discovered_key_data = {};
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
         bool use_libcryptsetup_plugin = use_token_plugins();
@@ -1653,13 +1652,13 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                 return r;
 
                         uri = discovered_uri;
-                        key_data = discovered_key;
-                        key_data_size = discovered_key_size;
+                        discovered_key_data = IOVEC_MAKE(discovered_key, discovered_key_size);
+                        key_data = &discovered_key_data;
                 }
         } else {
                 uri = arg_pkcs11_uri;
 
-                if (!key_file && !key_data)
+                if (!key_file && !iovec_is_set(key_data))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
         }
 
@@ -1682,7 +1681,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         friendly,
                                         uri,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
+                                        key_data,
                                         until,
                                         arg_ask_password_flags,
                                         &decrypted_key, &decrypted_key_size);
@@ -2231,9 +2230,9 @@ static int attach_luks_or_plain_or_bitlk(
         if (token_type == TOKEN_TPM2)
                 return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, until, flags, pass_volume_key);
         if (token_type == TOKEN_FIDO2)
-                return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data->iov_base, key_data->iov_len, until, flags, pass_volume_key);
+                return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, until, flags, pass_volume_key);
         if (token_type == TOKEN_PKCS11)
-                return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data->iov_base, key_data->iov_len, until, flags, pass_volume_key);
+                return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, until, flags, pass_volume_key);
         if (key_data)
                 return attach_luks_or_plain_or_bitlk_by_key_data(cd, name, key_data, flags, pass_volume_key);
         if (key_file)

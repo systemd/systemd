@@ -330,7 +330,7 @@ bool is_efi_secure_boot(void) {
         int r;
 
         if (cache < 0) {
-                r = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+                r = read_flag(EFI_GLOBAL_VARIABLE_STR("SecureBoot"));
                 if (r == -ENOENT)
                         cache = false;
                 else if (r < 0)
@@ -348,7 +348,7 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         if (cache != _SECURE_BOOT_INVALID)
                 return cache;
 
-        int secure = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+        int secure = read_flag(EFI_GLOBAL_VARIABLE_STR("SecureBoot"));
         if (secure < 0) {
                 if (secure != -ENOENT)
                         log_debug_errno(secure, "Error reading SecureBoot EFI variable, assuming not in SecureBoot mode: %m");
@@ -358,9 +358,9 @@ SecureBootMode efi_get_secure_boot_mode(void) {
 
         /* We can assume false for all these if they are abscent (AuditMode and
          * DeployedMode may not exist on older firmware). */
-        int audit    = read_flag(EFI_GLOBAL_VARIABLE(AuditMode));
-        int deployed = read_flag(EFI_GLOBAL_VARIABLE(DeployedMode));
-        int setup    = read_flag(EFI_GLOBAL_VARIABLE(SetupMode));
+        int audit    = read_flag(EFI_GLOBAL_VARIABLE_STR("AuditMode"));
+        int deployed = read_flag(EFI_GLOBAL_VARIABLE_STR("DeployedMode"));
+        int setup    = read_flag(EFI_GLOBAL_VARIABLE_STR("SetupMode"));
         log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d",
                   secure, audit, deployed, setup);
 
@@ -381,13 +381,13 @@ static int read_efi_options_variable(char **ret) {
                 /* Let's be helpful with the returned error and check if the variable exists at all. If it
                  * does, let's return a recognizable error (EPERM), and if not ENODATA. */
 
-                if (access(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), F_OK) < 0)
+                if (access(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions")), F_OK) < 0)
                         return errno == ENOENT ? -ENODATA : -errno;
 
                 return -EPERM;
         }
 
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), ret);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions"), ret);
         if (r == -ENOENT)
                 return -ENODATA;
         return r;
@@ -401,7 +401,7 @@ int cache_efi_options_variable(void) {
         if (r < 0)
                 return r;
 
-        return write_string_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), line,
+        return write_string_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions")), line,
                                  WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
 }
 
@@ -418,7 +418,7 @@ int systemd_efi_options_variable(char **ret) {
         if (e)
                 return strdup_to(ret, e);
 
-        r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), ret);
+        r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions")), ret);
         if (r == -ENOENT)
                 return -ENODATA;
         return r;
@@ -432,12 +432,12 @@ int systemd_efi_options_efivarfs_if_newer(char **ret) {
         struct stat a = {}, b;
         int r;
 
-        if (stat(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &a) < 0 && errno != ENOENT)
+        if (stat(EFIVAR_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions")), &a) < 0 && errno != ENOENT)
                 return log_debug_errno(errno, "Failed to stat EFI variable SystemdOptions: %m");
 
-        if (stat(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), &b) < 0) {
+        if (stat(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions")), &b) < 0) {
                 if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to stat "EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions))": %m");
+                        log_debug_errno(errno, "Failed to stat "EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE_STR("SystemdOptions"))": %m");
         } else if (compare_stat_mtime(&a, &b) > 0)
                 log_debug("Variable SystemdOptions in evifarfs is newer than in cache.");
         else {

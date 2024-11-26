@@ -8,13 +8,15 @@ set -o pipefail
 
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
+CORE_STACKTRACE_TEST_BIN="/tmp/test-stacktrace-dump"
+MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
 MAKE_DUMP_SCRIPT="/tmp/make-dump"
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
 at_exit() {
-    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT"
+    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT" "$MAKE_STACKTRACE_DUMP"
 }
 
 trap at_exit EXIT
@@ -225,3 +227,32 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 (! coredumpctl dump --output=/dev/null --output=/dev/null "$CORE_TEST_BIN")
 (! coredumpctl debug --debugger=/bin/false)
 (! coredumpctl debug --debugger=/bin/true --debugger-arguments='"')
+
+# Test for EnterNamespace= feature
+if pkgconf --atleast-version 0.192 libdw ; then
+    # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
+    cat >"$MAKE_STACKTRACE_DUMP" <<END
+#!/bin/bash
+mount -t tmpfs tmpfs /tmp
+gcc -xc -O0 -g -o $CORE_STACKTRACE_TEST_BIN - <<EOF
+void baz(void) { int *x = 0; *x = 42; }
+void bar(void) { baz(); }
+void foo(void) { bar(); }
+int main(void) { foo(); return 0;}
+EOF
+$CORE_STACKTRACE_TEST_BIN
+END
+    chmod +x "$MAKE_STACKTRACE_DUMP"
+
+    mkdir -p /run/systemd/coredump.conf.d/
+    printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
+
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
+    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
+
+    printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
+    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
+else
+    echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
+fi

@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2021-08-26 18:05+0000\n"
 "Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
@@ -118,31 +118,42 @@ msgstr ""
 "Necesita autenticarse para actualizar el espacio personal de un usuario."
 
 #: src/home/org.freedesktop.home1.policy:53
+#, fuzzy
+msgid "Update your home area"
+msgstr "Actualizar un espacio personal"
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Necesita autenticarse para actualizar el espacio personal de un usuario."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Redimensionar un espacio personal"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
 "Necesita autenticarse para redimensionar el espacio personal de un usuario."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Cambiar contraseña de un espacio personal"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Necesita autenticarse para cambiar la contraseña del espacio personal de un "
 "usuario."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Crear un área home"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Se requiere autenticación para crear un área home de usuario."
@@ -1215,6 +1226,17 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Necesita autenticarse para establecer la fecha y hora del sistema."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Necesita autenticarse para administrar las sesiones activas, usuarios y "
+"puestos de trabajo."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Establecer fecha y hora del sistema"
@@ -1255,23 +1277,23 @@ msgstr ""
 "Necesita autenticarse para activar/desactivar la sincronización de hora por "
 "red."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Necesita autenticarse para iniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Necesita autenticarse para detener «$(unit)»."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Necesita autenticarse para recargar «$(unit)»."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Necesita autenticarse para reiniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
@@ -1279,16 +1301,16 @@ msgid ""
 msgstr ""
 "Se requiere autenticación para establecer las propiedades de '$(unit)'."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Necesita autenticarse para reiniciar el estado de «fallido» de «$(unit)»."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Necesita autenticarse para establecer las propiedades de «$(unit)»."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
 "Authentication is required to delete files and directories associated with "
@@ -1296,7 +1318,7 @@ msgid ""
 msgstr ""
 "Se requiere autenticación para reiniciar el estado de «fallido» de '$(unit)'."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 #, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."

@@ -216,6 +216,7 @@ node /org/freedesktop/login1 {
       readonly t IdleSinceHint = ...;
       readonly t IdleSinceHintMonotonic = ...;
       readonly s BlockInhibited = '...';
+      readonly s BlockWeakInhibited = '...';
       readonly s DelayInhibited = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InhibitDelayMaxUSec = ...;
@@ -288,7 +289,7 @@ node /org/freedesktop/login1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property SleepOperation is not documented!-->
 
@@ -488,6 +489,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="BlockInhibited"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="BlockWeakInhibited"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DelayInhibited"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InhibitDelayMaxUSec"/>
@@ -670,18 +673,20 @@ node /org/freedesktop/login1 {
 #define SD_LOGIND_SOFT_REBOOT                    (UINT64_C(1) &lt;&lt; 2)
 #define SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP (UINT64_C(1) &lt;&lt; 3)
 #define SD_LOGIND_SKIP_INHIBITORS                (UINT64_C(1) &lt;&lt; 4)
-      </programlisting>
+</programlisting>
       <para>When the <varname>flags</varname> is 0 then these methods behave just like the versions without
-      flags. Since systemd version 256 <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is deprecated,
-      and active inhibitors are always honoured by default for privileged users too, and a new flag
-      <constant>SD_LOGIND_SKIP_INHIBITORS</constant> (0x04) can be specified to bypass inhibitors. When
-      <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then <function>RebootWithFlags()</function>
-      performs a kexec reboot if kexec kernel is loaded. When <constant>SD_LOGIND_SOFT_REBOOT</constant>
-      (0x04) is set, or <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a
-      new root file system has been set up on <literal>/run/nextroot/</literal>, then
-      <function>RebootWithFlags()</function> performs a userspace reboot only.
-      <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
-      <constant>SD_LOGIND_KEXEC_REBOOT</constant> can be combined, with soft-reboot having precedence.</para>
+      flags. Since systemd version 257 active inhibitors are honoured by default for privileged users too.
+      <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) now only applies to weak inhibitors, to
+      request that they honoured for privileged users too, since they ignore them by default. A new flag
+      <constant>SD_LOGIND_SKIP_INHIBITORS</constant> (0x04) can be specified to bypass all types of
+      inhibitors. When <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then
+      <function>RebootWithFlags()</function> performs a kexec reboot if kexec kernel is loaded. When
+      <constant>SD_LOGIND_SOFT_REBOOT</constant> (0x04) is set, or
+      <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a new root file system
+      has been set up on <literal>/run/nextroot/</literal>, then <function>RebootWithFlags()</function>
+      performs a userspace reboot only. <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
+      <constant>SD_LOGIND_KEXEC_REBOOT</constant> can be combined, with soft-reboot having precedence.
+      </para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
@@ -738,11 +743,10 @@ node /org/freedesktop/login1 {
       should be a short human readable string identifying the reason why the lock is taken. Finally,
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
-      certain maximum time, while the <literal>block-weak</literal> and <literal>delay-weak</literal>
-      variants will create an inhibitor that is automatically ignored in some circumstances. The method
-      returns a file descriptor. The lock is released the moment this file descriptor and all its duplicates
-      are closed. For more information on the inhibition logic see
-      <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.
+      certain maximum time, while the <literal>block-weak</literal> and variants will create an inhibitor
+      that is automatically ignored in some circumstances. The method returns a file descriptor. The lock is
+      released the moment this file descriptor and all its duplicates are closed. For more information on
+      the inhibition logic see <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
 
@@ -804,9 +808,10 @@ node /org/freedesktop/login1 {
       timestamps of the last change of the idle hint boolean, in <constant>CLOCK_REALTIME</constant> and
       <constant>CLOCK_MONOTONIC</constant> timestamps, respectively, in microseconds since the epoch.</para>
 
-      <para>The <varname>BlockInhibited</varname> and <varname>DelayInhibited</varname> properties encode
-      the currently active locks of the respective modes. They are colon separated lists of
-      <literal>shutdown</literal>, <literal>sleep</literal>, and <literal>idle</literal> (see above).</para>
+      <para>The <varname>BlockInhibited</varname>, <varname>BlockWeakInhibited</varname>, and
+      <varname>DelayInhibited</varname> properties encode the currently active locks of the respective
+      modes. They are colon separated lists of <literal>shutdown</literal>, <literal>sleep</literal>, and
+      <literal>idle</literal> (see above).</para>
 
       <para><varname>NCurrentSessions</varname> and <varname>NCurrentInhibitors</varname> contain the number
       of currently registered sessions and inhibitors.</para>
@@ -940,7 +945,7 @@ node /org/freedesktop/login1/seat/seat0 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -1060,7 +1065,7 @@ node /org/freedesktop/login1/user/_1000 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -1245,13 +1250,17 @@ node /org/freedesktop/login1/session/1 {
       readonly b IdleHint = ...;
       readonly t IdleSinceHint = ...;
       readonly t IdleSinceHintMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanIdle = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanLock = ...;
       readonly b LockedHint = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -1348,6 +1357,10 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHint"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHintMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CanIdle"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CanLock"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LockedHint"/>
 
@@ -1538,6 +1551,10 @@ node /org/freedesktop/login1/session/1 {
 
       <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by the
       <function>SetLockedHint()</function> method described above.</para>
+
+      <para><varname>CanIdle</varname> indicates whether the session supports the idle hint
+      concept. Similarly, <varname>CanLock</varname> indicates whether the session supports the screen lock
+      concept.</para>
     </refsect2>
   </refsect1>
 
@@ -1549,12 +1566,12 @@ node /org/freedesktop/login1/session/1 {
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1
-      </programlisting>
+</programlisting>
 
       <para>or</para>
 
       <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -1562,12 +1579,12 @@ node /org/freedesktop/login1/session/1 {
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
  --object-path /org/freedesktop/login1/seat/seat0
-      </programlisting>
+</programlisting>
 
       <para>or</para>
 
       <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/seat/seat0
-      </programlisting>
+</programlisting>
 
       <para>Seat <literal>seat0</literal> is the default seat, so it'll be present unless local configuration
       is made to reassign all devices to a different seat. The list of seats and users can be acquired with
@@ -1579,12 +1596,12 @@ node /org/freedesktop/login1/session/1 {
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1/user/_1000
-      </programlisting>
+</programlisting>
 
       <para>or</para>
 
       <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/user/_1000
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -1592,12 +1609,12 @@ node /org/freedesktop/login1/session/1 {
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1/session/45
-      </programlisting>
+</programlisting>
 
       <para>or</para>
 
       <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/session/45
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
@@ -1619,10 +1636,10 @@ node /org/freedesktop/login1/session/1 {
       <function>CanSleep()</function>,
       <varname>SleepOperation</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
-      <para><varname>HandleSecureAttentionKey</varname>,
-      <function>SecureAttentionKey()</function>,
-      <varname>PreparingForShutdownWithMetadata</varname>, and
-      <varname>DesignatedMaintenanceTime</varname> were added in version 257.</para>
+      <para><varname>HandleSecureAttentionKey</varname>, <function>SecureAttentionKey()</function>,
+      <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
+      <varname>CanIdle</varname>, <varname>CanLock</varname>,
+      and <varname>BlockWeakInhibited</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
@@ -1630,5 +1647,14 @@ node /org/freedesktop/login1/session/1 {
       <para><function>SetTTY()</function> was added in version 254.</para>
       <para><function>SetClass()</function> was added in version 256.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

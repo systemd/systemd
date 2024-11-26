@@ -150,6 +150,7 @@ Network.IPv4ProxyARPPrivateVLAN,             config_parse_tristate,             
 Network.ProxyARP,                            config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
 Network.IPv6ProxyNDPAddress,                 config_parse_ipv6_proxy_ndp_address,                      0,                             0
 Network.IPv4ReversePathFilter,               config_parse_ip_reverse_path_filter,                      0,                             offsetof(Network, ipv4_rp_filter)
+Network.MulticastIGMPVersion,                config_parse_ipv4_force_igmp_version,                     0,                             offsetof(Network, ipv4_force_igmp_version)
 Network.BindCarrier,                         config_parse_strv,                                        0,                             offsetof(Network, bind_carrier)
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,                         0,                             0
@@ -228,6 +229,7 @@ NextHop.Group,                               config_parse_nexthop_section,      
 DHCPv4.RequestAddress,                       config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_request_address)
 DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCPv4.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_dns)
+DHCPv4.UseDNR,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_dnr)
 DHCPv4.RoutesToDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_dns)
 DHCPv4.UseNTP,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_ntp)
 DHCPv4.RoutesToNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_ntp)
@@ -278,6 +280,7 @@ DHCPv4.RapidCommit,                          config_parse_tristate,             
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
 DHCPv6.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dns)
+DHCPv6.UseDNR,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dnr)
 DHCPv6.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_hostname)
 DHCPv6.UseDomains,                           config_parse_use_domains,                                 0,                             offsetof(Network, dhcp6_use_domains)
 DHCPv6.UseNTP,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_ntp)
@@ -307,6 +310,7 @@ IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                 
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_onlink_prefix)
 IPv6AcceptRA.UsePREF64,                      config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_pref64)
 IPv6AcceptRA.UseDNS,                         config_parse_tristate,                                    0,                             offsetof(Network, ndisc_use_dns)
+IPv6AcceptRA.UseDNR,                         config_parse_tristate,                                    0,                             offsetof(Network, ndisc_use_dnr)
 IPv6AcceptRA.UseDomains,                     config_parse_use_domains,                                 0,                             offsetof(Network, ndisc_use_domains)
 IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_mtu)
 IPv6AcceptRA.UseHopLimit,                    config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_hop_limit)

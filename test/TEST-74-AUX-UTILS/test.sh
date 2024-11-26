@@ -36,7 +36,9 @@ test_append_files() {
     instmods vmw_vsock_virtio_transport
     instmods vsock_loopback
     instmods vmw_vsock_vmci_transport
+    inst_binary gcc
     generate_module_dependencies
+    inst_binary openssl
 }
 
 do_test "$@"

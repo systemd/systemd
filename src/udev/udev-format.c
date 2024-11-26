@@ -58,16 +58,16 @@ static const struct subst_map_entry map[] = {
 };
 
 static const char *format_type_to_string(FormatSubstitutionType t) {
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (map[i].type == t)
-                        return map[i].name;
+        FOREACH_ELEMENT(entry, map)
+                if (entry->type == t)
+                        return entry->name;
         return NULL;
 }
 
 static char format_type_to_char(FormatSubstitutionType t) {
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (map[i].type == t)
-                        return map[i].fmt;
+        FOREACH_ELEMENT(entry, map)
+                if (entry->type == t)
+                        return entry->fmt;
         return '\0';
 }
 

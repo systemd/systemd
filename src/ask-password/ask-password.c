@@ -38,7 +38,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] MESSAGE\n\n"
-               "%3$sQuery the user for a system passphrase, via the TTY or a UI agent.%4$s\n\n"
+               "%3$sQuery the user for a passphrase, via the TTY or a UI agent.%4$s\n\n"
                "  -h --help           Show this help\n"
                "     --icon=NAME      Icon name\n"
                "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
@@ -58,6 +58,8 @@ static int help(void) {
                "     --no-output      Do not print password to standard output\n"
                "  -n                  Do not suffix password written to standard output with\n"
                "                      newline\n"
+               "     --user           Ask only our own user's agents\n"
+               "     --system         Ask agents of the system and of all users\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -81,6 +83,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_OUTPUT,
                 ARG_VERSION,
                 ARG_CREDENTIAL,
+                ARG_USER,
+                ARG_SYSTEM,
         };
 
         static const struct option options[] = {
@@ -97,6 +101,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keyname",       required_argument, NULL, ARG_KEYNAME       },
                 { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
                 { "credential",    required_argument, NULL, ARG_CREDENTIAL    },
+                { "user",          no_argument,       NULL, ARG_USER          },
+                { "system",        no_argument,       NULL, ARG_SYSTEM        },
                 {}
         };
 
@@ -183,6 +189,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_credential_name = optarg;
                         break;
 
+                case ARG_USER:
+                        arg_flags |= ASK_PASSWORD_USER;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_flags &= ~ASK_PASSWORD_USER;
+                        break;
+
                 case 'n':
                         arg_newline = false;
                         break;
@@ -227,6 +241,9 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        /* Unprivileged? Then imply ASK_PASSWORD_USER by default */
+        SET_FLAG(arg_flags, ASK_PASSWORD_USER, geteuid() != 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

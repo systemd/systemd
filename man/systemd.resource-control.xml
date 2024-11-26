@@ -105,7 +105,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
                /      \
        b1.service   b2.service
                     CPUWeight=1000
-        </programlisting>
+</programlisting>
 
         <para>In this hierarchy, the <option>cpu</option> controller is enabled for all units shown except
         <filename>b1.service</filename> and <filename>b2.service</filename>. Because there is no explicit
@@ -896,7 +896,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>Configures restrictions on the ability of unit processes to invoke <citerefentry
           project='man-pages'><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry> on a
-          socket. Both allow and deny rules may defined that restrict which addresses a socket may be bound
+          socket. Both allow and deny rules to be defined that restrict which addresses a socket may be bound
           to.</para>
 
           <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>,
@@ -1535,13 +1535,32 @@ DeviceAllow=/dev/loop-control
         <listitem>
           <para>Overrides the default memory pressure limit set by
           <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-          this unit (cgroup). Takes a percentage value between 0% and 100%, inclusive. This property is
-          ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>. Defaults to 0%,
+          the cgroup of this unit. Takes a percentage value between 0% and 100%, inclusive. Defaults to 0%,
           which means to use the default set by
           <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          This property is ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagedOOMMemoryPressureDurationSec=</varname></term>
+
+        <listitem>
+          <para>Overrides the default memory pressure duration set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          the cgroup of this unit. The specified value supports a time unit such as <literal>ms</literal> or
+          <literal>μs</literal>, see
+          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details on the permitted syntax. Must be set to either empty or a value of at least 1s. Defaults
+          to empty, which means to use the default set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          This property is ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -1592,20 +1611,19 @@ DeviceAllow=/dev/loop-control
       <varlistentry>
         <term><varname>MemoryPressureWatch=</varname></term>
 
-        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes one of
-        <literal>off</literal>, <literal>on</literal>, <literal>auto</literal> or <literal>skip</literal>. If
-        <literal>off</literal> tells the service not to watch for memory pressure events, by setting the
-        <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable to the literal string
-        <filename>/dev/null</filename>. If <literal>on</literal> tells the service to watch for memory
-        pressure events. This enables memory accounting for the service, and ensures the
-        <filename>memory.pressure</filename> cgroup attribute file is accessible for reading and writing by the
-        service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable for
-        processes invoked by the unit to the file system path to this file. The threshold information
-        configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in the
-        <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal> value
-        is set the protocol is enabled if memory accounting is anyway enabled for the unit, and disabled
-        otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and the two
-        environment variables are not set.</para>
+        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes a boolean or one of
+        <literal>auto</literal> and <literal>skip</literal>. If <literal>no</literal>, tells the service not
+        to watch for memory pressure events, by setting the <varname>$MEMORY_PRESSURE_WATCH</varname>
+        environment variable to the literal string <filename>/dev/null</filename>. If <literal>yes</literal>,
+        tells the service to watch for memory pressure events. This enables memory accounting for the
+        service, and ensures the <filename>memory.pressure</filename> cgroup attribute file is accessible for
+        reading and writing by the service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname>
+        environment variable for processes invoked by the unit to the file system path to this file. The
+        threshold information configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in
+        the <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal>
+        value is set the protocol is enabled if memory accounting is anyway enabled for the unit, and
+        disabled otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and
+        the two environment variables are not set.</para>
 
         <para>Note that services are free to use the two environment variables, but it's unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and
@@ -1655,7 +1673,8 @@ DeviceAllow=/dev/loop-control
         <para>When <command>systemd-coredump</command> is handling a coredump for a process from a container,
         if the container's leader process is a descendant of a cgroup with <varname>CoredumpReceive=yes</varname>
         and <varname>Delegate=yes</varname>, then <command>systemd-coredump</command> will attempt to forward
-        the coredump to <command>systemd-coredump</command> within the container.</para>
+        the coredump to <command>systemd-coredump</command> within the container. See also
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>

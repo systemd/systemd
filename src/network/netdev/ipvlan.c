@@ -37,6 +37,13 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netl
         return 0;
 }
 
+static bool ipvlan_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        assert(netdev);
+
+        /* MAC address cannot be updated. Even unchanged, IFLA_ADDRESS attribute cannot be set in the message. */
+        return netdev->ifindex <= 0;
+}
+
 static void ipvlan_init(NetDev *netdev) {
         IPVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_IPVLAN ? IPVLAN(netdev) : IPVTAP(netdev);
 
@@ -50,8 +57,10 @@ const NetDevVTable ipvlan_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "IPVLAN\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .can_set_mac = ipvlan_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
 
 const NetDevVTable ipvtap_vtable = {
@@ -60,8 +69,10 @@ const NetDevVTable ipvtap_vtable = {
         .sections = NETDEV_COMMON_SECTIONS "IPVTAP\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .can_set_mac = ipvlan_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
+        .keep_existing = true,
 };
 
 IPVlanMode link_get_ipvlan_mode(Link *link) {

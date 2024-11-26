@@ -113,11 +113,11 @@
               </row>
               <row>
                 <entry><constant>user-early</constant></entry>
-                <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <filename>systemd-user-sessions.service</filename>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
+                <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
               </row>
               <row>
                 <entry><constant>user-incomplete</constant></entry>
-                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <command>ssh</command> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
               </row>
               <row>
                 <entry><constant>greeter</constant></entry>
@@ -129,15 +129,15 @@
               </row>
               <row>
                 <entry><constant>background</constant></entry>
-                <entry>Used for background sessions, such as those invoked by <command>cron</command> and similar tools. This is the default class for sessions for which no TTY or X display is known at session registration time.</entry>
+                <entry>Used for background sessions, such as those invoked by <citerefentry project='die-net'><refentrytitle>cron</refentrytitle><manvolnum>8</manvolnum></citerefentry> and similar tools. This is the default class for sessions for which no TTY or X display is known at session registration time.</entry>
               </row>
               <row>
                 <entry><constant>background-light</constant></entry>
-                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <filename>user@.service</filename> of the user, and thus possibly have no services of the user running. (Added in v256.)</entry>
+                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no services of the user running. (Added in v256.)</entry>
               </row>
               <row>
                 <entry><constant>manager</constant></entry>
-                <entry>The <filename>user@.service</filename> service of the user is registered under this session class. (Added in v256.)</entry>
+                <entry>The <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> service of the user is registered under this session class. (Added in v256.)</entry>
               </row>
               <row>
                 <entry><constant>manager-early</constant></entry>
@@ -409,7 +409,7 @@ pam_set_data(handle, "systemd.tasks_max",  (void *)"50",   cleanup);
 pam_set_data(handle, "systemd.cpu_weight", (void *)"100",  cleanup);
 pam_set_data(handle, "systemd.io_weight",  (void *)"340",  cleanup);
 pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
-      </programlisting>
+</programlisting>
     </para>
 
   </refsect1>
@@ -445,6 +445,8 @@ session   required   pam_unix.so</programlisting>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

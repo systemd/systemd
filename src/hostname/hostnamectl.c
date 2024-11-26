@@ -491,7 +491,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        if (arg_json_format_flags != SD_JSON_FORMAT_OFF) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;

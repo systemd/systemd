@@ -551,11 +551,11 @@
         <varname>ExecStop=</varname> – commands specified with this setting are invoked when a service failed to start
         up correctly and is shut down again.</para>
 
-        <para>It is recommended to use this setting for clean-up operations that shall be executed even when the
-        service failed to start up correctly. Commands configured with this setting need to be able to operate even if
-        the service failed starting up half-way and left incompletely initialized data around. As the service's
-        processes have been terminated already when the commands specified with this setting are executed they should
-        not attempt to communicate with them.</para>
+        <para>It is recommended to use this setting for clean-up operations that shall be executed even when
+        the service failed to start up correctly. Commands configured with this setting need to be able to
+        operate even if the service failed starting up half-way and left incompletely initialized data
+        around. As the service's processes have likely exited already when the commands specified with this
+        setting are executed they should not attempt to communicate with them.</para>
 
         <para>Note that all commands that are configured with this setting are invoked with the result code of the
         service, as well as the main process' exit code and status, set in the <varname>$SERVICE_RESULT</varname>,
@@ -942,7 +942,7 @@
               <listitem>
                 <para>If set to <option>direct</option>, the service transitions to the activating
                 state directly during auto-restart, skipping failed/inactive state.
-                <varname>ExecStopPost=</varname> is invoked.
+                <varname>ExecStopPost=</varname> is still invoked.
                 <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para>
 
                 <para>This option is useful in cases where a dependency can fail temporarily but we don't
@@ -1437,7 +1437,7 @@
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal></para>
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its

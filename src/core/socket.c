@@ -2024,6 +2024,14 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                                 path = socket_address_get_path(&p->address);
                         else if (p->type == SOCKET_FIFO)
                                 path = p->path;
+                        else if (p->type == SOCKET_MQUEUE) {
+                                /* Use fchown on the fd since /dev/mqueue might not be mounted. */
+                                if (fchown(p->fd, uid, gid) < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to fchown(): %m");
+                                        _exit(EXIT_CHOWN);
+                                }
+                                continue;
+                        }
 
                         if (!path)
                                 continue;
@@ -2337,7 +2345,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, NULL, &error, NULL);
+                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -2405,7 +2413,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 s->n_connections++;
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, &error, /* ret = */ NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */

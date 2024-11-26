@@ -34,10 +34,16 @@
     for a general description of the syntax.</para>
 
     <para>The main Virtual Network Device file must have the extension <filename>.netdev</filename>;
-    other extensions are ignored. Virtual network devices are created as soon as networkd is
-    started. If a netdev with the specified name already exists, networkd will use that as-is rather
-    than create its own. Note that the settings of the pre-existing netdev will not be changed by
-    networkd.</para>
+    other extensions are ignored. Virtual network devices are created as soon as
+    <command>systemd-networkd</command> is started if possible. If a netdev with the specified name already
+    exists, <command>systemd-networkd</command> will try to update the config if the kind of the existing
+    netdev is equivalent to the requested one, otherwise (e.g. when bridge device <filename>foo</filename>
+    exists but bonding device with the same name is configured in a .netdev file) use the existing netdev
+    as-is rather than replacing with the requested netdev. Note, several settings (e.g. vlan ID) cannot be
+    changed after the netdev is created. To change such settings, it is necessary to first remove the
+    existing netdev, and then run <command>networkctl reload</command> command or restart
+    <command>systemd-networkd</command>. See also
+    <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
     <para>The <filename>.netdev</filename> files are read from the files located in the system network
     directory <filename>/usr/lib/systemd/network</filename> and
@@ -588,7 +594,7 @@
           <para>Controls the threshold for broadcast queueing of the macvlan device. Takes the special value
           <literal>no</literal>, or an integer in the range 0…2147483647. When <literal>no</literal> is
           specified, the broadcast queueing is disabled altogether. When an integer is specified, a multicast
-          address will be queued as broadcast if the number of devices using it is greater than the given
+          address will be queued as broadcast if the number of devices using the macvlan is greater than the given
           value. Defaults to unset, and the kernel default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
@@ -1929,7 +1935,8 @@
           the <command>wg genkey</command> command
           (see <citerefentry project='man-pages'><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
           Specially, if the specified key is prefixed with <literal>@</literal>, it is interpreted as
-          the name of the credential from which the actual key shall be read. <command>systemd-networkd.service</command>
+          the name of the credential from which the actual key shall be read.
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           automatically imports credentials matching <literal>network.wireguard.*</literal>. For more details
           on credentials, refer to
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -2083,7 +2090,7 @@
           i.e. the packets that pass through the tunnel itself. To cause packets to be sent via the tunnel in
           the first place, an appropriate route needs to be added as well — either in the
           <literal>[Routes]</literal> section on the <literal>.network</literal> matching the wireguard
-          interface, or externally to <filename>systemd-networkd</filename>.</para>
+          interface, or externally to <command>systemd-networkd</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
@@ -2804,7 +2811,7 @@ Kind=fou
 [FooOverUDP]
 Port=5555
 Protocol=4
-      </programlisting>
+</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-fou-ipip.netdev</title>
@@ -2818,7 +2825,7 @@ Local=10.65.208.212
 Remote=10.65.208.211
 FooOverUDP=yes
 FOUDestinationPort=5555
-      </programlisting>
+</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-tap.netdev</title>
@@ -2937,7 +2944,7 @@ Table=42</programlisting>
       <programlisting>[NetDev]
 Name=macvtap-test
 Kind=macvtap
-      </programlisting>
+</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-wireguard.netdev</title>
@@ -2970,7 +2977,7 @@ Independent=yes</programlisting>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

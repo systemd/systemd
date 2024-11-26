@@ -537,4 +537,54 @@ TEST(bind_mount_submounts) {
         assert_se(umount_recursive(b, 0) >= 0);
 }
 
+TEST(path_is_network_fs_harder) {
+        _cleanup_close_ int dir_fd = -EBADF;
+        int r;
+
+        ASSERT_OK(dir_fd = open("/", O_PATH | O_CLOEXEC));
+        FOREACH_STRING(s,
+                       "/", "/dev/", "/proc/", "/run/", "/sys/", "/tmp/", "/usr/", "/var/tmp/",
+                       "", ".", "../../../", "/this/path/should/not/exist/for/test-mount-util/") {
+
+                r = path_is_network_fs_harder(s);
+                log_debug("path_is_network_fs_harder(%s) → %i: %s", s, r, r < 0 ? STRERROR(r) : yes_no(r));
+
+                const char *q = path_startswith(s, "/") ?: s;
+                r = path_is_network_fs_harder_at(dir_fd, q);
+                log_debug("path_is_network_fs_harder_at(root, %s) → %i: %s", q, r, r < 0 ? STRERROR(r) : yes_no(r));
+        }
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
+                return;
+        }
+
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        assert_se(mkdtemp_malloc("/tmp/test-mount-util.path_is_network_fs_harder.XXXXXXX", &t) >= 0);
+
+        r = safe_fork("(make_mount-point)",
+                      FORK_RESET_SIGNALS |
+                      FORK_CLOSE_ALL_FDS |
+                      FORK_DEATHSIG_SIGTERM |
+                      FORK_WAIT |
+                      FORK_REOPEN_LOG |
+                      FORK_LOG |
+                      FORK_NEW_MOUNTNS |
+                      FORK_MOUNTNS_SLAVE,
+                      NULL);
+        ASSERT_OK(r);
+
+        if (r == 0) {
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK_ZERO(path_is_network_fs_harder(t));
+                ASSERT_OK_ERRNO(umount(t));
+
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, "x-systemd-growfs,x-systemd-automount"));
+                ASSERT_OK_ZERO(path_is_network_fs_harder(t));
+                ASSERT_OK_ERRNO(umount(t));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

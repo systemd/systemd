@@ -4,11 +4,12 @@
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 # Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024.
+# Dmytro Markevych <hotr1pak@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-24 10:36+0000\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"PO-Revision-Date: 2024-11-21 19:38+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -118,30 +119,38 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Оновлення домашньої області"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "Для оновлення домашньої області слід пройти розпізнавання."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Зміна розмірів домашньої теки"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
 "Для зміни розмірів домашньої теки користувача слід пройти розпізнавання."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Зміна пароля до домашньої теки"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Для зміни пароля для доступу до домашньої теки користувача слід пройти "
 "розпізнавання."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Активація області домівки"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr "Для активації області домівки користувача слід пройти розпізнавання."
 
@@ -1200,6 +1209,14 @@ msgstr "Вилучення застарілих оновлень системи"
 msgid "Authentication is required to cleanup old system updates."
 msgstr "Для вилучення застарілих оновлень системи слід пройти розпізнавання."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Керування додатковими функціями"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features"
+msgstr "Для керування додатковими можливостями слід пройти розпізнавання"
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Встановлення загальносистемного часу"
@@ -1241,39 +1258,39 @@ msgstr ""
 "Для керування тим, чи слід вмикати синхронізацію часу за допомогою мережі, "
 "слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Для запуску «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Для зупинення «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Для перезавантаження «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Для перезапуску «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "Для надсилання сигналу UNIX до процесів «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Для скидання «пошкодженого» стану з «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Для визначення властивостей на «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1281,7 +1298,7 @@ msgstr ""
 "Для вилучення файлів і каталогів, які пов'язано із «$(unit)», слід пройти "
 "розпізнавання."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

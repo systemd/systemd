@@ -159,13 +159,12 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link) {
 
         assert(netdev);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &req, RTM_NEWLINK, netdev->ifindex);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
-
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set netlink message flags: %m");
 
         r = netdev_bridge_post_create_message(netdev, req);
         if (r < 0)
@@ -282,12 +281,17 @@ static void bridge_init(NetDev *netdev) {
         b->ageing_time = USEC_INFINITY;
 }
 
+static bool bridge_can_set_mac(NetDev *netdev, const struct hw_addr_data *hw_addr) {
+        return true;
+}
+
 const NetDevVTable bridge_vtable = {
         .object_size = sizeof(Bridge),
         .init = bridge_init,
         .sections = NETDEV_COMMON_SECTIONS "Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .can_set_mac = bridge_can_set_mac,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

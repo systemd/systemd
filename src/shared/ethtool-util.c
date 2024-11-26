@@ -48,9 +48,9 @@ int wol_options_to_string_alloc(uint32_t opts, char **ret) {
                 return 0;
         }
 
-        for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
-                if (opts & wol_option_map[i].opt &&
-                    !strextend_with_separator(&str, ",", wol_option_map[i].name))
+        FOREACH_ELEMENT(option, wol_option_map)
+                if (opts & option->opt &&
+                    !strextend_with_separator(&str, ",", option->name))
                         return -ENOMEM;
 
         if (!str) {
@@ -1317,9 +1317,9 @@ int config_parse_wol(
                 if (r == 0)
                         break;
 
-                for (size_t i = 0; i < ELEMENTSOF(wol_option_map); i++)
-                        if (streq(w, wol_option_map[i].name)) {
-                                new_opts |= wol_option_map[i].opt;
+                FOREACH_ELEMENT(option, wol_option_map)
+                        if (streq(w, option->name)) {
+                                new_opts |= option->opt;
                                 found = true;
                                 break;
                         }

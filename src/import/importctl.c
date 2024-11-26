@@ -936,7 +936,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                if (!sd_json_format_enabled(arg_json_format_flags))
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, read_only ? "ro" : "rw",

@@ -276,4 +276,31 @@ testcase_bootctl_varlink() {
     SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' --graceful=io.systemd.BootControl.RebootToFirmwareNotSupported
 }
 
+testcase_bootctl_secure_boot_auto_enroll() {
+    cat >/tmp/openssl.conf <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req -config /tmp/openssl.conf -subj="/CN=waldo" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout /tmp/sb.key -out /tmp/sb.crt
+
+    bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb.crt --private-key /tmp/sb.key
+    for var in PK KEK db; do
+        test -f "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth"
+    done
+    bootctl remove
+}
+
 run_testcases

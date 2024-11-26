@@ -83,7 +83,7 @@ This has the following advantages:
  * The application ID can be retrieved by stripping the prefix and postfix.
    This in turn should map to the corresponding `.desktop` file when available.
 
-   Note that this nameing scheme might be a unit alias, so runtime detection
+   Note that this naming scheme might be a unit alias, so runtime detection
    must check the entire name-array of a unit, rather than just its unit ID.
 
 TODO: Define the name of slices that should be used.

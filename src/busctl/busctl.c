@@ -65,7 +65,7 @@ static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
 static const char *arg_destination = NULL;
-static uint64_t arg_num_matches = UINT64_MAX;
+static uint64_t arg_limit_messages = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -1268,6 +1268,9 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return r;
 
+        usec_t end = arg_timeout > 0 ?
+                usec_add(now(CLOCK_MONOTONIC), arg_timeout) : USEC_INFINITY;
+
         /* upgrade connection; it's not used for anything else after this call */
         r = sd_bus_message_new_method_call(bus,
                                            &message,
@@ -1331,7 +1334,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
-        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                 log_info("Monitoring bus message stream.");
 
         (void) sd_notify(/* unset_environment=false */ false, "READY=1");
@@ -1364,14 +1367,18 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         dump(m, stdout);
                         fflush(stdout);
 
-                        if (arg_num_matches != UINT64_MAX && --arg_num_matches == 0) {
-                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
-                                        log_info("Received requested number of matching messages, exiting.");
-                                return 0;
+                        if (arg_limit_messages != UINT64_MAX) {
+                                arg_limit_messages--;
+
+                                if (arg_limit_messages == 0) {
+                                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                                log_info("Received requested maximum number of messages, exiting.");
+                                        return 0;
+                                }
                         }
 
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
-                                if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                                if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                         log_info("Connection terminated, exiting.");
                                 return 0;
                         }
@@ -1382,9 +1389,9 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, arg_timeout > 0 ? arg_timeout : UINT64_MAX);
-                if (r == 0 && arg_timeout > 0) {
-                        if (!arg_quiet && arg_json_format_flags == SD_JSON_FORMAT_OFF)
+                r = sd_bus_wait(bus, arg_timeout > 0 ? usec_sub_unsigned(end, now(CLOCK_MONOTONIC)) : UINT64_MAX);
+                if (r == 0 && arg_timeout > 0 && now(CLOCK_MONOTONIC) >= end) {
+                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
                                 log_info("Timed out waiting for messages, exiting.");
                         return 0;
                 }
@@ -1394,7 +1401,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, (arg_json_format_flags & SD_JSON_FORMAT_OFF) ? message_dump : message_json);
+        return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -2146,7 +2153,7 @@ static int call(int argc, char **argv, void *userdata) {
         if (r > 0 || arg_quiet)
                 return 0;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
@@ -2256,7 +2263,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                         if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
@@ -2448,9 +2455,9 @@ static int help(void) {
 
         pager_open(arg_pager_flags);
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sIntrospect the D-Bus IPC bus.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sIntrospect the D-Bus IPC bus.%6$s\n"
+               "\n%3$sCommands%4$s:\n"
                "  list                     List bus names\n"
                "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
                "  monitor [SERVICE...]     Show bus traffic\n"
@@ -2468,7 +2475,7 @@ static int help(void) {
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
                "                           Set property value\n"
                "  help                     Show this help\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -2500,13 +2507,16 @@ static int help(void) {
                "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
                "                           system\n"
                "     --destination=SERVICE Destination service of a signal\n"
-               "     --num-matches=NUMBER  Exit after receiving a number of matches while\n"
-               "                           monitoring\n"
-               "\nSee the %s for details.\n",
+               "  -N --limit-messages=NUMBER\n"
+               "                           Stop monitoring after receiving the specified number\n"
+               "                           of messages\n"
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -2541,7 +2551,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WATCH_BIND,
                 ARG_JSON,
                 ARG_DESTINATION,
-                ARG_NUM_MATCHES,
         };
 
         static const struct option options[] = {
@@ -2574,7 +2583,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
                 { "json",                            required_argument, NULL, ARG_JSON                            },
                 { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
-                { "num-matches",                     required_argument, NULL, ARG_NUM_MATCHES                     },
+                { "limit-messages",                  required_argument, NULL, 'N'                                 },
                 {},
         };
 
@@ -2583,7 +2592,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:C:J:qjl", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:C:J:qjlN:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -2710,6 +2719,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEOUT:
+                        if (isempty(optarg)) {
+                                arg_timeout = 0; /* Reset to default */
+                                break;
+                        }
+
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
@@ -2743,12 +2757,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_destination = optarg;
                         break;
 
-                case ARG_NUM_MATCHES:
-                        r = safe_atou64(optarg, &arg_num_matches);
+                case 'N':
+                        if (isempty(optarg)) {
+                                arg_limit_messages = UINT64_MAX; /* Reset to default */
+                                break;
+                        }
+
+                        r = safe_atou64(optarg, &arg_limit_messages);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --num-matches= parameter '%s': %m", optarg);
-                        if (arg_num_matches == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--num-matches= parameter cannot be 0");
+                                return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", optarg);
+                        if (arg_limit_messages == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--limit-messages= parameter cannot be 0");
 
                         break;
 

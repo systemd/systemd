@@ -224,6 +224,7 @@ static int netdev_macsec_create_message(NetDev *netdev, int command, sd_netlink_
 
         assert(netdev);
         assert(netdev->ifindex > 0);
+        assert(netdev->manager);
 
         r = sd_genl_message_new(netdev->manager->genl, MACSEC_GENL_NAME, command, &m);
         if (r < 0)
@@ -334,6 +335,9 @@ static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAs
         assert(netdev);
         assert(a);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_RXSA, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -406,6 +410,9 @@ static int netdev_macsec_configure_receive_channel(NetDev *netdev, ReceiveChanne
         assert(netdev);
         assert(c);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_RXSC, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -454,6 +461,9 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
         assert(netdev);
         assert(a);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = netdev_macsec_create_message(netdev, MACSEC_CMD_ADD_TXSA, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create netlink message: %m");
@@ -499,12 +509,6 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
         MACsec *v = MACSEC(netdev);
         int r;
 
-        if (v->port > 0) {
-                r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
-                if (r < 0)
-                        return r;
-        }
-
         if (v->encrypt >= 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_MACSEC_ENCRYPT, v->encrypt);
                 if (r < 0)
@@ -514,6 +518,20 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
         r = sd_netlink_message_append_u8(m, IFLA_MACSEC_ENCODING_SA, v->encoding_an);
         if (r < 0)
                 return r;
+
+        /* The properties below cannot be updated, and the kernel refuses the whole request if one of the
+         * following attributes is set for an existing interface. */
+        if (netdev->ifindex > 0)
+                return 0;
+
+        if (v->port > 0) {
+                r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Currently not supported by networkd, but IFLA_MACSEC_CIPHER_SUITE, IFLA_MACSEC_ICV_LEN, and
+         * IFLA_MACSEC_SCI can neither set for an existing interface. */
 
         return 0;
 }

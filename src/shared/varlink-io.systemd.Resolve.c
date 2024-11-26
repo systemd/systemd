@@ -4,8 +4,11 @@
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceKey,
+                SD_VARLINK_FIELD_COMMENT("The RR class, almost always IN, i.e 0x01."),
                 SD_VARLINK_DEFINE_FIELD(class, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The RR types, one of A, AAAA, PTR, …"),
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The domain name."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0));
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -79,12 +82,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 ResolveHostname,
+                SD_VARLINK_FIELD_COMMENT("The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces."),
                 SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The host name to resolve."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The address family to search for, one of AF_INET or AF_INET6."),
                 SD_VARLINK_DEFINE_INPUT(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Various search flags."),
                 SD_VARLINK_DEFINE_INPUT(flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of resolved IP addresses"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(addresses, ResolvedAddress, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Canonical name of the host."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Various flags indicating details on discovered data."),
                 SD_VARLINK_DEFINE_OUTPUT(flags, SD_VARLINK_INT, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -94,8 +104,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_METHOD(
                 ResolveAddress,
+                SD_VARLINK_FIELD_COMMENT("The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces."),
                 SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The address family of the specified address, one of AF_INET or AF_INET6."),
                 SD_VARLINK_DEFINE_INPUT(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The IP address to look up, either 4 or 16 integers (depending if an AF_INET or AF_INET6 address shall be resolved)."),
                 SD_VARLINK_DEFINE_INPUT(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_INPUT(flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(names, ResolvedName, SD_VARLINK_ARRAY),
@@ -177,18 +190,27 @@ static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
                 "io.systemd.Resolve",
+                SD_VARLINK_SYMBOL_COMMENT("Resolves a hostname to one or more IP addresses."),
                 &vl_method_ResolveHostname,
+                SD_VARLINK_SYMBOL_COMMENT("Resolves an IP address to a hostname."),
                 &vl_method_ResolveAddress,
                 SD_VARLINK_SYMBOL_COMMENT("Resolves a named DNS-SD or unnamed simple SRV service."),
                 &vl_method_ResolveService,
+                SD_VARLINK_SYMBOL_COMMENT("Resolves a domain name to one or more DNS resource records."),
                 &vl_method_ResolveRecord,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved address."),
                 &vl_type_ResolvedAddress,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved host name."),
                 &vl_type_ResolvedName,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates resolved service information."),
                 &vl_type_ResolvedService,
-                SD_VARLINK_SYMBOL_COMMENT("Encodes the canonical name, type and domain of a DNS-SD or simple SRV service. Note that due to CNAME redirections and similar, a named DNS-SD service might resolve to a canonical service that is an unnamed simple SRV service. Or in other words: resolving a named service might return an unnamed canonical service."),
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates the canonical name, type and domain of a DNS-SD or simple SRV service. Note that due to CNAME redirections and similar, a named DNS-SD service might resolve to a canonical service that is an unnamed simple SRV service. Or in other words: resolving a named service might return an unnamed canonical service."),
                 &vl_type_ResolvedCanonical,
+                SD_VARLINK_SYMBOL_COMMENT("The 'key' part of a DNS resource record."),
                 &vl_type_ResourceKey,
+                SD_VARLINK_SYMBOL_COMMENT("A full DNS resource record.."),
                 &vl_type_ResourceRecord,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates information about a resolved DNS resource record "),
                 &vl_type_ResolvedRecord,
                 &vl_error_NoNameServers,
                 &vl_error_NoSuchResourceRecord,

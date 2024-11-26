@@ -326,3 +326,28 @@ int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **
         *ret = TAKE_PTR(c);
         return 0;
 }
+
+int group_record_match(GroupRecord *h, const UserDBMatch *match) {
+        assert(h);
+        assert(match);
+
+        if (h->gid < match->gid_min || h->gid > match->gid_max)
+                return false;
+
+        if (!FLAGS_SET(match->disposition_mask, UINT64_C(1) << group_record_disposition(h)))
+                return false;
+
+        if (!strv_isempty(match->fuzzy_names)) {
+                const char* names[] = {
+                        h->group_name,
+                        group_record_group_name_and_realm(h),
+                        h->description,
+                };
+
+                if (!user_name_fuzzy_match(names, ELEMENTSOF(names), match->fuzzy_names))
+                        return false;
+        }
+
+        return true;
+
+}

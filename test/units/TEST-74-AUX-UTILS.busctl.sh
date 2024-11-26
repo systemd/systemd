@@ -117,4 +117,12 @@ busctl get-property -j \
 (! busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                        KExecWatchdogUSec t "foo")
 
-busctl --quiet --timeout 1 --num-matches 1 --match "interface=org.freedesktop.systemd1.Manager" monitor >/dev/null
+busctl --quiet --timeout=1 --limit-messages=1 --match "interface=org.freedesktop.systemd1.Manager" monitor
+
+START_USEC=$(date +%s%6N)
+busctl --quiet --timeout=500ms --match "interface=io.dontexist.NeverGonnaHappen" monitor
+END_USEC=$(date +%s%6N)
+USEC=$((END_USEC-START_USEC))
+# Validate that the above was delayed for at least 500ms, but at most 30s (some leeway for slow CIs)
+test "$USEC" -gt 500000
+test "$USEC" -lt 30000000

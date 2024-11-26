@@ -335,8 +335,8 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
                         idx_min = i;
 
         j = 0;
-        for (i = 0; i < ELEMENTSOF(m->samples); i++)
-                j += pow(m->samples[i].offset - m->samples[idx_min].offset, 2);
+        FOREACH_ELEMENT(sample, m->samples)
+                j += pow(sample->offset - m->samples[idx_min].offset, 2);
         m->samples_jitter = sqrt(j / (ELEMENTSOF(m->samples) - 1));
 
         /* ignore samples when resyncing */

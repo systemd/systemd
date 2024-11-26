@@ -21,13 +21,50 @@
 static bool arg_dry_run = false;
 static int arg_swap_used_limit_permyriad = -1;
 static int arg_mem_pressure_limit_permyriad = -1;
-static usec_t arg_mem_pressure_usec = 0;
+static usec_t arg_mem_pressure_usec = DEFAULT_MEM_PRESSURE_DURATION_USEC;
+
+static int config_parse_duration(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *duration = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                *duration = DEFAULT_MEM_PRESSURE_DURATION_USEC;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        if (usec == 0) {
+                /* Map zero -> default for backwards compatibility. */
+                *duration = DEFAULT_MEM_PRESSURE_DURATION_USEC;
+                return 0;
+        }
+
+        if (usec < 1 * USEC_PER_SEC || usec == USEC_INFINITY)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= must be at least 1s and less than infinity, ignoring: %s", lvalue, rvalue);
+
+        *duration = usec;
+        return 0;
+}
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &arg_swap_used_limit_permyriad    },
                 { "OOM", "DefaultMemoryPressureLimit",       config_parse_permyriad, 0, &arg_mem_pressure_limit_permyriad },
-                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_sec,       0, &arg_mem_pressure_usec            },
+                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &arg_mem_pressure_usec            },
                 {}
         };
 
@@ -166,9 +203,6 @@ static int run(int argc, char *argv[]) {
 
         if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the cgroup memory controller.");
-
-        if (arg_mem_pressure_usec > 0 && arg_mem_pressure_usec < 1 * USEC_PER_SEC)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DefaultMemoryPressureDurationSec= must be 0 or at least 1s");
 
         r = manager_new(&m);
         if (r < 0)

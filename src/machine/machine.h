@@ -102,6 +102,10 @@ KillWhom kill_whom_from_string(const char *s) _pure_;
 
 int machine_openpt(Machine *m, int flags, char **ret_slave);
 int machine_open_terminal(Machine *m, const char *path, int mode);
+int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error);
+int machine_start_shell(Machine *m, int ptmx_fd, const char *ptmx_name, const char *user, const char *path, char **args, char **env, sd_bus_error *error);
+#define machine_default_shell_path() ("/bin/sh")
+char** machine_default_shell_args(const char *user);
 
 int machine_get_uid_shift(Machine *m, uid_t *ret);
 
@@ -110,3 +114,17 @@ int machine_owns_gid(Machine *m, gid_t host_gid, gid_t *ret_internal_gid);
 
 int machine_translate_uid(Machine *m, uid_t internal_uid, uid_t *ret_host_uid);
 int machine_translate_gid(Machine *m, gid_t internal_gid, gid_t *ret_host_gid);
+
+typedef enum AcquireMetadata {
+        ACQUIRE_METADATA_NO,
+        ACQUIRE_METADATA_YES,
+        ACQUIRE_METADATA_GRACEFUL,
+        _ACQUIRE_METADATA_MAX,
+        _ACQUIRE_METADATA_INVALID = -EINVAL,
+} AcquireMetadata;
+
+AcquireMetadata acquire_metadata_from_string(const char *s) _pure_;
+const char* acquire_metadata_to_string(AcquireMetadata am) _const_;
+inline static bool should_acquire_metadata(AcquireMetadata am) {
+        return am == ACQUIRE_METADATA_YES || am == ACQUIRE_METADATA_GRACEFUL;
+}

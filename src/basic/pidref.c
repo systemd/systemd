@@ -40,6 +40,9 @@ int pidref_acquire_pidfd_id(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
         if (pidref->fd < 0)
                 return -ENOMEDIUM;
 
@@ -64,23 +67,36 @@ int pidref_acquire_pidfd_id(PidRef *pidref) {
 
 bool pidref_equal(PidRef *a, PidRef *b) {
 
-        if (pidref_is_set(a)) {
-                if (!pidref_is_set(b))
+        if (!pidref_is_set(a))
+                return !pidref_is_set(b);
+
+        if (!pidref_is_set(b))
+                return false;
+
+        if (a->pid != b->pid)
+                return false;
+
+        if (pidref_is_remote(a)) {
+                /* If one is remote and the other isn't, they are not the same */
+                if (!pidref_is_remote(b))
                         return false;
 
-                if (a->pid != b->pid)
+                /* If both are remote, compare fd IDs if we have both, otherwise don't bother, and cut things short */
+                if (a->fd_id == 0 || b->fd_id == 0)
+                        return true;
+        } else {
+                if (pidref_is_remote(b))
                         return false;
 
-                /* Try to compare pidfds using their inode numbers. This way we can ensure that we don't
-                 * spuriously consider two PidRefs equal if the pid has been reused once. Note that we
-                 * ignore all errors here, not only EOPNOTSUPP, as fstat() might fail due to many reasons. */
+                /* Try to compare pidfds using their inode numbers. This way we can ensure that we
+                 * don't spuriously consider two PidRefs equal if the pid has been reused once. Note
+                 * that we ignore all errors here, not only EOPNOTSUPP, as fstat() might fail due to
+                 * many reasons. */
                 if (pidref_acquire_pidfd_id(a) < 0 || pidref_acquire_pidfd_id(b) < 0)
                         return true;
-
-                return a->fd_id == b->fd_id;
         }
 
-        return !pidref_is_set(b);
+        return a->fd_id == b->fd_id;
 }
 
 int pidref_set_pid(PidRef *pidref, pid_t pid) {
@@ -240,7 +256,9 @@ int pidref_copy(const PidRef *pidref, PidRef *dest) {
         assert(dest);
 
         if (pidref) {
-                if (pidref->fd >= 0) {
+                if (pidref_is_remote(pidref)) /* Propagate remote flag */
+                        dup_fd = -EREMOTE;
+                else if (pidref->fd >= 0) {
                         dup_fd = fcntl(pidref->fd, F_DUPFD_CLOEXEC, 3);
                         if (dup_fd < 0) {
                                 if (!ERRNO_IS_RESOURCE(errno))
@@ -311,6 +329,9 @@ int pidref_kill(const PidRef *pidref, int sig) {
         if (!pidref)
                 return -ESRCH;
 
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
         if (pidref->fd >= 0)
                 return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
 
@@ -337,6 +358,9 @@ int pidref_sigqueue(const PidRef *pidref, int sig, int value) {
 
         if (!pidref)
                 return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         if (pidref->fd >= 0) {
                 siginfo_t si;
@@ -370,6 +394,9 @@ int pidref_verify(const PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
         if (pidref->pid == 1)
                 return 1; /* PID 1 can never go away, hence never be recycled to a different process → return 1 */
 
@@ -387,6 +414,9 @@ bool pidref_is_self(const PidRef *pidref) {
         if (!pidref)
                 return false;
 
+        if (pidref_is_remote(pidref))
+                return false;
+
         return pidref->pid == getpid_cached();
 }
 
@@ -395,6 +425,9 @@ int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         if (pidref->pid == 1 || pidref->pid == getpid_cached())
                 return -ECHILD;

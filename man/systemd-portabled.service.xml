@@ -37,6 +37,12 @@
 
     <para>See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
     for details about the concepts this service implements.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
   </refsect1>
 
   <refsect1>

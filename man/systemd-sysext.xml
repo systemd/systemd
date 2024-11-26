@@ -141,7 +141,7 @@
     but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
     described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     <varname>EXTENSION_RELOAD_MANAGER=</varname> can be set to 1 if the extension requires a service manager reload after application
-    of the extension. Note that for the reasons mentioned earlier:
+    of the extension. Note that for the reasons mentioned earlier,
     <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> remain
     the recommended way to ship system services.
 
@@ -152,7 +152,7 @@
     in the extension image.</para>
 
     <para>The <command>systemd-confext</command> concept follows the same principle as the
-    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     functionality but instead of working on <filename>/usr</filename> and <filename>/opt</filename>,
     <command>confext</command> will extend only <filename>/etc</filename>. Files and directories contained
     in the confext images outside of the <filename>/etc/</filename> hierarchy are <emphasis>not</emphasis>
@@ -206,13 +206,13 @@
     the underlying host <filename>/usr/</filename> is managed as immutable disk image or is a traditional
     package manager controlled (i.e. writable) tree.</para>
 
-    <para>With systemd-confext one can perform runtime reconfiguration of OS services.
+    <para>With <command>systemd-confext</command> one can perform runtime reconfiguration of OS services.
     Sometimes, there is a need to swap certain configuration parameter values or restart only a specific
     service without deployment of new code or a complete OS deployment. In other words, we want to be able
     to tie the most frequently configured options to runtime updateable flags that can be changed without a
     system reboot. This will help reduce servicing times when there is a need for changing the OS configuration.
     It also provides a reliable tool for managing configuration because all old configuration files disappear when
-    the systemd-confext image is removed.</para></refsect1>
+    the <command>systemd-confext</command> image is removed.</para></refsect1>
 
   <refsect1>
     <title>Mutability</title>

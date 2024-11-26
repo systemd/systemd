@@ -42,6 +42,7 @@ char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
 char16_t *utf8_to_utf16(const char *s, size_t length);
 
 size_t char16_strlen(const char16_t *s); /* returns the number of 16-bit words in the string (not bytes!) */
+size_t char16_strsize(const char16_t *s);
 
 int utf8_encoded_valid_unichar(const char *str, size_t length);
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar);

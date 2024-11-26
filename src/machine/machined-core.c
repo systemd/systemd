@@ -428,7 +428,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
         if (!m->image_cache_defer_event) {
                 r = sd_event_add_defer(m->event, &m->image_cache_defer_event, image_flush_cache, m);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add defered event: %m");
+                        return log_debug_errno(r, "Failed to add deferred event: %m");
 
                 r = sd_event_source_set_priority(m->image_cache_defer_event, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)

@@ -5,4 +5,4 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-u systemd-timesync {{SYSTEMD_TIMESYNC_UID}} "systemd Time Synchronization"
+u! systemd-timesync {{SYSTEMD_TIMESYNC_UID}} "systemd Time Synchronization"

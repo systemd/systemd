@@ -557,11 +557,18 @@ int dns_packet_append_name(
                 bool canonical_candidate,
                 size_t *start) {
 
-        size_t saved_size;
+        _cleanup_free_ char **added_entries = NULL; /* doesn't own the strings! this is just regular pointer array, not a NULL-terminated strv! */
+        size_t n_added_entries = 0, saved_size;
         int r;
 
         assert(p);
         assert(name);
+
+        r = dns_name_is_valid(name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
         if (p->refuse_compression)
                 allow_compression = false;
@@ -598,6 +605,11 @@ int dns_packet_append_name(
                 if (allow_compression) {
                         _cleanup_free_ char *s = NULL;
 
+                        if (!GREEDY_REALLOC(added_entries, n_added_entries + 1)) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
                         s = strdup(z);
                         if (!s) {
                                 r = -ENOMEM;
@@ -608,7 +620,8 @@ int dns_packet_append_name(
                         if (r < 0)
                                 goto fail;
 
-                        TAKE_PTR(s);
+                        /* Keep track of the entries we just added (note that the string is owned by the hashtable, not this array!) */
+                        added_entries[n_added_entries++] = TAKE_PTR(s);
                 }
         }
 
@@ -623,6 +636,12 @@ done:
         return 0;
 
 fail:
+        /* Remove all label compression names we added again */
+        FOREACH_ARRAY(s, added_entries, n_added_entries) {
+                hashmap_remove(p->names, *s);
+                free(*s);
+        }
+
         dns_packet_truncate(p, saved_size);
         return r;
 }
@@ -1506,7 +1525,7 @@ int dns_packet_read_name(
         size_t after_rindex = 0, jump_barrier = p->rindex;
         _cleanup_free_ char *name = NULL;
         bool first = true;
-        size_t n = 0;
+        size_t n = 0, m = 0;
         int r;
 
         if (p->refuse_compression)
@@ -1535,14 +1554,21 @@ int dns_packet_read_name(
 
                         if (first)
                                 first = false;
-                        else
+                        else {
                                 name[n++] = '.';
+                                m++;
+                        }
 
                         r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
                         if (r < 0)
                                 return r;
 
                         n += r;
+                        m += c;
+
+                        if (m > DNS_HOSTNAME_MAX)
+                                return -EBADMSG;
+
                         continue;
                 } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
@@ -2881,6 +2907,27 @@ size_t dns_packet_size_unfragmented(DnsPacket *p) {
         return LESS_BY(p->fragsize, udp_header_size(p->family));
 }
 
+static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
+        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
+        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
+        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
+        [DNS_SVC_PARAM_KEY_PORT]            = "port",
+        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
+        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
+        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
+        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
+        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
+};
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
+
+const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
+        const char *p = dns_svc_param_key_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
+}
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS]   = "SUCCESS",
         [DNS_RCODE_FORMERR]   = "FORMERR",
@@ -2953,27 +3000,6 @@ const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
                 return p;
 
         return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
-}
-
-static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
-        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
-        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
-        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
-        [DNS_SVC_PARAM_KEY_PORT]            = "port",
-        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
-        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
-        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
-        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
-        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
-};
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
-
-const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
-        const char *p = dns_svc_param_key_to_string(i);
-        if (p)
-                return p;
-
-        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {

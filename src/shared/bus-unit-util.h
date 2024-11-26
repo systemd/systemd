@@ -7,6 +7,16 @@
 #include "pidref.h"
 #include "unit-def.h"
 
+typedef enum ExecDirectoryFlags {
+        EXEC_DIRECTORY_READ_ONLY      = 1 << 0, /* Public API via DBUS, do not change */
+        EXEC_DIRECTORY_ONLY_CREATE    = 1 << 1, /* Only the private directory will be created, not the symlink to it */
+        _EXEC_DIRECTORY_FLAGS_MAX,
+        _EXEC_DIRECTORY_FLAGS_PUBLIC  = EXEC_DIRECTORY_READ_ONLY,
+        _EXEC_DIRECTORY_FLAGS_INVALID = -EINVAL,
+} ExecDirectoryFlags;
+
+ExecDirectoryFlags exec_directory_flags_from_string(const char *s) _pure_;
+
 typedef struct UnitInfo {
         const char *machine;
         const char *id;

@@ -40,7 +40,7 @@
 #include "path-util.h"
 #include "pcrextend-util.h"
 #include "pcrlock-firmware.h"
-#include "pehash.h"
+#include "pe-binary.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
@@ -2045,7 +2045,7 @@ static int add_algorithm_columns(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) &&
+                if (!sd_json_format_enabled(arg_json_format_flags) &&
                     el->primary_algorithm != UINT16_MAX &&
                     *alg != el->primary_algorithm)
                         (void) table_hide_column_from_display(table, c);
@@ -2106,7 +2106,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
 
         (void) table_hide_column_from_display(table, table_get_columns(table) - 3); /* hide source */
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_format_enabled(arg_json_format_flags))
                 (void) table_hide_column_from_display(table, (size_t) 1); /* hide color block column */
 
         (void) table_set_json_field_name(table, phase_column, "phase");
@@ -2242,7 +2242,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (sd_json_format_enabled(arg_json_format_flags))
                 (void) table_hide_column_from_display(table, (size_t) 1, (size_t) 2); /* hide color block and emoji column */
         else if (!emoji_enabled())
                 (void) table_hide_column_from_display(table, (size_t) 2);
@@ -2347,7 +2347,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
         if (r < 0)
                 return log_error_errno(r, "Failed to output table: %m");
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (!sd_json_format_enabled(arg_json_format_flags))
                 printf("\n"
                        "%sLegend: H → PCR hash value matches event log%s\n"
                        "%s        R → All event log records for this PCR have a matching component%s\n"
@@ -2431,7 +2431,7 @@ static int event_log_load_and_process(EventLog **ret) {
 static int verb_show_log(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
-        bool want_json = !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF);
+        bool want_json = sd_json_format_enabled(arg_json_format_flags);
         int r;
 
         r = event_log_load_and_process(&el);
@@ -2607,7 +2607,7 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
 
         FOREACH_ARRAY(c, el->components, el->n_components) {
 
-                if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (!sd_json_format_enabled(arg_json_format_flags)) {
                         _cleanup_free_ char *marker = NULL;
 
                         switch (loc) {
@@ -2653,13 +2653,13 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (!table_isempty(table) || !FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No components defined.\n");
                 else
@@ -4154,7 +4154,7 @@ static int event_log_show_predictions(Tpm2PCRPrediction *context, uint16_t alg) 
 
         pager_open(arg_pager_flags);
 
-        if (!FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
                 for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {

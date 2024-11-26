@@ -152,7 +152,7 @@
     going to make use of any discovered swap device, regardless if the policy would allow that or not.</para>
 
     <para>Use the <command>image-policy</command> command of the
-    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
     to analyze image policy strings, and determine what a specific policy string means for a specific
     partition.</para>
   </refsect1>
@@ -184,7 +184,7 @@
       <member><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

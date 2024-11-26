@@ -8,6 +8,7 @@
 #include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
+#include "netdev-util.h"
 #include "networkd-link.h"
 #include "time-util.h"
 
@@ -118,6 +119,7 @@ typedef struct NetDev {
 
         char *filename;
         char **dropins;
+        Hashmap *stats_by_path;
 
         LIST_HEAD(Condition, conditions);
 
@@ -179,6 +181,16 @@ typedef struct NetDevVTable {
         /* get ifindex of the netdev. */
         int (*get_ifindex)(NetDev *netdev, const char *name);
 
+        /* provides if MAC address can be set. If this is not set, assumed to be yes. */
+        bool (*can_set_mac)(NetDev *netdev, const struct hw_addr_data *hw_addr);
+
+        /* provides if MTU can be set. If this is not set, assumed to be yes. */
+        bool (*can_set_mtu)(NetDev *netdev, uint32_t mtu);
+
+        /* provides if the netdev needs to be reconfigured when a specified type of address on the underlying
+         * interface is updated. */
+        bool (*needs_reconfigure)(NetDev *netdev, NetDevLocalAddressType type);
+
         /* expected iftype, e.g. ARPHRD_ETHER. */
         uint16_t iftype;
 
@@ -187,6 +199,10 @@ typedef struct NetDevVTable {
 
         /* When assigning ifindex to the netdev, skip to check if the netdev kind matches. */
         bool skip_netdev_kind_check;
+
+        /* Provides if the netdev can be updated, that is, whether RTM_NEWLINK with existing ifindex is supported or not.
+         * If this is true, the netdev does not support updating. */
+        bool keep_existing;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
@@ -211,14 +227,15 @@ NetDev* netdev_detach_name(NetDev *netdev, const char *name);
 void netdev_detach(NetDev *netdev);
 int netdev_set_ifindex_internal(NetDev *netdev, int ifindex);
 
-int netdev_load(Manager *manager, bool reload);
-int netdev_load_one(Manager *manager, const char *filename);
+int netdev_load(Manager *manager);
+int netdev_reload(Manager *manager);
+int netdev_load_one(Manager *manager, const char *filename, NetDev **ret);
 void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
 int netdev_enter_ready(NetDev *netdev);
 
-NetDev *netdev_unref(NetDev *netdev);
-NetDev *netdev_ref(NetDev *netdev);
+NetDev* netdev_unref(NetDev *netdev);
+NetDev* netdev_ref(NetDev *netdev);
 DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
@@ -229,6 +246,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
+bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char* netdev_kind_to_string(NetDevKind d) _const_;

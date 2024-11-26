@@ -129,8 +129,66 @@ Deprecations and removals:
 
 Features:
 
-* add a generic varlink dispatcher for pidfd/pidinode/pid to PidRef handling
-  (and formatter?)
+* Teach systemd-ssh-generator to generated an /run/issue.d/ drop-in telling
+  users how to connect to the system via the AF_VSOCK, as per:
+  https://github.com/systemd/systemd/issues/35071#issuecomment-2462803142
+
+* maybe introduce an OSC sequence that signals when we ask for a password, so
+  that terminal emulators can maybe connect a password manager or so, and
+  highlight things specially.
+
+* Port pidref_namespace_open() to use PIDFD_GET_MNT_NAMESPACE and related
+  ioctls to get nsfds directly from pidfds.
+
+* start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
+  generically, so that image discovery recognizes bcachefs subvols too.
+
+* format-table: introduce new cell type for strings with ansi sequences in
+  them. display them in regular output mode (via strip_tab_ansi()), but
+  suppress them in json mode.
+
+* machined: when registering a machine, also take a relative cgroup path,
+  relative to the machine's unit. This is useful when registering unpriv
+  machines, as they might sit down the cgroup tree, below a cgroup delegation
+  boundary. Then, install an inotify watch on that cgroup to track when the
+  machine's local cgroup goes down.
+
+* resolved: report ttl in resolution replies if we know it. This data is useful
+  for tools such as wireguard which want to periodically re-resolve DNS names,
+  and might want to use the TTL has hint for that.
+
+* journald: beef up ClientContext logic to store pidfd_id of peer, to validate
+  we really use the right cache entry
+
+* journald: log client's pidfd id as a new automatic field _PIDFDID= or so.
+
+* journald: split up ClientContext cache in two: one cache keyed by pid/pidfdid
+  with process information, and another one keyed by cgroup path/cgroupid with
+  cgroup information. This way if a service consisting of many logging
+  processes can take benefit of the cgroup caching.
+
+* system lsmbpf policy that prohibits creating files owned by "nobody"
+  system-wide
+
+* system lsmpbf policy that prohibits creating or opening device nodes outside
+  of devtmpfs/tmpfs, except if they are the pseudo-devices /dev/null,
+  /dev/zero, /dev/urandom and so on.
+
+* system lsmbpf policy that enforces that block device backed mounts may only
+  be established on top of dm-crypt or dm-verity devices, or an allowlist of
+  file systems (which should probably include vfat, for compat with the ESP)
+
+* $LISTEN_PID, $MAINPID and $SYSTEMD_EXECPID env vars that the service manager
+  sets should be augmented with $LISTEN_PIDFDID, $MAINPIDFDID and
+  $SYSTEMD_EXECPIDFD (and similar for other env vars we might send).
+
+* port copy.c over to use LabelOps for all labelling.
+
+* port remaining getmntent() users over to libmount. There are subtle
+  differences in the parsers (see #25371 for example), and it hence makes sense
+  if we stick to one set of parsers on this, not mix both.
+
+* run0 and run0 --user=root have different effect on tty ownership?
 
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
@@ -151,9 +209,6 @@ Features:
 * find a nice way to opt-in into auto-masking SIGCHLD on first
   sd_event_add_child(), and then get rid of many more explicit sigprocmask()
   calls.
-
-* maybe set shell.prompt.prefix credential in run0 to some warning emoji,
-  i.e. ⚠️ or ☢️ or ⚡ or 👊 or 🧑‍🔧 or so.
 
 * introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
   policy bits into one structure, i.e. public key info, pcr masks, pcrlock
@@ -180,11 +235,7 @@ Features:
   services where mount propagation from the root fs is off, an still have
   confext/sysext propagated in.
 
-* support F_DUDFD_QUERY for comparing fds in same_fd (requires kernel 6.10)
-
 * generic interface for varlink for setting log level and stuff that all our daemons can implement
-
-* use pty ioctl to get peer wherever possible (TIOCGPTPEER)
 
 * maybe teach repart.d/ dropins a new setting MakeMountNodes= or so, which is
   just like MakeDirectories=, but uses an access mode of 0000 and sets the +i
@@ -215,8 +266,6 @@ Features:
 
 * initrd: when transitioning from initrd to host, validate that
   /lib/modules/`uname -r` exists, refuse otherwise
-
-* tmpfiles: add "owning" flag for lines that limits effect of --purge
 
 * signed bpf loading: to address need for signature verification for bpf
   programs when they are loaded, and given the bpf folks don't think this is
@@ -421,9 +470,6 @@ Features:
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
 
-* use udev rule networkd ownership property to take ownership of network
-  interfaces nspawn creates
-
 * mountfsd/nsresourced
   - userdb: maybe allow callers to map one uid to their own uid
   - bpflsm: allow writes if resulting UID on disk would be userns' owner UID
@@ -610,6 +656,7 @@ Features:
   - openpt_allocate_in_namespace()
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
+  - journald's process cache
 
 * ddi must be listed as block device fstype
 
@@ -1426,18 +1473,12 @@ Features:
   - "systemd-sysupdate update --all" support, that iterates through all components
     defined on the host, plus all images installed into /var/lib/machines/,
     /var/lib/portable/ and so on.
-  - figure out what to do about system extensions (i.e. they need to imply an
-    update component, since otherwise sysupdate.d/ files would override the
-    host's update files.)
   - Allow invocation with a single transfer definition, i.e. with
     --definitions= pointing to a file rather than a dir.
   - add ability to disable implicit decompression of downloaded artifacts,
     i.e. a Compress=no option in the transfer definitions
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
-
-* DynamicUser= + StateDirectory= → use uid mapping mounts, too, in order to
-  make dirs appear under right UID.
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
@@ -1609,14 +1650,6 @@ Features:
   content. After all it is constant vendor data.
 
 * maybe add kernel cmdline params: to force random seed crediting
-
-* introduce a new per-process uuid, similar to the boot id, the machine id, the
-  invocation id, that is derived from process creds, specifically a hashed
-  combination of AT_RANDOM + getpid() + the starttime from
-  /proc/self/status. Then add these ids implicitly when logging. Deriving this
-  uuid from these three things has the benefit that it can be derived easily
-  from /proc/$PID/ in a stable, and unique way that changes on both fork() and
-  exec().
 
 * let's not GC a unit while its ratelimits are still pending
 
@@ -2031,7 +2064,7 @@ Features:
     with other units https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/admin-guide/hw-vuln/core-scheduling.rst
   - ExtensionImages= deduplication for services is currently only applied to disk images without GPT envelope.
     This should be extended to work with proper DDIs too, as well as directory confext/sysext. Moreover,
-    system-wide confex/sysext should support this too.
+    system-wide confext/sysext should support this too.
   - Pin the mount namespace via FD by sending it back from sd-exec to the manager, and use it
     for live mounting, instead of doing it via PID
 

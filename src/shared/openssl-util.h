@@ -1,9 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "ask-password-api.h"
 #include "iovec-util.h"
 #include "macro.h"
 #include "sha256.h"
+
+typedef enum CertificateSourceType {
+        OPENSSL_CERTIFICATE_SOURCE_FILE,
+        OPENSSL_CERTIFICATE_SOURCE_PROVIDER,
+        _OPENSSL_CERTIFICATE_SOURCE_MAX,
+        _OPENSSL_CERTIFICATE_SOURCE_INVALID = -EINVAL,
+} CertificateSourceType;
 
 typedef enum KeySourceType {
         OPENSSL_KEY_SOURCE_FILE,
@@ -12,6 +20,10 @@ typedef enum KeySourceType {
         _OPENSSL_KEY_SOURCE_MAX,
         _OPENSSL_KEY_SOURCE_INVALID = -EINVAL,
 } KeySourceType;
+
+typedef struct OpenSSLAskPasswordUI OpenSSLAskPasswordUI;
+
+int parse_openssl_certificate_source_argument(const char *argument, char **certificate_source, CertificateSourceType *certificate_source_type);
 
 int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
 
@@ -26,6 +38,7 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/opensslv.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
+#  include <openssl/ui.h>
 #  include <openssl/x509v3.h>
 #  ifndef OPENSSL_VERSION_MAJOR
 /* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
@@ -51,6 +64,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ECDSA_SIG*, ECDSA_SIG_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free_all, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_OCTET_STRING*, ASN1_OCTET_STRING_free, NULL);
 
@@ -130,38 +144,66 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int openssl_load_key_from_token(KeySourceType private_key_source_type, const char *private_key_source, const char *private_key, EVP_PKEY **ret);
-
 #else
 
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
+typedef struct EVP_MD EVP_MD;
+typedef struct UI_METHOD UI_METHOD;
+typedef struct ASN1_TYPE ASN1_TYPE;
+typedef struct ASN1_STRING ASN1_STRING;
 
-static inline void *X509_free(X509 *p) {
+static inline void* X509_free(X509 *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline void *EVP_PKEY_free(EVP_PKEY *p) {
+static inline void* EVP_PKEY_free(EVP_PKEY *p) {
         assert(p == NULL);
         return NULL;
 }
 
-static inline int openssl_load_key_from_token(
-                KeySourceType private_key_source_type,
-                const char *private_key_source,
-                const char *private_key,
-                EVP_PKEY **ret) {
+static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
+        assert(p == NULL);
+        return NULL;
+}
 
-        return -EOPNOTSUPP;
+static inline void* ASN1_STRING_free(ASN1_STRING *p) {
+        assert(p == NULL);
+        return NULL;
 }
 
 #endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TYPE*, ASN1_TYPE_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_STRING*, ASN1_STRING_free, NULL);
+
+struct OpenSSLAskPasswordUI {
+        AskPasswordRequest request;
+        UI_METHOD *method;
+};
+
+OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
+
+int openssl_load_x509_certificate(
+                CertificateSourceType certificate_source_type,
+                const char *certificate_source,
+                const char *certificate,
+                X509 **ret);
+
+int openssl_load_private_key(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                const AskPasswordRequest *request,
+                EVP_PKEY **ret_private_key,
+                OpenSSLAskPasswordUI **ret_user_interface);
 
 #if PREFER_OPENSSL
 /* The openssl definition */

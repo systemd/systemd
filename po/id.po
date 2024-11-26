@@ -5,8 +5,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-05-21 11:35+0000\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"PO-Revision-Date: 2024-11-07 09:30+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.5.5\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -112,29 +112,37 @@ msgid "Authentication is required to update a user's home area."
 msgstr "Otentikasi diperlukan untuk memperbarui suatu area rumah pengguna."
 
 #: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Memperbarui area rumah Anda"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "Otentikasi diperlukan untuk memperbarui area rumah Anda."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Mengubah ukuran area rumah"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr "Otentikasi diperlukan untuk mengubah ukuran area rumah pengguna."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Ubah kata sandi dari suatu area rumah"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Otentikasi diperlukan untuk mengubah kata sandi dari suatu area rumah "
 "pengguna."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktifkan suatu area home"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr "Otentikasi diperlukan untuk mengaktifkan suatu area home pengguna."
 
@@ -362,39 +370,35 @@ msgid "Import a disk image"
 msgstr "Impor sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image."
-msgstr "Otentikasi diperlukan untuk mengimpor suatu image"
+msgstr "Otentikasi diperlukan untuk mengimpor suatu image."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
 msgstr "Ekspor sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image."
-msgstr "Otentikasi diperlukan untuk mengekspor suatu image disk"
+msgstr "Otentikasi diperlukan untuk mengekspor suatu image disk."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
 msgstr "Unduh sebuah image disk"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr "Otentikasi diperlukan untuk mengunduh suatu image disk"
+msgstr "Otentikasi diperlukan untuk mengunduh suatu image disk."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
 msgstr "Batalkan transfer suatu image disk"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
 "Otentikasi diperlukan untuk membatalkan transfer suatu image disk yang "
-"sedang berjalan"
+"sedang berjalan."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -780,9 +784,8 @@ msgid "Set a wall message"
 msgstr "Setel suatu pesan wall"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+msgstr "Otentikasi diperlukan untuk menyetel pesan wall."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -857,16 +860,15 @@ msgstr ""
 "Otentikasi diperlukan untuk mengelola mesin virtual lokal dan kontainer."
 
 #: src/machine/org.freedesktop.machine1.policy:95
-#, fuzzy
 msgid "Create a local virtual machine or container"
-msgstr "Kelola mesin virtual lokal dan kontainer"
+msgstr "Membuat suatu mesin virtual lokal atau kontainer"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-#, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"Otentikasi diperlukan untuk mengelola mesin virtual lokal dan kontainer."
+"Otentikasi diperlukan untuk membuat sebuah mesin virtual lokal atau "
+"kontainer."
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid "Manage local virtual machine and container images"
@@ -1019,10 +1021,8 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr "Otentikasi diperlukan untuk mengonfigurasi ulang antar muka jaringan."
 
 #: src/network/org.freedesktop.network1.policy:187
-#, fuzzy
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr ""
-"Menentukan apakah penyimpanan persisten bagi systemd-networkd tersedia."
+msgstr "Menentukan apakah penyimpanan persisten bagi systemd-networkd tersedia"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
@@ -1067,18 +1067,16 @@ msgid "Register a DNS-SD service"
 msgstr "Daftarkan suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Otentikasi diperlukan untuk mendaftarkan suatu layanan DNS-SD"
+msgstr "Otentikasi diperlukan untuk mendaftarkan suatu layanan DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Cabut pendaftaran suatu layanan DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Otentikasi diperlukan untuk mencabut pendaftaran suatu layanan DNS-SD"
+msgstr "Otentikasi diperlukan untuk mencabut pendaftaran suatu layanan DNS-SD."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1090,86 +1088,87 @@ msgstr "Otentikasi diperlukan untuk me-reset pengaturan resolusi nama."
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Berlangganan hasil kuiri"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
-#, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr "Otentikasi diperlukan untuk mensuspensi sistem."
+msgstr "Otentikasi diperlukan untuk berlangganan hasil kuiri."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
-msgstr ""
+msgstr "Curahkan singgahan"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to dump cache."
-msgstr "Otentikasi diperlukan untuk mengatur domain."
+msgstr "Otentikasi diperlukan untuk mencurahkan singgahan."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump server state"
-msgstr ""
+msgstr "Curahkan keadaan server"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
-#, fuzzy
 msgid "Authentication is required to dump server state."
-msgstr "Otentikasi diperlukan untuk menyetel server NTP."
+msgstr "Otentikasi diperlukan untuk mencurahkan keadaan server."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump statistics"
-msgstr ""
+msgstr "Curahkan statistik"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
-#, fuzzy
 msgid "Authentication is required to dump statistics."
-msgstr "Otentikasi diperlukan untuk mengatur domain."
+msgstr "Otentikasi diperlukan untuk mencurahkan statistik."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Reset statistics"
-msgstr ""
+msgstr "Reset statistik"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
-#, fuzzy
 msgid "Authentication is required to reset statistics."
-msgstr "Otentikasi diperlukan untuk mereset pengaturan NTP."
+msgstr "Otentikasi diperlukan untuk mereset statistik."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Periksa pembaruan sistem"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+msgstr "Otentikasi diperlukan untuk memeriksa pembaruan sistem."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Pasang pembaruan sistem"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+msgstr "Otentikasi diperlukan untuk memasang pembaruan sistem."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Pasang versi sistem spesifik"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "Otentikasi diperlukan untuk menyetel zona waktu sistem."
+msgstr ""
+"Otentikasi diperlukan untuk memperbarui sistem ke versi tertentu (mungkin "
+"versi lama)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Bersihkan pembaruan sistem lama"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+msgstr "Otentikasi diperlukan untuk membersihkan pembaruan sistem lama."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Kelola fitur opsional"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features"
+msgstr "Otentikasi diperlukan untuk mengelola fitur opsional"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1211,23 +1210,23 @@ msgstr ""
 "Otentikasi diperlukan untuk mengendalikan apakah sinkronisasi waktu jaringan "
 "mesti difungsikan."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memulai '$(unit)'."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Otentikasi diperlukan untuk menghentikan '$(unit)'."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memuat ulang '$(unit)'."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memulai ulang '$(unit)'."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1235,16 +1234,16 @@ msgstr ""
 "Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Otentikasi diperlukan untuk menata properti pada '$(unit)'."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1252,7 +1251,7 @@ msgstr ""
 "Otentikasi diperlukan untuk menghapus berkas dan direktori yang terkait "
 "dengan '$(unit)'."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

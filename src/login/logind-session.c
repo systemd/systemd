@@ -254,7 +254,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
                         s->leader_fd_saved = true;
         }
 
-        (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
+        (void) audit_session_from_pid(&s->leader, &s->audit_id);
 
         return 1;
 }
@@ -1098,6 +1098,9 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         assert(s);
 
+        if (!SESSION_CLASS_CAN_IDLE(s->class))
+                return false;
+
         /* Graphical sessions have an explicit idle hint */
         if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
                 if (t)
@@ -1384,13 +1387,27 @@ SessionState session_get_state(Session *s) {
         return SESSION_ONLINE;
 }
 
-int session_kill(Session *s, KillWhom whom, int signo) {
+int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error) {
         assert(s);
 
-        if (!s->scope)
-                return -ESRCH;
+        switch (whom) {
 
-        return manager_kill_unit(s->manager, s->scope, whom, signo, NULL);
+        case KILL_ALL:
+                if (!SESSION_CLASS_WANTS_SCOPE(s->class))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                                 "Session '%s' has no associated scope", s->id);
+
+                if (!s->scope)
+                        return sd_bus_error_set_errnof(error, ESRCH, "Scope for session '%s' not active", s->id);
+
+                return manager_kill_unit(s->manager, s->scope, KILL_ALL, signo, error);
+
+        case KILL_LEADER:
+                return pidref_kill(&s->leader, signo);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int session_open_vt(Session *s, bool reopen) {

@@ -389,6 +389,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_sip = true,
                 .dhcp_use_captive_portal = true,
                 .dhcp_use_dns = -1,
+                .dhcp_use_dnr = -1,
                 .dhcp_routes_to_dns = true,
                 .dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp_use_hostname = true,
@@ -408,6 +409,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
                 .dhcp6_use_dns = -1,
+                .dhcp6_use_dnr = -1,
                 .dhcp6_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = -1,
@@ -479,10 +481,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .proxy_arp = -1,
                 .proxy_arp_pvlan = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
+                .ipv4_force_igmp_version = _IPV4_FORCE_IGMP_VERSION_INVALID,
 
                 .ndisc = -1,
                 .ndisc_use_redirect = true,
                 .ndisc_use_dns = -1,
+                .ndisc_use_dnr = -1,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,
                 .ndisc_use_route_prefix = true,
@@ -595,22 +599,45 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         return 0;
 }
 
-int network_load(Manager *manager, OrderedHashmap **networks) {
+int network_load(Manager *manager, OrderedHashmap **ret) {
         _cleanup_strv_free_ char **files = NULL;
+        OrderedHashmap *networks = NULL;
         int r;
 
         assert(manager);
-
-        ordered_hashmap_clear_with_destructor(*networks, network_unref);
+        assert(ret);
 
         r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
         STRV_FOREACH(f, files)
-                (void) network_load_one(manager, networks, *f);
+                (void) network_load_one(manager, &networks, *f);
 
+        *ret = TAKE_PTR(networks);
         return 0;
+}
+
+static bool network_netdev_equal(Network *a, Network *b) {
+        assert(a);
+        assert(b);
+
+        if (a->batadv != b->batadv ||
+            a->bridge != b->bridge ||
+            a->bond != b->bond ||
+            a->vrf != b->vrf ||
+            a->xfrm != b->xfrm)
+                return false;
+
+        if (hashmap_size(a->stacked_netdevs) != hashmap_size(b->stacked_netdevs))
+                return false;
+
+        NetDev *n;
+        HASHMAP_FOREACH(n, a->stacked_netdevs)
+                if (hashmap_get(b->stacked_netdevs, n->ifname) != n)
+                        return false;
+
+        return true;
 }
 
 int network_reload(Manager *manager) {
@@ -627,15 +654,21 @@ int network_reload(Manager *manager) {
         ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
                 if (r < 0) {
-                        log_debug("Found new .network file: %s", n->filename);
+                        log_debug("%s: Found new .network file.", n->filename);
                         continue;
                 }
 
                 if (!stats_by_path_equal(n->stats_by_path, old->stats_by_path)) {
-                        log_debug("Found updated .network file: %s", n->filename);
+                        log_debug("%s: Found updated .network file.", n->filename);
                         continue;
                 }
 
+                if (!network_netdev_equal(n, old)) {
+                        log_debug("%s: Detected update of referenced .netdev file(s).", n->filename);
+                        continue;
+                }
+
+                /* Nothing updated, use the existing Network object, and drop the new one. */
                 r = ordered_hashmap_replace(new_networks, old->name, old);
                 if (r < 0)
                         goto failure;
@@ -1060,26 +1093,64 @@ int config_parse_ignore_carrier_loss(
         return 0;
 }
 
+int config_parse_keep_configuration(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        KeepConfiguration t, *k = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
+
+        if (isempty(rvalue)) {
+                *k = ASSERT_PTR(network->manager)->keep_configuration;
+                return 0;
+        }
+
+        /* backward compatibility */
+        if (streq(rvalue, "dhcp")) {
+                *k = KEEP_CONFIGURATION_DYNAMIC;
+                return 0;
+        }
+
+        if (streq(rvalue, "dhcp-on-stop")) {
+                *k = KEEP_CONFIGURATION_DYNAMIC_ON_STOP;
+                return 0;
+        }
+
+        t = keep_configuration_from_string(rvalue);
+        if (t < 0)
+                return log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
+
+        *k = t;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration);
 
 static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
-        [KEEP_CONFIGURATION_NO]           = "no",
-        [KEEP_CONFIGURATION_DHCP_ON_STOP] = "dhcp-on-stop",
-        [KEEP_CONFIGURATION_DHCP]         = "dhcp",
-        [KEEP_CONFIGURATION_STATIC]       = "static",
-        [KEEP_CONFIGURATION_YES]          = "yes",
+        [KEEP_CONFIGURATION_NO]              = "no",
+        [KEEP_CONFIGURATION_DYNAMIC_ON_STOP] = "dynamic-on-stop",
+        [KEEP_CONFIGURATION_DYNAMIC]         = "dynamic",
+        [KEEP_CONFIGURATION_STATIC]          = "static",
+        [KEEP_CONFIGURATION_YES]             = "yes",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
 
 static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
-        [ACTIVATION_POLICY_UP] =          "up",
-        [ACTIVATION_POLICY_ALWAYS_UP] =   "always-up",
-        [ACTIVATION_POLICY_MANUAL] =      "manual",
+        [ACTIVATION_POLICY_UP]          = "up",
+        [ACTIVATION_POLICY_ALWAYS_UP]   = "always-up",
+        [ACTIVATION_POLICY_MANUAL]      = "manual",
         [ACTIVATION_POLICY_ALWAYS_DOWN] = "always-down",
-        [ACTIVATION_POLICY_DOWN] =        "down",
-        [ACTIVATION_POLICY_BOUND] =       "bound",
+        [ACTIVATION_POLICY_DOWN]        = "down",
+        [ACTIVATION_POLICY_BOUND]       = "bound",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);

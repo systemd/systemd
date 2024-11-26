@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "devnum-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
@@ -151,7 +152,7 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
 }
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref) {
-        sd_id128_t boot_id;
+        sd_id128_t boot_id = SD_ID128_NULL;
         int r;
 
         /* Turns a PidRef into a triplet of PID, pidfd inode nr, and the boot ID. The triplet should uniquely
@@ -160,22 +161,24 @@ int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return sd_json_variant_new_null(ret);
 
-        r = pidref_acquire_pidfd_id(pidref);
-        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -ENOMEDIUM)
-                return r;
-
-        if (pidref->fd_id > 0) {
-                /* If we have the pidfd inode number, also acquire the boot ID, to make things universally unique */
-                r = sd_id128_get_boot(&boot_id);
-                if (r < 0)
+        if (!pidref_is_remote(pidref)) {
+                r = pidref_acquire_pidfd_id(pidref);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -ENOMEDIUM)
                         return r;
+
+                /* If we have the pidfd inode number, also acquire the boot ID, to make things universally unique */
+                if (pidref->fd_id > 0) {
+                        r = sd_id128_get_boot(&boot_id);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_INTEGER("pid", pidref->pid),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref->fd_id > 0, "pidfdId", SD_JSON_BUILD_INTEGER(pidref->fd_id)),
-                        SD_JSON_BUILD_PAIR_CONDITION(pidref->fd_id > 0, "bootId", SD_JSON_BUILD_ID128(boot_id)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(boot_id), "bootId", SD_JSON_BUILD_ID128(boot_id)));
 }
 
 int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -229,7 +232,7 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
         } else
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is neither a numeric PID nor a PID object.", strna(name));
 
-        /* If SD_JSON_RELAX is set then we'll take a specified but zero field as request for "automic" PID derivation */
+        /* If SD_JSON_RELAX is set then we'll take a specified but zero field as request for "automatic" PID derivation */
         if ((flags & SD_JSON_RELAX) && data.pid == 0 && data.fd_id == 0 && sd_id128_is_null(data.boot_id)) {
                 pidref_done(p);
                 *p = PIDREF_AUTOMATIC;
@@ -252,7 +255,7 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
                 } else {
                         local_boot_id = sd_id128_equal(data.boot_id, my_boot_id);
                         if (!local_boot_id) {
-                                json_log(variant, flags | (FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : SD_JSON_DEBUG), 0, "JSON field '%s' refers to non-local PID.", strna(name));
+                                json_log(variant, flags | (FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : SD_JSON_DEBUG), 0, "JSON field '%s' refers to non-local PID%s.", strna(name), FLAGS_SET(flags, SD_JSON_STRICT) ? "" : ", proceeding");
                                 if (FLAGS_SET(flags, SD_JSON_STRICT))
                                         return -ESRCH;
                         }
@@ -260,41 +263,67 @@ int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dis
         }
 
         _cleanup_(pidref_done) PidRef np = PIDREF_NULL;
-        if (local_boot_id != 0) {
-                /* Try to acquire a pidfd – unless this is definitely not a local PID */
+        if (local_boot_id == 0)
+                /* If this is definitely not the local boot ID, then mark the PidRef as remote in the sense of pidref_is_remote() */
+                np = (PidRef) {
+                        .pid = data.pid,
+                        .fd = -EREMOTE,
+                        .fd_id = data.fd_id,
+                };
+        else {
+                /* Try to acquire a pidfd if this is or might be a local PID */
                 r = pidref_set_pid(&np, data.pid);
                 if (r < 0) {
                         json_log(variant, flags | (FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : SD_JSON_DEBUG), r, "Unable to get fd for PID in JSON field '%s': %m", strna(name));
                         if (FLAGS_SET(flags, SD_JSON_STRICT))
                                 return r;
+
+                        /* If the PID is dead or we otherwise can't get a pidfd of it, then store at least the PID number */
+                        np = PIDREF_MAKE_FROM_PID(data.pid);
                 }
-        }
 
-        /* If the the PID is dead or we otherwise can't get a pidfd of it, then store at least the PID number */
-        if (!pidref_is_set(&np))
-                np = PIDREF_MAKE_FROM_PID(data.pid);
+                /* If the pidfd inode nr is specified, validate it or at least state */
+                if (data.fd_id > 0) {
+                        if (np.fd >= 0) {
+                                r = pidref_acquire_pidfd_id(&np);
+                                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                                        return json_log(variant, flags, r, "Unable to get pidfd ID to validate JSON field '%s': %m", strna(name));
 
-        /* If the pidfd inode nr is specified, validate it or at least state */
-        if (data.fd_id > 0) {
-                if (np.fd >= 0) {
-                        r = pidref_acquire_pidfd_id(&np);
-                        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
-                                return json_log(variant, flags, r, "Unable to get pidfd ID to validate JSON field '%s': %m", strna(name));
-
-                        if (data.fd_id != np.fd_id) {
-                                json_log(variant, flags | (FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : SD_JSON_DEBUG), 0, "JSON field '%s' references PID with non-matching inode number.", strna(name));
-                                if (FLAGS_SET(flags, SD_JSON_STRICT))
-                                        return -ESRCH;
+                                if (data.fd_id != np.fd_id) {
+                                        json_log(variant, flags | (FLAGS_SET(flags, SD_JSON_STRICT) ? 0 : SD_JSON_DEBUG), 0, "JSON field '%s' references PID with non-matching inode number.", strna(name));
+                                        if (FLAGS_SET(flags, SD_JSON_STRICT))
+                                                return -ESRCH;
+                                }
+                        } else {
+                                json_log(variant, flags|SD_JSON_DEBUG, 0, "Not validating PID inode number on JSON field '%s', because operating without pidfd.", strna(name));
+                                np.fd_id = data.fd_id;
                         }
-                } else if (local_boot_id != 0) {
-                        json_log(variant, flags|SD_JSON_DEBUG, 0, "Not validating PID inode number on JSON field '%s', because operating without pidfd.", strna(name));
-                        np.fd_id = data.fd_id;
                 }
         }
 
         pidref_done(p);
         *p = TAKE_PIDREF(np);
 
+        return 0;
+}
+
+int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *ifi = ASSERT_PTR(userdata), r, t;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ifi = 0;
+                return 0;
+        }
+
+        r = sd_json_dispatch_int(name, variant, flags, &t);
+        if (r < 0)
+                return r;
+
+        /* If SD_JSON_RELAX is set allow a zero interface index, otherwise refuse. */
+        if (t < (FLAGS_SET(flags, SD_JSON_RELAX) ? 0 : 1))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is out of bounds for an interface index.", strna(name));
+
+        *ifi = t;
         return 0;
 }
 
@@ -339,6 +368,40 @@ int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dis
 
         *ret = makedev(data.major, data.minor);
         return 0;
+}
+
+int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        for (size_t i = 0; i < sd_json_variant_elements(variant); i++) {
+                sd_json_variant *e;
+                const char *a;
+
+                e = sd_json_variant_by_index(variant, i);
+                if (!sd_json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                assert_se(a = sd_json_variant_string(e));
+
+                if (!env_assignment_is_valid(a))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
+
+                r = strv_env_replace_strdup(&n, a);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
 }
 
 static int json_variant_new_stat(sd_json_variant **ret, const struct stat *st) {

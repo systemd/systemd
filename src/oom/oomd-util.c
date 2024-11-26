@@ -69,7 +69,7 @@ OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
         return mfree(ctx);
 }
 
-int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret) {
+int oomd_pressure_above(Hashmap *h, Set **ret) {
         _cleanup_set_free_ Set *targets = NULL;
         OomdCGroupContext *ctx;
         char *key;
@@ -90,7 +90,7 @@ int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret) {
                                 ctx->mem_pressure_limit_hit_start = now(CLOCK_MONOTONIC);
 
                         diff = now(CLOCK_MONOTONIC) - ctx->mem_pressure_limit_hit_start;
-                        if (diff >= duration) {
+                        if (diff >= ctx->mem_pressure_duration_usec) {
                                 r = set_put(targets, ctx);
                                 if (r < 0)
                                         return -ENOMEM;
@@ -564,6 +564,7 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->last_pgscan = old_ctx->pgscan;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
+                curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
         }
 
@@ -594,6 +595,7 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
                 ctx->last_pgscan = old_ctx->pgscan;
                 ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
                 ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
+                ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
 
                 if (oomd_pgscan_rate(ctx) > 0)
@@ -626,10 +628,12 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
         fprintf(f,
                 "%sPath: %s\n"
                 "%s\tMemory Pressure Limit: %lu.%02lu%%\n"
+                "%s\tMemory Pressure Duration: %s\n"
                 "%s\tPressure: Avg10: %lu.%02lu, Avg60: %lu.%02lu, Avg300: %lu.%02lu, Total: %s\n"
                 "%s\tCurrent Memory Usage: %s\n",
                 strempty(prefix), ctx->path,
                 strempty(prefix), LOADAVG_INT_SIDE(ctx->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(ctx->mem_pressure_limit),
+                strempty(prefix), FORMAT_TIMESPAN(ctx->mem_pressure_duration_usec, USEC_PER_SEC),
                 strempty(prefix),
                 LOADAVG_INT_SIDE(ctx->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(ctx->memory_pressure.avg10),
                 LOADAVG_INT_SIDE(ctx->memory_pressure.avg60), LOADAVG_DECIMAL_SIDE(ctx->memory_pressure.avg60),

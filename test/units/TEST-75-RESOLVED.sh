@@ -496,6 +496,8 @@ testcase_08_resolved() {
     grep -qF "15 mail.unsigned.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX unsigned.test
     grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
+    run dig @ns1.unsigned.test +noall +comments unsigned.test CNAME
+    grep -qF "status: NOERROR" "$RUN_OUT"
 
     : "--- ZONE: signed.test (static DNSSEC) ---"
     # Check the trust chain (with and without systemd-resolved in between
@@ -517,8 +519,17 @@ testcase_08_resolved() {
     grep -qF "fd00:dead:beef:cafe::11" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
 
-    run dig +short signed.test
+    run dig +nostats signed.test
     grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* ad" "$RUN_OUT"
+    run dig +nostats +cd signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* cd" "$RUN_OUT"
+    grep -qv "flags:[^;]* ad" "$RUN_OUT"
+    run dig +nostats +do signed.test
+    grep -qF "10.0.0.10" "$RUN_OUT"
+    grep -q "flags:[^;]* ad" "$RUN_OUT"
+    grep -qv "flags:[^;]* cd" "$RUN_OUT"
     run resolvectl query signed.test
     grep -qF "signed.test: 10.0.0.10" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"

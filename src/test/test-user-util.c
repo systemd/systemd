@@ -318,6 +318,24 @@ TEST(valid_home) {
         assert_se(valid_home("/"));
         assert_se(valid_home("/home"));
         assert_se(valid_home("/home/foo"));
+        assert_se(valid_home("/home/foo/"));
+}
+
+TEST(valid_shell) {
+        assert_se(!valid_shell(NULL));
+        assert_se(!valid_shell(""));
+        assert_se(!valid_shell("."));
+        assert_se(!valid_shell("/shell/.."));
+        assert_se(!valid_shell("/shell/../"));
+        assert_se(!valid_shell("/shell\n/foo"));
+        assert_se(!valid_shell("./piep"));
+        assert_se(!valid_shell("piep"));
+        assert_se(!valid_shell("/shell/user:lennart"));
+        assert_se(!valid_shell("/"));
+        assert_se(!valid_shell("/bin/sh/"));
+        assert_se(valid_shell("/shell"));
+        assert_se(valid_shell("/shell/foo"));
+        assert_se(valid_shell("/bin/sh"));
 }
 
 static void test_get_user_creds_one(const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {

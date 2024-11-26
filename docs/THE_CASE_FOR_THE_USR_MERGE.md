@@ -80,7 +80,7 @@ _With all vendor-supplied OS resources in a single directory /usr they may be sh
 
 **Myth #4**: The /usr merge’s only purpose is to look pretty, and has no other benefits
 
-**Fact**: The /usr merge makes sharing the vendor-supplied OS resources between a host and networked clients as well as a host and local light-weight containers easier and atomic. Snapshotting the OS becomes a viable option. The /usr merge also allows making the entire vendor-supplied OS resources read-only for increased security and robustness.
+**Fact**: The /usr merge makes sharing the vendor-supplied OS resources between a host and networked clients as well as a host and local lightweight containers easier and atomic. Snapshotting the OS becomes a viable option. The /usr merge also allows making the entire vendor-supplied OS resources read-only for increased security and robustness.
 
 **Myth #5**: Adopting the /usr merge in your distribution means additional work for your distribution's package maintainers
 

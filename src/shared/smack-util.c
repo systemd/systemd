@@ -294,7 +294,10 @@ static int mac_smack_label_pre(int dir_fd, const char *path, mode_t mode) {
         return 0;
 }
 
-static int mac_smack_label_post(int dir_fd, const char *path) {
+static int mac_smack_label_post(int dir_fd, const char *path, bool created) {
+        if (!created)
+                return 0;
+
         return mac_smack_fix_full(dir_fd, path, NULL, 0);
 }
 

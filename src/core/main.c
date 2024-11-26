@@ -1689,6 +1689,11 @@ static int become_shutdown(int objective, int retval) {
         /* Tell the binary how often to ping, ignore failure */
         (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
 
+        /* Make sure that tools that look for $WATCHDOG_USEC (and might get started by the exitrd) don't get
+         * confused by the variable, because the sd_watchdog_enabled() protocol uses the same variable for
+         * the same purposes. */
+        (void) strv_extendf(&env_block, "WATCHDOG_PID=" PID_FMT, getpid_cached());
+
         if (arg_watchdog_device)
                 (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
 
@@ -2582,13 +2587,13 @@ static int do_queue_default_job(
 
         assert(target->load_state == UNIT_LOADED);
 
-        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &job);
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, &error, &job);
         if (r == -EPERM) {
                 log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
                 sd_bus_error_free(&error);
 
-                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &job);
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, &error, &job);
                 if (r < 0) {
                         *ret_error_message = "Failed to start default target";
                         return log_struct_errno(LOG_EMERG, r,
@@ -3170,20 +3175,10 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!skip_setup) {
-                        /* Before we actually start deleting cgroup v1 code, make it harder to boot
-                         * in cgroupv1 mode first. See also #30852. */
-
                         r = mount_cgroup_legacy_controllers(loaded_policy);
                         if (r < 0) {
-                                if (r == -ERFKILL)
-                                        error_message = "Refusing to run under cgroup v1, SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 not specified on kernel command line";
-                                else
-                                        error_message = "Failed to mount cgroup v1 hierarchy";
+                                error_message = "Failed to mount cgroup v1 hierarchy";
                                 goto finish;
-                        }
-                        if (r > 0) {
-                                log_full(LOG_CRIT, "Legacy cgroup v1 support selected. This is no longer supported. Will proceed anyway after 30s.");
-                                (void) usleep_safe(30 * USEC_PER_SEC);
                         }
                 }
 

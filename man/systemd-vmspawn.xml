@@ -45,7 +45,7 @@
     file descriptors must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal>
     respectively.</para>
 
-    <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the
+    <para>Note: on Ubuntu/Debian derivatives <command>systemd-vmspawn</command> requires the user to be in the
     <literal>kvm</literal> group to use the VSOCK options.</para>
   </refsect1>
 
@@ -420,7 +420,8 @@
           for more information.</para>
 
           <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
-          may also be useful if the VM has a particularly old version of <command>sshd</command>.</para>
+          may also be useful if the VM has a particularly old version of
+          <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
@@ -508,11 +509,11 @@
       <programlisting>
 $ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
 $ systemd-vmspawn --image=image.raw
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
-      <title>Import and run a Fedora 39 Cloud image using machinectl</title>
+      <title>Import and run a Fedora &fedora_latest_version; Cloud image using machinectl</title>
 
       <programlisting>
 $ curl -L \
@@ -523,7 +524,7 @@ $ gpgv --keyring ./fedora.gpg Fedora-Cloud-&fedora_latest_version;-&fedora_cloud
 $ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
 # machinectl import-raw Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz fedora-&fedora_latest_version;-cloud
 # systemd-vmspawn -M fedora-&fedora_latest_version;-cloud
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -537,9 +538,10 @@ $ systemd-vmspawn \
     --linux mkosi.output/system.efi \
     --forward-journal=vm.journal \
     enforcing=0
-      </programlisting>
+</programlisting>
 
-      <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in enforcing mode.</para>
+      <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in
+      enforcing mode.</para>
     </example>
 
     <example>
@@ -555,7 +557,7 @@ $ systemd-vmspawn \
     --vsock-cid $my_vsock_cid \
     enforcing=0
 $ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-system-ed25519
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 

@@ -294,59 +294,11 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
-        int r;
-
-        assert(m);
-        assert(ret);
-
-        switch (m->class) {
-
-        case MACHINE_HOST:
-                *ret = NULL;
-                break;
-
-        case MACHINE_CONTAINER: {
-                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-                char *address;
-
-                r = sd_bus_new(&bus);
-                if (r < 0)
-                        return r;
-
-                if (asprintf(&address, "x-machine-unix:pid=%" PID_PRI, m->leader.pid) < 0)
-                        return -ENOMEM;
-
-                bus->address = address;
-                bus->bus_client = true;
-                bus->trusted = false;
-                bus->runtime_scope = RUNTIME_SCOPE_SYSTEM;
-
-                r = sd_bus_start(bus);
-                if (r == -ENOENT)
-                        return sd_bus_error_set_errnof(error, r, "There is no system bus in container %s.", m->name);
-                if (r < 0)
-                        return r;
-
-                *ret = TAKE_PTR(bus);
-                break;
-        }
-
-        default:
-                return -EOPNOTSUPP;
-        }
-
-        return 0;
-}
-
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         _cleanup_close_ int master = -EBADF;
-        sd_bus *container_bus = NULL;
         Machine *m = ASSERT_PTR(userdata);
-        const char *p, *getty;
         int r;
 
         assert(message);
@@ -372,18 +324,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         if (master < 0)
                 return master;
 
-        p = path_startswith(pty_name, "/dev/pts/");
-        assert(p);
-
-        r = container_bus_new(m, error, &allocated_bus);
-        if (r < 0)
-                return r;
-
-        container_bus = allocated_bus ?: m->manager->bus;
-
-        getty = strjoina("container-getty@", p, ".service");
-
-        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, NULL, "ss", getty, "replace");
+        r = machine_start_getty(m, pty_name, error);
         if (r < 0)
                 return r;
 
@@ -399,15 +340,13 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *tm = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
-        sd_bus *container_bus = NULL;
-        _cleanup_close_ int master = -EBADF, slave = -EBADF;
+        _cleanup_close_ int master = -EBADF;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         _cleanup_free_ char *command_line = NULL;
         Machine *m = ASSERT_PTR(userdata);
-        const char *p, *unit, *user, *path, *description, *utmp_id;
+        const char *user, *path;
         int r;
 
         assert(message);
@@ -420,25 +359,10 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         if (isempty(path)) {
-                path = "/bin/sh";
-
-                args = new0(char*, 3 + 1);
+                path = machine_default_shell_path();
+                args = machine_default_shell_args(user);
                 if (!args)
                         return -ENOMEM;
-                args[0] = strdup("sh");
-                if (!args[0])
-                        return -ENOMEM;
-                args[1] = strdup("-c");
-                if (!args[1])
-                        return -ENOMEM;
-                r = asprintf(&args[2],
-                             "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
-                             "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
-                             user);
-                if (r < 0) {
-                        args[2] = NULL;
-                        return -ENOMEM;
-                }
         } else {
                 if (!path_is_absolute(path))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
@@ -484,149 +408,9 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (master < 0)
                 return master;
 
-        p = path_startswith(pty_name, "/dev/pts/");
-        assert(p);
-
-        slave = machine_open_terminal(m, pty_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (slave < 0)
-                return slave;
-
-        utmp_id = path_startswith(pty_name, "/dev/");
-        assert(utmp_id);
-
-        r = container_bus_new(m, error, &allocated_bus);
+        r = machine_start_shell(m, master, pty_name, user, path, args, env, error);
         if (r < 0)
                 return r;
-
-        container_bus = allocated_bus ?: m->manager->bus;
-
-        r = bus_message_new_method_call(container_bus, &tm, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return r;
-
-        /* Name and mode */
-        unit = strjoina("container-shell@", p, ".service");
-        r = sd_bus_message_append(tm, "ss", unit, "fail");
-        if (r < 0)
-                return r;
-
-        /* Properties */
-        r = sd_bus_message_open_container(tm, 'a', "(sv)");
-        if (r < 0)
-                return r;
-
-        description = strjoina("Shell for User ", user);
-        r = sd_bus_message_append(tm,
-                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
-                                  "Description", "s", description,
-                                  "StandardInputFileDescriptor", "h", slave,
-                                  "StandardOutputFileDescriptor", "h", slave,
-                                  "StandardErrorFileDescriptor", "h", slave,
-                                  "SendSIGHUP", "b", true,
-                                  "IgnoreSIGPIPE", "b", false,
-                                  "KillMode", "s", "mixed",
-                                  "TTYPath", "s", pty_name,
-                                  "TTYReset", "b", true,
-                                  "UtmpIdentifier", "s", utmp_id,
-                                  "UtmpMode", "s", "user",
-                                  "PAMName", "s", "login",
-                                  "WorkingDirectory", "s", "-~");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(tm, "(sv)", "User", "s", user);
-        if (r < 0)
-                return r;
-
-        if (!strv_isempty(env)) {
-                r = sd_bus_message_open_container(tm, 'r', "sv");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(tm, "s", "Environment");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_open_container(tm, 'v', "as");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append_strv(tm, env);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(tm);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(tm);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Exec container */
-        r = sd_bus_message_open_container(tm, 'r', "sv");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(tm, "s", "ExecStart");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(tm, 'v', "a(sasb)");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(tm, 'a', "(sasb)");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(tm, 'r', "sasb");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(tm, "s", path);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_strv(tm, args);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(tm, "b", true);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(tm);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(tm);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(tm);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(tm);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(tm);
-        if (r < 0)
-                return r;
-
-        /* Auxiliary units */
-        r = sd_bus_message_append(tm, "a(sa(sv))", 0);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call(container_bus, tm, 0, error, NULL);
-        if (r < 0)
-                return r;
-
-        slave = safe_close(slave);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -856,7 +640,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Copying might take a while, hence install a watch on the child, and return */
 
-        r = operation_new(m->manager, m, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new_with_bus_reply(m->manager, m, child, message, errno_pipe_fd[0], /* ret= */ NULL);
         if (r < 0) {
                 (void) sigkill_wait(child);
                 return r;

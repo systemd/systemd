@@ -11,7 +11,7 @@ ACTION=="remove", GOTO="systemd_end"
 
 SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270/tty[0-9]*", TAG+="systemd"
 # Exclude 8250 serial ports with a zero IO port, as they are not usable until "setserial /dev/ttySxxx port …" is invoked.
-SUBSYSTEM=="tty", KERNEL=="ttyS*", DRIVERS=="serial8250", ATTR{port}=="0x0", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="tty", KERNEL=="ttyS*", DRIVERS=="serial8250", ATTR{port}=="0x0", ATTR{iomem_base}=="0x0", ENV{SYSTEMD_READY}="0"
 KERNEL=="vport*", TAG+="systemd"
 
 SUBSYSTEM=="ptp", TAG+="systemd"

@@ -887,7 +887,7 @@ DuplicateAddressDetection=none</programlisting></para>
           from the network interface will be appear as coming from the local host. Typically, this should be
           enabled on the downstream interface of routers. Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>no</literal>. Defaults to
-          <literal>no</literal>. Note. Any positive boolean values such as <literal>yes</literal> or
+          <literal>no</literal>. Note that any positive boolean values such as <literal>yes</literal> or
           <literal>true</literal> are now deprecated. Please use one of the values above. Specifying
           <literal>ipv4</literal> or <literal>both</literal> implies <varname>IPv4Forwarding=</varname>
           settings in both .network file for this interface and the global
@@ -928,8 +928,8 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the interface.
           If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they may trigger the
           start of the DHCPv6 client if the relevant flags are set in the RA data, or if no routers are found
-          on the link. Defaults to false for bridge devices, when IP forwarding is enabled,
-          <varname>IPv6SendRA=</varname> or <varname>KeepMaster=</varname> is enabled. Otherwise, enabled by
+          on the link. Defaults to false for bridge devices, when <varname>IPv6Forwarding=</varname>,
+          <varname>IPv6SendRA=</varname>, or <varname>KeepMaster=</varname> is enabled. Otherwise, enabled by
           default. Cannot be enabled on devices aggregated in a bond device or when link-local addressing is
           disabled.</para>
 
@@ -993,14 +993,35 @@ DuplicateAddressDetection=none</programlisting></para>
           whether the <emphasis>source</emphasis> of the packet would be routed through the interface it came in. If there is no
           route to the source on that interface, the machine will drop the packet. Takes one of
           <literal>no</literal>, <literal>strict</literal>, or <literal>loose</literal>. When <literal>no</literal>,
-          no source validation will be done. When <literal>strict</literal>, mode each incoming packet is tested against the FIB and
+          no source validation will be done. When <literal>strict</literal>, each incoming packet is tested against the FIB and
           if the incoming interface is not the best reverse path, the packet check will fail. By default failed packets are discarded.
-          When <literal>loose</literal>,  mode each incoming packet's source address is tested against the FIB. The packet is dropped
+          When <literal>loose</literal>, each incoming packet's source address is tested against the FIB. The packet is dropped
           only if the source address is not reachable via any interface on that router.
           See <ulink url="https://tools.ietf.org/html/rfc1027">RFC 3704</ulink>.
           When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MulticastIGMPVersion=</varname></term>
+        <listitem>
+          <para>Configures IPv4 Multicast IGMP Version to be used, and controls the value of
+          <filename>/proc/sys/net/ipv4/conf/<replaceable>INTERFACE</replaceable>/force_igmp_version</filename>.
+          Takes one of <literal>no</literal>,
+          <literal>v1</literal>, <literal>v2</literal>, or <literal>v3</literal>.
+          When <literal>no</literal>, no enforcement of an IGMP version will be applied, IGMPv1/v2 fallback are allowed, will back to
+          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expire.
+          When <literal>v1</literal>, use of IGMP version 1 will be enforced, and IGMPv1 report will be replied even if IGMPv2/v3
+          queries are received.
+          When <literal>v2</literal>, use of IGMP version 2 will be enforced, and IGMPv2 report will be replied if an IGMPv2/v3 query
+          is received, but fallback to IGMPv1 if an IGMPv1 query is received.
+          When <literal>v3</literal>, use of IGMP version 3 will be enforced, and the same reaction will be done as <literal>no</literal>.
+          Defaults to unset, and the sysctl value will be unchanged.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -1063,9 +1084,10 @@ DuplicateAddressDetection=none</programlisting></para>
           Advertisement messages intended for another machine by offering its own MAC address as
           destination. Unlike proxy ARP for IPv4, it is not enabled globally, but will only send
           Neighbour Advertisement messages for addresses in the IPv6 neighbor proxy table, which can
-          also be shown by <command>ip -6 neighbour show proxy</command>. systemd-networkd will control
-          the per-interface `proxy_ndp` switch for each configured interface depending on this option.
-          When unset, the kernel's default will be used.</para>
+          also be shown by <command>ip -6 neighbour show proxy</command>.
+          <command>systemd-networkd</command> will control the per-interface `proxy_ndp` switch for each
+          configured interface depending on this option. When unset, the kernel's default will be used.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
@@ -1075,7 +1097,7 @@ DuplicateAddressDetection=none</programlisting></para>
         <term><varname>IPv6ProxyNDPAddress=</varname></term>
         <listitem>
           <para>An IPv6 address, for which Neighbour Advertisement messages will be proxied. This
-          option may be specified more than once. systemd-networkd will add the
+          option may be specified more than once. <command>systemd-networkd</command> will add the
           <varname>IPv6ProxyNDPAddress=</varname> entries to the kernel's IPv6 neighbor proxy table.
           This setting implies <varname>IPv6ProxyNDP=yes</varname> but has no effect if
           <varname>IPv6ProxyNDP=</varname> has been set to false. When unset, the kernel's default will
@@ -1204,9 +1226,9 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>ConfigureWithoutCarrier=</varname></term>
         <listitem>
-          <para>Takes a boolean. Allows networkd to configure a specific link even if it has no
-          carrier. Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname> setting
-          is not explicitly set, then it is enabled as well.</para>
+          <para>Takes a boolean. Allows <command>systemd-networkd</command> to configure a specific link even
+          if it has no carrier. Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname>
+          setting is not explicitly set, then it is enabled as well.</para>
 
           <para>With this enabled, to make the interface enter the <literal>configured</literal> state,
           which is required to make <command>systemd-networkd-wait-online</command> work properly for the
@@ -1265,21 +1287,21 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>KeepConfiguration=</varname></term>
         <listitem>
-          <para>Takes a boolean or one of <literal>static</literal>, <literal>dhcp-on-stop</literal>,
-          <literal>dhcp</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
-          will not drop static addresses and routes on starting up process. When set to
-          <literal>dhcp-on-stop</literal>, <command>systemd-networkd</command> will not drop addresses
-          and routes on stopping the daemon. When <literal>dhcp</literal>,
-          the addresses and routes provided by a DHCP server will never be dropped even if the DHCP
-          lease expires. This is contrary to the DHCP specification, but may be the best choice if,
-          e.g., the root filesystem relies on this connection. The setting <literal>dhcp</literal>
-          implies <literal>dhcp-on-stop</literal>, and <literal>yes</literal> implies
-          <literal>dhcp</literal> and <literal>static</literal>. Defaults to
-          <literal>dhcp-on-stop</literal> when <command>systemd-networkd</command> is running in
-          initrd, <literal>yes</literal> when the root filesystem is a network filesystem, and
-          <literal>no</literal> otherwise.</para>
+          <para>Takes a boolean or one of <literal>static</literal>, <literal>dynamic-on-stop</literal>, and
+          <literal>dynamic</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
+          will not drop statically configured addresses and routes on starting up process. When
+          <literal>dynamic-on-stop</literal>, the dynamically configurad addresses and routes, such as
+          DHCPv4, DHCPv6, SLAAC, and IPv4 link-local address, will not be dropped when
+          <command>systemd-networkd</command> is being stopped. When <literal>dynamic</literal>, the
+          dynamically configured addresses and routes will never be dropped, and the lifetime of DHCPv4
+          leases will be ignored. This is contrary to the DHCP specification, but may be the best choice if,
+          e.g., the root filesystem relies on this connection. The setting <literal>dynamic</literal> implies
+          <literal>dynamic-on-stop</literal>, and <literal>yes</literal> implies <literal>dynamic</literal>
+          and <literal>static</literal>. Defaults to <literal>dynamic-on-stop</literal> when
+          <command>systemd-networkd</command> is running in initrd, <literal>yes</literal> when the root
+          filesystem is a network filesystem, and <literal>no</literal> otherwise.</para>
 
-        <xi:include href="version-info.xml" xpointer="v243"/>
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1434,11 +1456,11 @@ DuplicateAddressDetection=none</programlisting></para>
           <command>ip maddr</command> command would not work if we have an Ethernet switch that does
           IGMP snooping since the switch would not replicate multicast packets on  ports that did not
           have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
-          <command>ip link add vxlan</command> or networkd's netdev kind vxlan have the group option
-          that enables them to do the required join. By extending <command>ip address</command> command
-          with option <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS)
-          vxlan interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
-          Defaults to <literal>no</literal>.</para>
+          <command>ip link add vxlan</command> or <command>systemd-networkd</command>'s netdev kind vxlan
+          have the group option that enables them to do the required join. By extending
+          <command>ip address</command> command with option <literal>autojoin</literal> we can get similar
+          functionality for openvswitch (OVS) vxlan interfaces as well as other tunneling mechanisms that
+          need to receive multicast traffic. Defaults to <literal>no</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
@@ -1764,7 +1786,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>L3MasterDevice=</varname></term>
         <listitem>
-          <para>A boolean. Specifies whether the rule is to direct lookups to the tables associated with
+          <para>Takes a boolean. Specifies whether the rule is to direct lookups to the tables associated with
           level 3 master devices (also known as Virtual Routing and Forwarding or VRF devices).
           For further details see <ulink url="https://docs.kernel.org/networking/vrf.html">
           Virtual Routing and Forwarding (VRF)</ulink>. Defaults to false.</para>
@@ -2606,6 +2628,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseDNR=</varname></term>
+        <listitem>
+          <para>When true, designated resolvers advertised by the DHCP server will be used as encrypted
+          DNS servers. See <ulink url="https://datatracker.ietf.org/doc/html/rfc9463">RFC 9463</ulink>.</para>
+
+          <para>Defaults to unset, and the value for <varname>UseDNS=</varname> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseMTU=</varname></term>
         <listitem>
           <para>When true, the interface maximum transmission unit from the DHCP server will be used on
@@ -2870,7 +2904,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           Note that if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is
           ignored.</para>
           <para>Note that this filters only DHCP offers, so the filtering might not work when
-          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
@@ -3131,6 +3165,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
       <varlistentry>
         <term><varname>UseDNS=</varname></term>
+        <term><varname>UseDNR=</varname></term>
         <term><varname>UseNTP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
@@ -3305,7 +3340,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>UseRedirect=</varname></term>
         <listitem>
           <para>When true (the default), Redirect message sent by the current first-hop router will be
-          accepted, and configures routes to redirected nodes will be configured.</para>
+          accepted, and routes to redirected nodes will be configured.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -3415,6 +3450,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v231"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDNR=</varname></term>
+        <listitem>
+          <para> When true, the DNR servers received in the Router Advertisement will be used. Defaults to
+            the value of <option>UseDNS=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
 
@@ -4032,7 +4077,8 @@ ServerAddress=192.168.0.1/24</programlisting>
           <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
           storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
           Hence, bound leases will be lost when the interface is reconfigured e.g. by
-          <command>networkctl reconfigure</command>, or <filename>systemd-networkd.service</filename>
+          <command>networkctl reconfigure</command>, or
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           is restarted. That may cause address conflict on the network. So, please take an extra care when
           disable this setting. When unspecified, the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -4216,7 +4262,7 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>HomeAgent=</varname></term>
 
-        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements which indicate to hosts that
+        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements indicate to hosts that
         the router acts as a Home Agent and includes a Home Agent option. Defaults to false. See
         <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink> for further details.</para>
 
@@ -4540,10 +4586,9 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>Priority=</varname></term>
         <listitem>
-          <para>Sets the "priority" of sending packets on this interface.
-          Each port in a bridge may have a different priority which is used
-          to decide which link to use. Lower value means higher priority.
-          It is an integer value between 0 to 63. Networkd does not set any
+          <para>Sets the "priority" of sending packets on this interface. Each port in a bridge may have a
+          different priority which is used to decide which link to use. Lower value means higher priority.
+          It is an integer value between 0 to 63. <command>systemd-networkd</command> does not set any
           default, meaning the kernel default value of 32 is used.</para>
 
           <xi:include href="version-info.xml" xpointer="v234"/>
@@ -6252,13 +6297,21 @@ DHCP=ipv6
 #SubnetId=0
 #Announce=no
 
-# If the upstream network does not provides any Router Advertisement (RA) messages
-# or provides an RA with both Managed and Other-information bits unset, then
-# uncomment the lines below.
+# If the upstream network does not provides any Router Advertisement (RA) messages,
+# then uncomment the lines below to make the DHCPv6 client forcibly started in the
+# managed mode.
 #[Network]
 #IPv6AcceptRA=no
 #[DHCPv6]
-#WithoutRA=solicit</programlisting>
+#WithoutRA=solicit
+
+# If the upstream network provides Router Advertisement (RA) messages with the
+# Managed bit unset, then uncomment the lines below to make the DHCPv6 client
+# forcibly started in the managed mode when an RA is received.
+#[DHCPv6]
+#UseAddress=no
+#[IPv6AcceptRA]
+#DHCPv6Client=always</programlisting>
 
       <programlisting># /etc/systemd/network/55-dhcpv6-pd-downstream.network
 [Match]
@@ -6402,31 +6455,31 @@ Tunnel=ipip-tun
 Tunnel=sit-tun
 Tunnel=gre-tun
 Tunnel=vti-tun
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-ipip.netdev
 [NetDev]
 Name=ipip-tun
 Kind=ipip
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-sit.netdev
 [NetDev]
 Name=sit-tun
 Kind=sit
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-gre.netdev
 [NetDev]
 Name=gre-tun
 Kind=gre
-      </programlisting>
+</programlisting>
 
       <programlisting>/etc/systemd/network/25-tunnel-vti.netdev
 [NetDev]
 Name=vti-tun
 Kind=vti
-      </programlisting>
+</programlisting>
 
       <para>This will bring interface <literal>ens1</literal> up and create an IPIP tunnel,
       a SIT tunnel, a GRE tunnel, and a VTI tunnel using it.</para>

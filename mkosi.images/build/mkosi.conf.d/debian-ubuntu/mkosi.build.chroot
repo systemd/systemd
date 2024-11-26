@@ -33,7 +33,7 @@ EOF
 cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
-MKOSI_CFLAGS="-O0"
+MKOSI_CFLAGS="-O0 -g"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
     MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
@@ -133,8 +133,8 @@ fi
     rm -f "$BUILDDIR"/*.deb "$BUILDDIR"/*.ddeb
 
     cp ../*.deb ../*.ddeb "$PACKAGEDIR"
-    cp ../*.deb ../*.ddeb "$OUTPUTDIR"
     cp ../*.deb ../*.ddeb "$BUILDDIR"
+
     # These conflict with the packages that we actually want to install, so remove them
     rm -f "$BUILDDIR"/systemd-standalone-*.deb "$BUILDDIR"/systemd-standalone-*.ddeb
 )

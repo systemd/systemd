@@ -372,7 +372,6 @@ static int device_found_from_string_many(const char *name, DeviceFound *ret) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 DeviceFound f = 0;
-                unsigned i;
 
                 r = extract_first_word(&name, &word, ",", 0);
                 if (r < 0)
@@ -380,9 +379,9 @@ static int device_found_from_string_many(const char *name, DeviceFound *ret) {
                 if (r == 0)
                         break;
 
-                for (i = 0; i < ELEMENTSOF(device_found_map); i++)
-                        if (streq(word, device_found_map[i].name)) {
-                                f = device_found_map[i].flag;
+                FOREACH_ELEMENT(i, device_found_map)
+                        if (streq(word, i->name)) {
+                                f = i->flag;
                                 break;
                         }
 
@@ -1048,9 +1047,6 @@ static void device_enumerate(Manager *m) {
         FOREACH_DEVICE(e, dev) {
                 _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
                 Device *d;
-
-                if (device_is_processed(dev) <= 0)
-                        continue;
 
                 if (device_setup_units(m, dev, &ready_units, &not_ready_units) < 0)
                         continue;

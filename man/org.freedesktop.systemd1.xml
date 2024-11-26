@@ -568,7 +568,7 @@ node /org/freedesktop/systemd1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetUnitByInvocationID is not documented!-->
 
@@ -1532,7 +1532,7 @@ node /org/freedesktop/systemd1 {
 #define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
 #define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
-      </programlisting>
+</programlisting>
 
       <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
       <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
@@ -1553,7 +1553,7 @@ node /org/freedesktop/systemd1 {
 
       <para>Similarly, <function>PresetUnitFiles()</function> enables/disables one or more unit files
       according to the preset policy. See
-      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
+      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
       information.</para>
 
       <para>Similarly, <function>MaskUnitFiles()</function> masks unit files and
@@ -2140,7 +2140,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method EnqueueJob is not documented!-->
 
@@ -2993,6 +2993,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -3249,6 +3251,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -3258,6 +3262,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3384,7 +3390,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -3866,8 +3872,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ProtectKernelLogs is not documented!-->
 
-    <!--property ProtectControlGroups is not documented!-->
-
     <!--property PrivateNetwork is not documented!-->
 
     <!--property PrivateUsers is not documented!-->
@@ -4312,6 +4316,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -4568,6 +4574,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateUsers"/>
@@ -4577,6 +4585,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -4730,7 +4740,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>TimeoutStartUSec</varname>, <varname>TimeoutStopUSec</varname> and
       <varname>TimeoutAbortUSec</varname> contain the start, stop and abort timeouts, in microseconds. Note
       the slight difference in naming when compared to the matching unit file settings (see
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>7</manvolnum></citerefentry>):
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>):
       these bus properties strictly use microseconds (and thus are suffixed <varname>…USec</varname>) while
       the unit file settings default to a time unit of seconds (and thus are suffixed
       <varname>…Sec</varname>), unless a different unit is explicitly specified. This reflects that fact that
@@ -4841,14 +4851,34 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>CacheDirectorySymlink</varname> and  <varname>LogsDirectorySymlink</varname> respectively
       implement the destination parameter of the unit files settings <varname>RuntimeDirectory</varname>,
       <varname>StateDirectory</varname>, <varname>CacheDirectory</varname> and <varname>LogsDirectory</varname>,
-      which will create a symlink of the given name to the respective directory. The messages take an unused
-      <varname>flags</varname> parameter, reserved for future backward-compatible changes.</para>
+      which will create a symlink of the given name to the respective directory. The messages take a
+      <varname>flags</varname> parameter that make the directory read only:</para>
+
+      <programlisting>
+#define SD_EXEC_DIRECTORY_READ_ONLY            (UINT64_C(1) &lt;&lt; 0)
+</programlisting>
 
       <para><varname>ExtraFileDescriptorNames</varname> contains file descriptor names passed to the service via
       the <varname>ExtraFileDescriptors</varname> property in the <function>StartTransientUnit()</function>
       method. See <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       for more details on how to retrieve these file descriptors. Unlike the <varname>ExtraFileDescriptors</varname>
       input property, <varname>ExtraFileDescriptorNames</varname> only contains names and not the file descriptors.</para>
+
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note the time unit is expressed in <literal>μs</literal>.</para>
+
+      <para><varname>ProtectControlGroupsEx</varname> implement the destination parameter of the
+      unit file setting <varname>ProtectControlGroups=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Unlike boolean <varname>ProtectControlGroups</varname>, <varname>ProtectControlGroupsEx</varname>
+      is a string type.</para>
+
+      <para><varname>PrivatePIDs</varname> implements the destination parameter of the
+      unit file setting <varname>PrivatePIDs=</varname> listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note <varname>PrivatePIDs</varname> is a string type to allow adding more values in the future.</para>
     </refsect2>
   </refsect1>
 
@@ -5148,6 +5178,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -5404,6 +5436,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -5413,6 +5447,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5539,7 +5575,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -6033,8 +6069,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property ProtectKernelLogs is not documented!-->
 
-    <!--property ProtectControlGroups is not documented!-->
-
     <!--property PrivateNetwork is not documented!-->
 
     <!--property PrivateUsers is not documented!-->
@@ -6451,6 +6485,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -6707,6 +6743,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateUsers"/>
@@ -6716,6 +6754,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -6887,7 +6927,7 @@ node /org/freedesktop/systemd1/unit/basic_2etarget {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <para>Target units have neither type-specific methods nor properties.</para>
   </refsect1>
@@ -6910,7 +6950,7 @@ node /org/freedesktop/systemd1/unit/dev_2dttyS0_2edevice {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -7144,6 +7184,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7401,6 +7443,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -7410,6 +7454,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7536,7 +7582,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -7956,8 +8002,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ProtectKernelLogs is not documented!-->
 
-    <!--property ProtectControlGroups is not documented!-->
-
     <!--property PrivateNetwork is not documented!-->
 
     <!--property PrivateUsers is not documented!-->
@@ -8286,6 +8330,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -8542,6 +8588,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateUsers"/>
@@ -8551,6 +8599,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -8721,7 +8771,7 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property Where is not documented!-->
 
@@ -8812,7 +8862,7 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property OnClockChange is not documented!-->
 
@@ -9109,6 +9159,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -9365,6 +9417,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectControlGroups = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ProtectControlGroupsEx = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateNetwork = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateUsers = ...;
@@ -9374,6 +9428,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivatePIDs = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9500,7 +9556,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -9906,8 +9962,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property ProtectKernelLogs is not documented!-->
 
-    <!--property ProtectControlGroups is not documented!-->
-
     <!--property PrivateNetwork is not documented!-->
 
     <!--property PrivateUsers is not documented!-->
@@ -10222,6 +10276,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -10478,6 +10534,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroups"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ProtectControlGroupsEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateNetwork"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateUsers"/>
@@ -10487,6 +10545,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivatePIDs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
@@ -10661,7 +10721,7 @@ node /org/freedesktop/systemd1/unit/cups_2epath {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property MakeDirectory is not documented!-->
 
@@ -10898,6 +10958,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -10921,7 +10983,7 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -11285,6 +11347,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -11309,6 +11373,11 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       <title>Properties</title>
 
       <para>Most properties correspond directly with the matching settings in slice unit files.</para>
+
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note the time unit is expressed in <literal>μs</literal>.</para>
     </refsect2>
   </refsect1>
 
@@ -11507,6 +11576,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMMemoryPressureDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
@@ -11544,7 +11615,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.systemd1.Unit { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetProcesses is not documented!-->
 
@@ -11944,6 +12015,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureDurationUSec"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
@@ -12004,6 +12077,11 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       the scope unit is to be shut down via a <function>RequestStop()</function> signal (see below). This is
       set when the scope is created. If not set, the scope's processes will terminated with
       <constant>SIGTERM</constant> directly.</para>
+
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> implement the destination parameter of the
+      unit file setting <varname>ManagedOOMMemoryPressureDurationSec=</varname> listed in
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Note the time unit is expressed in <literal>μs</literal>.</para>
     </refsect2>
   </refsect1>
 
@@ -12036,7 +12114,7 @@ node /org/freedesktop/systemd1/job/666 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method GetAfter is not documented!-->
 
@@ -12108,7 +12186,7 @@ node /org/freedesktop/systemd1/job/666 {
 $ gdbus introspect --system \
         --dest org.freedesktop.systemd1 \
         --object-path /org/freedesktop/systemd1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -12120,7 +12198,7 @@ $ busctl introspect org.freedesktop.systemd1 \
      /org/freedesktop/systemd1 \
      org.freedesktop.systemd1.Manager \
      GetUnit s systemd-resolved.service | cut -d'"' -f2)
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -12129,7 +12207,7 @@ $ busctl introspect org.freedesktop.systemd1 \
       <programlisting>
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
   --object-path /org/freedesktop/systemd1/job/1292
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
@@ -12222,8 +12300,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
       <varname>ExtraFileDescriptorNames</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>BindLogSockets</varname>,
+      <varname>ProtectControlGroupsEx</varname>,
+      <varname>PrivateUsersEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12262,8 +12343,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12299,8 +12383,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12336,8 +12423,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>PrivateTmpEx</varname>,
       <varname>ImportCredentialEx</varname>,
-      <varname>BindLogSockets</varname>, and
-      <varname>PrivateUsersEx</varname> were added in version 257.</para>
+      <varname>BindLogSockets</varname>,
+      <varname>PrivateUsersEx</varname>,
+      <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
+      <varname>ProtectControlGroupsEx</varname>, and
+      <varname>PrivatePIDs</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12362,6 +12452,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12387,6 +12478,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
@@ -12397,4 +12489,13 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DeferReactivation</varname> was added in version 257.</para>
     </refsect2>
   </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
 </refentry>

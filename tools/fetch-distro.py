@@ -96,7 +96,7 @@ def update_distro(args, distro: str, config: dict):
         print(f'{distro}: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'log', '--graph',
+    cmd = ['git', '-C', f'pkg/{distro}', 'log', '--graph', '--first-parent',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     print(f"+ {shlex.join(cmd)}")

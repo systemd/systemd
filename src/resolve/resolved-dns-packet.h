@@ -111,6 +111,7 @@ static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
 #define DNS_PACKET_AD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 5) & 1)
 #define DNS_PACKET_CD(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 4) & 1)
 
+#define DNS_PACKET_FLAG_CD (UINT16_C(1) << 4)
 #define DNS_PACKET_FLAG_AD (UINT16_C(1) << 5)
 #define DNS_PACKET_FLAG_TC (UINT16_C(1) << 9)
 
@@ -362,25 +363,6 @@ const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 const char* dns_protocol_to_string(DnsProtocol p) _const_;
 DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
-/* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */
-enum {
-        DNS_SVC_PARAM_KEY_MANDATORY        = 0,     /* RFC 9460 section 8 */
-        DNS_SVC_PARAM_KEY_ALPN             = 1,     /* RFC 9460 section 7.1 */
-        DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN  = 2,     /* RFC 9460 Section 7.1 */
-        DNS_SVC_PARAM_KEY_PORT             = 3,     /* RFC 9460 section 7.2 */
-        DNS_SVC_PARAM_KEY_IPV4HINT         = 4,     /* RFC 9460 section 7.3 */
-        DNS_SVC_PARAM_KEY_ECH              = 5,     /* RFC 9460 */
-        DNS_SVC_PARAM_KEY_IPV6HINT         = 6,     /* RFC 9460 section 7.3 */
-        DNS_SVC_PARAM_KEY_DOHPATH          = 7,     /* RFC 9461 */
-        DNS_SVC_PARAM_KEY_OHTTP            = 8,
-        _DNS_SVC_PARAM_KEY_MAX_DEFINED,
-        DNS_SVC_PARAM_KEY_INVALID          = 65535  /* RFC 9460 */
-};
-
-const char* dns_svc_param_key_to_string(int i) _const_;
-const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]);
-#define FORMAT_DNS_SVC_PARAM_KEY(i) format_dns_svc_param_key(i, (char [DECIMAL_STR_MAX(uint16_t)+3]) {})
-
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
@@ -388,6 +370,25 @@ const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX
 #define MDNS_MULTICAST_IPV6_ADDRESS  ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
 
 extern const struct hash_ops dns_packet_hash_ops;
+
+/* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */
+enum {
+        DNS_SVC_PARAM_KEY_MANDATORY       = 0, /* RFC 9460 § 8 */
+        DNS_SVC_PARAM_KEY_ALPN            = 1, /* RFC 9460 § 7.1 */
+        DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN = 2, /* RFC 9460 § 7.1 */
+        DNS_SVC_PARAM_KEY_PORT            = 3, /* RFC 9460 § 7.2 */
+        DNS_SVC_PARAM_KEY_IPV4HINT        = 4, /* RFC 9460 § 7.3 */
+        DNS_SVC_PARAM_KEY_ECH             = 5, /* RFC 9460 */
+        DNS_SVC_PARAM_KEY_IPV6HINT        = 6, /* RFC 9460 § 7.3  */
+        DNS_SVC_PARAM_KEY_DOHPATH         = 7, /* RFC 9461 */
+        DNS_SVC_PARAM_KEY_OHTTP           = 8,
+        _DNS_SVC_PARAM_KEY_MAX_DEFINED,
+        DNS_SVC_PARAM_KEY_INVALID         = 65535 /* RFC 9460 */
+};
+
+const char* dns_svc_param_key_to_string(int i) _const_;
+const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]);
+#define FORMAT_DNS_SVC_PARAM_KEY(i) format_dns_svc_param_key(i, (char [DECIMAL_STR_MAX(uint16_t)+3]) {})
 
 static inline uint64_t SD_RESOLVED_FLAGS_MAKE(
                 DnsProtocol protocol,

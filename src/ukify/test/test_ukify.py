@@ -138,7 +138,7 @@ def test_apply_config(tmp_path):
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
-    assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
+    assert ns.pcr_public_keys == ['some/path8']
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
     ukify.finalize_options(ns)
@@ -156,12 +156,12 @@ def test_apply_config(tmp_path):
     assert ns.pcr_banks == ['sha512', 'sha1']
     assert ns.signing_engine == 'engine1'
     assert ns.sb_key == 'some/path5'
-    assert ns.sb_cert == 'some/path6'
+    assert ns.sb_cert == pathlib.Path('some/path6')
     assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
-    assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
+    assert ns.pcr_public_keys == ['some/path8']
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
@@ -207,11 +207,11 @@ def test_parse_args_many_deprecated():
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
+    assert opts.pcr_public_keys == ['PKEY2']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.sb_key == 'SBKEY'
-    assert opts.sb_cert == 'SBCERT'
+    assert opts.sb_cert == pathlib.Path('SBCERT')
     assert opts.sign_kernel is False
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
@@ -253,11 +253,11 @@ def test_parse_args_many():
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
+    assert opts.pcr_public_keys == ['PKEY2']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
     assert opts.sb_key == 'SBKEY'
-    assert opts.sb_cert == 'SBCERT'
+    assert opts.sb_cert == pathlib.Path('SBCERT')
     assert opts.sign_kernel is False
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
@@ -360,13 +360,12 @@ def test_config_priority(tmp_path):
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
     assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
-    assert opts.pcr_public_keys == [pathlib.Path('PKEY2'),
-                                    pathlib.Path('some/path8')]
+    assert opts.pcr_public_keys == ['PKEY2', 'some/path8']
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
-    assert opts.signtool == ukify.SbSign # from args
+    assert opts.signtool == 'sbsign' # from args
     assert opts.sb_key == 'SBKEY' # from args
-    assert opts.sb_cert == 'SBCERT' # from args
+    assert opts.sb_cert == pathlib.Path('SBCERT') # from args
     assert opts.sb_certdir == 'some/path5' # from config
     assert opts.sb_cert_name == 'some/name1' # from config
     assert opts.sign_kernel is False
@@ -623,7 +622,7 @@ def test_efi_signing_pesign(kernel_initrd, tmp_path):
 
     ukify.make_uki(opts)
 
-    # let's check that sbverify likes the resulting file
+    # let's check that pesign likes the resulting file
     dump = subprocess.check_output([
         'pesign', '-S',
         '-i', output,

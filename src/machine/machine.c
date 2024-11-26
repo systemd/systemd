@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -702,6 +703,276 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
         }
 }
 
+static int machine_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        switch (m->class) {
+
+        case MACHINE_HOST:
+                *ret = NULL;
+                return 0;
+
+        case MACHINE_CONTAINER: {
+                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+                char *address;
+
+                r = sd_bus_new(&bus);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to allocate new DBus: %m");
+
+                if (asprintf(&address, "x-machine-unix:pid=%" PID_PRI, m->leader.pid) < 0)
+                        return -ENOMEM;
+
+                bus->address = address;
+                bus->bus_client = true;
+                bus->trusted = false;
+                bus->runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+                r = sd_bus_start(bus);
+                if (r == -ENOENT)
+                        return sd_bus_error_set_errnof(error, r, "There is no system bus in container %s.", m->name);
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(bus);
+                return 0;
+        }
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
+        sd_bus *container_bus = NULL;
+        const char *p, *getty;
+        int r;
+
+        assert(m);
+        assert(ptmx_name);
+
+        p = path_startswith(ptmx_name, "/dev/pts/");
+        if (!p)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path of pseudo TTY has unexpected prefix");
+
+        r = machine_bus_new(m, error, &allocated_bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create DBus to machine: %m");
+
+        container_bus = allocated_bus ?: m->manager->bus;
+        getty = strjoina("container-getty@", p, ".service");
+
+        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* reply = */ NULL, "ss", getty, "replace");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to StartUnit '%s' in container '%s': %m", getty, m->name);
+
+        return 0;
+}
+
+int machine_start_shell(
+                Machine *m,
+                int ptmx_fd,
+                const char *ptmx_name,
+                const char *user,
+                const char *path,
+                char **args,
+                char **env,
+                sd_bus_error *error) {
+        _cleanup_close_ int pty_fd = -EBADF;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *tm = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
+        const char *p, *utmp_id, *unit, *description;
+        sd_bus *container_bus = NULL;
+        int r;
+
+        assert(m);
+        assert(ptmx_fd >= 0);
+        assert(ptmx_name);
+
+        if (isempty(user) || isempty(path) || strv_isempty(args))
+                return -EINVAL;
+
+        p = path_startswith(ptmx_name, "/dev/pts/");
+        utmp_id = path_startswith(ptmx_name, "/dev/");
+        if (!p || !utmp_id)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path of pseudo TTY has unexpected prefix");
+
+        /* First try to get an fd for the PTY peer via the new racefree ioctl(), directly. Otherwise go via
+         * joining the namespace, because it goes by path */
+        pty_fd = pty_open_peer_racefree(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(pty_fd))
+                pty_fd = machine_open_terminal(m, ptmx_name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (pty_fd < 0)
+                return log_debug_errno(pty_fd, "Failed to open terminal: %m");
+
+        r = machine_bus_new(m, error, &allocated_bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create DBus to machine: %m");
+
+        container_bus = allocated_bus ?: m->manager->bus;
+        r = bus_message_new_method_call(container_bus, &tm, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        /* Name and mode */
+        unit = strjoina("container-shell@", p, ".service");
+        r = sd_bus_message_append(tm, "ss", unit, "fail");
+        if (r < 0)
+                return r;
+
+        /* Properties */
+        r = sd_bus_message_open_container(tm, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        description = strjoina("Shell for User ", user);
+        r = sd_bus_message_append(tm,
+                                  "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
+                                  "Description", "s", description,
+                                  "StandardInputFileDescriptor", "h", pty_fd,
+                                  "StandardOutputFileDescriptor", "h", pty_fd,
+                                  "StandardErrorFileDescriptor", "h", pty_fd,
+                                  "SendSIGHUP", "b", true,
+                                  "IgnoreSIGPIPE", "b", false,
+                                  "KillMode", "s", "mixed",
+                                  "TTYPath", "s", ptmx_name,
+                                  "TTYReset", "b", true,
+                                  "UtmpIdentifier", "s", utmp_id,
+                                  "UtmpMode", "s", "user",
+                                  "PAMName", "s", "login",
+                                  "WorkingDirectory", "s", "-~");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "(sv)", "User", "s", user);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(env)) {
+                r = sd_bus_message_open_container(tm, 'r', "sv");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(tm, "s", "Environment");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_open_container(tm, 'v', "as");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_strv(tm, env);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(tm);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(tm);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Exec container */
+        r = sd_bus_message_open_container(tm, 'r', "sv");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "s", "ExecStart");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'v', "a(sasb)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'a', "(sasb)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(tm, 'r', "sasb");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "s", path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(tm, args);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(tm, "b", true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(tm);
+        if (r < 0)
+                return r;
+
+        /* Auxiliary units */
+        r = sd_bus_message_append(tm, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(container_bus, tm, 0, error, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+char** machine_default_shell_args(const char *user) {
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        assert(user);
+
+        args = new0(char*, 3 + 1);
+        if (!args)
+                return NULL;
+
+        args[0] = strdup("sh");
+        if (!args[0])
+                return NULL;
+
+        args[1] = strdup("-c");
+        if (!args[1])
+                return NULL;
+
+        r = asprintf(&args[2],
+                     "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
+                     "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
+                     user);
+        if (r < 0) {
+                args[2] = NULL;
+                return NULL;
+        }
+
+        return TAKE_PTR(args);
+}
+
 void machine_release_unit(Machine *m) {
         assert(m);
 
@@ -967,3 +1238,11 @@ static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+
+static const char* const acquire_metadata_table[_ACQUIRE_METADATA_MAX] = {
+        [ACQUIRE_METADATA_NO]       = "no",
+        [ACQUIRE_METADATA_YES]      = "yes",
+        [ACQUIRE_METADATA_GRACEFUL] = "graceful"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(acquire_metadata, AcquireMetadata, ACQUIRE_METADATA_YES);

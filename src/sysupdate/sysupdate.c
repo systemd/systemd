@@ -25,9 +25,11 @@
 #include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate.h"
+#include "sysupdate-feature.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
@@ -57,9 +59,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
 
+const Specifier specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};
+
 typedef struct Context {
         Transfer **transfers;
         size_t n_transfers;
+
+        Transfer **disabled_transfers;
+        size_t n_disabled_transfers;
+
+        Hashmap *features; /* Defined features, keyed by ID */
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -77,6 +90,12 @@ static Context* context_free(Context *c) {
                 transfer_free(*tr);
         free(c->transfers);
 
+        FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers)
+                transfer_free(*tr);
+        free(c->disabled_transfers);
+
+        hashmap_free(c->features);
+
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
         free(c->update_sets);
@@ -93,81 +112,143 @@ static Context* context_new(void) {
         return new0(Context, 1);
 }
 
-static int context_read_definitions(
+static void free_transfers(Transfer **array, size_t n) {
+        FOREACH_ARRAY(t, array, n)
+                transfer_free(*t);
+        free(array);
+}
+
+static int read_definitions(
                 Context *c,
-                const char *directory,
-                const char *component,
-                const char *root,
+                const char **dirs,
+                const char *suffix,
                 const char *node) {
 
         _cleanup_strv_free_ char **files = NULL;
+        Transfer **transfers = NULL, **disabled = NULL;
+        size_t n_transfers = 0, n_disabled = 0;
         int r;
 
+        CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
+        CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
+
         assert(c);
+        assert(dirs);
+        assert(suffix);
 
-        if (directory)
-                r = conf_files_list_strv(&files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(directory));
-        else if (component) {
-                _cleanup_strv_free_ char **n = NULL;
-                char **l = CONF_PATHS_STRV("");
-                size_t k = 0;
-
-                n = new0(char*, strv_length(l) + 1);
-                if (!n)
-                        return log_oom();
-
-                STRV_FOREACH(i, l) {
-                        char *j;
-
-                        j = strjoin(*i, "sysupdate.", component, ".d");
-                        if (!j)
-                                return log_oom();
-
-                        n[k++] = j;
-                }
-
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) n);
-        } else
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) CONF_PATHS_STRV("sysupdate.d"));
+        r = conf_files_list_strv(&files, suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate *.conf files: %m");
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH(p, files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
-
-                if (!GREEDY_REALLOC(c->transfers, c->n_transfers + 1))
-                        return log_oom();
+                Transfer **appended;
 
                 t = transfer_new(c);
                 if (!t)
                         return log_oom();
 
-                t->definition_path = strdup(*f);
-                if (!t->definition_path)
-                        return log_oom();
-
-                r = transfer_read_definition(t, *f);
+                r = transfer_read_definition(t, *p, dirs, c->features);
                 if (r < 0)
                         return r;
 
-                c->transfers[c->n_transfers++] = TAKE_PTR(t);
+                r = transfer_resolve_paths(t, arg_root, node);
+                if (r < 0)
+                        return r;
+
+                if (t->enabled)
+                        appended = GREEDY_REALLOC_APPEND(transfers, n_transfers, &t, 1);
+                else
+                        appended = GREEDY_REALLOC_APPEND(disabled, n_disabled, &t, 1);
+                if (!appended)
+                        return log_oom();
+                TAKE_PTR(t);
+        }
+
+        c->transfers = TAKE_PTR(transfers);
+        c->n_transfers = n_transfers;
+        c->disabled_transfers = TAKE_PTR(disabled);
+        c->n_disabled_transfers = n_disabled;
+        return 0;
+}
+
+static int context_read_definitions(Context *c, const char* node) {
+        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        int r;
+
+        assert(c);
+
+        if (arg_definitions)
+                dirs = strv_new(arg_definitions);
+        else if (arg_component) {
+                char **l = CONF_PATHS_STRV("");
+                size_t i = 0;
+
+                dirs = new0(char*, strv_length(l) + 1);
+                if (!dirs)
+                        return log_oom();
+
+                STRV_FOREACH(dir, l) {
+                        char *j;
+
+                        j = strjoin(*dir, "sysupdate.", arg_component, ".d");
+                        if (!j)
+                                return log_oom();
+
+                        dirs[i++] = j;
+                }
+        } else
+                dirs = strv_new(CONF_PATHS("sysupdate.d"));
+        if (!dirs)
+                return log_oom();
+
+        r = conf_files_list_strv(&files,
+                                 ".feature",
+                                 arg_root,
+                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                 (const char**) dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
+
+        STRV_FOREACH(p, files) {
+                _cleanup_(feature_unrefp) Feature *f = NULL;
+
+                f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_read_definition(f, *p, (const char**) dirs);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+                TAKE_PTR(f);
+        }
+
+        r = read_definitions(c, (const char**) dirs, ".transfer", node);
+        if (r < 0)
+                return r;
+
+        if (c->n_transfers + c->n_disabled_transfers == 0) {
+                /* Backwards-compat: If no .transfer defs are found, fall back to trying .conf! */
+                r = read_definitions(c, (const char**) dirs, ".conf", node);
+                if (r < 0)
+                        return r;
+
+                if (c->n_transfers + c->n_disabled_transfers > 0)
+                        log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
         if (c->n_transfers == 0) {
                 if (arg_component)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "No transfer definitions for component '%s' found.", arg_component);
+                                               "No transfer definitions for component '%s' found.",
+                                               arg_component);
 
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "No transfer definitions found.");
-        }
-
-        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
-                Transfer *t = *tr;
-
-                r = transfer_resolve_paths(t, root, node);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
@@ -191,6 +272,17 @@ static int context_load_installed_instances(Context *c) {
                         return r;
         }
 
+        FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers) {
+                Transfer *t = *tr;
+
+                r = resource_load_instances(
+                                &t->target,
+                                arg_verify >= 0 ? arg_verify : t->verify,
+                                &c->web_cache);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -203,7 +295,6 @@ static int context_load_available_instances(Context *c) {
 
         FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
                 Transfer *t = *tr;
-                assert(t);
 
                 r = resource_load_instances(
                                 &t->source,
@@ -494,7 +585,7 @@ static int context_show_version(Context *c, const char *version) {
         if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                 (void) pager_open(arg_pager_flags);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        if (!sd_json_format_enabled(arg_json_format_flags))
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s\n"
@@ -693,7 +784,7 @@ static int context_show_version(Context *c, const char *version) {
         if (!have_sha256)
                 (void) table_hide_column_from_display(t, 12);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s%s%s%s\n"
@@ -732,7 +823,7 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
-                                          SD_JSON_BUILD_PAIR_STRV("changelog_urls", changelog_urls),
+                                          SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
                                           SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
@@ -750,6 +841,7 @@ static int context_vacuum(
                 uint64_t space,
                 const char *extra_protected_version) {
 
+        size_t disabled_count = 0;
         int r, count = 0;
 
         assert(c);
@@ -773,15 +865,29 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
-                if (count > 0)
+        FOREACH_ARRAY(tr, c->disabled_transfers, c->n_disabled_transfers) {
+                r = transfer_vacuum(*tr, UINT64_MAX /* wipe all instances */, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        disabled_count++;
+        }
+
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
+                if (count > 0 && disabled_count > 0)
+                        log_info("Removed %i instances, and %zu disabled transfers.", count, disabled_count);
+                else if (count > 0)
                         log_info("Removed %i instances.", count);
+                else if (disabled_count > 0)
+                        log_info("Removed %zu disabled transfers.", disabled_count);
                 else
-                        log_info("Removed no instances.");
+                        log_info("Found nothing to remove.");
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_INTEGER("removed", count));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_INTEGER("removed", count),
+                                   SD_JSON_BUILD_PAIR_UNSIGNED("disabledTransfers", disabled_count));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -806,7 +912,7 @@ static int context_make_offline(Context **ret, const char *node) {
         if (!context)
                 return log_oom();
 
-        r = context_read_definitions(context, arg_definitions, arg_component, arg_root, node);
+        r = context_read_definitions(context, node);
         if (r < 0)
                 return r;
 
@@ -1051,7 +1157,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return context_show_version(context, version);
-        else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+        else if (!sd_json_format_enabled(arg_json_format_flags))
                 return context_show_table(context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
@@ -1083,7 +1189,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
                                           SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstream_urls", appstream_urls));
+                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -1093,6 +1199,140 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
                 return 0;
         }
+}
+
+static int verb_features(int argc, char **argv, void *userdata) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(context_freep) Context* context = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        const char *feature_id;
+        Feature *f;
+        int r;
+
+        assert(argc <= 2);
+        feature_id = argc >= 2 ? argv[1] : NULL;
+
+        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_offline(&context, loop_device ? loop_device->node : NULL);
+        if (r < 0)
+                return r;
+
+        if (feature_id) {
+                _cleanup_strv_free_ char **transfers = NULL;
+
+                f = hashmap_get(context->features, feature_id);
+                if (!f)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Optional feature not found: %s",
+                                               feature_id);
+
+                table = table_new_vertical();
+                if (!table)
+                        return log_oom();
+
+                FOREACH_ARRAY(tr, context->transfers, context->n_transfers) {
+                        Transfer *t = *tr;
+
+                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
+                                continue;
+
+                        r = strv_extend(&transfers, t->id);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                FOREACH_ARRAY(tr, context->disabled_transfers, context->n_disabled_transfers) {
+                        Transfer *t = *tr;
+
+                        if (!strv_contains(t->features, f->id) && !strv_contains(t->requisite_features, f->id))
+                                continue;
+
+                        r = strv_extend(&transfers, t->id);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Name",
+                                   TABLE_STRING, f->id,
+                                   TABLE_FIELD, "Enabled",
+                                   TABLE_BOOLEAN, f->enabled);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (f->description) {
+                        r = table_add_many(table, TABLE_FIELD, "Description", TABLE_STRING, f->description);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (f->documentation) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Documentation",
+                                           TABLE_STRING, f->documentation,
+                                           TABLE_SET_URL, f->documentation);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (f->appstream) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "AppStream",
+                                           TABLE_STRING, f->appstream,
+                                           TABLE_SET_URL, f->appstream);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (!strv_isempty(transfers)) {
+                        r = table_add_many(table, TABLE_FIELD, "Transfers", TABLE_STRV_WRAPPED, transfers);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+        } else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                table = table_new("", "feature", "description", "documentation");
+                if (!table)
+                        return log_oom();
+
+                HASHMAP_FOREACH(f, context->features) {
+                        r = table_add_many(table,
+                                           TABLE_BOOLEAN_CHECKMARK, f->enabled,
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(f->enabled),
+                                           TABLE_STRING, f->id,
+                                           TABLE_STRING, f->description,
+                                           TABLE_STRING, f->documentation,
+                                           TABLE_SET_URL, f->documentation);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+        } else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_strv_free_ char **features = NULL;
+
+                HASHMAP_FOREACH(f, context->features) {
+                        r = strv_extend(&features, f->id);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRV("features", features));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+        }
+
+        return 0;
 }
 
 static int verb_check_new(int argc, char **argv, void *userdata) {
@@ -1111,7 +1351,7 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 if (!context->candidate) {
                         log_debug("No candidate found.");
                         return EXIT_FAILURE;
@@ -1371,7 +1611,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
 
         strv_sort(z);
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
                 if (!has_default_component && set_isempty(names)) {
                         log_info("No components defined.");
                         return 0;
@@ -1411,6 +1651,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "\n%5$sUpdate OS images.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  list [VERSION]          Show installed and available versions\n"
+               "  features [FEATURE]      Show optional features\n"
                "  check-new               Check if there's a new version available\n"
                "  update [VERSION]        Install new version now\n"
                "  vacuum                  Make room, by deleting old versions\n"
@@ -1623,8 +1864,9 @@ static int sysupdate_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list",       VERB_ANY, 2, VERB_DEFAULT, verb_list              },
                 { "components", VERB_ANY, 1, 0,            verb_components        },
+                { "features",   VERB_ANY, 2, 0,            verb_features          },
                 { "check-new",  VERB_ANY, 1, 0,            verb_check_new         },
-                { "update",     VERB_ANY, 2, 0,            verb_update               },
+                { "update",     VERB_ANY, 2, 0,            verb_update            },
                 { "vacuum",     VERB_ANY, 1, 0,            verb_vacuum            },
                 { "reboot",     1,        1, 0,            verb_pending_or_reboot },
                 { "pending",    1,        1, 0,            verb_pending_or_reboot },

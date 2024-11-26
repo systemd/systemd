@@ -86,7 +86,7 @@
         PATH=/opt/foo/bin:$PATH
         LD_LIBRARY_PATH=/opt/foo/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
         XDG_DATA_DIRS=/opt/foo/share:${XDG_DATA_DIRS:-/usr/local/share/:/usr/share/}
-        </programlisting>
+</programlisting>
       </example>
     </refsect2>
   </refsect1>
@@ -114,10 +114,10 @@
     invoked, for example from the system service manager or via a PAM module.</para>
 
     <para>Specifically, for ssh logins, the
-    <citerefentry project='die-net'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     service builds an environment that is a combination of variables forwarded from the remote system and
     defined by <command>sshd</command>, see the discussion in
-    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     A graphical display session will have an analogous mechanism to define the environment. Note that some
     managers query the systemd user instance for the exported environment and inject this configuration into
     programs they start, using <command>systemctl show-environment</command> or the underlying D-Bus call.

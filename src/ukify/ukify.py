@@ -238,7 +238,9 @@ class UkifyConfig:
     all: bool
     cmdline: Union[str, Path, None]
     devicetree: Path
+    devicetree_auto: list[Path]
     efi_arch: str
+    hwids: Path
     initrd: list[Path]
     join_profiles: list[Path]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
@@ -249,21 +251,23 @@ class UkifyConfig:
     output: Optional[str]
     pcr_banks: list[str]
     pcr_private_keys: list[str]
-    pcr_public_keys: list[Path]
+    pcr_public_keys: list[str]
     pcrpkey: Optional[Path]
     phase_path_groups: Optional[list[str]]
     profile: Union[str, Path, None]
-    sb_cert: Path
+    sb_cert: Union[str, Path, None]
     sb_cert_name: Optional[str]
     sb_cert_validity: int
     sb_certdir: Path
-    sb_key: Optional[Path]
+    sb_key: Union[str, Path, None]
     sbat: Optional[list[str]]
     sections: list['Section']
     sections_by_name: dict[str, 'Section']
     sign_kernel: bool
     signing_engine: Optional[str]
-    signtool: Optional[type['SignTool']]
+    signing_provider: Optional[str]
+    certificate_provider: Optional[str]
+    signtool: Optional[str]
     splash: Optional[Path]
     stub: Path
     summary: bool
@@ -363,6 +367,8 @@ DEFAULT_SECTIONS_TO_SHOW = {
     '.ucode':   'binary',
     '.splash':  'binary',
     '.dtb':     'binary',
+    '.dtbauto': 'binary',
+    '.hwids':   'binary',
     '.cmdline': 'text',
     '.osrel':   'text',
     '.uname':   'text',
@@ -445,7 +451,7 @@ class UKI:
             if s.name == '.profile':
                 start = i + 1
 
-        if any(section.name == s.name for s in self.sections[start:]):
+        if any(section.name == s.name for s in self.sections[start:] if s.name != '.dtbauto'):
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -459,6 +465,17 @@ class SignTool:
     @staticmethod
     def verify(opts: UkifyConfig) -> bool:
         raise NotImplementedError()
+
+    @staticmethod
+    def from_string(name: str) -> type['SignTool']:
+        if name == 'pesign':
+            return PeSign
+        elif name == 'sbsign':
+            return SbSign
+        elif name == 'systemd-sbsign':
+            return SystemdSbSign
+        else:
+            raise ValueError(f'Invalid sign tool: {name!r}')
 
 
 class PeSign(SignTool):
@@ -526,6 +543,50 @@ class SbSign(SignTool):
         return 'No signature table present' in info
 
 
+class SystemdSbSign(SignTool):
+    @staticmethod
+    def sign(input_f: str, output_f: str, opts: UkifyConfig) -> None:
+        assert opts.sb_key is not None
+        assert opts.sb_cert is not None
+
+        tool = find_tool(
+            'systemd-sbsign',
+            '/usr/lib/systemd/systemd-sbsign',
+            opts=opts,
+            msg='systemd-sbsign, required for signing, is not installed',
+        )
+        cmd = [
+            tool,
+            "sign",
+            '--private-key', opts.sb_key,
+            '--certificate', opts.sb_cert,
+            *(
+                ['--private-key-source', f'engine:{opts.signing_engine}']
+                if opts.signing_engine is not None
+                else []
+            ),
+            *(
+                ['--private-key-source', f'provider:{opts.signing_provider}']
+                if opts.signing_provider is not None
+                else []
+            ),
+            *(
+                ['--certificate-source', f'provider:{opts.certificate_provider}']
+                if opts.certificate_provider is not None
+                else []
+            ),
+            input_f,
+            '--output', output_f,
+        ]  # fmt: skip
+
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
+
+    @staticmethod
+    def verify(opts: UkifyConfig) -> bool:
+        raise NotImplementedError('systemd-sbsign cannot yet verify if existing PE binaries are signed')
+
+
 def parse_banks(s: str) -> list[str]:
     banks = re.split(r',|\s+', s)
     # TODO: do some sanity checking here
@@ -574,8 +635,11 @@ def check_inputs(opts: UkifyConfig) -> None:
             continue
 
         if isinstance(value, Path):
-            # Open file to check that we can read it, or generate an exception
-            value.open().close()
+            # Check that we can open the directory or file, or generate and exception
+            if value.is_dir():
+                value.iterdir()
+            else:
+                value.open().close()
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, Path):
@@ -626,7 +690,7 @@ def combine_signatures(pcrsigs: list[dict[str, str]]) -> str:
     return json.dumps(combined)
 
 
-def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[Path], Optional[str]]]:
+def key_path_groups(opts: UkifyConfig) -> Iterator[tuple[str, Optional[str], Optional[str]]]:
     if not opts.pcr_private_keys:
         return
 
@@ -658,7 +722,16 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
     # PCR measurement
 
     # First, pick up either the base sections or the profile specific sections we shall measure now
-    to_measure = {s.name: s for s in uki.sections[profile_start:] if s.measure}
+    unique_to_measure = {
+        s.name: s for s in uki.sections[profile_start:] if s.measure and s.name != '.dtbauto'
+    }
+
+    dtbauto_to_measure: list[Optional[Section]] = [
+        s for s in uki.sections[profile_start:] if s.measure and s.name == '.dtbauto'
+    ]
+
+    if len(dtbauto_to_measure) == 0:
+        dtbauto_to_measure = [None]
 
     # Then, if we're measuring a profile, lookup the missing sections from the base image.
     if profile_start != 0:
@@ -672,53 +745,72 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
                 continue
 
             # Check if this is a section we already covered above
-            if section.name in to_measure:
+            if section.name in unique_to_measure:
                 continue
 
-            to_measure[section.name] = section
+            unique_to_measure[section.name] = section
 
     if opts.measure:
-        pp_groups = opts.phase_path_groups or []
+        to_measure = unique_to_measure.copy()
 
-        cmd = [
-            measure_tool,
-            'calculate',
-            *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
-            *(f'--bank={bank}' for bank in banks),
-            # For measurement, the keys are not relevant, so we can lump all the phase paths
-            # into one call to systemd-measure calculate.
-            *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
-        ]
+        for dtbauto in dtbauto_to_measure:
+            if dtbauto is not None:
+                to_measure[dtbauto.name] = dtbauto
 
-        print('+', shell_join(cmd))
-        subprocess.check_call(cmd)
+            pp_groups = opts.phase_path_groups or []
+
+            cmd = [
+                measure_tool,
+                'calculate',
+                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--bank={bank}' for bank in banks),
+                # For measurement, the keys are not relevant, so we can lump all the phase paths
+                # into one call to systemd-measure calculate.
+                *(f'--phase={phase_path}' for phase_path in itertools.chain.from_iterable(pp_groups)),
+            ]
+
+            print('+', shell_join(cmd))
+            subprocess.check_call(cmd)
 
     # PCR signing
 
     if opts.pcr_private_keys:
         pcrsigs = []
+        to_measure = unique_to_measure.copy()
 
-        cmd = [
-            measure_tool,
-            'sign',
-            *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
-            *(f'--bank={bank}' for bank in banks),
-        ]
+        for dtbauto in dtbauto_to_measure:
+            if dtbauto is not None:
+                to_measure[dtbauto.name] = dtbauto
 
-        for priv_key, pub_key, group in key_path_groups(opts):
-            extra = [f'--private-key={priv_key}']
-            if opts.signing_engine is not None:
-                assert pub_key
-                extra += [f'--private-key-source=engine:{opts.signing_engine}']
-                extra += [f'--certificate={pub_key}']
-            elif pub_key:
-                extra += [f'--public-key={pub_key}']
-            extra += [f'--phase={phase_path}' for phase_path in group or ()]
+            cmd = [
+                measure_tool,
+                'sign',
+                *(f"--{s.name.removeprefix('.')}={s.content}" for s in to_measure.values()),
+                *(f'--bank={bank}' for bank in banks),
+            ]
 
-            print('+', shell_join(cmd + extra))  # type: ignore
-            pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
-            pcrsig = json.loads(pcrsig)
-            pcrsigs += [pcrsig]
+            for priv_key, pub_key, group in key_path_groups(opts):
+                extra = [f'--private-key={priv_key}']
+                if opts.signing_engine is not None:
+                    assert pub_key
+                    extra += [f'--private-key-source=engine:{opts.signing_engine}']
+                    extra += [f'--certificate={pub_key}']
+                elif opts.signing_provider is not None:
+                    assert pub_key
+                    extra += [f'--private-key-source=provider:{opts.signing_provider}']
+                    extra += [f'--certificate={pub_key}']
+                elif pub_key:
+                    extra += [f'--public-key={pub_key}']
+
+                if opts.certificate_provider is not None:
+                    extra += [f'--certificate-source=provider:{opts.certificate_provider}']
+
+                extra += [f'--phase={phase_path}' for phase_path in group or ()]
+
+                print('+', shell_join(cmd + extra))  # type: ignore
+                pcrsig = subprocess.check_output(cmd + extra, text=True)  # type: ignore
+                pcrsig = json.loads(pcrsig)
+                pcrsigs += [pcrsig]
 
         combined = combine_signatures(pcrsigs)
         uki.add_section(Section.create('.pcrsig', combined))
@@ -849,7 +941,7 @@ def pe_add_sections(uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name:
+            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -921,6 +1013,123 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
     )
 
 
+# Keep in sync with EFI_GUID (src/boot/efi.h)
+# uint32_t Data1, uint16_t Data2, uint16_t Data3, uint8_t Data4[8]
+EFI_GUID = tuple[int, int, int, tuple[int, int, int, int, int, int, int, int]]
+EFI_GUID_STRUCT_SIZE = 4 + 2 + 2 + 1 * 8
+
+# Keep in sync with Device (DEVICE_TYPE_DEVICETREE) from src/boot/chid.h
+# uint32_t descriptor, EFI_GUID chid, uint32_t name_offset, uint32_t compatible_offset
+DEVICE_STRUCT_SIZE = 4 + EFI_GUID_STRUCT_SIZE + 4 + 4
+NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
+DEVICE_TYPE_DEVICETREE = 1
+
+
+def device_make_descriptor(device_type: int, size: int) -> int:
+    return (size) | (device_type << 28)
+
+
+def pack_device(offsets: dict[str, int], name: str, compatible: str, chids: list[EFI_GUID]) -> bytes:
+    data = b''
+
+    for data1, data2, data3, data4 in chids:
+        data += struct.pack(
+            '<IIHH8BII',
+            device_make_descriptor(DEVICE_TYPE_DEVICETREE, DEVICE_STRUCT_SIZE),
+            data1,
+            data2,
+            data3,
+            *data4,
+            offsets[name],
+            offsets[compatible],
+        )
+
+    assert len(data) == DEVICE_STRUCT_SIZE * len(chids)
+    return data
+
+
+def hex_pairs_list(string: str) -> list[int]:
+    return [int(string[i : i + 2], 16) for i in range(0, len(string), 2)]
+
+
+def pack_strings(strings: set[str], base: int) -> tuple[bytes, dict[str, int]]:
+    blob = b''
+    offsets = {}
+
+    for string in sorted(strings):
+        offsets[string] = base + len(blob)
+        blob += string.encode('utf-8') + b'\00'
+
+    return (blob, offsets)
+
+
+def parse_hwid_dir(path: Path) -> bytes:
+    hwid_files = path.rglob('*.txt')
+
+    strings: set[str] = set()
+    devices: collections.defaultdict[tuple[str, str], list[EFI_GUID]] = collections.defaultdict(list)
+
+    uuid_regexp = re.compile(
+        r'\{[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}\}', re.I
+    )
+
+    for hwid_file in hwid_files:
+        content = hwid_file.open().readlines()
+
+        data: dict[str, str] = {
+            'Manufacturer': '',
+            'Family': '',
+            'Compatible': '',
+        }
+        uuids: list[EFI_GUID] = []
+
+        for line in content:
+            for k in data:
+                if line.startswith(k):
+                    data[k] = line.split(':')[1].strip()
+                    break
+            else:
+                uuid = uuid_regexp.match(line)
+                if uuid is not None:
+                    d1, d2, d3, d4, d5 = uuid.group(0)[1:-1].split('-')
+
+                    data1 = int(d1, 16)
+                    data2 = int(d2, 16)
+                    data3 = int(d3, 16)
+                    data4 = cast(
+                        tuple[int, int, int, int, int, int, int, int],
+                        tuple(hex_pairs_list(d4) + hex_pairs_list(d5)),
+                    )
+
+                    uuids.append((data1, data2, data3, data4))
+
+        for k, v in data.items():
+            if not v:
+                raise ValueError(f'hwid description file "{hwid_file}" does not contain "{k}"')
+
+        name = data['Manufacturer'] + ' ' + data['Family']
+        compatible = data['Compatible']
+
+        strings |= set([name, compatible])
+
+        # (compatible, name) pair uniquely identifies the device
+        devices[(compatible, name)] += uuids
+
+    total_device_structs = 1
+    for dev, uuids in devices.items():
+        total_device_structs += len(uuids)
+
+    strings_blob, offsets = pack_strings(strings, total_device_structs * DEVICE_STRUCT_SIZE)
+
+    devices_blob = b''
+    for (compatible, name), uuids in devices.items():
+        devices_blob += pack_device(offsets, name, compatible, uuids)
+
+    devices_blob += NULL_DEVICE
+
+    return devices_blob + strings_blob
+
+
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
@@ -941,18 +1150,18 @@ def make_uki(opts: UkifyConfig) -> None:
     sign_kernel = opts.sign_kernel
     linux = opts.linux
 
-    if sign_args_present:
-        assert opts.linux is not None
+    if opts.linux and sign_args_present:
         assert opts.signtool is not None
+        signtool = SignTool.from_string(opts.signtool)
 
         if not sign_kernel:
             # figure out if we should sign the kernel
-            sign_kernel = opts.signtool.verify(opts)
+            sign_kernel = signtool.verify(opts)
 
         if sign_kernel:
             linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
             linux = Path(linux_signed.name)
-            opts.signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
+            signtool.sign(os.fspath(opts.linux), os.fspath(linux), opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -963,40 +1172,43 @@ def make_uki(opts: UkifyConfig) -> None:
 
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
+        measure_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
+        cmd = [measure_tool, 'public']
+
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
-            pcrpkey = opts.pcr_public_keys[0]
-            # If we are getting a certificate when using an engine, we need to convert it to public key
-            # format
-            if opts.signing_engine is not None and Path(pcrpkey).exists():
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.x509 import load_pem_x509_certificate
+            # If we're using an engine or provider, the public key will be an X.509 certificate.
+            if opts.signing_engine or opts.signing_provider:
+                cmd += ['--certificate', opts.pcr_public_keys[0]]
+                if opts.certificate_provider:
+                    cmd += ['--certificate-source', f'provider:{opts.certificate_provider}']
 
-                try:
-                    cert = load_pem_x509_certificate(Path(pcrpkey).read_bytes())
-                except ValueError:
-                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
-                else:
-                    pcrpkey = cert.public_key().public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                    )
+                print('+', shell_join(cmd))
+                pcrpkey = subprocess.check_output(cmd)
+            else:
+                pcrpkey = Path(opts.pcr_public_keys[0])
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            from cryptography.hazmat.primitives import serialization
+            cmd += ['--private-key', Path(opts.pcr_private_keys[0])]
 
-            privkey = serialization.load_pem_private_key(
-                Path(opts.pcr_private_keys[0]).read_bytes(),
-                password=None,
-            )
-            pcrpkey = privkey.public_key().public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
+            if opts.signing_engine:
+                cmd += ['--private-key-source', f'engine:{opts.signing_engine}']
+            if opts.signing_provider:
+                cmd += ['--private-key-source', f'provider:{opts.signing_provider}']
+
+            print('+', shell_join(cmd))
+            pcrpkey = subprocess.check_output(cmd)
+
+    hwids = None
+
+    if opts.hwids is not None:
+        hwids = parse_hwid_dir(opts.hwids)
 
     sections = [
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
+        *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
+        ('.hwids',   hwids,           True),
         ('.uname',   opts.uname,      True),
         ('.splash',  opts.splash,     True),
         ('.pcrpkey', pcrpkey,         True),
@@ -1110,7 +1322,9 @@ def make_uki(opts: UkifyConfig) -> None:
 
     if sign_args_present:
         assert opts.signtool is not None
-        opts.signtool.sign(os.fspath(unsigned_output), os.fspath(opts.output), opts)
+        signtool = SignTool.from_string(opts.signtool)
+
+        signtool.sign(os.fspath(unsigned_output), os.fspath(opts.output), opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
@@ -1226,9 +1440,9 @@ def generate_keys(opts: UkifyConfig) -> None:
         )
         print(f'Writing SecureBoot private key to {opts.sb_key}')
         with temporary_umask(0o077):
-            opts.sb_key.write_bytes(key_pem)
+            Path(opts.sb_key).write_bytes(key_pem)
         print(f'Writing SecureBoot certificate to {opts.sb_cert}')
-        opts.sb_cert.write_bytes(cert_pem)
+        Path(opts.sb_cert).write_bytes(cert_pem)
 
         work = True
 
@@ -1240,7 +1454,7 @@ def generate_keys(opts: UkifyConfig) -> None:
             Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
-            pub_key.write_bytes(pub_key_pem)
+            Path(pub_key).write_bytes(pub_key_pem)
 
         work = True
 
@@ -1440,10 +1654,10 @@ class ConfigItem:
         else:
             conv = lambda s: s  # noqa: E731
 
-        # This is a bit ugly, but --initrd is the only option which is specified
+        # This is a bit ugly, but --initrd and --devicetree-auto are the only options
         # with multiple args on the command line and a space-separated list in the
         # config file.
-        if self.name == '--initrd':
+        if self.name in ['--initrd', '--devicetree-auto']:
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1461,24 +1675,6 @@ class ConfigItem:
         else:
             value = self.metavar or self.argparse_dest().upper()
         return (section_name, key, value)
-
-
-class SignToolAction(argparse.Action):
-    def __call__(
-        self,
-        parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None] = None,
-        option_string: Optional[str] = None,
-    ) -> None:
-        if values is None:
-            setattr(namespace, 'signtool', None)
-        elif values == 'sbsign':
-            setattr(namespace, 'signtool', SbSign)
-        elif values == 'pesign':
-            setattr(namespace, 'signtool', PeSign)
-        else:
-            raise ValueError(f"Unknon signtool '{values}' (this is unreachable)")
 
 
 VERBS = ('build', 'genkey', 'inspect')
@@ -1555,6 +1751,23 @@ CONFIG_ITEMS = [
         config_key='UKI/DeviceTree',
     ),
     ConfigItem(
+        '--devicetree-auto',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        help='DeviceTree file for automatic selection [.dtbauto section]',
+        default=[],
+        config_key='UKI/DeviceTreeAuto',
+        config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--hwids',
+        metavar='DIR',
+        type=Path,
+        help='Directory with HWID text files [.hwids section]',
+        config_key='UKI/HWIDs',
+    ),
+    ConfigItem(
         '--uname',
         metavar='VERSION',
         help='"uname -r" information [.uname section]',
@@ -1623,9 +1836,20 @@ CONFIG_ITEMS = [
         config_key='UKI/SigningEngine',
     ),
     ConfigItem(
+        '--signing-provider',
+        metavar='PROVIDER',
+        help='OpenSSL provider to use for signing',
+        config_key='UKI/SigningProvider',
+    ),
+    ConfigItem(
+        '--certificate-provider',
+        metavar='PROVIDER',
+        help='OpenSSL provider to load certificate from',
+        config_key='UKI/CertificateProvider',
+    ),
+    ConfigItem(
         '--signtool',
-        choices=('sbsign', 'pesign'),
-        action=SignToolAction,
+        choices=('sbsign', 'pesign', 'systemd-sbsign'),
         dest='signtool',
         help=(
             'whether to use sbsign or pesign. It will also be inferred by the other '
@@ -1637,7 +1861,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-private-key',
         dest='sb_key',
-        help='required by --signtool=sbsign. Path to key file or engine-specific designation for SB signing',
+        help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider designation for SB signing',  # noqa: E501
         config_key='UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
@@ -1686,7 +1910,7 @@ CONFIG_ITEMS = [
         '--pcr-private-key',
         dest='pcr_private_keys',
         action='append',
-        help='private part of the keypair or engine-specific designation for signing PCR signatures',
+        help='private part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPrivateKey',
         config_push=ConfigItem.config_set_group,
     ),
@@ -1694,9 +1918,8 @@ CONFIG_ITEMS = [
         '--pcr-public-key',
         dest='pcr_public_keys',
         metavar='PATH',
-        type=Path,
         action='append',
-        help='public part of the keypair or engine-specific designation for signing PCR signatures',
+        help='public part of the keypair or engine/provider designation for signing PCR signatures',
         config_key='PCRSignature:/PCRPublicKey',
         config_push=ConfigItem.config_set_group,
     ),
@@ -1927,11 +2150,14 @@ def finalize_options(opts: argparse.Namespace) -> None:
         else:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
 
-    if opts.signing_engine is None:
-        if opts.sb_key:
-            opts.sb_key = Path(opts.sb_key)
-        if opts.sb_cert:
-            opts.sb_cert = Path(opts.sb_cert)
+    if opts.signing_engine and opts.signing_provider:
+        raise ValueError('Only one of --signing-engine= and --signing-provider= may be specified')
+
+    if opts.signing_engine is None and opts.signing_provider is None and opts.sb_key:
+        opts.sb_key = Path(opts.sb_key)
+
+    if opts.certificate_provider is None and opts.sb_cert:
+        opts.sb_cert = Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         # one param only given, sbsign needs both
@@ -1940,18 +2166,25 @@ def finalize_options(opts: argparse.Namespace) -> None:
         )
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
-        if opts.signtool and opts.signtool != SbSign:
+        if opts.signtool and opts.signtool not in ('sbsign', 'systemd-sbsign'):
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
             )
-        opts.signtool = SbSign
+        if not opts.signtool:
+            opts.signtool = 'sbsign'
     elif bool(opts.sb_cert_name):
         # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
-        if opts.signtool and opts.signtool != PeSign:
+        if opts.signtool and opts.signtool != 'pesign':
             raise ValueError(
                 f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name='
             )
-        opts.signtool = PeSign
+        opts.signtool = 'pesign'
+
+    if opts.signing_provider and opts.signtool != 'systemd-sbsign':
+        raise ValueError('--signing-provider= can only be used with--signtool=systemd-sbsign')
+
+    if opts.certificate_provider and opts.signtool != 'systemd-sbsign':
+        raise ValueError('--certificate-provider= can only be used with--signtool=systemd-sbsign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(

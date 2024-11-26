@@ -273,7 +273,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
-        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF) && table_isempty(t)) {
+        if (table_isempty(t) && !sd_json_format_enabled(arg_json_format_flags)) {
                 log_info("No credentials");
                 return 0;
         }
@@ -370,7 +370,7 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         int r;
 
         if (arg_transcode == TRANSCODE_OFF &&
-            arg_json_format_flags != SD_JSON_FORMAT_OFF) {
+            sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(erase_and_freep) char *suffixed = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 

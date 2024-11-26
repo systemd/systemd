@@ -65,13 +65,13 @@ TEST_RET(bootspec_sort) {
 
         ASSERT_OK(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d));
 
-        for (size_t i = 0; i < ELEMENTSOF(entries); i++) {
+        FOREACH_ELEMENT(entry, entries) {
                 _cleanup_free_ char *j = NULL;
 
-                j = path_join(d, "/loader/entries/", entries[i].fname);
+                j = path_join(d, "/loader/entries/", entry->fname);
                 assert_se(j);
 
-                ASSERT_OK(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+                ASSERT_OK(write_string_file(j, entry->contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
         }
 
         ASSERT_OK(boot_config_load(&config, d, NULL));
@@ -176,13 +176,13 @@ TEST_RET(bootspec_boot_config_find_entry) {
 
         assert_se(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d) >= 0);
 
-        for (size_t i = 0; i < ELEMENTSOF(entries); i++) {
+        FOREACH_ELEMENT(entry, entries) {
                 _cleanup_free_ char *j = NULL;
 
-                j = path_join(d, "/loader/entries/", entries[i].fname);
+                j = path_join(d, "/loader/entries/", entry->fname);
                 assert_se(j);
 
-                assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                assert_se(write_string_file(j, entry->contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
         assert_se(boot_config_load(&config, d, NULL) >= 0);

@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "machine-varlink.h"
@@ -16,7 +17,9 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "varlink-util.h"
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_machine_class, MachineClass, machine_class_from_string);
@@ -236,8 +239,6 @@ int lookup_machine_by_name_or_pidref(sd_varlink *link, Manager *manager, const c
         assert(manager);
         assert(ret_machine);
 
-        /* This returns 0 on success, 1 on error and it is replied, and a negative errno otherwise. */
-
         if (machine_name) {
                 r = lookup_machine_by_name(link, manager, machine_name, &machine);
                 if (r == -EINVAL)
@@ -350,7 +351,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
                 return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
-        if (r != 0)
+        if (r < 0)
                 return r;
 
         if (isempty(p.swhom))
@@ -376,4 +377,196 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return log_debug_errno(r, "Failed to send signal to machine: %m");
 
         return sd_varlink_reply(link, NULL);
+}
+
+typedef enum MachineOpenMode {
+        MACHINE_OPEN_MODE_TTY,
+        MACHINE_OPEN_MODE_LOGIN,
+        MACHINE_OPEN_MODE_SHELL,
+        _MACHINE_OPEN_MODE_MAX,
+        _MACHINE_OPEN_MODE_INVALID = -EINVAL,
+} MachineOpenMode;
+
+static const char* const machine_open_mode_table[_MACHINE_OPEN_MODE_MAX] = {
+        [MACHINE_OPEN_MODE_TTY]   = "tty",
+        [MACHINE_OPEN_MODE_LOGIN] = "login",
+        [MACHINE_OPEN_MODE_SHELL] = "shell",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_open_mode, MachineOpenMode);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_machine_open_mode, MachineOpenMode, machine_open_mode_from_string);
+
+typedef struct MachineOpenParameters {
+        const char *name, *user;
+        PidRef pidref;
+        MachineOpenMode mode;
+        char *path, **args, **env;
+} MachineOpenParameters;
+
+static void machine_open_paramaters_done(MachineOpenParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+        free(p->path);
+        strv_free(p->args);
+        strv_free(p->env);
+}
+
+inline static const char* machine_open_polkit_action(MachineOpenMode mode, MachineClass class) {
+        switch (mode) {
+                case MACHINE_OPEN_MODE_TTY:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty";
+                case MACHINE_OPEN_MODE_LOGIN:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-login"    : "org.freedesktop.machine1.login";
+                case MACHINE_OPEN_MODE_SHELL:
+                        return class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell"    : "org.freedesktop.machine1.shell";
+                default:
+                        assert_not_reached();
+        }
+}
+
+inline static char** machine_open_polkit_details(MachineOpenMode mode, const char *machine_name, const char *user, const char *path, const char *command_line) {
+        assert(machine_name);
+
+        switch (mode) {
+                case MACHINE_OPEN_MODE_TTY:
+                        return strv_new("machine", machine_name);
+                case MACHINE_OPEN_MODE_LOGIN:
+                        return strv_new("machine", machine_name, "verb", "login");
+                case MACHINE_OPEN_MODE_SHELL:
+                        assert(user);
+                        assert(path);
+                        assert(command_line);
+                        return strv_new(
+                                        "machine", machine_name,
+                                        "verb", "shell",
+                                        "user", user,
+                                        "program", path,
+                                        "command_line", command_line);
+                default:
+                        assert_not_reached();
+        }
+}
+
+int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                { "mode",        SD_JSON_VARIANT_STRING, json_dispatch_machine_open_mode,     offsetof(MachineOpenParameters, mode), SD_JSON_MANDATORY },
+                { "user",        SD_JSON_VARIANT_STRING, json_dispatch_const_user_group_name, offsetof(MachineOpenParameters, user), SD_JSON_RELAX     },
+                { "path",        SD_JSON_VARIANT_STRING, json_dispatch_path,                  offsetof(MachineOpenParameters, path), 0                 },
+                { "args",        SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,               offsetof(MachineOpenParameters, args), 0                 },
+                { "environment", SD_JSON_VARIANT_ARRAY,  json_dispatch_strv_environment,      offsetof(MachineOpenParameters, env),  0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_close_ int ptmx_fd = -EBADF;
+        _cleanup_(machine_open_paramaters_done) MachineOpenParameters p = {
+                .pidref = PIDREF_NULL,
+                .mode = _MACHINE_OPEN_MODE_INVALID,
+        };
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *ptmx_name = NULL, *command_line = NULL;
+        _cleanup_strv_free_ char **polkit_details = NULL, **args = NULL;
+        const char *user = NULL, *path = NULL; /* gcc complains about uninitialized variables */
+        Machine *machine;
+        int r, ptmx_fd_idx;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_set_allow_fd_passing_output(link, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.mode == MACHINE_OPEN_MODE_SHELL) {
+                /* json_dispatch_const_user_group_name() does valid_user_group_name(p.user) */
+                /* json_dispatch_path() does path_is_absolute(p.path) */
+                /* json_dispatch_strv_environment() does validation of p.env */
+
+                user = p.user ?: "root";
+                path = p.path ?: machine_default_shell_path();
+                args = !p.path ? machine_default_shell_args(user) : strv_isempty(p.args) ? strv_new(path) : TAKE_PTR(p.args);
+                if (!args)
+                        return -ENOMEM;
+
+                command_line = strv_join(args, " ");
+                if (!command_line)
+                        return -ENOMEM;
+        }
+
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r < 0)
+                return r;
+
+        polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        machine_open_polkit_action(p.mode, machine->class),
+                        (const char**) polkit_details,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        ptmx_fd = machine_openpt(machine, O_RDWR|O_NOCTTY|O_CLOEXEC, &ptmx_name);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(ptmx_fd))
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+        if (ptmx_fd < 0)
+                return log_debug_errno(ptmx_fd, "Failed to open pseudo terminal: %m");
+
+        switch (p.mode) {
+                case MACHINE_OPEN_MODE_TTY:
+                        /* noop */
+                        break;
+
+                case MACHINE_OPEN_MODE_LOGIN:
+                        r = machine_start_getty(machine, ptmx_name, /* error = */ NULL);
+                        if (r == -ENOENT)
+                                return sd_varlink_error(link, "io.systemd.Machine.NoIPC", NULL);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to start getty for machine '%s': %m", machine->name);
+
+                        break;
+
+                case MACHINE_OPEN_MODE_SHELL: {
+                        assert(user && path && args); /* to avoid gcc complaining about possible uninitialized variables */
+                        r = machine_start_shell(machine, ptmx_fd, ptmx_name, user, path, args, p.env, /* error = */ NULL);
+                        if (r == -ENOENT)
+                                return sd_varlink_error(link, "io.systemd.Machine.NoIPC", NULL);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to start shell for machine '%s': %m", machine->name);
+
+                        break;
+                }
+
+                default:
+                        assert_not_reached();
+        }
+
+        ptmx_fd_idx = sd_varlink_push_fd(link, ptmx_fd);
+        /* no need to handle -EPERM because we do sd_varlink_set_allow_fd_passing_output() above */
+        if (ptmx_fd_idx < 0)
+                return log_debug_errno(ptmx_fd_idx, "Failed to push file descriptor over varlink: %m");
+
+        TAKE_FD(ptmx_fd);
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_INTEGER("ptyFileDescriptor", ptmx_fd_idx),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ptyPath", ptmx_name));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
 }

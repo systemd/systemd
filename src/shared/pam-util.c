@@ -148,6 +148,7 @@ void pam_bus_data_disconnectp(PamBusData **_d) {
 int pam_acquire_bus_connection(
                 pam_handle_t *handle,
                 const char *module_name,
+                bool debug,
                 sd_bus **ret_bus,
                 PamBusData **ret_pam_bus_data) {
 
@@ -187,7 +188,7 @@ int pam_acquire_bus_connection(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
-        pam_syslog(handle, LOG_DEBUG, "New sd-bus connection (%s) opened.", d->cache_id);
+        pam_debug_syslog(handle, debug, "New sd-bus connection (%s) opened.", d->cache_id);
 
 success:
         *ret_bus = sd_bus_ref(d->bus);

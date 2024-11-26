@@ -91,7 +91,7 @@
         configures the time to wait for the connectivity to get restored. If the server is
         not reachable over the network for the configured time, <command>systemd-journal-upload</command>
         exits. Takes a value in seconds (or in other time units if suffixed with "ms", "min", "h", etc).
-        For details, see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        For details, see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>

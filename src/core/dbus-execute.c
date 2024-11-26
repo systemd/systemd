@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -61,6 +62,8 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_tmp_ex, "s", PrivateTmp, private_tmp_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_users_ex, "s", PrivateUsers, private_users_to_string);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_protect_control_groups_ex, "s", ProtectControlGroups, protect_control_groups_to_string);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_pids, "s", PrivatePIDs, private_pids_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
 static BUS_DEFINE_PROPERTY_GET(property_get_cpu_affinity_from_numa, "b", ExecContext, exec_context_get_cpu_affinity_from_numa);
@@ -980,11 +983,18 @@ static int property_get_exec_dir_symlink(
                 return r;
 
         FOREACH_ARRAY(i, d->items, d->n_items)
-                STRV_FOREACH(dst, i->symlinks) {
-                        r = sd_bus_message_append(reply, "(sst)", i->path, *dst, UINT64_C(0) /* flags, unused for now */);
+                if (strv_isempty(i->symlinks)) {
+                        /* The old exec directory properties cannot represent flags, so list them here with no
+                         * destination */
+                        r = sd_bus_message_append(reply, "(sst)", i->path, "", (uint64_t) (i->flags & _EXEC_DIRECTORY_FLAGS_PUBLIC));
                         if (r < 0)
                                 return r;
-                }
+                } else
+                        STRV_FOREACH(dst, i->symlinks) {
+                                r = sd_bus_message_append(reply, "(sst)", i->path, *dst, (uint64_t) (i->flags & _EXEC_DIRECTORY_FLAGS_PUBLIC));
+                                if (r < 0)
+                                        return r;
+                        }
 
         return sd_bus_message_close_container(reply);
 }
@@ -1039,6 +1049,21 @@ static int property_get_private_users(
 
         PrivateUsers *p = ASSERT_PTR(userdata);
         int b = *p != PRIVATE_USERS_NO;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
+static int property_get_protect_control_groups(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ProtectControlGroups *p = ASSERT_PTR(userdata);
+        int b = *p != PROTECT_CONTROL_GROUPS_NO;
 
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
@@ -1163,12 +1188,14 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelModules", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelLogs", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_logs), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectControlGroups", "b", property_get_protect_control_groups, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectControlGroupsEx", "s", property_get_protect_control_groups_ex, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", property_get_private_users, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsersEx", "s", property_get_private_users_ex, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateMounts", "b", bus_property_get_tristate, offsetof(ExecContext, private_mounts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateIPC", "b", bus_property_get_bool, offsetof(ExecContext, private_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivatePIDs", "s", property_get_private_pids, offsetof(ExecContext, private_pids), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectSystem", "s", property_get_protect_system, offsetof(ExecContext, protect_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SameProcessGroup", "b", bus_property_get_bool, offsetof(ExecContext, same_pgrp), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1909,6 +1936,63 @@ int bus_exec_context_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "ProtectControlGroups")) {
+                int v;
+
+                r = sd_bus_message_read(message, "b", &v);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_control_groups = v ? PROTECT_CONTROL_GROUPS_YES : PROTECT_CONTROL_GROUPS_NO;
+                        (void) unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(v));
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "ProtectControlGroupsEx")) {
+                const char *s;
+                ProtectControlGroups t;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                t = protect_control_groups_from_string(s);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->protect_control_groups = t;
+                        (void) unit_write_settingf(u, flags, name, "ProtectControlGroups=%s",
+                                                   protect_control_groups_to_string(c->protect_control_groups));
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "PrivatePIDs")) {
+                const char *s;
+                PrivatePIDs t;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                t = private_pids_from_string(s);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->private_pids = t;
+                        (void) unit_write_settingf(u, flags, name, "%s=%s",
+                                                   name, private_pids_to_string(c->private_pids));
+                }
+
+                return 1;
+        }
+
         if (streq(name, "PrivateDevices"))
                 return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
 
@@ -1959,9 +2043,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "ProtectClock"))
                 return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
-
-        if (streq(name, "ProtectControlGroups"))
-                return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
         if (streq(name, "CPUSchedulingResetOnFork"))
                 return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);
@@ -3394,7 +3475,7 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
-                                        r = exec_directory_add(d, *source, NULL);
+                                        r = exec_directory_add(d, *source, /* symlink= */ NULL, /* flags= */ 0);
                                         if (r < 0)
                                                 return log_oom();
                                 }
@@ -3812,7 +3893,7 @@ int bus_exec_context_set_transient_property(
         } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
                 char *source, *destination;
                 ExecDirectory *directory;
-                uint64_t symlink_flags; /* No flags for now, reserved for future uses. */
+                uint64_t symlink_flags;
                 ExecDirectoryType i;
 
                 assert_se((i = exec_directory_type_symlink_from_string(name)) >= 0);
@@ -3823,40 +3904,50 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(sst)", &source, &destination, &symlink_flags)) > 0) {
+                        if ((symlink_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
                         if (!path_is_valid(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid.", source);
                         if (path_is_absolute(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
                         if (!path_is_normalized(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
-                        if (!path_is_valid(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
-                        if (path_is_absolute(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
-                        if (!path_is_normalized(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
-                        if (symlink_flags != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+                        if (isempty(destination))
+                                destination = NULL;
+                        else {
+                                if (!path_is_valid(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
+                                if (path_is_absolute(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
+                                if (!path_is_normalized(destination))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+                        }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *destination_escaped = NULL, *source_escaped = NULL;
 
-                                r = exec_directory_add(directory, source, destination);
+                                r = exec_directory_add(directory, source, destination, symlink_flags);
                                 if (r < 0)
                                         return r;
 
                                 /* Need to store them in the unit with the escapes, so that they can be parsed again */
                                 source_escaped = xescape(source, ":");
-                                destination_escaped = xescape(destination, ":");
-                                if (!source_escaped || !destination_escaped)
+                                if (!source_escaped)
                                         return -ENOMEM;
+                                if (destination) {
+                                        destination_escaped = xescape(destination, ":");
+                                        if (!destination_escaped)
+                                                return -ENOMEM;
+                                }
 
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, exec_directory_type_to_string(i),
-                                                "%s=%s:%s",
+                                                "%s=%s%s%s%s",
                                                 exec_directory_type_to_string(i),
                                                 source_escaped,
-                                                destination_escaped);
+                                                destination_escaped || FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":" : "",
+                                                destination_escaped,
+                                                FLAGS_SET(symlink_flags, EXEC_DIRECTORY_READ_ONLY) ? ":ro" : "");
                         }
                 }
                 if (r < 0)

@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "selinux-util.h"
 #include "time-util.h"
 
@@ -29,7 +29,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                      timespec_load_nsec(ts)) < 0)
                 return log_oom();
 
-        r = write_string_file_atomic_label_ts(path, message, ts);
+        r = write_string_file_full(AT_FDCWD, path, message, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL, ts);
         if (r == -EROFS)
                 log_debug_errno(r, "Cannot create \"%s\", file system is read-only.", path);
         else if (r < 0)

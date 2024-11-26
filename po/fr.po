@@ -11,8 +11,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-09-06 09:38+0000\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"PO-Revision-Date: 2024-11-23 10:38+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -128,31 +128,40 @@ msgstr ""
 "utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Mettre à jour votre espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Une authentification est requise pour mettre à jour votre espace personnel."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Redimensionner un espace personnel"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
 "Une authentification est requise pour redimensionner l'espace personnel d'un "
 "utilisateur."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Changer le mot de passe d'un espace personnel"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Une authentification est requise pour changer le mot de passe de l'espace "
 "personnel d'un utilisateur."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Activer un espace personnel"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
 "Une authentification est requise pour activer l'espace personnel d'un "
@@ -351,8 +360,8 @@ msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
-"Une authentification est requise pour définir le nom d'hôte local de manière "
-"statique, ainsi que le nom d'hôte familier."
+"Une authentification est requise pour définir le nom d'hôte local configuré "
+"de manière statique, ainsi que le nom d'hôte convivial."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -815,27 +824,27 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Indiquer au boot loader d'afficher le menu de sélection"
+msgstr "Indiquer au bootloader de démarrer sur le menu de sélection"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Une authentification est requise pour indiquer au boot loader d'afficher le "
-"menu de sélection."
+"Une authentification est requise pour indiquer au bootloader de démarrer sur "
+"le menu de sélection."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Indiquer au boot loader de démarrer une entrée spécifique"
+msgstr "Indiquer au bootloader de démarrer une entrée spécifique"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Une authentification est requise pour indiquer au boot loader de démarrer "
-"une entrée spécifique."
+"Une authentification est requise pour indiquer au bootloader de démarrer une "
+"entrée spécifique."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -1247,6 +1256,15 @@ msgstr ""
 "Une authentification est requise pour nettoyer les anciennes mises à jour du "
 "système."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Gérer les fonctionnalités facultatives"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Une authentification est requise pour gérer les fonctionnalités en option."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Définir l'heure du système"
@@ -1288,23 +1306,23 @@ msgstr ""
 "Une authentification est requise pour activer ou désactiver la "
 "synchronisation de l'heure avec le réseau."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Une authentification est requise pour démarrer '$(unit)'."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Une authentification est requise pour arrêter '$(unit)'."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Une authentification est requise pour recharger '$(unit)'."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Une authentification est requise pour redémarrer '$(unit)'."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1312,18 +1330,18 @@ msgstr ""
 "Une authentification est requise pour envoyer un signal UNIX aux processus "
 "de '$(unit)'."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Une authentification est requise pour réinitialiser l'état \"failed\" de "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Une authentification est requise pour définir des propriétés de '$(unit)'."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1331,7 +1349,7 @@ msgstr ""
 "Une authentification est requise pour supprimer les fichiers et les dossiers "
 "associés à '$(unit)'."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

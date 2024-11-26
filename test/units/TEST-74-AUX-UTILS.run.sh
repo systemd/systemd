@@ -238,10 +238,13 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     run0 ls /
     assert_eq "$(run0 echo foo)" "foo"
     # Check if we set some expected environment variables
-    for arg in "" "--user=root" "--user=testuser"; do
+    for arg in "" "--user=root" "--user=0" "--user=testuser"; do
         assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_USER')" "$USER"
         assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_UID')" "$(id -u "$USER")"
         assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_GID')" "$(id -u "$USER")"
+
+        # Validate that we actually went properly through PAM (XDG_SESSION_TYPE is set by pam_systemd)
+        assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $XDG_SESSION_TYPE')" "unspecified"
     done
     # Let's chain a couple of run0 calls together, for fun
     readarray -t cmdline < <(printf "%.0srun0\n" {0..31})
@@ -258,4 +261,17 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     assert_eq "$(run0 -D / pwd)" "/"
     assert_eq "$(run0 --user=testuser pwd)" "/home/testuser"
     assert_eq "$(run0 -D / --user=testuser pwd)" "/"
+
+    # Verify that all combinations of --pty/--pipe come to the sam results
+    assert_eq "$(run0 echo -n foo)" "foo"
+    assert_eq "$(run0 --pty echo -n foo)" "foo"
+    assert_eq "$(run0 --pipe echo -n foo)" "foo"
+    assert_eq "$(run0 --pipe --pty echo -n foo)" "foo"
+
+    # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
+    assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
+    assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
 fi
+
+# Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
+assert_rc "37" systemd-run --unit=disconnecttest --wait --pipe --user -M testuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'

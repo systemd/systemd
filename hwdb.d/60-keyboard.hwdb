@@ -1149,6 +1149,11 @@ evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IG
 evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
 
+# Lenovo Thinkbook 16 G6+ 2024
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
+ KEYBOARD_KEY_0a=!9
+ KEYBOARD_KEY_0b=!0
+
 ###########################################################
 # LG
 ###########################################################
@@ -1432,6 +1437,11 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01a7=documents                           # My Documents (F10)
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
+
+# Logitech MX Keys for Mac
+evdev:input:b0003v046Dp4092*
+ KEYBOARD_KEY_70035=102nd                               # '<' key
+ KEYBOARD_KEY_70064=grave                               # '^' key
 
 ###########################################################
 # Maxdata

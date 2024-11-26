@@ -172,6 +172,8 @@ typedef struct Item {
 
         bool purge:1;
 
+        bool ignore_if_target_missing:1;
+
         OperationMask done;
 } Item;
 
@@ -438,6 +440,10 @@ static bool takes_ownership(ItemType t) {
                       IGNORE_DIRECTORY_PATH,
                       REMOVE_PATH,
                       RECURSIVE_REMOVE_PATH);
+}
+
+static bool supports_ignore_if_target_missing(ItemType t) {
+        return t == CREATE_SYMLINK;
 }
 
 static struct Item* find_glob(OrderedHashmap *h, const char *match) {
@@ -2007,7 +2013,7 @@ static int create_directory_or_subvolume(
                 if (r == 0)
                         /* Don't create a subvolume unless the root directory is one, too. We do this under
                          * the assumption that if the root directory is just a plain directory (i.e. very
-                         * light-weight), we shouldn't try to split it up into subvolumes (i.e. more
+                         * lightweight), we shouldn't try to split it up into subvolumes (i.e. more
                          * heavy-weight). Thus, chroot() environments and suchlike will get a full brtfs
                          * subvolume set up below their tree only if they specifically set up a btrfs
                          * subvolume for the root dir too. */
@@ -2399,6 +2405,17 @@ static int create_symlink(Context *c, Item *i) {
 
         assert(c);
         assert(i);
+
+        if (i->ignore_if_target_missing) {
+                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /*ret_path=*/ NULL, /*ret_fd=*/ NULL);
+                if (r == -ENOENT) {
+                        /* Silently skip over lines where the source file is missing. */
+                        log_info("Symlink source path '%s%s' does not exist, skipping line.", strempty(arg_root), i->argument);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if symlink source path '%s%s' exists: %m", strempty(arg_root), i->argument);
+        }
 
         r = path_extract_filename(i->path, &bn);
         if (r < 0)
@@ -3593,7 +3610,8 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
-                unbase64 = false, from_cred = false, missing_user_or_group = false, purge = false;
+                unbase64 = false, from_cred = false, missing_user_or_group = false, purge = false,
+                ignore_if_target_missing = false;
         int r;
 
         assert(fname);
@@ -3661,6 +3679,8 @@ static int parse_line(
                         from_cred = true;
                 else if (action[pos] == '$' && !purge)
                         purge = true;
+                else if (action[pos] == '?' && !ignore_if_target_missing)
+                        ignore_if_target_missing = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3678,6 +3698,7 @@ static int parse_line(
         i.allow_failure = allow_failure;
         i.try_replace = try_replace;
         i.purge = purge;
+        i.ignore_if_target_missing = ignore_if_target_missing;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
         if (ERRNO_IS_NEG_NOINFO(r))
@@ -3838,6 +3859,12 @@ static int parse_line(
                                   "Purge flag '$' combined with line type '%c' which does not support purging.", (char) i.type);
         }
 
+        if (i.ignore_if_target_missing && !supports_ignore_if_target_missing(i.type)) {
+                *invalid_config = true;
+                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                  "Modifier '?' combined with line type '%c' which does not support this modifier.", (char) i.type);
+        }
+
         if (!should_include_path(i.path))
                 return 0;
 
@@ -3861,6 +3888,7 @@ static int parse_line(
                         if (!i.argument)
                                 return log_oom();
                 }
+
                 break;
 
         case COPY_FILES:

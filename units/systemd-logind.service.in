@@ -28,6 +28,7 @@ DeviceAllow=block-* r
 DeviceAllow=char-/dev/console rw
 DeviceAllow=char-drm rw
 DeviceAllow=char-hidraw rw
+DeviceAllow=char-hvc rw
 DeviceAllow=char-input rw
 DeviceAllow=char-tty rw
 DeviceAllow=char-vcs rw

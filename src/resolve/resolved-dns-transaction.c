@@ -840,10 +840,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       dns_transaction_key(t),
                       t->answer_rcode,
                       t->answer,
-                      DNS_PACKET_CD(t->received) ? t->received : NULL, /* only cache full packets with CD on,
-                                                                        * since our use case for caching them
-                                                                        * is "bypass" mode which is only
-                                                                        * enabled for CD packets. */
+                      /* If neither DO nor EDE is set, the full packet isn't useful to cache */
+                      DNS_PACKET_DO(t->received) || t->answer_ede_rcode > 0 || t->answer_ede_msg ? t->received : NULL,
                       t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
@@ -3072,16 +3070,6 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         }
 
         name = dns_resource_key_name(dns_transaction_key(t));
-
-        if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_DS, DNS_TYPE_CNAME, DNS_TYPE_DNAME)) {
-                /* We got a negative reply for this DS/CNAME/DNAME lookup? Check the parent in this case to
-                 * see if this answer should have been signed. */
-                r = dns_name_parent(&name);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return true;
-        }
 
         /* For all other RRs we check the DS on the same level to see
          * if it's signed. */

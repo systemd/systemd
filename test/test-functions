@@ -1712,18 +1712,18 @@ check_coverage_reports() {
 
     # Create a coverage report that will later be uploaded. Remove info about system
     # libraries/headers and generated files, as we don't really care about them.
-    lcov --directory "${root}/${BUILD_DIR:?}" --capture --exclude "*.gperf" --output-file "${dest}.new"
+    lcov --ignore-errors inconsistent --directory "${root}/${BUILD_DIR:?}" --capture --exclude "*.gperf" --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
         # merge it with the already present one - this usually happens when
         # running both "parts" of a test in one run (the qemu and the nspawn part).
-        lcov --add-tracefile "${dest}" --add-tracefile "${dest}.new" -o "${dest}"
+        lcov --ignore-errors inconsistent --add-tracefile "${dest}" --add-tracefile "${dest}.new" -o "${dest}"
     else
         # If there's no prior coverage report, merge the new one with the base
         # report we did during the setup phase (see test_setup()).
-        lcov --add-tracefile "${TESTDIR:?}/coverage-base" --add-tracefile "${dest}.new" -o "${dest}"
+        lcov --ignore-errors inconsistent --add-tracefile "${TESTDIR:?}/coverage-base" --add-tracefile "${dest}.new" -o "${dest}"
     fi
-    lcov --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*' "${BUILD_DIR:?}/*"
+    lcov --ignore-errors inconsistent --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*' "${BUILD_DIR:?}/*"
     rm -f "${dest}.new"
 
     # If the test logs contain lines like:
@@ -2258,8 +2258,6 @@ install_zoneinfo() {
     inst_any /usr/share/zoneinfo/Europe/Kyiv
     inst_any /usr/share/zoneinfo/Pacific/Auckland
     inst_any /usr/share/zoneinfo/Pacific/Honolulu
-    inst_any /usr/share/zoneinfo/CET
-    inst_any /usr/share/zoneinfo/EET
     inst_any /usr/share/zoneinfo/UTC
 }
 

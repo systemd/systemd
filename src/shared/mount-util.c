@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
@@ -665,11 +666,11 @@ int mount_flags_to_string(unsigned long flags, char **ret) {
 
         assert(ret);
 
-        for (size_t i = 0; i < ELEMENTSOF(map); i++)
-                if (flags & map[i].flag) {
-                        if (!strextend_with_separator(&str, "|", map[i].name))
+        FOREACH_ELEMENT(entry, map)
+                if (flags & entry->flag) {
+                        if (!strextend_with_separator(&str, "|", entry->name))
                                 return -ENOMEM;
-                        flags &= ~map[i].flag;
+                        flags &= ~entry->flag;
                 }
 
         if (!str || flags != 0)
@@ -1010,26 +1011,18 @@ static int mount_in_namespace_legacy(
                 r = path_extract_filename(mount_outside, &mount_outside_fn);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to extract filename from propagation file or directory '%s': %m", mount_outside);
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 mount_inside = path_join(incoming_path, mount_outside_fn);
-                if (!mount_inside) {
-                        r = log_oom_debug();
-                        goto child_fail;
-                }
+                if (!mount_inside)
+                        report_errno_and_exit(errno_pipe_fd[1], log_oom_debug());
 
                 r = mount_nofollow_verbose(LOG_DEBUG, mount_inside, dest, NULL, MS_MOVE, NULL);
                 if (r < 0)
-                        goto child_fail;
+                        report_errno_and_exit(errno_pipe_fd[1], r);
 
                 _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
-                _exit(EXIT_FAILURE);
         }
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
@@ -1223,14 +1216,8 @@ static int mount_in_namespace(
 
                         r = mount_exchange_graceful(new_mount_fd, dest, /* mount_beneath= */ true);
                 }
-                if (r < 0) {
-                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
@@ -1386,7 +1373,8 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest
 
 int remount_idmap_fd(
                 char **paths,
-                int userns_fd) {
+                int userns_fd,
+                uint64_t extra_mount_attr_set) {
 
         int r;
 
@@ -1423,7 +1411,7 @@ int remount_idmap_fd(
                 /* Set the user namespace mapping attribute on the cloned mount point */
                 if (mount_setattr(mntfd, "", AT_EMPTY_PATH,
                                   &(struct mount_attr) {
-                                          .attr_set = MOUNT_ATTR_IDMAP,
+                                          .attr_set = MOUNT_ATTR_IDMAP | extra_mount_attr_set,
                                           .userns_fd = userns_fd,
                                   }, sizeof(struct mount_attr)) < 0)
                         return log_debug_errno(errno, "Failed to change bind mount attributes for clone of '%s': %m", paths[i]);
@@ -1460,13 +1448,8 @@ int remount_idmap(
         if (userns_fd < 0)
                 return userns_fd;
 
-        return remount_idmap_fd(p, userns_fd);
+        return remount_idmap_fd(p, userns_fd, /* extra_mount_attr_set= */ 0);
 }
-
-typedef struct SubMount {
-        char *path;
-        int mount_fd;
-} SubMount;
 
 static void sub_mount_clear(SubMount *s) {
         assert(s);
@@ -1475,7 +1458,7 @@ static void sub_mount_clear(SubMount *s) {
         s->mount_fd = safe_close(s->mount_fd);
 }
 
-static void sub_mount_array_free(SubMount *s, size_t n) {
+void sub_mount_array_free(SubMount *s, size_t n) {
         assert(s || n == 0);
 
         for (size_t i = 0; i < n; i++)
@@ -1504,10 +1487,7 @@ static void sub_mount_drop(SubMount *s, size_t n) {
         }
 }
 
-static int get_sub_mounts(
-                const char *prefix,
-                SubMount **ret_mounts,
-                size_t *ret_n_mounts) {
+int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -1826,4 +1806,89 @@ char* umount_and_unlink_and_free(char *p) {
         (void) umount2(p, 0);
         (void) unlink(p);
         return mfree(p);
+}
+
+static int path_get_mount_info_at(
+                int dir_fd,
+                const char *path,
+                char **ret_fstype,
+                char **ret_options) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r, mnt_id;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        r = path_get_mnt_id_at(dir_fd, path, &mnt_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get mount ID: %m");
+
+        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        for (;;) {
+                struct libmnt_fs *fs;
+
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break; /* EOF */
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                if (mnt_fs_get_id(fs) != mnt_id)
+                        continue;
+
+                _cleanup_free_ char *fstype = NULL, *options = NULL;
+
+                if (ret_fstype) {
+                        fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                        if (!fstype)
+                                return log_oom_debug();
+                }
+
+                if (ret_options) {
+                        options = strdup(strempty(mnt_fs_get_options(fs)));
+                        if (!options)
+                                return log_oom_debug();
+                }
+
+                if (ret_fstype)
+                        *ret_fstype = TAKE_PTR(fstype);
+                if (ret_options)
+                        *ret_options = TAKE_PTR(options);
+
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
+}
+
+int path_is_network_fs_harder_at(int dir_fd, const char *path) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        fd = xopenat(dir_fd, path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0)
+                return fd;
+
+        r = fd_is_network_fs(fd);
+        if (r != 0)
+                return r;
+
+        _cleanup_free_ char *fstype = NULL, *options = NULL;
+        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options);
+        if (r < 0)
+                return r;
+
+        if (fstype_is_network(fstype))
+                return true;
+
+        if (fstab_test_option(options, "_netdev\0"))
+                return true;
+
+        return false;
 }

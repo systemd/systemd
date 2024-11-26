@@ -642,6 +642,9 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
+        /* Assume the label inherited from systemd as the fallback */
+        exec_params.fallback_smack_process_label = NULL;
+
         r = exec_spawn(UNIT(s),
                        c,
                        &s->exec_context,

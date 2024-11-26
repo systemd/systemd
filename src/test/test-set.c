@@ -37,8 +37,8 @@ TEST(set_free_with_destructor) {
         struct Item items[4] = {};
 
         assert_se(m = set_new(NULL));
-        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(set_put(m, items + i) == 1);
+        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
+                assert_se(set_put(m, item) == 1);
 
         m = set_free_with_destructor(m, item_seen);
         assert_se(items[0].seen == 1);
@@ -54,8 +54,8 @@ TEST(set_free_with_hash_ops) {
         struct Item items[4] = {};
 
         assert_se(m = set_new(&item_hash_ops));
-        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(set_put(m, items + i) == 1);
+        FOREACH_ARRAY(item, items, ELEMENTSOF(items) - 1)
+                assert_se(set_put(m, item) == 1);
 
         m = set_free(m);
         assert_se(items[0].seen == 1);

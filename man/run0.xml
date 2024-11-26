@@ -61,7 +61,10 @@
     <literal>systemd-run0</literal> PAM stack.</para>
 
     <para>Note that <command>run0</command> is implemented as an alternative multi-call invocation of
-    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>. That is,
+    <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
+    behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
+    <command>systemd-run</command>.</para>
   </refsect1>
 
   <refsect1>
@@ -81,7 +84,7 @@
       <varlistentry>
         <term><option>--property=</option></term>
 
-        <listitem><para>Sets a property on the service unit that is created. This option takes an assignment
+        <listitem><para>Sets a property of the service unit that is created. This option takes an assignment
         in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para>
@@ -193,10 +196,39 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--pty</option></term>
+        <term><option>--pipe</option></term>
+
+        <listitem><para>Request allocation of a pseudo TTY for the <command>run0</command> session (in case
+        of <option>--pty</option>), or request passing the caller's STDIO file descriptors directly through
+        (in case of <option>--pipe</option>). If neither switch is specified, or if both switches are
+        specified, the mode will be picked automatically: if standard input, standard output and standard
+        error output are all connected to a TTY then a pseudo TTY is allocated, otherwise the relevant file
+        descriptors are passed through directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--shell-prompt-prefix=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Set a shell prompt prefix string. This ultimately controls the
+        <varname>$SHELL_PROMPT_PREFIX</varname> environment variable for the invoked program, which is
+        typically imported into the shell prompt. By default – if emojis are supported – a superhero emoji is
+        shown (🦸). This default may also be changed (or turned off) by passing the
+        <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable to <varname>run0</varname>,
+        see below. Set to an empty string to disable shell prompt prefixing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine=</option></term>
 
         <listitem>
-          <para>Execute operation on a local container. Specify a container name to connect to.</para>
+          <para>Execute operation in a local container. Specify a container name to connect to.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -256,7 +288,30 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
+        <listitem><para>By default set to the superhero emoji (if supported), but may be overridden with the
+        <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable (see below), or the
+        <option>--shell-prompt-prefix=</option> switch (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
     </variablelist>
+
+    <para>The following variables may be passed to <command>run0</command>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname></term>
+        <listitem><para>If set, overrides the default shell prompt prefix that <command>run0</command> sets
+        for the invoked shell (the superhero emoji). Set to an empty string to disable shell prompt
+        prefixing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+
   </refsect1>
 
   <refsect1>

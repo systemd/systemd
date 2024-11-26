@@ -12,6 +12,15 @@
 #include "macro.h"
 #include "pidref.h"
 
+typedef struct SubMount {
+        char *path;
+        int mount_fd;
+} SubMount;
+
+void sub_mount_array_free(SubMount *s, size_t n);
+
+int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);
+
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *target, int flags, char **keep);
@@ -154,7 +163,7 @@ typedef enum RemountIdmapping {
 } RemountIdmapping;
 
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
-int remount_idmap_fd(char **p, int userns_fd);
+int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
 int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 
 int bind_mount_submounts(
@@ -171,3 +180,8 @@ unsigned long credentials_fs_mount_flags(bool ro);
 int mount_credentials_fs(const char *path, size_t size, bool ro);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
+
+int path_is_network_fs_harder_at(int dir_fd, const char *path);
+static inline int path_is_network_fs_harder(const char *path) {
+        return path_is_network_fs_harder_at(AT_FDCWD, path);
+}

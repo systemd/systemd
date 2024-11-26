@@ -122,6 +122,10 @@ int dhcp6_check_ready(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_DHCP6);
+        if (r < 0)
+                return r;
+
         link_check_ready(link);
         return 0;
 }
@@ -297,13 +301,12 @@ static int dhcp6_request_hostname(Link *link) {
         return 0;
 }
 
-static int dhcp6_lease_acquired(sd_dhcp6_client *client, Link *link) {
+static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease_old = NULL;
         sd_dhcp6_lease *lease;
         int r;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
-        manager_mark_routes(link->manager, NULL, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -326,7 +329,7 @@ static int dhcp6_lease_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
         } else if (sd_dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         if (link->dhcp6_messages == 0) {
                 link->dhcp6_configured = true;
@@ -341,6 +344,22 @@ static int dhcp6_lease_acquired(sd_dhcp6_client *client, Link *link) {
                 link_set_state(link, LINK_STATE_CONFIGURING);
 
         link_check_ready(link);
+        return 0;
+}
+
+static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link) {
+        sd_dhcp6_lease *lease;
+        int r;
+
+        assert(client);
+        assert(link);
+
+        r = sd_dhcp6_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
+
+        unref_and_replace_full(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+
         link_dirty(link);
         return 0;
 }
@@ -357,7 +376,7 @@ static int dhcp6_lease_lost(Link *link) {
         log_link_info(link, "DHCPv6 lease lost");
 
         if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
-                dhcp_pd_prefix_lost(link);
+                dhcp6_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
 
@@ -385,8 +404,11 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
+                r = dhcp6_lease_ip_acquired(client, link);
+                break;
+
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
-                r = dhcp6_lease_acquired(client, link);
+                r = dhcp6_lease_information_acquired(client, link);
                 break;
 
         default:
@@ -641,6 +663,12 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request domains: %m");
         }
 
+        if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_V6_DNR);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request DNR: %m");
+        }
+
         if (link->network->dhcp6_use_captive_portal > 0) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_CAPTIVE_PORTAL);
                 if (r < 0)
@@ -810,6 +838,30 @@ int link_request_dhcp6_client(Link *link) {
 
         log_link_debug(link, "Requested configuring of the DHCPv6 client.");
         return 0;
+}
+
+int link_drop_dhcp6_config(Link *link, Network *network) {
+        int ret = 0;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
+
+        if (!link_dhcp6_enabled(link)) {
+                /* DHCPv6 client is disabled. Stop the client if it is running and drop the lease. */
+                ret = sd_dhcp6_client_stop(link->dhcp6_client);
+
+                /* Also explicitly drop DHCPv6 addresses and routes. See also link_drop_dhcp4_config(). */
+                RET_GATHER(ret, dhcp6_remove(link, /* only_marked = */ false));
+        }
+
+        /* Even if the client is currently enabled and also enabled in the new .network file, detailed
+         * settings for the client may be different. Let's unref() the client. But do not unref() the lease.
+         * it will be unref()ed later when a new lease is acquired. */
+        link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+        return ret;
 }
 
 int link_serialize_dhcp6_client(Link *link, FILE *f) {

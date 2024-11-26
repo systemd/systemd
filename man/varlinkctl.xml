@@ -202,19 +202,19 @@
         <listitem><para>When used with <command>call</command>: expect multiple method replies. If this flag
         is set the method call is sent with the <constant>more</constant> flag set, which tells the service
         to generate multiple replies, if needed. The command remains running until the service sends a reply
-        message that indicates it is the last in the series (or if the configured time-out is reached, see
+        message that indicates it is the last in the series (or if the configured timeout is reached, see
         below). This flag should be set only for method calls that support this mechanism.</para>
 
         <para>If this mode is enabled output is automatically switched to JSON-SEQ mode, so that individual
         reply objects can be easily discerned.</para>
 
-        <para>This switch has no effect on the method call time-out applied by default: regardless if
-        <option>--more</option> is specified or not, the default time-out will be 45s. Use
-        <option>--timeout=</option> (see below) to change or disable the time-out. When invoking a method
-        call that continuously returns updates it is typically desirable to disable the time-out with
+        <para>This switch has no effect on the method call timeout applied by default: regardless if
+        <option>--more</option> is specified or not, the default timeout will be 45s. Use
+        <option>--timeout=</option> (see below) to change or disable the timeout. When invoking a method
+        call that continuously returns updates it is typically desirable to disable the timeout with
         <option>--timeout=infinity</option>. On the other hand, when invoking a <option>--more</option>
         method call for the purpose of enumerating objects (which likely will complete quickly) it is
-        typically beneficial to leave the time-out logic enabled, for robustness reasons.</para>
+        typically beneficial to leave the timeout logic enabled, for robustness reasons.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -300,8 +300,8 @@
         <term><option>--timeout=</option></term>
 
         <listitem>
-          <para>Expects a time-out in seconds as parameter. By default a time-out of 45s is enforced. To turn
-          off the time-out specify <literal>infinity</literal> or an empty string.</para>
+          <para>Expects a timeout in seconds as parameter. By default a timeout of 45s is enforced. To turn
+          off the timeout specify <literal>infinity</literal> or an empty string.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>

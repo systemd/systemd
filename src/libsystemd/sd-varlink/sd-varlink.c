@@ -1356,23 +1356,28 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
                         if (r == -EBADE) {
-                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set: %m",
+                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set.",
                                                   method);
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
                                         r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
-                                        if (r < 0)
-                                                return r;
+                                        /* If we didn't manage to enqueue an error response, then fail the
+                                         * connection completely. Otherwise ignore the error from
+                                         * sd_varlink_error() here, as it is synthesized from the function's
+                                         * parameters. */
+                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                                goto fail;
                                 }
                         } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
                                                   method, strna(bad_field));
 
-                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error_invalid_parameter_name(v, bad_field);
-                                        if (r < 0)
-                                                return r;
+                                        /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                                goto fail;
                                 }
                         }
 
@@ -1381,21 +1386,22 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
-                        if (r < 0) {
+                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
-                                /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
-                                        r = sd_varlink_error_errno(v, r);
-                                        if (r < 0)
-                                                return r;
-                                }
+                                /* We got an error back from the callback. Propagate it to the client if the
+                                 * method call remains unanswered. */
+                                r = sd_varlink_error_errno(v, r);
+                                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
                         }
                 }
-        } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+        } else if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                 r = sd_varlink_errorbo(v, SD_VARLINK_ERROR_METHOD_NOT_FOUND, SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)));
-                if (r < 0)
-                        return r;
+                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                        goto fail;
         }
 
         switch (v->state) {
@@ -1412,6 +1418,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
         case VARLINK_PROCESSING_METHOD_MORE: /* No reply for a "more" message was sent, more to come */
                 varlink_set_state(v, VARLINK_PENDING_METHOD_MORE);
+                break;
+
+        case VARLINK_DISCONNECTED: /* Handler called sd_varlink_close() on us, which is fine */
                 break;
 
         default:
@@ -1689,7 +1698,8 @@ _public_ int sd_varlink_get_events(sd_varlink *v) {
                 ret |= EPOLLIN;
 
         if (!v->write_disconnected &&
-            v->output_buffer_size > 0)
+            (v->output_queue ||
+             v->output_buffer_size > 0))
                 ret |= EPOLLOUT;
 
         return ret;
@@ -2558,7 +2568,10 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         } else
                 varlink_set_state(v, VARLINK_PROCESSED_METHOD);
 
-        return 1;
+        /* Everything worked. Let's now return the error we got passed as input as negative errno, so that
+         * programs can just do "return sd_varlink_error();" and get both: a friendly error reply to clients,
+         * and an error return from the current stack frame. */
+        return sd_varlink_error_to_errno(error_id, parameters);
 }
 
 _public_ int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...) {
@@ -3253,7 +3266,7 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         return mfree(s);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
 
 static int validate_connection(sd_varlink_server *server, const struct ucred *ucred) {
         int allowed = -1;

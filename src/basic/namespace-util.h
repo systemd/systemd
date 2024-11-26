@@ -24,6 +24,7 @@ extern const struct namespace_info {
         const char *proc_name;
         const char *proc_path;
         unsigned int clone_flag;
+        ino_t root_inode;
 } namespace_info[_NAMESPACE_TYPE_MAX + 1];
 
 int pidref_namespace_open(
@@ -74,4 +75,8 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 
 int namespace_open_by_type(NamespaceType type);
 
+int namespace_is_init(NamespaceType type);
+
 int is_our_namespace(int fd, NamespaceType type);
+
+int is_idmapping_supported(const char *path);

@@ -31,7 +31,6 @@ static int help(void) {
         };
 
         _cleanup_free_ char *link = NULL;
-        size_t i;
         int r;
 
         r = terminal_urlify_man("udevadm", "8", &link);
@@ -43,8 +42,8 @@ static int help(void) {
                "Commands:\n",
                program_invocation_short_name);
 
-        for (i = 0; i < ELEMENTSOF(short_descriptions); i++)
-                printf("  %-12s  %s\n", short_descriptions[i][0], short_descriptions[i][1]);
+        FOREACH_ELEMENT(desc, short_descriptions)
+                printf("  %-12s  %s\n", (*desc)[0], (*desc)[1]);
 
         printf("\nSee the %s for details.\n", link);
         return 0;

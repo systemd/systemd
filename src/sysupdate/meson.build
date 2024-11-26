@@ -2,6 +2,7 @@
 
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
+        'sysupdate-feature.c',
         'sysupdate-instance.c',
         'sysupdate-partition.c',
         'sysupdate-pattern.c',
@@ -39,7 +40,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-sysupdated',
                 'dbus' : true,
-                'conditions' : ['ENABLE_SYSUPDATE'],
+                'conditions' : ['ENABLE_SYSUPDATED'],
                 'sources' : files('sysupdated.c'),
                 'dependencies' : threads,
         },
@@ -47,11 +48,11 @@ executables += [
                 'name' : 'updatectl',
                 'public' : true,
                 'sources' : systemd_updatectl_sources,
-                'conditions' : ['ENABLE_SYSUPDATE'],
+                'conditions' : ['ENABLE_SYSUPDATED'],
         },
 ]
 
-if conf.get('ENABLE_SYSUPDATE') == 1
+if conf.get('ENABLE_SYSUPDATED') == 1
         install_data('org.freedesktop.sysupdate1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.sysupdate1.service',

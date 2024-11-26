@@ -180,10 +180,9 @@ int halt_main(void) {
                         return start_with_fallback();
         }
 
-        if (geteuid() != 0) {
-                (void) must_be_root();
-                return -EPERM;
-        }
+        r = must_be_root();
+        if (r < 0)
+                return r;
 
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)

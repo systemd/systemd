@@ -28,7 +28,9 @@
     <title>Description</title>
 
     <para><command>pam_systemd_loadkey</command> reads a NUL-separated password list from the kernel keyring,
-    and sets the last password in the list as the PAM authtok.</para>
+    and sets the last password in the list as the PAM authtok, which can be used by e.g.
+    <citerefentry project='man-pages'><refentrytitle>pam_get_authtok</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
     <para>The password list is supposed to be stored in the "user" keyring of the root user,
     by an earlier call to
@@ -112,27 +114,29 @@
     during boot.</para>
 
     <para>You need to set the password of your Gnome Keyring/KWallet to the same as your LUKS passphrase.
-    Then add the following lines to your display manager's PAM config under <filename>/etc/pam.d/</filename> (e.g. <filename>sddm-autologin</filename>):</para>
+    Then add the following lines to your display manager's PAM config under <filename>/etc/pam.d/</filename> (e.g.
+    <filename>sddm-autologin</filename>):</para>
 
     <programlisting>
 -auth       optional    pam_systemd_loadkey.so
 -auth       optional    pam_gnome_keyring.so
 -session    optional    pam_gnome_keyring.so auto_start
 -session    optional    pam_kwallet5.so auto_start
-    </programlisting>
+</programlisting>
 
     <para>And add the following lines to your display manager's systemd service file, so it can access root's keyring:</para>
 
     <programlisting>
 [Service]
 KeyringMode=inherit
-    </programlisting>
+</programlisting>
 
     <para>In this setup, early during the boot process,
     <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     will ask for the passphrase and store it in the kernel keyring with the keyname <literal>cryptsetup</literal>.
-    Then when the display manager does the autologin, pam_systemd_loadkey will read the passphrase from the kernel keyring,
-    set it as the PAM authtok, and then pam_gnome_keyring and pam_kwallet5 will unlock with the same passphrase.</para>
+    Then when the display manager does the autologin, <command>pam_systemd_loadkey</command> will read the passphrase
+    from the kernel keyring, set it as the PAM authtok, and then <command>pam_gnome_keyring</command> and
+    <command>pam_kwallet5</command> will unlock with the same passphrase.</para>
   </refsect1>
 
 </refentry>

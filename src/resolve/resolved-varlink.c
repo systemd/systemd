@@ -241,16 +241,12 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS) {
-                r = reply_query_state(q);
-                goto finish;
-        }
+        if (q->state != DNS_TRANSACTION_SUCCESS)
+                return (void) reply_query_state(q);
 
         r = dns_query_process_cname_many(q);
-        if (r == -ELOOP) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-                goto finish;
-        }
+        if (r == -ELOOP)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -265,10 +261,8 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
-        if (sd_json_variant_is_blank_object(array)) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
-                goto finish;
-        }
+        if (sd_json_variant_is_blank_object(array))
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         assert(canonical);
         r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
@@ -327,7 +321,7 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
 
 static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
                 { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  0                 },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
@@ -353,9 +347,6 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         r = dns_name_is_valid(p.name);
         if (r < 0)
@@ -443,16 +434,12 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS) {
-                r = reply_query_state(q);
-                goto finish;
-        }
+        if (q->state != DNS_TRANSACTION_SUCCESS)
+                return (void) reply_query_state(q);
 
         r = dns_query_process_cname_many(q);
-        if (r == -ELOOP) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-                goto finish;
-        }
+        if (r == -ELOOP)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -484,10 +471,8 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
                         goto finish;
         }
 
-        if (sd_json_variant_is_blank_object(array)) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
-                goto finish;
-        }
+        if (sd_json_variant_is_blank_object(array))
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -502,7 +487,7 @@ finish:
 
 static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  SD_JSON_MANDATORY },
                 { "address", SD_JSON_VARIANT_ARRAY,         json_dispatch_address,   0,                                   SD_JSON_MANDATORY },
                 { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
@@ -528,9 +513,6 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         if (!IN_SET(p.family, AF_INET, AF_INET6))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
@@ -711,14 +693,14 @@ static int append_srv(
         return 1; /* added */
 }
 
-static sd_varlink *get_vl_link_aux_query(DnsQuery *aux) {
+static sd_varlink* take_vl_link_aux_query(DnsQuery *aux) {
         assert(aux);
 
         /* Find the main query */
         while (aux->auxiliary_for)
                 aux = aux->auxiliary_for;
 
-        return aux->varlink_request;
+        return TAKE_PTR(aux->varlink_request);
 }
 
 static void resolve_service_all_complete(DnsQuery *query) {
@@ -768,20 +750,16 @@ static void resolve_service_all_complete(DnsQuery *query) {
                         if (bad->state == DNS_TRANSACTION_SUCCESS) {
                                 assert(bad->auxiliary_result != 0);
 
-                                if (bad->auxiliary_result == -ELOOP) {
-                                        r = sd_varlink_error(query->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-                                        goto finish;
-                                }
+                                if (bad->auxiliary_result == -ELOOP)
+                                        return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
 
                                 assert(bad->auxiliary_result < 0);
                                 r = bad->auxiliary_result;
                                 goto finish;
                         }
 
-                        bad->varlink_request = get_vl_link_aux_query(bad);
-                        r = reply_query_state(bad);
-                        bad->varlink_request = NULL;
-                        goto finish;
+                        bad->varlink_request = take_vl_link_aux_query(bad);
+                        return (void) reply_query_state(bad);
                 }
         }
 
@@ -804,10 +782,8 @@ static void resolve_service_all_complete(DnsQuery *query) {
                         canonical = dns_resource_record_ref(rr);
         }
 
-        if (sd_json_variant_is_blank_object(srv)) {
-                r = sd_varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
-                goto finish;
-        }
+        if (sd_json_variant_is_blank_object(srv))
+                return (void) sd_varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         DNS_ANSWER_FOREACH(rr, q->answer) {
                 r = dns_question_matches_rr(question, rr, NULL);
@@ -829,10 +805,8 @@ static void resolve_service_all_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
-        if (isempty(type)) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
-                goto finish;
-        }
+        if (isempty(type))
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.InconsistentServiceRecords", NULL);
 
         r = sd_varlink_replybo(
                         query->varlink_request,
@@ -925,18 +899,14 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS) {
-                r = reply_query_state(q);
-                goto finish;
-        }
+        if (q->state != DNS_TRANSACTION_SUCCESS)
+                return (void) reply_query_state(q);
 
         r = dns_query_process_cname_many(q);
-        if (r == -ELOOP) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-                goto finish;
-        }
+        if (r == -ELOOP)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
         if (r < 0)
-                goto finish;
+                goto fail;
         if (r == DNS_QUERY_CNAME) {
                 /* This was a cname, and the query was restarted. */
                 TAKE_PTR(q);
@@ -948,7 +918,7 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 r = dns_question_matches_rr(question, rr, NULL);
                 if (r < 0)
-                        goto finish;
+                        goto fail;
                 if (r == 0)
                         continue;
 
@@ -966,44 +936,38 @@ static void vl_method_resolve_service_complete(DnsQuery *query) {
                         q->block_all_complete--;
 
                         if (r < 0)
-                                goto finish;
+                                goto fail;
                 }
 
                 found++;
         }
 
-        if (has_root_domain && found <= 0) {
+        if (has_root_domain && found <= 0)
                 /* If there's exactly one SRV RR and it uses the root domain as hostname, then the service is
                  * explicitly not offered on the domain. Report this as a recognizable error. See RFC 2782,
                  * Section "Usage Rules". */
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
-                goto finish;
-        }
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.ServiceNotProvided", NULL);
 
-        if (found <= 0) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
-                goto finish;
-        }
+        if (found <= 0)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         /* Maybe we are already finished? check now... */
         resolve_service_all_complete(TAKE_PTR(q));
         return;
 
-finish:
-        if (r < 0) {
-                log_error_errno(r, "Failed to send address reply: %m");
-                (void) sd_varlink_error_errno(q->varlink_request, r);
-        }
+fail:
+        log_error_errno(r, "Failed to send address reply: %m");
+        (void) sd_varlink_error_errno(q->varlink_request, r);
 }
 
 static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0              },
-                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0              },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0                 },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0                 },
                 { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  SD_JSON_MANDATORY },
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex), 0              },
-                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0              },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0              },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParametersResolveService, ifindex), SD_JSON_RELAX     },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0                 },
                 {}
         };
 
@@ -1027,9 +991,6 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         if (!IN_SET(p.family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
@@ -1090,16 +1051,12 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->state != DNS_TRANSACTION_SUCCESS) {
-                r = reply_query_state(q);
-                goto finish;
-        }
+        if (q->state != DNS_TRANSACTION_SUCCESS)
+                return (void) reply_query_state(q);
 
         r = dns_query_process_cname_many(q);
-        if (r == -ELOOP) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
-                goto finish;
-        }
+        if (r == -ELOOP)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
         if (r < 0)
                 goto finish;
         if (r == DNS_QUERY_CNAME) {
@@ -1141,10 +1098,8 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
                 added++;
         }
 
-        if (added <= 0) {
-                r = sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
-                goto finish;
-        }
+        if (added <= 0)
+                return (void) sd_varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
 
         r = sd_varlink_replybo(
                         q->varlink_request,
@@ -1159,7 +1114,7 @@ finish:
 
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, ifindex), 0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
                 { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
                 { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, class),   0                 },
                 { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
@@ -1185,9 +1140,6 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (p.ifindex < 0)
-                return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
         r = dns_name_is_valid(p.name);
         if (r < 0)

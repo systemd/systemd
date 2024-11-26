@@ -601,7 +601,7 @@
         <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
         should identify the unit rather than describe it, despite the name. This string also shouldn't just
         repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
-        <literal>high-performance light-weight HTTP server</literal> (too generic) or
+        <literal>high-performance lightweight HTTP server</literal> (too generic) or
         <literal>Apache2</literal> (meaningless for people who do not know Apache, duplicates the unit
         name). <command>systemd</command> may use this string as a noun in status messages (<literal>Starting
         <replaceable>description</replaceable>...</literal>, <literal>Started
@@ -1141,7 +1141,7 @@
 
         <para>Both settings take a time span with the default unit of seconds, but other units may be
         specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         The default is <literal>infinity</literal> (job timeouts disabled), except for device units where
         <varname>JobRunningTimeoutSec=</varname> defaults to <varname>DefaultDeviceTimeoutSec=</varname>.
         </para>
@@ -1185,7 +1185,7 @@
 
         <para><replaceable>interval</replaceable> is a time span with the default unit of seconds, but other
         units may be specified, see
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         The special value <literal>infinity</literal> can be used to limit the total number of start
         attempts, even if they happen at large time intervals.
         Defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
@@ -2626,7 +2626,7 @@ Description=My failure handler for %i
 Type=oneshot
 # Perform some special action for when %i exits unexpectedly.
 ExecStart=/usr/sbin/myfailurehandler %i
-     </programlisting>
+</programlisting>
 
      <para>We can then add an instance of
      <filename index='false'>failure-handler@.service</filename> as an
@@ -2637,7 +2637,7 @@ ExecStart=/usr/sbin/myfailurehandler %i
 
     <programlisting>[Unit]
 OnFailure=failure-handler@%N.service
-    </programlisting>
+</programlisting>
 
     <para>Now, after running <command>systemctl daemon-reload</command> all
     services will have acquired an <varname>OnFailure=</varname> dependency on
@@ -2655,7 +2655,7 @@ OnFailure=failure-handler@%N.service
 <command>mkdir /etc/systemd/system/failure-handler@.service.d/</command>
 <command>ln -s /dev/null /etc/systemd/system/failure-handler@.service.d/10-all.conf</command>
 <command>systemctl daemon-reload</command>
-    </programlisting>
+</programlisting>
 
     <para>This ensures that if a <filename index='false'>failure-handler@.service</filename> instance fails it will not trigger an instance named
     <filename index='false'>failure-handler@failure-handler.service</filename>.</para>

@@ -1267,4 +1267,34 @@ TEST(packet_append_answer_single_svcb) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+static void dump_packet_data(DnsPacket *packet) {
+        assert(packet);
+        fprintf(stderr, "packet bytes:");
+        for (size_t i = 0; i < packet->size; i++)
+                fprintf(stderr, " %x", DNS_PACKET_DATA(packet)[i]);
+        fprintf(stderr, "\n");
+}
+
+TEST(packet_append_key_name_too_long) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        int r;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, 0));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
+
+        key = ASSERT_PTR(dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com"));
+        r = dns_packet_append_key(packet, key, 0, NULL);
+
+        log_debug("r = %d, size = %zu", r, packet->size);
+        log_debug("key name = <%s>", dns_resource_key_name(key));
+        dump_packet_data(packet);
+
+        ASSERT_EQ(r, -EINVAL);
+        ASSERT_EQ(packet->size, 12U);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG)

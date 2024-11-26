@@ -1238,9 +1238,9 @@
       </itemizedlist>
 
       <para>Signals sent to PID 1 before this message is sent might not be handled correctly yet. A consumer
-      of these messages should parse the value as an unsigned integer indication the level of support. For
-      now only the mentioned level 2 is defined, but later on additional levels might be defined with higher
-      integers, that will implement a superset of the currently defined behaviour.</para>
+      of these messages should parse the value as an unsigned integer that indicates the level of support.
+      For now only the mentioned level 2 is defined, but later on additional levels might be defined with
+      higher integers, that will implement a superset of the currently defined behaviour.</para>
 
       <xi:include href="version-info.xml" xpointer="v256"/></listitem>
 
@@ -1389,8 +1389,8 @@
           <term><option>--crash-action=</option></term>
 
           <listitem><para>Specify what to do when the system manager (PID 1) crashes. This switch has no
-          effect when systemd is running as user instance. See <varname>systemd.crash_action=</varname>
-          above.</para>
+          effect when <command>systemd</command> is running as user instance. See
+          <varname>systemd.crash_action=</varname> above.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -1590,6 +1590,7 @@
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
 
     <para>For more information about the concepts and

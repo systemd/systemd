@@ -526,6 +526,35 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--secure-boot-auto-enroll=yes|no</option></term>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Configure the ESP for secure boot auto-enrollment when invoking the
+        <command>install</command> command. Takes a boolean argument. Disabled by default. Enabling this
+        option will make <command>bootctl</command> populate the ESP with signed <literal>PK</literal>,
+        <literal>KEK</literal> and <literal>db</literal> signature databases, each containing the given
+        certificate in <literal>DER</literal> format as their only entry. These secure boot signature
+        databases will be picked up and enrolled by <command>systemd-boot</command> if secure boot is in
+        setup mode and secure boot auto-enrollment is enabled.</para>
+
+        <para>When specifying this option, a certificate and private key have to be provided as well using
+        the <option>--certificate=</option> and <option>--private-key=</option> options. The
+        <option>--certificate=</option> option takes a path to a PEM encoded X.509 certificate or a URI
+        that's passed to the OpenSSL provider configured with <option>--certificate-source</option> which
+        takes one of <literal>file</literal> or <literal>provider</literal>, with the latter being followed
+        by a specific provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>.
+        The <option>--private-key=</option> option can take a path or a URI that will be passed to the
+        OpenSSL engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>. The specified OpenSSL
+        signing engine or provider will be used to sign the EFI signature lists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help"/>

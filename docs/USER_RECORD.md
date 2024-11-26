@@ -597,6 +597,17 @@ The salt to pass to the FIDO2 device is found in `fido2HmacSalt`.
 The only supported recovery key type at the moment is `modhex64`, for details see the description of `recoveryKey` below.
 An account may have any number of recovery keys defined, and the array should have one entry for each.
 
+`selfModifiableFields` → An array of strings, each corresponding to a field name that can appear
+in the `regular` or `perMachine` sections. The user may be allowed to edit any field in this list
+without authenticating as an administrator. Note that the user will only be allowed to edit fields
+in `perMachine` sections that match the machine the user is performing the edit from.
+
+`selfModifiableBlobs` → Similar to `selfModifiableFields`, but it lists blobs that the user
+is allowed to edit.
+
+`selfModifiablePrivileged` →  Similar to `selfModifiableFields`, but it lists fields in
+the `privileged` section that the user is allowed to edit.
+
 `privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
@@ -754,7 +765,7 @@ All other fields that may be used in this section are identical to the equally n
 `autoLogin`, `preferredSessionType`, `preferredSessionLauncher`, `stopDelayUSec`, `killProcesses`,
 `passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
-`fido2HmacCredential`.
+`fido2HmacCredential`, `selfModifiableFields`, `selfModifiableBlobs`, `selfModifiablePrivileged`.
 
 ## Fields in the `binding` section
 

@@ -21,6 +21,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -55,40 +56,35 @@ static bool arg_console = false;
 static const char *arg_device = NULL;
 
 static int send_passwords(const char *socket_name, char **passwords) {
-        _cleanup_(erase_and_freep) char *packet = NULL;
-        _cleanup_close_ int socket_fd = -EBADF;
-        union sockaddr_union sa;
-        socklen_t sa_len;
-        size_t packet_length = 1;
-        char *d;
-        ssize_t n;
         int r;
 
         assert(socket_name);
 
+        union sockaddr_union sa;
         r = sockaddr_un_set_path(&sa.un, socket_name);
         if (r < 0)
                 return r;
-        sa_len = r;
+        socklen_t sa_len = r;
 
+        size_t packet_length = 1;
         STRV_FOREACH(p, passwords)
                 packet_length += strlen(*p) + 1;
 
-        packet = new(char, packet_length);
+        _cleanup_(erase_and_freep) char *packet = new(char, packet_length);
         if (!packet)
                 return -ENOMEM;
 
         packet[0] = '+';
 
-        d = packet + 1;
+        char *d = packet + 1;
         STRV_FOREACH(p, passwords)
                 d = stpcpy(d, *p) + 1;
 
-        socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        _cleanup_close_ int socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (socket_fd < 0)
                 return log_debug_errno(errno, "socket(): %m");
 
-        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, sa_len);
+        ssize_t n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, sa_len);
         if (n < 0)
                 return log_debug_errno(errno, "sendto(): %m");
 
@@ -96,38 +92,33 @@ static int send_passwords(const char *socket_name, char **passwords) {
 }
 
 static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        struct stat st;
-
         assert(path_is_absolute(path));
 
+        struct stat st;
         if (lstat(path, &st) < 0) {
-                log_debug_errno(errno, "Failed to stat %s: %m", path);
+                log_debug_errno(errno, "Failed to stat TTY '%s', not restricting wall: %m", path);
                 return true;
         }
 
         if (!S_ISCHR(st.st_mode)) {
-                log_debug("%s is not a character device.", path);
+                log_debug("TTY '%s' is not a character device, not restricting wall.", path);
                 return true;
         }
 
-        /* We use named pipes to ensure that wall messages suggesting
-         * password entry are not printed over password prompts
-         * already shown. We use the fact here that opening a pipe in
-         * non-blocking mode for write-only will succeed only if
-         * there's some writer behind it. Using pipes has the
-         * advantage that the block will automatically go away if the
-         * process dies. */
+        /* We use named pipes to ensure that wall messages suggesting password entry are not printed over
+         * password prompts already shown. We use the fact here that opening a pipe in non-blocking mode for
+         * write-only will succeed only if there's some writer behind it. Using pipes has the advantage that
+         * the block will automatically go away if the process dies. */
 
-        if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0) {
-                log_oom();
+        _cleanup_free_ char *p = NULL;
+        if (asprintf(&p, "/run/systemd/ask-password-block/" DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(st.st_rdev)) < 0) {
+                log_oom_debug();
                 return true;
         }
 
-        fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open the wall pipe: %m");
+                log_debug_errno(errno, "Failed to open the wall pipe for TTY '%s', not restricting wall: %m", path);
                 return 1;
         }
 
@@ -162,6 +153,7 @@ static int agent_ask_password_tty(
         r = ask_password_tty(tty_fd, &req, until, flags, flag_file, ret);
 
         if (arg_console) {
+                assert(tty_fd >= 0);
                 tty_fd = safe_close(tty_fd);
                 release_terminal();
 
@@ -172,7 +164,7 @@ static int agent_ask_password_tty(
         return r;
 }
 
-static int process_one_password_file(const char *filename) {
+static int process_one_password_file(const char *filename, FILE *f) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
         bool accept_cached = false, echo = false, silent = false;
         uint64_t not_after = 0;
@@ -192,13 +184,17 @@ static int process_one_password_file(const char *filename) {
         int r;
 
         assert(filename);
+        assert(f);
 
-        r = config_parse(NULL, filename, NULL,
-                         NULL,
-                         config_item_table_lookup, items,
+        r = config_parse(/* unit= */ NULL,
+                         filename,
+                         f,
+                         /* sections= */ "Ask\0",
+                         config_item_table_lookup,
+                         items,
                          CONFIG_PARSE_RELAXED|CONFIG_PARSE_WARN,
-                         NULL,
-                         NULL);
+                         /* userdata= */ NULL,
+                         /* ret_stat= */ NULL);
         if (r < 0)
                 return r;
 
@@ -297,41 +293,44 @@ static int wall_tty_block(void) {
         return fd;
 }
 
-static int process_password_files(void) {
+static int process_password_files(const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
-        int r = 0;
+        int ret = 0, r;
 
-        d = opendir("/run/systemd/ask-password");
+        assert(path);
+
+        d = opendir(path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/ask-password: %m");
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
         }
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory: %m")) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read directory '%s': %m", path)) {
                 _cleanup_free_ char *p = NULL;
-                int q;
 
-                /* We only support /run on tmpfs, hence we can rely on
-                 * d_type to be reliable */
-
-                if (de->d_type != DT_REG)
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
                         continue;
 
                 if (!startswith(de->d_name, "ask."))
                         continue;
 
-                p = path_join("/run/systemd/ask-password", de->d_name);
+                p = path_join(path, de->d_name);
                 if (!p)
                         return log_oom();
 
-                q = process_one_password_file(p);
-                if (q < 0 && r == 0)
-                        r = q;
+                _cleanup_fclose_ FILE *f = NULL;
+                r = xfopenat(dirfd(d), de->d_name, "re", O_NOFOLLOW, &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open '%s', ignoring: %m", p);
+                        continue;
+                }
+
+                RET_GATHER(ret, process_one_password_file(p, f));
         }
 
-        return r;
+        return ret;
 }
 
 static int process_and_watch_password_files(bool watch) {
@@ -341,6 +340,7 @@ static int process_and_watch_password_files(bool watch) {
                 _FD_MAX
         };
 
+        _cleanup_free_ char *user_ask_password_directory = NULL;
         _unused_ _cleanup_close_ int tty_block_fd = -EBADF;
         _cleanup_close_ int notify = -EBADF, signal_fd = -EBADF;
         struct pollfd pollfd[_FD_MAX];
@@ -350,6 +350,12 @@ static int process_and_watch_password_files(bool watch) {
         tty_block_fd = wall_tty_block();
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+
+        r = acquire_user_ask_password_directory(&user_ask_password_directory);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine per-user password directory: %m");
+        if (r > 0)
+                (void) mkdir_p_label(user_ask_password_directory, 0755);
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGTERM) >= 0);
@@ -366,9 +372,15 @@ static int process_and_watch_password_files(bool watch) {
                 if (notify < 0)
                         return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
-                r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO);
+                r = inotify_add_watch_and_warn(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO|IN_ONLYDIR);
                 if (r < 0)
                         return r;
+
+                if (user_ask_password_directory) {
+                        r = inotify_add_watch_and_warn(notify, user_ask_password_directory, IN_CLOSE_WRITE|IN_MOVED_TO|IN_ONLYDIR);
+                        if (r < 0)
+                                return r;
+                }
 
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
@@ -376,19 +388,18 @@ static int process_and_watch_password_files(bool watch) {
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
 
-                r = process_password_files();
-                if (r < 0) {
-                        if (r == -ECANCELED)
-                                /* Disable poll() timeout since at least one password has
-                                 * been skipped and therefore one file remains and is
-                                 * unlikely to trigger any events. */
-                                timeout = 0;
-                        else
-                                /* FIXME: we should do something here since otherwise the service
-                                 * requesting the password won't notice the error and will wait
-                                 * indefinitely. */
-                                log_error_errno(r, "Failed to process password: %m");
-                }
+                r = process_password_files("/run/systemd/ask-password");
+                if (user_ask_password_directory)
+                        RET_GATHER(r, process_password_files(user_ask_password_directory));
+                if (r == -ECANCELED)
+                        /* Disable poll() timeout since at least one password has been skipped and therefore
+                         * one file remains and is unlikely to trigger any events. */
+                        timeout = 0;
+                else if (r < 0)
+                        /* FIXME: we should do something here since otherwise the service
+                         * requesting the password won't notice the error and will wait
+                         * indefinitely. */
+                        log_warning_errno(r, "Failed to process password, ignoring: %m");
 
                 if (!watch)
                         break;

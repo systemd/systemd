@@ -16,7 +16,7 @@ void lock_down_efi_variables(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), O_RDONLY|O_CLOEXEC);
+        fd = open(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderSystemToken")), O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Unable to open LoaderSystemToken EFI variable, ignoring: %m");

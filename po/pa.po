@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
 "PO-Revision-Date: 2024-01-16 14:35+0000\n"
 "Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
@@ -104,28 +104,38 @@ msgid "Authentication is required to update a user's home area."
 msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:53
+#, fuzzy
+msgid "Update your home area"
+msgstr "ਹੋਮ ਖੇਤਰ ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ"
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "ਹੋਮ ਖੇਤਰ ਦਾ ਆਕਾਰ ਬਦਲੋ"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਦੇ ਆਕਰ ਨੂੰ ਬਦਲਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "ਹੋਮ ਖੇਤਰ ਲਈ ਪਾਸਵਰਡ ਬਦਲੋ"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਲਈ ਪਾਸਵਰਡ ਨੂੰ ਬਦਲਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "ਹੋਮ ਖੇਤਰ ਬਣਾਓ"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਬਣਾਉਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
@@ -1083,6 +1093,15 @@ msgstr ""
 msgid "Authentication is required to cleanup old system updates."
 msgstr "ਸਿਸਟਮ ਟਾਈਮ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+#, fuzzy
+msgid "Authentication is required to manage optional features"
+msgstr "ਸਿਸਟਮ ਸੇਵਾਵਾਂ ਜਾਂ ਯੂਨਿਟ ਫ਼ਾਇਲਾਂ ਦਾ ਇੰਤਜ਼ਾਮ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "ਸਿਸਟਮ ਸਮਾੰ ਸੈੱਟ ਕਰੋ"
@@ -1119,43 +1138,43 @@ msgid ""
 "shall be enabled."
 msgstr ""
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' ਨੂੰ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' ਨੂੰ ਰੋਕਣ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਲੋਡ (reload) ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ (restart) ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

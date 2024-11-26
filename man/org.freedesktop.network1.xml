@@ -94,7 +94,7 @@ node /org/freedesktop/network1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method ListLinks is not documented!-->
 
@@ -270,7 +270,7 @@ node /org/freedesktop/network1/link/_1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--method SetNTP is not documented!-->
 
@@ -407,7 +407,7 @@ node /org/freedesktop/network1/network/_1 {
   interface org.freedesktop.DBus.Introspectable { ... };
   interface org.freedesktop.DBus.Properties { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property Description is not documented!-->
 
@@ -464,7 +464,7 @@ node /org/freedesktop/network1/link/_1 {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.network1.Link { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property Leases is not documented!-->
 
@@ -501,7 +501,7 @@ node /org/freedesktop/network1/link/_1 {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.network1.Link { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property State is not documented!-->
 
@@ -538,7 +538,7 @@ node /org/freedesktop/network1/link/_1 {
   interface org.freedesktop.DBus.Properties { ... };
   interface org.freedesktop.network1.Link { ... };
 };
-    </programlisting>
+</programlisting>
 
     <!--property State is not documented!-->
 
@@ -571,7 +571,7 @@ node /org/freedesktop/network1/link/_1 {
 $ gdbus introspect --system \
   --dest org.freedesktop.network1 \
   --object-path /org/freedesktop/network1
-      </programlisting>
+</programlisting>
     </example>
 
     <example>
@@ -581,7 +581,7 @@ $ gdbus introspect --system \
 $ gdbus introspect --system \
   --dest org.freedesktop.network1 \
   --object-path /org/freedesktop/network1/link/_11
-      </programlisting>
+</programlisting>
     </example>
   </refsect1>
 
@@ -601,5 +601,14 @@ $ gdbus introspect --system \
       <title>Manager Object</title>
       <para><varname>NamespaceNSID</varname> was added in version 256.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

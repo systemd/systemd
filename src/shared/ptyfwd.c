@@ -42,6 +42,11 @@ typedef enum AnsiColorState  {
         _ANSI_COLOR_STATE_INVALID = -EINVAL,
 } AnsiColorState;
 
+#define ANSI_SEQUENCE_LENGTH_MAX 192U
+#define ANSI_SEQUENCE_WINDOW_TITLE_MAX 128U
+
+assert_cc(ANSI_SEQUENCE_LENGTH_MAX > ANSI_SEQUENCE_WINDOW_TITLE_MAX);
+
 struct PTYForward {
         sd_event *event;
 
@@ -397,7 +402,7 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         if (!t)
                 return 0;
 
-        _cleanup_free_ char *joined = strjoin("\x1b]0;", f->title_prefix, t, "\a");
+        _cleanup_free_ char *joined = strjoin(ANSI_OSC "0;", f->title_prefix, t, ANSI_ST);
         if (!joined)
                 return -ENOMEM;
 
@@ -463,7 +468,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 /* If this is a "parameter" or "intermediary" byte (i.e. ranges 0x20…0x2F and
                                  * 0x30…0x3F) then we are still in the CSI sequence */
 
-                                if (strlen_ptr(f->csi_sequence) >= 64) {
+                                if (strlen_ptr(f->csi_sequence) >= ANSI_SEQUENCE_LENGTH_MAX) {
                                         /* Safety check: lets not accept unbounded CSI sequences */
 
                                         f->csi_sequence = mfree(f->csi_sequence);
@@ -498,7 +503,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                 case ANSI_COLOR_STATE_OSC_SEQUENCE:
 
                         if ((uint8_t) c >= ' ') {
-                                if (strlen_ptr(f->osc_sequence) >= 64) {
+                                if (strlen_ptr(f->osc_sequence) >= ANSI_SEQUENCE_LENGTH_MAX) {
                                         /* Safety check: lets not accept unbounded OSC sequences */
                                         f->osc_sequence = mfree(f->osc_sequence);
                                         break;
@@ -507,11 +512,16 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the OSC sequence is over
                                  *
-                                 * There are two allowed ways to end an OSC sequence:
-                                 * BEL '\x07'
-                                 * String Terminator (ST): <Esc>\ - "\x1b\x5c"
-                                 * since we cannot lookahead to see if the Esc is followed by a \
-                                 * we cut a corner here and assume it will be \. */
+                                 * There are three documented ways to end an OSC sequence:
+                                 *     1. BEL aka ^G aka \x07
+                                 *     2. \x9c
+                                 *     3. \x1b\x5c
+                                 * since we cannot look ahead to see if the Esc is followed by a "\"
+                                 * we cut a corner here and assume it will be "\"e.
+                                 *
+                                 * Note that we do not support \x9c here, because that's also a valid UTF8
+                                 * codepoint, and that would create ambiguity. Various terminal emulators
+                                 * similar do not support it. */
 
                                 if (IN_SET(c, '\x07', '\x1b')) {
                                         r = insert_window_title_fix(f, i+1);
@@ -567,7 +577,7 @@ static int do_shovel(PTYForward *f) {
                 if (f->title) {
                         if (!strextend(&f->out_buffer,
                                        ANSI_WINDOW_TITLE_PUSH
-                                       "\x1b]2;", f->title, "\a"))
+                                       ANSI_OSC "2;", f->title, ANSI_ST))
                                 return log_oom();
                 }
 
@@ -1110,7 +1120,18 @@ int pty_forward_set_title(PTYForward *f, const char *title) {
         if (f->out_buffer_size > 0)
                 return -EBUSY;
 
-        return free_and_strdup(&f->title, title);
+        if (!title) {
+                f->title = mfree(f->title);
+                return 0;
+        }
+
+        /* Truncate the title to 128 chars, since some terminal emulators really don't like overly long ANSI
+         * sequences */
+        _cleanup_free_ char *ellipsized = ellipsize(title, ANSI_SEQUENCE_WINDOW_TITLE_MAX, 66);
+        if (!ellipsized)
+                return -ENOMEM;
+
+        return free_and_replace(f->title, ellipsized);
 }
 
 int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
@@ -1130,7 +1151,7 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
         if (r < 0)
                 return -ENOMEM;
 
-        return free_and_replace(f->title, title);
+        return pty_forward_set_title(f, title);
 }
 
 int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {

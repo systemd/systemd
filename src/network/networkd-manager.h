@@ -19,6 +19,15 @@
 #include "set.h"
 #include "time-util.h"
 
+typedef enum ManagerState {
+        MANAGER_RUNNING,
+        MANAGER_TERMINATING,
+        MANAGER_RESTARTING,
+        MANAGER_STOPPED,
+        _MANAGER_STATE_MAX,
+        _MANAGER_STATE_INVALID = -EINVAL,
+} ManagerState;
+
 struct Manager {
         sd_netlink *rtnl;
         /* lazy initialized */
@@ -35,10 +44,10 @@ struct Manager {
         KeepConfiguration keep_configuration;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
+        ManagerState state;
         bool test_mode;
         bool enumerating;
         bool dirty;
-        bool restarting;
         bool manage_foreign_routes;
         bool manage_foreign_rules;
         bool manage_foreign_nexthops;
@@ -119,6 +128,8 @@ struct Manager {
         Hashmap *tuntap_fds_by_name;
 
         unsigned reloading;
+
+        int serialization_fd;
 
         /* sysctl */
         int ip_forwarding[2];

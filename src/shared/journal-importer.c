@@ -33,7 +33,7 @@ void journal_importer_cleanup(JournalImporter *imp) {
 
         free(imp->name);
         free(imp->buf);
-        iovw_free_contents(&imp->iovw, false);
+        iovw_done(&imp->iovw);
 }
 
 static char* realloc_buffer(JournalImporter *imp, size_t size) {
@@ -452,7 +452,7 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
 
         /* This function drops processed data that along with the iovw that points at it */
 
-        iovw_free_contents(&imp->iovw, false);
+        iovw_done(&imp->iovw);
 
         /* possibly reset buffer position */
         remain = imp->filled - imp->offset;

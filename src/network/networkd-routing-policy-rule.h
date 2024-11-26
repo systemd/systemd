@@ -63,15 +63,14 @@ void network_drop_invalid_routing_policy_rules(Network *network);
 int link_request_static_routing_policy_rules(Link *link);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
-int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
-static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
-        return manager_drop_routing_policy_rules_internal(m, true, NULL);
+
+int link_drop_routing_policy_rules(Link *link, bool only_static);
+static inline int link_drop_unmanaged_routing_policy_rules(Link *link) {
+        return link_drop_routing_policy_rules(link, false);
 }
 static inline int link_drop_static_routing_policy_rules(Link *link) {
-        assert(link);
-        return manager_drop_routing_policy_rules_internal(link->manager, false, link);
+        return link_drop_routing_policy_rules(link, true);
 }
-void link_foreignize_routing_policy_rules(Link *link);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 

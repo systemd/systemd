@@ -30,7 +30,7 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
-static void unsetenv_all(bool unset_environment) {
+static void unsetenv_listen(bool unset_environment) {
         if (!unset_environment)
                 return;
 
@@ -85,25 +85,25 @@ _public_ int sd_listen_fds(int unset_environment) {
         r = n;
 
 finish:
-        unsetenv_all(unset_environment);
+        unsetenv_listen(unset_environment);
         return r;
 }
 
-_public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
+_public_ int sd_listen_fds_with_names(int unset_environment, char ***ret_names) {
         _cleanup_strv_free_ char **l = NULL;
         bool have_names;
         int n_names = 0, n_fds;
         const char *e;
         int r;
 
-        if (!names)
+        if (!ret_names)
                 return sd_listen_fds(unset_environment);
 
         e = getenv("LISTEN_FDNAMES");
         if (e) {
                 n_names = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (n_names < 0) {
-                        unsetenv_all(unset_environment);
+                        unsetenv_listen(unset_environment);
                         return n_names;
                 }
 
@@ -124,8 +124,7 @@ _public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
                         return r;
         }
 
-        *names = TAKE_PTR(l);
-
+        *ret_names = TAKE_PTR(l);
         return n_fds;
 }
 
@@ -181,10 +180,10 @@ _public_ int sd_is_special(int fd, const char *path) {
 
                 if (S_ISREG(st_fd.st_mode) && S_ISREG(st_path.st_mode))
                         return stat_inode_same(&st_path, &st_fd);
-                else if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
+                if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
                         return st_path.st_rdev == st_fd.st_rdev;
-                else
-                        return 0;
+
+                return 0;
         }
 
         return 1;
@@ -458,7 +457,7 @@ static int pid_notify_with_fds_internal(
                 pid_t pid,
                 const char *state,
                 const int *fds,
-                unsigned n_fds) {
+                size_t n_fds) {
 
         SocketAddress address;
         struct iovec iovec;
@@ -472,6 +471,12 @@ static int pid_notify_with_fds_internal(
 
         assert_return(state, -EINVAL);
         assert_return(fds || n_fds == 0, -EINVAL);
+
+        /* Let's make sure the multiplications below don't overflow, and also return a recognizable error in
+         * case the caller tries to send more fds than the kernel limit. The kernel would return EINVAL which
+         * is not too useful I'd say. */
+        if (n_fds > SCM_MAX_FD)
+                return -E2BIG;
 
         const char *e = getenv("NOTIFY_SOCKET");
         if (!e)
@@ -611,6 +616,13 @@ static int pid_notify_with_fds_internal(
         return 1;
 }
 
+static void unsetenv_notify(bool unset_environment) {
+        if (!unset_environment)
+                return;
+
+        assert_se(unsetenv("NOTIFY_SOCKET") == 0);
+}
+
 _public_ int sd_pid_notify_with_fds(
                 pid_t pid,
                 int unset_environment,
@@ -621,10 +633,7 @@ _public_ int sd_pid_notify_with_fds(
         int r;
 
         r = pid_notify_with_fds_internal(pid, state, fds, n_fds);
-
-        if (unset_environment)
-                assert_se(unsetenv("NOTIFY_SOCKET") == 0);
-
+        unsetenv_notify(unset_environment);
         return r;
 }
 
@@ -632,22 +641,28 @@ _public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t ti
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         int r;
 
-        if (pipe2(pipe_fd, O_CLOEXEC) < 0)
-                return -errno;
+        r = RET_NERRNO(pipe2(pipe_fd, O_CLOEXEC));
+        if (r < 0)
+                goto finish;
 
-        r = sd_pid_notify_with_fds(pid, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
+        r = pid_notify_with_fds_internal(pid, "BARRIER=1", &pipe_fd[1], 1);
         if (r <= 0)
-                return r;
+                goto finish;
 
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
         r = fd_wait_for_event(pipe_fd[0], 0 /* POLLHUP is implicit */, timeout);
         if (r < 0)
-                return r;
-        if (r == 0)
-                return -ETIMEDOUT;
+                goto finish;
+        if (r == 0) {
+                r = -ETIMEDOUT;
+                goto finish;
+        }
 
-        return 1;
+        r = 1;
+finish:
+        unsetenv_notify(unset_environment);
+        return r;
 }
 
 _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
@@ -664,7 +679,7 @@ _public_ int sd_notify(int unset_environment, const char *state) {
 
 _public_ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
-        int r = 0, k;
+        int r;
 
         if (format) {
                 va_list ap;
@@ -673,20 +688,22 @@ _public_ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format
                 r = vasprintf(&p, format, ap);
                 va_end(ap);
 
-                if (r < 0 || !p) {
+                if (r < 0) {
                         r = -ENOMEM;
-                        p = mfree(p);  /* If vasprintf failed, do not use the string,
-                                        * even if something was returned. */
+                        goto finish;
                 }
         }
 
-        k = sd_pid_notify(pid, unset_environment, p);
-        return r < 0 ? r : k;
+        r = pid_notify_with_fds_internal(pid, p, /* fds= */ NULL, /* n_fds= */ 0);
+
+finish:
+        unsetenv_notify(unset_environment);
+        return r;
 }
 
 _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
-        int r = 0, k;
+        int r;
 
         if (format) {
                 va_list ap;
@@ -695,15 +712,17 @@ _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
                 r = vasprintf(&p, format, ap);
                 va_end(ap);
 
-                if (r < 0 || !p) {
+                if (r < 0) {
                         r = -ENOMEM;
-                        p = mfree(p);  /* If vasprintf failed, do not use the string,
-                                        * even if something was returned. */
+                        goto finish;
                 }
         }
 
-        k = sd_pid_notify(0, unset_environment, p);
-        return r < 0 ? r : k;
+        r = pid_notify_with_fds_internal(/* pid= */ 0, p, /* fds= */ NULL, /* n_fds= */ 0);
+
+finish:
+        unsetenv_notify(unset_environment);
+        return r;
 }
 
 _public_ int sd_pid_notifyf_with_fds(
@@ -713,31 +732,26 @@ _public_ int sd_pid_notifyf_with_fds(
                 const char *format, ...) {
 
         _cleanup_free_ char *p = NULL;
-        int r = 0, k;
+        int r;
 
-        /* Paranoia check: we traditionally used 'unsigned' as array size, but we nowadays more correctly use
-         * 'size_t'. sd_pid_notifyf_with_fds() and sd_pid_notify_with_fds() are from different eras, hence
-         * differ in this. Let's catch resulting incompatibilites early, even though they are pretty much
-         * theoretic only */
-        if (n_fds > UINT_MAX)
-                r = -E2BIG;
-
-        else if (format) {
+        if (format) {
                 va_list ap;
 
                 va_start(ap, format);
                 r = vasprintf(&p, format, ap);
                 va_end(ap);
 
-                if (r < 0 || !p) {
+                if (r < 0) {
                         r = -ENOMEM;
-                        p = mfree(p);  /* If vasprintf failed, do not use the string,
-                                        * even if something was returned. */
+                        goto finish;
                 }
         }
 
-        k = sd_pid_notify_with_fds(pid, unset_environment, p, fds, n_fds);
-        return r < 0 ? r : k;
+        r = pid_notify_with_fds_internal(pid, p, fds, n_fds);
+
+finish:
+        unsetenv_notify(unset_environment);
+        return r;
 }
 
 _public_ int sd_booted(void) {
@@ -755,14 +769,24 @@ _public_ int sd_booted(void) {
         return r;
 }
 
+static void unsetenv_watchdog(bool unset_environment) {
+        if (!unset_environment)
+                return;
+
+        assert_se(unsetenv("WATCHDOG_USEC") == 0);
+        assert_se(unsetenv("WATCHDOG_PID") == 0);
+}
+
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         const char *s, *p = ""; /* p is set to dummy value to do unsetting */
         uint64_t u;
-        int r = 0;
+        int r;
 
         s = getenv("WATCHDOG_USEC");
-        if (!s)
+        if (!s) {
+                r = 0;
                 goto finish;
+        }
 
         r = safe_atou64(s, &u);
         if (r < 0)
@@ -793,10 +817,6 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         r = 1;
 
 finish:
-        if (unset_environment && s)
-                assert_se(unsetenv("WATCHDOG_USEC") == 0);
-        if (unset_environment && p)
-                assert_se(unsetenv("WATCHDOG_PID") == 0);
-
+        unsetenv_watchdog(unset_environment);
         return r;
 }

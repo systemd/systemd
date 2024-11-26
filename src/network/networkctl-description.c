@@ -122,7 +122,7 @@ int dump_description(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        if (arg_json_format_flags == SD_JSON_FORMAT_OFF)
+        if (!sd_json_format_enabled(arg_json_format_flags))
                 return 0;
 
         r = acquire_bus(&bus);

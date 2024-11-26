@@ -18,6 +18,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
@@ -118,7 +119,7 @@ FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode) {
         return f;
 }
 
-int write_string_stream_ts(
+int write_string_stream_full(
                 FILE *f,
                 const char *line,
                 WriteStringFileFlags flags,
@@ -230,22 +231,40 @@ static int write_string_file_atomic_at(
         /* Note that we'd really like to use O_TMPFILE here, but can't really, since we want replacement
          * semantics here, and O_TMPFILE can't offer that. i.e. rename() replaces but linkat() doesn't. */
 
+        mode_t mode = write_string_file_flags_to_mode(flags);
+
+        bool call_label_ops_post = false;
+        if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL)) {
+                r = label_ops_pre(dir_fd, fn, mode);
+                if (r < 0)
+                        return r;
+
+                call_label_ops_post = true;
+        }
+
         r = fopen_temporary_at(dir_fd, fn, &f, &p);
         if (r < 0)
-                return r;
-
-        r = write_string_stream_ts(f, line, flags, ts);
-        if (r < 0)
                 goto fail;
 
-        r = fchmod_umask(fileno(f), write_string_file_flags_to_mode(flags));
-        if (r < 0)
-                goto fail;
+        if (call_label_ops_post) {
+                call_label_ops_post = false;
 
-        if (renameat(dir_fd, p, dir_fd, fn) < 0) {
-                r = -errno;
-                goto fail;
+                r = label_ops_post(fileno(f), /* path= */ NULL, /* created= */ true);
+                if (r < 0)
+                        goto fail;
         }
+
+        r = write_string_stream_full(f, line, flags, ts);
+        if (r < 0)
+                goto fail;
+
+        r = fchmod_umask(fileno(f), mode);
+        if (r < 0)
+                goto fail;
+
+        r = RET_NERRNO(renameat(dir_fd, p, dir_fd, fn));
+        if (r < 0)
+                goto fail;
 
         if (FLAGS_SET(flags, WRITE_STRING_FILE_SYNC)) {
                 /* Sync the rename, too */
@@ -257,20 +276,25 @@ static int write_string_file_atomic_at(
         return 0;
 
 fail:
-        (void) unlinkat(dir_fd, p, 0);
+        if (call_label_ops_post)
+                (void) label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f);
+
+        if (f)
+                (void) unlinkat(dir_fd, p, 0);
         return r;
 }
 
-int write_string_file_ts_at(
+int write_string_file_full(
                 int dir_fd,
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
                 const struct timespec *ts) {
 
+        bool call_label_ops_post = false, made_file = false;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -EBADF;
-        int q, r;
+        int r;
 
         assert(fn);
         assert(line);
@@ -292,19 +316,38 @@ int write_string_file_ts_at(
                         goto fail;
 
                 return r;
-        } else
-                assert(!ts);
+        }
+
+        mode_t mode = write_string_file_flags_to_mode(flags);
+
+        if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
+                r = label_ops_pre(dir_fd, fn, mode);
+                if (r < 0)
+                        goto fail;
+
+                call_label_ops_post = true;
+        }
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = openat(dir_fd, fn, O_CLOEXEC|O_NOCTTY |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                    write_string_file_flags_to_mode(flags));
+        fd = openat_report_new(
+                        dir_fd, fn, O_CLOEXEC | O_NOCTTY |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                        mode,
+                        &made_file);
         if (fd < 0) {
-                r = -errno;
+                r = fd;
                 goto fail;
+        }
+
+        if (call_label_ops_post) {
+                call_label_ops_post = false;
+
+                r = label_ops_post(fd, /* path= */ NULL, made_file);
+                if (r < 0)
+                        goto fail;
         }
 
         r = take_fdopen_unlocked(&fd, "w", &f);
@@ -314,26 +357,31 @@ int write_string_file_ts_at(
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
 
-        r = write_string_stream_ts(f, line, flags, ts);
+        r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
                 goto fail;
 
         return 0;
 
 fail:
+        if (call_label_ops_post)
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : fn, made_file);
+
+        if (made_file)
+                (void) unlinkat(dir_fd, fn, 0);
+
         if (!(flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE))
                 return r;
 
         f = safe_fclose(f);
+        fd = safe_close(fd);
 
-        /* OK, the operation failed, but let's see if the right
-         * contents in place already. If so, eat up the error. */
+        /* OK, the operation failed, but let's see if the right contents in place already. If so, eat up the
+         * error. */
+        if (verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE)) > 0)
+                return 0;
 
-        q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE));
-        if (q <= 0)
-                return r;
-
-        return 0;
+        return r;
 }
 
 int write_string_filef(

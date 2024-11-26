@@ -27,10 +27,10 @@ static void interface_info_done(InterfaceInfo *p) {
 }
 
 static const sd_json_dispatch_field interface_info_dispatch_table[] = {
-        { "InterfaceIndex",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(InterfaceInfo, ifindex),  SD_JSON_MANDATORY },
-        { "InterfaceName",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   SD_JSON_MANDATORY },
-        { "InterfaceAlternativeNames", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0                 },
-        { "Neighbors",                 SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(InterfaceInfo, v),        0                 },
+        { "InterfaceIndex",            _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex),  SD_JSON_MANDATORY|SD_JSON_RELAX },
+        { "InterfaceName",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),   SD_JSON_MANDATORY               },
+        { "InterfaceAlternativeNames", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(InterfaceInfo, altnames), 0                               },
+        { "Neighbors",                 SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(InterfaceInfo, v),        0                               },
         {},
 };
 
@@ -231,7 +231,7 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_json_format_flags != SD_JSON_FORMAT_OFF)
+        if (sd_json_format_enabled(arg_json_format_flags))
                 return dump_lldp_neighbors_json(reply, strv_skip(argv, 1));
 
         pager_open(arg_pager_flags);

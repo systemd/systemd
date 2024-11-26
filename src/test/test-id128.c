@@ -286,9 +286,8 @@ TEST(id128_at) {
         ASSERT_OK_ERRNO(unlinkat(tfd, "etc/machine-id", 0));
         ASSERT_OK(id128_write_at(tfd, "etc2/machine-id", ID128_FORMAT_PLAIN, id));
         ASSERT_OK_ERRNO(unlinkat(tfd, "etc/machine-id", 0));
-        ASSERT_OK(id128_write_at(tfd, "etc/hoge-id", ID128_FORMAT_PLAIN, id));
-        ASSERT_OK_ERRNO(unlinkat(tfd, "etc/machine-id", 0));
-        ASSERT_OK(id128_write_at(tfd, "etc2/hoge-id", ID128_FORMAT_PLAIN, id));
+        ASSERT_ERROR(id128_write_at(tfd, "etc/hoge-id", ID128_FORMAT_PLAIN, id), EEXIST);
+        ASSERT_OK(id128_write_at(tfd, "etc2/machine-id", ID128_FORMAT_PLAIN, id));
 
         /* id128_read_at() */
         i = SD_ID128_NULL; /* Not necessary in real code, but for testing that the id is really assigned. */

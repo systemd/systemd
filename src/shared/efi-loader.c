@@ -43,11 +43,11 @@ int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = read_usec(EFI_LOADER_VARIABLE(LoaderTimeInitUSec), &x);
+        r = read_usec(EFI_LOADER_VARIABLE_STR("LoaderTimeInitUSec"), &x);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read LoaderTimeInitUSec: %m");
 
-        r = read_usec(EFI_LOADER_VARIABLE(LoaderTimeExecUSec), &y);
+        r = read_usec(EFI_LOADER_VARIABLE_STR("LoaderTimeExecUSec"), &y);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read LoaderTimeExecUSec: %m");
 
@@ -69,11 +69,11 @@ static int get_device_part_uuid(const char *variable, sd_id128_t *ret) {
 }
 
 int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
-        return get_device_part_uuid(EFI_LOADER_VARIABLE(LoaderDevicePartUUID), ret);
+        return get_device_part_uuid(EFI_LOADER_VARIABLE_STR("LoaderDevicePartUUID"), ret);
 }
 
 int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
-        return get_device_part_uuid(EFI_LOADER_VARIABLE(StubDevicePartUUID), ret);
+        return get_device_part_uuid(EFI_LOADER_VARIABLE_STR("StubDevicePartUUID"), ret);
 }
 
 int efi_loader_get_entries(char ***ret) {
@@ -87,7 +87,7 @@ int efi_loader_get_entries(char ***ret) {
         if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderEntries), NULL, (void**) &entries, &size);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderEntries"), NULL, (void**) &entries, &size);
         if (r < 0)
                 return r;
 
@@ -148,12 +148,12 @@ int efi_loader_get_features(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderFeatures), NULL, &v, &s);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("LoaderFeatures"), NULL, &v, &s);
         if (r == -ENOENT) {
                 _cleanup_free_ char *info = NULL;
 
                 /* The new (v240+) LoaderFeatures variable is not supported, let's see if it's systemd-boot at all */
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderInfo), &info);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderInfo"), &info);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -199,12 +199,12 @@ int efi_stub_get_features(uint64_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable(EFI_LOADER_VARIABLE(StubFeatures), NULL, &v, &s);
+        r = efi_get_variable(EFI_LOADER_VARIABLE_STR("StubFeatures"), NULL, &v, &s);
         if (r == -ENOENT) {
                 _cleanup_free_ char *info = NULL;
 
                 /* The new (v252+) StubFeatures variable is not supported, let's see if it's systemd-stub at all */
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubInfo), &info);
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubInfo"), &info);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -261,7 +261,7 @@ int efi_measured_uki(int log_level) {
         if (!efi_has_tpm2())
                 return (cached = 0);
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubPcrKernelImage"), &pcr_string);
         if (r == -ENOENT)
                 return (cached = 0);
         if (r < 0)
@@ -291,7 +291,7 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
         assert(ret);
 
         /* stat() the EFI variable, to see if the mtime changed. If it did, we need to cache again. */
-        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot)), &new_stat) < 0)
+        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot")), &new_stat) < 0)
                 return -errno;
 
         if (stat_inode_unmodified(&new_stat, &cache_stat)) {
@@ -299,7 +299,7 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
                 return 0;
         }
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), &v);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), &v);
         if (r < 0)
                 return r;
 
@@ -323,13 +323,13 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         assert(cache_stat);
 
         /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
-        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntryOneShot)), &new_stat) < 0)
+        if (stat(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot")), &new_stat) < 0)
                 return -errno;
 
         if (stat_inode_unmodified(&new_stat, cache_stat))
                 return 0;
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &v);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &v);
         if (r < 0)
                 return r;
 

@@ -27,8 +27,8 @@
 #include "strv.h"
 #include "strxcpyx.h"
 
-#define ADDRESSES_PER_LINK_MAX 2048U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
+#define ADDRESSES_PER_LINK_MAX 16384U
+#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -1096,7 +1096,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
         return buf;
 }
 
-static void log_address_debug(const Address *address, const char *str, const Link *link) {
+void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *state = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
@@ -1270,14 +1270,18 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         if (address->lifetime_preferred_usec != USEC_INFINITY)
                 return true;
 
-        /* Even when the address is leased from a DHCP server, networkd assign the address
-         * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
+        /* There is no way to drtermine if the IPv6 address is dynamic when the lifetime is infinity. */
+        if (address->family != AF_INET)
+                return false;
+
+        /* Even if an IPv4 address is leased from a DHCP server with a finite lifetime, networkd assign the
+         * address without lifetime when KeepConfiguration=dynamic. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
-                /* The route is not assigned yet, or already removed. Ignoring. */
+                /* The route is not assigned yet, or already being removed. Ignoring. */
                 if (!route_exists(route))
                         continue;
 
@@ -1380,7 +1384,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
         return 0;
 }
 
-int link_drop_foreign_addresses(Link *link) {
+int link_drop_unmanaged_addresses(Link *link) {
         Address *address;
         int r = 0;
 
@@ -1397,18 +1401,22 @@ int link_drop_foreign_addresses(Link *link) {
                 if (link->flags & IFF_LOOPBACK && in_addr_is_localhost_one(address->family, &address->in_addr) > 0)
                         continue;
 
-                /* Ignore addresses we configured. */
-                if (address->source != NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
                 /* Ignore addresses not assigned yet or already removing. */
                 if (!address_exists(address))
                         continue;
 
-                /* link_address_is_dynamic() is slightly heavy. Let's call the function only when KeepConfiguration= is set. */
-                if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP, KEEP_CONFIGURATION_STATIC) &&
-                    link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DHCP))
-                        continue;
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN) {
+                        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
+                                continue;
+
+                        /* link_address_is_dynamic() is slightly heavy. Let's call the function only when
+                         * KeepConfiguration=dynamic or static. */
+                        if (IN_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC, KEEP_CONFIGURATION_STATIC) &&
+                            link_address_is_dynamic(link, address) == (link->network->keep_configuration == KEEP_CONFIGURATION_DYNAMIC))
+                                continue;
+
+                } else if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
+                        continue; /* Ignore dynamically configurad addresses. */
 
                 address_mark(address);
         }
@@ -1458,15 +1466,6 @@ int link_drop_static_addresses(Link *link) {
         }
 
         return r;
-}
-
-void link_foreignize_addresses(Link *link) {
-        Address *address;
-
-        assert(link);
-
-        SET_FOREACH(address, link->addresses)
-                address->source = NETWORK_CONFIG_SOURCE_FOREIGN;
 }
 
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {

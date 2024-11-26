@@ -54,13 +54,18 @@ int stat_warn_permissions(const char *path, const struct stat *st);
 #define access_nofollow(path, mode)                                             \
         RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
 
+int touch_fd(int fd, usec_t stamp);
+
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 
 static inline int touch(const char *path) {
         return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
 }
 
-int symlink_idempotent(const char *from, const char *to, bool make_relative);
+int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative);
+static inline int symlink_idempotent(const char *from, const char *to, bool make_relative) {
+        return symlinkat_idempotent(from, AT_FDCWD, to, make_relative);
+}
 
 int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_relative);
 static inline int symlink_atomic(const char *from, const char *to) {
@@ -106,8 +111,6 @@ static inline char* unlink_and_free(char *p) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
 int access_fd(int fd, int mode);
-
-void unlink_tempfilep(char (*p)[]);
 
 typedef enum UnlinkDeallocateFlags {
         UNLINK_REMOVEDIR = 1 << 0,

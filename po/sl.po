@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-23 15:33+0200\n"
-"PO-Revision-Date: 2024-08-26 19:38+0000\n"
+"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"PO-Revision-Date: 2024-11-20 19:13+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3;\n"
-"X-Generator: Weblate 5.7\n"
+"X-Generator: Weblate 5.8.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -125,31 +125,40 @@ msgstr ""
 "območja."
 
 #: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Posodobite domače območje"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za posodobitev vašega domačega območja."
+
+#: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
 msgstr "Spreminite velikost domačega območja"
 
-#: src/home/org.freedesktop.home1.policy:54
+#: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za spreminjanje velikosti uporabnikovega "
 "domačega območja."
 
-#: src/home/org.freedesktop.home1.policy:63
+#: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
 msgstr "Spremenite geslo domačega območja"
 
-#: src/home/org.freedesktop.home1.policy:64
+#: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za spremembo gesla uporabnikovega "
 "domačega območja."
 
-#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktiviraj domače območje"
 
-#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
 "Preverjanje pristnosti je potrebno za aktiviranje uporabnikovega domačega "
@@ -1145,7 +1154,8 @@ msgstr "Naroči se na rezultate poizvedbe"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 msgid "Authentication is required to subscribe query results."
-msgstr "Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
+msgstr ""
+"Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Dump cache"
@@ -1219,6 +1229,15 @@ msgid "Authentication is required to cleanup old system updates."
 msgstr ""
 "Za čiščenje starih posodobitev sistema je potrebno preverjanje pristnosti."
 
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "Upravljaj dodatne funkcionalnosti"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features"
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje dodatnih funkcionalnosti."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Določi sistemski čas"
@@ -1260,23 +1279,23 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za nadzor, ali naj bo omogočena "
 "sinhronizacija časa v omrežju."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:370
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Preverjanje pristnosti je potrebno za zagon »$(unit)«."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Preverjanje pristnosti je potrebno, če želite ustaviti »$(unit)«."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje »$(unit)«."
 
-#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Preverjanje pristnosti je potrebno za vnovični zagon »$(unit)«."
 
-#: src/core/dbus-unit.c:549
+#: src/core/dbus-unit.c:566
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -1284,19 +1303,19 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za pošiljanje signala UNIX procesom "
 "»$(unit)«."
 
-#: src/core/dbus-unit.c:577
+#: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Preverjanje pristnosti je potrebno za ponastavitev stanja »ni uspelo« za "
 "»$(unit)«."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:624
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na "
 "»$(unit)«."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:721
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1304,7 +1323,7 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za brisanje datotek in map, povezanih s/z "
 "»$(unit)«."
 
-#: src/core/dbus-unit.c:741
+#: src/core/dbus-unit.c:758
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

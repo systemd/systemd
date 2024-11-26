@@ -50,6 +50,7 @@ static int add_syscall_filters(
                 { CAP_IPC_LOCK,       "@memlock"                     },
 
                 /* Plus a good set of additional syscalls which are not part of any of the groups above */
+                { 0,                  "arm_fadvise64_64"             },
                 { 0,                  "brk"                          },
                 { 0,                  "capget"                       },
                 { 0,                  "capset"                       },
@@ -136,18 +137,18 @@ static int add_syscall_filters(
         _cleanup_strv_free_ char **added = NULL;
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(allow_list); i++) {
-                if (allow_list[i].capability != 0 && (cap_list_retain & (1ULL << allow_list[i].capability)) == 0)
+        FOREACH_ELEMENT(i, allow_list) {
+                if (i->capability != 0 && (cap_list_retain & (1ULL << i->capability)) == 0)
                         continue;
 
                 r = seccomp_add_syscall_filter_item(ctx,
-                                                    allow_list[i].name,
+                                                    i->name,
                                                     SCMP_ACT_ALLOW,
                                                     syscall_deny_list,
                                                     false,
                                                     &added);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", allow_list[i].name);
+                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", i->name);
         }
 
         STRV_FOREACH(p, syscall_allow_list) {

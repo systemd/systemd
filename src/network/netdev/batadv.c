@@ -163,6 +163,9 @@ static int netdev_batadv_post_create(NetDev *netdev, Link *link) {
 
         assert(netdev);
 
+        if (!netdev_is_managed(netdev))
+                return 0; /* Already detached, due to e.g. reloading .netdev files. */
+
         r = sd_genl_message_new(netdev->manager->genl, BATADV_NL_NAME, BATADV_CMD_SET_MESH, &message);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");

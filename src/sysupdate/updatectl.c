@@ -12,12 +12,18 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-util.h"
+#include "conf-files.h"
+#include "conf-parser.h"
 #include "errno-list.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pager.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "sysupdate-update-set-flags.h"
@@ -29,9 +35,11 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_reboot = false;
 static bool arg_offline = false;
+static bool arg_now = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 
+#define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
 
 typedef struct Version {
@@ -358,15 +366,15 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         assert(sd_json_variant_is_object(json));
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
-                { "newest",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
-                { "available",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
-                { "installed",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
-                { "obsolete",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
-                { "protected",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
-                { "incomplete",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
-                { "changelog_urls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
-                { "contents",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(DescribeParams, contents_json), 0 },
+                { "version",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
+                { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
+                { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
+                { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
+                { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
+                { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
+                { "changelogUrls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
+                { "contents",      SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(DescribeParams, contents_json), 0 },
                 {},
         };
 
@@ -835,23 +843,23 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 int progress = PTR_TO_INT(p);
 
                 if (progress == UPDATE_PROGRESS_FAILED) {
-                        clear_progress_bar_impl(target);
+                        clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Unknown failure\n", target, RED_CROSS_MARK());
                         total += 100;
                 } else if (progress == -EALREADY) {
-                        clear_progress_bar_impl(target);
+                        clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
                 } else if (progress < 0) {
-                        clear_progress_bar_impl(target);
+                        clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
                         total += 100;
                 } else if (progress == UPDATE_PROGRESS_DONE) {
-                        clear_progress_bar_impl(target);
+                        clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Done\n", target, GREEN_CHECK_MARK());
                         total += 100;
                 } else {
-                        draw_progress_bar_impl(target, progress);
+                        draw_progress_bar_unbuffered(target, progress);
                         fputs("\n", stderr);
                         total += progress;
                 }
@@ -859,9 +867,9 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
 
         if (n > 1) {
                 if (exiting)
-                        clear_progress_bar_impl(target);
+                        clear_progress_bar_unbuffered(target);
                 else {
-                        draw_progress_bar_impl("Total", (double) total / n);
+                        draw_progress_bar_unbuffered("Total", (double) total / n);
                         if (terminal_is_dumb())
                                 fputs("\n", stderr);
                 }
@@ -1044,21 +1052,19 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+static int do_update(sd_bus *bus, char **targets) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *render_exit = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *map = NULL;
-        _cleanup_strv_free_ char **targets = NULL, **versions = NULL, **target_paths = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         void *p;
         bool did_anything = false;
         int r;
 
-        r = ensure_targets(bus, argv + 1, &targets);
-        if (r < 0)
-                return log_error_errno(r, "Could not find targets: %m");
+        assert(bus);
+        assert(targets);
 
         r = parse_targets(targets, &n, &target_paths, &versions);
         if (r < 0)
@@ -1140,18 +1146,64 @@ static int verb_update(int argc, char **argv, void *userdata) {
                 did_anything = true;
         }
 
-        if (arg_reboot) {
-                if (did_anything)
-                        return reboot_now();
-                log_info("Nothing was updated... skipping reboot.");
-        }
+        return did_anything ? 1 : 0;
+}
 
+static int verb_update(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **targets = NULL;
+        bool did_anything = false;
+        int r;
+
+        r = ensure_targets(bus, argv + 1, &targets);
+        if (r < 0)
+                return log_error_errno(r, "Could not find targets: %m");
+
+        r = do_update(bus, targets);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                did_anything = true;
+
+        if (!arg_reboot)
+                return 0;
+
+        if (did_anything)
+                return reboot_now();
+
+        log_info("Nothing was updated... skipping reboot.");
         return 0;
+}
+
+static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t count, disabled;
+        int r;
+
+        r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination, path, SYSUPDATE_TARGET_INTERFACE, "Vacuum", &error, &reply, NULL);
+        if (r < 0)
+                return log_bus_error(r, &error, target, "call Vacuum");
+
+        r = sd_bus_message_read(reply, "uu", &count, &disabled);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (count > 0 && disabled > 0)
+                log_info("Deleted %u instance(s) and %u disabled transfer(s) of %s.",
+                         count, disabled, target);
+        else if (count > 0)
+                log_info("Deleted %u instance(s) of %s.", count, target);
+        else if (disabled > 0)
+                log_info("Deleted %u disabled transfer(s) of %s.", disabled, target);
+        else
+                log_info("Found nothing to delete for %s.", target);
+
+        return count + disabled > 0 ? 1 : 0;
 }
 
 static int verb_vacuum(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
@@ -1165,19 +1217,260 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to parse targets: %m");
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                uint32_t count;
-
-                r = sd_bus_call_method(bus, bus_sysupdate_mgr->destination, target_paths[i], SYSUPDATE_TARGET_INTERFACE, "Vacuum", &error, &reply, NULL);
+                r = do_vacuum(bus, targets[i], target_paths[i]);
                 if (r < 0)
-                        return log_bus_error(r, &error, targets[i], "call Vacuum");
+                        return r;
+        }
+        return 0;
+}
 
-                r = sd_bus_message_read(reply, "u", &count);
+typedef struct Feature {
+        char *name;
+        char *description;
+        bool enabled;
+        char *documentation;
+        char **transfers;
+} Feature;
+
+static void feature_done(Feature *f) {
+        assert(f);
+        f->name = mfree(f->name);
+        f->description = mfree(f->description);
+        f->documentation = mfree(f->documentation);
+        f->transfers = strv_free(f->transfers);
+}
+
+static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(feature_done) Feature f = {};
+        char *json;
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",             SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, name),          SD_JSON_MANDATORY },
+                { "description",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, description),   0                 },
+                { "enabled",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Feature, enabled),       SD_JSON_MANDATORY },
+                { "documentationUrl", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Feature, documentation), 0                 },
+                { "transfers",        SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(Feature, transfers),     0                 },
+                {}
+        };
+
+        assert(bus);
+        assert(feature);
+        assert(ret);
+
+        r = sd_bus_call_method(bus,
+                               bus_sysupdate_mgr->destination,
+                               SYSUPDATE_HOST_PATH,
+                               SYSUPDATE_TARGET_INTERFACE,
+                               "DescribeFeature",
+                               &error,
+                               &reply,
+                               "st",
+                               feature,
+                               UINT64_C(0));
+        if (r < 0)
+                return log_bus_error(r, &error, "host", "lookup feature");
+
+        r = sd_bus_message_read_basic(reply, 's', &json);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON: %m");
+
+        r = sd_json_dispatch(v, dispatch_table, 0, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dispatch JSON: %m");
+
+        *ret = TAKE_STRUCT(f);
+        return 0;
+}
+
+static int list_features(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        assert(bus);
+
+        table = table_new("", "feature", "description");
+        if (!table)
+                return log_oom();
+
+        r = sd_bus_call_method(bus,
+                               bus_sysupdate_mgr->destination,
+                               SYSUPDATE_HOST_PATH,
+                               SYSUPDATE_TARGET_INTERFACE,
+                               "ListFeatures",
+                               &error,
+                               &reply,
+                               "t",
+                               UINT64_C(0));
+        if (r < 0)
+                return log_bus_error(r, &error, "host", "lookup feature");
+
+        r = sd_bus_message_read_strv(reply, &features);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        STRV_FOREACH(feature, features) {
+                _cleanup_(feature_done) Feature f = {};
+                _cleanup_free_ char *name_link = NULL;
+
+                r = describe_feature(bus, *feature, &f);
+                if (r < 0)
+                        return r;
+
+                if (urlify_enabled() && f.documentation) {
+                        name_link = strjoin(f.name, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK));
+                        if (!name_link)
+                                return log_oom();
+                }
+
+                r = table_add_many(table,
+                                   TABLE_BOOLEAN_CHECKMARK, f.enabled,
+                                   TABLE_SET_COLOR, ansi_highlight_green_red(f.enabled),
+                                   TABLE_STRING, name_link ?: f.name,
+                                   TABLE_SET_URL, f.documentation,
+                                   TABLE_STRING, f.description);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
+}
+
+static int verb_features(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_(feature_done) Feature f = {};
+        int r;
+
+        if (argc == 1)
+                return list_features(bus);
+
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        r = describe_feature(bus, argv[1], &f);
+        if (r < 0)
+                return r;
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Name",
+                           TABLE_STRING, f.name,
+                           TABLE_FIELD, "Enabled",
+                           TABLE_BOOLEAN, f.enabled);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (f.description) {
+                r = table_add_many(table, TABLE_FIELD, "Description", TABLE_STRING, f.description);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (f.documentation) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Documentation",
+                                   TABLE_STRING, f.documentation,
+                                   TABLE_SET_URL, f.documentation);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!strv_isempty(f.transfers)) {
+                r = table_add_many(table, TABLE_FIELD, "Transfers", TABLE_STRV_WRAPPED, f.transfers);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
+}
+
+static int verb_enable(int argc, char **argv, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool did_anything = false, enable;
+        char **features;
+        int r;
+
+        enable = streq(argv[0], "enable");
+        features = strv_skip(argv, 1);
+
+        STRV_FOREACH(feature, features) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(bus,
+                                       bus_sysupdate_mgr->destination,
+                                       SYSUPDATE_HOST_PATH,
+                                       SYSUPDATE_TARGET_INTERFACE,
+                                       "SetFeatureEnabled",
+                                       &error,
+                                       /* reply= */ NULL,
+                                       "sit",
+                                       *feature,
+                                       (int) enable,
+                                       UINT64_C(0));
+                if (r < 0)
+                        return log_bus_error(r, &error, "host", "call SetFeatureEnabled");
+        }
+
+        if (!arg_now) /* We weren't asked to apply the changes, so we're done! */
+                return 0;
+
+        if (enable) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_free_ char *target = NULL;
+                char *version = NULL;
+
+                /* We're downloading the new feature into the "current" version, which is either going to be
+                 * the currently booted version or it's going to be a pending update that has already been
+                 * installed and is just waiting for us to reboot into it. */
+
+                r = sd_bus_call_method(bus,
+                                       bus_sysupdate_mgr->destination,
+                                       SYSUPDATE_HOST_PATH,
+                                       SYSUPDATE_TARGET_INTERFACE,
+                                       "GetVersion",
+                                       &error,
+                                       &reply,
+                                       NULL);
+                if (r < 0)
+                        return log_bus_error(r, &error, "host", "get current version");
+
+                r = sd_bus_message_read_basic(reply, 's', &version);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                log_info("Deleted %u instance(s) of %s.\n", count, targets[i]);
-        }
+                target = strjoin("host@", version);
+                if (!target)
+                        return log_oom();
+
+                r = do_update(bus, STRV_MAKE(target));
+        } else
+                r = do_vacuum(bus, "host", SYSUPDATE_HOST_PATH);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                did_anything = true;
+
+        if (arg_reboot && did_anything)
+                return reboot_now();
+        else if (did_anything)
+                log_info("Feature(s) %s.", enable ? "downloaded" : "deleted");
+        else
+                log_info("Nothing %s%s.",
+                         enable ? "downloaded" : "deleted",
+                         arg_reboot ? ", skipping reboot" :"");
+
         return 0;
 }
 
@@ -1196,11 +1489,15 @@ static int help(void) {
                "  check [TARGET...]             Check for updates\n"
                "  update [TARGET[@VERSION]...]  Install updates\n"
                "  vacuum [TARGET...]            Clean up old updates\n"
+               "  features [FEATURE]            List and inspect optional features on host OS\n"
+               "  enable FEATURE...             Enable optional feature on host OS\n"
+               "  disable FEATURE...            Disable optional feature on host OS\n"
                "  -h --help                     Show this help\n"
                "     --version                  Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --reboot             Reboot after updating to newer version\n"
                "     --offline            Do not fetch metadata from the network\n"
+               "     --now                Download/delete resources immediately\n"
                "  -H --host=[USER@]HOST   Operate on remote host\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
@@ -1222,6 +1519,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_REBOOT,
                 ARG_OFFLINE,
+                ARG_NOW,
         };
 
         static const struct option options[] = {
@@ -1232,6 +1530,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",      required_argument, NULL, 'H'             },
                 { "reboot",    no_argument,       NULL, ARG_REBOOT      },
                 { "offline",   no_argument,       NULL, ARG_OFFLINE     },
+                { "now",       no_argument,       NULL, ARG_NOW         },
                 {}
         };
 
@@ -1270,6 +1569,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_offline = true;
                         break;
 
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1286,10 +1589,13 @@ static int run(int argc, char *argv[]) {
         int r;
 
         static const Verb verbs[] = {
-                { "list",   VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
-                { "check",  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
-                { "update", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
-                { "vacuum", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
+                { "list",     VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
+                { "check",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
+                { "update",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
+                { "vacuum",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
+                { "features", VERB_ANY, 2,        VERB_ONLINE_ONLY,              verb_features },
+                { "enable",   2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
+                { "disable",  2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
                 {}
         };
 

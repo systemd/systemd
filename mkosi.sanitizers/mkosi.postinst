@@ -57,6 +57,8 @@ wrap=(
     delv
     dhcpd
     dig
+    dnf
+    dnf5
     dmsetup
     dnsmasq
     findmnt
@@ -93,7 +95,7 @@ wrap=(
 )
 
 for bin in "${wrap[@]}"; do
-    if ! mkosi-chroot command -v "$bin" >/dev/null; then
+    if ! mkosi-chroot bash -c "command -v $bin" >/dev/null; then
         continue
     fi
 
@@ -103,7 +105,7 @@ for bin in "${wrap[@]}"; do
         enable_lsan=0
     fi
 
-    target="$(mkosi-chroot command -v "$bin")"
+    target="$(mkosi-chroot bash -c "command -v $bin")"
 
     mv "$BUILDROOT/$target" "$BUILDROOT/$target.orig"
 

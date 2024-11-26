@@ -41,7 +41,7 @@ used for new, additional measurements.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
-### PCS 5, `EV_EVENT_TAG`, "loader.conf"
+### PCS 5, `EV_EVENT_TAG`, `loader.conf`
 
 The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
 measured as a tagged event.
@@ -52,7 +52,7 @@ measured as a tagged event.
 
 → **Measured hash** covers the content of `loader.conf` as it is read from the ESP.
 
-### PCR 12, `EV_IPL`, "Kernel Command Line"
+### PCR 12, `EV_IPL`, kernel command line
 
 If the kernel command line was specified explicitly (by the user or in a Boot
 Loader Specification Type #1 file), the kernel command line passed to the
@@ -70,7 +70,7 @@ trailing NUL bytes).
 
 ## PCR Measurements Made by `systemd-stub` (UEFI)
 
-### PCR 11, `EV_IPL`, "PE Section Name"
+### PCR 11, `EV_IPL`, PE section name
 
 A measurement is made for each PE section of the UKI that is defined by the
 [UKI
@@ -87,7 +87,7 @@ both types of records appear interleaved in the event log.
 
 → **Measured hash** covers the PE section name in ASCII (*including* a trailing NUL byte!).
 
-### PCR 11, `EV_IPL`, "PE Section Data"
+### PCR 11, `EV_IPL`, PE section data
 
 Happens once for each UKI-defined PE section of the UKI, in the canonical UKI
 PE section order, as per the UKI specification, see above.
@@ -96,7 +96,7 @@ PE section order, as per the UKI specification, see above.
 
 → **Measured hash** covers the (binary) PE section contents.
 
-### PCR 12, `EV_IPL`, "Kernel Command Line"
+### PCR 12, `EV_IPL`, kernel command line
 
 Might happen up to three times, for kernel command lines from:
 
@@ -110,37 +110,37 @@ UTF-16.
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
 trailing NUL bytes).
 
-### PCR 12, `EV_EVENT_TAG`, "Devicetrees"
+### PCR 12, `EV_EVENT_TAG`, DeviceTrees
 
-Devicetree addons are measured individually as a tagged event.
+DeviceTree addons are measured individually as a tagged event.
 
 → **Event Tag** `0x6c46f751`
 
-→ **Description** the addon filename.
+→ **Description** is the addon filename.
 
-→ **Measured hash** covers the content of the Devicetree.
+→ **Measured hash** covers the content of the DeviceTree.
 
-### PCR 12, `EV_EVENT_TAG`, "Initrd addons"
+### PCR 12, `EV_EVENT_TAG`, initrd addons
 
 Initrd addons are measured individually as a tagged event.
 
 → **Event Tag** `0x49dffe0f`
 
-→ **Description** the addon filename.
+→ **Description** is the addon filename.
 
 → **Measured hash** covers the contents of the initrd.
 
-### PCR 12, `EV_EVENT_TAG`, "Ucode addons"
+### PCR 12, `EV_EVENT_TAG`, ucode addons
 
 Ucode addons are measured individually as a tagged event.
 
 → **Event Tag** `0xdac08e1a`
 
-→ **Description** the addon filename.
+→ **Description** is the addon filename.
 
 → **Measured hash** covers the contents of the ucode initrd.
 
-### PCR 12, `EV_IPL`, "Per-UKI Credentials initrd"
+### PCR 12, `EV_IPL`, per-uki credentials initrd
 
 → **Description** in the event log record is the constant string "Credentials
 initrd" in UTF-16.
@@ -148,7 +148,7 @@ initrd" in UTF-16.
 → **Measured hash** covers the per-UKI credentials cpio archive (which is generated
  on-the-fly by `systemd-stub`).
 
-### PCR 12, `EV_IPL`, "Global Credentials initrd"
+### PCR 12, `EV_IPL`, global credentials initrd
 
 → **Description** in the event log record is the constant string "Global
 credentials initrd" in UTF-16.
@@ -156,7 +156,7 @@ credentials initrd" in UTF-16.
 → **Measured hash** covers the global credentials cpio archive (which is generated
 on-the-fly by `systemd-stub`).
 
-### PCR 13, `EV_IPL`, "sysext initrd"
+### PCR 13, `EV_IPL`, sysext initrd
 
 → **Description** in the event log record is the constant string "System extension
 initrd" in UTF-16.
@@ -166,7 +166,7 @@ on-the-fly by `systemd-stub`).
 
 ## PCR Measurements Made by `systemd-pcrextend` (Userspace)
 
-### PCR 11, "Boot Phases"
+### PCR 11, boot phases
 
 The `systemd-pcrphase.service`, `systemd-pcrphase-initrd.service`,
 `systemd-pcrphase-sysinit.service` services will measure the boot phase reached
@@ -178,7 +178,7 @@ choose to define additional/different phases.)
 → **Measured hash** covers the phase string (in UTF-8, without trailing NUL
 bytes).
 
-### PCR 15, "Machine ID"
+### PCR 15, machine ID
 
 The `systemd-pcrmachine.service` service will measure the machine ID (as read
 from `/etc/machine-id`) during boot.
@@ -187,7 +187,7 @@ from `/etc/machine-id`) during boot.
 formatted in hexadecimal lowercase characters (in UTF-8, without trailing NUL
 bytes).
 
-### PCR 15, "File System"
+### PCR 15, file system
 
 The `systemd-pcrfs-root.service` and `systemd-pcrfs@.service` services will
 measure a string identifying a specific file system, typically covering the
@@ -200,7 +200,7 @@ without trailing NUL bytes).
 
 ## PCR Measurements Made by `systemd-cryptsetup` (Userspace)
 
-### PCR 15, "Volume Key"
+### PCR 15, volume key
 
 The `systemd-cryptsetup@.service` service will measure a key derived from the
 LUKS volume key of a specific encrypted volume, typically covering the backing

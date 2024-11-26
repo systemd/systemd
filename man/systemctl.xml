@@ -192,7 +192,7 @@ NEXT                         LEFT          LAST                         PASSED  
 Sun 2017-02-26 18:55:42 EST  1min 14s left Thu 2017-02-23 13:54:44 EST  3 days ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
 Sun 2017-02-26 20:37:16 EST  1h 42min left Sun 2017-02-26 11:56:36 EST  6h ago     apt-daily.timer              apt-daily.service
 Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago     snapd.refresh.timer          snapd.refresh.service
-            </programlisting>
+</programlisting>
             </para>
 
             <para><emphasis>NEXT</emphasis> shows the next time the timer will run.</para>
@@ -1397,7 +1397,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Note that this shows the <emphasis>effective</emphasis> block, i.e. the combination of
             environment variables configured via configuration files, environment generators and via IPC
             (i.e. via the <command>set-environment</command> described below). At the moment a unit process
-            is forked off this combined environment block will be further combined with per-unit environment
+            is forked off, this combined environment block will be further combined with per-unit environment
             variables, which are not visible in this command.</para>
           </listitem>
         </varlistentry>
@@ -2867,7 +2867,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 [Unit]
 AllowedCPUs=7,11
 EOF
-          </programlisting>
+</programlisting>
 
           <para>Multiple drop-ins may be "edited" in this mode; the same contents will be written to all of
           them.</para>

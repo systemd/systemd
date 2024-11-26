@@ -273,6 +273,52 @@ static int need_reload(
         return false;
 }
 
+static int move_submounts(const char *src, const char *dst) {
+        SubMount *submounts = NULL;
+        size_t n_submounts = 0;
+        int r;
+
+        assert(src);
+        assert(dst);
+
+        CLEANUP_ARRAY(submounts, n_submounts, sub_mount_array_free);
+
+        r = get_sub_mounts(src, &submounts, &n_submounts);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get submounts for %s: %m", src);
+
+        FOREACH_ARRAY(m, submounts, n_submounts) {
+                _cleanup_free_ char *t = NULL;
+                const char *suffix;
+                struct stat st;
+
+                assert_se(suffix = path_startswith(m->path, src));
+
+                t = path_join(dst, suffix);
+                if (!t)
+                        return log_oom();
+
+                if (fstat(m->mount_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", m->path);
+
+                r = mkdir_parents(t, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create parent directories of %s: %m", t);
+
+                r = make_mount_point_inode_from_stat(&st, t, 0755);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to create mountpoint %s: %m", t);
+
+                r = mount_follow_verbose(LOG_ERR, m->path, t, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+
+                (void) umount_verbose(LOG_WARNING, m->path, MNT_DETACH);
+        }
+
+        return 0;
+}
+
 static int daemon_reload(void) {
          _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -284,11 +330,10 @@ static int daemon_reload(void) {
         return bus_service_manager_reload(bus);
 }
 
-static int unmerge_hierarchy(
-                ImageClass image_class,
-                const char *p) {
+static int unmerge_hierarchy(ImageClass image_class, const char *p, const char *submounts_path) {
 
         _cleanup_free_ char *dot_dir = NULL, *work_dir_info_file = NULL;
+        int n_unmerged = 0;
         int r;
 
         assert(p);
@@ -338,6 +383,12 @@ static int unmerge_hierarchy(
                                 return log_error_errno(r, "Failed to unmount '%s': %m", dot_dir);
                 }
 
+                /* After we've unmounted the metadata directory, save all other submounts so we can restore
+                 * them after unmerging the hierarchy. */
+                r = move_submounts(p, submounts_path);
+                if (r < 0)
+                        return r;
+
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
@@ -349,9 +400,67 @@ static int unmerge_hierarchy(
                 }
 
                 log_info("Unmerged '%s'.", p);
+                n_unmerged++;
         }
 
-        return 0;
+        return n_unmerged;
+}
+
+static int unmerge_subprocess(
+                ImageClass image_class,
+                char **hierarchies,
+                const char *workspace) {
+
+        int r, ret = 0;
+
+        assert(workspace);
+        assert(path_startswith(workspace, "/run/"));
+
+        /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
+         * the host otherwise. */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        /* Let's create the workspace if it's missing */
+        r = mkdir_p(workspace, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s': %m", workspace);
+
+        STRV_FOREACH(h, hierarchies) {
+                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
+
+                submounts_path = path_join(workspace, "submounts", *h);
+                if (!submounts_path)
+                        return log_oom();
+
+                r = chase(*h, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *h);
+                        continue;
+                }
+                if (r < 0) {
+                        RET_GATHER(ret, log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *h));
+                        continue;
+                }
+
+                r = unmerge_hierarchy(image_class, resolved, submounts_path);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        continue;
+                }
+                if (r == 0)
+                        continue;
+
+                /* If we unmerged something, then we have to move the submounts from the hierarchy back into
+                 * place in the host's original hierarchy. */
+
+                r = move_submounts(submounts_path, resolved);
+                if (r < 0)
+                        return r;
+        }
+
+        return ret;
 }
 
 static int unmerge(
@@ -359,33 +468,26 @@ static int unmerge(
                 char **hierarchies,
                 bool no_reload) {
 
-        int r, ret = 0;
         bool need_to_reload;
+        int r;
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
                 return r;
         need_to_reload = r > 0;
 
-        STRV_FOREACH(p, hierarchies) {
-                _cleanup_free_ char *resolved = NULL;
+        r = safe_fork("(sd-unmerge)", FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, /* ret_pid= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child with its own mount namespace */
 
-                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
-                if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
-                        continue;
-                }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *p);
-                        if (ret == 0)
-                                ret = r;
+                r = unmerge_subprocess(image_class, hierarchies, "/run/systemd/sysext");
 
-                        continue;
-                }
+                /* Our namespace ceases to exist here, also implicitly detaching all temporary mounts we
+                 * created below /run. Nice! */
 
-                r = unmerge_hierarchy(image_class, resolved);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         if (need_to_reload) {
@@ -394,7 +496,7 @@ static int unmerge(
                         return r;
         }
 
-        return ret;
+        return 0;
 }
 
 static int verb_unmerge(int argc, char **argv, void *userdata) {
@@ -1483,6 +1585,8 @@ static int merge_subprocess(
         Image *img;
         int r;
 
+        assert(path_startswith(workspace, "/run/"));
+
         /* Mark the whole of /run as MS_SLAVE, so that we can mount stuff below it that doesn't show up on
          * the host otherwise. */
         r = mount_nofollow_verbose(LOG_ERR, NULL, "/run", NULL, MS_SLAVE|MS_REC, NULL);
@@ -1711,20 +1815,33 @@ static int merge_subprocess(
         /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a reference to the
          * underlying fs. */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *resolved = NULL;
+                _cleanup_free_ char *submounts_path = NULL, *resolved = NULL;
+
+                submounts_path = path_join(workspace, "submounts", *h);
+                if (!submounts_path)
+                        return log_oom();
 
                 r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(arg_root), *h);
 
-                r = unmerge_hierarchy(image_class, resolved);
+                r = unmerge_hierarchy(image_class, resolved, submounts_path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                /* If we didn't unmerge anything, then we have to move the submounts from the host's
+                 * original hierarchy. */
+
+                r = move_submounts(resolved, submounts_path);
                 if (r < 0)
                         return r;
         }
 
         /* Create overlayfs mounts for all hierarchies */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL;
+                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL, *submounts_path = NULL;
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
                 if (!meta_path)
@@ -1739,6 +1856,10 @@ static int merge_subprocess(
                 if (!merge_hierarchy_workspace)
                         return log_oom();
 
+                submounts_path = path_join(workspace, "submounts", *h);
+                if (!submounts_path)
+                        return log_oom();
+
                 r = merge_hierarchy(
                                 image_class,
                                 *h,
@@ -1748,6 +1869,13 @@ static int merge_subprocess(
                                 meta_path,
                                 overlay_path,
                                 merge_hierarchy_workspace);
+                if (r < 0)
+                        return r;
+
+                /* After the new hierarchy is set up, move the submounts from the original hierarchy into
+                 * place. */
+
+                r = move_submounts(submounts_path, overlay_path);
                 if (r < 0)
                         return r;
         }
@@ -2094,7 +2222,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
-        if ((arg_json_format_flags & SD_JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+        if (hashmap_isempty(images) && !sd_json_format_enabled(arg_json_format_flags)) {
                 log_info("No OS extensions found.");
                 return 0;
         }

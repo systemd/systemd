@@ -27,6 +27,16 @@
 #define ANSI_WINDOW_TITLE_PUSH "\x1b[22;2t"
 #define ANSI_WINDOW_TITLE_POP "\x1b[23;2t"
 
+/* ANSI "string terminator" character ("ST"). Terminal emulators typically allow three different ones: 0x07,
+ * 0x9c, and 0x1B 0x5C. We'll avoid 0x07 (BEL, aka ^G) since it might trigger unexpected TTY signal
+ * handling. And we'll avoid 0x9c since that's also valid regular codepoint in UTF-8 and elsewhere, and
+ * creates ambiguities. Because of that some terminal emulators explicitly choose not to support it. Hence we
+ * use 0x1B 0x5c */
+#define ANSI_ST "\e\\"
+
+/* The "operating system command" ("OSC") start sequence */
+#define ANSI_OSC "\e]"
+
 bool isatty_safe(int fd);
 
 int terminal_reset_defensive(int fd, bool switch_to_text);
@@ -95,6 +105,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text);
 int lock_dev_console(void);
 int make_console_stdio(void);
 
+int getenv_columns(void);
 int fd_columns(int fd);
 unsigned columns(void);
 int fd_lines(int fd);
@@ -143,3 +154,6 @@ int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, un
 int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_is_pty_fd(int fd);
+
+int pty_open_peer_racefree(int fd, int mode);
+int pty_open_peer(int fd, int mode);

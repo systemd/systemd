@@ -370,13 +370,12 @@ int main(int argc, char *argv[]) {
 
         test_options(NULL);
 
-        for (unsigned i = 0; i < ELEMENTSOF(option_tests); i++)
-                test_options(&option_tests[i]);
+        FOREACH_ELEMENT(desc, option_tests)
+                test_options(desc);
 
         test_option_set();
 
-        for (unsigned i = 0; i < ELEMENTSOF(option_tests); i++) {
-                struct option_desc *desc = &option_tests[i];
+        FOREACH_ELEMENT(desc, option_tests) {
                 if (!desc->success || desc->snamelen > 0 || desc->filelen > 0)
                         continue;
                 test_option_removal(desc);

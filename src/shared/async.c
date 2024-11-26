@@ -147,6 +147,10 @@ int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
 
         /* Child */
 
+        /* Let's block SIGTERM here, to grant the operation more time on e.g. final killing spree
+         * during shutdown. If this gets stalled pid1 would eventually send SIGKILL to us. */
+        BLOCK_SIGNALS(SIGTERM);
+
         r = rm_rf(p, flags);
         if (r < 0) {
                 log_debug_errno(r, "Failed to rm -rf '%s', ignoring: %m", p);

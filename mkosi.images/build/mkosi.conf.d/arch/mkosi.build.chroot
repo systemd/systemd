@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [[ "$1" == "clangd" ]]; then
-    exec "$@"
-fi
-
 if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
@@ -21,7 +17,7 @@ ln --symbolic "$SRCDIR" "pkg/$PKG_SUBDIR/systemd"
 ln --symbolic "$BUILDDIR" "pkg/$PKG_SUBDIR/build"
 ln --symbolic . "pkg/$PKG_SUBDIR/src"
 
-MKOSI_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE"
+MKOSI_CFLAGS="-O0 -g -Wp,-U_FORTIFY_SOURCE"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
     MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
@@ -68,6 +64,11 @@ sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
     --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.pkg.tar
+)
+
 # We get around makepkg's root check by setting EUID to something else.
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
 # shellcheck disable=SC2046
@@ -82,14 +83,8 @@ env --chdir="pkg/$PKG_SUBDIR" \
     _systemd_UPSTREAM=1 \
     _systemd_QUIET=$( ((MESON_VERBOSE)); echo $? ) \
     BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
-    PKGDEST="$OUTPUTDIR" \
+    PKGDEST="$BUILDDIR" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
 
-(
-    shopt -s nullglob
-    rm -f "$BUILDDIR"/*.pkg.tar
-)
-
-cp "$OUTPUTDIR"/*.pkg.tar "$PACKAGEDIR"
-cp "$OUTPUTDIR"/*.pkg.tar "$BUILDDIR"
+cp "$BUILDDIR"/*.pkg.tar "$PACKAGEDIR"

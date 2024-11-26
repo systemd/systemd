@@ -179,6 +179,9 @@
       <member><citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist>
     for more information about the functions available.</para>
+
+    <para>The <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
+    makes the functionality implemented by sd-bus available from the command line.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -189,9 +192,10 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>dbus-send</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
-
 </refentry>

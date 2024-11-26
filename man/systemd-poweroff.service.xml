@@ -44,7 +44,7 @@
     <filename>kexec.target</filename> to execute the respective actions.</para>
 
     <para>When these services are run, they ensure that PID 1 is replaced by the
-    <filename>/usr/lib/systemd/systemd-shutdown</filename> tool which is then responsible for the actual
+    <filename>/usr/lib/systemd/systemd-shutdown</filename> binary which is then responsible for the actual
     shutdown. Before shutting down, this binary will try to unmount all remaining file systems (or at least
     remount them read-only), disable all remaining swap devices, detach all remaining storage devices and
     kill all remaining processes.</para>
@@ -53,17 +53,17 @@
     might be broken — the running PID 1 could still depend on libraries which are not available any more,
     thus keeping the file system busy, which then cannot be re-mounted read-only.</para>
 
-    <para>Shortly before executing the actual system power-off/halt/reboot/kexec
+    <para>Shortly before executing the actual system power-off/halt/reboot/kexec,
     <filename>systemd-shutdown</filename> will run all executables in
     <filename>/usr/lib/systemd/system-shutdown/</filename> and pass one arguments to them: either
     <literal>poweroff</literal>, <literal>halt</literal>, <literal>reboot</literal>, or
     <literal>kexec</literal>, depending on the chosen action. All executables in this directory are executed
-    in parallel, and execution of the action is not continued before all executables finished. Note that
-    these executables are run <emphasis>after</emphasis> all services have been shut down, and after most
-    mounts have been unmounted (the root file system as well as <filename>/run/</filename> and various API
-    file systems are still around though). This means any programs dropped into this directory must be
-    prepared to run in such a limited execution environment and not rely on external services or hierarchies
-    such as <filename>/var/</filename> to be around (or writable).</para>
+    in parallel, and execution of the action is not continued before all executables finished. (A safety
+    timeout of 90s is applied however.) Note that these executables are run <emphasis>after</emphasis> all
+    services have been shut down, and after most mounts have been unmounted (the root file system as well as
+    <filename>/run/</filename> and various API file systems are still around though). This means any programs
+    dropped into this directory must be prepared to run in such a limited execution environment and not rely
+    on external services or hierarchies such as <filename>/var/</filename> to be around (or writable).</para>
 
     <para>Note that <filename>systemd-poweroff.service</filename> (and the related units) should never be
     executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl

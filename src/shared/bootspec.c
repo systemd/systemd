@@ -1382,19 +1382,19 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
 
         /* Loads the three "pointers" to boot loader entries from their EFI variables */
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &config->entry_oneshot);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &config->entry_default);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\", ignoring: %m");
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &config->entry_selected);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
@@ -1560,7 +1560,7 @@ int boot_config_augment_from_loader(
                                 break;
                         }
 
-                p = strdup(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntries)));
+                p = strdup(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderEntries")));
                 if (!p)
                         return log_oom();
 
@@ -1936,7 +1936,7 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
 
         assert(config);
 
-        if (!FLAGS_SET(json_format, SD_JSON_FORMAT_OFF)) {
+        if (sd_json_format_enabled(json_format)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {

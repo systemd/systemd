@@ -467,7 +467,7 @@ int neighbor_remove(Neighbor *neighbor, Link *link) {
         return 0;
 }
 
-int link_drop_foreign_neighbors(Link *link) {
+int link_drop_unmanaged_neighbors(Link *link) {
         Neighbor *neighbor;
         int r = 0;
 
@@ -476,12 +476,13 @@ int link_drop_foreign_neighbors(Link *link) {
 
         /* First, mark all neighbors. */
         SET_FOREACH(neighbor, link->neighbors) {
-                /* Do not remove neighbors we configured. */
-                if (neighbor->source != NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
                 /* Ignore neighbors not assigned yet or already removing. */
                 if (!neighbor_exists(neighbor))
+                        continue;
+
+                /* Ignore foreign neighbors when KeepConfiguration=yes or static. */
+                if (neighbor->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
                         continue;
 
                 neighbor_mark(neighbor);
@@ -495,6 +496,7 @@ int link_drop_foreign_neighbors(Link *link) {
                         neighbor_unmark(existing);
         }
 
+        /* Finally, remove all marked neighbors. */
         SET_FOREACH(neighbor, link->neighbors) {
                 if (!neighbor_is_marked(neighbor))
                         continue;
@@ -524,15 +526,6 @@ int link_drop_static_neighbors(Link *link) {
         }
 
         return r;
-}
-
-void link_foreignize_neighbors(Link *link) {
-        Neighbor *neighbor;
-
-        assert(link);
-
-        SET_FOREACH(neighbor, link->neighbors)
-                neighbor->source = NETWORK_CONFIG_SOURCE_FOREIGN;
 }
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {

@@ -39,16 +39,16 @@ REQUIREMENTS:
                      ≥ 4.17 for cgroup-bpf socket address hooks
                      ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.3 for bounded loops in BPF program
-                     ≥ 5.4 for signed Verity images
-                     ≥ 5.7 for BPF links and the BPF LSM hook
+                     ≥ 5.4 for pidfd and signed Verity images
+                     ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
 
         ⛔ Kernel versions below 3.15 ("minimum baseline") are not supported at
         all, and are missing required functionality (e.g. CLOCK_BOOTTIME
         support for timerfd_create()).
 
-        ⚠️ Kernel versions below 4.15 ("recommended baseline") have significant
+        ⚠️ Kernel versions below 5.4 ("recommended baseline") have significant
         gaps in functionality and are not recommended for use with this version
-        of systemd (e.g. lack sufficiently comprehensive and working cgroupv2
+        of systemd (e.g. lack race-free process tracking by pidfd and new mount API
         support). Taint flag 'old-kernel' will be set. systemd will most likely
         still function, but upstream support and testing are limited.
 

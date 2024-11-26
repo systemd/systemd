@@ -40,7 +40,7 @@
     <para><function>sd_bus_pending_method_calls()</function> returns the number of currently pending outgoing
     method calls, i.e. method calls enqueued with
     <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-    which no reply has been received yet, and which have not reached a time-out yet.</para>
+    which no reply has been received yet, and which have not reached a timeout yet.</para>
 
     <para>The <parameter>bus</parameter> argument may be <constant>NULL</constant>, in which case zero is
     returned.</para>

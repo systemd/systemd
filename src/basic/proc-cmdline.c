@@ -71,13 +71,13 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
                         }
 
                         /* long option, e.g. --foo */
-                        for (size_t i = 0; i < ELEMENTSOF(options); i++) {
-                                const char *q = startswith(a + 2, options[i].name);
+                        FOREACH_ELEMENT(option, options) {
+                                const char *q = startswith(a + 2, option->name);
                                 if (!q || !IN_SET(q[0], '=', '\0'))
                                         continue;
 
                                 /* Found matching option, updating the state if necessary. */
-                                if (q[0] == '\0' && options[i].has_arg == required_argument)
+                                if (q[0] == '\0' && option->has_arg == required_argument)
                                         state = required_argument;
 
                                 break;

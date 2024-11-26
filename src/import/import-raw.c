@@ -20,6 +20,7 @@
 #include "machine-pool.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "qcow2-util.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
@@ -149,7 +150,16 @@ static void raw_import_report_progress(RawImport *i) {
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
-        log_info("Imported %u%%.", percent);
+
+        if (isatty_safe(STDERR_FILENO))
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s/%s",
+                                special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                FORMAT_BYTES(i->written_compressed),
+                                FORMAT_BYTES(i->input_stat.st_size));
+        else
+                log_info("Imported %u%%.", percent);
 
         i->last_percent = percent;
 }
@@ -459,6 +469,9 @@ static int raw_import_process(RawImport *i) {
         return 0;
 
 complete:
+        if (isatty_safe(STDERR_FILENO))
+                clear_progress_bar(/* prefix= */ NULL);
+
         r = raw_import_finish(i);
 
 finish:

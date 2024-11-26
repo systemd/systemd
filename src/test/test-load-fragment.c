@@ -912,22 +912,21 @@ TEST(config_parse_memory_limit) {
                 { "MemoryMax",  "10",           &c.memory_max,  10 },
                 { "MemoryMax",  "infinity",     &c.memory_max,  CGROUP_LIMIT_MAX },
         };
-        size_t i;
         int r;
 
-        for (i = 0; i < ELEMENTSOF(limit_tests); i++) {
+        FOREACH_ELEMENT(test, limit_tests) {
                 c.memory_min = CGROUP_LIMIT_DUMMY;
                 c.memory_low = CGROUP_LIMIT_DUMMY;
                 c.memory_high = CGROUP_LIMIT_DUMMY;
                 c.memory_max = CGROUP_LIMIT_DUMMY;
                 r = config_parse_memory_limit(NULL, "fake", 1, "section", 1,
-                                              limit_tests[i].limit, 1,
-                                              limit_tests[i].value, &c, NULL);
+                                              test->limit, 1,
+                                              test->value, &c, NULL);
                 log_info("%s=%s\t%"PRIu64"==%"PRIu64,
-                         limit_tests[i].limit, limit_tests[i].value,
-                         *limit_tests[i].result, limit_tests[i].expected);
+                         test->limit, test->value,
+                         *test->result, test->expected);
                 assert_se(r >= 0);
-                assert_se(*limit_tests[i].result == limit_tests[i].expected);
+                assert_se(*test->result == test->expected);
         }
 
 }
@@ -1029,12 +1028,12 @@ TEST(config_parse_log_filter_patterns) {
         if (ERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
                 return (void) log_tests_skipped("PCRE2 support is not available");
 
-        for (size_t i = 0; i < ELEMENTSOF(regex_tests); i++) {
+        FOREACH_ELEMENT(test, regex_tests) {
                 assert_se(config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
-                                                           regex_tests[i].regex, &c, NULL) >= 0);
+                                                           test->regex, &c, NULL) >= 0);
 
-                assert_se(set_size(c.log_filter_allowed_patterns) == regex_tests[i].allowed_patterns_count);
-                assert_se(set_size(c.log_filter_denied_patterns) == regex_tests[i].denied_patterns_count);
+                assert_se(set_size(c.log_filter_allowed_patterns) == test->allowed_patterns_count);
+                assert_se(set_size(c.log_filter_denied_patterns) == test->denied_patterns_count);
 
                 /* Ensure `~` is properly removed */
                 const char *p;

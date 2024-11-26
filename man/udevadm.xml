@@ -167,6 +167,11 @@
             <para>Print all sysfs properties of the specified device that can be used
             in udev rules to match the specified device. It prints all devices
             along the chain, up to the root of sysfs that can be used in udev rules.</para>
+
+            <para>This switch supports JSON output mode (see <option>--json=</option> below). Note that
+            because this switch generates multiple JSON objects, JSON-SEQ mode is automatically enabled
+            (RFC7464). (Note: tools such as <ulink url="https://jqlang.github.io/jq/manual/">jq</ulink>
+            natively support JSON-SEQ via the <option>--seq</option> switch.)</para>
           </listitem>
         </varlistentry>
         <varlistentry>

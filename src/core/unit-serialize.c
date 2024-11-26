@@ -4,7 +4,6 @@
 #include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
@@ -420,12 +419,11 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
         assert(kind);
         assert(space);
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
-
+        FOREACH_ELEMENT(i, table) {
                 if (mask == 0)
                         break;
 
-                if (FLAGS_SET(mask, table[i].mask)) {
+                if (FLAGS_SET(mask, i->mask)) {
                         if (*space)
                                 fputc(' ', f);
                         else
@@ -433,9 +431,9 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 
                         fputs(kind, f);
                         fputs("-", f);
-                        fputs(table[i].name, f);
+                        fputs(i->name, f);
 
-                        mask &= ~table[i].mask;
+                        mask &= ~i->mask;
                 }
         }
 

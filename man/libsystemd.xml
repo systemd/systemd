@@ -35,7 +35,8 @@
 #include &lt;systemd/sd-login.h&gt;
 #include &lt;systemd/sd-messages.h&gt;
 #include &lt;systemd/sd-path.h&gt;
-    </programlisting>
+#include &lt;systemd/sd-varlink.h&gt;
+</programlisting>
 
     <cmdsynopsis>
       <command>pkg-config --cflags --libs libsystemd</command>
@@ -61,8 +62,9 @@
     <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    and
     <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for information about different parts of the library interface.</para>
   </refsect1>
 
@@ -80,7 +82,7 @@
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>libudev</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>libudev</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability Promise</ulink></member>
     </simplelist></para>

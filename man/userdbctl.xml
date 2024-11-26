@@ -174,6 +174,75 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--fuzzy</option></term>
+        <term><option>-z</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command, do a
+        fuzzy string search. Any specified arguments will be matched against the user name, the real name of
+        the user record, the email address, and other descriptive strings of the user or group
+        record. Moreover, instead of precise matching, a substring match or a match allowing slight
+        deviations in spelling is applied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--disposition=</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command,
+        filters by disposition of the record. Takes one of <literal>intrinsic</literal>,
+        <literal>system</literal>, <literal>regular</literal>, <literal>dynamic</literal>,
+        <literal>container</literal>. May be used multiple times, in which case only users matching any of
+        the specified dispositions are shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-I</option></term>
+        <term><option>-S</option></term>
+        <term><option>-R</option></term>
+
+        <listitem><para>Shortcuts for <option>--disposition=intrinsic</option>,
+        <option>--disposition=system</option>, <option>--disposition=regular</option>,
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid-min=</option></term>
+        <term><option>--uid-max=</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command,
+        filters the output by UID/GID ranges. Takes numeric minimum resp. maximum UID/GID values. Shows only
+        records within the specified range. When applied to the <command>user</command> command matches
+        against UIDs, when applied to the <command>group</command> command against GIDs (despite the name of
+        the switch). If unspecified defaults to 0 (for the minimum) and 4294967294 (for the maximum), i.e. by
+        default no filtering is applied as the whole UID/GID range is covered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boundaries=</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command,
+        controls whether to show relevant UID/GID range boundary information in the tabular output. Takes a
+        boolean. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-B</option></term>
+
+        <listitem><para>Shortcut for <option>--boundaries=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -347,7 +416,7 @@
     <para>The <command>userdbctl</command> tool may be used to make the list of SSH authorized keys possibly
     contained in a user record available to the SSH daemon for authentication. For that configure the
     following in <citerefentry
-    project='die-net'><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>:</para>
+    project='man-pages'><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>:</para>
 
     <programlisting>…
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u

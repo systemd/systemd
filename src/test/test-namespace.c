@@ -205,9 +205,31 @@ TEST(protect_kernel_logs) {
         assert_se(wait_for_terminate_and_check("ns-kernellogs", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
+TEST(idmapping_supported) {
+        assert_se(is_idmapping_supported("/run") >= 0);
+        assert_se(is_idmapping_supported("/var/lib") >= 0);
+        assert_se(is_idmapping_supported("/var/cache") >= 0);
+        assert_se(is_idmapping_supported("/var/log") >= 0);
+        assert_se(is_idmapping_supported("/etc") >= 0);
+}
+
+TEST(namespace_is_init) {
+        int r;
+
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++) {
+                r = namespace_is_init(t);
+                if (r == -EBADR)
+                        log_info_errno(r, "In root namespace of type '%s': don't know", namespace_info[t].proc_name);
+                else {
+                        ASSERT_OK(r);
+                        log_info("In root namespace of type '%s': %s", namespace_info[t].proc_name, yes_no(r));
+                }
+        }
+}
+
 static int intro(void) {
         if (!have_namespaces())
-                return log_tests_skipped("Don't have namespace support");
+                return log_tests_skipped("Don't have namespace support or lacking privileges");
 
         return EXIT_SUCCESS;
 }

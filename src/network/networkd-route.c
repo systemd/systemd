@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if.h>
 #include <linux/ipv6_route.h>
 #include <linux/nexthop.h>
 
@@ -47,7 +48,7 @@ static Route* route_detach_impl(Route *route) {
         return NULL;
 }
 
-static void route_detach(Route *route) {
+void route_detach(Route *route) {
         route_unref(route_detach_impl(route));
 }
 
@@ -351,6 +352,18 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, &route->nexthop, ret);
 }
 
+bool route_is_bound_to_link(const Route *route, Link *link) {
+        assert(route);
+        assert(link);
+        assert(link->manager);
+
+        Link *route_link;
+        if (route_get_link(link->manager, route, &route_link) < 0)
+                return false;
+
+        return route_link->ifindex == link->ifindex;
+}
+
 int route_get_request(Manager *manager, const Route *route, Request **ret) {
         Request *req;
 
@@ -406,7 +419,7 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         return 0;
 }
 
-static void log_route_debug(const Route *route, const char *str, Manager *manager) {
+void log_route_debug(const Route *route, const char *str, Manager *manager) {
         _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
@@ -573,6 +586,9 @@ int route_remove(Route *route, Manager *manager) {
 
         assert(route);
         assert(manager);
+
+        if (manager->state == MANAGER_STOPPED)
+                return 0; /* The remove request will not be queued anyway. Suppress logging below. */
 
         /* If the route is remembered, then use the remembered object. */
         (void) route_get(manager, route, &route);
@@ -1135,6 +1151,8 @@ static int process_route_one(
                         }
                 }
 
+                route_attach_to_nexthop(route);
+
                 route_enter_configured(route);
                 log_route_debug(route, is_new ? "Received new" : "Received remembered", manager);
 
@@ -1436,10 +1454,10 @@ static int link_unmark_route(Link *link, const Route *route, const RouteNextHop 
         return 1;
 }
 
-static int link_mark_routes(Link *link, bool foreign) {
+int link_drop_routes(Link *link, bool only_static) {
         Route *route;
         Link *other;
-        int r;
+        int r = 0;
 
         assert(link);
         assert(link->manager);
@@ -1450,31 +1468,35 @@ static int link_mark_routes(Link *link, bool foreign) {
                 if (route_by_kernel(route))
                         continue;
 
-                /* When 'foreign' is true, mark only foreign routes, and vice versa.
-                 * Note, do not touch dynamic routes. They will removed by when e.g. lease is lost. */
-                if (route->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
-                        continue;
-
                 /* Ignore routes not assigned yet or already removed. */
                 if (!route_exists(route))
                         continue;
 
-                if (link->network) {
-                        if (route->protocol == RTPROT_STATIC &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                if (only_static) {
+                        if (route->source != NETWORK_CONFIG_SOURCE_STATIC)
+                                continue;
+                } else {
+                        /* Ignore dynamically assigned routes. */
+                        if (!IN_SET(route->source, NETWORK_CONFIG_SOURCE_FOREIGN, NETWORK_CONFIG_SOURCE_STATIC))
                                 continue;
 
-                        if (route->protocol == RTPROT_DHCP &&
-                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                                continue;
+                        if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN && link->network) {
+                                if (route->protocol == RTPROT_STATIC &&
+                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                                        continue;
+
+                                if (IN_SET(route->protocol, RTPROT_DHCP, RTPROT_RA, RTPROT_REDIRECT) &&
+                                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC))
+                                        continue;
+                        }
                 }
 
-                /* When we mark foreign routes, do not mark routes assigned to other interfaces.
+                /* When we also mark foreign routes, do not mark routes assigned to other interfaces.
                  * Otherwise, routes assigned to unmanaged interfaces will be dropped.
                  * Note, route_get_link() does not provide assigned link for routes with an unreachable type
                  * or IPv4 multipath routes. So, the current implementation does not support managing such
                  * routes by other daemon or so, unless ManageForeignRoutes=no. */
-                if (foreign) {
+                if (!only_static) {
                         Link *route_link;
 
                         if (route_get_link(link->manager, route, &route_link) >= 0 && route_link != link)
@@ -1486,7 +1508,7 @@ static int link_mark_routes(Link *link, bool foreign) {
 
         /* Then, unmark all routes requested by active links. */
         HASHMAP_FOREACH(other, link->manager->links_by_index) {
-                if (!foreign && other == link)
+                if (only_static && other == link)
                         continue;
 
                 if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
@@ -1520,20 +1542,7 @@ static int link_mark_routes(Link *link, bool foreign) {
                 }
         }
 
-        return 0;
-}
-
-int link_drop_routes(Link *link, bool foreign) {
-        Route *route;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-
-        r = link_mark_routes(link, foreign);
-        if (r < 0)
-                return r;
-
+        /* Finally, remove all marked routes. */
         SET_FOREACH(route, link->manager->routes) {
                 if (!route_is_marked(route))
                         continue;
@@ -1544,25 +1553,35 @@ int link_drop_routes(Link *link, bool foreign) {
         return r;
 }
 
-int link_foreignize_routes(Link *link) {
-        Route *route;
-        int r;
-
+void link_forget_routes(Link *link) {
         assert(link);
-        assert(link->manager);
+        assert(link->ifindex > 0);
+        assert(!FLAGS_SET(link->flags, IFF_UP));
 
-        r = link_mark_routes(link, /* foreign = */ false);
-        if (r < 0)
-                return r;
+        /* When an interface went down, IPv4 non-local routes bound to the interface are silently removed by
+         * the kernel, without any notifications. Let's forget them in that case. Otherwise, when the link
+         * goes up later, the configuration order of routes may be confused by the nonexistent routes.
+         * See issue #35047. */
 
+        Route *route;
         SET_FOREACH(route, link->manager->routes) {
-                if (!route_is_marked(route))
+                // TODO: handle multipath routes
+                if (route->nexthop.ifindex != link->ifindex)
+                        continue;
+                if (route->family != AF_INET)
+                        continue;
+                // TODO: check RTN_NAT and RTN_XRESOLVE
+                if (!IN_SET(route->type, RTN_UNICAST, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
                         continue;
 
-                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
-        }
+                Request *req;
+                if (route_get_request(link->manager, route, &req) >= 0)
+                        route_enter_removed(req->userdata);
 
-        return 0;
+                route_enter_removed(route);
+                log_route_debug(route, "Forgetting silently removed", link->manager);
+                route_detach(route);
+        }
 }
 
 int network_add_ipv4ll_route(Network *network) {

@@ -502,6 +502,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
+        SD_BUS_PROPERTY("ManagedOOMMemoryPressureDurationUSec", "t", bus_property_get_usec, offsetof(CGroupContext, moom_mem_pressure_duration_usec), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
@@ -1977,11 +1978,12 @@ int bus_cgroup_set_property(
                         prefixes = streq(name, "IPAddressAllow") ? &c->ip_address_allow : &c->ip_address_deny;
                         reduced = streq(name, "IPAddressAllow") ? &c->ip_address_allow_reduced : &c->ip_address_deny_reduced;
 
+                        fputs(name, f);
+                        fputs("=\n", f);
+
                         if (n == 0) {
                                 *reduced = true;
                                 *prefixes = set_free(*prefixes);
-                                fputs(name, f);
-                                fputs("=\n", f);
                         } else {
                                 *reduced = false;
 
@@ -1990,7 +1992,7 @@ int bus_cgroup_set_property(
                                         return r;
 
                                 const struct in_addr_prefix *p;
-                                SET_FOREACH(p, new_prefixes)
+                                SET_FOREACH(p, *prefixes)
                                         fprintf(f, "%s=%s\n", name,
                                                 IN_ADDR_PREFIX_TO_STRING(p->family, &p->address, p->prefixlen));
                         }
@@ -2045,6 +2047,36 @@ int bus_cgroup_set_property(
                         unit_write_settingf(u, flags, name,
                                             "ManagedOOMMemoryPressureLimit=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
                                             PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(v)));
+                }
+
+                if (c->moom_mem_pressure == MANAGED_OOM_KILL)
+                        (void) manager_varlink_send_managed_oom_update(u);
+
+                return 1;
+        }
+
+        if (streq(name, "ManagedOOMMemoryPressureDurationUSec")) {
+                uint64_t t;
+
+                if (!UNIT_VTABLE(u)->can_set_managed_oom)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set %s for this unit type", name);
+
+                r = sd_bus_message_read(message, "t", &t);
+                if (r < 0)
+                        return r;
+
+                if (t < 1 * USEC_PER_SEC)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= must be at least 1s, got %s", name,
+                                                 FORMAT_TIMESPAN(t, USEC_PER_SEC));
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->memory_pressure_threshold_usec = t;
+                        if (c->memory_pressure_threshold_usec == USEC_INFINITY)
+                                unit_write_setting(u, flags, name, "ManagedOOMMemoryPressureDurationSec=");
+                        else
+                                unit_write_settingf(u, flags, name,
+                                                    "ManagedOOMMemoryPressureDurationSec=%s",
+                                                    FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
                 }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)

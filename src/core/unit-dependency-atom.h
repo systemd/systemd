@@ -56,35 +56,33 @@ typedef enum UnitDependencyAtom {
         /* If our start job succeeded but the unit is inactive then (think: oneshot units), propagate this as
          * failure to the other unit. */
         UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE = UINT64_C(1) << 17,
-        /* When putting together a transaction, propagate JOB_STOP from our unit to the other. */
+        /* When putting together a transaction, propagate JOB_STOP/JOB_RESTART from our unit to the other. */
         UNIT_ATOM_PROPAGATE_STOP                      = UINT64_C(1) << 18,
         /* Like UNIT_ATOM_PROPAGATE_STOP, but enqueues a restart job if there's already a start job (avoids
          * job type conflict). */
         UNIT_ATOM_PROPAGATE_STOP_GRACEFUL             = UINT64_C(1) << 19,
-        /* When putting together a transaction, propagate JOB_RESTART from our unit to the other. */
-        UNIT_ATOM_PROPAGATE_RESTART                   = UINT64_C(1) << 20,
 
         /* Add the other unit to the default target dependency queue */
-        UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE = UINT64_C(1) << 21,
+        UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE = UINT64_C(1) << 20,
         /* Recheck default target deps on other units (which are target units) */
-        UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES         = UINT64_C(1) << 22,
+        UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES         = UINT64_C(1) << 21,
 
         /* The remaining atoms map 1:1 to the equally named high-level deps */
-        UNIT_ATOM_ON_FAILURE                          = UINT64_C(1) << 23,
-        UNIT_ATOM_ON_SUCCESS                          = UINT64_C(1) << 24,
-        UNIT_ATOM_ON_FAILURE_OF                       = UINT64_C(1) << 25,
-        UNIT_ATOM_ON_SUCCESS_OF                       = UINT64_C(1) << 26,
-        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 27,
-        UNIT_ATOM_AFTER                               = UINT64_C(1) << 28,
-        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 29,
-        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 30,
-        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 31,
-        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 32,
-        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 33,
-        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 34,
-        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 35,
-        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 36,
-        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 37) - 1,
+        UNIT_ATOM_ON_FAILURE                          = UINT64_C(1) << 22,
+        UNIT_ATOM_ON_SUCCESS                          = UINT64_C(1) << 23,
+        UNIT_ATOM_ON_FAILURE_OF                       = UINT64_C(1) << 24,
+        UNIT_ATOM_ON_SUCCESS_OF                       = UINT64_C(1) << 25,
+        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 26,
+        UNIT_ATOM_AFTER                               = UINT64_C(1) << 27,
+        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 28,
+        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 29,
+        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 30,
+        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 31,
+        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 32,
+        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 33,
+        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 34,
+        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 35,
+        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 36) - 1,
         _UNIT_DEPENDENCY_ATOM_INVALID                 = -EINVAL,
 } UnitDependencyAtom;
 

@@ -7,7 +7,7 @@
 #include "dropin.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "generator.h"
 #include "initrd-util.h"
 #include "parse-util.h"
@@ -206,7 +206,7 @@ static int process_unit_credentials(const char *credentials_dir) {
                         if (!p)
                                 return log_oom();
 
-                        r = write_string_file_atomic_label(p, d);
+                        r = write_string_file(p, d, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to write unit file '%s' from credential '%s', ignoring: %m",
                                                   unit, de->d_name);

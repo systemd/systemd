@@ -23,6 +23,9 @@ test_directory() {
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}=zzz:xxx zzz:xxx2" -p TemporaryFileSystem="${path}" bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -47,6 +50,9 @@ test_directory() {
                 -p TemporaryFileSystem="${path}" -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -L "${path}"/zzz
     test -d "${path}"/private/zzz
@@ -70,6 +76,9 @@ test_directory() {
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}=zzz:xxx zzz:xxx2" -p TemporaryFileSystem="${path}" bash -c "test -f ${path}/xxx/test && test -f ${path}/xxx2/test"
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz:xxx -p TemporaryFileSystem="${path}":ro test -f "${path}"/xxx/test
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
+    systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -84,6 +93,8 @@ test_directory() {
 
     test -f "${path}"/zzz/test
     test ! -e "${path}"/zzz/test-missing
+    test -d "${path}"/www
+    test ! -e "${path}"/www/test-missing
 
     # Exercise the unit parsing paths too
     cat >/run/systemd/system/testservice-34.service <<EOF
@@ -91,10 +102,13 @@ test_directory() {
 Type=oneshot
 TemporaryFileSystem=${path}
 RuntimeDirectoryPreserve=yes
-${directory}=zzz:x\:yz zzz:x\:yz2
+${directory}=zzz:x\:yz zzz:x\:yz2 www::ro www:ro:ro
 ExecStart=test -f ${path}/x:yz2/test
 ExecStart=test -f ${path}/x:yz/test
 ExecStart=test -f ${path}/zzz/test
+ExecStart=test -d ${path}/www
+ExecStart=test -L ${path}/ro
+ExecStart=sh -c "! test -w ${path}/www"
 EOF
     systemctl daemon-reload
     systemctl start --wait testservice-34.service
@@ -148,12 +162,82 @@ EOF
     systemctl start testservice-34-check-writable.service
 }
 
+test_check_idmapped_mounts() {
+    rm -rf /var/lib/testidmapped /var/lib/private/testidmapped
+
+    cat >/run/systemd/system/testservice-34-check-idmapped.service <<\EOF
+[Unit]
+Description=Check id-mapped directories when DynamicUser=yes with StateDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+DynamicUser=yes
+PrivateUsers=yes
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+UMask=0000
+StateDirectory=testidmapped:sampleservice
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    touch /var/lib/sampleservice/testfile; \
+    [[ $(awk "NR==2 {print \$1}" /proc/self/uid_map) == $(stat -c "%%u" /var/lib/private/testidmapped/testfile) ]]; \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-idmapped.service
+
+    [[ $(stat -c "%u" /var/lib/private/testidmapped/testfile) == 65534 ]]
+}
+
+test_check_idmapped_mounts_root() {
+    rm -rf /var/lib/testidmapped /var/lib/private/testidmapped
+
+    cat >/run/systemd/system/testservice-34-check-idmapped.service <<\EOF
+[Unit]
+Description=Check id-mapped directories when DynamicUser=no with StateDirectory
+
+[Service]
+# Relevant only for sanitizer runs
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+Type=oneshot
+
+MountAPIVFS=yes
+User=root
+DynamicUser=no
+PrivateUsers=no
+TemporaryFileSystem=/run /var/opt /var/lib /vol
+UMask=0000
+StateDirectory=testidmapped:sampleservice
+ExecStart=/bin/bash -c ' \
+    set -eux; \
+    set -o pipefail; \
+    touch /var/lib/sampleservice/testfile; \
+    [[ 0 == $(stat -c "%%u" /var/lib/testidmapped/testfile) ]]; \
+'
+EOF
+
+    systemctl daemon-reload
+    systemctl start testservice-34-check-idmapped.service
+
+    [[ $(stat -c "%u" /var/lib/testidmapped/testfile) == 0 ]]
+}
+
 test_directory "StateDirectory" "/var/lib"
 test_directory "RuntimeDirectory" "/run"
 test_directory "CacheDirectory" "/var/cache"
 test_directory "LogsDirectory" "/var/log"
 
 test_check_writable
+
+if systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
+    test_check_idmapped_mounts
+    test_check_idmapped_mounts_root
+fi
 
 systemd-analyze log-level info
 

@@ -383,6 +383,10 @@ typedef struct UserRecord {
         char **capability_bounding_set;
         char **capability_ambient_set;
 
+        char **self_modifiable_fields; /* fields a user can change about themself w/o auth */
+        char **self_modifiable_blobs;
+        char **self_modifiable_privileged;
+
         sd_json_variant *json;
 } UserRecord;
 
@@ -431,6 +435,11 @@ uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
 int user_record_languages(UserRecord *h, char ***ret);
 
+const char **user_record_self_modifiable_fields(UserRecord *h);
+const char **user_record_self_modifiable_blobs(UserRecord *h);
+const char **user_record_self_modifiable_privileged(UserRecord *h);
+int user_record_self_changes_allowed(UserRecord *current, UserRecord *new);
+
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
 bool user_record_equal(UserRecord *a, UserRecord *b);
@@ -461,6 +470,24 @@ int user_group_record_mangle(sd_json_variant *v, UserRecordLoadFlags load_flags,
 
 #define BLOB_DIR_MAX_SIZE (UINT64_C(64) * U64_MB)
 int suitable_blob_filename(const char *name);
+
+typedef struct UserDBMatch {
+        char **fuzzy_names;
+        uint64_t disposition_mask;
+        union {
+                uid_t uid_min;
+                gid_t gid_min;
+        };
+        union {
+                uid_t uid_max;
+                gid_t gid_max;
+        };
+} UserDBMatch;
+
+#define USER_DISPOSITION_MASK_MAX ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
+
+bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
+int user_record_match(UserRecord *u, const UserDBMatch *match);
 
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;

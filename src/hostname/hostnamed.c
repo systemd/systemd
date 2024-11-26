@@ -19,7 +19,6 @@
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -503,7 +502,7 @@ try_devicetree:
                 return NULL;
         }
 
-        /* Note that the Devicetree specification uses the very same vocabulary
+        /* Note that the DeviceTree specification uses the very same vocabulary
          * of chassis types as we do, hence we do not need to translate these types:
          *
          * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
@@ -619,7 +618,7 @@ static int context_write_data_static_hostname(Context *c) {
                 return 0;
         }
 
-        r = write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        r = write_string_file("/etc/hostname", c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return r;
 

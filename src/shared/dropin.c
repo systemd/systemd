@@ -12,7 +12,7 @@
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -31,14 +31,11 @@ int drop_in_file(
                 char **ret_unit_dir,
                 char **ret_path) {
 
-        char prefix[DECIMAL_STR_MAX(unsigned) + 1] = {};
-        _cleanup_free_ char *n = NULL, *unit_dir = NULL, *path = NULL;
+        _cleanup_free_ char *n = NULL, *unit_dir = NULL;
 
         assert(dir);
         assert(unit);
         assert(name);
-        assert(ret_unit_dir);
-        assert(ret_path);
 
         n = xescape(name, "/.");
         if (!n)
@@ -46,16 +43,28 @@ int drop_in_file(
         if (!filename_is_valid(n))
                 return -EINVAL;
 
-        if (level != UINT_MAX)
-                xsprintf(prefix, "%u-", level);
+        if (ret_unit_dir || ret_path) {
+                unit_dir = path_join(dir, strjoina(unit, ".d"));
+                if (!unit_dir)
+                        return -ENOMEM;
+        }
 
-        unit_dir = path_join(dir, strjoina(unit, ".d"));
-        path = strjoin(unit_dir, "/", prefix, n, ".conf");
-        if (!unit_dir || !path)
-                return -ENOMEM;
+        if (ret_path) {
+                char prefix[DECIMAL_STR_MAX(unsigned) + 1] = {};
 
-        *ret_unit_dir = TAKE_PTR(unit_dir);
-        *ret_path = TAKE_PTR(path);
+                if (level != UINT_MAX)
+                        xsprintf(prefix, "%u-", level);
+
+                _cleanup_free_ char *path = strjoin(unit_dir, "/", prefix, n, ".conf");
+                if (!path)
+                        return -ENOMEM;
+
+                *ret_path = TAKE_PTR(path);
+        }
+
+        if (ret_unit_dir)
+                *ret_unit_dir = TAKE_PTR(unit_dir);
+
         return 0;
 }
 
@@ -66,7 +75,7 @@ int write_drop_in(
                 const char *name,
                 const char *data) {
 
-        _cleanup_free_ char *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(dir);
@@ -74,12 +83,11 @@ int write_drop_in(
         assert(name);
         assert(data);
 
-        r = drop_in_file(dir, unit, level, name, &p, &q);
+        r = drop_in_file(dir, unit, level, name, /* ret_unit_dir= */ NULL, &p);
         if (r < 0)
                 return r;
 
-        (void) mkdir_p(p, 0755);
-        return write_string_file_atomic_label(q, data);
+        return write_string_file(p, data, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
 }
 
 int write_drop_in_format(

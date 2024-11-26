@@ -504,6 +504,10 @@ size_t char16_strlen(const char16_t *s) {
         return n;
 }
 
+size_t char16_strsize(const char16_t *s) {
+        return s ? (char16_strlen(s) + 1) * sizeof(*s) : 0;
+}
+
 /* expected size used to encode one unicode char */
 static int utf8_unichar_to_encoded_len(char32_t unichar) {
 

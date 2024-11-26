@@ -56,6 +56,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
 
 const char* network_config_source_to_string(NetworkConfigSource s) _const_;
+NetworkConfigSource network_config_source_from_string(const char* s) _pure_;
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
 

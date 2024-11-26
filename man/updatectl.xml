@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="updatectl" conditional='ENABLE_SYSUPDATE'
+<refentry id="updatectl" conditional='ENABLE_SYSUPDATED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -90,6 +90,35 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>features</command> [<replaceable>FEATURE</replaceable>]</term>
+
+        <listitem><para>When no <replaceable>FEATURE</replaceable> is specified, this command lists all
+        optional features.
+        When a <replaceable>FEATURE</replaceable> is specified, this command lists all known information
+        about that feature.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>enable</command> <replaceable>FEATURE</replaceable>…</term>
+        <term><command>disable</command> <replaceable>FEATURE</replaceable>…</term>
+
+        <listitem><para>These commands enable or disable optional features.
+        See <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        These commands always operate on the host system.</para>
+
+        <para>By default, these commands will only change the system's configuration by creating or deleting
+        drop-in files; they will not immediately download the enabled features, or clean up after the
+        disabled ones.
+        Enabled features will be downloaded and installed the next time the target is updated, and disabled
+        transfers will be cleaned up the next time the target is updated or vacuumed.
+        Pass <option>--now</option> to immediately apply these changes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -107,6 +136,9 @@
         <listitem><para>When used with the <command>update</command> command, reboots the system
         after updates finish applying. If any update fails, the system will not reboot.</para>
 
+        <para>When used with the <command>enable</command> or <command>disable</command> commands and the
+        <option>--now</option> flag, reboots the system after download or clean-up finish applying.</para>
+
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
@@ -117,6 +149,16 @@
         metadata from the network. This makes the <command>list</command> command only return
         information that is available locally (i.e. about versions already installed on the system).
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem><para>When used with the <command>enable</command> command, downloads and installs the
+        enabled features. When used with the <command>disable</command> command, deletes all resources
+        downloaded by the disabled features.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>

@@ -27,6 +27,9 @@ static void wlan_init(NetDev *netdev) {
 static int wlan_get_wiphy(NetDev *netdev, Wiphy **ret) {
         WLan *w = WLAN(netdev);
 
+        if (!netdev_is_managed(netdev))
+                return -ENOENT; /* Already detached, due to e.g. reloading .netdev files. */
+
         if (w->wiphy_name)
                 return wiphy_get_by_name(netdev->manager, w->wiphy_name, ret);
 

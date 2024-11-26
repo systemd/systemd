@@ -417,7 +417,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--num-matches=<replaceable>NUMBER</replaceable></option></term>
+        <term><option>--limit-messages=<replaceable>NUMBER</replaceable></option></term>
+        <term><option>-N <replaceable>NUMBER</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>monitor</command> command, if enabled will make

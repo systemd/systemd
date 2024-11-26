@@ -32,6 +32,10 @@ static inline int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         return -EOPNOTSUPP;
 }
 
+static inline int efi_stub_get_device_part_uuid(sd_id128_t *ret) {
+        return -EOPNOTSUPP;
+}
+
 static inline int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
         return -EOPNOTSUPP;
 }

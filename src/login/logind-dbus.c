@@ -29,7 +29,6 @@
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -311,7 +310,14 @@ static int property_get_inhibited(
         assert(bus);
         assert(reply);
 
-        w = manager_inhibit_what(m, /* block= */ streq(property, "BlockInhibited"));
+        if (streq(property, "BlockInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_BLOCK);
+        else if (streq(property, "BlockWeakInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_BLOCK_WEAK);
+        else if (streq(property, "DelayInhibited"))
+                w = manager_inhibit_what(m, INHIBIT_DELAY);
+        else
+                assert_not_reached();
 
         return sd_bus_message_append(reply, "s", inhibit_what_to_string(w));
 }
@@ -1000,7 +1006,7 @@ static int create_session(
                                          "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.",
                                          m->sessions_max);
 
-        (void) audit_session_from_pid(leader.pid, &audit_id);
+        (void) audit_session_from_pid(&leader, &audit_id);
         if (audit_session_is_valid(audit_id)) {
                 /* Keep our session IDs and the audit session IDs in sync */
 
@@ -1593,7 +1599,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *rule = NULL, *file = NULL;
+        _cleanup_free_ char *file = NULL;
         const char *id_for_seat;
         int r;
 
@@ -1614,11 +1620,10 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0)
-                return -ENOMEM;
-
-        (void) mkdir_p_label("/etc/udev/rules.d", 0755);
-        r = write_string_file_atomic_label(file, rule);
+        r = write_string_filef(
+                        file,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL,
+                        "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat);
         if (r < 0)
                 return r;
 
@@ -2051,6 +2056,7 @@ static int verify_shutdown_creds(
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked, interactive;
+        Inhibitor *offending = NULL;
         uid_t uid;
         int r;
 
@@ -2071,7 +2077,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, /* block= */ true, NULL, false, true, uid, &offending);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2090,13 +2096,21 @@ static int verify_shutdown_creds(
         }
 
         if (blocked) {
-                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
+                PolkitFlags polkit_flags = 0;
+
+                /* With a strong inhibitor, if the skip flag is not set, reject outright.
+                 * With a weak inhibitor, if root is asking and the root flag is set, reject outright.
+                 * All else, check polkit first. */
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
+                    (offending->mode != INHIBIT_BLOCK_WEAK ||
+                     (uid == 0 && FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS))))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
                                                  "Access denied due to active block inhibitor");
 
                 /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
-                 * by polkit */
-                PolkitFlags polkit_flags = POLKIT_ALWAYS_QUERY;
+                 * by polkit, unless a weak blocker is used, in which case it will be authorized. */
+                if (offending->mode != INHIBIT_BLOCK_WEAK)
+                        polkit_flags |= POLKIT_ALWAYS_QUERY;
 
                 if (interactive)
                         polkit_flags |= POLKIT_ALLOW_INTERACTIVE;
@@ -2658,11 +2672,11 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                         if (r < 0) {
                                 if (r == -ENOENT)
                                         return sd_bus_error_set(error,
-                                                        BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                        "No upcoming maintenance window scheduled");
-                                return sd_bus_error_setf(error,
-                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                "Failed to determine next maintenance window");
+                                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
+                                                                "No upcoming maintenance window scheduled");
+
+                                return sd_bus_error_set_errnof(error, r,
+                                                               "Failed to determine next maintenance window: %m");
                         }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
@@ -3272,12 +3286,12 @@ static int method_set_reboot_to_boot_loader_menu(
 
         if (use_efi) {
                 if (x == UINT64_MAX)
-                        r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), NULL, 0);
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), NULL, 0);
                 else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
                         xsprintf(buf, "%" PRIu64, DIV_ROUND_UP(x, USEC_PER_SEC)); /* second granularity */
 
-                        r = efi_set_variable_string(EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot), buf);
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"), buf);
                 }
                 if (r < 0)
                         return r;
@@ -3286,11 +3300,9 @@ static int method_set_reboot_to_boot_loader_menu(
                         if (unlink("/run/systemd/reboot-to-boot-loader-menu") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-
-                        xsprintf(buf, "%" PRIu64, x); /* μs granularity */
-
-                        r = write_string_file_atomic_label("/run/systemd/reboot-to-boot-loader-menu", buf);
+                        r = write_string_filef("/run/systemd/reboot-to-boot-loader-menu",
+                                               WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                               "%" PRIu64, x); /* μs granularity */
                         if (r < 0)
                                 return r;
                 }
@@ -3469,9 +3481,9 @@ static int method_set_reboot_to_boot_loader_entry(
         if (use_efi) {
                 if (isempty(v))
                         /* Delete item */
-                        r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderEntryOneShot), NULL, 0);
+                        r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), NULL, 0);
                 else
-                        r = efi_set_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), v);
+                        r = efi_set_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), v);
                 if (r < 0)
                         return r;
         } else {
@@ -3479,7 +3491,7 @@ static int method_set_reboot_to_boot_loader_entry(
                         if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        r = write_string_file_atomic_label("/run/systemd/reboot-boot-to-loader-entry", v);
+                        r = write_string_file("/run/systemd/reboot-boot-to-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
                         if (r < 0)
                                 return r;
                 }
@@ -3644,7 +3656,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                                          "Invalid mode specification %s", mode);
 
         /* Delay is only supported for shutdown/sleep */
-        if (IN_SET(mm, INHIBIT_DELAY, INHIBIT_DELAY_WEAK) && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Delay inhibitors only supported for shutdown and sleep");
 
@@ -3749,6 +3761,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BlockInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("BlockWeakInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DelayInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("InhibitDelayMaxUSec", "t", NULL, offsetof(Manager, inhibit_delay_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UserStopDelayUSec", "t", NULL, offsetof(Manager, user_stop_delay), SD_BUS_VTABLE_PROPERTY_CONST),

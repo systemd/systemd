@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -1877,7 +1878,7 @@ _public_ int sd_json_variant_format(sd_json_variant *v, sd_json_format_flags_t f
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (flags & SD_JSON_FORMAT_OFF)
+        if (!sd_json_format_enabled(flags))
                 return -ENOEXEC;
 
         f = memstream_init(&m);
@@ -3867,22 +3868,13 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                         l = va_arg(ap, char **);
 
-                        _cleanup_strv_free_ char **el = NULL;
-                        STRV_FOREACH_PAIR(x, y, l) {
-                                char *n = NULL;
+                        if (current->n_suppress == 0) {
+                                _cleanup_strv_free_ char **el = NULL;
 
-                                n = strjoin(*x, "=", *y);
-                                if (!n) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
-
-                                r = strv_consume(&el, n);
+                                r = strv_env_get_merged(l, &el);
                                 if (r < 0)
                                         goto finish;
-                        }
 
-                        if (current->n_suppress == 0) {
                                 r = sd_json_variant_new_array_strv(&add, el);
                                 if (r < 0)
                                         goto finish;
@@ -4541,7 +4533,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_STRV_NON_EMPTY: {
+                case _JSON_BUILD_PAIR_STRV_NON_EMPTY:
+                case _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY: {
                         const char *n;
                         char **l;
 
@@ -4554,11 +4547,19 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
+                                _cleanup_strv_free_ char **el = NULL;
+
+                                if (command == _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY) {
+                                        r = strv_env_get_merged(l, &el);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_array_strv(&add_more, l);
+                                r = sd_json_variant_new_array_strv(&add_more, el ?: l);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -5614,9 +5615,7 @@ _public_ int sd_json_dispatch_id128(const char *name, sd_json_variant *variant, 
 }
 
 _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int *signo = userdata;
-        uint32_t k;
-        int r;
+        int *signo = ASSERT_PTR(userdata), r;
 
         assert_return(variant, -EINVAL);
 
@@ -5625,7 +5624,8 @@ _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant,
                 return 0;
         }
 
-        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        int k;
+        r = sd_json_dispatch_int(name, variant, flags, &k);
         if (r < 0)
                 return r;
 

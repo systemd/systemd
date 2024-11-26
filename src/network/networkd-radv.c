@@ -645,6 +645,22 @@ int link_request_radv(Link *link) {
         return 0;
 }
 
+int link_drop_radv_config(Link *link, Network *network) {
+        int ret = 0;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->network == network)
+                return 0; /* .network file is unchanged. It is not necessary to reconfigure the server. */
+
+        // FIXME: check detailed settings and do not stop if nothing changed.
+        // FIXME: save dynamic prefixes acquired by DHCP-PD.
+        ret = sd_radv_stop(link->radv);
+        link->radv = sd_radv_unref(link->radv);
+        return ret;
+}
+
 int radv_start(Link *link) {
         int r;
 

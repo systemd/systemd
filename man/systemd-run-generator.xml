@@ -37,7 +37,7 @@
     <varname>FailureAction=exit</varname> configured by default, thus ensuring that the system is shut down as soon as
     the command completes. The exit status of the command line is propagated to the invoking container manager, if
     this applies (which might propagate this further, to the calling shell — e.g.
-    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry> does this). If
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> does this). If
     this option is used multiple times the unit file will contain multiple <varname>ExecStart=</varname> lines, to
     execute all commands in order. The command is started as regular service, i.e. with
     <varname>DefaultDependencies=</varname> on. </para>
@@ -55,7 +55,7 @@
     <title>Example</title>
 
     <para>Use a command like the following to add a user to the user database inside a container run with
-    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry>:</para>
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
 
     <programlisting># systemd-nspawn -D mycontainer -b systemd.run='"adduser test"'</programlisting>
     <para>(Note the requirement for double quoting in the command line above. The first level of quoting ('') is
@@ -72,7 +72,7 @@
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>

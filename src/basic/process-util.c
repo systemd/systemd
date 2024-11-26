@@ -35,6 +35,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
@@ -101,8 +102,8 @@ int pid_get_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
-        assert(ret);
         assert(pid >= 0);
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
@@ -141,6 +142,9 @@ int pidref_get_comm(const PidRef *pid, char **ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_comm(pid->pid, &comm);
         if (r < 0)
@@ -288,6 +292,9 @@ int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlag
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         r = pid_get_cmdline(pid->pid, max_columns, flags, &s);
         if (r < 0)
                 return r;
@@ -329,6 +336,9 @@ int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char *
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_cmdline_strv(pid->pid, flags, &args);
         if (r < 0)
@@ -476,6 +486,9 @@ int pidref_is_kernel_thread(const PidRef *pid) {
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         result = pid_is_kernel_thread(pid->pid);
         if (result < 0)
                 return result;
@@ -592,6 +605,9 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_uid(pid->pid, &uid);
         if (r < 0)
@@ -792,6 +808,9 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         r = pid_get_start_time(pid->pid, ret ? &t : NULL);
         if (r < 0)
@@ -1092,6 +1111,9 @@ int pidref_is_my_child(const PidRef *pid) {
         if (!pidref_is_set(pid))
                 return -ESRCH;
 
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
         result = pid_is_my_child(pid->pid);
         if (result < 0)
                 return result;
@@ -1126,6 +1148,9 @@ int pidref_is_unwaited(const PidRef *pid) {
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
 
         if (pid->pid == 1 || pidref_is_self(pid))
                 return true;
@@ -1167,6 +1192,9 @@ int pidref_is_alive(const PidRef *pidref) {
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
         result = pid_is_alive(pidref->pid);
         if (result < 0) {
@@ -1459,8 +1487,8 @@ int safe_fork_full(
         bool block_signals = false, block_all = false, intermediary = false;
         int prio, r;
 
-        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
-        assert(!FLAGS_SET(flags, FORK_DETACH|FORK_WAIT));
+        assert(!FLAGS_SET(flags, FORK_DETACH) ||
+               (!ret_pid && (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
@@ -1521,11 +1549,12 @@ int safe_fork_full(
                 }
         }
 
-        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS|FORK_NEW_NETNS)) != 0)
+        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS)) != 0)
                 pid = raw_clone(SIGCHLD|
                                 (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
                                 (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0) |
-                                (FLAGS_SET(flags, FORK_NEW_NETNS) ? CLONE_NEWNET : 0));
+                                (FLAGS_SET(flags, FORK_NEW_NETNS) ? CLONE_NEWNET : 0) |
+                                (FLAGS_SET(flags, FORK_NEW_PIDNS) ? CLONE_NEWPID : 0));
         else
                 pid = fork();
         if (pid < 0)
@@ -1813,6 +1842,9 @@ int namespace_fork(
 int set_oom_score_adjust(int value) {
         char t[DECIMAL_STR_MAX(int)];
 
+        if (!oom_score_adjust_is_valid(value))
+                return -EINVAL;
+
         xsprintf(t, "%i", value);
 
         return write_string_file("/proc/self/oom_score_adj", t,
@@ -1829,11 +1861,16 @@ int get_oom_score_adjust(int *ret) {
 
         delete_trailing_chars(t, WHITESPACE);
 
-        assert_se(safe_atoi(t, &a) >= 0);
-        assert_se(oom_score_adjust_is_valid(a));
+        r = safe_atoi(t, &a);
+        if (r < 0)
+                return r;
+
+        if (!oom_score_adjust_is_valid(a))
+                return -ENODATA;
 
         if (ret)
                 *ret = a;
+
         return 0;
 }
 
@@ -2029,7 +2066,7 @@ int posix_spawn_wrapper(
                 const char *cgroup,
                 PidRef *ret_pidref) {
 
-        short flags = POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF;
+        short flags = POSIX_SPAWN_SETSIGMASK;
         posix_spawnattr_t attr;
         sigset_t mask;
         int r;
@@ -2237,3 +2274,18 @@ static const char* const sched_policy_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+
+_noreturn_ void report_errno_and_exit(int errno_fd, int error) {
+        int r;
+
+        if (error >= 0)
+                _exit(EXIT_SUCCESS);
+
+        assert(errno_fd >= 0);
+
+        r = loop_write(errno_fd, &error, sizeof(error));
+        if (r < 0)
+                log_debug_errno(r, "Failed to write errno to errno_fd=%d: %m", errno_fd);
+
+        _exit(EXIT_FAILURE);
+}

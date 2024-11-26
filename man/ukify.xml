@@ -100,10 +100,12 @@
       the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
       policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
       <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
-      describing separate boot phases. If <varname>SigningEngine=</varname>/<option>--signing-engine=</option>
-      is specified, then the private keys arguments will be passed verbatim to OpenSSL as URIs, and the public
-      key arguments will be loaded as X.509 certificates, so that signing can be performed with an OpenSSL
-      engine.</para>
+      describing separate boot phases. If one of
+      <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
+      <varname>SigningProvider=</varname>/<option>--signing-provider=</option> is specified, then the private
+      key arguments will be passed verbatim to OpenSSL as URIs, and the public key arguments will be loaded
+      as X.509 certificates, so that signing can be performed with an OpenSSL engine or provider
+      respectively.</para>
 
       <para>If a SecureBoot signing key is provided via the
       <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
@@ -218,7 +220,8 @@
           <para>For the <command>inspect</command> verb, the second syntax is used.
           The section <replaceable>NAME</replaceable> will be inspected (if found).
           If the second argument is <literal>text</literal>, the contents will be printed.
-          If the third argument is given, the contents will be saved to file <replaceable>PATH</replaceable>.
+          If the third argument is given, the contents will be saved to the file named
+          <replaceable>PATH</replaceable>.
           </para>
 
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
@@ -391,9 +394,9 @@
           <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
           whole groups of UKIs or addons with a single, static policy update that does not take space in
           DBX/MOKX. If not specified manually, a default metadata entry consisting of
-          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
+          <programlisting>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</programlisting>
           for UKIs and
-          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
+          <programlisting>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</programlisting>
           for addons will be used, to ensure it is always possible to revoke them. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
           </para>
@@ -440,9 +443,9 @@
           <term><varname>SecureBootSigningTool=<replaceable>SIGNER</replaceable></varname></term>
           <term><option>--signtool=<replaceable>SIGNER</replaceable></option></term>
 
-          <listitem><para>Whether to use <literal>sbsign</literal> or <literal>pesign</literal>.
-          Depending on this choice, different parameters are required in order to sign an image.
-          Defaults to <literal>sbsign</literal>.</para>
+          <listitem><para>Whether to use <literal>sbsign</literal>, <literal>pesign</literal>, or
+          <literal>systemd-sbsign</literal>. Depending on this choice, different parameters are required in
+          order to sign an image. Defaults to <literal>sbsign</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
@@ -452,8 +455,9 @@
           <term><option>--secureboot-private-key=<replaceable>SB_KEY</replaceable></option></term>
 
           <listitem><para>A path to a private key to use for signing of the resulting binary. If the
-          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also be
-          an engine-specific designation. This option is required by
+          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
+          <varname>SigningProvider=</varname>/<option>--signing-provider=</option> option is used, this may
+          also be an engine or provider specific designation. This option is required by
           <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -464,8 +468,9 @@
           <term><option>--secureboot-certificate=<replaceable>SB_CERT</replaceable></option></term>
 
           <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
-          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also
-          be an engine-specific designation. This option is required by
+          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
+          <varname>SigningProvider=</varname>/<option>--signing-provider=</option> option is used, this may
+          also be an engine or provider specific designation. This option is required by
           <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -506,12 +511,32 @@
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
-          <listitem><para>An "engine" for signing of the resulting binary. This option is currently passed
-          verbatim to the <option>--engine=</option> option of
-          <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          <listitem><para>An OpenSSL engine to be used for signing the resulting binary and PCR measurements.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SigningProvider=<replaceable>PROVIDER</replaceable></varname></term>
+          <term><option>--signing-provider=<replaceable>PROVIDER</replaceable></option></term>
+
+          <listitem><para>An OpenSSL provider to be used for signing the resulting binary and PCR
+          measurements. This option can only be used when using <command>systemd-sbsign</command> as the
+          signing tool.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>CertificateProvider=<replaceable>PROVIDER</replaceable></varname></term>
+          <term><option>--certificate-provider=<replaceable>PROVIDER</replaceable></option></term>
+
+          <listitem><para>An OpenSSL provider to be used for loading the certificate used to sign the
+          resulting binary and PCR measurements. This option can only be used when using
+          <command>systemd-sbsign</command> as the signing tool.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -593,7 +618,7 @@
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw'
-      </programlisting>
+</programlisting>
 
       <para>This creates an unsigned UKI <filename>./vmlinuz.unsigned.efi</filename>.</para>
     </example>
@@ -619,7 +644,7 @@
       --secureboot-certificate=sb.cert \
       --sign-kernel \
       --cmdline='quiet rw rhgb'
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed UKI <filename index='false'>./vmlinuz.signed.efi</filename>.
       The initrd section contains two concatenated parts, <filename index='false'>early_cpio</filename>
@@ -663,7 +688,7 @@ Phases=enter-initrd:leave-initrd
 $ ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
-      </programlisting>
+</programlisting>
 
       <para>One "initrd" (<filename index='false'>early_cpio</filename>) is specified in the config file, and
       the other initrd (<filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>) is specified
@@ -681,7 +706,7 @@ $ ukify -c ukify.conf build \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
       uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
       --output=debug.addon.efi
-      </programlisting>
+</programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
       <literal>debug</literal> with SBAT metadata referring to the owner of the addon.</para>
@@ -725,7 +750,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
       <programlisting>$ ukify build \
       --profile='TITLE=Base' \
       --output=profile0.efi
-      </programlisting>
+</programlisting>
 
       <para>Add a second profile (@1):</para>
 
@@ -734,7 +759,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
 ID=storagetm' \
       --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
       --output=profile1.efi
-      </programlisting>
+</programlisting>
 
       <para>Add a third profile (@2):</para>
 
@@ -743,7 +768,7 @@ ID=storagetm' \
 ID=factory-reset' \
       --cmdline='quiet rw systemd.unit=factory-reset.target' \
       --output=profile2.efi
-      </programlisting>
+</programlisting>
 
       <para>Then, create a UKI and include all the generated profiles:</para>
 
@@ -755,7 +780,7 @@ ID=factory-reset' \
       --join-profile=profile1.efi \
       --join-profile=profile2.efi \
       --output=base.efi
-      </programlisting>
+</programlisting>
 
       <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
     </example>
