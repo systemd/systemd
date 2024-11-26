@@ -394,9 +394,9 @@
           <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
           whole groups of UKIs or addons with a single, static policy update that does not take space in
           DBX/MOKX. If not specified manually, a default metadata entry consisting of
-          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
+          <programlisting>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</programlisting>
           for UKIs and
-          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
+          <programlisting>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</programlisting>
           for addons will be used, to ensure it is always possible to revoke them. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
           </para>

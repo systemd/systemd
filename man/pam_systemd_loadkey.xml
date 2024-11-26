@@ -28,7 +28,9 @@
     <title>Description</title>
 
     <para><command>pam_systemd_loadkey</command> reads a NUL-separated password list from the kernel keyring,
-    and sets the last password in the list as the PAM authtok.</para>
+    and sets the last password in the list as the PAM authtok, which can be used by e.g.
+    <citerefentry project='man-pages'><refentrytitle>pam_get_authtok</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
     <para>The password list is supposed to be stored in the "user" keyring of the root user,
     by an earlier call to

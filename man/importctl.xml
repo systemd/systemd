@@ -128,7 +128,8 @@
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
-        HTTP etag. A writable snapshot is then taken from this subvolume, and named after the specified local
+        HTTP etag (see <ulink url="https://en.wikipedia.org/wiki/HTTP_ETag">HTTP ETag</ulink> for more
+        information). A writable snapshot is then taken from this subvolume, and named after the specified local
         name. This behavior ensures that creating multiple instances of the same URL is efficient, as
         multiple downloads are not necessary. In order to create only the read-only image, and avoid creating
         its writable snapshot, specify <literal>-</literal> as local name.</para>
