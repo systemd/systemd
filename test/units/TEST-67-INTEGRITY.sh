@@ -9,8 +9,7 @@ export GEN="/var/run/systemd/generator"
 
 image_dir=""
 
-cleanup()
-{
+cleanup() {
     if [ -z "${image_dir}" ]; then
         return
     fi
@@ -27,9 +26,8 @@ cleanup()
 
 trap cleanup EXIT
 
-build_integrity_tab()
-{
-cat <<EOF >"/etc/integritytab"
+build_integrity_tab() {
+    cat <<EOF >"/etc/integritytab"
 ${DM_NAME} ${loop} - integrity-algorithm=$1
 EOF
 }
