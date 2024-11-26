@@ -8963,6 +8963,37 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+#if HAVE_LIBCRYPTSETUP
+        cryptsetup_enable_logging(NULL);
+#endif
+
+        if (arg_varlink) {
+                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Repart);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = sd_varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.Repart.Check",     vl_method_list_boot_entries,
+                                "io.systemd.Repart.Partition", vl_method_set_reboot_to_firmware);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                r = sd_varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
+
         r = parse_proc_cmdline_factory_reset();
         if (r < 0)
                 return r;
@@ -8970,10 +9001,6 @@ static int run(int argc, char *argv[]) {
         r = parse_efi_variable_factory_reset();
         if (r < 0)
                 return r;
-
-#if HAVE_LIBCRYPTSETUP
-        cryptsetup_enable_logging(NULL);
-#endif
 
         if (arg_image) {
                 assert(!arg_root);
