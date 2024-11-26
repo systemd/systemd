@@ -2172,6 +2172,53 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
+        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
+         * here, after the parent opened its own user namespace. */
+
+        pid_t ppid = getppid();
+
+        /* Wait until the parent unshared the user namespace */
+        uint64_t c;
+        if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
+                return -errno;
+
+        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+         * and using the system service manager. */
+        const char *a = procfs_file_alloca(ppid, "setgroups");
+        _cleanup_close_ int fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s: %m", a);
+
+        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
+        if (write(fd, setgroups, strlen(setgroups)) < 0)
+                return log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
+
+        fd = safe_close(fd);
+
+        /* First write the GID map */
+        a = procfs_file_alloca(ppid, "gid_map");
+        fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s: %m", a);
+
+        if (write(fd, gid_map, strlen(gid_map)) < 0)
+                return log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
+
+        fd = safe_close(fd);
+
+        /* Then write the UID map */
+        a = procfs_file_alloca(ppid, "uid_map");
+        fd = open(a, O_WRONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s: %m", a);
+
+        if (write(fd, uid_map, strlen(uid_map)) < 0)
+                return log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
+
+        return 0;
+}
+
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -2277,69 +2324,10 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_close_ int fd = -EBADF;
-                const char *a;
-                pid_t ppid;
-
-                /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
-                 * here, after the parent opened its own user namespace. */
-
-                ppid = getppid();
                 errno_pipe[0] = safe_close(errno_pipe[0]);
-
-                /* Wait until the parent unshared the user namespace */
-                if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
-                        report_errno_and_exit(errno_pipe[1], -errno);
-
-                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
-                 * and using the system service manager. */
-                a = procfs_file_alloca(ppid, "setgroups");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        if (errno != ENOENT) {
-                                r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                                report_errno_and_exit(errno_pipe[1], r);
-                        }
-
-                        /* If the file is missing the kernel is too old, let's continue anyway. */
-                } else {
-                        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
-                        if (write(fd, setgroups, strlen(setgroups)) < 0) {
-                                r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
-                                report_errno_and_exit(errno_pipe[1], r);
-                        }
-
-                        fd = safe_close(fd);
-                }
-
-                /* First write the GID map */
-                a = procfs_file_alloca(ppid, "gid_map");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
+                r = setup_private_users_child(unshare_ready_fd, uid_map, gid_map, allow_setgroups);
+                if (r < 0)
                         report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                if (write(fd, gid_map, strlen(gid_map)) < 0) {
-                        r = log_debug_errno(errno, "Failed to write GID map to %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                fd = safe_close(fd);
-
-                /* The write the UID map */
-                a = procfs_file_alloca(ppid, "uid_map");
-                fd = open(a, O_WRONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
-                if (write(fd, uid_map, strlen(uid_map)) < 0) {
-                        r = log_debug_errno(errno, "Failed to write UID map to %s: %m", a);
-                        report_errno_and_exit(errno_pipe[1], r);
-                }
-
                 _exit(EXIT_SUCCESS);
         }
 
