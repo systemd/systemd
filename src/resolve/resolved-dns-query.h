@@ -11,6 +11,7 @@ typedef struct DnsQuery DnsQuery;
 typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 
 #include "resolved-dns-answer.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-transaction.h"
@@ -110,6 +111,10 @@ struct DnsQuery {
         DnsAnswer *reply_authoritative;
         DnsAnswer *reply_additional;
         DnsStubListenerExtra *stub_listener_extra;
+
+        /* Browser Service and Dnssd Discovered Service Information */
+        DnssdDiscoveredService *dnsservice_request;
+        DnsServiceBrowser *service_browser_request;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
