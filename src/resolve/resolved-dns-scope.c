@@ -1602,7 +1602,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 }
 
 int dns_scope_add_dnssd_services(DnsScope *scope) {
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
@@ -1641,7 +1641,7 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
 
 int dns_scope_remove_dnssd_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);

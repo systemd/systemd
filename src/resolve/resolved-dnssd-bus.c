@@ -11,7 +11,7 @@
 #include "user-util.h"
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
         Manager *m;
         Link *l;
         int r;
@@ -69,7 +69,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 static int dnssd_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(bus);
@@ -92,7 +92,7 @@ static int dnssd_object_find(sd_bus *bus, const char *path, const char *interfac
 static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        DnssdService *service;
+        DnssdRegisteredService *service;
         unsigned c = 0;
         int r;
 
