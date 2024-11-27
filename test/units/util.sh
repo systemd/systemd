@@ -182,6 +182,7 @@ create_dummy_container() {
     fi
 
     mkdir -p "$root"
+    chmod 555 "$root"
     cp -a /usr/share/TEST-13-NSPAWN-container-template/* "$root"
     coverage_create_nspawn_dropin "$root"
 }
