@@ -311,7 +311,7 @@ static int boot_entry_load_type1(
                 const BootEntrySource source,
                 const char *dir,
                 const char *fname,
-                BootEntry *entry) {
+                BootEntry *ret) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF, source);
         char *c;
@@ -321,7 +321,7 @@ static int boot_entry_load_type1(
         assert(root);
         assert(dir);
         assert(fname);
-        assert(entry);
+        assert(ret);
 
         /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
@@ -411,7 +411,7 @@ static int boot_entry_load_type1(
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
         }
 
-        *entry = TAKE_STRUCT(tmp);
+        *ret = TAKE_STRUCT(tmp);
         return 0;
 }
 
@@ -430,7 +430,7 @@ int boot_config_load_type1(
         assert(dir);
         assert(fname);
 
-        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
+        if (!GREEDY_REALLOC(config->entries, config->n_entries + 1))
                 return log_oom();
 
         BootEntry *entry = config->entries + config->n_entries;
@@ -438,10 +438,10 @@ int boot_config_load_type1(
         r = boot_entry_load_type1(f, root, source, dir, fname, entry);
         if (r < 0)
                 return r;
+        config->n_entries++;
 
         entry->global_addons = &config->global_addons[source];
 
-        config->n_entries++;
         return 0;
 }
 
@@ -458,7 +458,7 @@ void boot_config_free(BootConfig *config) {
                 boot_entry_free(i);
         free(config->entries);
 
-        FOREACH_ARRAY(i, config->global_addons, _BOOT_ENTRY_SOURCE_MAX)
+        FOREACH_ELEMENT(i, config->global_addons)
                 boot_entry_addons_done(i);
 
         set_free(config->inodes_seen);
@@ -1240,12 +1240,12 @@ static int boot_entries_find_unified(
                         if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
+                        if (!GREEDY_REALLOC(config->entries, config->n_entries + 1))
                                 return log_oom();
 
                         BootEntry *entry = config->entries + config->n_entries;
 
-                        if (boot_entry_load_unified(root, source, j, p, osrelease, profile, cmdline, config->entries + config->n_entries) < 0)
+                        if (boot_entry_load_unified(root, source, j, p, osrelease, profile, cmdline, entry) < 0)
                                 continue;
 
                         /* look for .efi.extra.d */
