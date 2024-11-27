@@ -40,7 +40,7 @@ static const char *mount_options_for_fstype(const char *fstype) {
         if (streq(fstype, "xfs"))
                 return "noquota";
         if (streq(fstype, "btrfs"))
-                return "noacl,compress=zstd:1";
+                return "compress=zstd:1";
         return NULL;
 }
 
