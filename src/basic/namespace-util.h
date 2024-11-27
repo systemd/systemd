@@ -51,6 +51,15 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
 
+int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
+static inline int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
+        assert(pid1 >= 0);
+        assert(pid2 >= 0);
+        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
+                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
+                                        type);
+}
+
 int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
 
 int detach_mount_namespace(void);
@@ -76,8 +85,6 @@ int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map);
 
 int netns_acquire(void);
-
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
 
