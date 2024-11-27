@@ -322,8 +322,7 @@ int write_string_file_full(
         mode_t mode = write_string_file_flags_to_mode(flags);
 
         if (FLAGS_SET(flags, WRITE_STRING_FILE_LABEL|WRITE_STRING_FILE_CREATE)) {
-                const char *lookup = label_fn ? label_fn : fn;
-                r = label_ops_pre(dir_fd, lookup, mode);
+                r = label_ops_pre(dir_fd, label_fn ?: fn, mode);
                 if (r < 0)
                         goto fail;
 
