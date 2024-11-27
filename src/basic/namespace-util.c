@@ -692,3 +692,67 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
 
         return 0;
 }
+
+int process_is_owned_by_uid(PidRef *pidref, uid_t uid) {
+        int r;
+
+        /* Checks if the specified process either is owned directly by the specified user, or if it is inside
+         * a user namespace owned by it. */
+
+        uid_t process_uid;
+        r = pidref_get_uid(pidref, &process_uid);
+        if (r < 0)
+                return r;
+        if (process_uid == uid)
+                return true;
+
+        _cleanup_close_ int userns_fd = -EBADF;
+        r = pidref_namespace_open(
+                        pidref,
+                        /* ret_pidns_fd= */ NULL,
+                        /* ret_mntns_fd= */ NULL,
+                        /* ret_netns_fd= */ NULL,
+                        &userns_fd,
+                        /* ret_root_fd= */ NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r)) /* If userns is not supported, then they don't matter for ownership */
+                return false;
+        if (r < 0)
+                return r;
+
+        for (unsigned iteration = 0;; iteration++) {
+                uid_t ns_uid;
+
+                /* This process is in our own userns? Then we are done, in our own userns only the UIDs
+                 * themselves matter. */
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return false;
+
+                if (ioctl(userns_fd, NS_GET_OWNER_UID, &ns_uid) < 0) {
+                        /* kernel too old? then we cannot make the determination, let's hence say no */
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                return false;
+
+                        return -errno;
+                }
+                if (ns_uid == uid)
+                        return true;
+
+                /* Paranoia check */
+                if (iteration > 16)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Giving up while tracing parents of user namespaces after %u steps.", iteration);
+
+                /* Go up the tree */
+                _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
+                if (parent_fd < 0) {
+                        if (errno == EPERM) /* EPERM means we left our own userns */
+                                return false;
+
+                        return -errno;
+                }
+
+                close_and_replace(userns_fd, parent_fd);
+        }
+}
