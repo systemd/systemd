@@ -773,72 +773,15 @@ Virtualization detect_virtualization(void) {
         return detect_vm();
 }
 
-static int userns_has_mapping(const char *name) {
-        _cleanup_fclose_ FILE *f = NULL;
-        uid_t base, shift, range;
-        int r;
-
-        f = fopen(name, "re");
-        if (!f) {
-                log_debug_errno(errno, "Failed to open %s: %m", name);
-                return errno == ENOENT ? false : -errno;
-        }
-
-        r = uid_map_read_one(f, &base, &shift, &range);
-        if (r == -ENOMSG) {
-                log_debug("%s is empty, we're in an uninitialized user namespace.", name);
-                return true;
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read %s: %m", name);
-
-        if (base == 0 && shift == 0 && range == UINT32_MAX) {
-                /* The kernel calls mappings_overlap() and does not allow overlaps */
-                log_debug("%s has a full 1:1 mapping", name);
-                return false;
-        }
-
-        /* Anything else implies that we are in a user namespace */
-        log_debug("Mapping found in %s, we're in a user namespace.", name);
-        return true;
-}
-
 int running_in_userns(void) {
         _cleanup_free_ char *line = NULL;
         int r;
 
         r = namespace_is_init(NAMESPACE_USER);
         if (r < 0)
-                log_debug_errno(r, "Failed to test if in root user namespace, ignoring: %m");
-        else if (r > 0)
-                return false;
+                return log_debug_errno(r, "Failed to test if in root user namespace, ignoring: %m");
 
-        // FIXME: We really should drop the heuristics below.
-
-        r = userns_has_mapping("/proc/self/uid_map");
-        if (r != 0)
-                return r;
-
-        r = userns_has_mapping("/proc/self/gid_map");
-        if (r != 0)
-                return r;
-
-        /* "setgroups" file was added in kernel v3.18-rc6-15-g9cc46516dd. It is also possible to compile a
-         * kernel without CONFIG_USER_NS, in which case "setgroups" also does not exist. We cannot
-         * distinguish those two cases, so assume that we're running on a stripped-down recent kernel, rather
-         * than on an old one, and if the file is not found, return false. */
-        r = read_virtual_file("/proc/self/setgroups", SIZE_MAX, &line, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "/proc/self/setgroups: %m");
-                return r == -ENOENT ? false : r;
-        }
-
-        strstrip(line); /* remove trailing newline */
-
-        r = streq(line, "deny");
-        /* See user_namespaces(7) for a description of this "setgroups" contents. */
-        log_debug("/proc/self/setgroups contains \"%s\", %s user namespace", line, r ? "in" : "not in");
-        return r;
+        return !r;
 }
 
 int running_in_chroot(void) {
