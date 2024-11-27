@@ -58,7 +58,16 @@ static const char* const boot_entry_source_json_table[_BOOT_ENTRY_SOURCE_MAX] = 
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_json, BootEntrySource);
 
-static void boot_entry_addons_done(BootEntryAddons *addons);
+static void boot_entry_addons_done(BootEntryAddons *addons) {
+        assert(addons);
+
+        FOREACH_ARRAY(addon, addons->items, addons->n_items) {
+                free(addon->cmdline);
+                free(addon->location);
+        }
+        addons->items = mfree(addons->items);
+        addons->n_items = 0;
+}
 
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
@@ -1074,17 +1083,6 @@ static int insert_boot_entry_addon(
         };
 
         return 0;
-}
-
-static void boot_entry_addons_done(BootEntryAddons *addons) {
-        assert(addons);
-
-        FOREACH_ARRAY(addon, addons->items, addons->n_items) {
-                free(addon->cmdline);
-                free(addon->location);
-        }
-        addons->items = mfree(addons->items);
-        addons->n_items = 0;
 }
 
 static int boot_entries_find_unified_addons(
