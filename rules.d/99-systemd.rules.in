@@ -22,6 +22,10 @@ SUBSYSTEM=="ubi", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
 
+# Make dm devices can replace existing symlinks with the same priority.
+# Otherwise, activating a device while another is being deactivated may fail.
+SUBSYSTEM=="block", KERNEL=="dm-*", ENV{.UDEV_REPLACE_SYMLINK_WITH_SAME_PRIORITY}="1"
+
 # When a dm device is first created, it's just an empty container. Ignore it.
 # DM_NAME is not set in this case, but it's set on spurious "add" events that occur later.
 SUBSYSTEM=="block", ACTION=="add", KERNEL=="dm-*", ENV{DM_NAME}!="?*", ENV{SYSTEMD_READY}="0"

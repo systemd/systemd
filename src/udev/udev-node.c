@@ -462,6 +462,18 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                                          * another device. Hence, it is not necessary to recreate it. */
                                         return 0;
 
+                                /* When the priorities are equivalent, replace symlink only when it is
+                                 * explicitly requested. This is necessary for DM devices, otherwise
+                                 * activating a device while another is being deactivated may fail. See issue
+                                 * #28141. However, in general, replacing symlink with a same-priority device
+                                 * is dangerous. For example, when managing or assembling multiple disks,
+                                 * when fdisk or wipefs is called, we trigger synthesized events and that can
+                                 * replace existing symlinks, and unexpected device may be used and data may
+                                 * be lost. */
+                                if (current_prio == prio &&
+                                    device_get_property_bool(dev, ".UDEV_REPLACE_SYMLINK_WITH_SAME_PRIORITY") <= 0)
+                                        return 0;
+
                                 /* This device has the equal or a higher priority than the current. Let's
                                  * create the devlink to our device node. */
                                 return node_create_symlink(dev, /* devnode = */ NULL, slink);
