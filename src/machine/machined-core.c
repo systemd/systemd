@@ -183,7 +183,7 @@ void manager_enqueue_gc(Manager *m) {
         (void) sd_event_source_set_description(m->deferred_gc_event_source, "deferred-gc");
 }
 
-int machine_get_addresses(Machine* machine, struct local_address **ret_addresses) {
+int machine_get_addresses(Machine *machine, struct local_address **ret_addresses) {
         assert(machine);
         assert(ret_addresses);
 
@@ -207,7 +207,7 @@ int machine_get_addresses(Machine* machine, struct local_address **ret_addresses
                 pid_t child;
                 int r;
 
-                r = in_same_namespace(/* pid1 = */ 0, machine->leader.pid, NAMESPACE_NET);
+                r = pidref_in_same_namespace(/* pid1 = */ NULL, &machine->leader, NAMESPACE_NET);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if container has private network: %m");
                 if (r > 0)
