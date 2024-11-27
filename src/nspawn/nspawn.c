@@ -5644,7 +5644,7 @@ static int run_container(
         r = wait_for_container(TAKE_PID(*pid), &container_status);
 
         /* Tell machined that we are gone. */
-        if (bus)
+        if (arg_register && bus)
                 (void) unregister_machine(bus, arg_machine);
 
         if (r < 0)
