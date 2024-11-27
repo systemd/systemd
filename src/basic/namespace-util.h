@@ -27,6 +27,8 @@ extern const struct namespace_info {
         ino_t root_inode;
 } namespace_info[_NAMESPACE_TYPE_MAX + 1];
 
+NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
+
 int pidref_namespace_open(
                 const PidRef *pidref,
                 int *ret_pidns_fd,
@@ -41,9 +43,11 @@ int namespace_open(
                 int *ret_netns_fd,
                 int *ret_userns_fd,
                 int *ret_root_fd);
+
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int fd_is_ns(int fd, unsigned long nsflag);
+int fd_is_namespace(int fd, unsigned long nsflag);
+int is_our_namespace(int fd, NamespaceType type);
 
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
@@ -76,7 +80,5 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 int namespace_open_by_type(NamespaceType type);
 
 int namespace_is_init(NamespaceType type);
-
-int is_our_namespace(int fd, NamespaceType type);
 
 int is_idmapping_supported(const char *path);
