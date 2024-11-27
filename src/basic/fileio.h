@@ -49,15 +49,15 @@ FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode);
 
 int write_string_stream_full(FILE *f, const char *line, WriteStringFileFlags flags, const struct timespec *ts);
 static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
-        return write_string_stream_full(f, line, flags, /* ts= */ NULL);
+        return write_string_stream_full(f, line, flags, NULL);
 }
 
 int write_string_file_full(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts, const char *label_fn);
-static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
-        return write_string_file_full(AT_FDCWD, fn, line, flags, /* ts= */ NULL, /*label_fn=*/ NULL);
-}
 static inline int write_string_file_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags) {
-        return write_string_file_full(dir_fd, fn, line, flags, /* ts= */ NULL, /*label_fn=*/ NULL);
+        return write_string_file_full(dir_fd, fn, line, flags, NULL, NULL);
+}
+static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
+        return write_string_file_at(AT_FDCWD, fn, line, flags);
 }
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
