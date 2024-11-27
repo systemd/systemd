@@ -98,11 +98,11 @@ typedef struct BootConfig {
                 .selected_entry = -1, \
         }
 
-const char* boot_entry_type_to_string(BootEntryType);
-const char* boot_entry_type_json_to_string(BootEntryType);
+const char* boot_entry_type_to_string(BootEntryType) _const_;
+const char* boot_entry_type_json_to_string(BootEntryType) _const_;
 
-const char* boot_entry_source_to_string(BootEntrySource);
-const char* boot_entry_source_json_to_string(BootEntrySource);
+const char* boot_entry_source_to_string(BootEntrySource) _const_;
+const char* boot_entry_source_json_to_string(BootEntrySource) _const_;
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
@@ -137,7 +137,6 @@ int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);
-
         return ASSERT_PTR(entry->show_title ?: entry->title ?: entry->id);
 }
 
