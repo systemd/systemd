@@ -40,7 +40,7 @@ const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
-static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
+NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
         for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
                 if (((namespace_info[t].clone_flag ^ clone_flag) & (CLONE_NEWCGROUP|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUSER|CLONE_NEWUTS|CLONE_NEWTIME)) == 0)
                         return t;
@@ -191,50 +191,49 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return reset_uid_gid();
 }
 
-int fd_is_ns(int fd, unsigned long nsflag) {
-        struct statfs s;
+int fd_is_namespace(int fd, NamespaceType type) {
         int r;
 
-        /* Checks whether the specified file descriptor refers to a namespace created by specifying nsflag in clone().
-         * On old kernels there's no nice way to detect that, hence on those we'll return a recognizable error (EUCLEAN),
-         * so that callers can handle this somewhat nicely.
-         *
-         * This function returns > 0 if the fd definitely refers to a network namespace, 0 if it definitely does not
-         * refer to a network namespace, -EUCLEAN if we can't determine, and other negative error codes on error. */
+        /* Checks whether the specified file descriptor refers to a namespace (of type if type != _NAMESPACE_INVALID). */
 
-        if (fstatfs(fd, &s) < 0)
+        assert(fd >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        r = fd_is_fs_type(fd, NSFS_MAGIC);
+        if (r <= 0)
+                return r;
+
+        if (type < 0)
+                return true;
+
+        int clone_flag = ioctl(fd, NS_GET_NSTYPE);
+        if (clone_flag < 0)
                 return -errno;
 
-        if (!is_fs_type(&s, NSFS_MAGIC)) {
-                /* On really old kernels, there was no "nsfs", and network namespace sockets belonged to procfs
-                 * instead. Handle that in a somewhat smart way. */
+        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
+        if (found_type < 0)
+                return -EBADF; /* Uh? Unknown namespace type? */
 
-                if (is_fs_type(&s, PROC_SUPER_MAGIC)) {
-                        struct statfs t;
+        return found_type == type;
+}
 
-                        /* OK, so it is procfs. Let's see if our own network namespace is procfs, too. If so, then the
-                         * passed fd might refer to a network namespace, but we can't know for sure. In that case,
-                         * return a recognizable error. */
+int is_our_namespace(int fd, NamespaceType type) {
+        int r;
 
-                        if (statfs("/proc/self/ns/net", &t) < 0)
-                                return -errno;
+        assert(fd >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
 
-                        if (s.f_type == t.f_type)
-                                return -EUCLEAN; /* It's possible, we simply don't know */
-                }
+        r = fd_is_namespace(fd, type);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Not a namespace or not of the right type? */
+                return -EUCLEAN;
 
-                return 0; /* No! */
-        }
+        _cleanup_close_ int our_ns = namespace_open_by_type(type);
+        if (our_ns < 0)
+                return our_ns;
 
-        r = ioctl(fd, NS_GET_NSTYPE);
-        if (r < 0) {
-                if (errno == ENOTTY) /* Old kernels didn't know this ioctl, let's also return a recognizable error in that case */
-                        return -EUCLEAN;
-
-                return -errno;
-        }
-
-        return (unsigned long) r == nsflag;
+        return fd_inode_same(fd, our_ns);
 }
 
 int detach_mount_namespace(void) {
@@ -503,37 +502,6 @@ int namespace_is_init(NamespaceType type) {
                 return r;
 
         return st.st_ino == namespace_info[type].root_inode;
-}
-
-int is_our_namespace(int fd, NamespaceType request_type) {
-        int clone_flag;
-
-        assert(fd >= 0);
-
-        clone_flag = ioctl(fd, NS_GET_NSTYPE);
-        if (clone_flag < 0)
-                return -errno;
-
-        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
-        if (found_type < 0)
-                return -EBADF; /* Uh? Unknown namespace type? */
-
-        if (request_type >= 0 && request_type != found_type) /* It's a namespace, but not of the right type? */
-                return -EUCLEAN;
-
-        struct stat st_fd, st_ours;
-        if (fstat(fd, &st_fd) < 0)
-                return -errno;
-
-        const char *p = pid_namespace_path(0, found_type);
-        if (stat(p, &st_ours) < 0) {
-                if (errno == ENOENT)
-                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
-
-                return -errno;
-        }
-
-        return stat_inode_same(&st_ours, &st_fd);
 }
 
 int is_idmapping_supported(const char *path) {
