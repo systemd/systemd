@@ -1525,7 +1525,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 return r;
         for (;;) {
                 _cleanup_(pidref_freep) PidRef *pidref = NULL;
-                uid_t process_uid, sender_uid;
+                uid_t sender_uid;
                 uint32_t upid;
 
                 r = sd_bus_message_read(message, "u", &upid);
@@ -1560,16 +1560,21 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return r;
 
-                /* Let's validate security: if the sender is root, then all is OK. If the sender is any other unit,
-                 * then the process' UID and the target unit's UID have to match the sender's UID */
+                /* Let's validate security: if the sender is root or the owner of the service manager, then
+                 * all is OK. If the sender is any other user, then the process in question must be owned by
+                 * both the sender and the target unit's UID. Note that ownership here means either direct
+                 * ownership, or indirect via a userns that is owned by the right UID. */
                 if (sender_uid != 0 && sender_uid != getuid()) {
-                        r = pidref_get_uid(pidref, &process_uid);
+                        r = process_is_owned_by_uid(pidref, sender_uid);
                         if (r < 0)
-                                return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
-
-                        if (process_uid != sender_uid)
+                                return sd_bus_error_set_errnof(error, r, "Failed to check if process " PID_FMT " is owned by client's UID: %m", pidref->pid);
+                        if (r == 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pidref->pid);
-                        if (process_uid != u->ref_uid)
+
+                        r = process_is_owned_by_uid(pidref, u->ref_uid);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to check if process " PID_FMT " is owned by target unit's UID: %m", pidref->pid);
+                        if (r == 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pidref->pid);
                 }
 
