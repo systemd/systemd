@@ -7,6 +7,7 @@
 #include <sys/eventfd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <utmpx.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -608,8 +609,28 @@ static int test_userns_api_support(sd_varlink *link) {
         return 0;
 }
 
-static int validate_name(sd_varlink *link, const char *name, char **ret) {
-        _cleanup_free_ char *un = NULL;
+static char *random_name(void) {
+        char *s = NULL;
+
+        if (asprintf(&s, "r%016" PRIx64, random_u64()) < 0)
+                return NULL;
+
+        return s;
+}
+
+static char *shorten_name(const char *name) {
+
+        char *n = strdup(name);
+        if (!n)
+                return NULL;
+
+        /* make sure it fits into utmpx even if prefixed with "ns-" and suffixed by "-65535" */
+        strshorten(n, sizeof_field(struct utmpx, ut_user) - 3 - 6);
+
+        return n;
+}
+
+static int validate_name(sd_varlink *link, const char *name, bool mangle, char **ret) {
         int r;
 
         assert(link);
@@ -621,13 +642,25 @@ static int validate_name(sd_varlink *link, const char *name, char **ret) {
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *un = NULL;
         if (peer_uid == 0) {
-                if (!userns_name_is_valid(name))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
+                if (userns_name_is_valid(name)) {
+                        un = strdup(name);
+                        if (!un)
+                                return -ENOMEM;
+                } else if (mangle) {
+                        un = shorten_name(name);
+                        if (!un)
+                                return -ENOMEM;
 
-                un = strdup(name);
-                if (!un)
-                        return -ENOMEM;
+                        if (!userns_name_is_valid(un)) {
+                                free(un);
+
+                                un = random_name();
+                                if (!un)
+                                        return -ENOMEM;
+                        }
+                }
         } else {
                 /* The the client is not root then prefix the name with the UID of the peer, so that they
                  * live in separate namespaces and cannot steal each other's names. */
@@ -635,9 +668,25 @@ static int validate_name(sd_varlink *link, const char *name, char **ret) {
                 if (asprintf(&un, UID_FMT "-%s", peer_uid, name) < 0)
                         return -ENOMEM;
 
-                if (!userns_name_is_valid(un))
-                        return sd_varlink_error_invalid_parameter_name(link, "name");
+                if (!userns_name_is_valid(un) && mangle) {
+                        _cleanup_free_ char *c = shorten_name(un);
+                        if (!c)
+                                return -ENOMEM;
+
+                        if (userns_name_is_valid(c))
+                                free_and_replace(un, c);
+                        else  {
+                                _cleanup_free_ char *rnd = random_name();
+
+                                un = mfree(un);
+                                if (asprintf(&un, UID_FMT "-%s", peer_uid, rnd) < 0)
+                                        return -ENOMEM;
+                        }
+                }
         }
+
+        if (!userns_name_is_valid(un))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
 
         *ret = TAKE_PTR(un);
         return 0;
@@ -727,6 +776,7 @@ typedef struct AllocateParameters {
         unsigned size;
         unsigned target;
         unsigned userns_fd_idx;
+        bool mangle_name;
 } AllocateParameters;
 
 static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -736,6 +786,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, size),          SD_JSON_MANDATORY },
                 { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, target),        0                 },
                 { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx), SD_JSON_MANDATORY },
+                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),   0                 },
                 {}
         };
 
@@ -761,7 +812,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r != 0)
                 return r;
 
-        r = validate_name(link, p.name, &userns_name);
+        r = validate_name(link, p.name, p.mangle_name, &userns_name);
         if (r != 0)
                 return r;
 
@@ -928,6 +979,7 @@ static int validate_userns_is_safe(sd_varlink *link, int userns_fd) {
 typedef struct RegisterParameters {
         const char *name;
         unsigned userns_fd_idx;
+        bool mangle_name;
 } RegisterParameters;
 
 static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -935,6 +987,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(RegisterParameters, name),          SD_JSON_MANDATORY },
                 { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(RegisterParameters, userns_fd_idx), SD_JSON_MANDATORY },
+                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),   0                 },
                 {}
         };
 
@@ -959,7 +1012,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r != 0)
                 return r;
 
-        r = validate_name(link, p.name, &userns_name);
+        r = validate_name(link, p.name, p.mangle_name, &userns_name);
         if (r != 0)
                 return r;
 
