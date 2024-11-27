@@ -288,6 +288,36 @@ int is_our_namespace(int fd, NamespaceType type) {
         return fd_inode_same(fd, our_ns);
 }
 
+int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
+        _cleanup_close_ int ns1 = -EBADF, ns2 = -EBADF;
+        int r;
+
+        /* Accepts NULL to indicate our own process */
+
+        assert(!pid1 || pidref_is_set(pid1));
+        assert(!pid2 || pidref_is_set(pid2));
+        assert(type >= 0 && type < _NAMESPACE_MAX);
+
+        if (pidref_equal(pid1, pid2))
+                return true;
+
+        if (!pid1)
+                ns1 = namespace_open_by_type(type);
+        else
+                ns1 = pidref_namespace_open_by_type(pid1, type);
+        if (ns1 < 0)
+                return ns1;
+
+        if (!pid2)
+                ns2 = namespace_open_by_type(type);
+        else
+                ns2 = pidref_namespace_open_by_type(pid2, type);
+        if (ns2 < 0)
+                return ns2;
+
+        return fd_inode_same(ns1, ns2);
+}
+
 int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
         int r;
 
@@ -482,30 +512,6 @@ int netns_acquire(void) {
                 return log_debug_errno(r, "Failed to open netns fd: %m");
 
         return TAKE_FD(netns_fd);
-}
-
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        const char *ns_path;
-        struct stat ns_st1, ns_st2;
-
-        if (pid1 == 0)
-                pid1 = getpid_cached();
-
-        if (pid2 == 0)
-                pid2 = getpid_cached();
-
-        if (pid1 == pid2)
-                return 1;
-
-        ns_path = pid_namespace_path(pid1, type);
-        if (stat(ns_path, &ns_st1) < 0)
-                return -errno;
-
-        ns_path = pid_namespace_path(pid2, type);
-        if (stat(ns_path, &ns_st2) < 0)
-                return -errno;
-
-        return stat_inode_same(&ns_st1, &ns_st2);
 }
 
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
