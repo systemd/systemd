@@ -3243,6 +3243,7 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
 
 int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
+        NamespaceType type;
         int r;
 
         assert(ns_storage_socket);
@@ -3253,6 +3254,9 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         /* If the storage socket doesn't contain a ns fd yet, open one via the file system and store it in
          * it. This is supposed to be called ahead of time, i.e. before setup_shareable_ns() which will
          * allocate a new anonymous ns if needed. */
+
+        type = clone_flag_to_namespace_type(nsflag);
+        assert(type >= 0);
 
         r = posix_lock(ns_storage_socket[0], LOCK_EX);
         if (r < 0)
@@ -3272,11 +3276,11 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
         if (ns < 0)
                 return -errno;
 
-        r = fd_is_ns(ns, nsflag);
+        r = fd_is_namespace(ns, type);
+        if (r < 0)
+                return r;
         if (r == 0)
                 return -EINVAL;
-        if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
-                return r;
 
         r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (r < 0)
