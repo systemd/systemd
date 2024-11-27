@@ -1238,7 +1238,7 @@ test_tun() {
     # Without DeviceAllow= for /dev/net/tun, see issue #35116.
     assert_rc \
         "$expect" \
-        systemd-run --pty --wait -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
+        systemd-run --wait -p Environment=SYSTEMD_LOG_LEVEL=debug -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
         systemd-nspawn "$@" bash -xec "$command"
 
     [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]
