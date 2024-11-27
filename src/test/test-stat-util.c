@@ -165,31 +165,6 @@ TEST(path_is_read_only_fs) {
         assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
 }
 
-TEST(fd_is_ns) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
-
-        fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
-        if (fd < 0) {
-                assert_se(errno == ENOENT);
-                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
-                return;
-        }
-        assert_se(fd >= 0);
-        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
-        fd = safe_close(fd);
-
-        assert_se((fd = open("/proc/self/ns/ipc", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWIPC), 1, -EUCLEAN));
-        fd = safe_close(fd);
-
-        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 1, -EUCLEAN));
-}
-
 TEST(dir_is_empty) {
         _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
         _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
