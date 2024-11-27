@@ -65,11 +65,7 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         cg_file_handle fh = CG_FILE_HANDLE_INIT;
         CG_FILE_HANDLE_CGROUPID(fh) = id;
 
-        int fd = open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
+        return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
 }
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
