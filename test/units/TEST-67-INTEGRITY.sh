@@ -35,6 +35,14 @@ cat >/run/udev/rules.d/00-integrity-test.rules <<EOF
 SUBSYSTEM=="block", KERNEL=="loop*|dm-*", OPTIONS="log_level=debug"
 EOF
 
+# FIXME:
+# There is no ordering restriction between underlying loopback block devices and DM devices.
+# Hence, we may get wrong device node symlinks. To workaround that issue, let's decrease the
+# priority for loopback block devices.
+cat >/run/udev/rules.d/99-priority.rules <<EOF
+SUBSYSTEM=="block", KERNEL=="loop*", OPTIONS="link_priority=-200"
+EOF
+
 udevadm control --reload
 
 TMP_DIR="$(mktemp -d -t -p / integrity.tmp.XXXXXX)"
@@ -64,7 +72,7 @@ test_cleanup() (
 test_one() {
     local algorithm="${1?}"
     local separate_data="${2?}"
-    local data_option dev_name
+    local data_option
 
     trap test_cleanup RETURN
 
@@ -105,13 +113,7 @@ EOF
     udevadm wait --timeout=30 --settle "${DM_NODE}"
 
     # Check the signature on the FS to ensure we can retrieve it and that is matches.
-    # If a separate device is used for the metadata storage, then blkid will return one of the loop devices.
-    if [[ "${separate_data}" == 1 ]]; then
-        dev_name="$(integritysetup status ${DM_NAME} | grep '^\s*device:' | awk '{print $2}')"
-    else
-        dev_name="${DM_NODE}"
-    fi
-    [[ "$(blkid -U "${FS_UUID}")" == "${dev_name}" ]]
+    [[ "$(blkid -U "${FS_UUID}")" == "${DM_NODE}" ]]
 }
 
 for a in crc32c crc32 xxhash64 sha1 sha256; do
