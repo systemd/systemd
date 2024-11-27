@@ -6200,9 +6200,12 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (access_nofollow(p, F_OK) < 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                        r = access_nofollow(p, F_OK);
+                        if (r == -ENOENT) {
+                                log_error_errno(r, "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                                goto finish;
+                        } else if (r < 0) {
+                                log_error_errno(r, "Unable to determine if %s looks like it has an OS tree (i.e. whether /usr/ exists): %m", arg_directory);
                                 goto finish;
                         }
                 }
