@@ -6806,6 +6806,12 @@ A00000-AFFFFF     (base 16)		Bosch (zhuhai) Security Systems Company, Ltd.
 				Taoyuan    338
 				TW
 
+90-88-A9   (hex)		Yi Tunnel(beijing) Technology Co.,Ltd
+A00000-AFFFFF     (base 16)		Yi Tunnel(beijing) Technology Co.,Ltd
+				Room1511, Block B, SOHO Shangdu North Tower,100020 Chaoyang District, Beijing,
+				Beijing    100020
+				CN
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -13102,6 +13108,24 @@ EC-74-CD   (hex)		iSolution Technologies Co.,Ltd.
 				5F,Bldg #6, Zhongguan Honghualing Industrial South Park
 				Shenzhen  Guangdong  518055
 				CN
+
+EC-74-CD   (hex)		Shenzhen Eweat Technology Co.,Ltd
+E00000-EFFFFF     (base 16)		Shenzhen Eweat Technology Co.,Ltd
+				B409, DaHong Hi-Tech Park, 28# Beiting Road, Shajing BaoAn Shenzhen ,China
+				Shenzhen  Guangdong  518104
+				CN
+
+90-88-A9   (hex)		Wingtech Mobile Communications Co.,Ltd.
+700000-7FFFFF     (base 16)		Wingtech Mobile Communications Co.,Ltd.
+				No.777,Yazhong Road,Nanhu District
+				Jiaxing  Zhejiang  314000
+				CN
+
+90-88-A9   (hex)		TeeJet Technologies
+E00000-EFFFFF     (base 16)		TeeJet Technologies
+				Moelhavevej 2
+				Aabybro    9440
+				DK
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -19922,17 +19946,47 @@ EC-74-CD   (hex)		Sound Health Systems
 				Los Altos  CA  94024
 				US
 
+EC-74-CD   (hex)		Nexxus Networks Pte Ltd
+000000-0FFFFF     (base 16)		Nexxus Networks Pte Ltd
+				81 UBI AVENUE 4#08-17UB. ONE
+				SINGAPORE   SINGAPORE   408830
+				SG
+
+EC-74-CD   (hex)		KONČAR - Electrical Engineering Institute Ltd.
+700000-7FFFFF     (base 16)		KONČAR - Electrical Engineering Institute Ltd.
+				Fallerovo šetalište 2210 000 Zagreb CroatiaVAT: HR37724368086
+				Zagreb  Croatia  10000
+				HR
+
 EC-74-CD   (hex)		Hitachi Rail GTS Austria GmbH
 B00000-BFFFFF     (base 16)		Hitachi Rail GTS Austria GmbH
 				Handelskai 92
 				Vienna    1200
 				AT
 
+EC-74-CD   (hex)		Shenzhen C & D Electronics Co., Ltd.
+100000-1FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
 EC-74-CD   (hex)		Standard Backhaul Communications
 500000-5FFFFF     (base 16)		Standard Backhaul Communications
 				333 South Highland Ave
 				Briarcliff Manor    10510
 				US
+
+90-88-A9   (hex)		合肥乾盾智能科技有限公司
+200000-2FFFFF     (base 16)		合肥乾盾智能科技有限公司
+				中国（安徽）自由贸易试验区合肥片区高新区创新大道2800号创新产业园二期G4楼E区6层605
+				Hefei  Anhui  230000
+				CN
+
+90-88-A9   (hex)		UXV Technologies ApS
+B00000-BFFFFF     (base 16)		UXV Technologies ApS
+				Brogrenen 7
+				Ishoj    2635
+				DK
 
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
@@ -26535,6 +26589,54 @@ C00000-CFFFFF     (base 16)		Senix
 800000-8FFFFF     (base 16)		Honest Networks LLC
 				15 Maiden LnSte 1101
 				New York  NY  10038
+				US
+
+EC-74-CD   (hex)		L.T.H. Electronics Limited
+200000-2FFFFF     (base 16)		L.T.H. Electronics Limited
+				Eltelec Works, Chaul End Lane
+				Luton  Beds  LU4 8EZ
+				GB
+
+90-88-A9   (hex)		Skysolid Information Security Systems(Shenzhen) Co., Ltd
+600000-6FFFFF     (base 16)		Skysolid Information Security Systems(Shenzhen) Co., Ltd
+				5th Floor West/6th Floor West,  building NO.2, Shunheda industry district, XiLi street, Nanshan district, Shenzhen, Guangdong Province, China.
+				Shenzhen    518000
+				CN
+
+90-88-A9   (hex)		Shortcut Labs AB
+500000-5FFFFF     (base 16)		Shortcut Labs AB
+				Teknikringen 26, C/O Student Inc
+				Stockholm  Stockholm  11428
+				SE
+
+EC-74-CD   (hex)		Vialis BV
+400000-4FFFFF     (base 16)		Vialis BV
+				Loodsboot 15
+				HOUTEN    3991 CJ
+				NL
+
+90-88-A9   (hex)		Nanjing Boswell Industrial Communication Technology Co., Ltd
+900000-9FFFFF     (base 16)		Nanjing Boswell Industrial Communication Technology Co., Ltd
+				1st Floor, Building A2, China Wireless Valley, No. 9 Mozhou East Road, Jiangning District
+				Nanjing  Jiangsu  211100
+				CN
+
+90-88-A9   (hex)		Hangzhou Hollysys Automation Co., Ltd
+300000-3FFFFF     (base 16)		Hangzhou Hollysys Automation Co., Ltd
+				No. 12, Baiyang Street, Qiantang District, Hangzhou City, Zhejiang Province
+				Hangzhou  Zhejiang   310000
+				CN
+
+90-88-A9   (hex)		Akarui Networks Pvt Ltd
+100000-1FFFFF     (base 16)		Akarui Networks Pvt Ltd
+				B- 60 GROUND FLOOR, SECTOR - 88anand vihar
+				Noida  Uttar Pradesh  201305
+				IN
+
+D0-AA-5F   (hex)		Indra Air Traffic Inc
+A00000-AFFFFF     (base 16)		Indra Air Traffic Inc
+				11300 W 89th St
+				Overland Park  KS  66214
 				US
 
 C8-5C-E2   (hex)		Fela Management AG 
@@ -33301,3 +33403,39 @@ EC-74-CD   (hex)		TRANS AUDIO VIDEO SRL
 				Viale Melvin Jones 12
 				Caserta  CE  81100
 				IT
+
+90-88-A9   (hex)		asmote ltd.
+400000-4FFFFF     (base 16)		asmote ltd.
+				 Unit 310 Building C, Luneng International Center, No 52 Shiboguan Road, Pudong New District, Shanghai, China 
+				shanghai    200126
+				CN
+
+90-88-A9   (hex)		shenzhen zovoton electronic co.,ltd
+000000-0FFFFF     (base 16)		shenzhen zovoton electronic co.,ltd
+				1F 4 Blok, jinrui zhonghe industrial park, huarong road, tongsheng community, dalang street, longhua district, Shenzhen city, Guangdong province, china
+				shenzhen  guangdong  518100
+				CN
+
+EC-74-CD   (hex)		Smart Data (Shenzhen) Intelligent System Co., Ltd.
+C00000-CFFFFF     (base 16)		Smart Data (Shenzhen) Intelligent System Co., Ltd.
+				Unit 201-26, Luohu Business Center, No. 2028 Shennan East Road, Chengdong Community, Dongmen Street, Luohu District, Shenzhen
+				Shenzhen    518001
+				CN
+
+90-88-A9   (hex)		REMOWIRELESS COMMUNICATION INTERNATIONAL CO.,LIMITED
+D00000-DFFFFF     (base 16)		REMOWIRELESS COMMUNICATION INTERNATIONAL CO.,LIMITED
+				RM1202,12/F,TUNG CHUN COMM CTR 438-444 SHANGHAI ST KL
+				HONG KONG  HONG KONG  999077
+				HK
+
+90-88-A9   (hex)		Samway Electronic SRL
+800000-8FFFFF     (base 16)		Samway Electronic SRL
+				Str Maltopol nr 16
+				Bucharest    011048
+				RO
+
+90-88-A9   (hex)		Rikom Technologies Sdn Bhd
+C00000-CFFFFF     (base 16)		Rikom Technologies Sdn Bhd
+				Level 15, Dpulze Cyberjaya, Lingkaran, Cyber Point Timur, 63000 Selangor Malaysia
+				Cyber Point Timur  Selangor  630000
+				MY

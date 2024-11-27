@@ -7463,17 +7463,23 @@ D04000-D04FFF     (base 16)		Plenty Unlimited Inc
 				SILVASSA  DADRA AND NAGAR HAVELI  396230
 				IN
 
+8C-1F-64   (hex)		ENERGY POWER PRODUCTS LIMITED
+41B000-41BFFF     (base 16)		ENERGY POWER PRODUCTS LIMITED
+				7/F, Room 701, Lucky Centre, 165-171,  Wanchai Road
+				Wanchai    000000
+				HK
+
 8C-1F-64   (hex)		Matrixspace
 806000-806FFF     (base 16)		Matrixspace
 				1721 Moon Lake BlvdSTE 200
 				Hoffman Estates  IL  60169
 				US
 
-8C-1F-64   (hex)		ENERGY POWER PRODUCTS LIMITED
-41B000-41BFFF     (base 16)		ENERGY POWER PRODUCTS LIMITED
-				7/F, Room 701, Lucky Centre, 165-171,  Wanchai Road
-				Wanchai    000000
-				HK
+8C-1F-64   (hex)		DEUTA Werke GmbH
+789000-789FFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -9742,12 +9748,6 @@ E51000-E51FFF     (base 16)		NooliTIC
 				Paffrather Str. 140
 				Bergisch Gladbach  North Rhine-Westphalia  51465
 				DE
-
-70-B3-D5   (hex)		Levelup Holding, Inc.
-89F000-89FFFF     (base 16)		Levelup Holding, Inc.
-				3015 W Weldon Ave
-				Phoenix  AZ  85017
-				US
 
 70-B3-D5   (hex)		RF-Tuote Oy
 3AC000-3ACFFF     (base 16)		RF-Tuote Oy
@@ -14998,6 +14998,60 @@ B83000-B83FFF     (base 16)		ShenZhen Australis Electronic Technology Co.,Ltd.
 				Via Lombardia 5
 				Arluno  Milan  20010
 				IT
+
+8C-1F-64   (hex)		Design and Manufacturing Vista Electronics Pvt.Ltd.
+44D000-44DFFF     (base 16)		Design and Manufacturing Vista Electronics Pvt.Ltd.
+				S-17,Okhla Industrial Area, Phase-II
+				New Delhi  Delhi  110020
+				IN
+
+8C-1F-64   (hex)		MSolutions
+9EA000-9EAFFF     (base 16)		MSolutions
+				8, Hataasiya St
+				Ra'anana  Israel  4366411
+				IL
+
+8C-1F-64   (hex)		Würth Elektronik ICS GmbH & Co. KG
+DBB000-DBBFFF     (base 16)		Würth Elektronik ICS GmbH & Co. KG
+				Würthstrasse 1
+				Niedernhall    74676
+				DE
+
+70-B3-D5   (hex)		Level Up Holding Co., Inc.
+89F000-89FFFF     (base 16)		Level Up Holding Co., Inc.
+				10210 N 25th Ave., Suite 100
+				Phoenix  AZ  85021
+				US
+
+8C-1F-64   (hex)		Qualitrol LLC
+2EE000-2EEFFF     (base 16)		Qualitrol LLC
+				1385 Fairport Rd
+				Fairport  NY  14450
+				US
+
+8C-1F-64   (hex)		Motion Impossible Ltd
+F6F000-F6FFFF     (base 16)		Motion Impossible Ltd
+				Unit 12 Brunel Court Dean Road Yate
+				Yate    BS37 5NR
+				GB
+
+8C-1F-64   (hex)		Ottronic GmbH
+F11000-F11FFF     (base 16)		Ottronic GmbH
+				Ankerweg 1
+				Fohnsdorf    8753
+				AT
+
+8C-1F-64   (hex)		J B Electronics Corp
+421000-421FFF     (base 16)		J B Electronics Corp
+				160 Warren Pkwy, Suite 100
+				Frisco  TX  75034
+				US
+
+8C-1F-64   (hex)		Point One Navigation
+4B4000-4B4FFF     (base 16)		Point One Navigation
+				231 6th St
+				San Francisco  CA  94103
+				US
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -22402,6 +22456,24 @@ C60000-C60FFF     (base 16)		Intelligent Security Systems (ISS)
 				1480 US Highway 9 North Suite 202
 				Woodbridge  NJ  07095
 				US
+
+8C-1F-64   (hex)		Shanghai Sansi Electronic Engineering Co., Ltd.
+BB0000-BB0FFF     (base 16)		Shanghai Sansi Electronic Engineering Co., Ltd.
+				1280 Shuying Road
+				Shanghai    201199
+				CN
+
+8C-1F-64   (hex)		Breas Medical AB
+935000-935FFF     (base 16)		Breas Medical AB
+				Företagsvägen 1
+				Mölnlycke    SE-435 33
+				SE
+
+8C-1F-64   (hex)		REO AG
+198000-198FFF     (base 16)		REO AG
+				Brühlerstr. 100
+				Solingen    42657
+				DE
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -29927,17 +29999,29 @@ F19000-F19FFF     (base 16)		Hurry-tech
 				Nicosia    1080
 				CY
 
+8C-1F-64   (hex)		Makel Elektrik Malzemeleri A.Ş.
+9B8000-9B8FFF     (base 16)		Makel Elektrik Malzemeleri A.Ş.
+				Osmangazi Mah.Mareşal Fevzi Çakmak Cad. No:38 KIRAÇ / Esenyurt
+				ESENYURT  İstanbul  34522
+				TR
+
 8C-1F-64   (hex)		SiFive Inc
 E88000-E88FFF     (base 16)		SiFive Inc
 				2625 Augustine DriveSuite 101
 				Santa Clara  CA  95054
 				US
 
-8C-1F-64   (hex)		Makel Elektrik Malzemeleri A.Ş.
-9B8000-9B8FFF     (base 16)		Makel Elektrik Malzemeleri A.Ş.
-				Osmangazi Mah.Mareşal Fevzi Çakmak Cad. No:38 KIRAÇ / Esenyurt
-				ESENYURT  İstanbul  34522
-				TR
+8C-1F-64   (hex)		ezDOOR, LLC
+BB8000-BB8FFF     (base 16)		ezDOOR, LLC
+				PO Box 218
+				Xenia  OH  45385
+				US
+
+8C-1F-64   (hex)		Spyder Controls Corp.
+661000-661FFF     (base 16)		Spyder Controls Corp.
+				7102-52 Street #10
+				Lacombe  AB  T4L 1Y9
+				CA
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
