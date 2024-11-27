@@ -26,11 +26,15 @@ typedef struct AskPasswordRequest {
         const char *icon;            /* freedesktop icon spec name */
         const char *id;              /* some identifier used for this prompt for the "ask-password" protocol */
         const char *credential;      /* $CREDENTIALS_DIRECTORY credential name */
+        const char *flag_file;       /* Once this flag file disappears abort the query */
+        int tty_fd;                  /* If querying on a TTY, the TTY to query on (or -EBADF) */
+        usec_t until;                /* CLOCK_MONOTONIC time until which to show the prompt */
+        int hup_fd;                  /* An extra fd to watch for POLLHUP, in which case to abort the query */
 } AskPasswordRequest;
 
-int ask_password_tty(int tty_fd, const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
-int ask_password_plymouth(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
-int ask_password_agent(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
-int ask_password_auto(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
+int ask_password_tty(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+int ask_password_plymouth(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+int ask_password_agent(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
+int ask_password_auto(const AskPasswordRequest *req, AskPasswordFlags flag, char ***ret);
 
 int acquire_user_ask_password_directory(char **ret);
