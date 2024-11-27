@@ -579,80 +579,6 @@ static const char *const container_table[_VIRTUALIZATION_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
 
-static int running_in_cgroupns(void) {
-        int r;
-
-        if (!cg_ns_supported())
-                return false;
-
-        r = namespace_is_init(NAMESPACE_CGROUP);
-        if (r < 0)
-                log_debug_errno(r, "Failed to test if in root cgroup namespace, ignoring: %m");
-        else if (r > 0)
-                return false;
-
-        // FIXME: We really should drop the heuristics below.
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-
-        if (r) {
-                /* cgroup v2 */
-
-                r = access("/sys/fs/cgroup/cgroup.events", F_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        /* All kernel versions have cgroup.events in nested cgroups. */
-                        return false;
-                }
-
-                /* There's no cgroup.type in the root cgroup, and future kernel versions
-                 * are unlikely to add it since cgroup.type is something that makes no sense
-                 * whatsoever in the root cgroup. */
-                r = access("/sys/fs/cgroup/cgroup.type", F_OK);
-                if (r == 0)
-                        return true;
-                if (r < 0 && errno != ENOENT)
-                        return -errno;
-
-                /* On older kernel versions, there's no cgroup.type */
-                r = access("/sys/kernel/cgroup/features", F_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        /* This is an old kernel that we know for sure has cgroup.events
-                         * only in nested cgroups. */
-                        return true;
-                }
-
-                /* This is a recent kernel, and cgroup.type doesn't exist, so we must be
-                 * in the root cgroup. */
-                return false;
-        } else {
-                /* cgroup v1 */
-
-                /* If systemd controller is not mounted, do not even bother. */
-                r = access("/sys/fs/cgroup/systemd", F_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        return false;
-                }
-
-                /* release_agent only exists in the root cgroup. */
-                r = access("/sys/fs/cgroup/systemd/release_agent", F_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        return true;
-                }
-
-                return false;
-        }
-}
-
 static int running_in_pidns(void) {
         int r;
 
@@ -805,15 +731,6 @@ check_files:
                 return v;
         if (v != VIRTUALIZATION_NONE)
                 goto finish;
-
-        r = running_in_cgroupns();
-        if (r > 0) {
-                log_debug("Running in a cgroup namespace, assuming unknown container manager.");
-                v = VIRTUALIZATION_CONTAINER_OTHER;
-                goto finish;
-        }
-        if (r < 0)
-                log_debug_errno(r, "Failed to detect cgroup namespace: %m");
 
         /* Finally, the root pid namespace has an hardcoded inode number of 0xEFFFFFFC since kernel 3.8, so
          * if all else fails we can check the inode number of our pid namespace and compare it. */
