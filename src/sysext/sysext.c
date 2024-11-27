@@ -12,8 +12,8 @@
 #include "sd-varlink.h"
 
 #include "build.h"
-#include "bus-locator.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
@@ -45,8 +45,8 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "sort-util.h"
 #include "selinux-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -901,7 +901,6 @@ static int resolve_mutable_directory(
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
         const char *root = arg_root, *base = MUTABLE_EXTENSIONS_BASE_DIR;
         int r;
-        _cleanup_close_ int atfd = -EBADF;
 
         assert(hierarchy);
         assert(ret_resolved_mutable_directory);
@@ -947,11 +946,11 @@ static int resolve_mutable_directory(
                 if (r < 0)
                         return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
 
-                atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
                 if (atfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", path_in_root);
 
-                r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
+                r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", path_in_root);
         }
@@ -1300,7 +1299,6 @@ static int mount_overlayfs_with_op(
 
         int r;
         const char *top_layer = NULL;
-        _cleanup_close_ int atfd = -EBADF;
 
         assert(op);
         assert(overlay_path);
@@ -1313,11 +1311,11 @@ static int mount_overlayfs_with_op(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
 
-        atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
-        r = mac_selinux_fix_full(atfd, NULL, op->hierarchy, 0);
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", meta_path);
 
@@ -1325,13 +1323,12 @@ static int mount_overlayfs_with_op(
                 r = mkdir_p(op->work_dir, 0700);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
-                _cleanup_close_ int dfd = -EBADF;
 
-                dfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int dfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
-                r = mac_selinux_fix_full(dfd, NULL, op->hierarchy, 0);
+                r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", op->work_dir);
 
@@ -1373,8 +1370,11 @@ static int write_extensions_file(ImageClass image_class, char **extensions, cons
         if (!buf)
                 return log_oom();
 
-        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD,f, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write extension meta file '%s': %m", f);
 
@@ -1403,8 +1403,11 @@ static int write_dev_file(ImageClass image_class, const char *meta_path, const c
         /* Modifying the underlying layers while the overlayfs is mounted is technically undefined, but at
          * least it won't crash or deadlock, as per the kernel docs about overlayfs:
          * https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html#changes-to-underlying-filesystems */
-        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
-        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1438,8 +1441,12 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         escaped_work_dir_in_root = cescape(work_dir_in_root);
         if (!escaped_work_dir_in_root)
                 return log_oom();
-        const char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "work_dir");
-        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, NULL, hierarchy_path);
+
+        _cleanup_free_ char *hierarchy_path = path_join(hierarchy, image_class_info[image_class].dot_directory_name, "work_dir");
+        if (!hierarchy_path)
+                return log_oom();
+
+        r = write_string_file_full(AT_FDCWD, f, escaped_work_dir_in_root, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_LABEL, /* ts= */ NULL, hierarchy_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
@@ -1454,7 +1461,6 @@ static int store_info_in_meta(
                 const char *work_dir,
                 const char *hierarchy) {
         _cleanup_free_ char *f = NULL;
-        _cleanup_close_ int atfd = -EBADF;
         int r;
 
         assert(extensions);
@@ -1468,14 +1474,13 @@ static int store_info_in_meta(
 
         r = mkdir_p(f, 0755);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create directory '%s': %m", f);
 
-        atfd = open(f, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int atfd = open(f, O_DIRECTORY|O_CLOEXEC);
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", f);
 
-        r = mac_selinux_fix_full(atfd, NULL, hierarchy, 0);
-
+        r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", hierarchy);
 
