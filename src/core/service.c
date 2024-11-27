@@ -1879,7 +1879,7 @@ static int service_spawn_internal(
                 }
         }
 
-        if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && UNIT(s)->debug_invocation) {
+        if (UNIT(s)->debug_invocation) {
                 char *t = strdup("DEBUG_INVOCATION=1");
                 if (!t)
                         return -ENOMEM;
