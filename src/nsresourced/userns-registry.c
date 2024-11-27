@@ -592,6 +592,9 @@ bool userns_name_is_valid(const char *name) {
 
         /* Checks if the specified string is suitable as user namespace name. */
 
+        if (isempty(name))
+                return false;
+
         if (strlen(name) > NAME_MAX) /* before we use alloca(), let's check for size */
                 return false;
 
