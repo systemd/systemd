@@ -82,3 +82,5 @@ int is_our_namespace(int fd, NamespaceType type);
 int is_idmapping_supported(const char *path);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
+
+int process_is_owned_by_uid(PidRef *pidref, uid_t uid);
