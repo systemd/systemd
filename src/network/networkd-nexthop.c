@@ -1144,6 +1144,11 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
         /* If we did not know the nexthop, then save it. */
         if (!nexthop) {
+                if (!req && !m->manage_foreign_nexthops) {
+                        log_nexthop_debug(&(const NextHop) { .id = id }, "Ignoring received", m);
+                        return 0;
+                }
+
                 r = nexthop_add_new(m, id, &nexthop);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to add received nexthop, ignoring: %m");
