@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2018-02-27 04:18-0500\n"
 "Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
 "Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
@@ -1252,7 +1252,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 #, fuzzy
-msgid "Authentication is required to manage optional features"
+msgid "Authentication is required to manage optional features."
 msgstr ""
 "Es requereix autenticació per gestionar les sessions, usuaris i llocs de "
 "treball actius."

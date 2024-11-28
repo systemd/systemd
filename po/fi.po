@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2024-11-20 19:13+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
@@ -1176,7 +1176,8 @@ msgid "Manage optional features"
 msgstr "Hallitse valinnaisia ominaisuuksia"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+#, fuzzy
+msgid "Authentication is required to manage optional features."
 msgstr "Todennus vaaditaan valinnaisten ominaisuuksien hallintaan"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

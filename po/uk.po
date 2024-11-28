@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2024-11-21 19:38+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
@@ -1214,7 +1214,8 @@ msgid "Manage optional features"
 msgstr "Керування додатковими функціями"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+#, fuzzy
+msgid "Authentication is required to manage optional features."
 msgstr "Для керування додатковими можливостями слід пройти розпізнавання"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

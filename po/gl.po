@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2023-04-14 18:20+0000\n"
 "Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
 "Language-Team: Galician <https://translate.fedoraproject.org/projects/"
@@ -1206,7 +1206,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 #, fuzzy
-msgid "Authentication is required to manage optional features"
+msgid "Authentication is required to manage optional features."
 msgstr ""
 "Requírese autenticación para xestionar as sesións, usuarios e asentos "
 "activos."

@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-18 12:55+0900\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2021-09-09 03:04+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -1121,7 +1121,7 @@ msgid "Manage optional features"
 msgstr "任意の機能の管理"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+msgid "Authentication is required to manage optional features."
 msgstr "任意の機能を管理するには認証が必要です。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22

@@ -14,7 +14,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-27 14:57+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2024-11-17 15:48+0000\n"
 "Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
 "memory@weblate.org>\n"
@@ -1270,7 +1270,8 @@ msgstr "Optionale Funktionen verwalten"
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+#, fuzzy
+msgid "Authentication is required to manage optional features."
 msgstr "Legitimierung ist zur Verwaltung optionaler Funktionen erforderlich"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
