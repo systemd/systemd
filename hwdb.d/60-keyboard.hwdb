@@ -1438,6 +1438,11 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
+# Logitech MX Keys for Mac
+evdev:input:b0003v046Dp4092*
+ KEYBOARD_KEY_70035=102nd                               # '<' key
+ KEYBOARD_KEY_70064=grave                               # '^' key
+
 ###########################################################
 # Maxdata
 ###########################################################
