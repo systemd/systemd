@@ -164,6 +164,31 @@ TEST(ipcns) {
         test_shareable_ns(CLONE_NEWIPC);
 }
 
+TEST(fd_is_namespace) {
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_OK_ZERO(fd_is_namespace(STDIN_FILENO, NAMESPACE_NET));
+        ASSERT_OK_ZERO(fd_is_namespace(STDOUT_FILENO, NAMESPACE_NET));
+        ASSERT_OK_ZERO(fd_is_namespace(STDERR_FILENO, NAMESPACE_NET));
+
+        fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        if (IN_SET(fd, -ENOSYS, -ENOENT)) {
+                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+                return;
+        }
+        ASSERT_OK(fd);
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_MOUNT));
+        ASSERT_OK_ZERO(fd_is_namespace(fd, NAMESPACE_NET));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_IPC));
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_IPC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = namespace_open_by_type(NAMESPACE_NET));
+        ASSERT_OK_POSITIVE(fd_is_namespace(fd, NAMESPACE_NET));
+}
+
 TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
