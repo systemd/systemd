@@ -570,6 +570,7 @@ decl_headers = '''
 
 foreach decl : ['char16_t',
                 'char32_t',
+                'struct fsverity_descriptor',
                 'struct mount_attr',
                 'struct statx',
                 'struct dirent64',
@@ -578,6 +579,17 @@ foreach decl : ['char16_t',
 
         # We get -1 if the size cannot be determined
         have = cc.sizeof(decl, prefix : decl_headers, args : '-D_GNU_SOURCE') > 0
+
+        if decl == 'struct fsverity_descriptor'
+                if have
+                        want_linux_fsverity_h = false
+                else
+                        have = cc.sizeof(decl,
+                                         prefix : decl_headers + '#include <linux/fsverity.h>',
+                                         args : '-D_GNU_SOURCE') > 0
+                        want_linux_fsverity_h = have
+                endif
+        endif
 
         if decl == 'struct mount_attr'
                 if have
@@ -604,6 +616,7 @@ foreach decl : ['char16_t',
         conf.set10('HAVE_' + decl.underscorify().to_upper(), have)
 endforeach
 
+conf.set10('WANT_LINUX_FSVERITY_H', want_linux_fsverity_h)
 conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
 conf.set10('WANT_LINUX_FS_H', want_linux_fs_h)
 
