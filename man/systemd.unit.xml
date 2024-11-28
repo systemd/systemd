@@ -1990,6 +1990,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionKernelModuleLoaded=</varname></term>
+
+          <listitem><para>Test whether the specified kernel module has been loaded and fully initialized
+          already.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>
@@ -2022,6 +2032,7 @@
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>
           <term><varname>AssertIOPressure=</varname></term>
+          <term><varname>AssertKernelModuleLoaded=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings

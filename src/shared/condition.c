@@ -1155,6 +1155,59 @@ static int condition_test_psi(Condition *c, char **env) {
         return *current <= limit;
 }
 
+static int condition_test_kernel_module_loaded(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_KERNEL_MODULE_LOADED);
+
+        /* Checks whether a specific kernel module is fully loaded (i.e. with the full initialization routine
+         * complete). */
+
+        _cleanup_free_ char *normalized = strreplace(c->parameter, "-", "_");
+        if (!normalized)
+                return log_oom_debug();
+
+        if (!filename_is_valid(normalized)) {
+                log_debug("Kernel module name '%s' is not valid, hence reporting it to not be loaded.", normalized);
+                return false;
+        }
+
+        _cleanup_free_ char *p = path_join("/sys/module/", normalized);
+        if (!p)
+                return log_oom_debug();
+
+        _cleanup_close_ int dir_fd = open(p, O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("%s does not exist, kernel module '%s' not loaded.", p, normalized);
+                        return false;
+                }
+
+                return log_debug_errno(errno, "Failed to open directory '%s/': %m", p);
+        }
+
+        _cleanup_free_ char *initstate = NULL;
+        r = read_virtual_file_at(dir_fd, "initstate", SIZE_MAX, &initstate, NULL);
+        if (r == -ENOENT) {
+                log_debug("%s exists but %s/initstate does not, kernel modules is built-in, hence loaded.", p, p);
+                return true;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open %s/initstate: %m", p);
+
+        delete_trailing_chars(initstate, WHITESPACE);
+
+        if (!streq(initstate, "live")) {
+                log_debug("Kernel module %s is reported as '%s', hence not loaded.", normalized, initstate);
+                return false;
+        }
+
+        log_debug("Kernel module %s detected as loaded.", normalized);
+        return true;
+}
+
 int condition_test(Condition *c, char **env) {
 
         static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
@@ -1191,6 +1244,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_MEMORY_PRESSURE]          = condition_test_psi,
                 [CONDITION_CPU_PRESSURE]             = condition_test_psi,
                 [CONDITION_IO_PRESSURE]              = condition_test_psi,
+                [CONDITION_KERNEL_MODULE_LOADED]     = condition_test_kernel_module_loaded,
         };
 
         int r, b;
@@ -1315,6 +1369,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY_PRESSURE] = "ConditionMemoryPressure",
         [CONDITION_CPU_PRESSURE] = "ConditionCPUPressure",
         [CONDITION_IO_PRESSURE] = "ConditionIOPressure",
+        [CONDITION_KERNEL_MODULE_LOADED] = "ConditionKernelModuleLoaded",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -1353,6 +1408,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY_PRESSURE] = "AssertMemoryPressure",
         [CONDITION_CPU_PRESSURE] = "AssertCPUPressure",
         [CONDITION_IO_PRESSURE] = "AssertIOPressure",
+        [CONDITION_KERNEL_MODULE_LOADED] = "AssertKernelModuleLoaded",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
