@@ -310,6 +310,34 @@ int namespace_is_init(NamespaceType type) {
         return st.st_ino == namespace_info[type].root_inode;
 }
 
+int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
+        int r;
+
+        assert(pid >= 0);
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+        assert(ret);
+
+        for (;;) {
+                pid_t ppid;
+
+                r = get_process_ppid(pid, &ppid);
+                if (r < 0)
+                        return r;
+
+                r = in_same_namespace(pid, ppid, type);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* If the parent and the child are not in the same namespace, then the child is
+                         * the leader we are looking for. */
+                        *ret = pid;
+                        return 0;
+                }
+
+                pid = ppid;
+        }
+}
+
 int detach_mount_namespace(void) {
         /* Detaches the mount namespace, disabling propagation from our namespace to the host. Sets
          * propagation first to MS_SLAVE for all mounts (disabling propagation), and then back to MS_SHARED
