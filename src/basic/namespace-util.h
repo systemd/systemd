@@ -49,6 +49,8 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
 
+int namespace_is_init(NamespaceType type);
+
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
 int detach_mount_namespace_userns(int userns_fd);
@@ -78,7 +80,5 @@ int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
 
 int namespace_open_by_type(NamespaceType type);
-
-int namespace_is_init(NamespaceType type);
 
 int is_idmapping_supported(const char *path);
