@@ -11,6 +11,9 @@
 #include <sys/sendfile.h>
 #include <sys/xattr.h>
 #include <unistd.h>
+#if HAVE_LINUX_FSVERITY_H
+#include <linux/fsverity.h>
+#endif
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -794,6 +797,53 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
         return 0;
 }
 
+/* Copies fs-verity status.  May re-open fdt to do its job. */
+static int copy_fs_verity(int fdf, int *fdt) {
+#if HAVE_LINUX_FSVERITY_H
+        struct fsverity_descriptor desc;
+        struct fsverity_read_metadata_arg read_arg = {
+                .metadata_type = FS_VERITY_METADATA_TYPE_DESCRIPTOR,
+                .buf_ptr = (uint64_t) &desc,
+                .length = sizeof desc,
+        };
+
+        int ret = ioctl(fdf, FS_IOC_READ_VERITY_METADATA, &read_arg);
+        if (ret < 0) {
+                /* These mean that fs-verity isn't enabled on the file, filesystem, or kernel.  In all of
+                 * those cases, the correct thing to do is to do nothing at all.
+                 */
+                if (errno == ENODATA || errno == ENOTTY || errno == ENOTSUP)
+                        return 0;
+                return -errno;
+        }
+
+        if (ret != sizeof desc) {
+                /* This is really quite unexpected... */
+                return -EINVAL;
+        }
+
+        /* Okay.  We're doing this now.  We need to re-open fdt as read-only because
+         * we can't enable fs-verity while writable file descriptors are outstanding.
+         */
+        ret = fd_reopen_replace(fdt, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+        if (ret < 0) {
+                return ret;
+        }
+
+        struct fsverity_enable_arg enable_arg = {
+                .version = desc.version,
+                .hash_algorithm = desc.hash_algorithm,
+                .block_size = 1u << desc.log_blocksize,
+                .salt_size = desc.salt_size,
+                .salt_ptr = (uint64_t) &desc.salt,
+        };
+
+        return RET_NERRNO(ioctl(*fdt, FS_IOC_ENABLE_VERITY, &enable_arg));
+#else
+        return 0;
+#endif
+}
+
 static int fd_copy_tree_generic(
                 int df,
                 const char *from,
@@ -876,6 +926,14 @@ static int fd_copy_regular(
                 r = fd_verify_linked(fdf);
                 if (r < 0)
                         return r;
+        }
+
+        /* NB: fs-verity cannot be enabled when a writable file descriptor is outstanding.
+         * copy_fs_verity() may well re-open 'fdt' as O_RDONLY.  All code below this point
+         * needs to be able to work with a read-only file descriptor.
+         */
+        if (FLAGS_SET(copy_flags, COPY_FS_VERITY)) {
+                copy_fs_verity(fdf, &fdt);
         }
 
         if (copy_flags & COPY_FSYNC) {
