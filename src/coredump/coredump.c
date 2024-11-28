@@ -1761,7 +1761,7 @@ static int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd) {
         return 0;
 }
 
-static int process_kernel(int argc, char* argv[]) {
+static int process_kernel(int argc, char *argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         _cleanup_(context_done) Context context = CONTEXT_NULL;
         int r;
@@ -1799,7 +1799,7 @@ static int process_kernel(int argc, char* argv[]) {
                  context.meta[META_ARGV_UID], context.meta[META_ARGV_SIGNAL],
                  signal_to_string(context.signo));
 
-        r = in_same_namespace(getpid_cached(), context.pidref.pid, NAMESPACE_PID);
+        r = pidref_in_same_namespace(/* pid1 = */ NULL, &context.pidref, NAMESPACE_PID);
         if (r < 0)
                 log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
         if (r == 0) {

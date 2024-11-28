@@ -103,7 +103,7 @@ int chattr_full(
                         continue;
 
                 if (ioctl(fd, FS_IOC_SETFLAGS, &new_one) < 0) {
-                        if (errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
                                 return -errno;
 
                         log_full_errno(FLAGS_SET(flags, CHATTR_WARN_UNSUPPORTED_FLAGS) ? LOG_WARNING : LOG_DEBUG,
