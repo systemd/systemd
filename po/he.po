@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2024-11-19 07:38+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
@@ -1086,7 +1086,8 @@ msgid "Manage optional features"
 msgstr "ניהול יכולות רשות"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-msgid "Authentication is required to manage optional features"
+#, fuzzy
+msgid "Authentication is required to manage optional features."
 msgstr "נדרש אימות כדי לנהל יכולות רשות"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
