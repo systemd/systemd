@@ -2,6 +2,8 @@
 
 #include <fcntl.h>
 #include <linux/btrfs.h>
+#include <linux/fsverity.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -790,6 +792,66 @@ static int prepare_nocow(int fdf, const char *from, int fdt, unsigned *chattr_ma
         return 0;
 }
 
+/* Copies fs-verity status.  May re-open fdt to do its job. */
+static int copy_fs_verity(int fdf, int *fdt) {
+        int r;
+
+        assert(fdf >= 0);
+        assert(fdt);
+        assert(*fdt >= 0);
+
+        r = fd_verify_regular(fdf);
+        if (r < 0)
+                return r;
+
+        struct fsverity_descriptor desc = {};
+        struct fsverity_read_metadata_arg read_arg = {
+                .metadata_type = FS_VERITY_METADATA_TYPE_DESCRIPTOR,
+                .buf_ptr = (uintptr_t) &desc,
+                .length = sizeof(desc),
+        };
+
+        r = ioctl(fdf, FS_IOC_READ_VERITY_METADATA, &read_arg);
+        if (r < 0) {
+                /* ENODATA means that the file doesn't have fs-verity,
+                 * so the correct thing to do is to do nothing at all.
+                 */
+                if (errno == ENODATA)
+                        return 0;
+                return log_error_errno(errno, "Failed to read fs-verity metadata from source file: %m");
+        }
+
+        /* Make sure that the descriptor is completely initialized */
+        assert(r == (int) sizeof desc);
+
+        r = fd_verify_regular(*fdt);
+        if (r < 0)
+                return r;
+
+        /* Okay.  We're doing this now.  We need to re-open fdt as read-only because
+         * we can't enable fs-verity while writable file descriptors are outstanding.
+         */
+        _cleanup_close_ int reopened_fd = -EBADF;
+        r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
+        if (r < 0)
+                return r;
+        if (reopened_fd >= 0)
+                close_and_replace(*fdt, reopened_fd);
+
+        struct fsverity_enable_arg enable_arg = {
+                .version = desc.version,
+                .hash_algorithm = desc.hash_algorithm,
+                .block_size = UINT32_C(1) << desc.log_blocksize,
+                .salt_size = desc.salt_size,
+                .salt_ptr = (uintptr_t) &desc.salt,
+        };
+
+        if (ioctl(*fdt, FS_IOC_ENABLE_VERITY, &enable_arg) < 0)
+                return log_error_errno(errno, "Failed to set fs-verity metadata: %m");
+
+        return 0;
+}
+
 static int fd_copy_tree_generic(
                 int df,
                 const char *from,
@@ -872,6 +934,16 @@ static int fd_copy_regular(
                 r = fd_verify_linked(fdf);
                 if (r < 0)
                         return r;
+        }
+
+        /* NB: fs-verity cannot be enabled when a writable file descriptor is outstanding.
+         * copy_fs_verity() may well re-open 'fdt' as O_RDONLY.  All code below this point
+         * needs to be able to work with a read-only file descriptor.
+         */
+        if (FLAGS_SET(copy_flags, COPY_PRESERVE_FS_VERITY)) {
+                r = copy_fs_verity(fdf, &fdt);
+                if (r < 0)
+                        goto fail;
         }
 
         if (copy_flags & COPY_FSYNC) {
