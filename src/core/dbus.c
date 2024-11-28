@@ -131,10 +131,16 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert_se(bus = sd_bus_message_get_bus(message));
 
-        if (bus == m->api_bus)
+        if (bus == m->api_bus) {
+                log_debug("Got disconnect on API bus.");
                 bus_done_api(m);
-        if (bus == m->system_bus)
+        }
+        if (bus == m->system_bus) {
+                /* If we are the system manager, this is already logged by the API bus. */
+                if (!MANAGER_IS_SYSTEM(m))
+                        log_debug("Got disconnect on system bus.");
                 bus_done_system(m);
+        }
 
         if (set_remove(m->private_buses, bus)) {
                 log_debug("Got disconnect on private connection.");
