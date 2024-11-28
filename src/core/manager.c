@@ -2139,7 +2139,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 manager_setup_bus(m);
 
                 /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
+                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->deserialized_subscribed);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
                 m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
@@ -3813,8 +3813,10 @@ int manager_reload(Manager *m) {
         /* Clean up runtime objects no longer referenced */
         manager_vacuum(m);
 
-        /* Clean up deserialized tracked clients */
-        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+        /* Clean up deserialized tracked clients. If we aren't able to renew the subscriptions, we'll try
+         * again later once reconnected to the api bus. */
+        if (bus_track_coldplug(m->api_bus, &m->subscribed, false, m->deserialized_subscribed) > 0)
+                m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
