@@ -131,10 +131,15 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert_se(bus = sd_bus_message_get_bus(message));
 
-        if (bus == m->api_bus)
+        if (bus == m->api_bus) {
+                log_debug("Got disconnect on API bus.");
                 bus_done_api(m);
-        if (bus == m->system_bus)
+        }
+        if (bus == m->system_bus) {
                 bus_done_system(m);
+                if (!MANAGER_IS_SYSTEM(m))
+                        log_debug("Got disconnect on system bus.");
+        }
 
         if (set_remove(m->private_buses, bus)) {
                 log_debug("Got disconnect on private connection.");
@@ -854,6 +859,10 @@ int bus_init_api(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up API bus: %m");
 
+        r = bus_track_coldplug(bus, &m->subscribed, false, m->deserialized_subscribed);
+        if (r < 0)
+                return r;
+        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
         m->api_bus = TAKE_PTR(bus);
 
         return 0;
@@ -979,6 +988,20 @@ int bus_init_private(Manager *m) {
         return 0;
 }
 
+static char** bus_track_stash(sd_bus_track *t) {
+        _cleanup_strv_free_ char **subscribed = NULL;
+
+        for (const char *n = sd_bus_track_first(t); n; n = sd_bus_track_next(t)) {
+                int c, j;
+
+                c = sd_bus_track_count_name(t, n);
+                for (j = 0; j < c; j++)
+                        strv_extend(&subscribed, n);
+        }
+
+        return TAKE_PTR(subscribed);
+}
+
 static void destroy_bus(Manager *m, sd_bus **bus) {
         Unit *u;
         Job *j;
@@ -998,8 +1021,11 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         }
 
         /* Get rid of tracked clients on this bus */
-        if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus)
+        if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus) {
+                if (strv_isempty(m->deserialized_subscribed))
+                        m->deserialized_subscribed = bus_track_stash(m->subscribed);
                 m->subscribed = sd_bus_track_unref(m->subscribed);
+        }
 
         HASHMAP_FOREACH(j, m->jobs)
                 if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
@@ -1058,7 +1084,6 @@ void bus_done(Manager *m) {
 
         assert(!m->subscribed);
 
-        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
         m->polkit_registry = hashmap_free(m->polkit_registry);
 }
 
@@ -1147,20 +1172,19 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
         }
 }
 
-int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
+int bus_track_coldplug(sd_bus *bus, sd_bus_track **t, bool recursive, char **l) {
         int r;
 
-        assert(m);
         assert(t);
 
         if (strv_isempty(l))
                 return 0;
 
-        if (!m->api_bus)
+        if (!bus)
                 return 0;
 
         if (!*t) {
-                r = sd_bus_track_new(m->api_bus, t, NULL, NULL);
+                r = sd_bus_track_new(bus, t, NULL, NULL);
                 if (r < 0)
                         return r;
         }
