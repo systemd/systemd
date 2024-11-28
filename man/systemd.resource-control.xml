@@ -210,7 +210,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>These settings control the <option>cpu</option> controller in the unified hierarchy.</para>
 
-          <para>These options accept an integer value or a the special string "idle":</para>
+          <para>These options accept an integer value or the special string "idle":</para>
             <itemizedlist>
               <listitem>
                 <para>If set to an integer value, assign the specified CPU time weight to the processes
