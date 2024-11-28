@@ -39,6 +39,7 @@ const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
 };
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
+#define pidref_namespace_path(pidref, type) procfs_file_alloca_pidref(pidref, namespace_info[type].proc_path)
 
 static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
         for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
@@ -65,7 +66,7 @@ int pidref_namespace_open(
         if (ret_pidns_fd) {
                 const char *pidns;
 
-                pidns = pid_namespace_path(pidref->pid, NAMESPACE_PID);
+                pidns = pidref_namespace_path(pidref, NAMESPACE_PID);
                 pidns_fd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (pidns_fd < 0)
                         return -errno;
@@ -74,7 +75,7 @@ int pidref_namespace_open(
         if (ret_mntns_fd) {
                 const char *mntns;
 
-                mntns = pid_namespace_path(pidref->pid, NAMESPACE_MOUNT);
+                mntns = pidref_namespace_path(pidref, NAMESPACE_MOUNT);
                 mntns_fd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (mntns_fd < 0)
                         return -errno;
@@ -83,7 +84,7 @@ int pidref_namespace_open(
         if (ret_netns_fd) {
                 const char *netns;
 
-                netns = pid_namespace_path(pidref->pid, NAMESPACE_NET);
+                netns = pidref_namespace_path(pidref, NAMESPACE_NET);
                 netns_fd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (netns_fd < 0)
                         return -errno;
@@ -92,7 +93,7 @@ int pidref_namespace_open(
         if (ret_userns_fd) {
                 const char *userns;
 
-                userns = pid_namespace_path(pidref->pid, NAMESPACE_USER);
+                userns = pidref_namespace_path(pidref, NAMESPACE_USER);
                 userns_fd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (userns_fd < 0 && errno != ENOENT)
                         return -errno;
@@ -101,7 +102,7 @@ int pidref_namespace_open(
         if (ret_root_fd) {
                 const char *root;
 
-                root = procfs_file_alloca(pidref->pid, "root");
+                root = procfs_file_alloca_pidref(pidref, "root");
                 root_fd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
                 if (root_fd < 0)
                         return -errno;

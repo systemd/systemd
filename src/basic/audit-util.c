@@ -33,7 +33,7 @@ static int audit_read_field(const PidRef *pid, const char *field, char **ret) {
         if (detect_container() > 0)
                 return -ENODATA;
 
-        const char *p = procfs_file_alloca(pid->pid, field);
+        const char *p = procfs_file_alloca_pidref(pid, field);
 
         _cleanup_free_ char *s = NULL;
         bool enoent = false;
