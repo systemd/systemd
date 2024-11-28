@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-06 14:42+0000\n"
+"POT-Creation-Date: 2024-11-28 18:16+0900\n"
 "PO-Revision-Date: 2021-02-22 20:21+0000\n"
 "Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
@@ -1196,7 +1196,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 #, fuzzy
-msgid "Authentication is required to manage optional features"
+msgid "Authentication is required to manage optional features."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na správu systémovej služby alebo súborov "
 "jednotky."
