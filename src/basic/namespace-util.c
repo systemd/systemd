@@ -236,6 +236,28 @@ int is_our_namespace(int fd, NamespaceType type) {
         return fd_inode_same(fd, our_ns);
 }
 
+int namespace_is_init(NamespaceType type) {
+        int r;
+
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        if (namespace_info[type].root_inode == 0)
+                return -EBADR; /* Cannot answer this question */
+
+        const char *p = pid_namespace_path(0, type);
+
+        struct stat st;
+        r = RET_NERRNO(stat(p, &st));
+        if (r == -ENOENT)
+                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
+                return proc_mounted() == 0 ? -ENOSYS : true;
+        if (r < 0)
+                return r;
+
+        return st.st_ino == namespace_info[type].root_inode;
+}
+
 int detach_mount_namespace(void) {
         /* Detaches the mount namespace, disabling propagation from our namespace to the host. Sets
          * propagation first to MS_SLAVE for all mounts (disabling propagation), and then back to MS_SHARED
@@ -480,28 +502,6 @@ int namespace_open_by_type(NamespaceType type) {
                 return -ENOSYS;
 
         return fd;
-}
-
-int namespace_is_init(NamespaceType type) {
-        int r;
-
-        assert(type >= 0);
-        assert(type <= _NAMESPACE_TYPE_MAX);
-
-        if (namespace_info[type].root_inode == 0)
-                return -EBADR; /* Cannot answer this question */
-
-        const char *p = pid_namespace_path(0, type);
-
-        struct stat st;
-        r = RET_NERRNO(stat(p, &st));
-        if (r == -ENOENT)
-                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
-                return proc_mounted() == 0 ? -ENOSYS : true;
-        if (r < 0)
-                return r;
-
-        return st.st_ino == namespace_info[type].root_inode;
 }
 
 int is_idmapping_supported(const char *path) {
