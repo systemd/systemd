@@ -420,8 +420,7 @@ static int nexthop_add_new(Manager *manager, uint32_t id, NextHop **ret) {
         r = hashmap_ensure_put(&manager->nexthops_by_id, &nexthop_hash_ops, UINT32_TO_PTR(nexthop->id), nexthop);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return -EEXIST;
+        assert(r > 0);
 
         nexthop->manager = manager;
 
