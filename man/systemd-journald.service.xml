@@ -164,9 +164,10 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     used to view the log stream of a specific namespace. If the switch is not used the log stream of the
     default namespace is shown, i.e. log data from other namespaces is not visible.</para>
 
-    <para>Services associated with a specific log namespace may log via syslog, the native logging protocol
-    of the journal and via stdout/stderr; the logging from all three transports is associated with the
-    namespace.</para>
+    <para>Services associated with a specific log namespace may log via
+    <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    the native logging protocol of the journal and via stdout/stderr; the logging from all three transports
+    is associated with the namespace.</para>
 
     <para>By default only the default namespace will collect kernel and audit log messages.</para>
 
@@ -288,8 +289,11 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <term><varname>systemd.journald.max_level_socket=</varname></term>
 
         <listitem><para>Controls the maximum log level of messages that are stored in the journal, forwarded
-        to syslog, kmsg, the console, the wall, or a socket. This kernel command line options override the
-        settings of the same names in the
+        to
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        kmsg, the console,
+        <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        or a socket. This kernel command line options override the settings of the same names in the
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         file.</para>
 

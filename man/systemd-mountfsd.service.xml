@@ -57,7 +57,9 @@
     <para>The returned mounts are automatically allowlisted in the per-user-namespace allowlist maintained by
     <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-    <para>The file systems are automatically fsck'ed before mounting.</para>
+    <para>The file systems are automatically
+    <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>'ed
+    before mounting.</para>
   </refsect1>
 
   <refsect1>

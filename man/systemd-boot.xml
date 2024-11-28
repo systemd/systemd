@@ -54,7 +54,7 @@
 
       <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
-      <listitem><para>A <literal>Reboot Into Firmware Interface option</literal>, if supported by the UEFI
+      <listitem><para>A <literal>Reboot Into Firmware Interface</literal> option, if supported by the UEFI
       firmware.</para></listitem>
 
       <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
