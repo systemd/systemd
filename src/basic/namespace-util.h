@@ -3,11 +3,9 @@
 
 #include <sys/types.h>
 
-typedef enum NamespaceType NamespaceType;
-
 #include "pidref.h"
 
-enum NamespaceType {
+typedef enum NamespaceType {
         NAMESPACE_CGROUP,
         NAMESPACE_IPC,
         NAMESPACE_NET,
@@ -18,7 +16,7 @@ enum NamespaceType {
         NAMESPACE_TIME,
         _NAMESPACE_TYPE_MAX,
         _NAMESPACE_TYPE_INVALID = -EINVAL,
-};
+} NamespaceType;
 
 extern const struct namespace_info {
         const char *proc_name;
@@ -52,6 +50,8 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 
 int fd_is_namespace(int fd, unsigned long nsflag);
 int is_our_namespace(int fd, NamespaceType type);
+
+int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
 
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
