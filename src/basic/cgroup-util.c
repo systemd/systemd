@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "special.h"
@@ -66,6 +67,58 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         CG_FILE_HANDLE_CGROUPID(fh) = id;
 
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
+}
+
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
+        _cleanup_close_ int cgfd = -EBADF;
+        int r;
+
+        cgfd = cg_cgroupid_open(cgroupfs_fd, id);
+        if (cgfd < 0)
+                return cgfd;
+
+        _cleanup_free_ char *path = NULL;
+
+        r = fd_get_path(cgfd, &path);
+        if (r < 0)
+                return r;
+
+        if (!path_startswith(path, "/sys/fs/cgroup/"))
+                return -EXDEV; /* recognizable error */
+
+        if (ret)
+                *ret = TAKE_PTR(path);
+        return 0;
+}
+
+int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        int mnt_id;
+
+        assert(path);
+        assert(ret);
+
+        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
+         * name_to_handle_at_loop() does in mountpoint-util.c */
+        if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
+                return -errno;
+
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
+        return 0;
+}
+
+int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        int mnt_id = -1;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH) < 0)
+                return -errno;
+
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
+        return 0;
 }
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
@@ -822,6 +875,16 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        if (pidref->fd >= 0) {
+                uint64_t cgroup_id;
+
+                r = pidfd_get_cgroupid(pidref->fd, &cgroup_id);
+                if (r >= 0)
+                        return cg_path_from_cgroupid(/* cgroupfs_fd = */ -EBADF, cgroup_id, ret_path);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
                 return r;
@@ -1343,36 +1406,6 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
                 return r;
 
         return cg_path_get_machine_name(cgroup, ret_machine);
-}
-
-int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id;
-
-        assert(path);
-        assert(ret);
-
-        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
-         * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
-}
-
-int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id = -1;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
 }
 
 int cg_path_get_session(const char *path, char **ret_session) {
