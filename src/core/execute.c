@@ -672,6 +672,7 @@ void exec_context_done(ExecContext *c) {
 
         c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
+        c->syscall_log = hashmap_free(c->syscall_log);
         c->address_families = set_free(c->address_families);
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
