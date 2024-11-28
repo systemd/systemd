@@ -772,6 +772,7 @@ endif
 foreach header : ['crypt.h',
                   'linux/ioprio.h',
                   'linux/memfd.h',
+                  'linux/fsverity.h',
                   'linux/time_types.h',
                   'sys/auxv.h',
                   'sys/sdt.h',
