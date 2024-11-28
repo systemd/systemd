@@ -30,7 +30,7 @@ foreach pair : files
 endforeach
 
 in_files = [['etc.conf',                      ''],
-            ['legacy.conf',                   'HAVE_SYSV_COMPAT'],
+            ['legacy.conf',                   ''],
             ['static-nodes-permissions.conf', ''],
             ['systemd.conf',                  ''],
             ['var.conf',                      ''],

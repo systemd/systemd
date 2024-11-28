@@ -34,9 +34,9 @@
 
     <para><command>systemd-ssh-generator</command> binds a socket-activated SSH server to local
     <constant>AF_VSOCK</constant> and <constant>AF_UNIX</constant> sockets under certain conditions. It only
-    has an effect if the <citerefentry
-    project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> binary is
-    installed. Specifically, it does the following:</para>
+    has an effect if the
+    <citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    binary is installed. Specifically, it does the following:</para>
 
     <itemizedlist>
       <listitem><para>If invoked in a VM with <constant>AF_VSOCK</constant> support, a socket-activated SSH
@@ -71,14 +71,14 @@
     <para>The generator will use a packaged <filename>sshd@.service</filename> service template file if one
     exists, and otherwise generate a suitable service template file.</para>
 
-    <para><filename>systemd-ssh-generator</filename> implements
+    <para><command>systemd-ssh-generator</command> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-ssh-generator</filename> understands the following
+    <para><command>systemd-ssh-generator</command> understands the following
     <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     parameters:</para>
 
@@ -102,8 +102,9 @@
         times to bind multiple sockets. The syntax should follow the one of <varname>ListenStream=</varname>,
         see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This functionality supports all socket families systemd supports, including
-        <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
+        for details. This functionality supports all socket families
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> supports,
+        including <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
