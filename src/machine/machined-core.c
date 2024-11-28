@@ -7,6 +7,7 @@
 #include "fileio.h"
 #include "iovec-util.h"
 #include "machined.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
