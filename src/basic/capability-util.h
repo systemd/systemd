@@ -8,6 +8,7 @@
 
 #include "macro.h"
 #include "missing_capability.h"
+#include "pidref.h"
 
 /* Special marker used when storing a capabilities mask as "unset" */
 #define CAP_MASK_UNSET UINT64_MAX
@@ -86,3 +87,5 @@ bool capability_quintet_mangle(CapabilityQuintet *q);
 int capability_quintet_enforce(const CapabilityQuintet *q);
 
 int capability_get_ambient(uint64_t *ret);
+
+int pidref_get_capability(PidRef *pidref, CapabilityQuintet *ret);

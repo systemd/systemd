@@ -33,6 +33,12 @@
                 (const char*) _r_;                                      \
         })
 
+#define procfs_file_alloca_pidref(pidref, field)                        \
+        ({                                                              \
+                const PidRef *_pidref_ = (pidref);                      \
+                procfs_file_alloca(pidref_is_self(_pidref_) ? 0 : _pidref_->pid, field); \
+        })
+
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
         PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
