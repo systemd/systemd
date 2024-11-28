@@ -77,6 +77,9 @@ static void manager_dump_header(Manager *m, FILE *f, const char *prefix) {
                                 timestamp_is_set(t->realtime) ? FORMAT_TIMESTAMP(t->realtime) :
                                                                 FORMAT_TIMESPAN(t->monotonic, 1));
         }
+
+        for (const char *n = sd_bus_track_first(m->subscribed); n; n = sd_bus_track_next(m->subscribed))
+                fprintf(f, "%sSubscribed: %s\n", strempty(prefix), n);
 }
 
 void manager_dump(Manager *m, FILE *f, char **patterns, const char *prefix) {
