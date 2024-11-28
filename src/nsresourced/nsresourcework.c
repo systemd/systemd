@@ -665,7 +665,7 @@ static int validate_userns(sd_varlink *link, int userns_fd) {
                 return log_debug_errno(r, "User namespace file descriptor has unsafe flags set: %m");
 
         /* Validate this is actually a valid user namespace fd */
-        r = fd_is_ns(userns_fd, CLONE_NEWUSER);
+        r = fd_is_namespace(userns_fd, NAMESPACE_USER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if user namespace fd is actually a user namespace: %m");
         if (r == 0)
@@ -1454,7 +1454,7 @@ static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
                 return log_debug_errno(r, "Network namespace file descriptor has unsafe flags set: %m");
 
         /* Validate this is actually a valid network namespace fd */
-        r = fd_is_ns(netns_fd, CLONE_NEWNET);
+        r = fd_is_namespace(netns_fd, NAMESPACE_NET);
         if (r < 0)
                 return r;
         if (r == 0)
