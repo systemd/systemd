@@ -774,6 +774,7 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.Machine.Terminate",   vl_method_terminate,
                         "io.systemd.Machine.Kill",        vl_method_kill,
                         "io.systemd.Machine.Open",        vl_method_open,
+                        "io.systemd.Machine.Mount",       vl_method_mount,
                         "io.systemd.MachineImage.List",   vl_method_list_images,
                         "io.systemd.MachineImage.Update", vl_method_update_image,
                         "io.systemd.MachineImage.Clone",  vl_method_clone_image,
