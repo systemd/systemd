@@ -152,6 +152,8 @@ int logind_check_inhibitors(enum action a) {
                 return 0;
 
         r = acquire_bus(BUS_FULL, &bus);
+        if (r == -ECONNREFUSED && geteuid() == 0)
+                return 0; /* dbus.service seems not running. */
         if (r < 0)
                 return r;
 
