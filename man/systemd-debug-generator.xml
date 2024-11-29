@@ -93,6 +93,58 @@
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.boot_breakpoint=</varname></term>
+        <term><varname>rd.systemd.boot_breakpoint=</varname></term>
+
+        <listitem><para>Takes one of <option>pre-udev</option>, <option>pre-mount</option> or
+        <option>pre-switch-root</option> (the default for the <literal>rd.</literal> option). It allows to
+        pause the boot process at a certain point and invoke the debug shell service. After exiting the debug
+        shell, the system will resume booting. The option prefixed with <literal>rd.</literal> is honored
+        only in the initrd, while the one without prefix is only honored in the main system.</para>
+
+        <table>
+          <title>Available breakpoints</title>
+
+          <tgroup cols='4'>
+            <colspec colname='breakpoint' />
+            <colspec colname='description' />
+            <colspec colname='initrd' />
+            <colspec colname='main' />
+            <thead>
+              <row>
+                <entry>Breakpoints</entry>
+                <entry>Description</entry>
+                <entry>Can be used in the initrd</entry>
+                <entry>Can be used in the main system</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><option>pre-udev</option></entry>
+                <entry>Before starting to process kernel uevents, i.e., before <filename>systemd-udevd.service</filename> starts.</entry>
+                <entry>X</entry>
+                <entry>X</entry>
+              </row>
+              <row>
+                <entry><option>pre-mount</option></entry>
+                <entry>Before the root filesystem is mounted, i.e., before <filename>sysroot.mount</filename> starts.</entry>
+                <entry>X</entry>
+                <entry></entry>
+              </row>
+              <row>
+                <entry><option>pre-switch-root</option></entry>
+                <entry>Before switching from the initrd to the real root.</entry>
+                <entry>X</entry>
+                <entry></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -135,6 +187,7 @@
       <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
