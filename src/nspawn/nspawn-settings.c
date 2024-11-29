@@ -936,7 +936,8 @@ static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHI
         [USER_NAMESPACE_OWNERSHIP_AUTO]  = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
+/* Note: while "yes" maps to "auto" here, we don't really document that, in order to make things clearer and less confusing to users. */
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(user_namespace_ownership, UserNamespaceOwnership, USER_NAMESPACE_OWNERSHIP_AUTO);
 
 int config_parse_userns_chown(
                 const char *unit,
