@@ -3259,14 +3259,13 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return 0;
                 }
 
-                r = service_add_fd_store(s, fd, fdn, do_poll);
+                r = service_add_fd_store(s, TAKE_FD(fd), fdn, do_poll);
                 if (r < 0) {
                         log_unit_debug_errno(u, r,
                                              "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
 
-                TAKE_FD(fd);
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 

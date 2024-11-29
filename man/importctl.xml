@@ -40,7 +40,7 @@
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para><command>importctl</command> operates both on block-level disk images (such as DDIs) as well as
-    file-system-level images (tarballs). It supports disk images are one of the four following
+    file-system-level images (tarballs). It supports disk images in one of the four following
     classes:</para>
 
     <itemizedlist>
@@ -50,7 +50,7 @@
       managed via
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
 
-      <listitem><para>Portable service images, that may be attached an managed via
+      <listitem><para>Portable service images, that may be attached and managed via
       <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
 
       <listitem><para>System extension (sysext) images, that may be activated via
@@ -128,12 +128,13 @@
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
-        HTTP etag. A writable snapshot is then taken from this subvolume, and named after the specified local
+        HTTP etag (see <ulink url="https://en.wikipedia.org/wiki/HTTP_ETag">HTTP ETag</ulink> for more
+        information). A writable snapshot is then taken from this subvolume, and named after the specified local
         name. This behavior ensures that creating multiple instances of the same URL is efficient, as
         multiple downloads are not necessary. In order to create only the read-only image, and avoid creating
         its writable snapshot, specify <literal>-</literal> as local name.</para>
 
-        <para>Note that pressing C-c during execution of this command will not abort the download. Use
+        <para>Note that pressing Control-c during execution of this command will not abort the download. Use
         <command>cancel-transfer</command>, described below.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
@@ -145,14 +146,14 @@
         <listitem><para>Downloads a <filename>.raw</filename> disk image from the specified URL, and makes it
         available under the specified local name in the image directory for the selected
         <option>--class=</option>. The URL must be of type <literal>http://</literal> or
-        <literal>https://</literal>. The image must either be a <filename>.qcow2</filename> or raw disk
+        <literal>https://</literal>. The image must either be a qcow2 or raw disk
         image, optionally compressed as <filename>.gz</filename>, <filename>.xz</filename>, or
         <filename>.bz2</filename>. If the local name is omitted, it is automatically derived from the last
         component of the URL, with its suffix removed.</para>
 
         <para>Image verification is identical for raw and tar images (see above).</para>
 
-        <para>If the downloaded image is in <filename>.qcow2</filename> format it is converted into a raw
+        <para>If the downloaded image is in qcow2 format it is converted into a raw
         image file before it is made available.</para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
@@ -162,7 +163,7 @@
         necessary. In order to create only the read-only image, and avoid creating its writable copy,
         specify <literal>-</literal> as local name.</para>
 
-        <para>Note that pressing C-c during execution of this command will not abort the download. Use
+        <para>Note that pressing Control-c during execution of this command will not abort the download. Use
         <command>cancel-transfer</command>, described below.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
@@ -174,8 +175,14 @@
 
         <listitem><para>Imports a TAR or RAW image, and places it under the specified name in the image
         directory for the image class selected via <option>--class=</option>. When
-        <command>import-tar</command> is used, the file specified as the first argument should be a tar
-        archive, possibly compressed with xz, gzip or bzip2. It will then be unpacked into its own
+        <command>import-tar</command> is used, the file specified as the first argument should be a
+        <citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        archive, possibly compressed with
+        <citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        or
+        <citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        It will then be unpacked into its own
         subvolume/directory. When <command>import-raw</command> is used, the file should be a qcow2 or raw
         disk image, possibly compressed with xz, gzip or bzip2. If the second argument (the resulting image
         name) is not specified, it is automatically derived from the file name. If the filename is passed as
@@ -196,7 +203,9 @@
         <listitem><para>Imports an image stored in a local directory into the image directory for the image
         class selected via <option>--class=</option> and operates similarly to <command>import-tar</command>
         or <command>import-raw</command>, but the first argument is the source directory. If supported, this
-        command will create a btrfs snapshot or subvolume for the new image.</para>
+        command will create a
+        <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        snapshot or subvolume for the new image.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -207,9 +216,13 @@
 
         <listitem><para>Exports a TAR or RAW image and stores it in the specified file. The first parameter
         should be an image name. The second parameter should be a file path the TAR or RAW
-        image is written to. If the path ends in <literal>.gz</literal>, the file is compressed with gzip, if
-        it ends in <literal>.xz</literal>, with xz, and if it ends in <literal>.bz2</literal>, with bzip2. If
-        the path ends in neither, the file is left uncompressed. If the second argument is missing, the image
+        image is written to. If the path ends in <literal>.gz</literal>, the file is compressed with
+        <citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        if it ends in <literal>.xz</literal>, with
+        <citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        and if it ends in <literal>.bz2</literal>, with
+        <citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        If the path ends in neither, the file is left uncompressed. If the second argument is missing, the image
         is written to standard output. The compression may also be explicitly selected with the
         <option>--format=</option> switch. This is in particular useful if the second parameter is left
         unspecified.</para>

@@ -215,8 +215,8 @@
         below this directory is subject to specifications that ensure interoperability.</para>
 
         <para>Note that resources placed in this directory typically are under shared ownership,
-        i.e. multiple different packages have provide and consume these resources, on equal footing, without
-        any obvious primary owner. This makes makes things systematically different from
+        i.e. multiple different packages have provided and consumed these resources, on equal footing, without
+        any obvious primary owner. This makes things systematically different from
         <filename>/usr/lib/</filename>, where ownership is generally not shared.</para></listitem>
       </varlistentry>
 
