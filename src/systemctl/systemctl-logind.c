@@ -66,7 +66,7 @@ int logind_reboot(enum action a) {
         if (!actions[a])
                 return -EINVAL;
 
-        r = acquire_bus(BUS_FULL, &bus);
+        r = acquire_bus_full(BUS_FULL, /* graceful = */ true, &bus);
         if (r < 0)
                 return r;
 
@@ -151,7 +151,9 @@ int logind_check_inhibitors(enum action a) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
 
-        r = acquire_bus(BUS_FULL, &bus);
+        r = acquire_bus_full(BUS_FULL, /* graceful = */ true, &bus);
+        if (r == -ECONNREFUSED && geteuid() == 0)
+                return 0; /* dbus.service seems not running. */
         if (r < 0)
                 return r;
 
