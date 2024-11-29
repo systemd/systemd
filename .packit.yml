@@ -37,7 +37,7 @@ jobs:
 - job: tests
   trigger: pull_request
   fmf_url: https://src.fedoraproject.org/tests/systemd
-  fmf_ref: main
+  fmf_ref: legacy-ci
   tmt_plan: ci
   targets:
   - fedora-f41-x86_64
