@@ -3,11 +3,9 @@
 
 #include <sys/types.h>
 
-typedef enum NamespaceType NamespaceType;
-
 #include "pidref.h"
 
-enum NamespaceType {
+typedef enum NamespaceType {
         NAMESPACE_CGROUP,
         NAMESPACE_IPC,
         NAMESPACE_NET,
@@ -18,14 +16,20 @@ enum NamespaceType {
         NAMESPACE_TIME,
         _NAMESPACE_TYPE_MAX,
         _NAMESPACE_TYPE_INVALID = -EINVAL,
-};
+} NamespaceType;
 
 extern const struct namespace_info {
         const char *proc_name;
         const char *proc_path;
-        unsigned int clone_flag;
+        unsigned long clone_flag;
+        unsigned long pidfd_get_ns_flag;
         ino_t root_inode;
 } namespace_info[_NAMESPACE_TYPE_MAX + 1];
+
+NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
+
+int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
+int namespace_open_by_type(NamespaceType type);
 
 int pidref_namespace_open(
                 const PidRef *pidref,
@@ -41,9 +45,24 @@ int namespace_open(
                 int *ret_netns_fd,
                 int *ret_userns_fd,
                 int *ret_root_fd);
+
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int fd_is_ns(int fd, unsigned long nsflag);
+int fd_is_namespace(int fd, NamespaceType type);
+int is_our_namespace(int fd, NamespaceType type);
+
+int namespace_is_init(NamespaceType type);
+
+int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
+static inline int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
+        assert(pid1 >= 0);
+        assert(pid2 >= 0);
+        return pidref_in_same_namespace(pid1 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid1),
+                                        pid2 == 0 ? NULL : &PIDREF_MAKE_FROM_PID(pid2),
+                                        type);
+}
+
+int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
 
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
@@ -69,14 +88,6 @@ int userns_acquire(const char *uid_map, const char *gid_map);
 
 int netns_acquire(void);
 
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
-
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
-
-int namespace_open_by_type(NamespaceType type);
-
-int namespace_is_init(NamespaceType type);
-
-int is_our_namespace(int fd, NamespaceType type);
 
 int is_idmapping_supported(const char *path);

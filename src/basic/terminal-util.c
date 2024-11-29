@@ -2300,7 +2300,7 @@ int pty_open_peer_racefree(int fd, int mode) {
                 if (peer_fd >= 0)
                         return peer_fd;
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL) /* new ioctl() is not supported, return a clear error */
+                if (ERRNO_IS_IOCTL_NOT_SUPPORTED(errno)) /* new ioctl() is not supported, return a clear error */
                         return -EOPNOTSUPP;
 
                 if (errno != EIO)
