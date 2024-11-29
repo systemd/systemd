@@ -9,17 +9,6 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
-# Sanitizers log to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
-# all the sanitizer logs. To rectify that, let's connect journald's stdout to kmsg so that the sanitizer
-# failures end up in the journal.
-if [[ -f "$BUILDROOT"/usr/lib/systemd/system/systemd-journald.service ]]; then
-    mkdir -p "$BUILDROOT"/etc/systemd/system/systemd-journald.service.d
-    cat >"$BUILDROOT"/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf <<EOF
-[Service]
-StandardOutput=kmsg
-EOF
-fi
-
 # ASAN and syscall filters aren't compatible with each other.
 find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
 
