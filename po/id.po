@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"PO-Revision-Date: 2024-11-29 12:38+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
@@ -220,7 +220,7 @@ msgstr "Harap otentikasikan secara fisik pada token keamanan dari pengguna %s."
 #: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr "Harap konfirmasikan keberadaan pada token keamanan dari pengguna %s."
+msgstr "Harap konfirmasikan kehadiran pada token keamanan pengguna %s."
 
 #: src/home/pam_systemd_home.c:420
 #, c-format
@@ -1167,9 +1167,8 @@ msgid "Manage optional features"
 msgstr "Kelola fitur opsional"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "Otentikasi diperlukan untuk mengelola fitur opsional"
+msgstr "Otentikasi diperlukan untuk mengelola fitur opsional."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
