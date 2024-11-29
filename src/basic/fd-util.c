@@ -896,6 +896,30 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_replace(int *fd, int flags) {
+        assert(fd);
+        assert(*fd >= 0);
+
+        /* Reopens the specified fd with new flags, closing the original fd if the reopen was successful.
+         *
+         * Returns an error if the close() on the original file descriptor fails.  In that case, the original
+         * file descriptor is already gone and *fd already refers to the new descriptor.
+         *
+         * In all cases, before and after the call, *fd will refer to an open file descriptor.
+         *
+         * If the reopen and the close succeeded then 0 is returned, else an error.
+         */
+        int new_fd = fd_reopen(*fd, flags);
+        if (new_fd < 0) {
+                return new_fd;
+        }
+
+        int old_fd = *fd;
+        *fd = new_fd;
+
+        return close_nointr(old_fd);
+}
+
 int fd_reopen_propagate_append_and_position(int fd, int flags) {
         /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
          * keep current file position.
