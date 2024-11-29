@@ -17,7 +17,9 @@ After=systemd-vconsole-setup.service
 
 [Service]
 Environment=TERM=linux
-ExecStart={{SUSHELL}}
+# Execute shell with "-" prefix to not consider the unit failed if it exits with
+# a non-zero value
+ExecStart=-{{SUSHELL}}
 Restart=always
 RestartSec=0
 StandardInput=tty
