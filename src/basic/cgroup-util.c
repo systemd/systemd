@@ -68,6 +68,22 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
 }
 
+int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        int mnt_id;
+
+        assert(dfd >= 0 || (dfd == AT_FDCWD && path_is_absolute(path)));
+        assert(ret);
+
+        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
+         * name_to_handle_at_loop() does in mountpoint-util.c */
+        if (name_to_handle_at(dfd, strempty(path), &fh.file_handle, &mnt_id, isempty(path) ? AT_EMPTY_PATH : 0) < 0)
+                return -errno;
+
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
+        return 0;
+}
+
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
@@ -1343,36 +1359,6 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
                 return r;
 
         return cg_path_get_machine_name(cgroup, ret_machine);
-}
-
-int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id;
-
-        assert(path);
-        assert(ret);
-
-        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
-         * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
-}
-
-int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id = -1;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH) < 0)
-                return -errno;
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
-        return 0;
 }
 
 int cg_path_get_session(const char *path, char **ret_session) {
