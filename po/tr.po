@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-07 09:30+0000\n"
+"PO-Revision-Date: 2024-11-29 12:38+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -1222,9 +1222,8 @@ msgid "Manage optional features"
 msgstr "İsteğe bağlı özellikleri yönet"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "İsteğe bağlı özellikleri yönetmek için kimlik doğrulaması gereklidir"
+msgstr "İsteğe bağlı özellikleri yönetmek için kimlik doğrulaması gereklidir."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
