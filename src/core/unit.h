@@ -464,6 +464,9 @@ typedef struct Unit {
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
         signed int last_section_private:2;
+
+        /* Remember this unit was part of some dependency cycle. */
+        bool was_on_dependency_cycle;
 } Unit;
 
 typedef struct UnitStatusMessageFormats {
