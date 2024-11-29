@@ -939,6 +939,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
         SD_BUS_PROPERTY("ActivationDetails", "a(ss)", bus_property_get_activation_details, offsetof(Unit, activation_details), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DebugInvocation", "b", bus_property_get_bool, offsetof(Unit, debug_invocation), 0),
+        SD_BUS_PROPERTY("WasOnDependencyCycle", "b", NULL, offsetof(Unit, was_on_dependency_cycle), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("Start",
                                 SD_BUS_ARGS("s", mode),
