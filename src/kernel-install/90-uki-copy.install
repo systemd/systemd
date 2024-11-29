@@ -34,9 +34,10 @@ UKI_DIR="$BOOT_ROOT/EFI/Linux"
 case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION*.efi"
-        exec rm -f \
+            echo "Removing $UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION*.efi and extras"
+        exec rm -rf \
             "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" \
+            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi.extra.d/" \
             "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*".efi"
         ;;
     add)
