@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-23 10:38+0000\n"
+"PO-Revision-Date: 2024-11-29 12:38+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "main/fr/>\n"
@@ -1261,10 +1261,9 @@ msgid "Manage optional features"
 msgstr "Gérer les fonctionnalités facultatives"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
 msgstr ""
-"Une authentification est requise pour gérer les fonctionnalités en option."
+"Une authentification est requise pour gérer les fonctionnalités facultatives."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
