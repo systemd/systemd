@@ -144,6 +144,57 @@ mouse:*:name:*TrackBall*:*
  ID_INPUT_TRACKBALL=1
 
 ##########################################
+# 3D Connexion
+##########################################
+# From https://github.com/FreeSpacenav/spacenavd/blob/39856625a6de1e8c4b57c5938e1bf29d13cf1a9f/src/dev.c#L63
+mouse:bluetooth:v256fpc603:name:*:*
+mouse:bluetooth:v256fpc605:name:*:*
+mouse:bluetooth:v256fpc606:name:*:*
+mouse:bluetooth:v256fpc621:name:*:*
+mouse:bluetooth:v256fpc623:name:*:*
+mouse:bluetooth:v256fpc625:name:*:*
+mouse:bluetooth:v256fpc626:name:*:*
+mouse:bluetooth:v256fpc627:name:*:*
+mouse:bluetooth:v256fpc628:name:*:*
+mouse:bluetooth:v256fpc629:name:*:*
+mouse:bluetooth:v256fpc62b:name:*:*
+mouse:bluetooth:v256fpc640:name:*:*
+mouse:bluetooth:v256fpc62e:name:*:*
+mouse:bluetooth:v256fpc62f:name:*:*
+mouse:bluetooth:v256fpc631:name:*:*
+mouse:bluetooth:v256fpc632:name:*:*
+mouse:bluetooth:v256fpc633:name:*:*
+mouse:bluetooth:v256fpc635:name:*:*
+mouse:bluetooth:v256fpc636:name:*:*
+mouse:bluetooth:v256fpc63a:name:*:*
+mouse:bluetooth:v256fpc652:name:*:*
+mouse:bluetooth:v046dpc603:name:*:*
+mouse:bluetooth:v046dpc605:name:*:*
+mouse:bluetooth:v046dpc606:name:*:*
+mouse:bluetooth:v046dpc621:name:*:*
+mouse:bluetooth:v046dpc623:name:*:*
+mouse:bluetooth:v046dpc625:name:*:*
+mouse:bluetooth:v046dpc626:name:*:*
+mouse:bluetooth:v046dpc627:name:*:*
+mouse:bluetooth:v046dpc628:name:*:*
+mouse:bluetooth:v046dpc629:name:*:*
+mouse:bluetooth:v046dpc62b:name:*:*
+mouse:bluetooth:v046dpc640:name:*:*
+mouse:bluetooth:v046dpc62e:name:*:*
+mouse:bluetooth:v046dpc62f:name:*:*
+mouse:bluetooth:v046dpc631:name:*:*
+mouse:bluetooth:v046dpc632:name:*:*
+mouse:bluetooth:v046dpc633:name:*:*
+mouse:bluetooth:v046dpc635:name:*:*
+mouse:bluetooth:v046dpc636:name:*:*
+mouse:bluetooth:v046dpc63a:name:*:*
+mouse:bluetooth:v046dpc652:name:*:*
+ ID_3D_MOUSE=1
+
+mouse:bluetooth:v256fpc63a:name:*:*
+ ID_3D_MOUSE=1
+
+##########################################
 # Apple
 ##########################################
 
