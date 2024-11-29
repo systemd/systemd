@@ -1398,7 +1398,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
 
         /* Get more data */
 
-        r = bus_creds_add_more(n, mask, 0, 0);
+        r = bus_creds_add_more(n, mask, /* pidref = */ NULL, /* tid = */ 0);
         if (r < 0)
                 return r;
 
