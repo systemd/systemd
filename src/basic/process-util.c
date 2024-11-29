@@ -48,6 +48,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -395,33 +396,6 @@ int container_get_leader(const char *machine, pid_t *pid) {
         return 0;
 }
 
-int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
-        int r;
-
-        assert(ret);
-
-        for (;;) {
-                pid_t ppid;
-
-                r = get_process_ppid(pid, &ppid);
-                if (r < 0)
-                        return r;
-
-                r = in_same_namespace(pid, ppid, type);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* If the parent and the child are not in the same
-                         * namespace, then the child is the leader we are
-                         * looking for. */
-                        *ret = pid;
-                        return 0;
-                }
-
-                pid = ppid;
-        }
-}
-
 int pid_is_kernel_thread(pid_t pid) {
         _cleanup_free_ char *line = NULL;
         unsigned long long flags;
@@ -600,7 +574,6 @@ int pid_get_uid(pid_t pid, uid_t *ret) {
 }
 
 int pidref_get_uid(const PidRef *pid, uid_t *ret) {
-        uid_t uid;
         int r;
 
         if (!pidref_is_set(pid))
@@ -608,6 +581,14 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
 
         if (pidref_is_remote(pid))
                 return -EREMOTE;
+
+        if (pid->fd >= 0) {
+                r = pidfd_get_uid(pid->fd, ret);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        uid_t uid;
 
         r = pid_get_uid(pid->pid, &uid);
         if (r < 0)
@@ -694,7 +675,7 @@ int get_process_environ(pid_t pid, char **ret) {
         return 0;
 }
 
-int get_process_ppid(pid_t pid, pid_t *ret) {
+int pid_get_ppid(pid_t pid, pid_t *ret) {
         _cleanup_free_ char *line = NULL;
         unsigned long ppid;
         const char *p;
@@ -702,14 +683,16 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
 
         assert(pid >= 0);
 
-        if (pid == 0 || pid == getpid_cached()) {
+        if (pid == 0)
+                pid = getpid_cached();
+        if (pid == 1) /* PID 1 has no parent, shortcut this case */
+                return -EADDRNOTAVAIL;
+
+        if (pid == getpid_cached()) {
                 if (ret)
                         *ret = getppid();
                 return 0;
         }
-
-        if (pid == 1) /* PID 1 has no parent, shortcut this case */
-                return -EADDRNOTAVAIL;
 
         p = procfs_file_alloca(pid, "stat");
         r = read_one_line_file(p, &line);
@@ -724,7 +707,6 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         p = strrchr(line, ')');
         if (!p)
                 return -EIO;
-
         p++;
 
         if (sscanf(p, " "
@@ -733,9 +715,9 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
                    &ppid) != 1)
                 return -EIO;
 
-        /* If ppid is zero the process has no parent. Which might be the case for PID 1 but also for
-         * processes originating in other namespaces that are inserted into a pidns. Return a recognizable
-         * error in this case. */
+        /* If ppid is zero the process has no parent. Which might be the case for PID 1 (caught above)
+         * but also for processes originating in other namespaces that are inserted into a pidns.
+         * Return a recognizable error in this case. */
         if (ppid == 0)
                 return -EADDRNOTAVAIL;
 
@@ -745,6 +727,36 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         if (ret)
                 *ret = (pid_t) ppid;
 
+        return 0;
+}
+
+int pidref_get_ppid(const PidRef *pidref, pid_t *ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        if (pidref->fd >= 0) {
+                r = pidfd_get_ppid(pidref->fd, ret);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        pid_t ppid;
+
+        r = pid_get_ppid(pidref->pid, ret ? &ppid : NULL);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = ppid;
         return 0;
 }
 
@@ -1088,25 +1100,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         return 0;
 }
 
-int pid_is_my_child(pid_t pid) {
-        pid_t ppid;
-        int r;
-
-        if (pid < 0)
-                return -ESRCH;
-
-        if (pid <= 1)
-                return false;
-
-        r = get_process_ppid(pid, &ppid);
-        if (r < 0)
-                return r;
-
-        return ppid == getpid_cached();
-}
-
 int pidref_is_my_child(const PidRef *pid) {
-        int r, result;
+        int r;
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
@@ -1114,37 +1109,30 @@ int pidref_is_my_child(const PidRef *pid) {
         if (pidref_is_remote(pid))
                 return -EREMOTE;
 
-        result = pid_is_my_child(pid->pid);
-        if (result < 0)
-                return result;
+        if (pid->pid == 1 || pidref_is_self(pid))
+                return false;
 
-        r = pidref_verify(pid);
+        pid_t ppid;
+
+        r = pidref_get_ppid(pid, &ppid);
         if (r < 0)
                 return r;
 
-        return result;
+        return ppid == getpid_cached();
 }
 
-int pid_is_unwaited(pid_t pid) {
-        /* Checks whether a PID is still valid at all, including a zombie */
+int pid_is_my_child(pid_t pid) {
 
-        if (pid < 0)
-                return -ESRCH;
+        if (pid <= 0)
+                return false;
 
-        if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
-                return true;
-
-        if (pid == getpid_cached())
-                return true;
-
-        if (kill(pid, 0) >= 0)
-                return true;
-
-        return errno != ESRCH;
+        return pidref_is_my_child(&PIDREF_MAKE_FROM_PID(pid));
 }
 
 int pidref_is_unwaited(const PidRef *pid) {
         int r;
+
+        /* Checks whether a PID is still valid at all, including a zombie */
 
         if (!pidref_is_set(pid))
                 return -ESRCH;
@@ -1162,6 +1150,14 @@ int pidref_is_unwaited(const PidRef *pid) {
                 return r;
 
         return true;
+}
+
+int pid_is_unwaited(pid_t pid) {
+
+        if (pid <= 0)
+                return false;
+
+        return pidref_is_unwaited(&PIDREF_MAKE_FROM_PID(pid));
 }
 
 int pid_is_alive(pid_t pid) {
@@ -1226,12 +1222,12 @@ int pid_from_same_root_fs(pid_t pid) {
 }
 
 bool is_main_thread(void) {
-        static thread_local int cached = 0;
+        static thread_local int cached = -1;
 
-        if (_unlikely_(cached == 0))
-                cached = getpid_cached() == gettid() ? 1 : -1;
+        if (_unlikely_(cached < 0))
+                cached = getpid_cached() == gettid();
 
-        return cached > 0;
+        return cached;
 }
 
 bool oom_score_adjust_is_valid(int oa) {
@@ -1872,59 +1868,6 @@ int get_oom_score_adjust(int *ret) {
                 *ret = a;
 
         return 0;
-}
-
-int pidfd_get_pid(int fd, pid_t *ret) {
-        char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
-        int r;
-
-        /* Converts a pidfd into a pid. Well known errors:
-         *
-         *    -EBADF   → fd invalid
-         *    -ENOSYS  → /proc/ not mounted
-         *    -ENOTTY  → fd valid, but not a pidfd
-         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
-         *    -ESRCH   → fd valid, but process is already reaped
-         */
-
-        assert(fd >= 0);
-
-        xsprintf(path, "/proc/self/fdinfo/%i", fd);
-
-        r = read_full_virtual_file(path, &fdinfo, NULL);
-        if (r == -ENOENT)
-                return proc_fd_enoent_errno();
-        if (r < 0)
-                return r;
-
-        char *p = find_line_startswith(fdinfo, "Pid:");
-        if (!p)
-                return -ENOTTY; /* not a pidfd? */
-
-        p = skip_leading_chars(p, /* bad = */ NULL);
-        p[strcspn(p, WHITESPACE)] = 0;
-
-        if (streq(p, "0"))
-                return -EREMOTE; /* PID is in foreign PID namespace? */
-        if (streq(p, "-1"))
-                return -ESRCH;   /* refers to reaped process? */
-
-        return parse_pid(p, ret);
-}
-
-int pidfd_verify_pid(int pidfd, pid_t pid) {
-        pid_t current_pid;
-        int r;
-
-        assert(pidfd >= 0);
-        assert(pid > 0);
-
-        r = pidfd_get_pid(pidfd, &current_pid);
-        if (r < 0)
-                return r;
-
-        return current_pid != pid ? -ESRCH : 0;
 }
 
 static int rlimit_to_nice(rlim_t limit) {
