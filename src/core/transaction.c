@@ -366,8 +366,12 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k, *delete = NULL;
+                Job *k, *prev = NULL, *delete = NULL;
                 _cleanup_free_ char **array = NULL, *unit_ids = NULL;
+                _cleanup_free_ char *dot = NULL;
+
+                if (!strextend(&dot, "digraph {"))
+                        log_oom();
 
                 /* If the marker is NULL we have been here already and decided the job was loop-free from
                  * here. Hence shortcut things and return right-away. */
@@ -382,6 +386,18 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         /* For logging below */
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
                                 log_oom();
+                        /* Add edge to the graph when we already have part of it. */
+                        else if (dot) {
+                                r = strextendf(&dot, "\"%s\" -> \"%s\";", k->unit->id, prev ? prev->unit->id : j->unit->id);
+                                if (r < 0) {
+                                        log_oom();
+                                        /* Dot output is not essential so let's get rid of it in case we ran into OOM. */
+                                        dot = mfree(dot);
+                                }
+                        }
+
+                        /* Mark every unit along the cycle */
+                        k->unit->was_on_dependency_cycle = true;
 
                         if (!delete && hashmap_contains(tr->jobs, k->unit) && !job_matters_to_anchor(k))
                                 /* Ok, we can drop this one, so let's do so. */
@@ -390,7 +406,12 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         /* Check if this in fact was the beginning of the cycle */
                         if (k == j)
                                 break;
+
+                        prev = k;
                 }
+
+                if (dot && !strextend(&dot, "}"))
+                        log_oom();
 
                 unit_ids = merge_unit_ids(j->manager->unit_log_field, array); /* ignore error */
 
@@ -402,6 +423,12 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                                     unit_id == array ? "ordering cycle" : "dependency",
                                                     *unit_id, *job_type),
                                    "%s", strna(unit_ids));
+
+                if (dot && IN_SET(log_get_target(), LOG_TARGET_AUTO, LOG_TARGET_JOURNAL, LOG_TARGET_JOURNAL_OR_KMSG)) {
+                        log_struct(LOG_WARNING,
+                                   LOG_UNIT_MESSAGE(j->unit, "Ordering cycle generated, see TRANSACTION_CYCLE= for details. Note that each arc represents Before= dependency."),
+                                   "TRANSACTION_CYCLE=%s", dot);
+                }
 
                 if (delete) {
                         const char *status;

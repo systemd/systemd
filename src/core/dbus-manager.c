@@ -131,8 +131,10 @@ static int property_get_tainted(
 
         assert(bus);
         assert(reply);
+        assert(userdata);
 
-        _cleanup_free_ char *s = taint_string();
+        Manager *m = userdata;
+        _cleanup_free_ char *s = taint_string(m);
         if (!s)
                 return log_oom();
 
