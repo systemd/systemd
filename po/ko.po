@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-07 02:35+0000\n"
+"PO-Revision-Date: 2024-11-29 12:38+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -1118,9 +1118,8 @@ msgid "Manage optional features"
 msgstr "추가 사양을 관리합니다"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "추가 사양을 관리하려면 인증이 필요합니다"
+msgstr "추가 기능을 관리하려면 인증이 필요합니다."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
