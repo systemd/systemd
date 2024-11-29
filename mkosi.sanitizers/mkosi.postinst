@@ -9,6 +9,13 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
+# Sanitizers may make exit() extremely slower. Let's extend the timeout. See issue #35335.
+mkdir -p "$BUILDROOT"/etc/systemd/system.conf.d
+cat >"$BUILDROOT"/etc/systemd/system.conf.d/10-default-timeout.conf <<EOF
+[Manager]
+DefaultTimeoutStopSec=2min
+EOF
+
 # Sanitizers log to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
 # all the sanitizer logs. To rectify that, let's connect journald's stdout to kmsg so that the sanitizer
 # failures end up in the journal.
