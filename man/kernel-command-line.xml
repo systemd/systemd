@@ -98,6 +98,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.break=</varname></term>
+        <term><varname>rd.systemd.break=</varname></term>
+        <listitem>
+          <para>Parameters understood by
+          <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          to pause the boot process at a certain point and invoke a debug shell.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.run=</varname></term>
         <term><varname>systemd.run_success_action=</varname></term>
         <term><varname>systemd.run_failure_action=</varname></term>
