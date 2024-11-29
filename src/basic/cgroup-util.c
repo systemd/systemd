@@ -860,6 +860,10 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        // XXX: Ideally we'd use pidfd_get_cgroupid() + cg_path_from_cgroupid() here, to extract this
+        // bit of information from pidfd directly. However, the latter requires privilege and it's
+        // not entirely clear how to handle cgroups from outer namespace.
+
         r = cg_pid_get_path(controller, pidref->pid, &path);
         if (r < 0)
                 return r;
