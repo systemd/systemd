@@ -13,12 +13,11 @@
 
 d /run/lock 0755 root root -
 L /var/lock - - - - ../run/lock
-
-{% if HAVE_SYSV_COMPAT %}
 {% if CREATE_LOG_DIRS %}
 L$ /var/log/README - - - - ../..{{DOC_DIR}}/README.logs
 {% endif %}
 
+{% if HAVE_SYSV_COMPAT %}
 # /run/lock/subsys is used for serializing SysV service execution, and
 # hence without use on SysV-less systems.
 d /run/lock/subsys 0755 root root -
