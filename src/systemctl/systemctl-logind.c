@@ -152,6 +152,9 @@ int logind_check_inhibitors(enum action a) {
                 return 0;
 
         r = acquire_bus(BUS_FULL, &bus);
+        if (r == -ECONNREFUSED && geteuid() == 0)
+                return 0; /* When D-Bus is not running, allow root to force a shutdown. E.g. when running at
+                           * the emergency console. */
         if (r < 0)
                 return r;
 
