@@ -20,104 +20,104 @@ TEST(read_credential_strings) {
 
         const char *e = getenv("CREDENTIALS_DIRECTORY");
         if (e)
-                assert_se(saved = strdup(e));
+                ASSERT_NOT_NULL(saved = strdup(e));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
+        ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_NULL(x);
         ASSERT_NULL(y);
 
-        assert_se(mkdtemp_malloc(NULL, &tmp) >= 0);
+        ASSERT_OK(mkdtemp_malloc(NULL, &tmp));
 
-        assert_se(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true) >= 0);
+        ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
+        ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_NULL(x);
         ASSERT_NULL(y);
 
-        assert_se(p = path_join(tmp, "bar"));
-        assert_se(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        ASSERT_NOT_NULL(p = path_join(tmp, "bar"));
+        ASSERT_OK(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
+        ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_NULL(x);
         ASSERT_STREQ(y, "piff");
 
-        assert_se(write_string_file(p, "paff", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        ASSERT_OK(write_string_file(p, "paff", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
+        ASSERT_OK_ZERO(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_NULL(x);
         ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
-        assert_se(p = path_join(tmp, "foo"));
-        assert_se(write_string_file(p, "knurz", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        ASSERT_NOT_NULL(p = path_join(tmp, "foo"));
+        ASSERT_OK(write_string_file(p, "knurz", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) >= 0);
+        ASSERT_OK(read_credential_strings_many("foo", &x, "bar", &y));
         ASSERT_STREQ(x, "knurz");
         ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
-        assert_se(p = path_join(tmp, "bazz"));
-        assert_se(f = fopen(p, "w"));
-        assert_se(fwrite("x\0y", 1, 3, f) == 3); /* embedded NUL byte should result in EBADMSG when reading back with read_credential_strings_many() */
+        ASSERT_NOT_NULL(p = path_join(tmp, "bazz"));
+        ASSERT_NOT_NULL(f = fopen(p, "w"));
+        ASSERT_EQ(fwrite("x\0y", 1, 3, f), 3UL); /* embedded NUL byte should result in EBADMSG when reading back with read_credential_strings_many() */
         f = safe_fclose(f);
 
         y = mfree(y);
 
-        assert_se(read_credential_strings_many("bazz", &x, "bar", &y) == -EBADMSG);
+        ASSERT_ERROR(read_credential_strings_many("bazz", &x, "bar", &y), EBADMSG);
         ASSERT_STREQ(x, "knurz");
         ASSERT_STREQ(y, "paff");
 
         if (saved)
-                assert_se(setenv("CREDENTIALS_DIRECTORY", saved, /* override= */ 1) >= 0);
+                ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", saved, /* override= */ 1));
         else
-                assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
+                ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
 }
 
 TEST(credential_name_valid) {
         char buf[NAME_MAX+2];
 
-        assert_se(!credential_name_valid(NULL));
-        assert_se(!credential_name_valid(""));
-        assert_se(!credential_name_valid("."));
-        assert_se(!credential_name_valid(".."));
-        assert_se(!credential_name_valid("foo/bar"));
-        assert_se(credential_name_valid("foo"));
+        ASSERT_FALSE(credential_name_valid(NULL));
+        ASSERT_FALSE(credential_name_valid(""));
+        ASSERT_FALSE(credential_name_valid("."));
+        ASSERT_FALSE(credential_name_valid(".."));
+        ASSERT_FALSE(credential_name_valid("foo/bar"));
+        ASSERT_TRUE(credential_name_valid("foo"));
 
         memset(buf, 'x', sizeof(buf)-1);
         buf[sizeof(buf)-1] = 0;
-        assert_se(!credential_name_valid(buf));
+        ASSERT_FALSE(credential_name_valid(buf));
 
         buf[sizeof(buf)-2] = 0;
-        assert_se(credential_name_valid(buf));
+        ASSERT_TRUE(credential_name_valid(buf));
 }
 
 TEST(credential_glob_valid) {
         char buf[NAME_MAX+2];
 
-        assert_se(!credential_glob_valid(NULL));
-        assert_se(!credential_glob_valid(""));
-        assert_se(!credential_glob_valid("."));
-        assert_se(!credential_glob_valid(".."));
-        assert_se(!credential_glob_valid("foo/bar"));
-        assert_se(credential_glob_valid("foo"));
-        assert_se(credential_glob_valid("foo*"));
-        assert_se(credential_glob_valid("x*"));
-        assert_se(credential_glob_valid("*"));
-        assert_se(!credential_glob_valid("?"));
-        assert_se(!credential_glob_valid("*a"));
-        assert_se(!credential_glob_valid("a?"));
-        assert_se(!credential_glob_valid("a[abc]"));
-        assert_se(!credential_glob_valid("a[abc]"));
+        ASSERT_FALSE(credential_glob_valid(NULL));
+        ASSERT_FALSE(credential_glob_valid(""));
+        ASSERT_FALSE(credential_glob_valid("."));
+        ASSERT_FALSE(credential_glob_valid(".."));
+        ASSERT_FALSE(credential_glob_valid("foo/bar"));
+        ASSERT_TRUE(credential_glob_valid("foo"));
+        ASSERT_TRUE(credential_glob_valid("foo*"));
+        ASSERT_TRUE(credential_glob_valid("x*"));
+        ASSERT_TRUE(credential_glob_valid("*"));
+        ASSERT_FALSE(credential_glob_valid("?"));
+        ASSERT_FALSE(credential_glob_valid("*a"));
+        ASSERT_FALSE(credential_glob_valid("a?"));
+        ASSERT_FALSE(credential_glob_valid("a[abc]"));
+        ASSERT_FALSE(credential_glob_valid("a[abc]"));
 
         memset(buf, 'x', sizeof(buf)-1);
         buf[sizeof(buf)-1] = 0;
-        assert_se(!credential_glob_valid(buf));
+        ASSERT_FALSE(credential_glob_valid(buf));
 
         buf[sizeof(buf)-2] = 0;
-        assert_se(credential_glob_valid(buf));
+        ASSERT_TRUE(credential_glob_valid(buf));
 
         buf[sizeof(buf)-2] = '*';
-        assert_se(credential_glob_valid(buf));
+        ASSERT_TRUE(credential_glob_valid(buf));
 }
 
 static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
@@ -152,7 +152,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_(iovec_done) struct iovec decrypted = {};
         r = decrypt_credential_and_warn(
@@ -164,7 +164,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
-        assert_se(r == -EREMOTE); /* name didn't match */
+        ASSERT_ERROR(r, EREMOTE); /* name didn't match */
 
         r = decrypt_credential_and_warn(
                         "foo",
@@ -175,9 +175,9 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
-        assert_se(iovec_memcmp(&plaintext, &decrypted) == 0);
+        ASSERT_EQ(iovec_memcmp(&plaintext, &decrypted), 0);
 }
 
 static bool try_tpm2(void) {
@@ -203,17 +203,17 @@ TEST(credential_encrypt_decrypt) {
 
         test_encrypt_decrypt_with(CRED_AES256_GCM_BY_NULL, UID_INVALID);
 
-        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+        ASSERT_OK(mkdtemp_malloc(NULL, &d));
         j = path_join(d, "secret");
-        assert_se(j);
+        ASSERT_NOT_NULL(j);
 
         const char *e = getenv("SYSTEMD_CREDENTIAL_SECRET");
         _cleanup_free_ char *ec = NULL;
 
         if (e)
-                assert_se(ec = strdup(e));
+                ASSERT_NOT_NULL(ec = strdup(e));
 
-        assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true));
 
         test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST, UID_INVALID);
         test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_SCOPED, 0);
@@ -225,7 +225,7 @@ TEST(credential_encrypt_decrypt) {
         }
 
         if (ec)
-                assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true) >= 0);
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true));
 }
 
 TEST(mime_type_matches) {
@@ -246,10 +246,10 @@ TEST(mime_type_matches) {
         FOREACH_ELEMENT(t, tags) {
                 _cleanup_free_ char *encoded = NULL;
 
-                assert_se(base64mem(t, sizeof(sd_id128_t), &encoded) >= 0);
+                ASSERT_OK(base64mem(t, sizeof(sd_id128_t), &encoded));
 
                 /* Validate that the size matches expectations for the 4/3 factor size increase (rounding up) */
-                assert_se(strlen(encoded) == DIV_ROUND_UP((128U / 8U), 3U) * 4U);
+                ASSERT_EQ(strlen(encoded), DIV_ROUND_UP((128U / 8U), 3U) * 4U);
 
                 /* Cut off rounded string where the ID ends, but now round down to get rid of characters that might contain follow-up data */
                 encoded[128 / 6] = 0;
