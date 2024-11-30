@@ -2077,7 +2077,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2196,7 +2196,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
                         report_errno_and_exit(errno_pipe[1], -errno);
 
-                /* Disable the setgroups() system call in the child user namespace, for good. */
+                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+                 * and using the system service manager. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
@@ -2207,10 +2208,15 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
-                                report_errno_and_exit(errno_pipe[1], r);
+                        if (allow_setgroups) {
+                                if (write(fd, "allow\n", 6) < 0)
+                                        r = log_debug_errno(errno, "Failed to write \"allow\" to %s: %m", a);
+                        } else {
+                                if (write(fd, "deny\n", 5) < 0)
+                                        r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
                         }
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe[1], r);
 
                         fd = safe_close(fd);
                 }
@@ -5007,7 +5013,9 @@ int exec_invoke(
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
+                /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
+                 * unprivileged user namespaces. */
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /*allow_setgroups=*/ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5177,7 +5185,8 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
+                                        /*allow_setgroups=*/ context->private_users == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
