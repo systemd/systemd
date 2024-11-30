@@ -288,6 +288,11 @@ units = [
           'conditions' : ['ENABLE_SYSEXT'],
         },
         {
+          'file' : 'systemd-confext-initrd.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+          'symlinks' : ['initrd.target.wants/'],
+        },
+        {
           'file' : 'systemd-coredump.socket',
           'conditions' : ['ENABLE_COREDUMP'],
           'symlinks' : ['sockets.target.wants/'],
