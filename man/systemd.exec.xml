@@ -2027,8 +2027,11 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
 
         <para>If the parameter is <literal>full</literal>, user namespacing is set up with an identity
-        mapping for all UIDs/GIDs. Similar to <literal>identity</literal>, this does not provide UID/GID
-        isolation, but it does provide process capability isolation.</para>
+        mapping for all UIDs/GIDs. In addition, for system services, <literal>full</literal> allows the unit
+        to call <function>setgroups()</function> system calls (by setting
+        <filename>/proc/<replaceable>pid</replaceable>/setgroups</filename> to <literal>allow</literal>).
+        Similar to <literal>identity</literal>, this does not provide UID/GID isolation, but it does provide
+        process capability isolation.</para>
 
         <para>If this mode is enabled, all unit processes are run without privileges in the host user
         namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
