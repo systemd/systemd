@@ -7,6 +7,7 @@
 #include "sd-event.h"
 #include "sd-journal.h"
 
+#include "compress.h"
 #include "time-util.h"
 
 typedef enum {
@@ -45,6 +46,8 @@ typedef struct Uploader {
         entry_state entry_state;
         const void *field_data;
         size_t field_pos, field_length;
+        char *tmp_buf;
+        size_t tmp_size;
 
         /* general metrics */
         const char *state_file;
@@ -53,6 +56,7 @@ typedef struct Uploader {
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
+        CompressionOpts compression;
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
