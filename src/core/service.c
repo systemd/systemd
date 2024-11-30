@@ -1341,7 +1341,7 @@ static void service_set_state(Service *s, ServiceState state) {
                         }
 
                 if (start_only)
-                        unit_destroy_runtime_data(u, &s->exec_context);
+                        unit_destroy_runtime_data(u, &s->exec_context, /* destroy_runtime_dir = */ false);
         }
 
         if (old_state != state)
@@ -2163,7 +2163,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         /* Also, remove the runtime directory */
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
 
         /* Also get rid of the fd store, if that's configured. */
         if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO)
