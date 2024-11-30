@@ -6148,13 +6148,13 @@ int unit_test_trigger_loaded(Unit *u) {
         return 0;
 }
 
-void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
+void unit_destroy_runtime_data(Unit *u, const ExecContext *context, bool destroy_runtime_dir) {
         assert(u);
         assert(u->manager);
         assert(context);
 
         /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
-        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
+        if (destroy_runtime_dir && context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
