@@ -19,8 +19,10 @@
   <refnamediv>
     <refname>systemd-sysext</refname>
     <refname>systemd-sysext.service</refname>
+    <refname>systemd-sysext-initrd.service</refname>
     <refname>systemd-confext</refname>
     <refname>systemd-confext.service</refname>
+    <refname>systemd-confext-initrd.service</refname>
     <refpurpose>Activates System Extension Images</refpurpose>
   </refnamediv>
 
