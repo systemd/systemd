@@ -546,10 +546,6 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
 int can_fork_agent(void) {
         int r;
 
-        /* We check STDIN here, not STDOUT, since this is about input, not output */
-        if (!isatty_safe(STDIN_FILENO))
-                return false;
-
         /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
          * interactively on a terminal, hence fail. */
         r = get_ctty_devnr(0, NULL);
@@ -565,7 +561,6 @@ int can_fork_agent(void) {
 }
 
 int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
-        bool stdout_is_tty, stderr_is_tty;
         size_t n, i;
         va_list ap;
         char **l;
@@ -588,19 +583,25 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
 
         /* In the child: */
 
-        stdout_is_tty = isatty_safe(STDOUT_FILENO);
-        stderr_is_tty = isatty_safe(STDERR_FILENO);
+        bool stdin_is_tty = isatty_safe(STDIN_FILENO),
+                stdout_is_tty = isatty_safe(STDOUT_FILENO),
+                stderr_is_tty = isatty_safe(STDERR_FILENO);
 
-        if (!stdout_is_tty || !stderr_is_tty) {
+        if (!stdin_is_tty || !stdout_is_tty || !stderr_is_tty) {
                 int fd;
 
-                /* Detach from stdout/stderr and reopen /dev/tty for them. This is important to ensure that
-                 * when systemctl is started via popen() or a similar call that expects to read EOF we
+                /* Detach from stdin/stdout/stderr and reopen /dev/tty for them. This is important to ensure
+                 * that when systemctl is started via popen() or a similar call that expects to read EOF we
                  * actually do generate EOF and not delay this indefinitely by keeping an unused copy of
                  * stdin around. */
-                fd = open_terminal("/dev/tty", O_WRONLY);
+                fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
                         log_error_errno(fd, "Failed to open /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stdin_is_tty && dup2(fd, STDIN_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDIN: %m");
                         _exit(EXIT_FAILURE);
                 }
 
