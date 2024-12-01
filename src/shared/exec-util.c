@@ -561,9 +561,6 @@ int shall_fork_agent(void) {
 }
 
 int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
-        size_t n, i;
-        va_list ap;
-        char **l;
         int r;
 
         assert(path);
@@ -619,20 +616,7 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
         }
 
         /* Count arguments */
-        va_start(ap, path);
-        for (n = 0; va_arg(ap, char*); n++)
-                ;
-        va_end(ap);
-
-        /* Allocate strv */
-        l = newa(char*, n + 1);
-
-        /* Fill in arguments */
-        va_start(ap, path);
-        for (i = 0; i <= n; i++)
-                l[i] = va_arg(ap, char*);
-        va_end(ap);
-
+        char **l = strv_from_stdarg_alloca(path);
         execv(path, l);
         log_error_errno(errno, "Failed to execute %s: %m", path);
         _exit(EXIT_FAILURE);
