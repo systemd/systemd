@@ -11,6 +11,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "stdio-util.h"
@@ -29,10 +30,6 @@ int polkit_agent_open(void) {
 
         /* Clients that run as root don't need to activate/query polkit */
         if (geteuid() == 0)
-                return 0;
-
-        /* We check STDIN here, not STDOUT, since this is about input, not output */
-        if (!isatty_safe(STDIN_FILENO))
                 return 0;
 
         /* Also check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
@@ -55,7 +52,6 @@ int polkit_agent_open(void) {
                        &pipe_fd[1],
                        1,
                        &agent_pid,
-                       POLKIT_AGENT_BINARY_PATH,
                        POLKIT_AGENT_BINARY_PATH,
                        "--notify-fd", notify_fd,
                        "--fallback");
