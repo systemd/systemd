@@ -335,8 +335,9 @@ CHANGES WITH 257 in spe:
 
         systemd-networkd and networkctl:
 
-        * IPv6 address labels can be configured in a new [IPv6AddressLabel]
-          section with Prefix= and Label= settings.
+        * IPv6 address labels can be also configured in a new [IPv6AddressLabel]
+          section with Prefix= and Label= settings in networkd.conf. Please see
+          networkd.conf(5) for more details.
 
         * 'networkctl edit' can now read the new file contents from standard
           input with the new --stdin option.
@@ -367,6 +368,28 @@ CHANGES WITH 257 in spe:
 
         * systemd-networkd will now make RFC9463 DNR fields available to
           systemd-resolved, for automatic DNS DoT configuration, and similar.
+
+        * The "dhcp" and "dhcp-on-stop" values for KeepConfiguration= setting in
+          .network file are replaced with "dynamic" and "dynamic-on-stop",
+          respectively. When specified, systemd-networkd will preserve all
+          dynamic configurations via DHCPv4, DHCPv6, NDISC, and IPv4LL with
+          ACD, while previously only DHCPv4 configurations were kept. Also,
+          when systemd-networkd is restarted, regardless of the setting, these
+          dynamic configurations are unconditionally kept. So, systemd-networkd
+          can be restarted without disturbing ongoing connections.
+
+        * systemd-networkd can update traffic control settings without clearing
+          existing settings. So, you can update traffic control settings by
+          editing relevant .network files and trigger 'networkctl reload'.
+
+        * systemd-networkd now gracefully updates netdev settings specified in
+          .netdev files after 'networkctl reload' is called, Previously, if the
+          relevant interfaces already exist, new setting would never applied.
+          With this version, new settings will be applied as possible as they
+          accept. Note, some settings cannot be updated after a netdev is
+          configured, e.g. VLAN ID can be only specified on creation. To change
+          such settings, user needs to remove existing interfaces, and invoke
+          'networkctl reload' or restart systemd-networkd.
 
         systemd-boot, systemd-stub, and related tools:
 
