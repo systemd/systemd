@@ -5,8 +5,6 @@
 set -eux
 set -o pipefail
 
-# Test RuntimeDirectoryPreserve=yes
-
 at_exit() {
     set +e
 
@@ -14,6 +12,21 @@ at_exit() {
 }
 
 trap at_exit EXIT
+
+# RuntimeDirectory= should be preserved for oneshot units if RemainAfterExit=yes
+
+systemd-run --service-type=oneshot --remain-after-exit \
+            -u TEST-23-remain-after-exit.service \
+            -p RuntimeDirectory=TEST-23-remain-after-exit \
+            true
+
+[[ -d /run/TEST-23-remain-after-exit ]]
+
+systemctl stop TEST-23-remain-after-exit.service
+
+[[ ! -e /run/TEST-23-remain-after-exit ]]
+
+# Test RuntimeDirectoryPreserve=yes
 
 systemd-mount -p RuntimeDirectory=hoge -p RuntimeDirectoryPreserve=yes -t tmpfs tmpfs /tmp/aaa
 
