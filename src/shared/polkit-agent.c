@@ -53,7 +53,6 @@ int polkit_agent_open(void) {
                        1,
                        &agent_pid,
                        POLKIT_AGENT_BINARY_PATH,
-                       POLKIT_AGENT_BINARY_PATH,
                        "--notify-fd", notify_fd,
                        "--fallback");
 
