@@ -348,7 +348,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 
         r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork process (sd-mkuserns): %m");
+                return r;
         if (r == 0)
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
