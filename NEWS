@@ -378,18 +378,18 @@ CHANGES WITH 257 in spe:
           dynamic configurations are unconditionally kept. So, systemd-networkd
           can be restarted without disturbing ongoing connections.
 
-        * systemd-networkd can update traffic control settings without clearing
-          existing settings. So, you can update traffic control settings by
-          editing relevant .network files and trigger 'networkctl reload'.
+        * systemd-networkd now updates traffic control configuration without
+          clearing existing settings. Thus, those settings can be updated by
+          editing relevant .network files and triggering 'networkctl reload'.
 
         * systemd-networkd now gracefully updates netdev settings specified in
-          .netdev files after 'networkctl reload' is called, Previously, if the
-          relevant interfaces already exist, new setting would never applied.
-          With this version, new settings will be applied as possible as they
-          accept. Note, some settings cannot be updated after a netdev is
-          configured, e.g. VLAN ID can be only specified on creation. To change
-          such settings, user needs to remove existing interfaces, and invoke
-          'networkctl reload' or restart systemd-networkd.
+          .netdev files when 'networkctl reload' is called. Previously, if the
+          relevant interfaces existed, new settings would not be applied. Now,
+          new settings will be applied if possible. Some settings cannot be
+          updated after a netdev is configured, e.g. VLAN ID can be only
+          specified on creation. To change such settings, user needs to remove
+          existing interfaces, and invoke 'networkctl reload' or restart
+          systemd-networkd.
 
         systemd-boot, systemd-stub, and related tools:
 
