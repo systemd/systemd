@@ -270,6 +270,7 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
 typedef struct CopyFilesLine {
         char *source;
         char *target;
+        CopyFlags flags;
 } CopyFilesLine;
 
 static void copy_files_line_free_many(CopyFilesLine *f, size_t n) {
@@ -413,6 +414,7 @@ typedef struct Partition {
 
         CopyFilesLine *copy_files;
         size_t n_copy_files;
+        bool need_fsverity;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -1784,8 +1786,39 @@ static int config_parse_copy_files(
         else
                 target = buffer;
 
+        r = extract_first_word(&p, &options, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
         if (!isempty(p))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
+
+        CopyFlags flags = COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS;
+        for (const char *opts = options;;) {
+                _cleanup_free_ char *word = NULL;
+                char *val;
+
+                r = extract_first_word(&opts, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CopyFile options: %s", options);
+                if (r == 0)
+                        break;
+
+                if (isempty(word))
+                        continue;
+
+                if ((val = startswith(word, "fsverity="))) {
+                        if (!STR_IN_SET(val, "off", "copy"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "fsverity= expects either 'off' or 'copy'");
+
+                        if (streq(val, "copy")) {
+                                /* Any CopyFiles= line with fsverity= enables
+                                 * fs-verity support on the partition... */
+                                partition->need_fsverity = true;
+
+                                /* ... and for the one copy operation itself. */
+                                flags |= COPY_FS_VERITY;
+                        }
+                } else
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Encountered unknown option '%s', ignoring.", word);
+        }
 
         r = specifier_printf(source, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_source);
         if (r < 0) {
@@ -1815,6 +1848,7 @@ static int config_parse_copy_files(
         partition->copy_files[partition->n_copy_files++] = (CopyFilesLine) {
                 .source = TAKE_PTR(resolved_source),
                 .target = TAKE_PTR(resolved_target),
+                .flags = flags,
         };
 
         return 0;
@@ -5725,14 +5759,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS,
+                                                line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS,
+                                                line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
@@ -6125,7 +6159,7 @@ static int context_mkfs(Context *context) {
                 bool mkfs_quiet = streq(p->format, "erofs") && !DEBUG_LOGGING;
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid,
-                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0) | (p->need_fsverity ? MKFS_FS_VERITY : 0),
                                     context->fs_sector_size, p->compression, p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
@@ -7685,7 +7719,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     fs_uuid,
-                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0) | (p->need_fsverity ? MKFS_FS_VERITY : 0),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
@@ -7776,7 +7810,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     p->fs_uuid,
-                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0) | (p->need_fsverity ? MKFS_FS_VERITY : 0),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
