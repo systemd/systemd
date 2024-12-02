@@ -1337,7 +1337,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *s = NULL;
 
-                (void) namespace_flags_to_string(retain, &s);
+                (void) namespace_flags_to_string(retain ?: NAMESPACE_FLAGS_ALL, &s);
                 log_debug("Restricting namespace to: %s.", strna(s));
         }
 
