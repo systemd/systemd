@@ -14,7 +14,8 @@
                           CLONE_NEWNS|                                  \
                           CLONE_NEWPID|                                 \
                           CLONE_NEWUSER|                                \
-                          CLONE_NEWUTS))
+                          CLONE_NEWUTS|                                 \
+                          CLONE_NEWTIME))
 
 #define NAMESPACE_FLAGS_INITIAL  ULONG_MAX
 
