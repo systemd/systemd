@@ -31,6 +31,7 @@ typedef enum ProtectHome {
 typedef enum ProtectHostname {
         PROTECT_HOSTNAME_NO,
         PROTECT_HOSTNAME_YES,
+        PROTECT_HOSTNAME_PRIVATE,
         _PROTECT_HOSTNAME_MAX,
         _PROTECT_HOSTNAME_INVALID = -EINVAL,
 } ProtectHostname;
