@@ -8,6 +8,7 @@
 typedef enum MakeFilesystemFlags {
         MKFS_QUIET     = 1 << 0,  /* Suppress mkfs command output */
         MKFS_DISCARD   = 1 << 1,  /* Enable 'discard' mode on the filesystem */
+        MKFS_FS_VERITY = 1 << 2,  /* Enable fs-verity support on the filesystem */
 } MakeFileSystemFlags;
 
 int mkfs_exists(const char *fstype);
