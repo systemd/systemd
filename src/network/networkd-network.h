@@ -297,6 +297,7 @@ struct Network {
         uint32_t cost;
         uint16_t priority;
         MulticastRouter multicast_router;
+        int locked;
 
         /* Bridge VLAN */
         uint16_t bridge_vlan_pvid;
