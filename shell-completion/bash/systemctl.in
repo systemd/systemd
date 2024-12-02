@@ -9,7 +9,7 @@
 
 __systemctl() {
     local mode=$1; shift 1
-    systemctl $mode --full --legend=no --no-pager --plain "$@" 2>/dev/null
+    SYSTEMD_COLORS=0 systemctl $mode --full --legend=no --no-pager --plain "$@" 2>/dev/null
 }
 
 __systemd_properties() {
