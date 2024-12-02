@@ -1348,7 +1348,7 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->memory_deny_write_execute ||
                 c->private_devices ||
                 c->protect_clock ||
-                c->protect_hostname ||
+                c->protect_hostname == PROTECT_HOSTNAME_YES ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1712,7 +1712,7 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
         assert(p);
         assert(ret_exit_status);
 
-        if (!c->protect_hostname)
+        if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
 
         if (ns_type_supported(NAMESPACE_UTS)) {
@@ -3467,7 +3467,7 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                .protect_hostname = needs_sandboxing && context->protect_hostname,
+                .protect_hostname = needs_sandboxing && context->protect_hostname == PROTECT_HOSTNAME_YES,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
@@ -4102,7 +4102,7 @@ static bool exec_context_needs_cap_sys_admin(const ExecContext *context, const E
                context->protect_kernel_logs ||
                exec_needs_cgroup_mount(context, params) ||
                context->protect_clock ||
-               context->protect_hostname ||
+               context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||

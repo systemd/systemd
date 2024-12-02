@@ -119,6 +119,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_protect_control_groups);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
+CONFIG_PARSER_PROTOTYPE(config_parse_protect_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
 CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_utmp_mode);
