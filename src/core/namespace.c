@@ -250,7 +250,7 @@ static const MountEntry protect_system_strict_table[] = {
 };
 
 /* ProtectHostname=yes able */
-static const MountEntry protect_hostname_table[] = {
+static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
 };
@@ -2642,8 +2642,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (p->protect_hostname) {
                 r = append_static_mounts(
                                 &ml,
-                                protect_hostname_table,
-                                ELEMENTSOF(protect_hostname_table),
+                                protect_hostname_yes_table,
+                                ELEMENTSOF(protect_hostname_yes_table),
                                 ignore_protect_proc);
                 if (r < 0)
                         return r;
@@ -3304,6 +3304,13 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
+
+static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
+        [PROTECT_HOSTNAME_NO]      = "no",
+        [PROTECT_HOSTNAME_YES]     = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, PROTECT_HOSTNAME_YES);
 
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO]     = "no",
