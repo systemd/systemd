@@ -435,6 +435,9 @@ int make_filesystem(
                 if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                if (FLAGS_SET(flags, MKFS_FS_VERITY) && strv_extend_many(&argv, "-O", "verity") < 0)
+                        return log_oom();
+
                 if (strv_extend(&argv, node) < 0)
                         return log_oom();
 
@@ -499,6 +502,9 @@ int make_filesystem(
                         return log_oom();
 
                 if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
+                        return log_oom();
+
+                if (FLAGS_SET(flags, MKFS_FS_VERITY) && strv_extend_many(&argv, "-O", "verity") < 0)
                         return log_oom();
 
                 if (sector_size > 0) {
