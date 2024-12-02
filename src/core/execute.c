@@ -1071,7 +1071,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, yes_no(c->protect_hostname),
+                prefix, protect_hostname_to_string(c->protect_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset));
 
