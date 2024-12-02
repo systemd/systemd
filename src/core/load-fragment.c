@@ -141,6 +141,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMo
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_hostname, protect_hostname, ProtectHostname);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType);
