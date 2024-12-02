@@ -321,6 +321,7 @@ int make_filesystem(
                 const char *root,
                 sd_id128_t uuid,
                 bool discard,
+                bool fsverity,
                 bool quiet,
                 uint64_t sector_size,
                 char *compression,
@@ -431,6 +432,9 @@ int make_filesystem(
                 if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
+                if (fsverity && strv_extend_many(&argv, "-O", "verity") < 0)
+                        return log_oom();
+
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
@@ -481,6 +485,9 @@ int make_filesystem(
                                 "-U", vol_id,
                                 "-t", one_zero(discard));
                 if (!argv)
+                        return log_oom();
+
+                if (fsverity && strv_extend_many(&argv, "-O", "verity") < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)

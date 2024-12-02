@@ -76,6 +76,7 @@ static int run(int argc, char *argv[]) {
                                /* root = */ NULL,
                                uuid,
                                /* discard = */ true,
+                               /* fsverity = */ true,
                                /* quiet = */ true,
                                /* sector_size = */ 0,
                                /* compression = */ NULL,

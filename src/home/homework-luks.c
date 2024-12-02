@@ -2375,6 +2375,7 @@ int home_create_luks(
                             /* root = */ NULL,
                             fs_uuid,
                             user_record_luks_discard(h),
+                            /* fsverity = */ false,
                             /* quiet = */ true,
                             /* sector_size = */ 0,
                             /* compression = */ NULL,
