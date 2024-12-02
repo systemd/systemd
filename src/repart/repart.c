@@ -277,6 +277,22 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         return mfree(c);
 }
 
+typedef struct CopyFiles {
+        char *source;
+        char *target;
+} CopyFiles;
+
+static void copy_files_free_many(CopyFiles *f, size_t n) {
+        assert(f || n == 0);
+
+        FOREACH_ARRAY(i, f, n) {
+                free(i->source);
+                free(i->target);
+        }
+
+        free(f);
+}
+
 typedef enum SubvolumeFlags {
         SUBVOLUME_RO               = 1 << 0,
         _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_RO,
@@ -377,7 +393,6 @@ typedef struct Partition {
         uint64_t copy_blocks_done;
 
         char *format;
-        char **copy_files;
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
@@ -394,6 +409,8 @@ typedef struct Partition {
         char *compression_level;
 
         int add_validatefs;
+        CopyFiles *copy_files;
+        size_t n_copy_files;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -633,7 +650,6 @@ static Partition* partition_free(Partition *p) {
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
-        strv_free(p->copy_files);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
@@ -644,11 +660,12 @@ static Partition* partition_free(Partition *p) {
         free(p->compression);
         free(p->compression_level);
 
+        copy_files_free_many(p->copy_files, p->n_copy_files);
+
         iovec_done(&p->roothash);
 
         free(p->split_name_format);
         unlink_and_free(p->split_path);
-
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
         p->n_mountpoints = 0;
@@ -674,7 +691,6 @@ static void partition_foreignize(Partition *p) {
         p->copy_blocks_root = NULL;
 
         p->format = mfree(p->format);
-        p->copy_files = strv_free(p->copy_files);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
@@ -684,6 +700,10 @@ static void partition_foreignize(Partition *p) {
         p->verity_match_key = mfree(p->verity_match_key);
         p->compression = mfree(p->compression);
         p->compression_level = mfree(p->compression_level);
+
+        copy_files_free_many(p->copy_files, p->n_copy_files);
+        p->copy_files = NULL;
+        p->n_copy_files = 0;
 
         p->priority = 0;
         p->weight = 1000;
@@ -1750,8 +1770,8 @@ static int config_parse_copy_files(
                 void *userdata) {
 
         _cleanup_free_ char *source = NULL, *buffer = NULL, *resolved_source = NULL, *resolved_target = NULL;
+        Partition *partition = ASSERT_PTR(data);
         const char *p = rvalue, *target;
-        char ***copy_files = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
@@ -1797,9 +1817,13 @@ static int config_parse_copy_files(
         if (r < 0)
                 return 0;
 
-        r = strv_consume_pair(copy_files, TAKE_PTR(resolved_source), TAKE_PTR(resolved_target));
-        if (r < 0)
+        if (!GREEDY_REALLOC(partition->copy_files, partition->n_copy_files + 1))
                 return log_oom();
+
+        partition->copy_files[partition->n_copy_files++] = (CopyFiles) {
+                .source = TAKE_PTR(resolved_source),
+                .target = TAKE_PTR(resolved_target),
+        };
 
         return 0;
 }
@@ -2358,7 +2382,7 @@ static bool partition_needs_populate(const Partition *p) {
         assert(p);
         assert(!p->supplement_for || !p->suppressing); /* Avoid infinite recursion */
 
-        return !strv_isempty(p->copy_files) ||
+        return p->n_copy_files > 0 ||
                 !strv_isempty(p->make_directories) ||
                 !strv_isempty(p->make_symlinks) ||
                 partition_add_validatefs(p) ||
@@ -2393,7 +2417,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "FactoryReset",             config_parse_bool,              0,                                  &p->factory_reset           },
                 { "Partition", "CopyBlocks",               config_parse_copy_blocks,       0,                                  p                           },
                 { "Partition", "Format",                   config_parse_fstype,            0,                                  &p->format                  },
-                { "Partition", "CopyFiles",                config_parse_copy_files,        0,                                  &p->copy_files              },
+                { "Partition", "CopyFiles",                config_parse_copy_files,        0,                                  p                           },
                 { "Partition", "ExcludeFiles",             config_parse_exclude_files,     0,                                  &p->exclude_files_source    },
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,     0,                                  &p->exclude_files_target    },
                 { "Partition", "MakeDirectories",          config_parse_make_dirs,         0,                                  &p->make_directories        },
@@ -5655,7 +5679,6 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         _cleanup_strv_free_ char **subvolumes = NULL;
-        _cleanup_free_ char **override_copy_files = NULL;
         int r;
 
         assert(p);
@@ -5665,31 +5688,36 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
         if (r < 0)
                 return r;
 
+        _cleanup_free_ CopyFiles *copy_files = newdup(CopyFiles, p->copy_files, p->n_copy_files);
+        if (!copy_files)
+                return log_oom();
+
+        size_t n_copy_files = p->n_copy_files;
         if (p->suppressing) {
-                r = shallow_join_strv(&override_copy_files, p->copy_files, p->suppressing->copy_files);
-                if (r < 0)
-                        return r;
+                if (!GREEDY_REALLOC_APPEND(copy_files, n_copy_files,
+                                           p->suppressing->copy_files, p->suppressing->n_copy_files))
+                        return log_oom();
         }
 
         /* copy_tree_at() automatically copies the permissions of source directories to target directories if
          * it created them. However, the root directory is created by us, so we have to manually take care
          * that it is initialized. We use the first source directory targeting "/" as the metadata source for
          * the root directory. */
-        STRV_FOREACH_PAIR(source, target, override_copy_files ?: p->copy_files) {
+        FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_close_ int rfd = -EBADF, sfd = -EBADF;
 
-                if (!path_equal(*target, "/"))
+                if (!path_equal(line->target, "/"))
                         continue;
 
                 rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                 if (rfd < 0)
                         return -errno;
 
-                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd == -ENOTDIR)
                         continue;
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
                 (void) copy_access(sfd, rfd);
@@ -5698,50 +5726,50 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 break;
         }
 
-        STRV_FOREACH_PAIR(source, target, override_copy_files ?: p->copy_files) {
+        FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = epoch_or_infinity();
 
-                r = make_copy_files_denylist(context, p, *source, *target, &denylist);
+                r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         continue;
 
-                r = make_subvolumes_set(p, *source, *target, &subvolumes_by_source_inode);
+                r = make_subvolumes_set(p, line->source, line->target, &subvolumes_by_source_inode);
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd == -ENOENT) {
-                        log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), *source);
+                        log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), line->source);
                         continue;
                 }
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 r = fd_verify_regular(sfd);
                 if (r < 0) {
                         if (r != -EISDIR)
-                                return log_error_errno(r, "Failed to check type of source file '%s': %m", *source);
+                                return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
 
                         /* We are looking at a directory */
-                        tfd = chase_and_open(*target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
                                 if (tfd != -ENOENT)
-                                        return log_error_errno(tfd, "Failed to open target directory '%s': %m", *target);
+                                        return log_error_errno(tfd, "Failed to open target directory '%s': %m", line->target);
 
-                                r = path_extract_filename(*target, &fn);
+                                r = path_extract_filename(line->target, &fn);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
+                                        return log_error_errno(r, "Failed to extract filename from '%s': %m", line->target);
 
-                                r = path_extract_directory(*target, &dn);
+                                r = path_extract_directory(line->target, &dn);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
+                                        return log_error_errno(r, "Failed to extract directory from '%s': %m", line->target);
 
                                 r = mkdir_p_root_full(root, dn, UID_INVALID, GID_INVALID, 0755, ts, subvolumes);
                                 if (r < 0)
@@ -5766,30 +5794,30 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
-                                                       strempty(arg_copy_source), *source, strempty(root), *target);
+                                                       strempty(arg_copy_source), line->source, strempty(root), line->target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
                         /* We are looking at a regular file */
 
-                        r = file_is_denylisted(*source, denylist);
+                        r = file_is_denylisted(line->source, denylist);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
-                                log_debug("%s is in the denylist, ignoring", *source);
+                                log_debug("%s is in the denylist, ignoring", line->source);
                                 continue;
                         }
 
-                        r = path_extract_filename(*target, &fn);
+                        r = path_extract_filename(line->target, &fn);
                         if (r == -EADDRNOTAVAIL || r == O_DIRECTORY)
                                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                                       "Target path '%s' refers to a directory, but source path '%s' refers to regular file, can't copy.", *target, *source);
+                                                       "Target path '%s' refers to a directory, but source path '%s' refers to regular file, can't copy.", line->target, line->source);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", line->target);
 
-                        r = path_extract_directory(*target, &dn);
+                        r = path_extract_directory(line->target, &dn);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
+                                return log_error_errno(r, "Failed to extract directory from '%s': %m", line->target);
 
                         r = mkdir_p_root_full(root, dn, UID_INVALID, GID_INVALID, 0755, ts, subvolumes);
                         if (r < 0)
@@ -5801,11 +5829,11 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                         tfd = openat(pfd, fn, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
                         if (tfd < 0)
-                                return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
+                                return log_error_errno(errno, "Failed to create target file '%s': %m", line->target);
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_copy_source), *target);
+                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
