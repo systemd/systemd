@@ -1387,7 +1387,12 @@ def generate_keys(opts: UkifyConfig) -> None:
     # are specified as input paths.
     if opts.sb_key and opts.sb_cert:
         fqdn = socket.getfqdn()
+
         cn = f'SecureBoot signing key on host {fqdn}'
+        if len(cn) > 64:
+            # The length of CN must not exceed 64 bytes
+            cn = cn[:61] + '...'
+
         key_pem, cert_pem = generate_key_cert_pair(
             common_name=cn,
             valid_days=opts.sb_cert_validity,
