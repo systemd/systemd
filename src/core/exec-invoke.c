@@ -2077,7 +2077,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2103,6 +2103,23 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
+                 * this is the same UID/GID map as the init user namespace and there are various applications
+                 * (i.e. systemd's running_in_userns()) that check whether they are in a user namespace by
+                 * comparing uid_map/gid_map to `0 0 UINT32_MAX`. Thus, we still map all UIDs/GIDs but do it
+                 * using two extents to differentiate the new user namespace from the init namespace:
+                 *   0 0 1
+                 *   1 1 UINT32_MAX - 1
+                 *
+                 * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
+                 * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
+                 * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
+                 * use these UIDs/GIDs so we need to map them. */
+                r = asprintf(&uid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", UINT32_MAX - 1);
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2122,6 +2139,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                r = asprintf(&gid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", UINT32_MAX - 1);
+                if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
@@ -2168,7 +2190,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
                         report_errno_and_exit(errno_pipe[1], -errno);
 
-                /* Disable the setgroups() system call in the child user namespace, for good. */
+                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+                 * and using the system service manager. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
@@ -2179,10 +2202,15 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
-                                report_errno_and_exit(errno_pipe[1], r);
+                        if (allow_setgroups) {
+                                if (write(fd, "allow\n", 6) < 0)
+                                        r = log_debug_errno(errno, "Failed to write \"allow\" to %s: %m", a);
+                        } else {
+                                if (write(fd, "deny\n", 5) < 0)
+                                        r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
                         }
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe[1], r);
 
                         fd = safe_close(fd);
                 }
@@ -4979,7 +5007,9 @@ int exec_invoke(
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
+                /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
+                 * unprivileged user namespaces. */
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /*allow_setgroups=*/ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5149,7 +5179,8 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
+                                        context->private_users == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");
