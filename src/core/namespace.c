@@ -3308,6 +3308,7 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_
 static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
         [PROTECT_HOSTNAME_NO]      = "no",
         [PROTECT_HOSTNAME_YES]     = "yes",
+        [PROTECT_HOSTNAME_PRIVATE] = "private",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, PROTECT_HOSTNAME_YES);
