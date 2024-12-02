@@ -1451,7 +1451,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (exec_context_restrict_namespaces_set(c)) {
                 _cleanup_free_ char *s = NULL;
 
-                r = namespace_flags_to_string(c->restrict_namespaces, &s);
+                /* Restrict all namespaces is zero, so in that case, we should print out all namespaces. */
+                r = namespace_flags_to_string(c->restrict_namespaces ?: NAMESPACE_FLAGS_ALL, &s);
                 if (r >= 0)
                         fprintf(f, "%sRestrictNamespaces: %s\n",
                                 prefix, strna(s));
