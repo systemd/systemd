@@ -82,6 +82,44 @@ link_endswith "$OUT_DIR/early/my-fancy.target.wants/wanted.mount" /lib/systemd/s
 link_endswith "$OUT_DIR/early/my-fancy.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
 test ! -d "$OUT_DIR/early/default.target.wants"
 
+# systemd.break (default)
+: "debug-shell: regular + systemd.break"
+rm -f "$OUT_DIR/early/default.target.wants/debug-shell.service"
+CMDLINE="ro root=/ ${ARGS[*]} systemd.break"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/debug-shell.service"
+test ! -e "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# systemd.break=pre-switch-root
+: "debug-shell: regular + systemd.break=pre-switch-root"
+CMDLINE="ro root=/ ${ARGS[*]} systemd.break=pre-switch-root"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/debug-shell.service"
+test ! -e "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# systemd.break=pre-mount
+: "debug-shell: regular + systemd.break=pre-mount"
+CMDLINE="ro root=/ ${ARGS[*]} systemd.break=pre-mount"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/debug-shell.service"
+test ! -e "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# systemd.break=pre-udev
+: "debug-shell: regular + systemd.break=pre-udev"
+CMDLINE="ro root=/ ${ARGS[*]} systemd.break=pre-udev"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/default.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-udev" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# systemd.break=pre-shutdown
+: "debug-shell: regular + systemd.break=pre-shutdown"
+rm -f "$OUT_DIR/early/default.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} systemd.break=pre-shutdown"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/default.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-shutdown" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
 
 # Initrd scenario
 : "debug-shell: initrd"
@@ -110,3 +148,48 @@ SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN
 link_eq "$OUT_DIR/early/masked-initrd.service" /dev/null
 link_endswith "$OUT_DIR/early/my-fancy-initrd.target.wants/wanted-initrd.service" /lib/systemd/system/wanted-initrd.service
 test ! -d "$OUT_DIR/early/initrd.target.wants"
+
+# rd.systemd.break=pre-udev
+: "debug-shell: initrd + rd.systemd.break=pre-udev"
+rm -f "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} rd.systemd.break=pre-udev"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-udev" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# rd.systemd.break=pre-mount
+: "debug-shell: initrd + rd.systemd.break=pre-mount"
+rm -f "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} rd.systemd.break=pre-mount"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-mount" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# rd.systemd.break=pre-switch-root
+: "debug-shell: initrd + rd.systemd.break=pre-switch-root"
+rm -f "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} rd.systemd.break=pre-switch-root"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-switch-root" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# rd.systemd.break (default)
+: "debug-shell: initrd + rd.systemd.break"
+rm -f "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} rd.systemd.break"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "pre-switch-root" "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+
+# rd.systemd.break=pre-shutdown
+: "debug-shell: initrd + rd.systemd.break=pre-shutdown"
+rm -f "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+rm -f "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
+CMDLINE="ro root=/ ${ARGS[*]} rd.systemd.break=pre-shutdown"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/initrd.target.wants/debug-shell.service"
+test ! -e "$OUT_DIR/early/debug-shell.service.d/60-breakpoint.conf"
