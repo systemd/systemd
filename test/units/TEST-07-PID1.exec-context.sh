@@ -415,3 +415,7 @@ fi
 (! systemd-run --wait --pipe -p RootDirectory=/tmp/root this-shouldnt-exist)
 (! systemd-run --wait --pipe -p RootDirectory=/tmp/root /foo)
 (! systemd-run --wait --pipe --service-type=oneshot -p ExecStartPre=-/foo/bar/baz -p ExecStart=-/foo/bar/baz -p RootDirectory=/tmp/root -- "- foo")
+
+# RestrictNamespaces=
+systemd-run --wait --pipe unshare -T true
+(! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)

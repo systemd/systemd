@@ -295,7 +295,7 @@ TEST(restrict_namespace) {
         s = mfree(s);
 
         assert_se(namespace_flags_to_string(NAMESPACE_FLAGS_ALL, &s) == 0);
-        ASSERT_STREQ(s, "cgroup ipc net mnt pid user uts");
+        ASSERT_STREQ(s, "cgroup ipc net mnt pid user uts time");
         assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
         s = mfree(s);
 
