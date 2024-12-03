@@ -372,6 +372,8 @@ TEST(json) {
                                  TABLE_HEADER, "piep miau",
                                  TABLE_HEADER, "asdf",
                                  TABLE_SET_JSON_FIELD_NAME, "asdf-custom"));
+        ASSERT_OK(table_set_json_field_name(t, 2, "ZZZ"));
+        ASSERT_OK(table_set_json_field_name(t, 2, NULL));
         ASSERT_OK(table_set_json_field_name(t, 2, "zzz"));
 
         ASSERT_OK(table_add_many(t,
@@ -715,6 +717,8 @@ TEST(vertical) {
                                  TABLE_FIELD, "quux", TABLE_STRING, "asdf", TABLE_SET_JSON_FIELD_NAME, "custom-quux",
                                  TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj"));
 
+        ASSERT_OK(table_set_json_field_name(t, 1, "DIMPFELMOSER"));
+        ASSERT_OK(table_set_json_field_name(t, 1, NULL));
         ASSERT_OK(table_set_json_field_name(t, 1, "dimpfelmoser"));
 
         ASSERT_OK(table_format(t, &formatted));
