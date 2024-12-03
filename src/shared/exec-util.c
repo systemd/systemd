@@ -594,9 +594,9 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
                  * that when systemctl is started via popen() or a similar call that expects to read EOF we
                  * actually do generate EOF and not delay this indefinitely by keeping an unused copy of
                  * stdin around. */
-                fd = open("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
+                fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/tty: %m");
+                        log_error_errno(fd, "Failed to open /dev/tty: %m");
                         _exit(EXIT_FAILURE);
                 }
 
