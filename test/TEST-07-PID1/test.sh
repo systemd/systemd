@@ -13,7 +13,7 @@ TEST_INSTALL_VERITY_MINIMAL=1
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    image_install logger socat
+    image_install logger socat hostname
     inst_binary mksquashfs
     inst_binary unsquashfs
     install_verity_minimal
