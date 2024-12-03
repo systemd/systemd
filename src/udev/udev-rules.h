@@ -4,30 +4,11 @@
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "time-util.h"
-
-#define UDEV_NAME_SIZE   512
-#define UDEV_PATH_SIZE  1024
-#define UDEV_LINE_SIZE 16384
+#include "udev-def.h"
 
 typedef struct UdevRuleFile UdevRuleFile;
 typedef struct UdevRules UdevRules;
 typedef struct UdevEvent UdevEvent;
-
-typedef enum {
-        ESCAPE_UNSET,
-        ESCAPE_NONE,    /* OPTIONS="string_escape=none" */
-        ESCAPE_REPLACE, /* OPTIONS="string_escape=replace" */
-        _ESCAPE_TYPE_MAX,
-        _ESCAPE_TYPE_INVALID = -EINVAL,
-} UdevRuleEscapeType;
-
-typedef enum ResolveNameTiming {
-        RESOLVE_NAME_NEVER,
-        RESOLVE_NAME_LATE,
-        RESOLVE_NAME_EARLY,
-        _RESOLVE_NAME_TIMING_MAX,
-        _RESOLVE_NAME_TIMING_INVALID = -EINVAL,
-} ResolveNameTiming;
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos, bool *ret_is_case_insensitive);
 int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret);

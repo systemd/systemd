@@ -7,30 +7,8 @@
 #include "sd-netlink.h"
 
 #include "macro.h"
+#include "udev-def.h"
 #include "udev-event.h"
-
-typedef enum UdevBuiltinCommand {
-#if HAVE_BLKID
-        UDEV_BUILTIN_BLKID,
-#endif
-        UDEV_BUILTIN_BTRFS,
-        UDEV_BUILTIN_HWDB,
-        UDEV_BUILTIN_INPUT_ID,
-        UDEV_BUILTIN_KEYBOARD,
-#if HAVE_KMOD
-        UDEV_BUILTIN_KMOD,
-#endif
-        UDEV_BUILTIN_NET_DRIVER,
-        UDEV_BUILTIN_NET_ID,
-        UDEV_BUILTIN_NET_LINK,
-        UDEV_BUILTIN_PATH_ID,
-        UDEV_BUILTIN_USB_ID,
-#if HAVE_ACL
-        UDEV_BUILTIN_UACCESS,
-#endif
-        _UDEV_BUILTIN_MAX,
-        _UDEV_BUILTIN_INVALID = -EINVAL,
-} UdevBuiltinCommand;
 
 typedef struct UdevBuiltin {
         const char *name;
@@ -81,7 +59,8 @@ const char* udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
 int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *command);
 void udev_builtin_list(void);
-bool udev_builtin_should_reload(void);
+UdevReloadFlag udev_builtin_should_reload(void);
+void udev_builtin_reload(UdevReloadFlag flags);
 int udev_builtin_add_property(sd_device *dev, EventMode mode, const char *key, const char *val);
 int udev_builtin_add_propertyf(sd_device *dev, EventMode mode, const char *key, const char *valf, ...) _printf_(4, 5);
 int udev_builtin_import_property(sd_device *dev, sd_device *src, EventMode mode, const char *key);
