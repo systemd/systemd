@@ -25,3 +25,4 @@ Type=oneshot
 DynamicUser=yes
 StateDirectory=test-dynamicuser-migrate test-dynamicuser-migrate2/hoge
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+ReadWritePaths=-/coverage

@@ -10,3 +10,4 @@ ExecStart=sh -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" &
 ExecStart=sh -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
 DynamicUser=yes
 User=games
+ReadWritePaths=-/coverage

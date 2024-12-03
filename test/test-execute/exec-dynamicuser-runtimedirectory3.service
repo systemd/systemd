@@ -11,3 +11,4 @@ Type=oneshot
 RuntimeDirectory=test-exec_runtimedirectorypreserve
 DynamicUser=yes
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+ReadWritePaths=-/coverage
