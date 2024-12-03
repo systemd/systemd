@@ -27,4 +27,5 @@ typedef struct UdevConfig {
         }
 
 int manager_load(Manager *manager, int argc, char *argv[]);
+UdevReloadFlag manager_reload_config(Manager *manager);
 void udev_config_set_default_children_max(UdevConfig *c);
