@@ -132,6 +132,7 @@ jobs:
         run: |
           # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
           sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
+
           tee mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
@@ -186,21 +187,24 @@ jobs:
 
       - name: Configure meson
         run: |
-          meson setup build \
-              --buildtype=debugoptimized \
-              -Dintegration-tests=true \
-              -Dremote=enabled \
-              -Dopenssl=enabled \
-              -Dblkid=enabled \
-              -Dtpm2=enabled \
-              -Dlibcryptsetup=enabled \
-              -Dlibcurl=enabled \
-              -Drepart=enabled \
-              -Dfirstboot=true \
-              -Dsysusers=true \
-              -Dtmpfiles=true \
-              -Dhwdb=true \
+          OPTIONS=(
+              --buildtype=debugoptimized
+              -Dintegration-tests=true
+              -Dremote=enabled
+              -Dopenssl=enabled
+              -Dblkid=enabled
+              -Dtpm2=enabled
+              -Dlibcryptsetup=enabled
+              -Dlibcurl=enabled
+              -Drepart=enabled
+              -Dfirstboot=true
+              -Dsysusers=true
+              -Dtmpfiles=true
+              -Dhwdb=true
               -Dvmspawn=enabled
+          )
+
+          meson setup build "${OPTIONS[@]}"
 
       - name: Build image
         run: sudo meson compile -C build mkosi
