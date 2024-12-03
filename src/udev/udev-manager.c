@@ -1227,11 +1227,50 @@ void manager_adjust_arguments(Manager *manager) {
         }
 }
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+static int listen_fds(int *ret_ctrl, int *ret_netlink) {
+        int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+
+        assert(ret_ctrl);
+        assert(ret_netlink);
+
+        int n = sd_listen_fds(true);
+        if (n < 0)
+                return n;
+
+        for (int fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
+                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
+                        if (ctrl_fd >= 0)
+                                return -EINVAL;
+                        ctrl_fd = fd;
+                        continue;
+                }
+
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (netlink_fd >= 0)
+                                return -EINVAL;
+                        netlink_fd = fd;
+                        continue;
+                }
+
+                return -EINVAL;
+        }
+
+        *ret_ctrl = ctrl_fd;
+        *ret_netlink = netlink_fd;
+
+        return 0;
+}
+
+int manager_init(Manager *manager) {
+        _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(manager);
+
+        r = listen_fds(&fd_ctrl, &fd_uevent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to listen on fds: %m");
 
         r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
         if (r < 0)
