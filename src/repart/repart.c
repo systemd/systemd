@@ -2349,6 +2349,18 @@ static bool partition_needs_populate(const Partition *p) {
                 (p->suppressing && partition_needs_populate(p->suppressing));
 }
 
+static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
+        MakeFileSystemFlags flags = 0;
+
+        if (arg_discard)
+                flags |= MKFS_DISCARD;
+
+        if (streq(p->format, "erofs") && !DEBUG_LOGGING)
+                flags |= MKFS_QUIET;
+
+        return flags;
+}
+
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
@@ -6153,8 +6165,7 @@ static int context_mkfs(Context *context) {
                         return r;
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    p->fs_uuid, partition_mkfs_flags(p),
                                     context->fs_sector_size, p->compression, p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
@@ -7713,8 +7724,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     fs_uuid,
-                                    arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    partition_mkfs_flags(p),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
@@ -7805,8 +7815,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     p->fs_uuid,
-                                    arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    partition_mkfs_flags(p),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
