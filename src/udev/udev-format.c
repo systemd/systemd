@@ -8,6 +8,7 @@
 #include "udev-event.h"
 #include "udev-format.h"
 #include "udev-util.h"
+#include "udev-worker.h"
 
 typedef enum {
         FORMAT_SUBST_DEVNODE,
