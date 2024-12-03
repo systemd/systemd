@@ -19,7 +19,7 @@
 #include "user-util.h"
 
 UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
-        int log_level = worker ? worker->log_level : log_get_max_level();
+        int log_level = worker ? worker->config.log_level : log_get_max_level();
         UdevEvent *event;
 
         assert(dev);
