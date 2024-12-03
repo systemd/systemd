@@ -14,7 +14,6 @@
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "stdio-util.h"
-#include "terminal-util.h"
 #include "time-util.h"
 
 #if ENABLE_POLKIT
@@ -32,16 +31,9 @@ int polkit_agent_open(void) {
         if (geteuid() == 0)
                 return 0;
 
-        /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
-         * interactively on a terminal, hence fail. */
-        r = get_ctty_devnr(0, NULL);
-        if (r == -ENXIO)
-                return 0;
-        if (r < 0)
+        r = can_fork_agent();
+        if (r <= 0)
                 return r;
-
-        if (!is_main_thread())
-                return -EPERM;
 
         if (pipe2(pipe_fd, 0) < 0)
                 return -errno;
