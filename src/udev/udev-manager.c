@@ -265,15 +265,15 @@ static void manager_reload(Manager *manager, bool force) {
         UdevReloadFlags flags = udev_builtin_should_reload();
         if (udev_rules_should_reload(manager->rules))
                 flags |= UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
-        if (flags == 0) {
-                /* Nothing changed. It is not necessary to reload. */
-                if (!force)
-                        return;
+        if (flags == 0 && !force)
+                /* Neither .rules files nor config files for builtins e.g. .link files changed. It is not
+                 * necessary to reload configs. Note, udev.conf is not checked in the above, hence reloaded
+                 * when explicitly requested or at least one .rules file or friend is updated. */
+                return;
 
-                /* If we eat this up, then tell our service manager to just continue */
-                (void) notify_reloading_full("Skipping configuration reloading, nothing changed.");
-        } else
-                (void) notify_reloading();
+        (void) notify_reloading();
+
+        flags |= manager_reload_config(manager);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
                 manager_kill_workers(manager, false);
