@@ -461,7 +461,6 @@
 
       <varlistentry>
         <term><varname>systemd.image_policy=</varname></term>
-        <term><varname>rd.systemd.image_policy=</varname></term>
 
         <listitem><para>When GPT-based partition auto-discovery is used, configures the image dissection
         policy string to apply, as per
