@@ -5992,7 +5992,7 @@ static int context_mkfs(Context *context) {
                         return r;
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, /* quiet = */ false,
+                                    p->fs_uuid, MKFS_DISCARD * arg_discard,
                                     context->fs_sector_size, p->compression, p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
@@ -7556,7 +7556,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     fs_uuid,
-                                    arg_discard, /* quiet = */ false,
+                                    MKFS_DISCARD * arg_discard,
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
@@ -7638,8 +7638,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     p->fs_uuid,
-                                    arg_discard,
-                                    /* quiet = */ false,
+                                    MKFS_DISCARD * arg_discard,
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
