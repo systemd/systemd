@@ -29,6 +29,7 @@
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
