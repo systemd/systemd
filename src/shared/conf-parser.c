@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "calendarspec.h"
+#include "compress.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -1387,6 +1388,68 @@ int config_parse_warn_compat(
         }
 
         return 0;
+}
+
+int config_parse_compression(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CompressionArgs *args = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue))
+                return 1;
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *algorithm = NULL;
+                int level = -1;
+                char *word;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        break;
+
+                r = extract_first_word((const char**)&word, &algorithm, ":", 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+                Compression c = compression_lowercase_from_string(algorithm);
+                if (c < 0)
+                        return log_oom();
+                if (!compression_supported(c))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Compression=%s is not supported on a system, ignoring", algorithm);
+
+                if (!isempty(word)) {
+                        r = safe_atoi(word, &level);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                                  "Compression level %s should be positive, ignoring", word);
+                }
+
+                for (size_t i = 0; i < args->size; i++) {
+                        if (args->opts[i].algorithm == c) {
+                                args->opts[i].level = level;
+                                return 1;
+                        }
+                }
+
+                args->opts = GREEDY_REALLOC(args->opts, (args->size + 1) * sizeof(CompressionOpts));
+                args->opts[args->size].algorithm = c;
+                args->opts[args->size].level = level;
+                args->size++;
+        }
+        return 1;
 }
 
 int config_parse_log_facility(
