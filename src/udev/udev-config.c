@@ -339,3 +339,26 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
         manager_adjust_config(&manager->config);
         return 1;
 }
+
+UdevReloadFlag manager_reload_config(Manager *manager) {
+        assert(manager);
+
+        UdevConfig old = manager->config;
+
+        manager_parse_udev_config(&manager->config_by_udev_conf);
+        manager_merge_config(manager);
+        log_set_max_level(manager->config.log_level);
+        manager_adjust_config(&manager->config);
+
+        if (manager->config.resolve_name_timing != old.resolve_name_timing)
+                return UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+
+        if (manager->config.log_level != old.log_level ||
+            manager->config.exec_delay_usec != old.exec_delay_usec ||
+            manager->config.timeout_usec != old.timeout_usec ||
+            manager->config.timeout_signal != old.timeout_signal ||
+            manager->config.blockdev_read_only != old.blockdev_read_only)
+                return UDEV_RELOAD_KILL_WORKERS;
+
+        return 0;
+}
