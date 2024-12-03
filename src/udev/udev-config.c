@@ -25,29 +25,20 @@ bool arg_daemonize = false;
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_name_timing, resolve_name_timing, ResolveNameTiming);
 
-static int manager_parse_udev_config(Manager *manager) {
-        int r, log_val = -1;
-
-        assert(manager);
+static void manager_parse_udev_config(UdevConfig *config) {
+        assert(config);
 
         const ConfigTableItem config_table[] = {
-                { NULL, "udev_log",       config_parse_log_level,           0, &log_val                      },
-                { NULL, "children_max",   config_parse_unsigned,            0, &manager->children_max        },
-                { NULL, "exec_delay",     config_parse_sec,                 0, &manager->exec_delay_usec     },
-                { NULL, "event_timeout",  config_parse_sec,                 0, &manager->timeout_usec        },
-                { NULL, "resolve_names",  config_parse_resolve_name_timing, 0, &manager->resolve_name_timing },
-                { NULL, "timeout_signal", config_parse_signal,              0, &manager->timeout_signal      },
+                { NULL, "udev_log",       config_parse_log_level,           0, &config->log_level           },
+                { NULL, "children_max",   config_parse_unsigned,            0, &config->children_max        },
+                { NULL, "exec_delay",     config_parse_sec,                 0, &config->exec_delay_usec     },
+                { NULL, "event_timeout",  config_parse_sec,                 0, &config->timeout_usec        },
+                { NULL, "resolve_names",  config_parse_resolve_name_timing, 0, &config->resolve_name_timing },
+                { NULL, "timeout_signal", config_parse_signal,              0, &config->timeout_signal      },
                 {}
         };
 
-        r = udev_parse_config_full(config_table);
-        if (r < 0)
-                return r;
-
-        if (log_val >= 0)
-                log_set_max_level(log_val);
-
-        return 0;
+        (void) udev_parse_config_full(config_table);
 }
 
 /*
@@ -59,7 +50,7 @@ static int manager_parse_udev_config(Manager *manager) {
  *   udev.blockdev_read_only<=bool>            mark all block devices read-only when they appear
  */
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        Manager *manager = ASSERT_PTR(data);
+        UdevConfig *config = ASSERT_PTR(data);
         int r;
 
         assert(key);
@@ -72,28 +63,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = log_level_from_string(value);
                 if (r >= 0)
-                        manager->log_level = r;
+                        config->log_level = r;
 
         } else if (proc_cmdline_key_streq(key, "udev.event_timeout")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &manager->timeout_usec);
+                r = parse_sec(value, &config->timeout_usec);
 
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atou(value, &manager->children_max);
+                r = safe_atou(value, &config->children_max);
 
         } else if (proc_cmdline_key_streq(key, "udev.exec_delay")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &manager->exec_delay_usec);
+                r = parse_sec(value, &config->exec_delay_usec);
 
         } else if (proc_cmdline_key_streq(key, "udev.timeout_signal")) {
 
@@ -102,21 +93,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = signal_from_string(value);
                 if (r > 0)
-                        manager->timeout_signal = r;
+                        config->timeout_signal = r;
 
         } else if (proc_cmdline_key_streq(key, "udev.blockdev_read_only")) {
 
                 if (!value)
-                        manager->blockdev_read_only = true;
+                        config->blockdev_read_only = true;
                 else {
                         r = parse_boolean(value);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse udev.blockdev-read-only argument, ignoring: %s", value);
                         else
-                                manager->blockdev_read_only = r;
+                                config->blockdev_read_only = r;
                 }
 
-                if (manager->blockdev_read_only)
+                if (config->blockdev_read_only)
                         log_notice("All physical block devices will be marked read-only.");
 
                 return 0;
@@ -160,7 +151,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], Manager *manager) {
+static int parse_argv(int argc, char *argv[], UdevConfig *config) {
         enum {
                 ARG_TIMEOUT_SIGNAL,
         };
@@ -182,7 +173,7 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
 
         assert(argc >= 0);
         assert(argv);
-        assert(manager);
+        assert(config);
 
         while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
                 switch (c) {
@@ -191,12 +182,12 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
                         arg_daemonize = true;
                         break;
                 case 'c':
-                        r = safe_atou(optarg, &manager->children_max);
+                        r = safe_atou(optarg, &config->children_max);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", optarg);
                         break;
                 case 'e':
-                        r = parse_sec(optarg, &manager->exec_delay_usec);
+                        r = parse_sec(optarg, &config->exec_delay_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
                         break;
@@ -205,16 +196,17 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
                         if (r <= 0)
                                 log_warning_errno(r, "Failed to parse --timeout-signal= value '%s', ignoring: %m", optarg);
                         else
-                                manager->timeout_signal = r;
+                                config->timeout_signal = r;
 
                         break;
                 case 't':
-                        r = parse_sec(optarg, &manager->timeout_usec);
+                        r = parse_sec(optarg, &config->timeout_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
                         break;
                 case 'D':
                         arg_debug = true;
+                        config->log_level = LOG_DEBUG;
                         break;
                 case 'N': {
                         ResolveNameTiming t;
@@ -223,7 +215,7 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
                         if (t < 0)
                                 log_warning("Invalid --resolve-names= value '%s', ignoring.", optarg);
                         else
-                                manager->resolve_name_timing = t;
+                                config->resolve_name_timing = t;
                         break;
                 }
                 case 'h':
@@ -242,13 +234,50 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
         return 1;
 }
 
-void manager_set_default_children_max(Manager *manager) {
+#define MERGE_NON_NEGATIVE(name, default_value)                                              \
+        manager->config.name =                                                               \
+                manager->config_by_control.name >= 0 ? manager->config_by_control.name :     \
+                manager->config_by_kernel.name >= 0 ? manager->config_by_kernel.name :       \
+                manager->config_by_command.name >= 0 ? manager->config_by_command.name :     \
+                manager->config_by_udev_conf.name >= 0 ? manager->config_by_udev_conf.name : \
+                default_value;
+
+#define MERGE_NON_ZERO(name, default_value)                             \
+        manager->config.name =                                          \
+                manager->config_by_control.name ?:                      \
+                manager->config_by_kernel.name ?:                       \
+                manager->config_by_command.name ?:                      \
+                manager->config_by_udev_conf.name ?:                    \
+                default_value;
+
+#define MERGE_BOOL(name) \
+        manager->config.name =                                          \
+                manager->config_by_control.name ||                      \
+                manager->config_by_kernel.name ||                       \
+                manager->config_by_command.name ||                      \
+                manager->config_by_udev_conf.name;
+
+static void manager_merge_config(Manager *manager) {
+        assert(manager);
+
+        /* udev.conf has the lowest priority, then followed by command line arguments, kernel command line
+           options, and values set by udev control. */
+
+        MERGE_NON_NEGATIVE(log_level, log_get_max_level());
+        MERGE_NON_NEGATIVE(resolve_name_timing, RESOLVE_NAME_EARLY);
+        MERGE_NON_ZERO(exec_delay_usec, 0);
+        MERGE_NON_ZERO(timeout_usec, DEFAULT_WORKER_TIMEOUT_USEC);
+        MERGE_NON_ZERO(timeout_signal, SIGKILL);
+        MERGE_BOOL(blockdev_read_only);
+}
+
+void udev_config_set_default_children_max(UdevConfig *config) {
         uint64_t cpu_limit, mem_limit, cpu_count = 1;
         int r;
 
-        assert(manager);
+        assert(config);
 
-        if (manager->children_max != 0)
+        if (config->children_max != 0)
                 return;
 
         r = cpus_in_affinity_mask();
@@ -260,30 +289,30 @@ void manager_set_default_children_max(Manager *manager) {
         cpu_limit = cpu_count * 2 + 16;
         mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
 
-        manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
-        log_debug("Set children_max to %u", manager->children_max);
+        config->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
+        log_debug("Set children_max to %u", config->children_max);
 }
 
-static void manager_adjust_config(Manager *manager) {
-        assert(manager);
+static void manager_adjust_config(UdevConfig *config) {
+        assert(config);
 
-        if (manager->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
+        if (config->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
                 log_debug("Timeout (%s) for processing event is too small, using the default: %s",
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1),
+                          FORMAT_TIMESPAN(config->timeout_usec, 1),
                           FORMAT_TIMESPAN(DEFAULT_WORKER_TIMEOUT_USEC, 1));
 
-                manager->timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC;
+                config->timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC;
         }
 
-        if (manager->exec_delay_usec >= manager->timeout_usec) {
+        if (config->exec_delay_usec >= config->timeout_usec) {
                 log_debug("Delay (%s) for executing RUN= commands is too large compared with the timeout (%s) for event execution, ignoring the delay.",
-                          FORMAT_TIMESPAN(manager->exec_delay_usec, 1),
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1));
+                          FORMAT_TIMESPAN(config->exec_delay_usec, 1),
+                          FORMAT_TIMESPAN(config->timeout_usec, 1));
 
-                manager->exec_delay_usec = 0;
+                config->exec_delay_usec = 0;
         }
 
-        manager_set_default_children_max(manager);
+        udev_config_set_default_children_max(config);
 }
 
 int manager_load(Manager *manager, int argc, char *argv[]) {
@@ -291,21 +320,22 @@ int manager_load(Manager *manager, int argc, char *argv[]) {
 
         assert(manager);
 
-        manager_parse_udev_config(manager);
+        manager_parse_udev_config(&manager->config_by_udev_conf);
 
-        r = parse_argv(argc, argv, manager);
+        r = parse_argv(argc, argv, &manager->config_by_command);
         if (r <= 0)
                 return r;
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, manager, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, &manager->config_by_kernel, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        if (arg_debug) {
-                log_set_target(LOG_TARGET_CONSOLE);
-                log_set_max_level(LOG_DEBUG);
-        }
+        manager_merge_config(manager);
 
-        manager_adjust_config(manager);
+        if (arg_debug)
+                log_set_target(LOG_TARGET_CONSOLE);
+
+        log_set_max_level(manager->config.log_level);
+        manager_adjust_config(&manager->config);
         return 1;
 }
