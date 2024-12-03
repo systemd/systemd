@@ -18,6 +18,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "udev-event.h"
+#include "udev-rules.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"

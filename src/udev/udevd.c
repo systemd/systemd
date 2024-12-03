@@ -22,6 +22,7 @@
 #include "signal-util.h"
 #include "syslog-util.h"
 #include "udev-manager.h"
+#include "udev-rules.h"
 #include "udev-util.h"
 #include "udevd.h"
 #include "version.h"
