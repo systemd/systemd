@@ -9,8 +9,6 @@
 #include "strv.h"
 #include "udev-builtin.h"
 
-static bool initialized;
-
 static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_BLKID
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
@@ -33,25 +31,15 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 };
 
 void udev_builtin_init(void) {
-        if (initialized)
-                return;
-
         FOREACH_ELEMENT(b, builtins)
                 if (*b && (*b)->init)
                         (*b)->init();
-
-        initialized = true;
 }
 
 void udev_builtin_exit(void) {
-        if (!initialized)
-                return;
-
         FOREACH_ELEMENT(b, builtins)
                 if (*b && (*b)->exit)
                         (*b)->exit();
-
-        initialized = false;
 }
 
 bool udev_builtin_should_reload(void) {
