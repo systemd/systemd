@@ -3542,14 +3542,16 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-                        r = sd_bus_error_get_errno(e);
+                r = sd_bus_error_get_errno(e);
+                if (sd_bus_error_has_names(e, SD_BUS_ERROR_NO_REPLY, SD_BUS_ERROR_DISCONNECTED))
+                        log_unit_warning_errno(u, r, "GetNameOwner() failed, ignoring: %s",
+                                        bus_error_message(e, r));
+                else if (sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                        new_owner = NULL;
+                else
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
                                              bus_error_message(e, r));
-                }
-
-                new_owner = NULL;
         } else {
                 r = sd_bus_message_read(message, "s", &new_owner);
                 if (r < 0)
