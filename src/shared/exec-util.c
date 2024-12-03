@@ -543,6 +543,23 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
         return -errno;
 }
 
+int can_fork_agent(void) {
+        int r;
+
+        /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
+         * interactively on a terminal, hence fail. */
+        r = get_ctty_devnr(0, NULL);
+        if (r == -ENXIO)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (!is_main_thread())
+                return -EPERM;
+
+        return true;
+}
+
 int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
         size_t n, i;
         va_list ap;
