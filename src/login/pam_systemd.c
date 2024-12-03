@@ -390,116 +390,108 @@ static int export_legacy_dbus_address(
 }
 
 static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
+        assert(handle);
+        assert(m);
+
         if (isempty(limit))
-                return PAM_SUCCESS;
+                return 0;
 
-        if (streq(limit, "infinity")) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", UINT64_MAX);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-
-                return PAM_SUCCESS;
-        }
+        if (streq(limit, "infinity"))
+                return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", UINT64_MAX);
 
         r = parse_permyriad(limit);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", UINT32_SCALE_FROM_PERMYRIAD(r));
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+        if (r < 0) {
+                uint64_t val;
+                r = parse_size(limit, 1024, &val);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
+                        return PAM_SUCCESS;
+                }
 
-                return PAM_SUCCESS;
+                return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
         }
 
-        r = parse_size(limit, 1024, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-
-                return PAM_SUCCESS;
-        }
-
-        pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", UINT32_SCALE_FROM_PERMYRIAD(r));
 }
 
 static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        usec_t val;
         int r;
+
+        assert(handle);
+        assert(m);
 
         /* No need to parse "infinity" here, it will be set by default later in scope_init() */
         if (isempty(limit) || streq(limit, "infinity"))
-                return PAM_SUCCESS;
+                return 0;
 
+        usec_t val;
         r = parse_sec(limit, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-        } else
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
+                return 0;
+        }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
 }
 
 static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
+
+        assert(handle);
+        assert(m);
 
         /* No need to parse "infinity" here, it will be set unconditionally later in manager_start_scope() */
         if (isempty(limit) || streq(limit, "infinity"))
-                return PAM_SUCCESS;
+                return 0;
 
+        uint64_t val;
         r = safe_atou64(limit, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
-        } else
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max, ignoring: %s", limit);
+                return 0;
+        }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
 }
 
 static int append_session_cpu_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
-        if (isempty(limit))
-                return PAM_SUCCESS;
+        assert(handle);
+        assert(m);
 
+        if (isempty(limit))
+                return 0;
+
+        uint64_t val;
         r = cg_cpu_weight_parse(limit, &val);
-        if (r < 0)
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
-        else {
-                r = sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+                return 0;
         }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
 }
 
 static int append_session_io_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
-        uint64_t val;
         int r;
 
-        if (isempty(limit))
-                return PAM_SUCCESS;
+        assert(handle);
+        assert(m);
 
+        if (isempty(limit))
+                return 0;
+
+        uint64_t val;
         r = cg_weight_parse(limit, &val);
-        if (r < 0)
+        if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
-        else {
-                r = sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
-                if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+                return 0;
         }
 
-        return PAM_SUCCESS;
+        return sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
 }
 
 static const char* getenv_harder(pam_handle_t *handle, const char *key, const char *fallback) {
@@ -547,6 +539,26 @@ static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallb
         }
 
         return r;
+}
+
+static uint32_t getenv_harder_uint32(pam_handle_t *handle, const char *key, uint32_t fallback) {
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        const char *v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        uint32_t u;
+        r = safe_atou32(v, &u);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Unsigned integer environment variable value of '%s' is not valid: %s", key, v);
+                return fallback;
+        }
+
+        return u;
 }
 
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
@@ -826,17 +838,15 @@ static uint64_t pick_default_capability_ambient_set(
 }
 
 typedef struct SessionContext {
-        const uid_t uid;
-        const pid_t pid;
         const char *service;
         const char *type;
         const char *class;
         const char *desktop;
         const char *seat;
-        const uint32_t vtnr;
+        uint32_t vtnr;
         const char *tty;
         const char *display;
-        const bool remote;
+        bool remote;
         const char *remote_user;
         const char *remote_host;
         const char *memory_max;
@@ -844,11 +854,13 @@ typedef struct SessionContext {
         const char *cpu_weight;
         const char *io_weight;
         const char *runtime_max_sec;
+        bool incomplete;
 } SessionContext;
 
 static int create_session_message(
                 sd_bus *bus,
                 pam_handle_t *handle,
+                UserRecord *ur,
                 const SessionContext *context,
                 bool avoid_pidfd,
                 sd_bus_message **ret) {
@@ -859,6 +871,7 @@ static int create_session_message(
 
         assert(bus);
         assert(handle);
+        assert(ur);
         assert(context);
         assert(ret);
 
@@ -872,21 +885,22 @@ static int create_session_message(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m,
-                                  pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
-                                  (uint32_t) context->uid,
-                                  pidfd >= 0 ? pidfd : context->pid,
-                                  context->service,
-                                  context->type,
-                                  context->class,
-                                  context->desktop,
-                                  context->seat,
-                                  context->vtnr,
-                                  context->tty,
-                                  context->display,
-                                  context->remote,
-                                  context->remote_user,
-                                  context->remote_host);
+        r = sd_bus_message_append(
+                        m,
+                        pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
+                        (uint32_t) ur->uid,
+                        pidfd >= 0 ? pidfd : 0,
+                        context->service,
+                        context->type,
+                        context->class,
+                        context->desktop,
+                        context->seat,
+                        context->vtnr,
+                        context->tty,
+                        context->display,
+                        context->remote,
+                        context->remote_user,
+                        context->remote_host);
         if (r < 0)
                 return r;
 
@@ -901,23 +915,23 @@ static int create_session_message(
                 return r;
 
         r = append_session_memory_max(handle, m, context->memory_max);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_runtime_max_sec(handle, m, context->runtime_max_sec);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_tasks_max(handle, m, context->tasks_max);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_cpu_weight(handle, m, context->cpu_weight);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = append_session_io_weight(handle, m, context->io_weight);
-        if (r != PAM_SUCCESS)
+        if (r < 0)
                 return r;
 
         r = sd_bus_message_close_container(m);
@@ -928,10 +942,93 @@ static int create_session_message(
         return 0;
 }
 
-_public_ PAM_EXTERN int pam_sm_open_session(
+static void session_context_mangle(
                 pam_handle_t *handle,
-                int flags,
-                int argc, const char **argv) {
+                SessionContext *c,
+                UserRecord *ur,
+                bool debug) {
+
+        assert(handle);
+        assert(c);
+        assert(ur);
+
+        if (streq_ptr(c->service, "systemd-user")) {
+                /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
+                 * 'manager' if not set, simply for robustness reasons. */
+                c->type = "unspecified";
+                c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                        "manager-early" : "manager";
+                c->tty = NULL;
+
+        } else if (c->tty && strchr(c->tty, ':')) {
+                /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
+                 * and don't pretend that an X display was a tty. */
+                if (isempty(c->display))
+                        c->display = c->tty;
+                c->tty = NULL;
+
+        } else if (streq_ptr(c->tty, "cron")) {
+                /* cron is setting PAM_TTY to "cron" for some reason (the commit carries no information why, but
+                 * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
+                 * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
+                 * off processes.) */
+                c->type = "unspecified";
+                c->class = "background";
+                c->tty = NULL;
+
+        } else if (streq_ptr(c->tty, "ssh")) {
+                /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
+                 * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
+                c->type = "tty";
+                c->class = "user";
+                c->tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though
+                               * usually associated with a pty — won't be tracked by their tty in
+                               * logind. This is because ssh does the PAM session registration early for new
+                               * connections, and registers a pty only much later (this is because it doesn't
+                               * know yet if it needs one at all, as whether to register a pty or not is
+                               * negotiated much later in the protocol). */
+
+        } else if (c->tty)
+                /* Chop off leading /dev prefix that some clients specify, but others do not. */
+                c->tty = skip_dev_prefix(c->tty);
+
+        if (!isempty(c->display) && !c->vtnr) {
+                if (isempty(c->seat))
+                        (void) get_seat_from_display(c->display, &c->seat, &c->vtnr);
+                else if (streq(c->seat, "seat0"))
+                        (void) get_seat_from_display(c->display, /* seat= */ NULL, &c->vtnr);
+        }
+
+        if (c->seat && !streq(c->seat, "seat0") && c->vtnr != 0) {
+                pam_debug_syslog(handle, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0", c->vtnr, c->seat);
+                c->vtnr = 0;
+        }
+
+        if (isempty(c->type))
+                c->type = !isempty(c->display) ? "x11" :
+                              !isempty(c->tty) ? "tty" : "unspecified";
+
+        if (isempty(c->class))
+                c->class = streq(c->type, "unspecified") ? "background" :
+                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
+                         streq(c->type, "tty")) ? "user-early" : "user");
+
+        if (c->incomplete) {
+                if (streq(c->class, "user"))
+                        c->class = "user-incomplete";
+                else
+                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", c->class);
+        }
+
+        c->remote = !isempty(c->remote_host) && !is_localhost(c->remote_host);
+}
+
+static int register_session(
+                pam_handle_t *handle,
+                SessionContext *c,
+                UserRecord *ur,
+                bool debug,
+                char **ret_seat) {
 
         /* Let's release the D-Bus connection once this function exits, after all the session might live
          * quite a long time, and we are not going to process the bus connection in that time, so let's
@@ -939,152 +1036,21 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        const char
-                *id, *object_path, *runtime_path,
-                *service = NULL,
-                *tty = NULL, *display = NULL,
-                *remote_user = NULL, *remote_host = NULL,
-                *seat = NULL,
-                *type = NULL, *class = NULL,
-                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
-                *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
-        uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        int session_fd = -EBADF, existing, r;
-        bool debug = false, remote, incomplete;
-        uint32_t vtnr = 0;
-        uid_t original_uid;
+        int r;
 
         assert(handle);
-
-        pam_log_setup();
-
-        if (parse_argv(handle,
-                       argc, argv,
-                       &class_pam,
-                       &type_pam,
-                       &desktop_pam,
-                       &debug,
-                       &default_capability_bounding_set,
-                       &default_capability_ambient_set) < 0)
-                return PAM_SESSION_ERR;
-
-        pam_debug_syslog(handle, debug, "pam-systemd initializing");
-
-        r = acquire_user_record(handle, &ur);
-        if (r != PAM_SUCCESS)
-                return r;
+        assert(c);
+        assert(ur);
+        assert(ret_seat);
 
         /* Make most of this a NOP on non-logind systems */
         if (!logind_running())
-                goto success;
+                goto skip;
 
-        r = pam_get_item_many(
-                        handle,
-                        PAM_SERVICE, &service,
-                        PAM_XDISPLAY, &display,
-                        PAM_TTY, &tty,
-                        PAM_RUSER, &remote_user,
-                        PAM_RHOST, &remote_host);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
-
-        seat = getenv_harder(handle, "XDG_SEAT", NULL);
-        cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
-        type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
-        class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
-        desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
-        incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
-
-        if (streq_ptr(service, "systemd-user")) {
-                /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
-                 * 'manager' if not set, simply for robustness reasons. */
-                type = "unspecified";
-                class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
-                        "manager-early" : "manager";
-                tty = NULL;
-
-        } else if (tty && strchr(tty, ':')) {
-                /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
-                 * and don't pretend that an X display was a tty. */
-                if (isempty(display))
-                        display = tty;
-                tty = NULL;
-
-        } else if (streq_ptr(tty, "cron")) {
-                /* cron is setting PAM_TTY to "cron" for some reason (the commit carries no information why, but
-                 * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
-                 * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
-                 * off processes.) */
-                type = "unspecified";
-                class = "background";
-                tty = NULL;
-
-        } else if (streq_ptr(tty, "ssh")) {
-                /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
-                 * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
-                type = "tty";
-                class = "user";
-                tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though usually
-                             * associated with a pty — won't be tracked by their tty in logind. This is because ssh
-                             * does the PAM session registration early for new connections, and registers a pty only
-                             * much later (this is because it doesn't know yet if it needs one at all, as whether to
-                             * register a pty or not is negotiated much later in the protocol). */
-
-        } else if (tty)
-                /* Chop off leading /dev prefix that some clients specify, but others do not. */
-                tty = skip_dev_prefix(tty);
-
-        /* If this fails vtnr will be 0, that's intended */
-        if (!isempty(cvtnr))
-                (void) safe_atou32(cvtnr, &vtnr);
-
-        if (!isempty(display) && !vtnr) {
-                if (isempty(seat))
-                        (void) get_seat_from_display(display, &seat, &vtnr);
-                else if (streq(seat, "seat0"))
-                        (void) get_seat_from_display(display, NULL, &vtnr);
-        }
-
-        if (seat && !streq(seat, "seat0") && vtnr != 0) {
-                pam_debug_syslog(handle, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0", vtnr, seat);
-                vtnr = 0;
-        }
-
-        if (isempty(type))
-                type = !isempty(display) ? "x11" :
-                           !isempty(tty) ? "tty" : "unspecified";
-
-        if (isempty(class))
-                class = streq(type, "unspecified") ? "background" :
-                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
-                         streq(type, "tty")) ? "user-early" : "user");
-
-        if (incomplete) {
-                if (streq(class, "user"))
-                        class = "user-incomplete";
-                else
-                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", class);
-        }
-
-        remote = !isempty(remote_host) && !is_localhost(remote_host);
-
-        r = pam_get_data(handle, "systemd.memory_max", (const void **)&memory_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.memory_max data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.tasks_max data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.cpu_weight data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.io_weight data: @PAMERR@");
-        r = pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
+        /* We don't register session class none with logind */
+        if (streq(c->class, "none"))
+                goto skip;
 
         /* Talk to logind over the message bus */
         r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
@@ -1095,41 +1061,22 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "Asking logind to create session: "
                          "uid="UID_FMT" pid="PID_FMT" service=%s type=%s class=%s desktop=%s seat=%s vtnr=%"PRIu32" tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                          ur->uid, getpid_cached(),
-                         strempty(service),
-                         type, class, strempty(desktop),
-                         strempty(seat), vtnr, strempty(tty), strempty(display),
-                         yes_no(remote), strempty(remote_user), strempty(remote_host));
+                         strempty(c->service),
+                         c->type, c->class, strempty(c->desktop),
+                         strempty(c->seat), c->vtnr, strempty(c->tty), strempty(c->display),
+                         yes_no(c->remote), strempty(c->remote_user), strempty(c->remote_host));
         pam_debug_syslog(handle, debug,
                          "Session limits: "
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
-                         strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
+                         strna(c->memory_max), strna(c->tasks_max), strna(c->cpu_weight), strna(c->io_weight), strna(c->runtime_max_sec));
 
-        const SessionContext context = {
-                .uid = ur->uid,
-                .pid = 0,
-                .service = service,
-                .type = type,
-                .class = class,
-                .desktop = desktop,
-                .seat = seat,
-                .vtnr = vtnr,
-                .tty = tty,
-                .display = display,
-                .remote = remote,
-                .remote_user = remote_user,
-                .remote_host = remote_host,
-                .memory_max = memory_max,
-                .tasks_max = tasks_max,
-                .cpu_weight = cpu_weight,
-                .io_weight = io_weight,
-                .runtime_max_sec = runtime_max_sec,
-        };
-
-        r = create_session_message(bus,
-                                   handle,
-                                   &context,
-                                   /* avoid_pidfd = */ false,
-                                   &m);
+        r = create_session_message(
+                        bus,
+                        handle,
+                        ur,
+                        c,
+                        /* avoid_pidfd = */ false,
+                        &m);
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
@@ -1142,7 +1089,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 m = sd_bus_message_unref(m);
                 r = create_session_message(bus,
                                            handle,
-                                           &context,
+                                           ur,
+                                           c,
                                            /* avoid_pidfd = */ true,
                                            &m);
                 if (r < 0)
@@ -1155,7 +1103,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         /* We are already in a session, don't do anything */
                         pam_debug_syslog(handle, debug,
                                          "Not creating session: %s", bus_error_message(&error, r));
-                        goto success;
+                        goto skip;
                 }
 
                 pam_syslog(handle, LOG_ERR,
@@ -1163,23 +1111,27 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return PAM_SESSION_ERR;
         }
 
-        r = sd_bus_message_read(reply,
-                                "soshusub",
-                                &id,
-                                &object_path,
-                                &runtime_path,
-                                &session_fd,
-                                &original_uid,
-                                &seat,
-                                &vtnr,
-                                &existing);
+        const char *id, *object_path, *runtime_path, *real_seat;
+        int session_fd = -EBADF, existing;
+        uint32_t original_uid, real_vtnr;
+        r = sd_bus_message_read(
+                        reply,
+                        "soshusub",
+                        &id,
+                        &object_path,
+                        &runtime_path,
+                        &session_fd,
+                        &original_uid,
+                        &real_seat,
+                        &real_vtnr,
+                        &existing);
         if (r < 0)
                 return pam_bus_log_parse_error(handle, r);
 
         pam_debug_syslog(handle, debug,
                          "Reply from logind: "
                          "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
-                         id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
+                         id, object_path, runtime_path, session_fd, real_seat, real_vtnr, original_uid);
 
         /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
          * shall be added. */
@@ -1202,38 +1154,25 @@ _public_ PAM_EXTERN int pam_sm_open_session(
          * somewhere else (for example PAM module parameters). Let's now update the environment variables, so that this
          * data is inherited into the session processes, and programs can rely on them to be initialized. */
 
-        r = update_environment(handle, "XDG_SESSION_TYPE", type);
+        r = update_environment(handle, "XDG_SESSION_TYPE", c->type);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SESSION_CLASS", class);
+        r = update_environment(handle, "XDG_SESSION_CLASS", c->class);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SESSION_DESKTOP", desktop);
+        r = update_environment(handle, "XDG_SESSION_DESKTOP", c->desktop);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SEAT", seat);
+        r = update_environment(handle, "XDG_SEAT", real_seat);
         if (r != PAM_SUCCESS)
                 return r;
 
-        static const char *const propagate[] = {
-                "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
-                "shell.prompt.suffix", "SHELL_PROMPT_SUFFIX",
-                "shell.welcome",       "SHELL_WELCOME",
-                NULL
-        };
-
-        STRV_FOREACH_PAIR(k, v, propagate) {
-                r = propagate_credential_to_environment(handle, *k, *v);
-                if (r != PAM_SUCCESS)
-                        return r;
-        }
-
-        if (vtnr > 0) {
-                char buf[DECIMAL_STR_MAX(vtnr)];
-                sprintf(buf, "%u", vtnr);
+        if (real_vtnr > 0) {
+                char buf[DECIMAL_STR_MAX(real_vtnr)];
+                sprintf(buf, "%u", real_vtnr);
 
                 r = update_environment(handle, "XDG_VTNR", buf);
                 if (r != PAM_SUCCESS)
@@ -1255,9 +1194,115 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 TAKE_FD(fd);
         }
 
-success:
+        /* Everything worked, hence let's patch in the data we learned. Since 'real_set' points into the
+         * D-Bus message, let's copy it and return it as a buffer */
+        char *rs = strdup(real_seat);
+        if (!rs)
+                return pam_log_oom(handle);
+
+        c->seat = *ret_seat = rs;
+        c->vtnr = real_vtnr;
+
+        return PAM_SUCCESS;
+
+skip:
+        *ret_seat = NULL;
+        return PAM_SUCCESS;
+}
+
+static int import_shell_credentials(pam_handle_t *handle) {
+
+        static const char *const propagate[] = {
+                "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
+                "shell.prompt.suffix", "SHELL_PROMPT_SUFFIX",
+                "shell.welcome",       "SHELL_WELCOME",
+                NULL
+        };
+        int r;
+
+        assert(handle);
+
+        STRV_FOREACH_PAIR(k, v, propagate) {
+                r = propagate_credential_to_environment(handle, *k, *v);
+                if (r != PAM_SUCCESS)
+                        return r;
+        }
+
+        return PAM_SUCCESS;
+}
+
+_public_ PAM_EXTERN int pam_sm_open_session(
+                pam_handle_t *handle,
+                int flags,
+                int argc, const char **argv) {
+
+        int r;
+
+        assert(handle);
+
+        pam_log_setup();
+
+        uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
+        const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL;
+        bool debug = false;
+        if (parse_argv(handle,
+                       argc, argv,
+                       &class_pam,
+                       &type_pam,
+                       &desktop_pam,
+                       &debug,
+                       &default_capability_bounding_set,
+                       &default_capability_ambient_set) < 0)
+                return PAM_SESSION_ERR;
+
+        pam_debug_syslog(handle, debug, "pam-systemd initializing");
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        r = acquire_user_record(handle, &ur);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        SessionContext c = {};
+        r = pam_get_item_many(
+                        handle,
+                        PAM_SERVICE,  &c.service,
+                        PAM_XDISPLAY, &c.display,
+                        PAM_TTY,      &c.tty,
+                        PAM_RUSER,    &c.remote_user,
+                        PAM_RHOST,    &c.remote_host);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
+
+        c.seat = getenv_harder(handle, "XDG_SEAT", NULL);
+        c.vtnr = getenv_harder_uint32(handle, "XDG_VTNR", 0);
+        c.type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
+        c.class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
+        c.desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        c.incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
+
+        r = pam_get_data_many(
+                        handle,
+                        "systemd.memory_max",      &c.memory_max,
+                        "systemd.tasks_max",       &c.tasks_max,
+                        "systemd.cpu_weight",      &c.cpu_weight,
+                        "systemd.io_weight",       &c.io_weight,
+                        "systemd.runtime_max_sec", &c.runtime_max_sec);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM data: @PAMERR@");
+
+        session_context_mangle(handle, &c, ur, debug);
+
+        _cleanup_free_ char *seat_buffer = NULL;
+        r = register_session(handle, &c, ur, debug, &seat_buffer);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = import_shell_credentials(handle);
+        if (r != PAM_SUCCESS)
+                return r;
+
         if (default_capability_ambient_set == UINT64_MAX)
-                default_capability_ambient_set = pick_default_capability_ambient_set(ur, service, seat);
+                default_capability_ambient_set = pick_default_capability_ambient_set(ur, c.service, c.seat);
 
         return apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
 }
