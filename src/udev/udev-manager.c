@@ -3,7 +3,6 @@
 #include "blockdev-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
-#include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
@@ -15,7 +14,6 @@
 #include "hashmap.h"
 #include "inotify-util.h"
 #include "iovec-util.h"
-#include "limits-util.h"
 #include "list.h"
 #include "mkdir.h"
 #include "process-util.h"
@@ -25,6 +23,7 @@
 #include "string-util.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
+#include "udev-config.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
 #include "udev-manager.h"
@@ -35,8 +34,6 @@
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "udev-worker.h"
-
-#define WORKER_NUM_MAX UINT64_C(2048)
 
 #define EVENT_RETRY_INTERVAL_USEC (200 * USEC_PER_MSEC)
 #define EVENT_RETRY_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
@@ -845,28 +842,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static void manager_set_default_children_max(Manager *manager) {
-        uint64_t cpu_limit, mem_limit, cpu_count = 1;
-        int r;
-
-        assert(manager);
-
-        if (manager->children_max != 0)
-                return;
-
-        r = cpus_in_affinity_mask();
-        if (r < 0)
-                log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
-        else
-                cpu_count = r;
-
-        cpu_limit = cpu_count * 2 + 16;
-        mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
-
-        manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
-        log_debug("Set children_max to %u", manager->children_max);
-}
-
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -1208,26 +1183,6 @@ Manager* manager_new(void) {
         return manager;
 }
 
-void manager_adjust_arguments(Manager *manager) {
-        assert(manager);
-
-        if (manager->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
-                log_debug("Timeout (%s) for processing event is too small, using the default: %s",
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1),
-                          FORMAT_TIMESPAN(DEFAULT_WORKER_TIMEOUT_USEC, 1));
-
-                manager->timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC;
-        }
-
-        if (manager->exec_delay_usec >= manager->timeout_usec) {
-                log_debug("Delay (%s) for executing RUN= commands is too large compared with the timeout (%s) for event execution, ignoring the delay.",
-                          FORMAT_TIMESPAN(manager->exec_delay_usec, 1),
-                          FORMAT_TIMESPAN(manager->timeout_usec, 1));
-
-                manager->exec_delay_usec = 0;
-        }
-}
-
 static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         int ctrl_fd = -EBADF, netlink_fd = -EBADF;
 
@@ -1302,8 +1257,6 @@ int manager_init(Manager *manager) {
 
 int manager_main(Manager *manager) {
         int fd_worker, r;
-
-        manager_set_default_children_max(manager);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
