@@ -112,6 +112,7 @@ static inline int make_null_stdio(void) {
         })
 
 int fd_reopen(int fd, int flags);
+int fd_reopen_replace(int *fd, int flags);
 int fd_reopen_propagate_append_and_position(int fd, int flags);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
 
