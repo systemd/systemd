@@ -138,7 +138,7 @@
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is responsible for processing the GPT partition table and making use of the included discoverable
     partitions. It accepts an image policy via the kernel command line option
-    <option>systemd.image-policy=</option>.</para>
+    <option>systemd.image_policy=</option>.</para>
 
     <para>Note that image policies do not dictate how the components will mount and use disk images — they
     only dictate which parts to avoid and which protection level and arrangement to require while
