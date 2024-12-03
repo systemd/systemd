@@ -39,6 +39,7 @@
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-worker.h"
 #include "user-util.h"
 #include "virt.h"
 
