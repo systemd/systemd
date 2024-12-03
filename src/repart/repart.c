@@ -6098,9 +6098,10 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
+                bool mkfs_quiet = streq(p->format, "erofs") && !DEBUG_LOGGING;
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    p->fs_uuid,
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
                                     context->fs_sector_size, p->compression, p->compression_level,
                                     extra_mkfs_options);
                 if (r < 0)
@@ -7654,13 +7655,13 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return r;
 
+                bool mkfs_quiet = streq(p->format, "erofs") && !DEBUG_LOGGING;
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
                                     strempty(p->new_label),
                                     root,
                                     fs_uuid,
-                                    arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
@@ -7751,8 +7752,7 @@ static int context_minimize(Context *context) {
                                     strempty(p->new_label),
                                     root,
                                     p->fs_uuid,
-                                    arg_discard,
-                                    /* quiet = */ streq(p->format, "erofs") && !DEBUG_LOGGING,
+                                    (arg_discard ? MKFS_DISCARD : 0) | (mkfs_quiet ? MKFS_QUIET : 0),
                                     context->fs_sector_size,
                                     p->compression,
                                     p->compression_level,
