@@ -36,9 +36,9 @@ void udev_builtin_init(void) {
         if (initialized)
                 return;
 
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && builtins[i]->init)
-                        builtins[i]->init();
+        FOREACH_ELEMENT(b, builtins)
+                if (*b && (*b)->init)
+                        (*b)->init();
 
         initialized = true;
 }
@@ -47,9 +47,9 @@ void udev_builtin_exit(void) {
         if (!initialized)
                 return;
 
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && builtins[i]->exit)
-                        builtins[i]->exit();
+        FOREACH_ELEMENT(b, builtins)
+                if (*b && (*b)->exit)
+                        (*b)->exit();
 
         initialized = false;
 }
@@ -62,9 +62,9 @@ bool udev_builtin_should_reload(void) {
 }
 
 void udev_builtin_list(void) {
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i])
-                        fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
+        FOREACH_ELEMENT(b, builtins)
+                if (*b)
+                        fprintf(stderr, "  %-14s  %s\n", (*b)->name, (*b)->help);
 }
 
 const char* udev_builtin_name(UdevBuiltinCommand cmd) {
