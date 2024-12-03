@@ -12,8 +12,10 @@
 #include "strv.h"
 #include "udev-event.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-worker.h"
 #include "user-util.h"
 
 UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {

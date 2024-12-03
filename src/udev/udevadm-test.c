@@ -26,6 +26,7 @@
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-format.h"
+#include "udev-rules.h"
 #include "udevadm-util.h"
 #include "udevadm.h"
 #include "user-util.h"

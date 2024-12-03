@@ -7,30 +7,8 @@
 #include "sd-netlink.h"
 
 #include "macro.h"
+#include "udev-def.h"
 #include "udev-event.h"
-
-typedef enum UdevBuiltinCommand {
-#if HAVE_BLKID
-        UDEV_BUILTIN_BLKID,
-#endif
-        UDEV_BUILTIN_BTRFS,
-        UDEV_BUILTIN_HWDB,
-        UDEV_BUILTIN_INPUT_ID,
-        UDEV_BUILTIN_KEYBOARD,
-#if HAVE_KMOD
-        UDEV_BUILTIN_KMOD,
-#endif
-        UDEV_BUILTIN_NET_DRIVER,
-        UDEV_BUILTIN_NET_ID,
-        UDEV_BUILTIN_NET_LINK,
-        UDEV_BUILTIN_PATH_ID,
-        UDEV_BUILTIN_USB_ID,
-#if HAVE_ACL
-        UDEV_BUILTIN_UACCESS,
-#endif
-        _UDEV_BUILTIN_MAX,
-        _UDEV_BUILTIN_INVALID = -EINVAL,
-} UdevBuiltinCommand;
 
 typedef struct UdevBuiltin {
         const char *name;
