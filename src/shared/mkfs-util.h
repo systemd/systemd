@@ -5,7 +5,10 @@
 
 #include "sd-id128.h"
 
-#include "strv.h"
+typedef enum MakeFilesystemFlags {
+        MKFS_QUIET   = 1 << 0,  /* Suppress mkfs command output */
+        MKFS_DISCARD = 1 << 1,  /* Enable 'discard' mode on the filesystem */
+} MakeFileSystemFlags;
 
 int mkfs_exists(const char *fstype);
 
@@ -17,8 +20,7 @@ int make_filesystem(
                 const char *label,
                 const char *root,
                 sd_id128_t uuid,
-                bool discard,
-                bool quiet,
+                MakeFileSystemFlags flags,
                 uint64_t sector_size,
                 char *compression,
                 char *compression_level,

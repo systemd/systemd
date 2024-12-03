@@ -320,8 +320,7 @@ int make_filesystem(
                 const char *label,
                 const char *root,
                 sd_id128_t uuid,
-                bool discard,
-                bool quiet,
+                MakeFileSystemFlags flags,
                 uint64_t sector_size,
                 char *compression,
                 char *compression_level,
@@ -422,7 +421,7 @@ int make_filesystem(
                                 "-U", vol_id,
                                 "-I", "256",
                                 "-m", "0",
-                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                "-E", FLAGS_SET(flags, MKFS_DISCARD) ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 "-b", "4096",
                                 "-T", "default");
                 if (!argv)
@@ -431,7 +430,7 @@ int make_filesystem(
                 if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (strv_extend(&argv, node) < 0)
@@ -452,13 +451,13 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard && strv_extend(&argv, "--nodiscard") < 0)
+                if (!FLAGS_SET(flags, MKFS_DISCARD) && strv_extend(&argv, "--nodiscard") < 0)
                         return log_oom();
 
                 if (root && strv_extend_many(&argv, "-r", root) < 0)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (compression) {
@@ -477,7 +476,7 @@ int make_filesystem(
 
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
                  * isn't silenced by "-q", so let's redirect stdout to /dev/null as well. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
                 /* mkfs.btrfs expects a sector size of at least 4k bytes. */
@@ -493,11 +492,11 @@ int make_filesystem(
                                 "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
                                 "-l", label,
                                 "-U", vol_id,
-                                "-t", one_zero(discard));
+                                "-t", one_zero(FLAGS_SET(flags, MKFS_DISCARD) != 0));
                 if (!argv)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (sector_size > 0) {
@@ -523,7 +522,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard && strv_extend(&argv, "-K") < 0)
+                if (FLAGS_SET(flags, MKFS_DISCARD) && strv_extend(&argv, "-K") < 0)
                         return log_oom();
 
                 if (root) {
@@ -555,7 +554,7 @@ int make_filesystem(
                                 return log_oom();
                 }
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (strv_extend(&argv, node) < 0)
@@ -582,7 +581,7 @@ int make_filesystem(
                         return log_oom();
 
                 /* mkfs.vfat does not have a --quiet option so let's redirect stdout to /dev/null instead. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "swap")) {
@@ -595,7 +594,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "squashfs")) {
@@ -615,7 +614,7 @@ int make_filesystem(
                 }
 
                 /* mksquashfs -quiet option is pretty new so let's redirect stdout to /dev/null instead. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "erofs")) {
@@ -624,7 +623,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "--quiet") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "--quiet") < 0)
                         return log_oom();
 
                 if (compression) {
