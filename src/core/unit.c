@@ -3545,8 +3545,15 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-                        r = sd_bus_error_get_errno(e);
+                r = sd_bus_error_get_errno(e);
+                if (sd_bus_error_has_names(e, SD_BUS_ERROR_NO_REPLY, SD_BUS_ERROR_DISCONNECTED) &&
+                                !sd_bus_is_ready(sd_bus_message_get_bus(message))) {
+                        /* Oh? We disconnect from the bus before we could recieve a reply. That's OK because
+                         * we will try again to monitor this bus name once we reconnect to the bus, so let's
+                         * just ignore it for now.*/
+                        log_unit_debug_errno(u, r, "Unexpected disconnect in GetNameOwner(), ignoring: %m");
+                        return 0;
+                } else if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
                                              bus_error_message(e, r));
