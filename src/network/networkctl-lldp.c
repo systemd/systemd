@@ -238,12 +238,11 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         table = table_new("index",
                           "link",
-                          "system-name",
-                          "system-description",
                           "chassis-id",
+                          "system-name",
+                          "caps",
                           "port-id",
-                          "port-description",
-                          "caps");
+                          "port-description");
         if (!table)
                 return log_oom();
 
@@ -256,7 +255,7 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
         table_hide_column_from_display(table, (size_t) 0);
 
         /* Make the capabilities not truncated */
-        assert_se(cell = table_get_cell(table, 0, 7));
+        assert_se(cell = table_get_cell(table, 0, 4));
         table_set_minimum_width(table, cell, 11);
 
         sd_json_variant *i;
@@ -285,12 +284,11 @@ int link_lldp_status(int argc, char *argv[], void *userdata) {
                         r = table_add_many(table,
                                            TABLE_INT,    info.ifindex,
                                            TABLE_STRING, info.ifname,
-                                           TABLE_STRING, neighbor_info.system_name,
-                                           TABLE_STRING, neighbor_info.system_description,
                                            TABLE_STRING, neighbor_info.chassis_id,
+                                           TABLE_STRING, neighbor_info.system_name,
+                                           TABLE_STRING, cap_str,
                                            TABLE_STRING, neighbor_info.port_id,
-                                           TABLE_STRING, neighbor_info.port_description,
-                                           TABLE_STRING, cap_str);
+                                           TABLE_STRING, neighbor_info.port_description);
                         if (r < 0)
                                 return table_log_add_error(r);
 
