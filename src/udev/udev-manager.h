@@ -10,9 +10,10 @@
 #include "macro.h"
 #include "time-util.h"
 #include "udev-ctrl.h"
-#include "udev-rules.h"
+#include "udev-def.h"
 
 typedef struct Event Event;
+typedef struct UdevRules UdevRules;
 typedef struct Worker Worker;
 
 typedef struct Manager {

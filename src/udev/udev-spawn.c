@@ -14,6 +14,7 @@
 #include "udev-event.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
+#include "udev-worker.h"
 
 typedef struct Spawn {
         sd_device *device;
