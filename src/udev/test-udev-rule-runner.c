@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "udev-event.h"
+#include "udev-rules.h"
 #include "udev-spawn.h"
 #include "version.h"
 
