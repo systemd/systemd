@@ -579,6 +579,137 @@ TEST(table) {
                                 "5min              5min              \n"));
 }
 
+TEST(signed_integers) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(t = table_new("int", "int8", "int16", "int32", "int64"));
+        table_set_width(t, 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_INT, -1,
+                                 TABLE_INT8, -1,
+                                 TABLE_INT16, -1,
+                                 TABLE_INT32, -1,
+                                 TABLE_INT64, -1) >= 0);
+        assert_se(table_add_many(t,
+                                 TABLE_INT, INT_MAX,
+                                 TABLE_INT8, INT8_MAX,
+                                 TABLE_INT16, INT16_MAX,
+                                 TABLE_INT32, INT32_MAX,
+                                 TABLE_INT64, INT64_MAX) >= 0);
+        assert_se(table_add_many(t,
+                                 TABLE_INT, INT_MIN,
+                                 TABLE_INT8, INT8_MIN,
+                                 TABLE_INT16, INT16_MIN,
+                                 TABLE_INT32, INT32_MIN,
+                                 TABLE_INT64, INT64_MIN) >= 0);
+
+        assert_se(table_format(t, &formatted) >= 0);
+        printf("%s\n", formatted);
+
+        assert_se(streq(formatted,
+                        "INT         INT8 INT16  INT32       INT64\n"
+                        "-1          -1   -1     -1          -1\n"
+                        "2147483647  127  32767  2147483647  9223372036854775807\n"
+                        "-2147483648 -128 -32768 -2147483648 -9223372036854775808\n"));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        assert_se(table_to_json(t, &a) >= 0);
+
+        table_print_json(t, /*f=*/ NULL, /* flags= */ 0);
+        puts("");
+
+        assert_se(sd_json_build(&b,
+                                SD_JSON_BUILD_ARRAY(
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(-1)),
+                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(-1)),
+                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(-1)),
+                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(-1)),
+                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(-1))),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(INT_MAX)),
+                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(INT8_MAX)),
+                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(INT16_MAX)),
+                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(INT32_MAX)),
+                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(INT64_MAX))),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(INT_MIN)),
+                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(INT8_MIN)),
+                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(INT16_MIN)),
+                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(INT32_MIN)),
+                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(INT64_MIN))))
+                  ) >= 0);
+        sd_json_variant_dump(b, 0, stdout, NULL);
+        puts("");
+
+        assert_se(sd_json_variant_equal(a, b));
+}
+
+TEST(unsigned_integers) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(t = table_new("uint", "uint8", "uint16", "uint32", "uhex32", "uint64", "uhex64"));
+        table_set_width(t, 0);
+
+        assert_se(table_add_many(t,
+                                 TABLE_UINT, 0,
+                                 TABLE_UINT8, 0,
+                                 TABLE_UINT16, 0,
+                                 TABLE_UINT32, 0,
+                                 TABLE_UINT32_HEX, 0,
+                                 TABLE_UINT64, 0,
+                                 TABLE_UINT64_HEX, 0) >= 0);
+        assert_se(table_add_many(t,
+                                 TABLE_UINT, UINT_MAX,
+                                 TABLE_UINT8, UINT8_MAX,
+                                 TABLE_UINT16, UINT16_MAX,
+                                 TABLE_UINT32, UINT32_MAX,
+                                 TABLE_UINT32_HEX, UINT32_MAX,
+                                 TABLE_UINT64, UINT64_MAX,
+                                 TABLE_UINT64_HEX, UINT64_MAX) >= 0);
+
+        assert_se(table_format(t, &formatted) >= 0);
+        printf("%s\n", formatted);
+
+        assert_se(streq(formatted,
+                        "UINT       UINT8 UINT16 UINT32     UHEX32   UINT64               UHEX64\n"
+                        "0          0     0      0          0        0                    0\n"
+                        "4294967295 255   65535  4294967295 ffffffff 18446744073709551615 ffffffffffffffff\n"));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        assert_se(table_to_json(t, &a) >= 0);
+
+        table_print_json(t, /*f=*/ NULL, /* flags= */ 0);
+        puts("");
+
+        assert_se(sd_json_build(&b,
+                                SD_JSON_BUILD_ARRAY(
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR("uint", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uint8", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uint16", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uint32", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uhex32", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uint64", SD_JSON_BUILD_UNSIGNED(0)),
+                                    SD_JSON_BUILD_PAIR("uhex64", SD_JSON_BUILD_UNSIGNED(0))),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR("uint", SD_JSON_BUILD_UNSIGNED(UINT_MAX)),
+                                    SD_JSON_BUILD_PAIR("uint8", SD_JSON_BUILD_UNSIGNED(UINT8_MAX)),
+                                    SD_JSON_BUILD_PAIR("uint16", SD_JSON_BUILD_UNSIGNED(UINT16_MAX)),
+                                    SD_JSON_BUILD_PAIR("uint32", SD_JSON_BUILD_UNSIGNED(UINT32_MAX)),
+                                    SD_JSON_BUILD_PAIR("uhex32", SD_JSON_BUILD_UNSIGNED(UINT32_MAX)),
+                                    SD_JSON_BUILD_PAIR("uint64", SD_JSON_BUILD_UNSIGNED(UINT64_MAX)),
+                                    SD_JSON_BUILD_PAIR("uhex64", SD_JSON_BUILD_UNSIGNED(UINT64_MAX))))
+                  ) >= 0);
+        sd_json_variant_dump(b, 0, stdout, NULL);
+        puts("");
+
+        assert_se(sd_json_variant_equal(a, b));
+}
+
 TEST(vertical) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
