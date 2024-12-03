@@ -373,6 +373,8 @@ TEST(json) {
                                  TABLE_HEADER, "piep miau",
                                  TABLE_HEADER, "asdf",
                                  TABLE_SET_JSON_FIELD_NAME, "asdf-custom") >= 0);
+        assert_se(table_set_json_field_name(t, 2, "ZZZ") >= 0);
+        assert_se(table_set_json_field_name(t, 2, NULL) >= 0);
         assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
 
         assert_se(table_add_many(t,
@@ -722,6 +724,8 @@ TEST(vertical) {
                                  TABLE_FIELD, "quux", TABLE_STRING, "asdf", TABLE_SET_JSON_FIELD_NAME, "custom-quux",
                                  TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj") >= 0);
 
+        assert_se(table_set_json_field_name(t, 1, "DIMPFELMOSER") >= 0);
+        assert_se(table_set_json_field_name(t, 1, NULL) >= 0);
         assert_se(table_set_json_field_name(t, 1, "dimpfelmoser") >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
