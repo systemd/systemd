@@ -50,7 +50,7 @@ int udev_builtin_hwdb_lookup(
         return n;
 }
 
-static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
+static const char* modalias_usb(sd_device *dev, char *s, size_t size) {
         const char *v, *p, *n = NULL;
         uint16_t vn, pn;
 
@@ -130,10 +130,7 @@ static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
                 { "lookup-prefix", required_argument, NULL, 'p' },
                 {}
         };
-        const char *filter = NULL;
-        const char *device = NULL;
-        const char *subsystem = NULL;
-        const char *prefix = NULL;
+        const char *filter = NULL, *device = NULL, *subsystem = NULL, *prefix = NULL;
         _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;

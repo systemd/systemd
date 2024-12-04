@@ -396,7 +396,7 @@ static UdevRuleFile *udev_rule_file_free(UdevRuleFile *rule_file) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleFile*, udev_rule_file_free);
 
-UdevRules *udev_rules_free(UdevRules *rules) {
+UdevRules* udev_rules_free(UdevRules *rules) {
         if (!rules)
                 return NULL;
 

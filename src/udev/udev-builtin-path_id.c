@@ -82,7 +82,7 @@ static int format_lun_number(sd_device *dev, char **path) {
         return 0;
 }
 
-static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
+static sd_device* skip_subsystem(sd_device *dev, const char *subsys) {
         sd_device *parent;
 
         assert(dev);
@@ -107,7 +107,7 @@ static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
         return dev;
 }
 
-static sd_device *handle_scsi_fibre_channel(sd_device *parent, char **path) {
+static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
         sd_device *targetdev;
         _cleanup_(sd_device_unrefp) sd_device *fcdev = NULL;
         const char *port, *sysname;
@@ -130,7 +130,7 @@ static sd_device *handle_scsi_fibre_channel(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_scsi_sas_wide_port(sd_device *parent, char **path) {
+static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent;
         _cleanup_(sd_device_unrefp) sd_device *sasdev = NULL;
         const char *sas_address, *sysname;
@@ -155,12 +155,10 @@ static sd_device *handle_scsi_sas_wide_port(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
+static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent, *port, *expander;
         _cleanup_(sd_device_unrefp) sd_device *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
-        const char *sas_address = NULL;
-        const char *phy_id;
-        const char *sysname;
+        const char *sas_address = NULL, *phy_id, *sysname;
         unsigned num_phys;
         _cleanup_free_ char *lun = NULL;
 
@@ -216,12 +214,11 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_scsi_iscsi(sd_device *parent, char **path) {
+static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         sd_device *transportdev;
         _cleanup_(sd_device_unrefp) sd_device *sessiondev = NULL, *conndev = NULL;
-        const char *target, *connname, *addr, *port;
+        const char *target, *connname, *addr, *port, *sysname, *sysnum;
         _cleanup_free_ char *lun = NULL;
-        const char *sysname, *sysnum;
 
         assert(parent);
         assert(path);
@@ -260,7 +257,7 @@ static sd_device *handle_scsi_iscsi(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_scsi_ata(sd_device *parent, char **path, char **compat_path) {
+static sd_device* handle_scsi_ata(sd_device *parent, char **path, char **compat_path) {
         sd_device *targetdev, *target_parent;
         _cleanup_(sd_device_unrefp) sd_device *atadev = NULL;
         const char *port_no, *sysname, *name;
@@ -302,7 +299,7 @@ static sd_device *handle_scsi_ata(sd_device *parent, char **path, char **compat_
         return parent;
 }
 
-static sd_device *handle_scsi_default(sd_device *parent, char **path) {
+static sd_device* handle_scsi_default(sd_device *parent, char **path) {
         sd_device *hostdev;
         int host, bus, target, lun;
         const char *name, *base, *pos;
@@ -376,9 +373,8 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
         return hostdev;
 }
 
-static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid_str_len) {
-        sd_device *hostdev;
-        sd_device *vmbusdev;
+static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid_str_len) {
+        sd_device *hostdev, *vmbusdev;
         const char *guid_str;
         _cleanup_free_ char *lun = NULL;
         char guid[39];
@@ -412,7 +408,7 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         return parent;
 }
 
-static sd_device *handle_scsi(sd_device *parent, char **path, char **compat_path, bool *supported_parent) {
+static sd_device* handle_scsi(sd_device *parent, char **path, char **compat_path, bool *supported_parent) {
         const char *id, *name;
 
         if (!device_is_devtype(parent, "scsi_device"))
@@ -455,7 +451,7 @@ static sd_device *handle_scsi(sd_device *parent, char **path, char **compat_path
         return handle_scsi_default(parent, path);
 }
 
-static sd_device *handle_cciss(sd_device *parent, char **path) {
+static sd_device* handle_cciss(sd_device *parent, char **path) {
         const char *str;
         unsigned controller, disk;
 
@@ -526,7 +522,7 @@ static int get_usb_revision(sd_device *dev) {
         }
 }
 
-static sd_device *handle_usb(sd_device *parent, char **path) {
+static sd_device* handle_usb(sd_device *parent, char **path) {
         const char *str, *port;
         int r;
 
@@ -564,7 +560,7 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_bcma(sd_device *parent, char **path) {
+static sd_device* handle_bcma(sd_device *parent, char **path) {
         const char *sysname;
         unsigned core;
 
@@ -578,7 +574,7 @@ static sd_device *handle_bcma(sd_device *parent, char **path) {
 }
 
 /* Handle devices of AP bus in System z platform. */
-static sd_device *handle_ap(sd_device *parent, char **path) {
+static sd_device* handle_ap(sd_device *parent, char **path) {
         const char *type, *func;
 
         assert(parent);

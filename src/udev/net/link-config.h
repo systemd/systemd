@@ -103,7 +103,7 @@ int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
 int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret);
-Link *link_free(Link *link);
+Link* link_free(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 int link_get_config(LinkConfigContext *ctx, Link *link);
