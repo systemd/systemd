@@ -41,7 +41,7 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
                 return 0;
         }
 
-        r = link_new(ctx, &event->rtnl, dev, event->dev_db_clone, &link);
+        r = link_new(ctx, event, &link);
         if (r == -ENODEV) {
                 log_device_debug_errno(dev, r, "Link vanished while getting information, ignoring.");
                 return 0;
@@ -59,7 +59,7 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
-        r = link_apply_config(ctx, &event->rtnl, link, event);
+        r = link_apply_config(ctx, link);
         if (r == -ENODEV)
                 log_device_debug_errno(dev, r, "Link vanished while applying configuration, ignoring.");
         else if (r < 0)
