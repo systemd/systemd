@@ -8,12 +8,13 @@
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
 # Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
+# "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-11-28 18:16+0900\n"
-"PO-Revision-Date: 2024-11-11 08:36+0000\n"
-"Last-Translator: Gabriel Elyas <gabrielelyas@protonmail.com>\n"
+"PO-Revision-Date: 2024-12-04 02:38+0000\n"
+"Last-Translator: \"Geraldo S. Simião Kutz\" <geraldo.simiao.kutz@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -77,9 +78,8 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "É necessária autenticação para recarregar o estado do sistema."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
-#, fuzzy
 msgid "Dump the systemd state without rate limits"
-msgstr "Descarregue o estado do systemd sem limites de taxa"
+msgstr "Descarregue o estado do systemd sem limites de velocidade"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
@@ -124,14 +124,13 @@ msgid "Authentication is required to update a user's home area."
 msgstr "É necessária autenticação para atualizar a área home de um usuário."
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Atualizar uma área home"
+msgstr "Atualizar seu espaço da home"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to update your home area."
-msgstr "É necessária autenticação para atualizar a área home de um usuário."
+msgstr ""
+"É necessária autenticação para atualizar o espaço da home de um usuário."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -157,9 +156,8 @@ msgid "Activate a home area"
 msgstr "Ativar uma área home"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "É necessária autenticação para criar a área home de um usuário."
+msgstr "É necessária autenticação para criar o espaço da home de um usuário."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -1175,48 +1173,45 @@ msgid "Check for system updates"
 msgstr "Verifique se há atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
-#, fuzzy
 msgid "Authentication is required to check for system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr "É necessária autenticação para verificar por atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
 msgstr "Instalar atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
-#, fuzzy
 msgid "Authentication is required to install system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr "É necessária autenticação para instalar atualizações do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
-#, fuzzy
 msgid "Install specific system version"
-msgstr "Instalar sistema especifico de versão"
+msgstr "Instalar versão específica do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
-#, fuzzy
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "É necessária autenticação para definir o fuso horário do sistema."
+msgstr ""
+"A autenticação é necessária para atualizar o sistema para uma versão "
+"específica (possivelmente antiga)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
 msgstr "Limpar velhas atualizações do sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
-#, fuzzy
 msgid "Authentication is required to cleanup old system updates."
-msgstr "É necessária autenticação para definir o horário do sistema."
+msgstr ""
+"A autenticação é necessária para limpar atualizações antigas do sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Gerenciar recursos opcionais"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
-#, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "A autenticação é necessária para gerenciar recursos opcionais"
+msgstr "A autenticação é necessária para gerenciar recursos opcionais."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
