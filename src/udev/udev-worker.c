@@ -170,7 +170,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 }
 
 static int worker_process_device(UdevWorker *worker, sd_device *dev) {
-        _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
+        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
