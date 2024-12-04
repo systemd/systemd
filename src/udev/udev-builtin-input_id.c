@@ -75,15 +75,14 @@ static void extract_info(sd_device *dev, EventMode mode) {
  */
 static void get_cap_mask(
                 sd_device *pdev,
-                const char* attr,
+                const char *attr,
                 unsigned long *bitmask,
                 size_t bitmask_size,
                 EventMode mode) {
 
         const char *v;
-        char text[4096];
+        char text[4096], *word;
         unsigned i;
-        char* word;
         unsigned long val;
         int r;
 
@@ -151,37 +150,36 @@ static struct input_id get_input_id(sd_device *dev) {
 static bool test_pointers(
                 sd_device *dev,
                 const struct input_id *id,
-                const unsigned long* bitmask_ev,
-                const unsigned long* bitmask_abs,
-                const unsigned long* bitmask_key,
-                const unsigned long* bitmask_rel,
-                const unsigned long* bitmask_props,
+                const unsigned long *bitmask_ev,
+                const unsigned long *bitmask_abs,
+                const unsigned long *bitmask_key,
+                const unsigned long *bitmask_rel,
+                const unsigned long *bitmask_props,
                 EventMode mode) {
 
-        bool has_abs_coordinates = false;
-        bool has_rel_coordinates = false;
-        bool has_mt_coordinates = false;
-        size_t num_joystick_axes = 0;
-        size_t num_joystick_buttons = 0;
-        bool has_pad_buttons = false;
-        bool is_direct = false;
-        bool has_touch = false;
-        bool has_3d_coordinates = false;
-        bool has_keys = false;
-        bool has_stylus = false;
-        bool has_pen = false;
-        bool finger_but_no_pen = false;
-        bool has_mouse_button = false;
-        bool is_mouse = false;
-        bool is_abs_mouse = false;
-        bool is_touchpad = false;
-        bool is_touchscreen = false;
-        bool is_tablet = false;
-        bool is_tablet_pad = false;
-        bool is_joystick = false;
-        bool is_accelerometer = false;
-        bool is_pointing_stick = false;
-        bool has_wheel = false;
+        size_t num_joystick_axes = 0, num_joystick_buttons = 0;
+        bool has_abs_coordinates = false,
+                has_rel_coordinates = false,
+                has_mt_coordinates = false,
+                has_pad_buttons = false,
+                is_direct = false,
+                has_touch = false,
+                has_3d_coordinates = false,
+                has_keys = false,
+                has_stylus = false,
+                has_pen = false,
+                finger_but_no_pen = false,
+                has_mouse_button = false,
+                is_mouse = false,
+                is_abs_mouse = false,
+                is_touchpad = false,
+                is_touchscreen = false,
+                is_tablet = false,
+                is_tablet_pad = false,
+                is_joystick = false,
+                is_accelerometer = false,
+                is_pointing_stick = false,
+                has_wheel = false;
 
         has_keys = test_bit(EV_KEY, bitmask_ev);
         has_abs_coordinates = test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs);
@@ -335,8 +333,8 @@ static bool test_pointers(
 /* key like devices */
 static bool test_key(
                 sd_device *dev,
-                const unsigned long* bitmask_ev,
-                const unsigned long* bitmask_key,
+                const unsigned long *bitmask_ev,
+                const unsigned long *bitmask_key,
                 EventMode mode) {
 
         bool found = false;
@@ -378,14 +376,13 @@ static bool test_key(
 
 static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
         sd_device *pdev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        unsigned long bitmask_ev[NBITS(EV_MAX)];
-        unsigned long bitmask_abs[NBITS(ABS_MAX)];
-        unsigned long bitmask_key[NBITS(KEY_MAX)];
-        unsigned long bitmask_rel[NBITS(REL_MAX)];
-        unsigned long bitmask_props[NBITS(INPUT_PROP_MAX)];
+        unsigned long bitmask_ev[NBITS(EV_MAX)],
+                bitmask_abs[NBITS(ABS_MAX)],
+                bitmask_key[NBITS(KEY_MAX)],
+                bitmask_rel[NBITS(REL_MAX)],
+                bitmask_props[NBITS(INPUT_PROP_MAX)];
         const char *sysname;
-        bool is_pointer;
-        bool is_key;
+        bool is_pointer, is_key;
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
