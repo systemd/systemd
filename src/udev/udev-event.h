@@ -21,9 +21,10 @@ typedef struct UdevRules UdevRules;
 typedef struct UdevWorker UdevWorker;
 
 typedef struct UdevEvent {
+        unsigned n_ref;
+
         UdevWorker *worker;
         sd_netlink *rtnl;
-
         sd_device *dev;
         sd_device *dev_parent;
         sd_device *dev_db_clone;
@@ -53,8 +54,9 @@ typedef struct UdevEvent {
 } UdevEvent;
 
 UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);
-UdevEvent* udev_event_free(UdevEvent *event);
-DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
+UdevEvent* udev_event_ref(UdevEvent *event);
+UdevEvent* udev_event_unref(UdevEvent *event);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_unref);
 
 int udev_event_execute_rules(UdevEvent *event, UdevRules *rules);
 
