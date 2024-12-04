@@ -45,6 +45,7 @@ libcore_sources = files(
         'load-fragment.c',
         'manager-dump.c',
         'manager-serialize.c',
+        'manager-varlink.c',
         'manager.c',
         'mount.c',
         'namespace.c',
@@ -63,7 +64,9 @@ libcore_sources = files(
         'unit-dependency-atom.c',
         'unit-printf.c',
         'unit-serialize.c',
+        'unit-varlink.c',
         'unit.c',
+        'varlink-common.c',
 )
 
 if conf.get('BPF_FRAMEWORK') == 1
