@@ -177,7 +177,7 @@ testcase_nvme_basic() {
     local expected_symlinks=()
     local i
 
-    for (( i = 0; i < 5; i++ )); do
+    for i in {0..4}; do
         expected_symlinks+=(
             # both replace mode provides the same devlink
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
@@ -185,7 +185,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
         )
     done
-    for (( i = 5; i < 10; i++ )); do
+    for i in {5..9}; do
         expected_symlinks+=(
             # old replace mode
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
@@ -195,7 +195,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
         )
     done
-    for (( i = 10; i < 15; i++ )); do
+    for i in {10..14}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
@@ -204,7 +204,7 @@ testcase_nvme_basic() {
             /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
         )
     done
-    for (( i = 15; i < 20; i++ )); do
+    for i in {15..19}; do
         expected_symlinks+=(
             # old replace mode does not provide devlink, as serial contains "/"
             # newer replace mode
