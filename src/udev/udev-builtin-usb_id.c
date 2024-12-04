@@ -225,31 +225,15 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
  *     is concatenated with the identification with an underscore '_'.
  */
 static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
-        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        char vendor_str[64] = "";
-        char vendor_str_enc[256];
-        const char *vendor_id;
-        char model_str[64] = "";
-        char model_str_enc[256];
-        const char *product_id;
-        char serial_str[UDEV_NAME_SIZE] = "";
-        char packed_if_str[UDEV_NAME_SIZE] = "";
-        char revision_str[64] = "";
-        char type_str[64] = "";
-        char instance_str[64] = "";
-        const char *ifnum = NULL;
-        const char *driver = NULL;
-        char serial[256];
-
-        sd_device *dev_interface, *dev_usb;
-        const char *if_class, *if_subclass;
+        sd_device *dev_interface, *dev_usb, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        const char *syspath, *sysname, *interface_syspath, *vendor_id, *product_id,
+                *ifnum = NULL, *driver = NULL, *if_class, *if_subclass;
+        char *s, model_str[64] = "", model_str_enc[256], serial_str[UDEV_NAME_SIZE] = "",
+                packed_if_str[UDEV_NAME_SIZE] = "", revision_str[64] = "", type_str[64] = "",
+                instance_str[64] = "", serial[256], vendor_str[64] = "", vendor_str_enc[256];
         unsigned if_class_num;
-        int protocol = 0;
+        int r, protocol = 0;
         size_t l;
-        char *s;
-
-        const char *syspath, *sysname, *interface_syspath;
-        int r;
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)

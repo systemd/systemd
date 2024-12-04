@@ -58,8 +58,8 @@ typedef struct UdevEvent {
         EventMode event_mode;
 } UdevEvent;
 
-UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);
-UdevEvent *udev_event_free(UdevEvent *event);
+UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);
+UdevEvent* udev_event_free(UdevEvent *event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 
 int udev_event_execute_rules(UdevEvent *event, UdevRules *rules);

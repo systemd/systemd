@@ -57,7 +57,7 @@ static const struct subst_map_entry map[] = {
            { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS           },
 };
 
-static const char *format_type_to_string(FormatSubstitutionType t) {
+static const char* format_type_to_string(FormatSubstitutionType t) {
         FOREACH_ELEMENT(entry, map)
                 if (entry->type == t)
                         return entry->name;
