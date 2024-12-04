@@ -372,7 +372,7 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
         return !stats_by_path_equal(ctx->stats_by_path, stats_by_path);
 }
 
-Link *link_free(Link *link) {
+Link* link_free(Link *link) {
         if (!link)
                 return NULL;
 
