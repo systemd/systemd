@@ -1001,18 +1001,16 @@ static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
         return 0;
 }
 
-static int link_apply_udev_properties(Link *link, EventMode mode) {
+static int link_apply_udev_properties(Link *link, UdevEvent *event) {
         LinkConfig *config;
-        sd_device *device;
 
         assert(link);
 
         config = ASSERT_PTR(link->config);
-        device = ASSERT_PTR(link->device);
 
         /* 1. apply ImportProperty=. */
         STRV_FOREACH(p, config->import_properties)
-                (void) udev_builtin_import_property(device, link->device_db_clone, mode, *p);
+                (void) udev_builtin_import_property(event, *p);
 
         /* 2. apply Property=. */
         STRV_FOREACH(p, config->properties) {
@@ -1027,15 +1025,15 @@ static int link_apply_udev_properties(Link *link, EventMode mode) {
                 if (!key)
                         return log_oom();
 
-                (void) udev_builtin_add_property(device, mode, key, eq + 1);
+                (void) udev_builtin_add_property(event, key, eq + 1);
         }
 
         /* 3. apply UnsetProperty=. */
         STRV_FOREACH(p, config->unset_properties)
-                (void) udev_builtin_add_property(device, mode, *p, NULL);
+                (void) udev_builtin_add_property(event, *p, NULL);
 
         /* 4. set the default properties. */
-        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE", config->filename);
+        (void) udev_builtin_add_property(event, "ID_NET_LINK_FILE", config->filename);
 
         _cleanup_free_ char *joined = NULL;
         STRV_FOREACH(d, config->dropins) {
@@ -1049,26 +1047,27 @@ static int link_apply_udev_properties(Link *link, EventMode mode) {
                         return log_oom();
         }
 
-        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE_DROPINS", joined);
+        (void) udev_builtin_add_property(event, "ID_NET_LINK_FILE_DROPINS", joined);
 
         if (link->new_name)
-                (void) udev_builtin_add_property(device, mode, "ID_NET_NAME", link->new_name);
+                (void) udev_builtin_add_property(event, "ID_NET_NAME", link->new_name);
 
         return 0;
 }
 
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, EventMode mode) {
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, UdevEvent *event) {
         int r;
 
         assert(ctx);
         assert(rtnl);
         assert(link);
+        assert(event);
 
-        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, mode);
+        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, event->event_mode);
         if (r < 0)
                 return r;
 
-        r = link_apply_rtnl_settings(link, rtnl, mode);
+        r = link_apply_rtnl_settings(link, rtnl, event->event_mode);
         if (r < 0)
                 return r;
 
@@ -1080,15 +1079,15 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, Eve
         if (r < 0)
                 return r;
 
-        r = link_apply_sr_iov_config(link, rtnl, mode);
+        r = link_apply_sr_iov_config(link, rtnl, event->event_mode);
         if (r < 0)
                 return r;
 
-        r = link_apply_rps_cpu_mask(link, mode);
+        r = link_apply_rps_cpu_mask(link, event->event_mode);
         if (r < 0)
                 return r;
 
-        return link_apply_udev_properties(link, mode);
+        return link_apply_udev_properties(link, event);
 }
 
 int config_parse_udev_property(
