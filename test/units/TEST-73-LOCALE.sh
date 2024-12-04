@@ -676,6 +676,12 @@ trap 'rm -f /etc/dbus-1/system.d/systemd-localed-read-only.conf' EXIT
 systemctl reload dbus.service
 
 enable_debug
+
+for _ in {0..50}; do
+    systemctl restart systemd-localed.service
+    systemctl reset-failed systemd-localed.service
+done
+
 run_testcases
 
 touch /testok
