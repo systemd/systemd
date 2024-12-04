@@ -299,12 +299,12 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
         return 0;
 }
 
-static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, EventMode mode) {
+static int names_pci_onboard(UdevEvent *event, sd_device *pci_dev, const char *prefix, const char *suffix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *port = NULL;
         unsigned idx = 0;  /* avoid false maybe-uninitialized warning */
         int r;
 
-        assert(dev);
         assert(pci_dev);
         assert(prefix);
 
@@ -319,7 +319,7 @@ static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *pre
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%so%u%s%s", prefix, idx, strempty(port), strempty(suffix)))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_ONBOARD", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_ONBOARD", str);
 
         log_device_debug(dev, "PCI onboard index identifier: index=%u port=%s %s %s",
                          idx, strna(port),
@@ -328,11 +328,11 @@ static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *pre
         return 0;
 }
 
-static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const char *prefix, EventMode mode) {
+static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *label;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* retrieve on-board label from firmware */
@@ -344,7 +344,7 @@ static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const cha
         if (snprintf_ok(str, sizeof str, "%s%s",
                         naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
                         label))
-                udev_builtin_add_property(dev, mode, "ID_NET_LABEL_ONBOARD", str);
+                udev_builtin_add_property(event, "ID_NET_LABEL_ONBOARD", str);
 
         log_device_debug(dev, "Onboard label from PCI device: %s", label);
         return 0;
@@ -666,13 +666,13 @@ static int get_pci_slot_specifiers(
         return 0;
 }
 
-static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, EventMode mode) {
+static int names_pci_slot(UdevEvent *event, sd_device *pci_dev, const char *prefix, const char *suffix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *domain = NULL, *bus_and_slot = NULL, *func = NULL, *port = NULL;
         uint32_t slot = 0;  /* avoid false maybe-uninitialized warning */
         char str[ALTIFNAMSIZ];
         int r;
 
-        assert(dev);
         assert(pci_dev);
         assert(prefix);
 
@@ -687,7 +687,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         if (snprintf_ok(str, sizeof str, "%s%s%s%s%s%s",
                         prefix, strempty(domain), bus_and_slot, strempty(func), strempty(port), strempty(suffix)))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_PATH", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
 
         log_device_debug(dev, "PCI path identifier: domain=%s bus_and_slot=%s func=%s port=%s %s %s",
                          strna(domain), bus_and_slot, strna(func), strna(port),
@@ -706,7 +706,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
 
         if (snprintf_ok(str, sizeof str, "%s%ss%"PRIu32"%s%s%s",
                         prefix, strempty(domain), slot, strempty(func), strempty(port), strempty(suffix)))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_SLOT", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_SLOT", str);
 
         log_device_debug(dev, "PCI slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
                          strna(domain), slot, strna(func), strna(port),
@@ -715,12 +715,12 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
         return 0;
 }
 
-static int names_vio(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_vio(UdevEvent *event, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *s = NULL;
         unsigned slotid;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* get ibmveth/ibmvnic slot-based names. */
@@ -754,20 +754,20 @@ static int names_vio(sd_device *dev, const char *prefix, EventMode mode) {
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sv%u", prefix, slotid))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_SLOT", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_SLOT", str);
         log_device_debug(dev, "Vio slot identifier: slotid=%u %s %s",
                          slotid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
-static int names_platform(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_platform(UdevEvent *event, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *p = NULL;
         const char *validchars;
         char *vendor, *model_str, *instance_str;
         unsigned model, instance;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* get ACPI path names for ARM64 platform devices */
@@ -816,18 +816,18 @@ static int names_platform(sd_device *dev, const char *prefix, EventMode mode) {
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sa%s%xi%u", prefix, vendor, model, instance))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_PATH", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "Platform identifier: vendor=%s model=%x instance=%u %s %s",
                          vendor, model, instance, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
-static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_devicetree(UdevEvent *event, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
@@ -923,7 +923,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
 
                 char str[ALTIFNAMSIZ];
                 if (snprintf_ok(str, sizeof str, "%sd%u", prefix, i))
-                        udev_builtin_add_property(dev, mode, "ID_NET_NAME_ONBOARD", str);
+                        udev_builtin_add_property(event, "ID_NET_NAME_ONBOARD", str);
                 log_device_debug(dev, "DeviceTree identifier: alias_index=%u %s \"%s\"",
                                  i, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
                 return 0;
@@ -932,12 +932,11 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
         return -ENOENT;
 }
 
-static int names_pci(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_pci(UdevEvent *event, const char *prefix) {
+        sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
-        sd_device *parent;
 
-        assert(dev);
         assert(prefix);
 
         /* check if our direct parent is a PCI device with no other bus in-between */
@@ -949,10 +948,10 @@ static int names_pci(sd_device *dev, const char *prefix, EventMode mode) {
             get_virtfn_info(parent, &physfn_pcidev, &virtfn_suffix) >= 0)
                 parent = physfn_pcidev;
         else
-                (void) names_pci_onboard_label(dev, parent, prefix, mode);
+                (void) names_pci_onboard_label(event, parent, prefix);
 
-        (void) names_pci_onboard(dev, parent, prefix, virtfn_suffix, mode);
-        (void) names_pci_slot(dev, parent, prefix, virtfn_suffix, mode);
+        (void) names_pci_onboard(event, parent, prefix, virtfn_suffix);
+        (void) names_pci_slot(event, parent, prefix, virtfn_suffix);
         return 0;
 }
 
@@ -1015,12 +1014,11 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_usb(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_usb(UdevEvent *event, const char *prefix) {
+        sd_device *usbdev, *pcidev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *suffix = NULL;
-        sd_device *usbdev, *pcidev;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* USB device */
@@ -1036,7 +1034,7 @@ static int names_usb(sd_device *dev, const char *prefix, EventMode mode) {
         /* If the USB bus is on PCI bus, then suffix the USB specifier to the name based on the PCI bus. */
         r = sd_device_get_parent_with_subsystem_devtype(usbdev, "pci", NULL, &pcidev);
         if (r >= 0)
-                return names_pci_slot(dev, pcidev, prefix, suffix, mode);
+                return names_pci_slot(event, pcidev, prefix, suffix);
 
         if (r != -ENOENT || !naming_scheme_has(NAMING_USB_HOST))
                 return log_device_debug_errno(usbdev, r, "Failed to get parent PCI bus: %m");
@@ -1044,7 +1042,7 @@ static int names_usb(sd_device *dev, const char *prefix, EventMode mode) {
         /* Otherwise, e.g. on-chip asics that have USB ports, use the USB specifier as is. */
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s", prefix, suffix))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_PATH", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
 
         return 0;
 }
@@ -1079,12 +1077,11 @@ static int get_bcma_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_bcma(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_bcma(UdevEvent *event, const char *prefix) {
+        sd_device *bcmadev, *pcidev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *suffix = NULL;
-        sd_device *bcmadev, *pcidev;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
@@ -1099,16 +1096,15 @@ static int names_bcma(sd_device *dev, const char *prefix, EventMode mode) {
         if (r < 0)
                 return r;
 
-        return names_pci_slot(dev, pcidev, prefix, suffix, mode);
+        return names_pci_slot(event, pcidev, prefix, suffix);
 }
 
-static int names_ccw(sd_device *dev, const char *prefix, EventMode mode) {
-        sd_device *cdev;
+static int names_ccw(UdevEvent *event, const char *prefix) {
+        sd_device *cdev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *bus_id;
         size_t bus_id_start, bus_id_len;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* get path names for Linux on System z network devices */
@@ -1144,17 +1140,17 @@ static int names_ccw(sd_device *dev, const char *prefix, EventMode mode) {
         /* Use the CCW bus-ID as network device name */
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sc%s", prefix, bus_id))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_PATH", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "CCW identifier: ccw_busid=%s %s \"%s\"",
                          bus_id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
 /* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(sd_device *dev, const struct hw_addr_data *hw_addr, EventMode mode) {
+static int ieee_oui(UdevEvent *event, const struct hw_addr_data *hw_addr) {
         char str[32];
 
-        assert(dev);
+        assert(event);
         assert(hw_addr);
 
         if (hw_addr->length != 6)
@@ -1174,16 +1170,16 @@ static int ieee_oui(sd_device *dev, const struct hw_addr_data *hw_addr, EventMod
                  hw_addr->bytes[4],
                  hw_addr->bytes[5]);
 
-        return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, mode);
+        return udev_builtin_hwdb_lookup(event, NULL, str, NULL);
 }
 
-static int names_mac(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_mac(UdevEvent *event, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         unsigned iftype, assign_type;
         struct hw_addr_data hw_addr;
         const char *s;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
@@ -1221,22 +1217,21 @@ static int names_mac(sd_device *dev, const char *prefix, EventMode mode) {
 
         char str[ALTIFNAMSIZ];
         xsprintf(str, "%sx%s", prefix, HW_ADDR_TO_STR_FULL(&hw_addr, HW_ADDR_TO_STRING_NO_COLON));
-        udev_builtin_add_property(dev, mode, "ID_NET_NAME_MAC", str);
+        udev_builtin_add_property(event, "ID_NET_NAME_MAC", str);
         log_device_debug(dev, "MAC address identifier: hw_addr=%s %s %s",
                          HW_ADDR_TO_STR(&hw_addr),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
 
-        (void) ieee_oui(dev, &hw_addr, mode);
+        (void) ieee_oui(event, &hw_addr);
         return 0;
 }
 
-static int names_netdevsim(sd_device *dev, const char *prefix, EventMode mode) {
-        sd_device *netdevsimdev;
+static int names_netdevsim(UdevEvent *event, const char *prefix) {
+        sd_device *netdevsimdev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *sysnum, *phys_port_name;
         unsigned addr;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* get netdevsim path names */
@@ -1265,19 +1260,19 @@ static int names_netdevsim(sd_device *dev, const char *prefix, EventMode mode) {
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_PATH", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "Netdevsim identifier: address=%u, port_name=%s %s %s",
                          addr, phys_port_name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
-static int names_xen(sd_device *dev, const char *prefix, EventMode mode) {
+static int names_xen(UdevEvent *event, const char *prefix) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_free_ char *vif = NULL;
         const char *p;
         unsigned id;
         int r;
 
-        assert(dev);
         assert(prefix);
 
         /* get xen vif "slot" based names. */
@@ -1305,7 +1300,7 @@ static int names_xen(sd_device *dev, const char *prefix, EventMode mode) {
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sX%u", prefix, id))
-                udev_builtin_add_property(dev, mode, "ID_NET_NAME_SLOT", str);
+                udev_builtin_add_property(event, "ID_NET_NAME_SLOT", str);
         log_device_debug(dev, "Xen identifier: id=%u %s %s",
                          id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
@@ -1383,18 +1378,18 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[]) {
                 return 0;
         }
 
-        udev_builtin_add_property(dev, event->event_mode, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
+        udev_builtin_add_property(event, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 
-        (void) names_mac(dev, prefix, event->event_mode);
-        (void) names_devicetree(dev, prefix, event->event_mode);
-        (void) names_ccw(dev, prefix, event->event_mode);
-        (void) names_vio(dev, prefix, event->event_mode);
-        (void) names_platform(dev, prefix, event->event_mode);
-        (void) names_netdevsim(dev, prefix, event->event_mode);
-        (void) names_xen(dev, prefix, event->event_mode);
-        (void) names_pci(dev, prefix, event->event_mode);
-        (void) names_usb(dev, prefix, event->event_mode);
-        (void) names_bcma(dev, prefix, event->event_mode);
+        (void) names_mac(event, prefix);
+        (void) names_devicetree(event, prefix);
+        (void) names_ccw(event, prefix);
+        (void) names_vio(event, prefix);
+        (void) names_platform(event, prefix);
+        (void) names_netdevsim(event, prefix);
+        (void) names_xen(event, prefix);
+        (void) names_pci(event, prefix);
+        (void) names_usb(event, prefix);
+        (void) names_bcma(event, prefix);
 
         return 0;
 }
