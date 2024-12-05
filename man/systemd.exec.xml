@@ -4182,7 +4182,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>$MONITOR_INVOCATION_ID</varname> and <varname>$MONITOR_UNIT</varname> are set to the
           invocation id and unit name of the service which triggered the dependency.</para>
 
-          <para>Note that when multiple services trigger the same unit, those variables will be
+          <para>Note that when multiple services specify the same unit as their
+          <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> handler, those variables will
           <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:
           <literal>OnFailure=<replaceable>handler</replaceable>@%n.service</literal> for non-templated units,
           or <literal>OnFailure=<replaceable>handler</replaceable>@%p-%i.service</literal> for templated
