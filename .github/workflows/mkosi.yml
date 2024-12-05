@@ -60,48 +60,56 @@ jobs:
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             relabel: no
+            qemu: 1
           - distro: debian
             release: testing
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: ubuntu
             release: noble
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: fedora
             release: "41"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: centos
             release: "9"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: centos
             release: "10"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
 
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
@@ -210,7 +218,7 @@ jobs:
         run: sudo meson compile -C build mkosi
 
       - name: Run integration tests
-        run: sudo --preserve-env meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
+        run: sudo --preserve-env env TEST_PREFER_QEMU=${{ matrix.qemu }} meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4
