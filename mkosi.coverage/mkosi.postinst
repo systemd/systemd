@@ -7,6 +7,8 @@ set -e
     rm -f "$BUILDROOT"/coverage/*.gcda
 )
 
+mkdir -p "$BUILDROOT/coverage"
+
 # When using -fprofile-dir=, GCC creates all gcda files under the given directory at the same location as the
 # gcno file in the build directory, but with each '/' replaced with '#'. LLVM creates each gcda file under
 # the given directory without replacing each '/' with '#'. Because we want all processes to be able to write
