@@ -808,26 +808,23 @@ TEST(condition_test_user) {
 
 TEST(condition_test_group) {
         Condition *condition;
-        char* gid;
-        char* groupname;
+        char gid[DECIMAL_STR_MAX(uint32_t)];
         gid_t *gids, max_gid;
         int ngroups_max, ngroups, r, i;
 
-        assert_se(0 < asprintf(&gid, "%u", UINT32_C(0xFFFF)));
+        xsprintf(gid, "%u", UINT32_C(0xFFFF));
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
-        free(gid);
 
-        assert_se(0 < asprintf(&gid, "%u", getgid()));
+        xsprintf(gid, "%u", getgid());
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
-        free(gid);
 
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert_se(ngroups_max > 0);
@@ -841,13 +838,12 @@ TEST(condition_test_group) {
         for (i = 0; i < ngroups; i++) {
                 _cleanup_free_ char *name = NULL;
 
-                assert_se(0 < asprintf(&gid, "%u", gids[i]));
+                xsprintf(gid, "%u", gids[i]);
                 ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
                 r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", gid, r);
                 ASSERT_OK_POSITIVE(r);
                 condition_free(condition);
-                free(gid);
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
 
                 ASSERT_NOT_NULL(name = gid_to_name(gids[i]));
@@ -862,13 +858,12 @@ TEST(condition_test_group) {
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
 
-        assert_se(0 < asprintf(&gid, "%u", max_gid+1));
+        xsprintf(gid, "%u", max_gid + 1);
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, gid, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
-        free(gid);
 
         /* In an unprivileged user namespace with the current user mapped to root, all the auxiliary groups
          * of the user will be mapped to the nobody group, which means the user in the user namespace is in
@@ -877,7 +872,7 @@ TEST(condition_test_group) {
         if (in_group(NOBODY_GROUP_NAME) && in_group("root"))
                 return (void) log_tests_skipped("user is in both root and nobody group");
 
-        groupname = (char*)(getegid() == 0 ? NOBODY_GROUP_NAME : "root");
+        const char *groupname = getegid() == 0 ? NOBODY_GROUP_NAME : "root";
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_GROUP, groupname, false, false));
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", groupname, r);
