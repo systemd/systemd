@@ -145,6 +145,8 @@ struct Manager {
         struct stat efi_loader_entry_one_shot_stat;
 
         CalendarSpec *maintenance_time;
+
+        dual_timestamp init_ts;
 };
 
 void manager_reset_config(Manager *m);
