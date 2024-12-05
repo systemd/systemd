@@ -199,6 +199,8 @@ $ sudo NO_BUILD=1 test/run-integration-tests
 `TEST_PREFER_NSPAWN=1`:  Run all tests that do not require qemu under
 systemd-nspawn.
 
+`TEST_PREFER_QEMU=1`:  Run all tests under qemu.
+
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
 
