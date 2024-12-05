@@ -827,7 +827,7 @@ TEST(condition_test_group) {
         condition_free(condition);
 
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        ASSERT_OK_POSITIVE(ngroups_max);
+        assert_se(ngroups_max > 0);
 
         gids = newa(gid_t, ngroups_max);
 
@@ -1189,43 +1189,43 @@ TEST(condition_test_psi) {
                 return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_MEMORY_PRESSURE, "", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "sbarabau", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_MEMORY_PRESSURE, "10%sbarabau", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "10% sbarabau", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "-10", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "10%/10min", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "10min/10%", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "10% 5min", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "/5min", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_IO_PRESSURE, "10s /   ", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_MEMORY_PRESSURE, "100%", false, false));
@@ -1284,7 +1284,7 @@ TEST(condition_test_psi) {
                 return (void) log_notice("Requires the cgroup CPU controller, skipping %s", __func__);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_MEMORY_PRESSURE, " : / ", false, false));
-        assert_se(condition_test(condition, environ) < 0);
+        ASSERT_FAIL(condition_test(condition, environ));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CPU_PRESSURE, "hopefullythisisnotarealone.slice:100% / 10sec", false, false));
