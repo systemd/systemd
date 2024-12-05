@@ -118,8 +118,6 @@ For testing and debugging, fuzzers can be executed as any other program, includi
 ## Integration Tests
 
 Sources in `test/TEST-*` implement system-level testing for executables, libraries and daemons that are shipped by the project.
-They require privileges to run, and are not safe to execute directly on a host.
-By default they will build an image and run the test under it via `qemu` or `systemd-nspawn`.
 
 Most of those tests should be able to run via `systemd-nspawn`, which is orders-of-magnitude faster than `qemu`, but some tests require privileged operations like using `dm-crypt` or `loopdev`.
 They are clearly marked if that is the case.

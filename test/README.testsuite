@@ -125,96 +125,12 @@ If you're debugging a failing integration test (running `meson test --interactiv
 there's no need to run `systemctl start ...`, running `systemctl soft-reboot` on its own is sufficient to
 rerun the test.
 
-## Running the integration tests the old fashioned way
-
-The extended testsuite only works with UID=0. It consists of the subdirectories
-named `test/TEST-??-*`, each of which contains a description of an OS image and
-a test which consists of systemd units and scripts to execute in this image.
-The same image is used for execution under `systemd-nspawn` and `qemu`.
-
-To run the extended testsuite do the following:
-
-```shell
-$ ninja -C build  # Avoid building anything as root later
-$ sudo test/run-integration-tests.sh
-ninja: Entering directory `/home/zbyszek/src/systemd/build'
-ninja: no work to do.
---x-- Running TEST-01-BASIC --x--
-+ make -C TEST-01-BASIC clean setup run
-make: Entering directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
-TEST-01-BASIC CLEANUP: Basic systemd setup
-TEST-01-BASIC SETUP: Basic systemd setup
-...
-TEST-01-BASIC RUN: Basic systemd setup [OK]
-make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
---x-- Result of TEST-01-BASIC: 0 --x--
---x-- Running TEST-02-CRYPTSETUP --x--
-+ make -C TEST-02-CRYPTSETUP clean setup run
-```
-
-If one of the tests fails, then $subdir/test.log contains the log file of
-the test.
-
-To run just one of the cases:
-
-```shell
-$ sudo make -C test/TEST-01-BASIC clean setup run
-```
-
-### Specifying the build directory
-
-If the build directory is not detected automatically, it can be specified
-with BUILD_DIR=:
-
-```shell
-$ sudo BUILD_DIR=some-other-build/ test/run-integration-tests
-```
-
-or
-
-```shell
-$ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
-```
-
-Note that in the second case, the path is relative to the test case directory.
-An absolute path may also be used in both cases.
-
-### Testing installed binaries instead of built
-
-To run the extended testsuite using the systemd installed on the system instead
-of the systemd from a build, use the NO_BUILD=1:
-
-```shell
-$ sudo NO_BUILD=1 test/run-integration-tests
-```
-
 ### Configuration variables
 
 `TEST_NO_QEMU=1`: Don't run tests under qemu.
 
-`TEST_QEMU_ONLY=1`: Run only tests that require qemu.
-
-`TEST_NO_NSPAWN=1`:  Don't run tests under systemd-nspawn.
-
-`TEST_PREFER_NSPAWN=1`:  Run all tests that do not require qemu under
-systemd-nspawn.
-
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
-
-`QEMU_MEM=512M`: Configure amount of memory for qemu VMs (defaults to 512M).
-
-`QEMU_SMP=1`: Configure number of CPUs for qemu VMs (defaults to 1).
-
-`KERNEL_APPEND='...'`: Append additional parameters to the kernel command line.
-
-`NSPAWN_ARGUMENTS='...'`:  Specify additional arguments for systemd-nspawn.
-
-`QEMU_TIMEOUT=infinity`: Set a timeout for tests under qemu (defaults to 1800
-sec).
-
-`NSPAWN_TIMEOUT=infinity`: Set a timeout for tests under systemd-nspawn
-(defaults to 1800 sec).
 
 `TEST_SHELL=1`: Configure the machine to be more *user-friendly* for
 interactive debugging (e.g. by setting a usable default terminal, suppressing
@@ -227,24 +143,7 @@ expression.
 `TEST_MATCH_TESTCASE=testcase`: Same as $TEST_MATCH_SUBTEST but for subtests
 that make use of `run_testcases`.
 
-The kernel and initrd can be specified with $KERNEL_BIN and $INITRD. (Fedora's
-or Debian's default kernel path and initrd are used by default.)
-
-A script will try to find your qemu binary. If you want to specify a different
-one with `$QEMU_BIN`.
-
 `TEST_SKIP`: takes a space separated list of tests to skip.
-
-### Debugging the qemu image
-
-If you want to log in the testsuite virtual machine, use `TEST_SHELL=1`
-and log in as root:
-
-```shell
-$ sudo make -C test/TEST-01-BASIC TEST_SHELL=1 run
-```
-
-The root password is empty.
 
 ## Ubuntu CI
 
