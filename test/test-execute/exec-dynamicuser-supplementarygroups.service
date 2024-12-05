@@ -9,3 +9,4 @@ Type=oneshot
 DynamicUser=yes
 SupplementaryGroups=1 2
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+ReadWritePaths=-/coverage

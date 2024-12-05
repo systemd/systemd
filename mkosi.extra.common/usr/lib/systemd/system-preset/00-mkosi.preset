@@ -39,3 +39,5 @@ disable iscsiuio.socket
 
 # mkosi relabels the image itself so no need to do it on boot.
 disable selinux-autorelabel-mark.service
+
+enable coverage-forwarder.service
