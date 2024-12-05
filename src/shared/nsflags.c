@@ -7,6 +7,7 @@
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "string-util.h"
+#include "strv.h"
 
 int namespace_flags_from_string(const char *name, unsigned long *ret) {
         unsigned long flags = 0;
@@ -42,19 +43,17 @@ int namespace_flags_from_string(const char *name, unsigned long *ret) {
 }
 
 int namespace_flags_to_string(unsigned long flags, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        unsigned i;
+        _cleanup_strv_free_ char **l = NULL;
 
-        for (i = 0; namespace_info[i].proc_name; i++) {
-                if ((flags & namespace_info[i].clone_flag) != namespace_info[i].clone_flag)
-                        continue;
+        l = namespace_flags_to_strv(flags);
+        if (!l)
+                return -ENOMEM;
 
-                if (!strextend_with_separator(&s, " ", namespace_info[i].proc_name))
-                        return -ENOMEM;
-        }
+        char *s = strv_join(l, NULL);
+        if (!s)
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(s);
-
+        *ret = s;
         return 0;
 }
 
@@ -64,4 +63,19 @@ const char* namespace_single_flag_to_string(unsigned long flag) {
                         return namespace_info[i].proc_name;
 
         return NULL;
+}
+
+char** namespace_flags_to_strv(unsigned long flags) {
+        _cleanup_strv_free_ char **s = NULL;
+        unsigned i;
+
+        for (i = 0; namespace_info[i].proc_name; i++) {
+                if ((flags & namespace_info[i].clone_flag) != namespace_info[i].clone_flag)
+                        continue;
+
+                if (strv_extend(&s, namespace_info[i].proc_name) < 0)
+                        return NULL;
+        }
+
+        return s ? TAKE_PTR(s) : strv_new(NULL);
 }
