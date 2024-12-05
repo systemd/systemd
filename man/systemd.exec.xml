@@ -2055,8 +2055,11 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectHostname=</varname></term>
 
-        <listitem><para>Takes a boolean argument. When set, sets up a new UTS namespace for the executed
-        processes. In addition, changing hostname or domainname is prevented. Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or <literal>private</literal>. If enabled, sets up a new UTS namespace
+        for the executed processes. If set to a true value, changing hostname or domainname via
+        <function>sethostname()</function> and <function>setdomainname()</function> system calls is prevented. If set to
+        <literal>private</literal>, changing hostname or domainname is allowed but only affects the unit's UTS namespace.
+        Defaults to off.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces
         are not available), and the unit should be written in a way that does not solely rely on this setting
@@ -2065,6 +2068,12 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that when this option is enabled for a service hostname changes no longer propagate from
         the system into the service, it is hence not suitable for services that need to take notice of system
         hostname changes dynamically.</para>
+
+        <para>Note that this option does not prevent changing system hostname via <command>hostnamectl</command>.
+        However, <varname>User=</varname> and <varname>Group=</varname> may be used to run as an unprivileged user
+        to disallow changing system hostname. See <function>SetHostname()</function> in
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
