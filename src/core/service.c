@@ -1646,15 +1646,10 @@ static Service *service_get_triggering_service(Service *s) {
          *
          * N.B. if there are multiple services which could trigger 's' via OnFailure=
          * or OnSuccess= then we return NULL. This is since we don't know from which
-         * one to propagate the exit status. */
+         * one to propagate the exit status. Only exception is if the same service
+         * lists this service as their OnFailure= and OnSuccess= handler. */
 
-        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_FAILURE_OF) {
-                if (candidate)
-                        goto have_other;
-                candidate = other;
-        }
-
-        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_SUCCESS_OF) {
+        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_FAILURE_OF|UNIT_ATOM_ON_SUCCESS_OF) {
                 if (candidate)
                         goto have_other;
                 candidate = other;
