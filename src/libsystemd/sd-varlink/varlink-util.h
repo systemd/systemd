@@ -13,6 +13,7 @@ int varlink_callb_and_log(sd_varlink *v, const char *method, sd_json_variant **r
 #define varlink_callbo_and_log(v, method, ret_parameters, ...)          \
         varlink_callb_and_log((v), (method), (ret_parameters), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
+int varlink_many_notify(Set *s, sd_json_variant *parameters);
 int varlink_many_notifyb(Set *s, ...);
 #define varlink_many_notifybo(s, ...)                                   \
         varlink_many_notifyb((s), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
