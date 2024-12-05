@@ -20,6 +20,21 @@
 #include "unit-file.h"
 #include "unit-name.h"
 
+typedef enum BreakpointType {
+        BREAKPOINT_PRE_UDEV,
+        BREAKPOINT_PRE_SYSROOT_MOUNT,
+        BREAKPOINT_PRE_SWITCH_ROOT,
+        _BREAKPOINT_TYPE_MAX,
+        _BREAKPOINT_TYPE_INVALID = -EINVAL,
+} BreakpointType;
+
+typedef struct breakpoint_info {
+        BreakpointType type;
+        const char *name;
+        bool valid_in_initrd;
+        bool valid_in_main_system;
+} breakpoint_info;
+
 static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;
 static char **arg_mask = NULL;
@@ -27,12 +42,64 @@ static char **arg_wants = NULL;
 static bool arg_debug_shell = false;
 static char *arg_debug_tty = NULL;
 static char *arg_default_debug_tty = NULL;
+static char **arg_breakpoints = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_default_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mask, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wants, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_debug_tty, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_debug_tty, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_breakpoints, strv_freep);
+
+static const struct breakpoint_info breakpoint_type_table[_BREAKPOINT_TYPE_MAX] = {
+        { BREAKPOINT_PRE_UDEV,          "pre-udev",        true,  true  },
+        { BREAKPOINT_PRE_SYSROOT_MOUNT, "pre-mount",       true,  false },
+        { BREAKPOINT_PRE_SWITCH_ROOT,   "pre-switch-root", true,  false },
+};
+
+static int parse_breakpoint_from_string(const char *s, char ***ret_breakpoints) {
+        static const struct breakpoint_info *breakpoint = NULL;
+
+        assert(ret_breakpoints);
+
+        /* Empty value? set default breakpoint */
+        if (!s) {
+                if (in_initrd())
+                        breakpoint = &breakpoint_type_table[BREAKPOINT_PRE_SWITCH_ROOT];
+                else
+                        log_warning("No default breakpoint defined in the main system, ignoring.");
+        } else {
+                bool found = false;
+                for (size_t i = 0; i < ELEMENTSOF(breakpoint_type_table); i++) {
+                        found = streq(breakpoint_type_table[i].name, s);
+                        if (found) {
+                                if (in_initrd() && !breakpoint_type_table[i].valid_in_initrd)
+                                        log_warning("Breakpoint '%s' not valid in the initrd, ignoring.", s);
+                                else if (!in_initrd() && !breakpoint_type_table[i].valid_in_main_system)
+                                        log_warning("Breakpoint '%s' not valid in the main system, ignoring.", s);
+                                else
+                                        breakpoint = &breakpoint_type_table[i];
+
+                                break;
+                        }
+                }
+                if (!found)
+                        return -EINVAL;
+        }
+
+        if (breakpoint && !strv_contains(*ret_breakpoints, breakpoint->name)) {
+                _cleanup_free_ char *name = NULL;
+
+                name = strdup(breakpoint->name);
+                if (!name)
+                        return log_oom();
+
+                if (strv_consume(ret_breakpoints, TAKE_PTR(name)) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
@@ -87,6 +154,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 return free_and_strdup_warn(&arg_default_unit, value);
+
+        } else if (streq(key, "systemd.break")) {
+
+                r = parse_breakpoint_from_string(value, &arg_breakpoints);
+                if (r < 0)
+                        return log_warning_errno(r, "Invalid breakpoint value '%s'", value);
 
         } else if (!value) {
                 const char *target;
@@ -268,6 +341,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
                 RET_GATHER(r, install_debug_shell_dropin());
         }
+
+        STRV_FOREACH(b, arg_breakpoints)
+                if (strv_extendf(&arg_wants, "breakpoint-%s.service", *b) < 0)
+                        return log_oom();
 
         if (get_credentials_dir(&credentials_dir) >= 0)
                 RET_GATHER(r, process_unit_credentials(credentials_dir));
