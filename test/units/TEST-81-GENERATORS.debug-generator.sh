@@ -69,6 +69,36 @@ SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 link_endswith "$OUT_DIR/early/default.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
 grep -F "/dev/tty666" "$OUT_DIR/early/debug-shell.service.d/50-tty.conf"
 
+# systemd.break (default)
+: "debug-shell: regular + systemd.break"
+CMDLINE="$CMDLINE systemd.break"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-udev.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-mount.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-switch-root.service"
+
+# systemd.break=pre-switch-root
+: "debug-shell: regular + systemd.break=pre-switch-root"
+CMDLINE="$CMDLINE systemd.break=pre-switch-root"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-udev.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-mount.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-switch-root.service"
+
+# systemd.break=pre-mount
+: "debug-shell: regular + systemd.break=pre-mount"
+CMDLINE="$CMDLINE systemd.break=pre-mount"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-udev.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-mount.service"
+test ! -h "$OUT_DIR/early/default.target.wants/breakpoint-pre-switch-root.service"
+
+# systemd.break=pre-udev
+: "debug-shell: regular + systemd.break=pre-udev"
+CMDLINE="$CMDLINE systemd.break=pre-udev"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/default.target.wants/breakpoint-pre-udev.service" /lib/systemd/system/breakpoint-pre-udev.service
+
 # Now override the default target via systemd.unit=
 : "debug-shell: regular + systemd.unit="
 CMDLINE="$CMDLINE systemd.unit=my-fancy.target"
@@ -102,6 +132,31 @@ test ! -d "$OUT_DIR/early/default.target.wants"
 CMDLINE="$CMDLINE rd.systemd.debug_shell"
 SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 link_endswith "$OUT_DIR/early/initrd.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+
+# rd.systemd.break (default)
+: "debug-shell: initrd + rd.systemd.break"
+CMDLINE="$CMDLINE rd.systemd.break"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/breakpoint-pre-switch-root.service" /lib/systemd/system/breakpoint-pre-switch-root.service
+
+# rd.systemd.break=pre-udev
+: "debug-shell: initrd + rd.systemd.break=pre-udev"
+CMDLINE="$CMDLINE rd.systemd.break=pre-udev"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/breakpoint-pre-udev.service" /lib/systemd/system/breakpoint-pre-udev.service
+
+# rd.systemd.break=pre-mount
+: "debug-shell: initrd + rd.systemd.break=pre-mount"
+CMDLINE="$CMDLINE rd.systemd.break=pre-mount"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/breakpoint-pre-mount.service" /lib/systemd/system/breakpoint-pre-mount.service
+
+# rd.systemd.break=pre-switch-root
+: "debug-shell: initrd + rd.systemd.break=pre-switch-root"
+rm -f "$OUT_DIR/early/initrd.target.wants/breakpoint-pre-switch-root.service"
+CMDLINE="$CMDLINE rd.systemd.break=pre-switch-root"
+SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/initrd.target.wants/breakpoint-pre-switch-root.service" /lib/systemd/system/breakpoint-pre-switch-root.service
 
 # Override the default target
 : "debug-shell: initrd + rd.systemd.unit"
