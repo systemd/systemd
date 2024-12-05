@@ -90,7 +90,7 @@ int acquire_bus(sd_bus **ret) {
         if (networkd_is_running()) {
                 r = varlink_connect_networkd(/* ret_varlink = */ NULL);
                 if (r < 0)
-                        return r;
+                        log_warning("Varlink connection failed, fallback to D-Bus.");
         } else
                 log_warning("systemd-networkd is not running, output might be incomplete.");
 

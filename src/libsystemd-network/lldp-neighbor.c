@@ -630,6 +630,28 @@ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret
         return 0;
 }
 
+int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
+        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(raw || raw_size <= 0, -EINVAL);
+
+        n = lldp_neighbor_new(raw_size);
+        if (!n)
+                return -ENOMEM;
+
+        memcpy_safe(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+
+        r = lldp_neighbor_parse(n);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(n);
+
+        return r;
+}
+
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert_return(n, -EINVAL);
 
