@@ -23,9 +23,10 @@ BridgeMDB *bridge_mdb_free(BridgeMDB *mdb) {
         if (mdb->network) {
                 assert(mdb->section);
                 hashmap_remove(mdb->network->bridge_mdb_entries_by_section, mdb->section);
-        }
+                config_section_free(mdb->section);
 
-        config_section_free(mdb->section);
+                log_info("should trigger use-after-free: %s", mdb->section->filename);
+        }
 
         return mfree(mdb);
 }
