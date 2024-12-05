@@ -4,7 +4,10 @@ set -e
 
 MODE="$1"
 
-if ! [[ -d .git ]] || git describe --tags --exact-match &>/dev/null; then
+if ! [[ -d .git ]] ||
+        ! command -v git >/dev/null ||
+        git describe --tags --exact-match &>/dev/null
+then
     exit 0
 fi
 
