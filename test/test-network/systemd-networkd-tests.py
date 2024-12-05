@@ -6472,6 +6472,22 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.check_router_preference('01', 100, 'high', 300, 'low')
 
+        # Use route options with preference to configure default routes.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=1200\nPreference=low\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=1200\nPreference=high\n')
+        networkctl_reload()
+        self.check_router_preference('01', 300, 'low', 100, 'high')
+
+        # Set zero lifetime again to the route options.
+        with open(os.path.join(network_unit_dir, '25-veth-router-high.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        with open(os.path.join(network_unit_dir, '25-veth-router-low.network'), mode='a', encoding='utf-8') as f:
+            f.write('LifetimeSec=0\n')
+        networkctl_reload()
+        self.check_router_preference('01', 100, 'high', 300, 'low')
+
     def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
             copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
