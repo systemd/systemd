@@ -714,6 +714,8 @@ static int link_save(Link *link) {
         if (link->state == LINK_STATE_LINGER)
                 return 0;
 
+        link_lldp_save(link);
+
         admin_state = ASSERT_PTR(link_state_to_string(link->state));
         oper_state = ASSERT_PTR(link_operstate_to_string(link->operstate));
         carrier_state = ASSERT_PTR(link_carrier_state_to_string(link->carrier_state));

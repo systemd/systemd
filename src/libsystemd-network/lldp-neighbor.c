@@ -377,6 +377,17 @@ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_a
         return 0;
 }
 
+int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(size, -EINVAL);
+
+        *ret = LLDP_NEIGHBOR_RAW(n);
+        *size = n->raw_size;
+
+        return 0;
+}
+
 int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
         assert_return(n, -EINVAL);
         assert_return(type, -EINVAL);

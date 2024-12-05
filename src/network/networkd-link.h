@@ -194,6 +194,7 @@ typedef struct Link {
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
+        char *lldp_file;
 
         /* This is about LLDP transmission */
         sd_lldp_tx *lldp_tx;
