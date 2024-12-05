@@ -39,6 +39,7 @@ void manager_reset_config(Manager *m) {
         m->remove_ipc = true;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
+        m->enable_wall_messages = true;
 
         m->handle_action_sleep_mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
 
