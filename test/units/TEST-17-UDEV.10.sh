@@ -31,6 +31,7 @@ loopdev="$(losetup --show -f "$blk")"
 udevadm -h
 
 udevadm control -e
+sleep 1
 udevadm control -l emerg
 udevadm control -l alert
 udevadm control -l crit
