@@ -728,9 +728,6 @@ Manager* manager_free(Manager *m) {
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
 
-        safe_close(m->ethtool_fd);
-        safe_close(m->persistent_storage_fd);
-
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
         m->serialization_fd = safe_close(m->serialization_fd);
