@@ -243,7 +243,7 @@ static bool link_is_configured_for_family(Link *link, int family) {
         /* CAN devices do not support IP layer. Most of the functions below are never called for CAN devices,
          * but link_set_ipv6_mtu() may be called after setting interface MTU, and warn about the failure. For
          * safety, let's unconditionally check if the interface is not a CAN device. */
-        if (IN_SET(family, AF_INET, AF_INET6) && link->iftype == ARPHRD_CAN)
+        if (IN_SET(family, AF_INET, AF_INET6, AF_MPLS) && link->iftype == ARPHRD_CAN)
                 return false;
 
         if (family == AF_INET6 && !socket_ipv6_is_supported())
@@ -671,6 +671,19 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, manager_get_sysctl_shadow(link->manager));
 }
 
+static int link_set_mpls_input(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        if (!link_is_configured_for_family(link, AF_MPLS))
+                return 0;
+
+        if (link->network->mpls_input < 0)
+                return 0;
+
+        return sysctl_write_ip_property_boolean(AF_MPLS, link->ifname, "input", link->network->mpls_input > 0, manager_get_sysctl_shadow(link->manager));
+}
+
 int link_set_sysctl(Link *link) {
         int r;
 
@@ -742,6 +755,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv4_promote_secondaries(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot enable promote_secondaries for interface, ignoring: %m");
+
+        r = link_set_mpls_input(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set MPLS input, ignoring: %m");
 
         return 0;
 }
