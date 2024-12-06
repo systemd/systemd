@@ -115,22 +115,29 @@ int sysctl_writef(const char *property, const char *format, ...) {
         return sysctl_write(property, v);
 }
 
+static const char* af_to_sysctl_dir(int af) {
+        if (af == AF_MPLS)
+                return "mpls";
+
+        return af_to_ipv4_ipv6(af);
+}
+
 int sysctl_write_ip_property(int af, const char *ifname, const char *property, const char *value, Hashmap **shadow) {
         const char *p;
 
         assert(property);
         assert(value);
 
-        if (!IN_SET(af, AF_INET, AF_INET6))
+        if (!IN_SET(af, AF_INET, AF_INET6, AF_MPLS))
                 return -EAFNOSUPPORT;
 
         if (ifname) {
                 if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
                         return -EINVAL;
 
-                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+                p = strjoina("net/", af_to_sysctl_dir(af), "/conf/", ifname, "/", property);
         } else
-                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
+                p = strjoina("net/", af_to_sysctl_dir(af), "/", property);
 
         return sysctl_write_full(p, value, shadow);
 }
@@ -181,16 +188,16 @@ int sysctl_read_ip_property(int af, const char *ifname, const char *property, ch
 
         assert(property);
 
-        if (!IN_SET(af, AF_INET, AF_INET6))
+        if (!IN_SET(af, AF_INET, AF_INET6, AF_MPLS))
                 return -EAFNOSUPPORT;
 
         if (ifname) {
                 if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
                         return -EINVAL;
 
-                p = strjoina("net/", af_to_ipv4_ipv6(af), "/conf/", ifname, "/", property);
+                p = strjoina("net/", af_to_sysctl_dir(af), "/conf/", ifname, "/", property);
         } else
-                p = strjoina("net/", af_to_ipv4_ipv6(af), "/", property);
+                p = strjoina("net/", af_to_sysctl_dir(af), "/", property);
 
         return sysctl_read(p, ret);
 }
