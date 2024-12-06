@@ -56,13 +56,21 @@ int add_match_this_boot(sd_journal *j, const char *machine);
 
 int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id);
 
-int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit);
+typedef enum MatchUnitFlag {
+        MATCH_UNIT_SLICE          = 1 << 0,
+        MATCH_UNIT_COREDUMP       = 1 << 1,
+        MATCH_UNIT_COREDUMP_UID   = 1 << 2,
+
+        MATCH_UNIT_ALL = MATCH_UNIT_SLICE | MATCH_UNIT_COREDUMP | MATCH_UNIT_COREDUMP_UID,
+} MatchUnitFlag;
+
+int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit);
 static inline int add_matches_for_unit(sd_journal *j, const char *unit) {
-        return add_matches_for_unit_full(j, true, unit);
+        return add_matches_for_unit_full(j, MATCH_UNIT_ALL, unit);
 }
-int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit);
+int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit);
 static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
-        return add_matches_for_user_unit_full(j, true, unit);
+        return add_matches_for_user_unit_full(j, MATCH_UNIT_ALL, unit);
 }
 
 int show_journal_by_unit(
