@@ -421,7 +421,7 @@ int generator_write_timeouts(
                                     timeout);
 }
 
-int generator_write_device_deps(
+int generator_write_network_device_deps(
                 const char *dir,
                 const char *what,
                 const char *where,
@@ -434,6 +434,10 @@ int generator_write_device_deps(
 
         _cleanup_free_ char *node = NULL, *unit = NULL;
         int r;
+
+        assert(dir);
+        assert(what);
+        assert(where);
 
         if (fstab_is_extrinsic(where, opts))
                 return 0;
@@ -451,8 +455,7 @@ int generator_write_device_deps(
 
         r = unit_name_from_path(node, ".device", &unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
-                                       node);
+                return log_error_errno(r, "Failed to make unit name from path \"%s\": %m", node);
 
         /* See mount_add_default_dependencies for explanation why we create such
          * dependencies. */

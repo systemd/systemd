@@ -32,7 +32,7 @@ int generator_write_timeouts(
 
 int generator_write_blockdev_dependency(FILE *f, const char *what);
 
-int generator_write_device_deps(
+int generator_write_network_device_deps(
         const char *dir,
         const char *what,
         const char *where,
