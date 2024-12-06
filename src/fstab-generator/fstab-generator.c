@@ -289,7 +289,7 @@ static int add_swap(
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, options, NULL);
+        r = generator_write_device_timeout(arg_dest, what, options, NULL);
         if (r < 0)
                 return r;
 
@@ -670,7 +670,7 @@ static int add_mount(
                 fprintf(f, "Type=%s\n", t);
         }
 
-        r = generator_write_timeouts(dest, what, where, opts, &filtered);
+        r = generator_write_device_timeout(dest, what, opts, &filtered);
         if (r < 0)
                 return r;
 

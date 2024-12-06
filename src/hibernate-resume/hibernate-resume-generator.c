@@ -75,11 +75,7 @@ static int process_resume(const HibernateInfo *info) {
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
-        r = generator_write_timeouts(arg_dest,
-                                     info->device,
-                                     info->device,
-                                     arg_resume_options ?: arg_root_options,
-                                     NULL);
+        r = generator_write_device_timeout(arg_dest, info->device, arg_resume_options ?: arg_root_options, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
