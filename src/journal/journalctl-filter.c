@@ -135,12 +135,19 @@ static int get_possible_units(
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
         bool added = false;
+        MatchUnitFlag flags = MATCH_UNIT_ALL;
         int r;
 
         assert(j);
 
         if (strv_isempty(arg_system_units) && strv_isempty(arg_user_units))
                 return 0;
+
+        /* When --directory/-D, --root, --file/-i, or --machine/-M is specified, the opened journal file may
+         * be external, and the uid of the systemd-coredump user that generates the coredump entries may be
+         * different from the one in the current host. Let's relax the filter condition in such cases. */
+        if (arg_directory || arg_root || arg_file_stdin || arg_file || arg_machine)
+                flags &= ~MATCH_UNIT_COREDUMP_UID;
 
         STRV_FOREACH(i, arg_system_units) {
                 _cleanup_free_ char *u = NULL;
@@ -154,7 +161,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_unit(j, u);
+                        r = add_matches_for_unit_full(j, flags, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -173,7 +180,7 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_unit(j, u);
+                        r = add_matches_for_unit_full(j, flags, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -197,7 +204,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_user_unit(j, u);
+                        r = add_matches_for_user_unit_full(j, flags, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -216,7 +223,7 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_user_unit(j, u);
+                        r = add_matches_for_user_unit_full(j, flags, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
