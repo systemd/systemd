@@ -201,7 +201,8 @@ jobs:
             --suite integration-tests \
             --print-errorlogs \
             --no-stdsplit \
-            --num-processes "$(($(nproc) - 1))"
+            --num-processes "$(($(nproc) - 1))" \
+            --max-lines 300
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4
