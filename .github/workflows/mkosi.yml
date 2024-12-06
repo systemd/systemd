@@ -152,6 +152,8 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
+          ToolsTree=default
+          ToolsTreeDistribution=fedora
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
@@ -178,47 +180,28 @@ jobs:
       - name: Show image summary
         run: mkosi summary
 
-      - name: Install dependencies
-        run: |
-          mkosi dependencies |
-          xargs -d '\n' sudo apt-get install \
-              gperf \
-              libblkid-dev \
-              libcap-dev \
-              libcryptsetup-dev \
-              libcurl4-openssl-dev \
-              libfdisk-dev \
-              libmicrohttpd-dev \
-              libmount-dev \
-              libtss2-dev \
-              meson
+      - name: Build tools tree
+        run: mkosi -f sandbox true
 
       - name: Configure meson
-        run: |
-          OPTIONS=(
-              --buildtype=debugoptimized
-              -Dintegration-tests=true
-              -Dremote=enabled
-              -Dopenssl=enabled
-              -Dblkid=enabled
-              -Dtpm2=enabled
-              -Dlibcryptsetup=enabled
-              -Dlibcurl=enabled
-              -Drepart=enabled
-              -Dfirstboot=true
-              -Dsysusers=true
-              -Dtmpfiles=true
-              -Dhwdb=true
-              -Dvmspawn=enabled
-          )
-
-          meson setup build "${OPTIONS[@]}"
+        run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 
       - name: Build image
-        run: sudo meson compile -C build mkosi
+        run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
 
       - name: Run integration tests
-        run: sudo --preserve-env env TEST_PREFER_QEMU=${{ matrix.qemu }} meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
+        run: |
+          sudo --preserve-env \
+            mkosi sandbox \
+            env \
+            TEST_PREFER_QEMU=${{ matrix.qemu }} \
+            meson test \
+            -C build \
+            --no-rebuild \
+            --suite integration-tests \
+            --print-errorlogs \
+            --no-stdsplit \
+            --num-processes "$(($(nproc) - 1))"
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4
