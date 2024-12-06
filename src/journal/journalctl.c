@@ -45,7 +45,7 @@ bool arg_no_tail = false;
 bool arg_truncate_newline = false;
 bool arg_quiet = false;
 bool arg_merge = false;
-bool arg_boot = false;
+int arg_boot = -1; /* tristate */
 sd_id128_t arg_boot_id = {};
 int arg_boot_offset = 0;
 bool arg_dmesg = false;
@@ -452,12 +452,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'e':
                         arg_pager_flags |= PAGER_JUMP_TO_END;
-
-                        if (arg_lines == ARG_LINES_DEFAULT)
-                                arg_lines = 1000;
-
-                        arg_boot = true;
-
                         break;
 
                 case 'f':
@@ -563,7 +557,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'k':
-                        arg_boot = arg_dmesg = true;
+                        arg_dmesg = true;
                         break;
 
                 case ARG_SYSTEM:
@@ -987,11 +981,19 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_no_tail)
                 arg_lines = ARG_LINES_ALL;
 
-        if (arg_follow && !arg_since_set && arg_lines == ARG_LINES_DEFAULT)
-                arg_lines = 10;
+        if (arg_lines == ARG_LINES_DEFAULT) {
+                if (arg_follow && !arg_since_set)
+                        arg_lines = 10;
+                else if (FLAGS_SET(arg_pager_flags, PAGER_JUMP_TO_END))
+                        arg_lines = 1000;
+        }
 
-        if (arg_follow && !arg_merge && !arg_boot) {
-                arg_boot = true;
+        if (arg_boot < 0)
+                /* Show the current boot if -f/--follow, -k/--dmesg, or -e/--pager-end is specified unless
+                 * -m/--merge is specified. */
+                arg_boot = !arg_merge && (arg_follow || arg_dmesg || FLAGS_SET(arg_pager_flags, PAGER_JUMP_TO_END));
+        if (!arg_boot) {
+                /* Clear the boot ID and offset if -b/--boot is unspecified for safety. */
                 arg_boot_id = SD_ID128_NULL;
                 arg_boot_offset = 0;
         }
