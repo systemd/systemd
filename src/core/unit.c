@@ -3542,13 +3542,19 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-                        r = sd_bus_error_get_errno(e);
+                r = sd_bus_error_get_errno(e);
+
+                /* If GetNameOwner() times out or our connection to the bus is lost, let's log about it and
+                 * continue. Otherwise this condition would not be distinguished from the no owner case, and
+                 * we might inadvertently kill a healthy service. In the event we fail to install the NameOwnerChange
+                 * match, the bus connection is closed and we have to start over anyway from bus_api_init. */
+                if (sd_bus_error_has_names(e, SD_BUS_ERROR_NO_REPLY, SD_BUS_ERROR_DISCONNECTED)) {
+                        log_unit_warning_errno(u, r, "GetNameOwner() failed, ignoring: %s", bus_error_message(e, r));
+                        return 0;
+                } else if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
                                              bus_error_message(e, r));
-                }
-
                 new_owner = NULL;
         } else {
                 r = sd_bus_message_read(message, "s", &new_owner);
