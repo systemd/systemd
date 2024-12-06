@@ -169,6 +169,7 @@ def main() -> None:
                         'systemd.show_status=error',
                         'systemd.crash_shell=0',
                         'systemd.crash_action=poweroff',
+                        'loglevel=6',
                     ]
                     if not sys.stderr.isatty()
                     else []
