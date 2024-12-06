@@ -1653,6 +1653,7 @@ int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
                         /* Look for coredumps of the service */
                         (r = sd_journal_add_disjunction(j)) ||
                         (r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
                         (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit))
                 );
 
@@ -1695,7 +1696,8 @@ int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
                         /* Look for coredumps of the service */
                         (r = sd_journal_add_disjunction(j)) ||
                         (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
-                        (r = journal_add_matchf(j, "_UID="UID_FMT, uid))
+                        (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
                 );
 
         if (r == 0 && all && endswith(unit, ".slice"))
