@@ -2446,7 +2446,7 @@ static EFI_STATUS initrd_prepare(
         _cleanup_free_ char16_t *options = NULL;
 
         EFI_STATUS err;
-        size_t size = 0;
+        size_t size = 0, padded_size = 0;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_free_ char16_t *o = options;
@@ -2465,11 +2465,14 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                if (!INC_SAFE(&size, ALIGN4(info->FileSize)))
+                size_t inc = info->FileSize;
+
+                if (!INC_SAFE(&padded_size, ALIGN4(inc)))
                         return EFI_OUT_OF_RESOURCES;
+                assert_se(INC_SAFE(&size, *(i + 1) ? ALIGN4(inc) : inc));
         }
 
-        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(size);
+        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(padded_size);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {
@@ -2501,7 +2504,11 @@ static EFI_STATUS initrd_prepare(
                         continue;
 
                 memzero(p, pad);
-                p += pad;
+                /* Exclude the trailing pad from size calculations. This would change the
+                 * calculated hash, see https://github.com/systemd/systemd/issues/35439
+                 * and https://bugzilla.suse.com/show_bug.cgi?id=1233752. */
+                if (*(i + 1))
+                        p += pad;
         }
 
         assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + size) == p);
