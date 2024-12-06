@@ -787,10 +787,7 @@ int generator_enable_remount_fs_service(const char *dir) {
                                      SYSTEM_DATA_UNIT_DIR "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
-int generator_write_blockdev_dependency(
-                FILE *f,
-                const char *what) {
-
+int generator_write_blockdev_dependency(FILE *f, const char *what) {
         _cleanup_free_ char *escaped = NULL;
         int r;
 
@@ -811,10 +808,7 @@ int generator_write_blockdev_dependency(
         return 0;
 }
 
-int generator_write_cryptsetup_unit_section(
-                FILE *f,
-                const char *source) {
-
+int generator_write_cryptsetup_unit_section(FILE *f, const char *source) {
         assert(f);
 
         fprintf(f,
@@ -886,10 +880,7 @@ int generator_write_cryptsetup_service_section(
         return 0;
 }
 
-int generator_write_veritysetup_unit_section(
-                FILE *f,
-                const char *source) {
-
+int generator_write_veritysetup_unit_section(FILE *f, const char *source) {
         assert(f);
 
         fprintf(f,
