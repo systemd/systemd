@@ -1562,6 +1562,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
         DnsTransaction *t = ASSERT_PTR(userdata);
+        bool ghosted = false;
 
         assert(s);
 
@@ -1576,7 +1577,13 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
+                        ghosted = t->key && dns_resource_key_is_v6_address (t->key);
+                        /* Packetloss count is set to 0 on receipt of a packet,
+                         * so declaring packet loss when we are unsure is Ok.
+                         * UDP packet loss is indistinguishable from ghosting.
+                         * TCP ghosting is _probably_ actual ghosting. */
+                        if (!t->stream || !ghosted)
+                                dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -1591,9 +1598,23 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                 log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
         }
 
-        dns_transaction_retry(t, /* next_server= */ true); /* try a different server, but given this means
-                                                            * packet loss, let's do so even if we already
-                                                            * tried a bunch */
+        /* Some servers simply don't reply when asked for an AAAA record for a
+         * hostname that doesn't have one. They _should_ send us NODATA, ie a
+         * reply with no error set and 0 replies.
+         * We shouldn't keep looping round if this has happened as they're never
+         * going to reply. */
+        if (ghosted) {
+                if(!dns_transaction_limited_retry (t)) {
+                        log_debug ("Transaction %" PRIu16 " ghosted, no more servers available", t->id);
+                        dns_transaction_complete_errno (t, DNS_TRANSACTION_ABORTED);
+                }
+        } else {
+                /* try a different server, but given this means
+                 * packet loss, let's do so even if we already
+                 * tried a bunch */
+                dns_transaction_retry(t, /* next_server= */ true);
+        }
+
         return 0;
 }
 

@@ -333,6 +333,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
         } while(0)
 
 const char* dns_resource_key_name(const DnsResourceKey *key);
+bool dns_resource_key_is_v6_address (const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_two_label_ptr(const DnsResourceKey *key);
