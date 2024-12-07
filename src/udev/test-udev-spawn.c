@@ -10,17 +10,44 @@
 
 #define BUF_SIZE 1024
 
-static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size) {
+static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size, int expected) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_(udev_event_freep) UdevEvent *event = NULL;
 
-        assert_se(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1) >= 0);
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1));
 
-        assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
-        assert_se(event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN));
-        assert_se(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL) == 0);
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
+        ASSERT_NOT_NULL(event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN));
+        ASSERT_EQ(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL), expected);
 
-        assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_PIDFD"));
+}
+
+static void test_event_spawn_sleep_child(bool with_pidfd) {
+        _cleanup_free_ char *cmd = NULL;
+
+        log_debug("/* %s(%s) */", __func__, yes_no(with_pidfd));
+
+        ASSERT_OK(find_executable("sleep", &cmd));
+        ASSERT_NOT_NULL(strextend_with_separator(&cmd, " ", "1h"));
+
+        test_event_spawn_core(with_pidfd, cmd, NULL, 0, -EIO);
+}
+
+static void test_event_spawn_sleep(bool with_pidfd) {
+        PidRef pidref;
+        int r;
+
+        r = pidref_safe_fork("(test-worker)", FORK_LOG, &pidref);
+        ASSERT_OK(r);
+        if (r == 0) {
+                test_event_spawn_sleep_child(with_pidfd);
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(usleep_safe(USEC_PER_SEC));
+        ASSERT_OK(pidref_kill(&pidref, SIGTERM));
+        ASSERT_OK(wait_for_terminate_with_timeout(pidref.pid, 10 * USEC_PER_SEC));
 }
 
 static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
@@ -30,18 +57,18 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
 
         log_debug("/* %s(%s) */", __func__, yes_no(with_pidfd));
 
-        assert_se(find_executable("cat", &cmd) >= 0);
-        assert_se(strextend_with_separator(&cmd, " ", "/sys/class/net/lo/uevent"));
+        ASSERT_OK(find_executable("cat", &cmd));
+        ASSERT_NOT_NULL(strextend_with_separator(&cmd, " ", "/sys/class/net/lo/uevent"));
 
         test_event_spawn_core(with_pidfd, cmd, result_buf,
-                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
+                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size, 0);
 
-        assert_se(lines = strv_split_newlines(result_buf));
+        ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
         strv_print(lines);
 
         if (buf_size >= BUF_SIZE) {
-                assert_se(strv_contains(lines, "INTERFACE=lo"));
-                assert_se(strv_contains(lines, "IFINDEX=1"));
+                ASSERT_TRUE(strv_contains(lines, "INTERFACE=lo"));
+                ASSERT_TRUE(strv_contains(lines, "IFINDEX=1"));
         }
 }
 
@@ -53,15 +80,15 @@ static void test_event_spawn_self(const char *self, const char *arg, bool with_p
         log_debug("/* %s(%s, %s) */", __func__, arg, yes_no(with_pidfd));
 
         /* 'self' may contain spaces, hence needs to be quoted. */
-        assert_se(cmd = strjoin("'", self, "' ", arg));
+        ASSERT_NOT_NULL(cmd = strjoin("'", self, "' ", arg));
 
-        test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE);
+        test_event_spawn_core(with_pidfd, cmd, result_buf, BUF_SIZE, 0);
 
-        assert_se(lines = strv_split_newlines(result_buf));
+        ASSERT_NOT_NULL(lines = strv_split_newlines(result_buf));
         strv_print(lines);
 
-        assert_se(strv_contains(lines, "aaa"));
-        assert_se(strv_contains(lines, "bbb"));
+        ASSERT_TRUE(strv_contains(lines, "aaa"));
+        ASSERT_TRUE(strv_contains(lines, "bbb"));
 }
 
 static void test1(void) {
@@ -114,5 +141,7 @@ int main(int argc, char *argv[]) {
         test_event_spawn_self(self, "test2", true);
         test_event_spawn_self(self, "test2", false);
 
+        test_event_spawn_sleep(true);
+        test_event_spawn_sleep(false);
         return 0;
 }
