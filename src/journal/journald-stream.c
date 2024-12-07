@@ -40,7 +40,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-#define STDOUT_STREAMS_MAX 4096
+#define STDOUT_STREAMS_MAX (64*1024)
 
 /* During the "setup" protocol phase of the stream logic let's define a different maximum line length than
  * during the actual operational phase. We want to allow users to specify very short line lengths after all,
