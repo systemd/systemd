@@ -38,6 +38,9 @@ foreach testcase : [
                         ],
                         'priority' : 10,
                         'vm' : true,
+                        # Suppress ASan error
+                        # 'multipathd[1820]: ==1820==ERROR: AddressSanitizer: Joining already joined thread, aborting.'
+                        'sanitizer-exclude-regex' : 'multipathd'
                 },
         ]
 endforeach
