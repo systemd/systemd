@@ -51,6 +51,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
+#define LOADER_PARTITION_IDLE_USEC (120 * USEC_PER_SEC)
+
 static int add_cryptsetup(
                 const char *id,
                 const char *what,
@@ -499,7 +501,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
                         /* growfs= */ false,
                         options,
                         "Boot Loader Partition",
-                        120 * USEC_PER_SEC);
+                        LOADER_PARTITION_IDLE_USEC);
 }
 
 #if ENABLE_EFI
@@ -566,7 +568,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                         /* growfs= */ false,
                         options,
                         "EFI System Partition Automount",
-                        120 * USEC_PER_SEC);
+                        LOADER_PARTITION_IDLE_USEC);
 }
 #else
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
