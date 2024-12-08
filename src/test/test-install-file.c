@@ -8,7 +8,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-TEST(install_file) {
+TEST(install_file, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
         struct stat stat1, stat2;

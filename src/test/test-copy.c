@@ -382,7 +382,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
                 assert_se((uint64_t) buf3.st_size == max_bytes);
 }
 
-TEST(copy_bytes_regular_file) {
+TEST(copy_bytes_regular_file, .proc_mounted = true) {
         test_copy_bytes_regular_file_one(saved_argv[0], false, UINT64_MAX);
         test_copy_bytes_regular_file_one(saved_argv[0], true, UINT64_MAX);
         test_copy_bytes_regular_file_one(saved_argv[0], false, 1000); /* smaller than copy buffer size */
@@ -391,7 +391,7 @@ TEST(copy_bytes_regular_file) {
         test_copy_bytes_regular_file_one(saved_argv[0], true, 32000);
 }
 
-TEST(copy_atomic) {
+TEST(copy_atomic, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         const char *q;
         int r;
@@ -409,7 +409,7 @@ TEST(copy_atomic) {
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, COPY_REPLACE) >= 0);
 }
 
-TEST(copy_proc) {
+TEST(copy_proc, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *f = NULL, *a = NULL, *b = NULL;
 
@@ -569,7 +569,7 @@ TEST(copy_lock) {
         fd = safe_close(fd);
 }
 
-TEST(copy_verify_linked) {
+TEST(copy_verify_linked, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
 

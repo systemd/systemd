@@ -25,7 +25,7 @@ static void test_is_wanted_print_one(bool header) {
         log_info(" ");
 }
 
-TEST(is_wanted_print) {
+TEST(is_wanted_print, .proc_mounted = true) {
         test_is_wanted_print_one(true);
         test_is_wanted_print_one(false); /* run twice to test caching */
 }

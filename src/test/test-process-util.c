@@ -104,7 +104,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
-TEST(pid_get_comm) {
+TEST(pid_get_comm, .proc_mounted = true) {
         if (saved_argc > 1) {
                 pid_t pid = 0;
 
@@ -813,7 +813,7 @@ TEST(setpriority_closest) {
         }
 }
 
-TEST(get_process_ppid) {
+TEST(get_process_ppid, .proc_mounted = true) {
         uint64_t limit;
         int r;
 
@@ -850,7 +850,7 @@ TEST(get_process_ppid) {
         }
 }
 
-TEST(set_oom_score_adjust) {
+TEST(set_oom_score_adjust, .proc_mounted = true) {
         int a, b, r;
 
         ASSERT_OK(get_oom_score_adjust(&a));
@@ -881,7 +881,7 @@ static void* dummy_thread(void *p) {
         return NULL;
 }
 
-TEST(get_process_threads) {
+TEST(get_process_threads, .proc_mounted = true) {
         int r;
 
         /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
@@ -973,7 +973,7 @@ TEST(is_reaper_process) {
         }
 }
 
-TEST(pid_get_start_time) {
+TEST(pid_get_start_time, .proc_mounted = true) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&pidref));

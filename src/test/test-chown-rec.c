@@ -38,7 +38,7 @@ static bool has_xattr(const char *p) {
         return true;
 }
 
-TEST(chown_recursive) {
+TEST(chown_recursive, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         struct stat st;
         const char *p;
