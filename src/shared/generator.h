@@ -29,6 +29,17 @@ int generator_write_device_timeout(
         const char *opts,
         char **filtered);
 
+int generator_write_unit_timeout(
+                FILE *f,
+                const char *where,
+                const char *opts,
+                const char *filter,
+                const char *unit_setting);
+static inline int generator_write_mount_timeout(FILE *f, const char *where, const char *opts) {
+        return generator_write_unit_timeout(f, where, opts,
+                                            "x-systemd.mount-timeout\0", "TimeoutSec");
+}
+
 int generator_write_blockdev_dependency(FILE *f, const char *what);
 
 int generator_write_network_device_deps(

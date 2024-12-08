@@ -427,6 +427,39 @@ int generator_write_device_timeout(
         return 1;
 }
 
+int generator_write_unit_timeout(
+                FILE *f,
+                const char *where,
+                const char *opts,
+                const char *filter,
+                const char *unit_setting) {
+
+        _cleanup_free_ char *timeout = NULL;
+        usec_t u;
+        int r;
+
+        assert(f);
+        assert(where);
+        assert(filter);
+        assert(unit_setting);
+
+        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
+        if (r == 0)
+                return 0;
+
+        r = parse_sec_fix_0(timeout, &u);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse timeout '%s' for '%s', ignoring: %m", timeout, where);
+                return 0;
+        }
+
+        fprintf(f, "%s=%s\n", unit_setting, FORMAT_TIMESPAN(u, 0));
+
+        return 0;
+}
+
 int generator_write_network_device_deps(
                 const char *dir,
                 const char *what,
