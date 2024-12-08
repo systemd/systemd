@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "copy.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
@@ -569,4 +570,192 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         return sd_varlink_reply(link, v);
+}
+
+typedef struct MachineCopyParameters {
+        const char *name;
+        PidRef pidref;
+        char *src, *dest;
+        bool replace;
+} MachineCopyParameters;
+
+static void machine_copy_paramaters_done(MachineCopyParameters *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+        free(p->src);
+        free(p->dest);
+}
+
+static int copy_done(Operation *operation, int ret, sd_bus_error *error) {
+        assert(operation);
+        assert(operation->link);
+
+        // TODO(ikruglov): maybe just leaving a plain errno in response?
+        if (ret == -EPERM || ret == -EACCES)
+                return sd_varlink_error(operation->link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(ret))
+                return sd_varlink_error(operation->link, "io.systemd.Machine.NotSupported", NULL);
+        if (ret == -ENOENT)
+                return sd_varlink_error(operation->link, "io.systemd.Machine.NoSuchFile", NULL);
+        if (ret == -EEXIST)
+                return sd_varlink_error(operation->link, "io.systemd.Machine.FileExists", NULL);
+        if (ret < 0)
+                return sd_varlink_error_errno(operation->link, ret);
+
+        return sd_varlink_reply(operation->link, NULL);
+}
+
+int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool copy_from) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineCopyParameters),
+                { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineCopyParameters, src),     SD_JSON_MANDATORY },
+                { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_path,       offsetof(MachineCopyParameters, dest),    0                 },
+                { "replace",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineCopyParameters, replace), 0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_close_ int hostfd = -EBADF, mntns_fd = -EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(machine_copy_paramaters_done) MachineCopyParameters p = { .pidref = PIDREF_NULL };
+        _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
+        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
+        uid_t uid_shift;
+        pid_t child;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (manager->n_operations >= OPERATIONS_MAX)
+                return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* There is no need for extra validation since path_is_absolute() does path_is_valid() and path_is_absolute().*/
+        const char *dest = p.dest ?: p.src;
+        const char *container_path = copy_from ? p.src : dest;
+        const char *host_path = copy_from ? dest : p.src;
+        copy_flags |= p.replace ? COPY_REPLACE : 0;
+
+        Machine *machine;
+        r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Machine.NoSuchMachine", NULL);
+        if (r != 0)
+                return r;
+
+        if (machine->class != MACHINE_CONTAINER)
+                return sd_varlink_error(link, "io.systemd.Machine.NotSupported", NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->bus,
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("name", machine->name,
+                                                 "verb", "copy",
+                                                 "src", p.src,
+                                                 "dest", dest),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = path_extract_filename(host_path, &host_basename);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", host_path);
+
+        r = path_extract_filename(container_path, &container_basename);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", container_path);
+
+        hostfd = open_parent(host_path, O_CLOEXEC, 0);
+        if (hostfd < 0)
+                return log_debug_errno(hostfd, "Failed to open host directory %s: %m", host_path);
+
+        r = machine_get_uid_shift(machine, &uid_shift);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine UID shift: %m");
+
+        r = pidref_namespace_open(&machine->leader,
+                        /* ret_pidns_fd = */  NULL,
+                        &mntns_fd,
+                        /* ret_netns_fd = */  NULL,
+                        /* ret_userns_fd = */ NULL,
+                        /* ret_root_fd = */   NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open namespace: %m");
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        r = namespace_fork("(sd-copyns)",
+                           "(sd-copy)",
+                           /* except_fds = */ NULL,
+                           /* n_except_fds = */ 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                           /* pidns_fd = */ -1,
+                           mntns_fd,
+                           /* netns_fd = */ -1,
+                           /* userns_fd = */ -1,
+                           /* root_fd = */ -1,
+                           &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork(): %m");
+        if (r == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                _cleanup_close_ int containerfd = -EBADF;
+                containerfd = open_parent(container_path, O_CLOEXEC, 0);
+                if (containerfd < 0) {
+                        log_error_errno(containerfd, "Failed to open destination directory: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], containerfd);
+                }
+
+                /* Run the actual copy operation. Note that when a UID shift is set we'll either clamp the UID/GID to */
+                /* 0 or to the actual UID shift depending on the direction we copy. If no UID shift is set we'll copy */
+                /* the UID/GIDs as they are.  */
+                r = copy_from ? copy_tree_at(
+                                        containerfd,
+                                        container_basename,
+                                        hostfd,
+                                        host_basename,
+                                        uid_shift == 0 ? UID_INVALID : 0,
+                                        uid_shift == 0 ? GID_INVALID : 0,
+                                        copy_flags,
+                                        /* denylist = */ NULL,
+                                        /* subvolumes = */ NULL)
+                              : copy_tree_at(
+                                        hostfd,
+                                        host_basename,
+                                        containerfd,
+                                        container_basename,
+                                        uid_shift == 0 ? UID_INVALID : uid_shift,
+                                        uid_shift == 0 ? GID_INVALID : uid_shift,
+                                        copy_flags,
+                                        /* denylist = */ NULL,
+                                        /* subvolumes = */ NULL);
+
+                if (r < 0)
+                        log_error_errno(r, "Failed to copy tree: %m");
+
+                report_errno_and_exit(errno_pipe_fd[1], r);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        Operation *operation;
+        r = operation_new_with_varlink_reply(manager, machine, child, link, errno_pipe_fd[0], &operation);
+        if (r < 0) {
+                sigkill_wait(child);
+                return r;
+        }
+
+        operation->done = copy_done;
+
+        TAKE_FD(errno_pipe_fd[0]);
+        return 1;
 }
