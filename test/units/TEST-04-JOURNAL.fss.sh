@@ -10,6 +10,11 @@ if ! journalctl --version | grep -qF +GCRYPT; then
     exit 0
 fi
 
+# output key and related info in json format
+for mode in json json-pretty json-seq json-sse; do
+    journalctl --force --setup-keys --interval=2 --output="$mode" | jq . >/dev/null
+done
+
 # without --quiet, should be effectively equivalent to the below, as we are not on tty
 journalctl --force --setup-keys --interval=2
 
