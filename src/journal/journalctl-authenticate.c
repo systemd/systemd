@@ -60,33 +60,35 @@ int action_setup_keys(void) {
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
+        int log_level = arg_quiet ? LOG_DEBUG : LOG_ERR;
+
         r = is_dir("/var/log/journal/", /* follow = */ false);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR),
-                                       "/var/log/journal is not a directory, must be using persistent logging for FSS.");
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOTDIR),
+                                      "/var/log/journal is not a directory, must be using persistent logging for FSS.");
         if (r == -ENOENT)
-                return log_error_errno(r, "Directory /var/log/journal/ does not exist, must be using persistent logging for FSS.");
+                return log_full_errno(log_level, r, "Directory /var/log/journal/ does not exist, must be using persistent logging for FSS.");
         if (r < 0)
-                return log_error_errno(r, "Failed to check if /var/log/journal/ is a directory: %m");
+                return log_full_errno(log_level, r, "Failed to check if /var/log/journal/ is a directory: %m");
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
-                return log_error_errno(r, "Failed to get machine ID: %m");
+                return log_full_errno(log_level, r, "Failed to get machine ID: %m");
 
         r = sd_id128_get_boot(&boot);
         if (r < 0)
-                return log_error_errno(r, "Failed to get boot ID: %m");
+                return log_full_errno(log_level, r, "Failed to get boot ID: %m");
 
         path = path_join("/var/log/journal/", SD_ID128_TO_STRING(machine), "/fss");
         if (!path)
-                return log_oom();
+                return log_oom_full(log_level);
 
         if (arg_force) {
                 if (unlink(path) < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "Failed to remove \"%s\": %m", path);
+                        return log_full_errno(log_level, errno, "Failed to remove \"%s\": %m", path);
         } else if (access(path, F_OK) >= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                       "Sealing key file %s exists already. Use --force to recreate.", path);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EEXIST),
+                                      "Sealing key file %s exists already. Use --force to recreate.", path);
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
         mpk = alloca_safe(mpk_size);
@@ -97,20 +99,23 @@ int action_setup_keys(void) {
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
         state = alloca_safe(state_size);
 
-        log_info("Generating seed...");
+        if (!arg_quiet)
+                log_info("Generating seed...");
         r = crypto_random_bytes(seed, seed_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
+                return log_full_errno(log_level, r, "Failed to acquire random seed: %m");
 
-        log_info("Generating key pair...");
+        if (!arg_quiet)
+                log_info("Generating key pair...");
         r = FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate key pair: %m");
+                return log_full_errno(log_level, r, "Failed to generate key pair: %m");
 
-        log_info("Generating sealing key...");
+        if (!arg_quiet)
+                log_info("Generating sealing key...");
         r = FSPRG_GenState0(state, mpk, seed, seed_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate sealing key: %m");
+                return log_full_errno(log_level, r, "Failed to generate sealing key: %m");
 
         assert(arg_interval > 0);
         n = now(CLOCK_REALTIME);
@@ -118,11 +123,11 @@ int action_setup_keys(void) {
 
         fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmpfile);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open a temporary file for %s: %m", path);
+                return log_full_errno(log_level, fd, "Failed to open a temporary file for %s: %m", path);
 
         r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || arg_quiet ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
@@ -138,15 +143,15 @@ int action_setup_keys(void) {
 
         r = loop_write(fd, &h, sizeof(h));
         if (r < 0)
-                return log_error_errno(r, "Failed to write header: %m");
+                return log_full_errno(log_level, r, "Failed to write header: %m");
 
         r = loop_write(fd, state, state_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to write state: %m");
+                return log_full_errno(log_level, r, "Failed to write state: %m");
 
         r = link_tmpfile(fd, tmpfile, path, /* flags = */ 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to link file: %m");
+                return log_full_errno(log_level, r, "Failed to link file: %m");
 
         tmpfile = mfree(tmpfile);
 
@@ -155,7 +160,7 @@ int action_setup_keys(void) {
         if (r < 0)
                 return r;
 
-        if (!on_tty()) {
+        if (!on_tty() || arg_quiet) {
                 /* If we are not on a TTY, show only the key. */
                 puts(key);
                 return 0;
