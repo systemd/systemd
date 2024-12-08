@@ -862,7 +862,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *p;
 
-                p = procfs_file_alloca(pidref->pid, "status");
+                p = procfs_file_alloca_pidref(pidref, "status");
 
                 f = fopen(p, "re");
                 if (!f) {
@@ -1026,7 +1026,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
         if (missing & SD_BUS_CREDS_SELINUX_CONTEXT) {
                 const char *p;
 
-                p = procfs_file_alloca(pidref->pid, "attr/current");
+                p = procfs_file_alloca_pidref(pidref, "attr/current");
                 r = read_one_line_file(p, &c->label);
                 if (r < 0) {
                         if (!IN_SET(r, -ENOENT, -EINVAL, -EPERM, -EACCES))
@@ -1066,7 +1066,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
         if (missing & SD_BUS_CREDS_CMDLINE) {
                 const char *p;
 
-                p = procfs_file_alloca(pidref->pid, "cmdline");
+                p = procfs_file_alloca_pidref(pidref, "cmdline");
                 r = read_full_virtual_file(p, &c->cmdline, &c->cmdline_size);
                 if (r == -ENOENT)
                         return -ESRCH;
