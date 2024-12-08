@@ -1132,7 +1132,7 @@ static int mount_in_namespace(
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         pid_t child;
 
-        if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
+        if (!(flags & MOUNT_IN_NAMESPACE_UMOUNT) && flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
                 r = verity_dissect_and_mount(
                                 chased_src_fd,
                                 chased_src_path,
@@ -1150,7 +1150,7 @@ static int mount_in_namespace(
                         return log_debug_errno(r,
                                                "Failed to dissect and mount image '%s': %m",
                                                chased_src_path);
-        } else {
+        } else if (!(flags & MOUNT_IN_NAMESPACE_UMOUNT)) {
                 new_mount_fd = open_tree(
                                 chased_src_fd,
                                 "",
@@ -1188,6 +1188,18 @@ static int mount_in_namespace(
                 return log_debug_errno(r, "Failed to fork off mount helper into namespace: %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (flags & MOUNT_IN_NAMESPACE_UMOUNT) {
+                        r = umount_verbose(LOG_DEBUG, dest, UMOUNT_NOFOLLOW);
+                        if (r < 0) {
+                                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
 
                 if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY)
                         (void) mkdir_parents(dest, 0755);

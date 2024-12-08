@@ -71,6 +71,7 @@
 #include "unit-serialize.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+#include "vpick.h"
 
 static bool is_terminal_input(ExecInput i) {
         return IN_SET(i,
@@ -1937,6 +1938,25 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c) {
 #endif
 
         return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
+int exec_context_has_vpicked_extensions(const ExecContext *context) {
+        int r;
+
+        assert(context);
+
+        FOREACH_ARRAY(mi, context->extension_images, context->n_extension_images) {
+                r = path_uses_vpick(mi->source);
+                if (r != 0)
+                        return r;
+        }
+        STRV_FOREACH(ed, context->extension_directories) {
+                r = path_uses_vpick(*ed);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
