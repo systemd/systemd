@@ -45,6 +45,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
+#include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -1225,6 +1226,13 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
                         log_info("Connected to the local host. Press ^] three times within 1s to exit session.");
                 else
                         log_info("Connected to machine %s. Press ^] three times within 1s to exit session.", name);
+        }
+
+        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
+        if (!terminal_is_dumb()) {
+                r = osc_context_open_container(name, /* ret_seq= */ NULL, &osc_context_id);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_event_set_signal_exit(event, true);
