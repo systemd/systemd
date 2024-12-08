@@ -80,14 +80,14 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             qemu: 0
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             qemu: 0
           - distro: opensuse
             release: tumbleweed
@@ -101,14 +101,14 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             qemu: 0
           - distro: centos
             release: "10"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             qemu: 0
 
     steps:
