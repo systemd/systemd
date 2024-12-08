@@ -14,7 +14,6 @@
 #include "alloc-util.h"
 #include "format-util.h"
 #include "macro.h"
-#include "namespace-util.h"
 #include "pidref.h"
 #include "time-util.h"
 
@@ -54,14 +53,13 @@ int get_process_capeff(pid_t pid, char **ret);
 int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
-int get_process_ppid(pid_t pid, pid_t *ret);
+int pid_get_ppid(pid_t pid, pid_t *ret);
+int pidref_get_ppid(const PidRef *pidref, pid_t *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
-int pidref_get_start_time(const PidRef* pid, usec_t *ret);
+int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
-
-int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
@@ -250,9 +248,6 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
 /* Like TAKE_PTR() but for pid_t, resetting them to 0 */
 #define TAKE_PID(pid) TAKE_GENERIC(pid, pid_t, 0)
-
-int pidfd_get_pid(int fd, pid_t *ret);
-int pidfd_verify_pid(int pidfd, pid_t pid);
 
 int setpriority_closest(int priority);
 

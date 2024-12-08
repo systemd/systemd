@@ -1095,7 +1095,7 @@ static int mount_in_namespace(
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
-        r = inode_same_at(mntns_fd, "", AT_FDCWD, "/proc/self/ns/mnt", AT_EMPTY_PATH);
+        r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine if mount namespaces are equal: %m");
         /* We can't add new mounts at runtime if the process wasn't started in a namespace */

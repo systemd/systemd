@@ -280,7 +280,7 @@ int userns_restrict_put_by_fd(
         assert(userns_fd >= 0);
         assert(n_mount_fds == 0 || mount_fds);
 
-        r = fd_is_ns(userns_fd, CLONE_NEWUSER);
+        r = fd_is_namespace(userns_fd, NAMESPACE_USER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine if file descriptor is user namespace: %m");
         if (r == 0)
