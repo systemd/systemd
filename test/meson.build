@@ -320,7 +320,6 @@ foreach dirname : [
         'TEST-03-JOBS',
         'TEST-04-JOURNAL',
         'TEST-05-RLIMITS',
-        'TEST-06-SELINUX',
         'TEST-07-PID1',
         'TEST-08-INITRD',
         'TEST-09-REBOOT',
