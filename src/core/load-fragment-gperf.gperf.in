@@ -180,7 +180,7 @@
 {% else %}
 {{type}}.SmackProcessLabel,                   config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {% endif %}
-{{type}}.ProtectHostname,                     config_parse_bool,                                  0,                                  offsetof({{type}}, exec_context.protect_hostname)
+{{type}}.ProtectHostname,                     config_parse_protect_hostname,                      0,                                  offsetof({{type}}, exec_context.protect_hostname)
 {{type}}.MemoryKSM,                           config_parse_tristate,                              0,                                  offsetof({{type}}, exec_context.memory_ksm)
 {%- endmacro -%}
 
