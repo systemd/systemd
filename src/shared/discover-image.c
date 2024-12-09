@@ -295,10 +295,15 @@ static int image_update_quota(Image *i, int fd) {
                 return -EOPNOTSUPP;
 
         if (fd < 0) {
-                fd_close = open(i->path, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                fd_close = open(i->path, O_CLOEXEC|O_DIRECTORY);
                 if (fd_close < 0)
                         return -errno;
                 fd = fd_close;
+        } else {
+                /* Convert from O_PATH to proper fd, if needed */
+                fd = fd_reopen_condition(fd, O_CLOEXEC|O_DIRECTORY, O_PATH, &fd_close);
+                if (fd < 0)
+                        return fd;
         }
 
         r = btrfs_quota_scan_ongoing(fd);
