@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-path.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
@@ -551,12 +553,95 @@ static int image_make(
         return -EMEDIUMTYPE;
 }
 
-static const char *pick_image_search_path(ImageClass class) {
-        if (class < 0 || class >= _IMAGE_CLASS_MAX)
-                return NULL;
+static int pick_image_search_path(
+                RuntimeScope scope,
+                ImageClass class,
+                char ***ret) {
 
-        /* Use the initrd search path if there is one, otherwise use the common one */
-        return in_initrd() && image_search_path_initrd[class] ? image_search_path_initrd[class] : image_search_path[class];
+        int r;
+
+        assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
+        assert(class < _IMAGE_CLASS_MAX);
+        assert(ret);
+
+        if (class < 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (scope < 0) {
+                _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, &a);
+                if (r < 0)
+                        return r;
+
+                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, &b);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv(&a, b, /* filter_duplicates= */ false);
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(a);
+                return r;
+        }
+
+        switch (scope) {
+
+        case RUNTIME_SCOPE_SYSTEM: {
+                const char *ns;
+                /* Use the initrd search path if there is one, otherwise use the common one */
+                ns = in_initrd() && image_search_path_initrd[class] ?
+                        image_search_path_initrd[class] :
+                        image_search_path[class];
+                if (!ns)
+                        break;
+
+                _cleanup_strv_free_ char **search = strv_split_nulstr(ns);
+                if (!search)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(search);
+                return 0;
+        }
+
+        case RUNTIME_SCOPE_USER: {
+                if (class != IMAGE_MACHINE)
+                        break;
+
+                static const uint64_t dirs[] = {
+                        SD_PATH_USER_RUNTIME,
+                        SD_PATH_USER_STATE_PRIVATE,
+                        SD_PATH_USER_LIBRARY_PRIVATE,
+                };
+
+                _cleanup_strv_free_ char **search = NULL;
+                FOREACH_ELEMENT(d, dirs) {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = sd_path_lookup(*d, "machines", &p);
+                        if (r == -ENXIO) /* No XDG_RUNTIME_DIR set */
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume(&search, TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                }
+
+                *ret = TAKE_PTR(search);
+                return 0;
+        }
+
+        default:
+                assert_not_reached();
+        }
+
+        *ret = NULL;
+        return 0;
 }
 
 static char **make_possible_filenames(ImageClass class, const char *image_name) {
@@ -590,13 +675,15 @@ static char **make_possible_filenames(ImageClass class, const char *image_name) 
         return TAKE_PTR(l);
 }
 
-int image_find(ImageClass class,
+int image_find(RuntimeScope scope,
+               ImageClass class,
                const char *name,
                const char *root,
                Image **ret) {
 
         int r;
 
+        assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
         assert(name);
@@ -609,13 +696,18 @@ int image_find(ImageClass class,
         if (!names)
                 return -ENOMEM;
 
-        NULSTR_FOREACH(path, pick_image_search_path(class)) {
+        _cleanup_strv_free_ char **search = NULL;
+        r = pick_image_search_path(scope, class, &search);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(path, search) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
                 struct stat st;
                 int flags;
 
-                r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(*path, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -718,7 +810,7 @@ int image_find(ImageClass class,
                 }
         }
 
-        if (class == IMAGE_MACHINE && streq(name, ".host")) {
+        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && streq(name, ".host")) {
                 r = image_make(class, ".host", AT_FDCWD, NULL, empty_to_root(root), NULL, ret);
                 if (r < 0)
                         return r;
@@ -744,29 +836,42 @@ int image_from_path(const char *path, Image **ret) {
         return image_make(_IMAGE_CLASS_INVALID, NULL, AT_FDCWD, NULL, path, NULL, ret);
 }
 
-int image_find_harder(ImageClass class, const char *name_or_path, const char *root, Image **ret) {
+int image_find_harder(
+                RuntimeScope scope,
+                ImageClass class,
+                const char *name_or_path,
+                const char *root,
+                Image **ret) {
+
         if (image_name_is_valid(name_or_path))
-                return image_find(class, name_or_path, root, ret);
+                return image_find(scope, class, name_or_path, root, ret);
 
         return image_from_path(name_or_path, ret);
 }
 
 int image_discover(
+                RuntimeScope scope,
                 ImageClass class,
                 const char *root,
                 Hashmap *h) {
 
         int r;
 
+        assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
         assert(h);
 
-        NULSTR_FOREACH(path, pick_image_search_path(class)) {
+        _cleanup_strv_free_ char **search = NULL;
+        r = pick_image_search_path(scope, class, &search);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(path, search) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(*path, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -915,7 +1020,7 @@ int image_discover(
                 }
         }
 
-        if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
+        if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
                 r = image_make(IMAGE_MACHINE, ".host", AT_FDCWD, NULL, empty_to_root("/"), NULL, &image);
@@ -1025,7 +1130,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
         return rename_noreplace(AT_FDCWD, path, AT_FDCWD, rs);
 }
 
-int image_rename(Image *i, const char *new_name) {
+int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
         _cleanup_strv_free_ char **settings = NULL;
@@ -1060,7 +1165,7 @@ int image_rename(Image *i, const char *new_name) {
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, new_name, NULL, NULL);
+        r = image_find(scope, IMAGE_MACHINE, new_name, NULL, NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1147,7 +1252,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         return copy_file_atomic(path, rs, 0664, COPY_REFLINK);
 }
 
-int image_clone(Image *i, const char *new_name, bool read_only) {
+int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
@@ -1174,7 +1279,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, new_name, NULL, NULL);
+        r = image_find(scope, IMAGE_MACHINE, new_name, NULL, NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1608,24 +1713,35 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
 }
 
 bool image_in_search_path(
+                RuntimeScope scope,
                 ImageClass class,
                 const char *root,
                 const char *image) {
 
+        int r;
+
+        assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
+        assert(class >= 0);
+        assert(class < _IMAGE_CLASS_MAX);
         assert(image);
 
-        NULSTR_FOREACH(path, pick_image_search_path(class)) {
+        _cleanup_strv_free_ char **search = NULL;
+        r = pick_image_search_path(scope, class, &search);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(path, search) {
                 const char *p, *q;
                 size_t k;
 
                 if (!empty_or_root(root)) {
-                        q = path_startswith(path, root);
+                        q = path_startswith(*path, root);
                         if (!q)
                                 continue;
                 } else
-                        q = path;
+                        q = *path;
 
-                p = path_startswith(q, path);
+                p = path_startswith(q, *path);
                 if (!p)
                         continue;
 
