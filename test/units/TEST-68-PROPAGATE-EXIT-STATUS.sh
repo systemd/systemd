@@ -30,7 +30,7 @@ cat >/run/systemd/system/testservice-failure-68.service <<EOF
 OnFailure=testservice-failure-exit-handler-68.service
 
 [Service]
-ExecStart=sh -c "exit 1"
+ExecStart=false
 EOF
 
 cat >/run/systemd/system/testservice-failure-68-template.service <<EOF
@@ -38,7 +38,7 @@ cat >/run/systemd/system/testservice-failure-68-template.service <<EOF
 OnFailure=testservice-failure-exit-handler-68-template@%n.service
 
 [Service]
-ExecStart=sh -c "exit 1"
+ExecStart=false
 EOF
 
 cat >/run/systemd/system/testservice-success-68.service <<EOF
@@ -46,7 +46,7 @@ cat >/run/systemd/system/testservice-success-68.service <<EOF
 OnSuccess=testservice-success-exit-handler-68.service
 
 [Service]
-ExecStart=sh -c "exit 0"
+ExecStart=true
 EOF
 
 cat >/run/systemd/system/testservice-success-68-template.service <<EOF
@@ -54,7 +54,16 @@ cat >/run/systemd/system/testservice-success-68-template.service <<EOF
 OnSuccess=testservice-success-exit-handler-68-template@%n.service
 
 [Service]
-ExecStart=sh -c "exit 0"
+ExecStart=true
+EOF
+
+cat >/run/systemd/system/testservice-success-and-failure-68.service <<EOF
+[Unit]
+OnSuccess=testservice-failure-exit-handler-68.service
+OnFailure=testservice-failure-exit-handler-68.service
+
+[Service]
+ExecStart=true
 EOF
 
 # Script to check that when an OnSuccess= dependency fires, the correct
@@ -86,9 +95,10 @@ fi
 
 if [ "$MONITOR_UNIT" != "testservice-success-68.service" ] &&
    [ "$MONITOR_UNIT" != "testservice-success-68-template.service" ] &&
-   [ "$MONITOR_UNIT" != "testservice-transient-success-68.service" ]; then
+   [ "$MONITOR_UNIT" != "testservice-transient-success-68.service" ] &&
+   [ "$MONITOR_UNIT" != "testservice-success-and-failure-68.service" ]; then
 
-    echo "MONITOR_UNIT was '$MONITOR_UNIT', expected 'testservice[-transient]-success-68[-template].service'"
+    echo "MONITOR_UNIT was '$MONITOR_UNIT', expected 'testservice[-transient]-success[-and-failure]-68[-template].service'"
     exit 1
 fi
 
@@ -193,13 +203,13 @@ wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "
 : "-------III--------------------------------------------------"
 systemd-run --unit=testservice-transient-success-68 \
             --property=OnSuccess=testservice-transient-success-exit-handler-68.service \
-            sh -c "exit 0"
+            true
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
 : "-------IIII-------------------------------------------------"
 systemd-run --unit=testservice-transient-failure-68 \
             --property=OnFailure=testservice-transient-failure-exit-handler-68.service \
-            sh -c "exit 1"
+            false
 wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
 
 # Test template handlers too
@@ -210,6 +220,11 @@ wait_on_state_or_fail "testservice-success-exit-handler-68-template@testservice-
 : "-------VI----------------------------------------------------"
 systemctl start testservice-failure-68-template.service
 wait_on_state_or_fail "testservice-failure-exit-handler-68-template@testservice-failure-68-template.service.service" "inactive" "10"
+
+# Test that monitor variables are set as long as OnSuccess= and OnFailure= dependant is the same
+: "-------VII----------------------------------------------------"
+systemctl start testservice-success-and-failure-68.service
+wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
 systemd-analyze log-level info
 
