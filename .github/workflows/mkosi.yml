@@ -154,6 +154,7 @@ jobs:
           UseSubvolumes=yes
           ToolsTree=default
           ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
