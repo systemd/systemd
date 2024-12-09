@@ -39,6 +39,9 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);

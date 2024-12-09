@@ -683,7 +683,7 @@ TEST(openat_report_new) {
         ASSERT_FALSE(b);
 }
 
-TEST(xopenat_full) {
+TEST(xopenat_full, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
 

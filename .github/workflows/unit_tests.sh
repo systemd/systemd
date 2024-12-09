@@ -25,6 +25,7 @@ ADDITIONAL_DEPS=(
     python3-pytest
     rpm
     zstd
+    debootstrap
 )
 
 function info() {
@@ -127,6 +128,18 @@ for phase in "${PHASES[@]}"; do
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             meson test --timeout-multiplier=3 -C build --print-errorlogs
+            ;;
+        RUN_NOPROC)
+            debootstrap testing testing
+            chroot testing mkdir -p /tmp/repo/
+            chroot testing sh -c "echo 'deb-src http://deb.debian.org/debian testing main' > /etc/apt/sources.list.d/testing-src.list"
+            chroot testing apt-get update
+            chroot testing apt-get build-dep -y systemd
+            mount --bind . testing/tmp/repo
+            chroot testing sh -c 'cd /tmp/repo; meson -Dnobody-group=nogroup -Dslow-tests=true build'
+            chroot testing sh -c 'cd /tmp/repo/build; ninja -v'
+            chroot testing sh -c 'cd /tmp/repo/build; meson test --print-errorlogs'
+            umount --lazy testing/tmp/repo
             ;;
         CLEANUP)
             info "Cleanup phase"
