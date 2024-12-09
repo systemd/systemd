@@ -399,8 +399,6 @@ Features:
   the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
   it for the invoking user.
 
-* importd/…: define per-user dirs for container/VM images too.
-
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
 
