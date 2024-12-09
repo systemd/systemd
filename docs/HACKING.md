@@ -49,7 +49,7 @@ To build and boot an OS image with the latest systemd installed:
 ```sh
 $ mkosi -f genkey                               # Generate signing keys once.
 $ mkosi -f sandbox meson compile -C build mkosi # (re-)build the OS image
-$ sudo mkosi boot                               # Boot the image with systemd-nspawn.
+$ run0 mkosi boot                               # Boot the image with systemd-nspawn.
 $ mkosi vm                                      # Boot the image with qemu.
 ```
 
@@ -132,17 +132,17 @@ To upgrade the systemd packages on the host system to the newer versions built
 by mkosi, run the following:
 
 ```sh
-dnf upgrade build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm                                           # Fedora/CentOS
-apt-get install build/mkosi.builddir/<distribution>~<release>~<architecture>/*.deb                                       # Debian/Ubuntu
-pacman --upgrade --needed --noconfirm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.pkg.tar             # Arch Linux
-zypper --non-interactive install --allow-unsigned-rpm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm # OpenSUSE
+run0 dnf upgrade build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm                                           # Fedora/CentOS
+run0 apt-get install build/mkosi.builddir/<distribution>~<release>~<architecture>/*.deb                                       # Debian/Ubuntu
+run0 pacman --upgrade --needed --noconfirm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.pkg.tar             # Arch Linux
+run0 zypper --non-interactive install --allow-unsigned-rpm build/mkosi.builddir/<distribution>~<release>~<architecture>/*.rpm # OpenSUSE
 ```
 
 To downgrade back to the old version shipped by the distribution, run the
 following:
 
 ```sh
-dnf downgrade "systemd*" # Fedora/CentOS
+run0 dnf downgrade "systemd*" # Fedora/CentOS
 # TODO: Other distributions
 ```
 
