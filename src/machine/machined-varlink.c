@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-systemd.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -718,6 +719,10 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         sd_varlink_server_set_userdata(s, m);
 
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
+
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
@@ -758,6 +763,10 @@ static int manager_varlink_init_machine(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface_many(
                         s,

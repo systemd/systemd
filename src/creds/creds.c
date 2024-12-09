@@ -32,6 +32,7 @@
 #include "user-util.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "verbs.h"
+#include "varlink-systemd.h"
 
 typedef enum TranscodeMode {
         TRANSCODE_OFF,
@@ -1381,6 +1382,10 @@ static int run(int argc, char *argv[]) {
                 r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_set_info_systemd(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to configure varlink server object: %m");
 
                 r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
                 if (r < 0)

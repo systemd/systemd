@@ -42,6 +42,7 @@
 #include "syslog-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-systemd.h"
 #include "varlink-util.h"
 #include "web-util.h"
 
@@ -1974,6 +1975,10 @@ static int manager_connect_varlink(Manager *m) {
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
         sd_varlink_server_set_userdata(m->varlink_server, m);
+
+        r = varlink_set_info_systemd(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
         if (r < 0)

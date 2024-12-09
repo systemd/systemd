@@ -12,6 +12,7 @@
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-systemd.h"
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
@@ -275,6 +276,10 @@ int manager_connect_varlink(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         (void) sd_varlink_server_set_description(s, "varlink-api-network");
 

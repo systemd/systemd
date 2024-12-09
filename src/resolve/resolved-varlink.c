@@ -9,6 +9,7 @@
 #include "socket-netlink.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
+#include "varlink-systemd.h"
 
 typedef struct LookupParameters {
         int ifindex;
@@ -1367,6 +1368,10 @@ static int varlink_monitor_server_init(Manager *m) {
 
         sd_varlink_server_set_userdata(server, m);
 
+        r = varlink_set_info_systemd(server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
+
         r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_Resolve_Monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Resolve.Monitor interface to varlink server: %m");
@@ -1412,6 +1417,10 @@ static int varlink_main_server_init(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve);
         if (r < 0)
