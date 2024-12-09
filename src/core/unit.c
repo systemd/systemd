@@ -3834,6 +3834,7 @@ void unit_reset_failed(Unit *u) {
         ratelimit_reset(&u->start_ratelimit);
         u->start_limit_hit = false;
         u->debug_invocation = false;
+        u->was_on_dependency_cycle = false;
 }
 
 Unit *unit_following(Unit *u) {

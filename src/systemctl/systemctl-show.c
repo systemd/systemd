@@ -168,6 +168,7 @@ typedef struct UnitStatusInfo {
         const char *active_state;
         const char *freezer_state;
         const char *sub_state;
+        bool was_on_dependency_cycle;
         const char *unit_file_state;
         const char *unit_file_preset;
 
@@ -374,12 +375,13 @@ static void print_status_info(
                 bool show_preset = !isempty(i->unit_file_preset) &&
                         show_preset_for_state(unit_file_state_from_string(i->unit_file_state));
 
-                printf("     Loaded: %s%s%s (%s; %s%s%s%s%s%s%s)\n",
+                printf("     Loaded: %s%s%s (%s; %s%s%s%s%s%s%s%s%s%s%s)\n",
                        on, strna(i->load_state), off,
                        path,
                        enable_on, i->unit_file_state, enable_off,
                        show_preset ? "; preset: " : "",
-                       preset_on, show_preset ? i->unit_file_preset : "", preset_off);
+                       preset_on, show_preset ? i->unit_file_preset : "", preset_off,
+                       i->was_on_dependency_cycle ? ", " : "", ansi_highlight_red(), i->was_on_dependency_cycle ? "dependency-cycle" : "", ansi_normal());
 
         } else if (path)
                 printf("     Loaded: %s%s%s (%s)\n",
@@ -2078,6 +2080,7 @@ static int show_one(
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
+                { "WasOnDependencyCycle",           "b",               NULL,           offsetof(UnitStatusInfo, was_on_dependency_cycle)           },
                 { "Job",                            "(uo)",            bus_map_job_id, offsetof(UnitStatusInfo, job_id)                            },
                 { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
                 { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
