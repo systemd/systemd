@@ -18,3 +18,10 @@ int varlink_many_notifyb(Set *s, ...);
         varlink_many_notifyb((s), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int varlink_many_reply(Set *s, sd_json_variant *parameters);
 int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters);
+
+int varlink_set_info_systemd(sd_varlink_server *server);
+
+int varlink_server_new(
+                sd_varlink_server **ret,
+                sd_varlink_server_flags_t flags,
+                void *userdata);
