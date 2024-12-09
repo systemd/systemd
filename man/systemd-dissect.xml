@@ -503,6 +503,17 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>When used together with <option>--discover</option> controls whether to search for
+        images installed system-wide or in the user's directories in <varname>$HOME</varname>. If neither
+        switch is specified, will search within both scopes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />

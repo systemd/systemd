@@ -111,6 +111,8 @@ struct Manager {
 
         bool use_btrfs_subvol;
         bool use_btrfs_quota;
+
+        RuntimeScope runtime_scope; /* for now: always RUNTIME_SCOPE_SYSTEM */
 };
 
 #define TRANSFERS_MAX 64
@@ -721,6 +723,7 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .use_btrfs_subvol = true,
                 .use_btrfs_quota = true,
+                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
         };
 
         r = sd_event_default(&m->event);
@@ -1332,6 +1335,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(msg);
@@ -1372,7 +1376,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
                 if (!h)
                         return -ENOMEM;
 
-                r = image_discover(c, /* root= */ NULL, h);
+                r = image_discover(m->runtime_scope, c, /* root= */ NULL, h);
                 if (r < 0) {
                         if (class >= 0)
                                 return r;

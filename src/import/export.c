@@ -25,6 +25,7 @@
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
 static ImageClass arg_class = IMAGE_MACHINE;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 static void determine_compression_from_filename(const char *p) {
 
@@ -66,7 +67,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         local = argv[1];
         if (image_name_is_valid(local)) {
-                r = image_find(arg_class, local, NULL, &image);
+                r = image_find(arg_runtime_scope, arg_class, local, NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)
@@ -139,7 +140,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         local = argv[1];
         if (image_name_is_valid(local)) {
-                r = image_find(arg_class, local, NULL, &image);
+                r = image_find(arg_runtime_scope, arg_class, local, NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)
