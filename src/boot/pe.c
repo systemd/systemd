@@ -275,7 +275,7 @@ static void pe_locate_sections_internal(
                 }
 }
 
-static bool looking_for_dbauto(const char *const section_names[]) {
+static bool looking_for_dtbauto(const char *const section_names[]) {
         assert(section_names);
 
         for (size_t i = 0; section_names[i]; i++)
@@ -291,7 +291,7 @@ static void pe_locate_sections(
                 size_t validate_base,
                 PeSectionVector sections[]) {
 
-        if (!looking_for_dbauto(section_names))
+        if (!looking_for_dtbauto(section_names))
                 return pe_locate_sections_internal(
                                   section_table,
                                   n_section_table,
