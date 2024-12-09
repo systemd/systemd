@@ -23,6 +23,7 @@
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -54,6 +55,7 @@ static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
 static char *arg_node = NULL;
+PagerFlags arg_pager_flags = 0;
 static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
@@ -172,6 +174,8 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
+        pager_open(arg_pager_flags);
+
         r = terminal_urlify_man("systemd-cryptenroll", "1", &link);
         if (r < 0)
                 return log_oom();
@@ -180,6 +184,7 @@ static int help(void) {
                "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
+               "     --no-pager        Do not spawn a pager\n"
                "     --list-devices    List candidate block devices to operate on\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
@@ -194,11 +199,11 @@ static int help(void) {
                "     --password        Enroll a user-supplied password\n"
                "     --recovery-key    Enroll a recovery key\n"
                "\n%3$sPKCS#11 Enrollment:%4$s\n"
-               "     --pkcs11-token-uri=URI\n"
-               "                       Specify PKCS#11 security token URI\n"
+               "     --pkcs11-token-uri=URI|auto|list\n"
+               "                       Enroll a PKCS#11 security token or list them\n"
                "\n%3$sFIDO2 Enrollment:%4$s\n"
-               "     --fido2-device=PATH\n"
-               "                       Enroll a FIDO2-HMAC security token\n"
+               "     --fido2-device=PATH|auto|list\n"
+               "                       Enroll a FIDO2-HMAC security token or list them\n"
                "     --fido2-salt-file=PATH\n"
                "                       Use salt from a file instead of generating one\n"
                "     --fido2-parameters-in-header=BOOL\n"
@@ -212,8 +217,8 @@ static int help(void) {
                "     --fido2-with-user-verification=BOOL\n"
                "                       Whether to require user verification to unlock the volume\n"
                "\n%3$sTPM2 Enrollment:%4$s\n"
-               "     --tpm2-device=PATH\n"
-               "                       Enroll a TPM2 device\n"
+               "     --tpm2-device=PATH|auto|list\n"
+               "                       Enroll a TPM2 device or list them\n"
                "     --tpm2-device-key=PATH\n"
                "                       Enroll a TPM2 device using its public key\n"
                "     --tpm2-seal-key-handle=HANDLE\n"
@@ -245,6 +250,7 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
                 ARG_PASSWORD,
                 ARG_RECOVERY_KEY,
                 ARG_UNLOCK_KEYFILE,
@@ -274,6 +280,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",                          no_argument,       NULL, 'h'                            },
                 { "version",                       no_argument,       NULL, ARG_VERSION                    },
+                { "no-pager",                      no_argument,       NULL, ARG_NO_PAGER                   },
                 { "password",                      no_argument,       NULL, ARG_PASSWORD                   },
                 { "recovery-key",                  no_argument,       NULL, ARG_RECOVERY_KEY               },
                 { "unlock-key-file",               required_argument, NULL, ARG_UNLOCK_KEYFILE             },
@@ -307,7 +314,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -316,6 +323,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
 
                 case ARG_FIDO2_WITH_PIN:
                         r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
@@ -634,7 +645,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
-        }
 
         if (argc > optind+1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
