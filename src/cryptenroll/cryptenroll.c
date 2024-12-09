@@ -314,7 +314,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -645,7 +645,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
-        }
 
         if (argc > optind+1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
