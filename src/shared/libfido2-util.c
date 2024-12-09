@@ -1124,7 +1124,7 @@ int fido2_list_devices(void) {
                 goto finish;
         }
 
-        t = table_new("path", "manufacturer", "product");
+        t = table_new("path", "manufacturer", "product", "compatible");
         if (!t) {
                 r = log_oom();
                 goto finish;
@@ -1143,14 +1143,14 @@ int fido2_list_devices(void) {
                 r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry));
                 if (r < 0)
                         goto finish;
-                if (!r)
-                        continue;
+                bool compatible = r > 0;
 
                 r = table_add_many(
                                 t,
                                 TABLE_PATH, sym_fido_dev_info_path(entry),
                                 TABLE_STRING, sym_fido_dev_info_manufacturer_string(entry),
-                                TABLE_STRING, sym_fido_dev_info_product_string(entry));
+                                TABLE_STRING, sym_fido_dev_info_product_string(entry),
+                                TABLE_BOOLEAN_CHECKMARK, compatible);
                 if (r < 0) {
                         table_log_add_error(r);
                         goto finish;
