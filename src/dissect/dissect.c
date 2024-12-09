@@ -95,6 +95,7 @@ static char *arg_loop_ref = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 static bool arg_via_service = false;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -151,6 +152,8 @@ static int help(void) {
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
+               "     --user               Discover user images\n"
+               "     --system             Discover system images\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -274,6 +277,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VALIDATE,
                 ARG_MTREE_HASH,
                 ARG_MAKE_ARCHIVE,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -307,6 +312,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "validate",      no_argument,       NULL, ARG_VALIDATE      },
                 { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
                 { "make-archive",  no_argument,       NULL, ARG_MAKE_ARCHIVE  },
+                { "system",        no_argument,       NULL, ARG_SYSTEM        },
+                { "user",          no_argument,       NULL, ARG_USER          },
                 {}
         };
 
@@ -531,12 +538,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAKE_ARCHIVE:
-
                         r = dlopen_libarchive();
                         if (r < 0)
                                 return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
 
                         arg_action = ACTION_MAKE_ARCHIVE;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = (arg_runtime_scope == RUNTIME_SCOPE_USER) ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_USER;
                         break;
 
                 case '?':
@@ -1851,7 +1865,7 @@ static int action_discover(void) {
                 return log_oom();
 
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
-                r = image_discover(cl, NULL, images);
+                r = image_discover(arg_runtime_scope, cl, NULL, images);
                 if (r < 0)
                         return log_error_errno(r, "Failed to discover images: %m");
         }
