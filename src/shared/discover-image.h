@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -60,14 +61,14 @@ Image *image_ref(Image *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
-int image_find(ImageClass class, const char *name, const char *root, Image **ret);
+int image_find(RuntimeScope scope, ImageClass class, const char *name, const char *root, Image **ret);
 int image_from_path(const char *path, Image **ret);
-int image_find_harder(ImageClass class, const char *name_or_path, const char *root, Image **ret);
-int image_discover(ImageClass class, const char *root, Hashmap *map);
+int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
+int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap *map);
 
 int image_remove(Image *i);
-int image_rename(Image *i, const char *new_name);
-int image_clone(Image *i, const char *new_name, bool read_only);
+int image_rename(Image *i, const char *new_name, RuntimeScope scope);
+int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope);
 int image_read_only(Image *i, bool b);
 
 const char* image_type_to_string(ImageType t) _const_;
@@ -80,7 +81,7 @@ int image_set_limit(Image *i, uint64_t referenced_max);
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
-bool image_in_search_path(ImageClass class, const char *root, const char *image);
+bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 
 static inline char **image_extension_release(Image *image, ImageClass class) {
         assert(image);
