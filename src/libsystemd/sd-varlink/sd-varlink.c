@@ -69,7 +69,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 static int varlink_format_queue(sd_varlink *v);
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
         if (!q)
                 return NULL;
 
@@ -79,7 +79,7 @@ static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *
         return mfree(q);
 }
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
         VarlinkJsonQueueItem *q;
 
         assert(m);
@@ -3030,7 +3030,7 @@ _public_ void sd_varlink_detach_event(sd_varlink *v) {
         v->event = sd_event_unref(v->event);
 }
 
-_public_ sd_event *sd_varlink_get_event(sd_varlink *v) {
+_public_ sd_event* sd_varlink_get_event(sd_varlink *v) {
         assert_return(v, NULL);
 
         return v->event;
@@ -3453,7 +3453,7 @@ _public_ int sd_varlink_server_add_connection(sd_varlink_server *server, int fd,
         return sd_varlink_server_add_connection_pair(server, fd, fd, /* override_ucred= */ NULL, ret);
 }
 
-VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss) {
         if (!ss)
                 return NULL;
 
@@ -3859,7 +3859,7 @@ _public_ int sd_varlink_server_detach_event(sd_varlink_server *s) {
         return 0;
 }
 
-_public_ sd_event *sd_varlink_server_get_event(sd_varlink_server *s) {
+_public_ sd_event* sd_varlink_server_get_event(sd_varlink_server *s) {
         assert_return(s, NULL);
 
         return s->event;

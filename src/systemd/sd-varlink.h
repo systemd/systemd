@@ -251,7 +251,7 @@ void* sd_varlink_server_get_userdata(sd_varlink_server *s);
 
 int sd_varlink_server_attach_event(sd_varlink_server *v, sd_event *e, int64_t priority);
 int sd_varlink_server_detach_event(sd_varlink_server *v);
-sd_event *sd_varlink_server_get_event(sd_varlink_server *v);
+sd_event* sd_varlink_server_get_event(sd_varlink_server *v);
 
 int sd_varlink_server_loop_auto(sd_varlink_server *server);
 
