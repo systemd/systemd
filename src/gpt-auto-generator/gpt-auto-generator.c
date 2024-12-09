@@ -51,9 +51,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
+#define LOADER_PARTITION_IDLE_USEC (120 * USEC_PER_SEC)
+
 static int add_cryptsetup(
                 const char *id,
                 const char *what,
+                const char *mount_opts,
                 bool rw,
                 bool require,
                 bool measure,
@@ -126,6 +129,10 @@ static int add_cryptsetup(
         if (r < 0)
                 return log_error_errno(r, "Failed to write file %s: %m", n);
 
+        r = generator_write_device_timeout(arg_dest, what, mount_opts, /* filtered = */ NULL);
+        if (r < 0)
+                return r;
+
         r = generator_add_symlink(arg_dest, d, "wants", n);
         if (r < 0)
                 return r;
@@ -179,6 +186,7 @@ static int add_mount(
                 const char *post) {
 
         _cleanup_free_ char *unit = NULL, *crypto_what = NULL;
+        _cleanup_strv_free_ char **opts_filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -194,7 +202,9 @@ static int add_mount(
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
-                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, &crypto_what);
+                /* Mount options passed are determined by partition_pick_mount_options(), whose result
+                 * is known to not contain timeout options. */
+                r = add_cryptsetup(id, what, /* mount_opts = */ NULL, rw, /* require= */ true, measure, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -210,6 +220,10 @@ static int add_mount(
                                         "Refusing to automatically mount uncommon file system '%s' to '%s'.",
                                         fstype, where);
         }
+
+        r = generator_write_device_timeout(arg_dest, what, options, &opts_filtered);
+        if (r < 0)
+                return r;
 
         r = unit_name_from_path(where, ".mount", &unit);
         if (r < 0)
@@ -246,8 +260,12 @@ static int add_mount(
         if (fstype)
                 fprintf(f, "Type=%s\n", fstype);
 
-        if (options)
-                fprintf(f, "Options=%s\n", options);
+        if (opts_filtered)
+                fprintf(f, "Options=%s\n", opts_filtered);
+
+        r = generator_write_mount_timeout(f, where, opts_filtered);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -366,7 +384,7 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* mount_opts = */ NULL, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -499,7 +517,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
                         /* growfs= */ false,
                         options,
                         "Boot Loader Partition",
-                        120 * USEC_PER_SEC);
+                        LOADER_PARTITION_IDLE_USEC);
 }
 
 #if ENABLE_EFI
@@ -566,7 +584,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                         /* growfs= */ false,
                         options,
                         "EFI System Partition Automount",
-                        120 * USEC_PER_SEC);
+                        LOADER_PARTITION_IDLE_USEC);
 }
 #else
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
@@ -644,7 +662,7 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", arg_root_options, /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
 #else
         return 0;
 #endif
