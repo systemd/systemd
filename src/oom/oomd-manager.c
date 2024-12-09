@@ -18,6 +18,7 @@
 #include "path-util.h"
 #include "percent-util.h"
 #include "varlink-io.systemd.oom.h"
+#include "varlink-systemd.h"
 
 typedef struct ManagedOOMMessage {
         ManagedOOMMode mode;
@@ -725,6 +726,10 @@ static int manager_varlink_init(Manager *m, int fd) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_oom);
         if (r < 0)
