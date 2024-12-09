@@ -356,6 +356,7 @@ static int image_make(
 
         read_only =
                 (path && path_startswith(path, "/usr")) ||
+                (parent && path_startswith(parent, "/usr")) ||
                 (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
