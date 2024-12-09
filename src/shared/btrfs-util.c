@@ -329,6 +329,12 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         assert(fd >= 0);
         assert(ret);
 
+        /* Make sure this works on O_PATH fds */
+        _cleanup_close_ int fd_close = -EBADF;
+        fd = fd_reopen_condition(fd, O_CLOEXEC|O_RDONLY|O_DIRECTORY, O_PATH, &fd_close);
+        if (fd < 0)
+                return fd;
+
         if (subvol_id == 0) {
                 r = btrfs_subvol_get_id_fd(fd, &subvol_id);
                 if (r < 0)
