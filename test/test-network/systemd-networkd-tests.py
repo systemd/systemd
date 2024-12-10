@@ -1682,6 +1682,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual(1,         int(read_link_attr('bridge99', 'bridge', 'multicast_snooping')))
         self.assertEqual(1,         int(read_link_attr('bridge99', 'bridge', 'stp_state')))
         self.assertEqual(3,         int(read_link_attr('bridge99', 'bridge', 'multicast_igmp_version')))
+        self.assertEqual(1,         int(read_link_attr('bridge99', 'bridge', 'no_linklocal_learn')))
 
         output = networkctl_status('bridge99')
         print(output)
