@@ -350,6 +350,20 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR:
                 *ret = USER_ENV_GENERATOR_DIR;
                 return 0;
+
+        case SD_PATH_SYSTEM_CREDENTIAL_STORE:
+                *ret = "/etc/credstore";
+                return 0;
+
+        case SD_PATH_SYSTEM_CREDENTIAL_STORE_ENCRYPTED:
+                *ret = "/etc/credstore.encrypted";
+                return 0;
+
+        case SD_PATH_USER_CREDENTIAL_STORE:
+                return from_home_dir("XDG_CONFIG_HOME", ".config/credstore", buffer, ret);
+
+        case SD_PATH_USER_CREDENTIAL_STORE_ENCRYPTED:
+                return from_home_dir("XDG_CONFIG_HOME", ".config/credstore.encrypted", buffer, ret);
         }
 
         return -EOPNOTSUPP;
@@ -601,7 +615,54 @@ static int get_search(uint64_t type, char ***ret) {
         case SD_PATH_SYSTEMD_SEARCH_NETWORK:
                 return strv_from_nulstr(ret, NETWORK_DIRS_NULSTR);
 
+        case SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE:
+        case SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE_ENCRYPTED: {
+                const char *suffix =
+                        type == SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE_ENCRYPTED ? "credstore.encrypted" : "credstore";
+
+                _cleanup_free_ char **l = NULL;
+                FOREACH_STRING(d, CONF_PATHS("")) {
+                        char *j = path_join(d, suffix);
+                        if (!j)
+                                return -ENOMEM;
+
+                        r = strv_consume(&l, TAKE_PTR(j));
+                        if (r < 0)
+                                return r;
+                }
+
+                *ret = TAKE_PTR(l);
+                return 0;
         }
+
+        case SD_PATH_USER_SEARCH_CREDENTIAL_STORE:
+        case SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED: {
+                const char *suffix =
+                        type == SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED ? "credstore.encrypted" : "credstore";
+
+                static const uint64_t dirs[] = {
+                        SD_PATH_USER_CONFIGURATION,
+                        SD_PATH_USER_RUNTIME,
+                        SD_PATH_USER_LIBRARY_PRIVATE,
+                };
+
+                _cleanup_free_ char **l = NULL;
+                FOREACH_ELEMENT(d, dirs) {
+                        _cleanup_free_ char *p = NULL;
+                        r = sd_path_lookup(*d, suffix, &p);
+                        if (r == -ENXIO)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume(&l, TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                }
+
+                *ret = TAKE_PTR(l);
+                return 0;
+        }}
 
         return -EOPNOTSUPP;
 }
