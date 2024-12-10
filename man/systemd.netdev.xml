@@ -456,6 +456,16 @@
           <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>NoLinkLocalLearning=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This disables learning source addresses from link local frames. When unset, the
+          kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
