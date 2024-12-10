@@ -102,6 +102,16 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR]          = "systemd-user-environment-generator",
         [SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR] = "systemd-search-system-environment-generator",
         [SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR]   = "systemd-search-user-environment-generator",
+
+        [SD_PATH_SYSTEM_CREDENTIAL_STORE]                     = "system-credential-store",
+        [SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE]              = "system-search-credential-store",
+        [SD_PATH_SYSTEM_CREDENTIAL_STORE_ENCRYPTED]           = "system-credential-store-encrypted",
+        [SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE_ENCRYPTED]    = "system-search-credential-store-encrypted",
+        [SD_PATH_USER_CREDENTIAL_STORE]                       = "user-credential-store",
+        [SD_PATH_USER_SEARCH_CREDENTIAL_STORE]                = "user-search-credential-store",
+        [SD_PATH_USER_CREDENTIAL_STORE_ENCRYPTED]             = "user-credential-store-encrypted",
+        [SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED]      = "user-search-credential-store-encrypted",
+
 };
 
 static int order_cmp(const size_t *a, const size_t *b) {
