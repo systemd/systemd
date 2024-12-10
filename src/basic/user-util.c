@@ -467,9 +467,12 @@ char* gid_to_name(gid_t gid) {
 }
 
 static bool gid_list_has(const gid_t *list, size_t size, gid_t val) {
-        for (size_t i = 0; i < size; i++)
-                if (list[i] == val)
+        assert(list || size == 0);
+
+        FOREACH_ARRAY(i, list, size)
+                if (*i == val)
                         return true;
+
         return false;
 }
 
@@ -526,20 +529,24 @@ int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t
         return (int)nresult;
 }
 
-int getgroups_alloc(gid_t** gids) {
-        gid_t *allocated;
-        _cleanup_free_  gid_t *p = NULL;
+int getgroups_alloc(gid_t **ret) {
         int ngroups = 8;
-        unsigned attempt = 0;
 
-        allocated = new(gid_t, ngroups);
-        if (!allocated)
-                return -ENOMEM;
-        p = allocated;
+        assert(ret);
 
-        for (;;) {
+        for (unsigned attempt = 0;;) {
+                _cleanup_free_ gid_t *p = NULL;
+
+                p = new(gid_t, ngroups);
+                if (!p)
+                        return -ENOMEM;
+
                 ngroups = getgroups(ngroups, p);
-                if (ngroups >= 0)
+                if (ngroups > 0) {
+                        *ret = TAKE_PTR(p);
+                        return ngroups;
+                }
+                if (ngroups == 0)
                         break;
                 if (errno != EINVAL)
                         return -errno;
@@ -554,17 +561,11 @@ int getgroups_alloc(gid_t** gids) {
                 if (ngroups < 0)
                         return -errno;
                 if (ngroups == 0)
-                        return false;
-
-                free(allocated);
-
-                p = allocated = new(gid_t, ngroups);
-                if (!allocated)
-                        return -ENOMEM;
+                        break;
         }
 
-        *gids = TAKE_PTR(p);
-        return ngroups;
+        *ret = NULL;
+        return 0;
 }
 
 int get_home_dir(char **ret) {
