@@ -91,12 +91,12 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
          * yellow. If more than a year is left, color green. In between just show in regular color. */
 
         if (n >= eol)
-                return ANSI_HIGHLIGHT_RED;
+                return ansi_highlight_red();
         left = eol - n;
         if (left < USEC_PER_MONTH)
-                return ANSI_HIGHLIGHT_YELLOW;
+                return ansi_highlight_yellow();
         if (left > USEC_PER_YEAR)
-                return ANSI_HIGHLIGHT_GREEN;
+                return ansi_highlight_green();
 
         return NULL;
 }
@@ -313,7 +313,7 @@ static int print_status_info(StatusInfo *i) {
                         r = table_add_many(table,
                                            TABLE_FIELD, "Firmware Age",
                                            TABLE_TIMESPAN_DAY, n - i->firmware_date,
-                                           TABLE_SET_COLOR, n - i->firmware_date > USEC_PER_YEAR*2 ? ANSI_HIGHLIGHT_YELLOW : NULL);
+                                           TABLE_SET_COLOR, n - i->firmware_date > USEC_PER_YEAR*2 ? ansi_highlight_yellow() : NULL);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
