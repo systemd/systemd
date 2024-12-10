@@ -2726,11 +2726,15 @@ static bool service_should_reload_extensions(Service *s) {
 static int service_reload_extensions(Service *s) {
         /* TODO: do this asynchronously */
         _cleanup_free_ char *propagate_dir = NULL;
+        PidRef *unit_pid = NULL;
 
         assert(s);
 
-        /* TODO: remove after adding support for user services */
-        assert(UNIT(s)->manager->runtime_scope == RUNTIME_SCOPE_SYSTEM);
+        unit_pid = unit_main_pid(UNIT(s));
+        if (!pidref_is_set(unit_pid)) {
+                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
+                return 0;
+        }
 
         if (!service_should_reload_extensions(s))
                 return 0;
@@ -2754,7 +2758,7 @@ static int service_reload_extensions(Service *s) {
         /* Only reload confext, and not sysext, because it doesn't make sense
         for program code to be swapped at reload. */
         return refresh_extensions_in_namespace(
-                        unit_main_pid(UNIT(s)),
+                        unit_pid,
                         "SYSTEMD_CONFEXT_HIERARCHIES",
                         &p);
 }
