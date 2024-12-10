@@ -168,14 +168,16 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [NAME...]\n\n"
-               "Show system and user paths.\n\n"
+        printf("%s [OPTIONS...] [NAME...]\n"
+               "\n%sShow system and user paths.%s\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --suffix=SUFFIX    Suffix to append to paths\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
                link);
 
         return 0;
