@@ -168,4 +168,27 @@ TEST(path_pick) {
         assert_se(result.architecture == ARCHITECTURE_S390);
 }
 
+TEST(path_uses_vpick) {
+        assert_se(path_uses_vpick("foo.v") > 0);
+        assert_se(path_uses_vpick("path/to/foo.v") > 0);
+        assert_se(path_uses_vpick("./path/to/foo.v") > 0);
+        assert_se(path_uses_vpick("path/to.v/foo.v") > 0);
+        assert_se(path_uses_vpick("path/to/foo.raw.v") > 0);
+        assert_se(path_uses_vpick("/var/lib/machines/mymachine.raw.v/") > 0);
+        assert_se(path_uses_vpick("path/to.v/foo___.hi/a.v") > 0);
+        assert_se(!path_uses_vpick("path/to/foo.mp4.vtt"));
+        assert_se(!path_uses_vpick("path/to/foo.mp4.v.1"));
+        assert_se(!path_uses_vpick("path/to.v/a"));
+
+        assert_se(path_uses_vpick("to.v/foo___.raw") > 0);
+        assert_se(path_uses_vpick("path/to.v/foo___.raw") > 0);
+        assert_se(!path_uses_vpick("path/to/foo___.raw"));
+        assert_se(!path_uses_vpick("path/to.v/foo__"));
+        assert_se(!path_uses_vpick("foo___.raw"));
+
+        assert_se(path_uses_vpick("/") < 1);
+        assert_se(path_uses_vpick(".") < 1);
+        assert_se(path_uses_vpick("") < 1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
