@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-11-19 07:38+0000\n"
 "Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
 "Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
@@ -1147,8 +1147,8 @@ msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’ מחדש."
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "נדרש אימות כדי לשלוח אות יוניקס לתהליכים של ‚$(unit)’."
 
 #: src/core/dbus-unit.c:594
@@ -1161,8 +1161,8 @@ msgstr "נדרש אימות כדי להגדיר מאפיינים על ‚$(unit)
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "נדרש אימות כדי למחוק קבצים ותיקיות שמשויכים אל ‚$(unit)’."
 
 #: src/core/dbus-unit.c:758

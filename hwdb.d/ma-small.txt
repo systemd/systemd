@@ -3398,12 +3398,6 @@ A44000-A44FFF     (base 16)		FSR, INC.
 				New Taipei  Taiwan  241
 				TW
 
-70-B3-D5   (hex)		HD Vision Systems GmbH
-F18000-F18FFF     (base 16)		HD Vision Systems GmbH
-				Berliner Str. 43
-				Heidelberg    69120
-				DE
-
 70-B3-D5   (hex)		DEUTA-WERKE GmbH
 E47000-E47FFF     (base 16)		DEUTA-WERKE GmbH
 				Paffrather Str. 140
@@ -7480,6 +7474,36 @@ D04000-D04FFF     (base 16)		Plenty Unlimited Inc
 				ET
 				Bergisch Gladbach  NRW  51465
 				DE
+
+8C-1F-64   (hex)		Atonarp Inc.
+42A000-42AFFF     (base 16)		Atonarp Inc.
+				PMO Shibadaimon 9F, 1-10-18 Shibadaimon  
+				Minato-ku  Tokyo  102-0018
+				JP
+
+70-B3-D5   (hex)		HD Vision Systems GmbH
+F18000-F18FFF     (base 16)		HD Vision Systems GmbH
+				Palo-Alto-Platz 11
+				Heidelberg    69124
+				DE
+
+8C-1F-64   (hex)		HD Vision Systems GmbH
+2EC000-2ECFFF     (base 16)		HD Vision Systems GmbH
+				Palo-Alto-Platz 11
+				Heidelberg    69124
+				DE
+
+8C-1F-64   (hex)		 ANSER-NET CO ., LTD
+089000-089FFF     (base 16)		 ANSER-NET CO ., LTD
+				3F., No.108, Shanghai Rd., Taoyuan Dist., Taoyuan City 330, Taiwan
+				taoyuan  taiwan  33073
+				TW
+
+8C-1F-64   (hex)		DAT Informatics Pvt Ltd
+B17000-B17FFF     (base 16)		DAT Informatics Pvt Ltd
+				Plot No 109 HPSIDC Industria Estate Davni, Baddi
+				Baddi  HIMACHAL PRADESH  173205
+				IN
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -15041,17 +15065,35 @@ F11000-F11FFF     (base 16)		Ottronic GmbH
 				Fohnsdorf    8753
 				AT
 
+8C-1F-64   (hex)		Point One Navigation
+4B4000-4B4FFF     (base 16)		Point One Navigation
+				231 6th St
+				San Francisco  CA  94103
+				US
+
+8C-1F-64   (hex)		SMITEC S.p.A.
+D90000-D90FFF     (base 16)		SMITEC S.p.A.
+				Via Carlo Ceresa, 10
+				San Giovanni Bianco  Bergamo  24015
+				IT
+
+8C-1F-64   (hex)		TEX COMPUTER SRL 
+249000-249FFF     (base 16)		TEX COMPUTER SRL 
+				Via O. Respighi 13
+				CATTOLICA   RIMINI   47841
+				IT
+
 8C-1F-64   (hex)		J B Electronics Corp
 421000-421FFF     (base 16)		J B Electronics Corp
 				160 Warren Pkwy, Suite 100
 				Frisco  TX  75034
 				US
 
-8C-1F-64   (hex)		Point One Navigation
-4B4000-4B4FFF     (base 16)		Point One Navigation
-				231 6th St
-				San Francisco  CA  94103
-				US
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+A4A000-A4AFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -22469,11 +22511,41 @@ BB0000-BB0FFF     (base 16)		Shanghai Sansi Electronic Engineering Co., Ltd.
 				Mölnlycke    SE-435 33
 				SE
 
+8C-1F-64   (hex)		Fo Xie Optoelectronics Technology Co., Ltd
+846000-846FFF     (base 16)		Fo Xie Optoelectronics Technology Co., Ltd
+				No. 115, Dazhong S. St., West Dist.,
+				Taichung  Taiwan  403025
+				TW
+
+8C-1F-64   (hex)		KST technology
+174000-174FFF     (base 16)		KST technology
+				KST B/D 4-5, Wiryeseong-daero 12-gil
+				Songpa-gu  Seoul  05636
+				KR
+
+8C-1F-64   (hex)		Pneumax Spa
+0FF000-0FFFFF     (base 16)		Pneumax Spa
+				via cascina barbellina, 10
+				Lurano  Bergamo  24050
+				IT
+
 8C-1F-64   (hex)		REO AG
 198000-198FFF     (base 16)		REO AG
 				Brühlerstr. 100
 				Solingen    42657
 				DE
+
+8C-1F-64   (hex)		KRONOTECH SRL
+5F9000-5F9FFF     (base 16)		KRONOTECH SRL
+				VIALE UNGHERIA 125
+				UDINE  ITALY/UDINE  33100
+				IT
+
+8C-1F-64   (hex)		LIMAB AB
+371000-371FFF     (base 16)		LIMAB AB
+				Almedalsvägen
+				Göteborg    41263
+				SE
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -30023,6 +30095,24 @@ BB8000-BB8FFF     (base 16)		ezDOOR, LLC
 				Lacombe  AB  T4L 1Y9
 				CA
 
+8C-1F-64   (hex)		OPTOKON, a.s.
+BCA000-BCAFFF     (base 16)		OPTOKON, a.s.
+				Červený Kříž 250
+				Jihlava    586 01
+				CZ
+
+8C-1F-64   (hex)		Prolife Equipamentos Médicos Ltda.
+B81000-B81FFF     (base 16)		Prolife Equipamentos Médicos Ltda.
+				732, AV. GENESIO VARGAS - RECANTO DOS IPES
+				CAMANDUCAIA  MINAS GERAIS  37650-000
+				BR
+
+8C-1F-64   (hex)		Gogo BA 
+437000-437FFF     (base 16)		Gogo BA 
+				105 Edgeview Drive
+				Broomfield  CO  80021
+				US
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -37432,3 +37522,33 @@ BD9000-BD9FFF     (base 16)		WATTS
 				132, Donghwagongdan-ro, Munmak-eup
 				Wonju-si  Gangwon-do  26365
 				KR
+
+8C-1F-64   (hex)		Cortical Labs Pte Ltd
+6EE000-6EEFFF     (base 16)		Cortical Labs Pte Ltd
+				20A TANJONG PAGAR ROAD
+				SINGAPORE    088443
+				SG
+
+8C-1F-64   (hex)		Horcery LLC
+E35000-E35FFF     (base 16)		Horcery LLC
+				9350 Conroy Windermere Rd
+				Windermere  FL  34786
+				US
+
+8C-1F-64   (hex)		DTI SRL
+814000-814FFF     (base 16)		DTI SRL
+				VIA PALLADIO 11
+				TAVAGNACCO  UD  33010
+				IT
+
+8C-1F-64   (hex)		CTI Intl Solutions
+7C2000-7C2FFF     (base 16)		CTI Intl Solutions
+				20 Hamagshimim
+				Petach Tikva    4934829
+				IL
+
+8C-1F-64   (hex)		新川センサテクノロジ株式会社
+E04000-E04FFF     (base 16)		新川センサテクノロジ株式会社
+				広島県東広島市吉川工業団地4-22
+				東広島市  広島県  7390153
+				JP

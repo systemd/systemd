@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-06-03 00:35+0000\n"
 "Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
@@ -1203,8 +1203,8 @@ msgstr "'$(unit)' को पुनः आरंभ करने के लिए
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/dbus-unit.c:594
@@ -1217,8 +1217,8 @@ msgstr "'$(unit)' पर गुण निर्धारित करने क�
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "'$(unit)' से जुड़ी फाइलों और निर्देशिकाओं को हटाने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/dbus-unit.c:758

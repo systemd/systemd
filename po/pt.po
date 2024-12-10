@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-05-31 07:36+0000\n"
 "Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
@@ -1284,11 +1284,11 @@ msgstr "É necessária autenticação para reiniciar '$(unit)'."
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"É necessária autenticação para enviar um sinal UNIX para os processos de "
-"'$(unit)'."
+"É necessária autenticação para enviar um sinal UNIX para os processos de '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1301,8 +1301,8 @@ msgstr "É necessária autenticação para definir propriedades em '$(unit)'."
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "É necessária autenticação para eliminar ficheiros e diretórios associados "
 "com '$(unit)'."

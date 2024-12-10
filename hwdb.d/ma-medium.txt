@@ -6812,6 +6812,30 @@ A00000-AFFFFF     (base 16)		Yi Tunnel(beijing) Technology Co.,Ltd
 				Beijing    100020
 				CN
 
+D0-AA-5F   (hex)		Hangzhou Jingtang Communication Technology Co.,Ltd.
+000000-0FFFFF     (base 16)		Hangzhou Jingtang Communication Technology Co.,Ltd.
+				 8th Floor, Building 1418-42, Moganshan Road, Yuhang District,Hangzhou City, Zhejiang Province
+				Hangzhou  ZheJiang  311100
+				CN
+
+D0-AA-5F   (hex)		深圳麦源实业有限公司
+500000-5FFFFF     (base 16)		深圳麦源实业有限公司
+				广东省深圳市龙华区大浪街道澳华商务大厦1408
+				深圳  广东  518000
+				CN
+
+D0-AA-5F   (hex)		KOMER
+400000-4FFFFF     (base 16)		KOMER
+				2F. No. 583, Fujin St., Songshan Dist., Taipei City
+				Taipei  Taiwn  105
+				TW
+
+D0-AA-5F   (hex)		Shenzhen Liandian Communication Technology Co.LTD
+300000-3FFFFF     (base 16)		Shenzhen Liandian Communication Technology Co.LTD
+				1307, building A4, workshop 2, LiLang International Jewelry Industrial Park, 31 Bulan Road, xialilang community, Nanwan street, Longgang District
+				Shenzhen  Guangdong  518112
+				CN
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -13121,11 +13145,35 @@ E00000-EFFFFF     (base 16)		Shenzhen Eweat Technology Co.,Ltd
 				Jiaxing  Zhejiang  314000
 				CN
 
+D0-AA-5F   (hex)		SORDIN AB
+600000-6FFFFF     (base 16)		SORDIN AB
+				Rorlaggarvagen 8
+				Varnamo  Smaland  S-331 34
+				SE
+
+D0-AA-5F   (hex)		Pacific Electronics
+C00000-CFFFFF     (base 16)		Pacific Electronics
+				No 8,  Narasigapuram street 2nd Floor Nambi trade centre, Mount Road
+				Chennai  Tamil Nadu  600002
+				IN
+
 90-88-A9   (hex)		TeeJet Technologies
 E00000-EFFFFF     (base 16)		TeeJet Technologies
 				Moelhavevej 2
 				Aabybro    9440
 				DK
+
+D0-AA-5F   (hex)		ACCEL LAB ltd.
+200000-2FFFFF     (base 16)		ACCEL LAB ltd.
+				1-8-1 Nishishinjuku Shinjuku Building 5F 
+				Shinjuku-ku  Tokyo-to  160-0023
+				JP
+
+A4-59-D3   (hex)		Shenzhen Welltech Cable Co., Ltd
+200000-2FFFFF     (base 16)		Shenzhen Welltech Cable Co., Ltd
+				3/F, Workshop 42, Xingye 1st Road, Fenghuang Community, Fuyong Subdistrict, Bao'an District
+				Shenzhen  Guangdong  518103
+				CN
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -26615,6 +26663,24 @@ EC-74-CD   (hex)		Vialis BV
 				HOUTEN    3991 CJ
 				NL
 
+D0-AA-5F   (hex)		WARNER ELECTRONICS (I) PVT. LTD.
+B00000-BFFFFF     (base 16)		WARNER ELECTRONICS (I) PVT. LTD.
+				Plot No. A114/6, Five Star Industrial Area, Mumbai – Nagpur Highway, Shendra
+				Aurangabad  maharastra   431007
+				IN
+
+D0-AA-5F   (hex)		Indra Air Traffic Inc
+A00000-AFFFFF     (base 16)		Indra Air Traffic Inc
+				11300 W 89th St
+				Overland Park  KS  66214
+				US
+
+90-88-A9   (hex)		Akarui Networks Pvt Ltd
+100000-1FFFFF     (base 16)		Akarui Networks Pvt Ltd
+				B- 60 GROUND FLOOR, SECTOR - 88anand vihar
+				Noida  Uttar Pradesh  201305
+				IN
+
 90-88-A9   (hex)		Nanjing Boswell Industrial Communication Technology Co., Ltd
 900000-9FFFFF     (base 16)		Nanjing Boswell Industrial Communication Technology Co., Ltd
 				1st Floor, Building A2, China Wireless Valley, No. 9 Mozhou East Road, Jiangning District
@@ -26627,17 +26693,35 @@ EC-74-CD   (hex)		Vialis BV
 				Hangzhou  Zhejiang   310000
 				CN
 
-90-88-A9   (hex)		Akarui Networks Pvt Ltd
-100000-1FFFFF     (base 16)		Akarui Networks Pvt Ltd
-				B- 60 GROUND FLOOR, SECTOR - 88anand vihar
-				Noida  Uttar Pradesh  201305
-				IN
+D0-AA-5F   (hex)		广东美的暖通设备有限公司
+700000-7FFFFF     (base 16)		广东美的暖通设备有限公司
+				广东佛山市顺德区北滘镇蓬莱路工业大道
+				佛山    528000
+				CN
 
-D0-AA-5F   (hex)		Indra Air Traffic Inc
-A00000-AFFFFF     (base 16)		Indra Air Traffic Inc
-				11300 W 89th St
-				Overland Park  KS  66214
+D0-AA-5F   (hex)		HONGCI MONITOR INTERNATIONAL CO., LTD.
+900000-9FFFFF     (base 16)		HONGCI MONITOR INTERNATIONAL CO., LTD.
+				1 F., No. 67, Sec. 2, Zhongshan Rd., Furen Vil., Tanzi Dist
+				Taichung City    427
+				TW
+
+D0-AA-5F   (hex)		Level Up Holding Co., Inc.
+D00000-DFFFFF     (base 16)		Level Up Holding Co., Inc.
+				10210 N 25th Ave., Suite 100
+				Phoenix  AZ  85021
 				US
+
+D0-AA-5F   (hex)		WeBank Co., Ltd.
+800000-8FFFFF     (base 16)		WeBank Co., Ltd.
+				Block A, Building 7, Shenzhen Bay Technology and Ecology Park, No. 1819 Shahe West Road, Nanshan District
+				Shenzhen  Guangdong  518063
+				CN
+
+D0-AA-5F   (hex)		Xiaomi EV Technology Co., Ltd.
+100000-1FFFFF     (base 16)		Xiaomi EV Technology Co., Ltd.
+				Room 618, Floor 6, Building 5, Yard 15, Kechuang Tenth Street, Beijing Economic and Technological Development Zone, Beijing
+				Beijing  Beijing  100176
+				CN
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -33428,14 +33512,26 @@ D00000-DFFFFF     (base 16)		REMOWIRELESS COMMUNICATION INTERNATIONAL CO.,LIMITE
 				HONG KONG  HONG KONG  999077
 				HK
 
+90-88-A9   (hex)		Rikom Technologies Sdn Bhd
+C00000-CFFFFF     (base 16)		Rikom Technologies Sdn Bhd
+				Level 15, Dpulze Cyberjaya, Lingkaran, Cyber Point Timur, 63000 Selangor Malaysia
+				Cyber Point Timur  Selangor  630000
+				MY
+
 90-88-A9   (hex)		Samway Electronic SRL
 800000-8FFFFF     (base 16)		Samway Electronic SRL
 				Str Maltopol nr 16
 				Bucharest    011048
 				RO
 
-90-88-A9   (hex)		Rikom Technologies Sdn Bhd
-C00000-CFFFFF     (base 16)		Rikom Technologies Sdn Bhd
-				Level 15, Dpulze Cyberjaya, Lingkaran, Cyber Point Timur, 63000 Selangor Malaysia
-				Cyber Point Timur  Selangor  630000
-				MY
+D0-AA-5F   (hex)		MBX International Ltd.
+E00000-EFFFFF     (base 16)		MBX International Ltd.
+				RM 506A 5F HARBOUR CRYSTAL CENTRE,100 GRANVILLE ROAD TSIM SHA TSUI
+				Hongkong    XXXXX
+				HK
+
+A4-59-D3   (hex)		OREX SAI Inc.
+A00000-AFFFFF     (base 16)		OREX SAI Inc.
+				59-16 Nisshin-cho, Kawasaki-ku
+				Kawasaki  Kanagawa  210-0024
+				JP
