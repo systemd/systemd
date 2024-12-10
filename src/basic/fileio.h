@@ -94,7 +94,7 @@ static inline int verify_file(const char *fn, const char *blob, bool accept_extr
         return verify_file_at(AT_FDCWD, fn, blob, accept_extra_nl);
 }
 
-int executable_is_script(const char *path, char **interpreter);
+int script_get_shebang_interpreter(const char *path, char **ret);
 
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
 

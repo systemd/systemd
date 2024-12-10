@@ -317,7 +317,7 @@ static int add_matches_for_executable(sd_journal *j, const char *path) {
         assert(j);
         assert(path);
 
-        if (executable_is_script(path, &interpreter) > 0) {
+        if (script_get_shebang_interpreter(path, &interpreter) >= 0) {
                 _cleanup_free_ char *comm = NULL;
 
                 r = path_extract_filename(path, &comm);
@@ -329,14 +329,15 @@ static int add_matches_for_executable(sd_journal *j, const char *path) {
                         return log_error_errno(r, "Failed to add match: %m");
 
                 /* Append _EXE only if the interpreter is not a link. Otherwise, it might be outdated often. */
-                path = is_symlink(interpreter) > 0 ? interpreter : NULL;
+                if (is_symlink(interpreter) > 0)
+                        return 0;
+
+                path = interpreter;
         }
 
-        if (path) {
-                r = journal_add_match_pair(j, "_EXE", path);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
-        }
+        r = journal_add_match_pair(j, "_EXE", path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         return 0;
 }
