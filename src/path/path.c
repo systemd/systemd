@@ -14,6 +14,7 @@
 #include "main-func.h"
 #include "pager.h"
 #include "pretty-print.h"
+#include "sort-util.h"
 #include "string-util.h"
 
 static const char *arg_suffix = NULL;
@@ -103,25 +104,38 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR]   = "systemd-search-user-environment-generator",
 };
 
+static int order_cmp(const size_t *a, const size_t *b) {
+        assert(*a < ELEMENTSOF(path_table));
+        assert(*b < ELEMENTSOF(path_table));
+        return strcmp(path_table[*a], path_table[*b]);
+}
+
 static int list_paths(void) {
-        int r = 0;
+        int ret = 0, r;
 
         pager_open(arg_pager_flags);
 
-        for (size_t i = 0; i < ELEMENTSOF(path_table); i++) {
-                _cleanup_free_ char *p = NULL;
-                int q;
+        size_t order[ELEMENTSOF(path_table)];
 
-                q = sd_path_lookup(i, arg_suffix, &p);
-                if (q < 0) {
-                        log_full_errno(q == -ENXIO ? LOG_DEBUG : LOG_ERR,
-                                       q, "Failed to query %s: %m", path_table[i]);
-                        if (q != -ENXIO)
-                                RET_GATHER(r, q);
+        for (size_t i = 0; i < ELEMENTSOF(order); i++)
+                order[i] = i;
+
+        typesafe_qsort(order, ELEMENTSOF(order), order_cmp);
+
+        for (size_t i = 0; i < ELEMENTSOF(order); i++) {
+                size_t j = order[i];
+                const char *t = ASSERT_PTR(path_table[j]);
+
+                _cleanup_free_ char *p = NULL;
+                r = sd_path_lookup(j, arg_suffix, &p);
+                if (r < 0) {
+                        log_full_errno(r == -ENXIO ? LOG_DEBUG : LOG_ERR, r, "Failed to query %s, proceeding: %m", t);
+                        if (r != -ENXIO)
+                                RET_GATHER(ret, r);
                         continue;
                 }
 
-                printf("%s%s:%s %s\n", ansi_highlight(), path_table[i], ansi_normal(), p);
+                printf("%s%s:%s %s\n", ansi_highlight(), t, ansi_normal(), p);
         }
 
         return r;
