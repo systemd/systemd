@@ -40,6 +40,7 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
+#include "varlink-util.h"
 #include "virt.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
@@ -1648,11 +1649,12 @@ static int connect_varlink(Context *c) {
         assert(c->event);
         assert(!c->varlink_server);
 
-        r = sd_varlink_server_new(&c->varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(
+                        &c->varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        c);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-        sd_varlink_server_set_userdata(c->varlink_server, c);
 
         r = sd_varlink_server_add_interface(c->varlink_server, &vl_interface_io_systemd_Hostname);
         if (r < 0)
