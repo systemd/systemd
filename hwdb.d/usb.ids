@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2024.07.04
-# Date:    2024-07-04 20:34:02
+# Version: 2024.12.04
+# Date:    2024-12-04 20:34:02
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -16876,7 +16876,7 @@
 	0256  Schwalm & Tate LLC pISO Raspberry Pi Hat
 	053a  Hackerspace San Salvador HSSV SAMR21-Mote
 	0cbd  Andrzej Szombierski kuku.eu.org keyboard
-	0d32  ODrive Robotics ODrive v3
+	0d32  ODrive Robotics ODrive
 	1001  InterBiometrics Hub
 	1002  InterBiometrics Relais
 	1003  InterBiometrics IBSecureCam-P

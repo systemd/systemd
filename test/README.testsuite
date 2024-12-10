@@ -147,6 +147,10 @@ that make use of `run_testcases`.
 
 `TEST_SKIP`: takes a space separated list of tests to skip.
 
+`TEST_SKIP_SUBTEST=subtest`: takes a space separated list of subtests to skip.
+
+`TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
+
 ## Ubuntu CI
 
 New PRs submitted to the project are run through regression tests, and one set
