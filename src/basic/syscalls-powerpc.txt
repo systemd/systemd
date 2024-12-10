@@ -149,6 +149,7 @@ gettimeofday	78
 getuid	24
 getuid32
 getxattr	212
+getxattrat	464
 getxgid
 getxpid
 getxuid
@@ -190,6 +191,7 @@ linkat	294
 listen	329
 listmount	458
 listxattr	215
+listxattrat	465
 llistxattr	216
 llseek
 lookup_dcookie	235
@@ -341,6 +343,7 @@ recvmmsg_time64	417
 recvmsg	342
 remap_file_pages	239
 removexattr	218
+removexattrat	466
 rename	38
 renameat	293
 renameat2	357
@@ -429,6 +432,7 @@ settimeofday	79
 setuid	23
 setuid32
 setxattr	209
+setxattrat	463
 sgetmask	68
 shmat	397
 shmctl	396
