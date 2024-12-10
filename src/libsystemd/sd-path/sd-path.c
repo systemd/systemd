@@ -366,12 +366,12 @@ static int get_path_alloc(uint64_t type, const char *suffix, char **ret) {
         if (r < 0)
                 return r;
 
-        if (suffix) {
+        if (!isempty(suffix)) {
                 char *suffixed = path_join(p, suffix);
                 if (!suffixed)
                         return -ENOMEM;
 
-                path_simplify(suffixed);
+                path_simplify_full(suffixed, PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
 
                 free_and_replace(buffer, suffixed);
         } else if (!buffer) {
@@ -637,7 +637,7 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret)
                         if (!path_extend(i, suffix))
                                 return -ENOMEM;
 
-                        path_simplify(*i);
+                        path_simplify_full(*i, PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
                 }
 
         *ret = TAKE_PTR(l);
