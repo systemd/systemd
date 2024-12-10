@@ -957,19 +957,21 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
         return 0;
 }
 
-DIR *xopendirat(int fd, const char *name, int flags) {
-        _cleanup_close_ int nfd = -EBADF;
+DIR* xopendirat(int dir_fd, const char *name, int flags) {
+        _cleanup_close_ int fd = -EBADF;
 
-        assert(!(flags & O_CREAT));
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(name);
+        assert(!(flags & O_CREAT|O_TMPFILE));
 
-        if (fd == AT_FDCWD && flags == 0)
+        if (dir_fd == AT_FDCWD && flags == 0)
                 return opendir(name);
 
-        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
-        if (nfd < 0)
+        fd = openat(dir_fd, name, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        if (fd < 0)
                 return NULL;
 
-        return take_fdopendir(&nfd);
+        return take_fdopendir(&fd);
 }
 
 int fopen_mode_to_flags(const char *mode) {
