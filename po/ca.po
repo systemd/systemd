@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2018-02-27 04:18-0500\n"
 "Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
 "Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
@@ -1316,8 +1316,8 @@ msgstr "Es requereix autenticació per reiniciar «$(unit)»."
 #: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
 
 #: src/core/dbus-unit.c:594
@@ -1331,8 +1331,8 @@ msgstr "Es requereix autenticació per establir les propietats a «$(unit)»."
 #: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "Es requereix autenticació per restablir l'estat «failed» de «$(unit)»."
 
 #: src/core/dbus-unit.c:758

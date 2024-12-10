@@ -14,7 +14,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-11-17 15:48+0000\n"
 "Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
 "memory@weblate.org>\n"
@@ -1332,11 +1332,11 @@ msgstr "Legitimierung ist zum Neustarten von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von "
-"»$(unit)« notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$"
+"(unit)« notwendig."
 
 #: src/core/dbus-unit.c:594
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1351,11 +1351,11 @@ msgstr ""
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
-"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu "
-"»$(unit)« gehören, erforderlich."
+"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$"
+"(unit)« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:758
 msgid ""

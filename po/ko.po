@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-11-29 12:38+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
@@ -1177,8 +1177,8 @@ msgstr "인증은 '$(unit)'을 다시 시작하는데 필요합니다."
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:594
@@ -1191,8 +1191,8 @@ msgstr "인증은 '$(unit)'의 속성을 설정하는데 필요합니다."
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
 #: src/core/dbus-unit.c:758

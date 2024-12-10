@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2023-03-17 15:20+0000\n"
 "Last-Translator: Velislav Ivanov <velislav.bg@gmail.com>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
@@ -1286,8 +1286,8 @@ msgstr "За рестартиране на „$(unit)“ е необходима
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "За изпращането на сигнал на UNIX на процесите на „$(unit)“ е необходима "
 "идентификация."
@@ -1304,8 +1304,8 @@ msgstr "За задаване на свойствата на „$(unit)“ е н
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "За изтриването на файловете и директориите на „$(unit)“ е необходима "
 "идентификация."

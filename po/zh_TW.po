@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-06-06 00:50+0000\n"
 "Last-Translator: hanjinpeng <hanjinpeng@kylinos.cn>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
@@ -1164,8 +1164,8 @@ msgstr "重新啟動 '$(unit)' 需要驗證。"
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
 
 #: src/core/dbus-unit.c:594
@@ -1178,8 +1178,8 @@ msgstr "在 '$(unit)' 上設定屬性需要驗證。"
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
 
 #: src/core/dbus-unit.c:758

@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2016-06-09 19:50+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
@@ -1312,8 +1312,8 @@ msgstr "Nieabchodna aŭtentyfikacyja dlia pierazapusku '$(unit)'."
 #: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
@@ -1330,8 +1330,8 @@ msgstr ""
 #: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia anuliavannia pamylkovaha stanu '$(unit)'."
 

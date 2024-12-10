@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2024-08-04 03:41+0000\n"
 "Last-Translator: Dimitrys Meliates <demetresmeliates+fedora@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
@@ -1305,8 +1305,8 @@ msgstr "Απαιτείται πιστοποίηση για να ορίσετε �
 #: src/core/dbus-unit.c:566
 #, fuzzy
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/core/dbus-unit.c:594
@@ -1322,8 +1322,8 @@ msgstr "Απαιτείται πιστοποίηση για να ορίσετε �
 #: src/core/dbus-unit.c:721
 #, fuzzy
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/core/dbus-unit.c:758

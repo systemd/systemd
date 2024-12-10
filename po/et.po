@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2024-12-10 11:29+0000\n"
 "PO-Revision-Date: 2022-10-24 15:23+0000\n"
 "Last-Translator: H A <contact+fedora@hen.ee>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
@@ -1191,8 +1191,8 @@ msgstr "Autentimine on vajalik, et restartida '$(unit)'."
 
 #: src/core/dbus-unit.c:566
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "Autentimine on vajalik, et saata UNIX signaali '$(unit)' protsessidele."
 
@@ -1207,8 +1207,8 @@ msgstr "Autentimine on vajalik, et määrata '$(unit)' omadusi."
 
 #: src/core/dbus-unit.c:721
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "Autentimine on vajalik, et kustutada '$(unit)' faile ja kauste."
 
 #: src/core/dbus-unit.c:758
