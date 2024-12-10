@@ -64,10 +64,10 @@ test ! -f /var/lib/machines/testimage4.raw
 # → And now, let's test directory trees ← #
 
 # Set up a directory we can import
-mkdir /var/tmp/scratch
+mkdir -p /var/tmp/scratch
 mv /var/tmp/testimage.raw /var/tmp/scratch/
 touch /var/tmp/scratch/anotherfile
-mkdir /var/tmp/scratch/adirectory
+mkdir -p /var/tmp/scratch/adirectory
 echo "piep" >/var/tmp/scratch/adirectory/athirdfile
 
 # Test import-fs
