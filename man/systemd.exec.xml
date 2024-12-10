@@ -3449,37 +3449,43 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>LoadCredentialEncrypted=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
-        that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
-        public and private) or certificates, user account information or identity information from host to
-        services. The data is accessible from the unit's processes via the file system, at a read-only
-        location that (if possible and permitted) is backed by non-swappable memory. The data is only
-        accessible to the user associated with the unit, via the
-        <varname>User=</varname>/<varname>DynamicUser=</varname> settings (as well as the superuser). When
-        available, the location of credentials is exported as the <varname>$CREDENTIALS_DIRECTORY</varname>
-        environment variable to the unit's processes.</para>
+        that may be passed to unit processes. They are primarily intended for passing cryptographic keys
+        (both public and private) or certificates, user account information or identity information from host
+        to services, but can be freely used to pass any kind of limited-size information to a service. The
+        data is accessible from the unit's processes via the file system, at a read-only location that (if
+        possible and permitted) is backed by non-swappable memory. The data is only accessible to the user
+        associated with the unit, via the <varname>User=</varname>/<varname>DynamicUser=</varname> settings
+        (as well as the superuser). When available, the location of credentials is exported as the
+        <varname>$CREDENTIALS_DIRECTORY</varname> environment variable to the unit's processes.</para>
 
         <para>The <varname>LoadCredential=</varname> setting takes a textual ID to use as name for a
         credential plus a file system path, separated by a colon. The ID must be a short ASCII string
         suitable as filename in the filesystem, and may be chosen freely by the user. If the specified path
         is absolute it is opened as regular file and the credential data is read from it. If the absolute
         path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made
-        to it (only once at unit start-up) and the credential data read from the connection, providing an
+        to it (once at process invocation) and the credential data read from the connection, providing an
         easy IPC integration point for dynamically transferring credentials from other services.</para>
 
         <para>If the specified path is not absolute and itself qualifies as valid credential identifier it is
         attempted to find a credential that the service manager itself received under the specified name —
         which may be used to propagate credentials from an invoking environment (e.g. a container manager
-        that invoked the service manager) into a service. If no matching system credential is found, the
-        directories <filename>/etc/credstore/</filename>, <filename>/run/credstore/</filename> and
-        <filename>/usr/lib/credstore/</filename> are searched for files under the credential's name — which
-        hence are recommended locations for credential data on disk. If
+        that invoked the service manager) into a service. If no matching passed credential is found, the
+        system service manager will search the directories <filename>/etc/credstore/</filename>,
+        <filename>/run/credstore/</filename> and <filename>/usr/lib/credstore/</filename> for files under the
+        credential's name — which hence are recommended locations for credential data on disk. If
         <varname>LoadCredentialEncrypted=</varname> is used <filename>/run/credstore.encrypted/</filename>,
         <filename>/etc/credstore.encrypted/</filename>, and
-        <filename>/usr/lib/credstore.encrypted/</filename> are searched as well.</para>
+        <filename>/usr/lib/credstore.encrypted/</filename> are searched as well. The per-user service manager
+        will search <filename>$HOME/.config/credstore/</filename>,
+        <filename>$XDG_RUNTIME_DIR/credstore/</filename>, <filename>$HOME/.local/lib/credstore/</filename>
+        (and the counterparts ending with <filename>…/credstore.encrypted/</filename>) instead. The
+        <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
+        may be used to query the precise credential store search path.</para>
 
         <para>If the file system path is omitted it is chosen identical to the credential name, i.e. this is
-        a terse way to declare credentials to inherit from the service manager into a service. This option
-        may be used multiple times, each time defining an additional credential to pass to the unit.</para>
+        a terse way to declare credentials to inherit from the service manager or credstore directories into
+        a service. This option may be used multiple times, each time defining an additional credential to
+        pass to the unit.</para>
 
         <para>Note that if the path is not specified or a valid credential identifier is given, i.e.
         in the above two cases, a missing credential is not considered fatal.</para>
