@@ -10,7 +10,6 @@ set -o pipefail
 # See TEST-07-PID1/test.sh for the first "half" of the test
 mountpoint /issue2730
 
-export TEST_SKIP_SUBTESTS="private-pids"
 run_subtests
 
 touch /testok

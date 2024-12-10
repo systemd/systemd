@@ -13,7 +13,6 @@ fi
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-export TEST_SKIP_SUBTESTS="nspawn machined"
 run_subtests
 
 touch /testok
