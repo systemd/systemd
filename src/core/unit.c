@@ -3524,6 +3524,9 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
                 return 0;
         }
 
+        /* Now we know the owner name. No need to ask anymore. */
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+
         if (UNIT_VTABLE(u)->bus_name_owner_change)
                 UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
 
@@ -3533,22 +3536,42 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
 static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const sd_bus_error *e;
         const char *new_owner;
+        sd_bus *bus;
         Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
+        bus = sd_bus_message_get_bus(message);
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-                        r = sd_bus_error_get_errno(e);
-                        log_unit_error_errno(u, r,
-                                             "Unexpected error response from GetNameOwner(): %s",
-                                             bus_error_message(e, r));
-                }
+                r = sd_bus_error_get_errno(e);
 
+                /* If our connection to the bus is lost, let's log about it and continue. Otherwise this
+                 * condition would not be distinguished from the no owner case, and we might inadvertently
+                 * terminate a healthy service. In the event the bus connection is closed we have to start
+                 * over anyway from bus_api_init, so the fate of this method call is irrelevant. */
+                if (sd_bus_error_has_names(e, SD_BUS_ERROR_NO_REPLY, SD_BUS_ERROR_DISCONNECTED)) {
+                        log_unit_warning_errno(u, r, "GetNameOwner() failed: %s", bus_error_message(e, r));
+                        if (sd_bus_is_ready(bus)) {
+                                /* Oh? It seems the bus connections is actually alive but our GetNameOwner
+                                 * method timed out anyway even though the AddMatch call did not. That
+                                 * shouldn't happen. We had better just close this bus connection and start
+                                 * again.*/
+                                if (bus == u->manager->api_bus)
+                                        bus_done_api(u->manager);
+                                else if (bus == u->manager->system_bus)
+                                        bus_done_system(u->manager);
+                        }
+                        return 0;
+                } else if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                        log_unit_error_errno(
+                                        u,
+                                        r,
+                                        "Unexpected error response from GetNameOwner(): %s",
+                                        bus_error_message(e, r));
                 new_owner = NULL;
         } else {
                 r = sd_bus_message_read(message, "s", &new_owner);
