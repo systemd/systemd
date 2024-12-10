@@ -122,6 +122,125 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     return True
 
 
+def process_sanitizer_report(args: argparse.Namespace, journal_file: Path) -> bool:
+    # Collect sanitizer reports from the journal file.
+
+    if args.sanitizer_exclude_regex:
+        exclude_regex = re.compile(args.sanitizer_exclude_regex)
+    else:
+        exclude_regex = None
+
+    total = 0
+    fatal = 0
+    asan = 0
+    ubsan = 0
+    msan = 0
+
+    # Internal errors:
+    # ==2554==LeakSanitizer has encountered a fatal error.
+    # ==2554==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
+    # ==2554==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)
+    fatal_begin = re.compile(r'==[0-9]+==.+?\w+Sanitizer has encountered a fatal error')
+    fatal_end = re.compile(r'==[0-9]+==HINT:\s+\w+Sanitizer')
+
+    # 'Standard' errors:
+    standard_begin = re.compile(r'([0-9]+: runtime error|==[0-9]+==.+?\w+Sanitizer)')
+    standard_end = re.compile(r'SUMMARY:\s+(\w+)Sanitizer')
+
+    # extract COMM
+    find_comm = re.compile(r'^\[[.0-9 ]+?\]\s(.*?:)\s')
+
+    with subprocess.Popen(
+        sandbox(args) + [
+            'journalctl',
+            '--output', 'short-monotonic',
+            '--no-hostname',
+            '--quiet',
+            '--priority', 'info',
+            '--file', journal_file,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    ) as p:  # fmt: skip
+        assert p.stdout
+
+        is_fatal = False
+        is_standard = False
+        comm = None
+
+        while True:
+            line = p.stdout.readline()
+            if not line and p.poll() is not None:
+                break
+
+            if not is_standard and fatal_begin.search(line):
+                m = find_comm.search(line)
+                if m:
+                    if exclude_regex and exclude_regex.search(m.group(1)):
+                        continue
+                    comm = m.group(1)
+
+                sys.stderr.write(line)
+
+                is_fatal = True
+                total += 1
+                fatal += 1
+                continue
+
+            if is_fatal:
+                if comm and comm not in line:
+                    continue
+
+                sys.stderr.write(line)
+
+                if fatal_end.search(line):
+                    print(file=sys.stderr)
+                    is_fatal = False
+                    comm = None
+                continue
+
+            if standard_begin.search(line):
+                m = find_comm.search(line)
+                if m:
+                    if exclude_regex and exclude_regex.search(m.group(1)):
+                        continue
+                    comm = m.group(1)
+
+                sys.stderr.write(line)
+
+                is_standard = True
+                total += 1
+                continue
+
+            if is_standard:
+                if comm and comm not in line:
+                    continue
+
+                sys.stderr.write(line)
+
+                kind = standard_end.search(line)
+                if kind:
+                    print(file=sys.stderr)
+                    is_standard = False
+                    comm = None
+
+                    t = kind.group(1)
+                    if t == 'Address':
+                        asan += 1
+                    elif t == 'UndefinedBehavior':
+                        ubsan += 1
+                    elif t == 'Memory':
+                        msan += 1
+
+    if total > 0:
+        print(f'Found {total} sanitizer issues ({fatal} internal, {asan} asan, {ubsan} ubsan, {msan} msan).',
+              file=sys.stderr)
+    else:
+        print('No sanitizer issues found.', file=sys.stderr)
+
+    return total > 0
+
+
 def process_coverage(args: argparse.Namespace, summary: Summary, name: str, journal_file: Path) -> None:
     coverage = subprocess.run(
         sandbox(args) + [
@@ -248,6 +367,7 @@ def main() -> None:
     parser.add_argument('--vm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--exit-code', required=True, type=int)
     parser.add_argument('--coredump-exclude-regex', required=True)
+    parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -401,19 +521,27 @@ def main() -> None:
 
     coredumps = process_coredumps(args, journal_file)
 
+    sanitizer = False
+    if summary.environment.get('SANITIZERS'):
+        sanitizer = process_sanitizer_report(args, journal_file)
+
     if (
         summary.environment.get('COVERAGE', '0') == '1'
         and result.returncode in (args.exit_code, 77)
         and not coredumps
+        and not sanitizer
     ):
         process_coverage(args, summary, name, journal_file)
 
     if keep_journal == '0' or (
-        keep_journal == 'fail' and result.returncode in (args.exit_code, 77) and not coredumps
+        keep_journal == 'fail'
+        and result.returncode in (args.exit_code, 77)
+        and not coredumps
+        and not sanitizer
     ):
         journal_file.unlink(missing_ok=True)
 
-    if shell or (result.returncode in (args.exit_code, 77) and not coredumps):
+    if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
         exit(0 if shell or result.returncode == args.exit_code else 77)
 
     ops = []

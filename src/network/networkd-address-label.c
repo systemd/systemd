@@ -201,6 +201,8 @@ static int manager_address_label_configure(AddressLabel *label, Manager *manager
         if (r < 0)
                 return r;
 
+        sd_netlink_message_ref(m);
+
         return request_call_netlink_async(manager->rtnl, m, req);
 }
 
