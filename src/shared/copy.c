@@ -346,7 +346,11 @@ int copy_bytes_full(
 
                         /* Make sure we're not copying more than the current data segment. */
                         m = MIN(m, (size_t) e - c);
+                        if (m <= 0)
+                                continue;
                 }
+
+                assert(m > 0);
 
                 /* First try copy_file_range(), unless we already tried */
                 if (try_cfr) {
