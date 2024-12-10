@@ -57,9 +57,15 @@ typedef struct SmbiosInfo {
         char16_t *smbios_fields[_CHID_SMBIOS_FIELDS_MAX];
 } SmbiosInfo;
 
-static void smbios_info_populate(SmbiosInfo *ret_info) {
+/* Only exposed for testing purposes */
+static void smbios_info_populate_internal(SmbiosInfo *ret_info, bool reset) {
         static RawSmbiosInfo raw = {};
         static bool raw_info_populated = false;
+
+        if (reset) {
+                raw_info_populated = false;
+                return;
+        }
 
         if (!raw_info_populated) {
                 smbios_raw_info_populate(&raw);
@@ -72,6 +78,10 @@ static void smbios_info_populate(SmbiosInfo *ret_info) {
         ret_info->smbios_fields[CHID_SMBIOS_FAMILY] = smbios_to_hashable_string(raw.family);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_PRODUCT] = smbios_to_hashable_string(raw.baseboard_product);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_MANUFACTURER] = smbios_to_hashable_string(raw.baseboard_manufacturer);
+}
+
+static void smbios_info_populate(SmbiosInfo *ret_info) {
+        smbios_info_populate_internal(ret_info, false);
 }
 
 static void smbios_info_done(SmbiosInfo *info) {
