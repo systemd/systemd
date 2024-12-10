@@ -238,10 +238,11 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (argc > optind)
+        if (argc > optind) {
+                r = 0;
                 for (int i = optind; i < argc; i++)
                         RET_GATHER(r, print_path(argv[i]));
-        else
+        } else
                 r = list_paths();
 
         return r;
