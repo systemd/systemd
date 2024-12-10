@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -856,35 +857,41 @@ int read_full_file_full(
         return read_full_stream_full(f, filename, offset, size, flags, ret_contents, ret_size);
 }
 
-int executable_is_script(const char *path, char **interpreter) {
-        _cleanup_free_ char *line = NULL;
-        size_t len;
-        char *ans;
+int script_get_interpreter(const char *path, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(path);
 
-        r = read_one_line_file(path, &line);
-        if (r == -ENOBUFS) /* First line overly long? if so, then it's not a script */
-                return 0;
+        f = fopen(path, "re");
+        if (!f)
+                return -errno;
+
+        char buf[STRLEN("#!")];
+        if (fread(buf, 1, sizeof(buf), f) != sizeof(buf)) {
+                if (feof(f))
+                        return -EINVAL;
+
+                return -EIO;
+        }
+        if (!strneq(buf, "#!", sizeof(buf)))
+                return -ENOTTY;
+
+        _cleanup_free_ char *line = NULL;
+        r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
                 return r;
 
-        if (!startswith(line, "#!"))
-                return 0;
+        const char *s = skip_leading_chars(line, /* bad = */ NULL);
+        if (isempty(s))
+                return -EINVAL;
 
-        ans = strstrip(line + 2);
-        len = strcspn(ans, " \t");
+        r = extract_first_word(&s, ret, /* separators = */ NULL, /* flags = */ 0);
+        if (r < 0)
+                return r;
+        assert(r > 0);
 
-        if (len == 0)
-                return 0;
-
-        ans = strndup(ans, len);
-        if (!ans)
-                return -ENOMEM;
-
-        *interpreter = ans;
-        return 1;
+        return 0;
 }
 
 /**
