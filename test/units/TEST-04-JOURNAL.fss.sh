@@ -10,8 +10,10 @@ if ! journalctl --version | grep -qF +GCRYPT; then
     exit 0
 fi
 
-journalctl --force --setup-keys --interval=2 |& tee /tmp/fss
-FSS_VKEY="$(sed -rn '/([a-f0-9]{6}\-){3}[a-f0-9]{6}\/[a-f0-9]+\-[a-f0-9]+/p' /tmp/fss)"
+# without --quiet, should be effectively equivalent to the below, as we are not on tty
+journalctl --force --setup-keys --interval=2
+
+FSS_VKEY=$(journalctl --force --setup-keys --interval=2 --quiet)
 [[ -n "$FSS_VKEY" ]]
 
 # Generate some buzz in the journal and wait until the FSS key is changed
