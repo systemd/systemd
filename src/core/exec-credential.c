@@ -465,15 +465,38 @@ static int maybe_decrypt_and_write_credential(
         assert(data || size == 0);
 
         if (args->encrypted) {
-                r = decrypt_credential_and_warn(
-                                id,
-                                now(CLOCK_REALTIME),
-                                /* tpm2_device= */ NULL,
-                                /* tpm2_signature_path= */ NULL,
-                                getuid(),
-                                &IOVEC_MAKE(data, size),
-                                CREDENTIAL_ANY_SCOPE,
-                                &plaintext);
+                switch (args->params->runtime_scope) {
+
+                case RUNTIME_SCOPE_SYSTEM:
+                        /* In system mode talk directly to the TPM */
+                        r = decrypt_credential_and_warn(
+                                        id,
+                                        now(CLOCK_REALTIME),
+                                        /* tpm2_device= */ NULL,
+                                        /* tpm2_signature_path= */ NULL,
+                                        getuid(),
+                                        &IOVEC_MAKE(data, size),
+                                        CREDENTIAL_ANY_SCOPE,
+                                        &plaintext);
+                        break;
+
+                case RUNTIME_SCOPE_USER:
+                        /* In per user mode we'll not have access to the machine secret, nor to the TPM (most
+                         * likely), hence go via the IPC service instead. Do this if we are run in root's
+                         * per-user invocation too, to minimize differences and because isolating this logic
+                         * into a separate process is generally a good thing anyway. */
+                        r = ipc_decrypt_credential(
+                                        id,
+                                        now(CLOCK_REALTIME),
+                                        getuid(),
+                                        &IOVEC_MAKE(data, size),
+                                        /* flags= */ 0, /* only allow user creds in user scope */
+                                        &plaintext);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
                 if (r < 0)
                         return r;
 
