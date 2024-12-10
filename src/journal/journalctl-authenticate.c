@@ -96,17 +96,20 @@ int action_setup_keys(void) {
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
         state = alloca_safe(state_size);
 
-        log_info("Generating seed...");
+        if (!arg_quiet)
+                log_info("Generating seed...");
         r = crypto_random_bytes(seed, seed_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
-        log_info("Generating key pair...");
+        if (!arg_quiet)
+                log_info("Generating key pair...");
         r = FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate key pair: %m");
 
-        log_info("Generating sealing key...");
+        if (!arg_quiet)
+                log_info("Generating sealing key...");
         r = FSPRG_GenState0(state, mpk, seed, seed_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate sealing key: %m");
@@ -121,7 +124,7 @@ int action_setup_keys(void) {
 
         r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || arg_quiet ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
@@ -154,7 +157,7 @@ int action_setup_keys(void) {
         if (r < 0)
                 return r;
 
-        if (!on_tty()) {
+        if (!on_tty() || arg_quiet) {
                 /* If we are not on a TTY, show only the key. */
                 puts(key);
                 return 0;
