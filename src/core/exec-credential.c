@@ -117,10 +117,9 @@ int exec_context_put_load_credential(ExecContext *c, const char *id, const char 
                         return -ENOMEM;
 
                 r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
-                if (r < 0) {
-                        assert(r != -EEXIST);
+                assert(r != -EEXIST);
+                if (r < 0)
                         return r;
-                }
 
                 TAKE_PTR(lc);
         }
@@ -167,10 +166,9 @@ int exec_context_put_set_credential(
                         return -ENOMEM;
 
                 r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
-                if (r < 0) {
-                        assert(r != -EEXIST);
+                assert(r != -EEXIST);
+                if (r < 0)
                         return r;
-                }
 
                 TAKE_PTR(sc);
         }
@@ -193,19 +191,22 @@ int exec_context_put_import_credential(ExecContext *c, const char *glob, const c
 
         *ic = (ExecImportCredential) {
                 .glob = strdup(glob),
-                .rename = rename ? strdup(rename) : NULL,
         };
-        if (!ic->glob || (rename && !ic->rename))
+        if (!ic->glob)
                 return -ENOMEM;
+        if (rename) {
+                ic->rename = strdup(rename);
+                if (!ic->rename)
+                        return -ENOMEM;
+        }
 
         if (ordered_set_contains(c->import_credentials, ic))
                 return 0;
 
         r = ordered_set_ensure_put(&c->import_credentials, &exec_import_credential_hash_ops, ic);
-        if (r < 0) {
-                assert(r != -EEXIST);
+        assert(r != -EEXIST);
+        if (r < 0)
                 return r;
-        }
 
         TAKE_PTR(ic);
 
