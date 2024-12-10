@@ -1,5 +1,52 @@
 systemd System and Service Manager
 
+CHANGES WITH 258 in spe:
+
+       Announcements of Future Feature Removals:
+
+        * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
+          deprecated because accounting data and such cannot be reasonably
+          migrated between cgroups. It is likely to be fully removed in a
+          future release (reach out if you have use cases).
+
+        * The recommended kernel baseline version has been bumped to v5.4
+          (released in 2019). Expect limited testing on older kernel versions,
+          where "old-kernel" taint flag would also be set. Support for them
+          will be phased out in a future release in 2025, i.e. we expect to bump
+          the minimum baseline to v5.4 then too.
+
+        * The complete removal of support for cgroup v1 ('legacy' and 'hybrid'
+          hierarchies) is scheduled for v258.
+
+        * Support for System V service scripts is deprecated and will be
+          removed in v258. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * To work around limitations of X11's keyboard handling systemd's
+          keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
+          mapped the microphone mute and touchpad on/off/toggle keys to the
+          function keys F20, F21, F22, F23 instead of their correct key codes.
+          This key code mangling will be removed in the next systemd release.
+          To maintain compatibility with X11 applications that rely on the old
+          function key code mappings, this mangling has now been moved to the
+          relevant X11 keyboard driver modules. In order to ensure these keys
+          continue to work, update to xf86-input-evdev >= 2.11.0 and
+          xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
+        — <place>, <date>
+
 CHANGES WITH 257:
 
         Incompatible changes:
