@@ -1,36 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
-
 #include "errno-util.h"
 #include "fd-util.h"
-#include "missing_magic.h"
 #include "missing_syscall.h"
 #include "missing_wait.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
-#include "stat-util.h"
-
-static int pidfd_inode_ids_supported(void) {
-        static int cached = -1;
-
-        if (cached >= 0)
-                return cached;
-
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
-        if (fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return (cached = false);
-
-                return -errno;
-        }
-
-        return (cached = fd_is_fs_type(fd, PID_FS_MAGIC));
-}
 
 int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;
@@ -49,19 +27,14 @@ int pidref_acquire_pidfd_id(PidRef *pidref) {
         if (pidref->fd_id > 0)
                 return 0;
 
-        r = pidfd_inode_ids_supported();
-        if (r < 0)
+        r = pidfd_get_inode_id(pidref->fd, &pidref->fd_id);
+        if (r < 0) {
+                if (r != -EOPNOTSUPP)
+                        log_debug_errno(r, "Failed to get inode number of pidfd for pid " PID_FMT ": %m",
+                                        pidref->pid);
                 return r;
-        if (r == 0)
-                return -EOPNOTSUPP;
+        }
 
-        struct stat st;
-
-        if (fstat(pidref->fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to get inode number of pidfd for pid " PID_FMT ": %m",
-                                       pidref->pid);
-
-        pidref->fd_id = (uint64_t) st.st_ino;
         return 0;
 }
 
