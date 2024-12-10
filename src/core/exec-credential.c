@@ -384,30 +384,48 @@ typedef enum CredentialSearchPath {
         _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
 } CredentialSearchPath;
 
-static char** credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
+static int credential_search_path(const ExecParameters *params, CredentialSearchPath path, char*** ret) {
         _cleanup_strv_free_ char **l = NULL;
+        int r;
 
         assert(params);
         assert(path >= 0 && path < _CREDENTIAL_SEARCH_PATH_MAX);
+        assert(ret);
 
         /* Assemble a search path to find credentials in. For non-encrypted credentials, We'll look in
          * /etc/credstore/ (and similar directories in /usr/lib/ + /run/). If we're looking for encrypted
          * credentials, we'll look in /etc/credstore.encrypted/ (and similar dirs). */
 
         if (IN_SET(path, CREDENTIAL_SEARCH_PATH_ENCRYPTED, CREDENTIAL_SEARCH_PATH_ALL)) {
-                if (strv_extend(&l, params->received_encrypted_credentials_directory) < 0)
-                        return NULL;
+                r = strv_extend(&l, params->received_encrypted_credentials_directory);
+                if (r < 0)
+                        return r;
 
-                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore.encrypted"), /* filter_duplicates= */ true) < 0)
-                        return NULL;
+                _cleanup_strv_free_ char **add = NULL;
+                r = sd_path_lookup_strv(params->runtime_scope == RUNTIME_SCOPE_SYSTEM ?
+                                        SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE_ENCRYPTED : SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED, /* suffix= */ NULL, &add);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv(&l, add, /* filter_duplicates= */ true);
+                if (r < 0)
+                        return r;
         }
 
         if (IN_SET(path, CREDENTIAL_SEARCH_PATH_TRUSTED, CREDENTIAL_SEARCH_PATH_ALL)) {
-                if (strv_extend(&l, params->received_credentials_directory) < 0)
-                        return NULL;
+                r = strv_extend(&l, params->received_credentials_directory);
+                if (r < 0)
+                        return r;
 
-                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
-                        return NULL;
+                _cleanup_strv_free_ char **add = NULL;
+                r = sd_path_lookup_strv(params->runtime_scope == RUNTIME_SCOPE_SYSTEM ?
+                                        SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE : SD_PATH_USER_SEARCH_CREDENTIAL_STORE, /* suffix= */ NULL, &add);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_strv(&l, add, /* filter_duplicates= */ true);
+                if (r < 0)
+                        return r;
         }
 
         if (DEBUG_LOGGING) {
@@ -415,7 +433,8 @@ static char** credential_search_path(const ExecParameters *params, CredentialSea
                 log_debug("Credential search path is: %s", strempty(t));
         }
 
-        return TAKE_PTR(l);
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 struct load_cred_args {
@@ -612,9 +631,9 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                search_path = credential_search_path(args->params, CREDENTIAL_SEARCH_PATH_ALL);
-                if (!search_path)
-                        return -ENOMEM;
+                r = credential_search_path(args->params, CREDENTIAL_SEARCH_PATH_ALL, &search_path);
+                if (r < 0)
+                        return r;
 
                 missing_ok = true;
         } else
@@ -798,9 +817,9 @@ static int acquire_credentials(
         ORDERED_SET_FOREACH(ic, context->import_credentials) {
                 _cleanup_free_ char **search_path = NULL;
 
-                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_TRUSTED);
-                if (!search_path)
-                        return -ENOMEM;
+                r = credential_search_path(params, CREDENTIAL_SEARCH_PATH_TRUSTED, &search_path);
+                if (r < 0)
+                        return r;
 
                 args.encrypted = false;
 
@@ -812,9 +831,10 @@ static int acquire_credentials(
                         return r;
 
                 search_path = strv_free(search_path);
-                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ENCRYPTED);
-                if (!search_path)
-                        return -ENOMEM;
+
+                r = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ENCRYPTED, &search_path);
+                if (r < 0)
+                        return r;
 
                 args.encrypted = true;
 
