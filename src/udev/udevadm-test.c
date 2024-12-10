@@ -26,6 +26,7 @@
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-format.h"
+#include "udev-rules.h"
 #include "udevadm-util.h"
 #include "udevadm.h"
 #include "user-util.h"
@@ -92,7 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
+        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         sigset_t mask, sigmask_orig;
         int r;
