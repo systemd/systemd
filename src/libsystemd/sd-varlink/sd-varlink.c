@@ -31,7 +31,6 @@
 #include "varlink-internal.h"
 #include "varlink-io.systemd.h"
 #include "varlink-org.varlink.service.h"
-#include "version.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
 #define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 1024U
@@ -70,7 +69,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 static int varlink_format_queue(sd_varlink *v);
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_free(VarlinkJsonQueueItem *q) {
         if (!q)
                 return NULL;
 
@@ -80,7 +79,7 @@ static VarlinkJsonQueueItem *varlink_json_queue_item_free(VarlinkJsonQueueItem *
         return mfree(q);
 }
 
-static VarlinkJsonQueueItem *varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
+static VarlinkJsonQueueItem* varlink_json_queue_item_new(sd_json_variant *m, const int fds[], size_t n_fds) {
         VarlinkJsonQueueItem *q;
 
         assert(m);
@@ -1193,20 +1192,16 @@ static int generic_method_get_info(
                 void *userdata) {
 
         _cleanup_strv_free_ char **interfaces = NULL;
-        _cleanup_free_ char *product = NULL;
         int r;
 
         assert(link);
+        assert(link->server);
 
         if (sd_json_variant_elements(parameters) != 0)
                 return sd_varlink_error_invalid_parameter(link, parameters);
 
-        product = strjoin("systemd (", program_invocation_short_name, ")");
-        if (!product)
-                return -ENOMEM;
-
         sd_varlink_interface *interface;
-        HASHMAP_FOREACH(interface, ASSERT_PTR(link->server)->interfaces) {
+        HASHMAP_FOREACH(interface, link->server->interfaces) {
                 r = strv_extend(&interfaces, interface->name);
                 if (r < 0)
                         return r;
@@ -1216,10 +1211,10 @@ static int generic_method_get_info(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
-                        SD_JSON_BUILD_PAIR_STRING("product", product),
-                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
-                        SD_JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
+                        SD_JSON_BUILD_PAIR_STRING("vendor", strempty(link->server->vendor)),
+                        SD_JSON_BUILD_PAIR_STRING("product", strempty(link->server->product)),
+                        SD_JSON_BUILD_PAIR_STRING("version", strempty(link->server->version)),
+                        SD_JSON_BUILD_PAIR_STRING("url", strempty(link->server->url)),
                         SD_JSON_BUILD_PAIR_STRV("interfaces", interfaces));
 }
 
@@ -3035,7 +3030,7 @@ _public_ void sd_varlink_detach_event(sd_varlink *v) {
         v->event = sd_event_unref(v->event);
 }
 
-_public_ sd_event *sd_varlink_get_event(sd_varlink *v) {
+_public_ sd_event* sd_varlink_get_event(sd_varlink *v) {
         assert_return(v, NULL);
 
         return v->event;
@@ -3262,11 +3257,40 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         sd_event_unref(s->event);
 
         free(s->description);
+        free(s->vendor);
+        free(s->product);
+        free(s->version);
+        free(s->url);
 
         return mfree(s);
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
+
+_public_ int sd_varlink_server_set_info(
+                sd_varlink_server *s,
+                const char *vendor,
+                const char *product,
+                const char *version,
+                const char *url) {
+
+        assert_return(s, -EINVAL);
+
+        _cleanup_free_ char
+                *a = vendor ? strdup(vendor) : NULL,
+                *b = product ? strdup(product) : NULL,
+                *c = version ? strdup(version) : NULL,
+                *d = url ? strdup(url) : NULL;
+        if ((vendor && !a) || (product && !b) || (version && !c) || (url && !d))
+                return log_oom_debug();
+
+        free_and_replace(s->vendor, a);
+        free_and_replace(s->product, b);
+        free_and_replace(s->version, c);
+        free_and_replace(s->url, d);
+
+        return 0;
+}
 
 static int validate_connection(sd_varlink_server *server, const struct ucred *ucred) {
         int allowed = -1;
@@ -3429,7 +3453,7 @@ _public_ int sd_varlink_server_add_connection(sd_varlink_server *server, int fd,
         return sd_varlink_server_add_connection_pair(server, fd, fd, /* override_ucred= */ NULL, ret);
 }
 
-VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss) {
         if (!ss)
                 return NULL;
 
@@ -3835,7 +3859,7 @@ _public_ int sd_varlink_server_detach_event(sd_varlink_server *s) {
         return 0;
 }
 
-_public_ sd_event *sd_varlink_server_get_event(sd_varlink_server *s) {
+_public_ sd_event* sd_varlink_server_get_event(sd_varlink_server *s) {
         assert_return(s, NULL);
 
         return s->event;
