@@ -91,6 +91,13 @@ run_subtests_with_signals() {
             continue
         fi
 
+        for skip in ${TEST_SKIP_SUBTESTS:-}; do
+            if [[ "$subtest" =~ $skip ]]; then
+                echo "Skipping $subtest (matching '$skip')"
+                continue 2
+            fi
+        done
+
         : "--- $subtest BEGIN ---"
         SECONDS=0
         "./$subtest" &
@@ -123,6 +130,13 @@ run_subtests() {
             continue
         fi
 
+        for skip in ${TEST_SKIP_SUBTESTS:-}; do
+            if [[ "$subtest" =~ $skip ]]; then
+                echo "Skipping $subtest (matching '$skip')"
+                continue 2
+            fi
+        done
+
         : "--- $subtest BEGIN ---"
         SECONDS=0
         if ! "./$subtest"; then
@@ -154,6 +168,13 @@ run_testcases() {
             echo "Skipping $testcase (not matching '$TEST_MATCH_TESTCASE')"
             continue
         fi
+
+        for skip in ${TEST_SKIP_TESTCASES:-}; do
+            if [[ "$testcase" =~ $skip ]]; then
+                echo "Skipping $testcase (matching '$skip')"
+                continue 2
+            fi
+        done
 
         : "+++ $testcase BEGIN +++"
         # Note: the subshell here is used purposefully, otherwise we might
