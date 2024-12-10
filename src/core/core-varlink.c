@@ -10,6 +10,7 @@
 #include "varlink-internal.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-systemd.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -587,6 +588,10 @@ int manager_setup_varlink_server(Manager *m) {
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(s, m);
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface_many(
                         s,

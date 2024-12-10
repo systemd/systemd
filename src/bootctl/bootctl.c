@@ -27,6 +27,7 @@
 #include "pretty-print.h"
 #include "utf8.h"
 #include "varlink-io.systemd.BootControl.h"
+#include "varlink-systemd.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -659,6 +660,10 @@ static int run(int argc, char *argv[]) {
                 r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_set_info_systemd(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to configure varlink server object: %m");
 
                 r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
                 if (r < 0)

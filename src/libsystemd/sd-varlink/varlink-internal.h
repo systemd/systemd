@@ -222,7 +222,12 @@ struct sd_varlink_server {
         Hashmap *by_uid;               /* UID_TO_PTR(uid) → UINT_TO_PTR(n_connections) */
 
         void *userdata;
+
         char *description;
+        char *vendor;
+        char *product;
+        char *version;
+        char *url;
 
         unsigned connections_max;
         unsigned connections_per_uid_max;

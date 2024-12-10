@@ -16,6 +16,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "varlink-systemd.h"
 
 /* Let's pick some high value, that is higher than the largest listen() backlog, but leaves enough room below
    the typical RLIMIT_NOFILE value of 1024 so that we can process both sides of each socket in our
@@ -360,6 +361,8 @@ TEST(chat) {
         block_write_fd = TAKE_FD(block_fds[1]);
 
         assert_se(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID) >= 0);
+        assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
+        assert_se(varlink_set_info_systemd(s) >= 0);
         assert_se(sd_varlink_server_set_description(s, "our-server") >= 0);
 
         assert_se(sd_varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);

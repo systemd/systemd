@@ -64,6 +64,7 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-systemd.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -2331,6 +2332,10 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
                 return r;
 
         sd_varlink_server_set_userdata(s->varlink_server, s);
+
+        r = varlink_set_info_systemd(s->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(s->varlink_server, &vl_interface_io_systemd_Journal);
         if (r < 0)

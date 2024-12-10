@@ -102,6 +102,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         /* Test one: write the data as method call to a server */
         assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, server_pair) >= 0);
         assert_se(sd_varlink_server_new(&s, 0) >= 0);
+        assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
         assert_se(sd_varlink_server_set_description(s, "myserver") >= 0);
         assert_se(sd_varlink_server_attach_event(s, e, 0) >= 0);
         assert_se(sd_varlink_server_add_connection(s, server_pair[0], NULL) >= 0);

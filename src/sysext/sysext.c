@@ -52,6 +52,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.sysext.h"
+#include "varlink-systemd.h"
 #include "verbs.h"
 
 typedef enum MutableMode {
@@ -2571,6 +2572,10 @@ static int run(int argc, char *argv[]) {
                 r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_set_info_systemd(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to configure varlink server object: %m");
 
                 r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_sysext);
                 if (r < 0)

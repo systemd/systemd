@@ -55,6 +55,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-systemd.h"
 
 /* Where to look for private/public keys that are used to sign the user records. We are not using
  * CONF_PATHS_NULSTR() here since we want to insert /var/lib/systemd/home/ in the middle. And we insert that
@@ -1009,6 +1010,10 @@ static int manager_bind_varlink(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         sd_varlink_server_set_userdata(m->varlink_server, m);
+
+        r = varlink_set_info_systemd(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)

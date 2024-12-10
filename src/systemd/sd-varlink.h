@@ -219,6 +219,13 @@ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t fla
 sd_varlink_server* sd_varlink_server_ref(sd_varlink_server *s);
 sd_varlink_server* sd_varlink_server_unref(sd_varlink_server *s);
 
+int sd_varlink_server_set_info(
+                sd_varlink_server *s,
+                const char *vendor,
+                const char *product,
+                const char *version,
+                const char *url);
+
 /* Add addresses or fds to listen on */
 int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t mode);
 int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd);
@@ -244,7 +251,7 @@ void* sd_varlink_server_get_userdata(sd_varlink_server *s);
 
 int sd_varlink_server_attach_event(sd_varlink_server *v, sd_event *e, int64_t priority);
 int sd_varlink_server_detach_event(sd_varlink_server *v);
-sd_event *sd_varlink_server_get_event(sd_varlink_server *v);
+sd_event* sd_varlink_server_get_event(sd_varlink_server *v);
 
 int sd_varlink_server_loop_auto(sd_varlink_server *server);
 

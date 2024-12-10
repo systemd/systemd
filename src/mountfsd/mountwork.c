@@ -23,6 +23,7 @@
 #include "stat-util.h"
 #include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
+#include "varlink-systemd.h"
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -598,6 +599,10 @@ static int run(int argc, char *argv[]) {
         r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate server: %m");
+
+        r = varlink_set_info_systemd(server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure varlink server object: %m");
 
         r = sd_varlink_server_add_interface(server, &vl_interface_io_systemd_MountFileSystem);
         if (r < 0)
