@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 257 in spe:
+CHANGES WITH 257:
 
         Incompatible changes:
 
@@ -851,7 +851,7 @@ CHANGES WITH 257 in spe:
         sinus-x, tfg13, vdovhanych, xujing, Łukasz Stelmach,
         Štěpán Němec, Дамјан Георгиевски, 白一百
 
-        — Edinburgh, 2024-11-27
+        — Edinburgh, 2024-12-10
 
 CHANGES WITH 256:
 
