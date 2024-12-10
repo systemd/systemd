@@ -50,7 +50,7 @@ testcase_basic() {
     systemd-run -p PrivatePIDs=yes --remain-after-exit --unit TEST-07-PID1-private-pid sleep infinity
     # Wait for ExecMainPID to be correctly populated as there might be a race between spawning service
     # and actual exec child process
-    sleep 2
+    timeout 10s bash -xec 'until [[ "$(cat /proc/$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)/comm)" == sleep ]]; do sleep .5; done'
     pid=$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)
     kill -9 "$pid"
     timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState TEST-07-PID1-private-pid.service)" != "failed" ]]; do sleep .5; done'
