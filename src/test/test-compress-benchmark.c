@@ -13,7 +13,7 @@
 #include "tests.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
-                         size_t dst_alloc_size, size_t *dst_size);
+                         size_t dst_alloc_size, size_t *dst_size, int level);
 typedef int (decompress_t)(const void *src, uint64_t src_size,
                            void **dst, size_t* dst_size, size_t dst_max);
 
@@ -100,7 +100,7 @@ static void test_compress_decompress(const char* label, const char* type,
 
                 memzero(buf, MIN(size + 1000, MAX_SIZE));
 
-                r = compress(text, size, buf, size, &j);
+                r = compress(text, size, buf, size, &j, /* level = */ -1);
                 /* assume compression must be successful except for small or random inputs */
                 assert_se(r >= 0 || (size < 2048 && r == -ENOBUFS) || streq(type, "random"));
 
@@ -160,13 +160,13 @@ int main(int argc, char *argv[]) {
 
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #if HAVE_XZ
-                test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);
+                test_compress_decompress("xz", i, compress_blob_xz, decompress_blob_xz);
 #endif
 #if HAVE_LZ4
-                test_compress_decompress("LZ4", i, compress_blob_lz4, decompress_blob_lz4);
+                test_compress_decompress("lz4", i, compress_blob_lz4, decompress_blob_lz4);
 #endif
 #if HAVE_ZSTD
-                test_compress_decompress("ZSTD", i, compress_blob_zstd, decompress_blob_zstd);
+                test_compress_decompress("zstd", i, compress_blob_zstd, decompress_blob_zstd);
 #endif
         }
         return 0;
