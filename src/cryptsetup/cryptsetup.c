@@ -1253,6 +1253,8 @@ static int make_security_device_monitor(
         assert(ret_monitor);
 
         /* Waits for a device with "security-device" tag to show up in udev */
+        log_debug("Creating device monitor for tag 'security-device' with timeout %s",
+                  FORMAT_TIMESPAN(arg_token_timeout_usec, 1*USEC_PER_SEC));
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -2600,7 +2602,7 @@ static int run(int argc, char *argv[]) {
                                 return r;
 
                         /* Key not correct? Let's try again, but let's invalidate one of the passed fields,
-                         * so that we fallback to the next best thing. */
+                         * so that we fall back to the next best thing. */
 
                         if (token_type == TOKEN_TPM2) {
                                 arg_tpm2_device = mfree(arg_tpm2_device);
