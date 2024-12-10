@@ -2297,7 +2297,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 for (size_t i = 0; i < el->n_algorithms; i++) {
                         const char *color;
 
-                        color = is_unset_pcr(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size) ? ANSI_GREY : NULL;
+                        color = is_unset_pcr(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size) ? ansi_grey() : NULL;
 
                         if (el->registers[pcr].banks[i].calculated.size > 0) {
                                 _cleanup_free_ char *hex = NULL;
@@ -2325,8 +2325,8 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                         if (!hex)
                                 return log_oom();
 
-                        color = !hash_match ? ANSI_HIGHLIGHT_RED :
-                                is_unset_pcr(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size) ? ANSI_GREY : NULL;
+                        color = !hash_match ? ansi_highlight_red() :
+                                is_unset_pcr(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size) ? ansi_grey() : NULL;
 
                         r = table_add_many(table,
                                            TABLE_STRING, hex,
@@ -2638,7 +2638,7 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
                         if (marker) {
                                 r = table_add_many(table,
                                                    TABLE_STRING, marker,
-                                                   TABLE_SET_COLOR, ANSI_GREY,
+                                                   TABLE_SET_COLOR, ansi_grey(),
                                                    TABLE_EMPTY);
                                 if (r < 0)
                                         return table_log_add_error(r);
