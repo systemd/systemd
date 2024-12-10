@@ -1678,6 +1678,30 @@ _public_ int sd_varlink_get_fd(sd_varlink *v) {
         return v->input_fd;
 }
 
+_public_ int sd_varlink_get_input_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->input_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid input fd.");
+
+        return v->input_fd;
+}
+
+_public_ int sd_varlink_get_output_fd(sd_varlink *v) {
+
+        assert_return(v, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->output_fd < 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid output fd.");
+
+        return v->output_fd;
+}
+
 _public_ int sd_varlink_get_events(sd_varlink *v) {
         int ret = 0;
 
