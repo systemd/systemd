@@ -293,12 +293,13 @@ void print_separator(void) {
                 size_t c = columns();
 
                 flockfile(stdout);
-                fputs_unlocked(ANSI_GREY_UNDERLINE, stdout);
+                fputs_unlocked(ansi_grey_underline(), stdout);
 
                 for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
-                fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
+                fputs_unlocked(ansi_normal(), stdout);
+                fputs_unlocked("\n\n", stdout);
                 funlockfile(stdout);
         } else
                 fputs("\n\n", stdout);

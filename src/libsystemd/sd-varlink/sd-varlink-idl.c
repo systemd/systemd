@@ -491,6 +491,15 @@ _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface,
                 [COLOR_COMMENT]     = ANSI_GREY,
         };
 
+        static const char* const color_16_table[_COLOR_MAX] = {
+                [COLOR_SYMBOL_TYPE] = ANSI_HIGHLIGHT_GREEN,
+                [COLOR_FIELD_TYPE]  = ANSI_HIGHLIGHT_BLUE,
+                [COLOR_IDENTIFIER]  = ANSI_NORMAL,
+                [COLOR_MARKS]       = ANSI_HIGHLIGHT_MAGENTA,
+                [COLOR_RESET]       = ANSI_NORMAL,
+                [COLOR_COMMENT]     = ANSI_BRIGHT_BLACK,
+        };
+
         static const char* const color_off[_COLOR_MAX] = {
                 "", "", "", "", "", "",
         };
@@ -505,7 +514,7 @@ _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface,
         bool use_colors = FLAGS_SET(flags, SD_VARLINK_IDL_FORMAT_COLOR) ||
                 (FLAGS_SET(flags, SD_VARLINK_IDL_FORMAT_COLOR_AUTO) && colors_enabled());
 
-        const char *const *colors = use_colors ? color_table : color_off;
+        const char *const *colors = use_colors ? (get_color_mode() == COLOR_16 ? color_16_table : color_table) : color_off;
 
         /* First output interface comments */
         r = varlink_idl_format_all_symbols(f, interface, _SD_VARLINK_INTERFACE_COMMENT, colors, cols);
