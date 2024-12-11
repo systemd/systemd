@@ -16,7 +16,7 @@
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
-TEST(getxattr_at_malloc) {
+TEST(getxattr_at_malloc, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -86,7 +86,7 @@ static void verify_xattr(int dfd, const char *expected) {
         ASSERT_STREQ(value, expected);
 }
 
-TEST(xsetxattr) {
+TEST(xsetxattr, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
         const char *x;
