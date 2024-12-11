@@ -20,6 +20,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "virt.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
@@ -270,7 +271,8 @@ static void test_capability_get_ambient(void) {
 
                 assert_se(capability_get_ambient(&c) >= 0);
                 assert_se(x < 0 || FLAGS_SET(c, UINT64_C(1) << CAP_MKNOD));
-                assert_se(x < 0 || FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
+                if (detect_container() <= 0) /* Not available in Docker */
+                        assert_se(x < 0 || FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
                 assert_se(x < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_SETPCAP));
 
                 y = capability_bounding_set_drop(
@@ -281,7 +283,8 @@ static void test_capability_get_ambient(void) {
 
                 assert_se(capability_get_ambient(&c) >= 0);
                 assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_MKNOD));
-                assert_se(x < 0 || y < 0 || FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
+                if (detect_container() <= 0) /* Not available in Docker */
+                        assert_se(x < 0 || y < 0 || FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
                 assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_SETPCAP));
 
                 y = capability_bounding_set_drop(
@@ -291,7 +294,8 @@ static void test_capability_get_ambient(void) {
 
                 assert_se(capability_get_ambient(&c) >= 0);
                 assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_MKNOD));
-                assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
+                if (detect_container() <= 0) /* Not available in Docker */
+                        assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_LINUX_IMMUTABLE));
                 assert_se(x < 0 || y < 0 || !FLAGS_SET(c, UINT64_C(1) << CAP_SETPCAP));
 
                 _exit(EXIT_SUCCESS);
