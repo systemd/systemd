@@ -346,6 +346,28 @@ bool exec_needs_mount_namespace(
         return false;
 }
 
+const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing) {
+        assert(context);
+        assert(params);
+
+        if (!params->notify_socket)
+                return NULL;
+
+        if (!needs_sandboxing)
+                return NULL;
+
+        if (!context->root_directory && !context->root_image)
+                return NULL;
+
+        if (!exec_context_get_effective_mount_apivfs(context))
+                return NULL;
+
+        if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT))
+                return NULL;
+
+        return "/run/host/notify";
+}
+
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
         assert(context);
 
