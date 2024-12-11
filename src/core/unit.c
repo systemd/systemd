@@ -194,6 +194,12 @@ static void unit_init(Unit *u) {
                         ec->oom_score_adjust_set = true;
                 }
 
+                if (u->manager->defaults.cpu_sched_set) {
+                        ec->cpu_sched_policy = u->manager->defaults.cpu_sched_policy;
+                        ec->cpu_sched_priority = u->manager->defaults.cpu_sched_priority;
+                        ec->cpu_sched_set = true;
+                }
+
                 if (MANAGER_IS_SYSTEM(u->manager))
                         ec->keyring_mode = EXEC_KEYRING_SHARED;
                 else {

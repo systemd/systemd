@@ -179,6 +179,10 @@ typedef struct UnitDefaults {
         int oom_score_adjust;
         bool oom_score_adjust_set;
 
+        int cpu_sched_policy;
+        int cpu_sched_priority;
+        bool cpu_sched_set;
+
         CGroupPressureWatch memory_pressure_watch;
         usec_t memory_pressure_threshold_usec;
 
