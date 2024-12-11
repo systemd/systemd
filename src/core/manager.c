@@ -4433,6 +4433,10 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.oom_score_adjust = defaults->oom_score_adjust;
         m->defaults.oom_score_adjust_set = defaults->oom_score_adjust_set;
 
+        m->defaults.cpu_sched_policy = defaults->cpu_sched_policy;
+        m->defaults.cpu_sched_priority = defaults->cpu_sched_priority;
+        m->defaults.cpu_sched_set = defaults->cpu_sched_set;
+
         m->defaults.memory_pressure_watch = defaults->memory_pressure_watch;
         m->defaults.memory_pressure_threshold_usec = defaults->memory_pressure_threshold_usec;
 
@@ -5335,6 +5339,9 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
 
                 .oom_policy = OOM_STOP,
                 .oom_score_adjust_set = false,
+
+                .cpu_sched_policy = SCHED_OTHER,
+                .cpu_sched_set = false,
         };
 }
 

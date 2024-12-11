@@ -673,6 +673,82 @@ static int config_parse_oom_score_adjust(
         return 0;
 }
 
+static int config_parse_cpu_sched_policy(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                arg_defaults.cpu_sched_set = false;
+                arg_defaults.cpu_sched_policy = SCHED_OTHER;
+                arg_defaults.cpu_sched_priority = 0;
+                return 0;
+        }
+
+        x = sched_policy_from_string(rvalue);
+        if (x < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse CPU scheduling policy, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        arg_defaults.cpu_sched_policy = x;
+        /* Moving to or from real-time policy? We need to adjust the priority */
+        arg_defaults.cpu_sched_priority = CLAMP(arg_defaults.cpu_sched_priority, sched_get_priority_min(x), sched_get_priority_max(x));
+        arg_defaults.cpu_sched_set = true;
+
+        return 0;
+}
+
+static int config_parse_cpu_sched_prio(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int i, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = safe_atoi(rvalue, &i);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse CPU scheduling priority, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set later so
+         * we do not check the precise range, but only the generic outer bounds. */
+        if (i < 0 || i > 99) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "CPU scheduling priority is out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        arg_defaults.cpu_sched_priority = i;
+        arg_defaults.cpu_sched_set = true;
+
+        return 0;
+}
+
 static int config_parse_protect_system_pid1(
                 const char *unit,
                 const char *filename,
@@ -817,6 +893,8 @@ static int parse_config_file(void) {
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_runtime_scope,        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_defaults.oom_policy          },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
+                { "Manager", "DefaultCPUSchedulingPolicy",   config_parse_cpu_sched_policy,      0,                        NULL                              },
+                { "Manager", "DefaultCPUSchedulingPriority", config_parse_cpu_sched_prio,        0,                        NULL                              },
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
                 { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst           },
 #if ENABLE_SMACK
