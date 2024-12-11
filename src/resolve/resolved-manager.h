@@ -152,7 +152,8 @@ struct Manager {
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_monitor_server;
 
-        Set *varlink_subscription;
+        Set *varlink_query_results_subscription;
+        Set *varlink_dns_configuration_subscription;
 
         sd_event_source *clock_change_event_source;
 
@@ -225,3 +226,6 @@ int socket_disable_pmtud(int fd, int af);
 int dns_manager_dump_statistics_json(Manager *m, sd_json_variant **ret);
 
 void dns_manager_reset_statistics(Manager *m);
+
+int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret);
+int manager_send_dns_configuration_changed(Manager *m);
