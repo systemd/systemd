@@ -1149,6 +1149,24 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MPLSRouting=</varname></term>
+        <listitem>
+          <para>Control whether Multi-protocol Label Switching (MPLS) routing is enabled on this interface.
+          This configures <filename>/proc/sys/net/mpls/conf/<replaceable>INTERFACE</replaceable>/input</filename>.
+          Takes a boolean. Defaults to unset, and the kernel's default will be used.</para>
+
+          <para>Note, <command>systemd-networkd</command> does <emphasis>not</emphasis> load any required
+          kernel modules for MPLS. To enable the feature, <filename>mpls_router</filename> kernel module must
+          be loaded before <filename>systemd-networkd.service</filename> is started. Consider adding the
+          kernel module to
+          <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>KeepMaster=</varname></term>
         <listitem>
           <para>Takes a boolean value. When enabled, the current master interface index will not be
