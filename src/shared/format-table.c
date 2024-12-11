@@ -170,7 +170,7 @@ Table *table_new_raw(size_t n_columns) {
         if (!t)
                 return NULL;
 
-        *t = (struct Table) {
+        *t = (Table) {
                 .n_columns = n_columns,
                 .header = true,
                 .width = SIZE_MAX,
@@ -1348,7 +1348,7 @@ int table_hide_column_from_display_internal(Table *t, ...) {
                         return r;
         }
 
-        for (size_t i = 0; i < t->n_display_map; i++) {
+        FOREACH_ARRAY(i, t->display_map, t->n_display_map) {
                 bool listed = false;
                 va_list ap;
 
@@ -1359,7 +1359,7 @@ int table_hide_column_from_display_internal(Table *t, ...) {
                         column = va_arg(ap, size_t);
                         if (column == SIZE_MAX)
                                 break;
-                        if (column == t->display_map[i]) {
+                        if (column == *i) {
                                 listed = true;
                                 break;
                         }
@@ -1369,7 +1369,7 @@ int table_hide_column_from_display_internal(Table *t, ...) {
                 if (listed)
                         continue;
 
-                t->display_map[cur++] = t->display_map[i];
+                t->display_map[cur++] = *i;
         }
 
         t->n_display_map = cur;
@@ -2190,7 +2190,7 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
-static bool table_data_isempty(TableData *d) {
+static bool table_data_isempty(const TableData *d) {
         assert(d);
 
         if (d->type == TABLE_EMPTY)
@@ -2204,7 +2204,7 @@ static bool table_data_isempty(TableData *d) {
         return false;
 }
 
-static const char* table_data_color(TableData *d) {
+static const char* table_data_color(const TableData *d) {
         assert(d);
 
         if (d->color)
@@ -2220,17 +2220,11 @@ static const char* table_data_color(TableData *d) {
         return NULL;
 }
 
-static const char* table_data_rgap_color(TableData *d) {
-        assert(d);
-
-        return d->rgap_color ?: d->rgap_color;
-}
-
-static const char* table_data_underline(TableData *d) {
+static const char* table_data_underline(const TableData *d) {
         assert(d);
 
         if (d->underline)
-                return /* cescape( */ansi_add_underline_grey()/* ) */;
+                return ansi_add_underline_grey();
 
         if (d->type == TABLE_HEADER)
                 return ansi_add_underline();
@@ -2238,7 +2232,7 @@ static const char* table_data_underline(TableData *d) {
         return NULL;
 }
 
-static const char* table_data_rgap_underline(TableData *d) {
+static const char* table_data_rgap_underline(const TableData *d) {
         assert(d);
 
         if (d->rgap_underline)
@@ -2642,7 +2636,7 @@ int table_print(Table *t, FILE *f) {
                                 if (color || underline)
                                         fputs(ANSI_NORMAL, f);
 
-                                gap_color = table_data_rgap_color(d);
+                                gap_color = d->rgap_color;
                                 gap_underline = table_data_rgap_underline(d);
                         }
 
