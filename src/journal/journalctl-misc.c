@@ -246,11 +246,11 @@ int action_list_invocations(void) {
 
         assert(arg_action == ACTION_LIST_INVOCATIONS);
 
-        r = acquire_unit("--list-invocations", &unit, &type);
+        r = acquire_journal(&j);
         if (r < 0)
                 return r;
 
-        r = acquire_journal(&j);
+        r = acquire_unit(j, "--list-invocations", &unit, &type);
         if (r < 0)
                 return r;
 
