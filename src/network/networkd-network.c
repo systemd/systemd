@@ -482,6 +482,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .proxy_arp_pvlan = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
                 .ipv4_force_igmp_version = _IPV4_FORCE_IGMP_VERSION_INVALID,
+                .mpls_input = -1,
 
                 .ndisc = -1,
                 .ndisc_use_redirect = true,
