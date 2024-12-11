@@ -125,10 +125,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:*
  KEYBOARD_KEY_f8=fn
  KEYBOARD_KEY_f9=prog1                                  # Launch NTI shadow
 
-# Acer kernel driver
-evdev:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:*
- KEYBOARD_KEY_82=touchpad_toggle                        # Touchpad toggle
-
 # Aspire models
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*:*
  KEYBOARD_KEY_84=bluetooth                              # sent when bluetooth module missing, and key pressed
@@ -278,16 +274,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
  KEYBOARD_KEY_ed=volumeup
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
-
-evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
-evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
-evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
- KEYBOARD_KEY_6b=touchpad_toggle                        # Touchpad Toggle
- KEYBOARD_KEY_7c=micmute
-
-# USB keyboard in Asus FX503VD
-evdev:input:b0003v0B05p1869*
- KEYBOARD_KEY_ff31007c=micmute
 
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
@@ -935,10 +921,6 @@ evdev:input:b0005v03F0p854Ae044C*
 # Huawei
 ##########################################################
 
-# Huawei WMI hotkeys driver
-evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI:*
- KEYBOARD_KEY_287=micmute                               # Microphone mute button
-
 # Huawei MACH-WX9 and EUL-WX9
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:*
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnEUL-WX9:*
@@ -1030,7 +1012,6 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_15=volumedown
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
- KEYBOARD_KEY_1a=micmute                                # Microphone mute button
  KEYBOARD_KEY_45=bookmarks
  KEYBOARD_KEY_46=selective_screenshot                   # Fn + PrtSc, on Windows: Snipping tool
  KEYBOARD_KEY_4a=prog3                                  # Fn + Right shift, on Windows: No idea
@@ -1110,9 +1091,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:*
 # IdeaPad
 evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_0d=rfkill                                 # airplane mode switch (toggle all wireless devices)
- KEYBOARD_KEY_08=micmute
- KEYBOARD_KEY_42=touchpad_off
- KEYBOARD_KEY_43=touchpad_on
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
  KEYBOARD_KEY_95=media
@@ -1595,10 +1573,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
  KEYBOARD_KEY_97=unknown                                # Lid close
  KEYBOARD_KEY_98=unknown                                # Lid open
 
-evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
- KEYBOARD_KEY_0213=touchpad_on
- KEYBOARD_KEY_0214=touchpad_off
-
 # MSI Claw
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnClawA1M:*
  KEYBOARD_KEY_b9=f15                                   # Right Face Button
@@ -1776,14 +1750,6 @@ evdev:input:b0003v258Ap001E*
  KEYBOARD_KEY_700a5=brightnessdown
  KEYBOARD_KEY_700a6=brightnessup
  KEYBOARD_KEY_70066=sleep
-
-###########################################################
-# Plantronics
-###########################################################
-
-# Plantronics .Audio 626 DSP
-evdev:input:b0003v047FpC006*
- KEYBOARD_KEY_b002f=micmute                             # Microphone mute button
 
 ###########################################################
 # Purism
