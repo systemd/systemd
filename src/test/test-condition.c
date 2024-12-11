@@ -1308,4 +1308,37 @@ TEST(condition_test_psi) {
         condition_free(condition);
 }
 
+TEST(condition_test_kernel_module_loaded) {
+        Condition *condition;
+        int r;
+
+        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "..", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
+        if (access("/sys/module/", F_OK) < 0)
+                return (void) log_tests_skipped("/sys/module not available, skipping.");
+
+        FOREACH_STRING(m, "random", "vfat", "fat", "cec", "binfmt_misc", "binfmt-misc") {
+                condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, m, /* trigger= */ false, /* negate= */ false);
+                assert_se(condition);
+                r = condition_test(condition, environ);
+                ASSERT_OK(r);
+                condition_free(condition);
+
+                log_notice("kmod %s is loaded: %s", m, yes_no(r));
+        }
+
+        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "idefinitelydontexist", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
