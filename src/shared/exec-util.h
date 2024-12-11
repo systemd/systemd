@@ -61,5 +61,6 @@ ExecCommandFlags exec_command_flags_from_string(const char *s);
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]);
 
+int shall_fork_agent(void);
 int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) _sentinel_;
 #define fork_agent(name, ...) _fork_agent(name, __VA_ARGS__, NULL)
