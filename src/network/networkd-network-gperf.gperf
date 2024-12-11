@@ -406,7 +406,7 @@ IPv6SendRA.ReachableTimeSec,                 config_parse_router_uint32_msec_use
 IPv6SendRA.RetransmitSec,                    config_parse_router_uint32_msec_usec,                     0,                             offsetof(Network, router_retransmit_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
+IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
 IPv6SendRA.HopLimit,                         config_parse_uint8,                                       0,                             offsetof(Network, router_hop_limit)
 IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
 IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
@@ -427,6 +427,7 @@ IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,        
 IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
+IPv6RoutePrefix.Preference,                  config_parse_route_prefix_preference,                     0,                             0
 IPv6PREF64Prefix.Prefix,                     config_parse_pref64_prefix,                               0,                             0
 IPv6PREF64Prefix.LifetimeSec,                config_parse_pref64_prefix_lifetime,                      0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)

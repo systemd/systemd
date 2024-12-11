@@ -4399,6 +4399,15 @@ ServerAddress=192.168.0.1/24</programlisting>
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Preference=</varname></term>
+
+        <listitem><para>Specifies the preference of the route option. Takes one of <literal>high</literal>,
+        <literal>medium</literal>, or <literal>low</literal>. Defaults to <literal>medium</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
