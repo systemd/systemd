@@ -23,8 +23,11 @@
 
 /* Validate the descriptor macros a bit that they match our expectations */
 assert_cc(DEVICE_DESCRIPTOR_DEVICETREE == UINT32_C(0x1000001C));
+assert_cc(DEVICE_DESCRIPTOR_EFIFW == UINT32_C(0x2000001C));
 assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == sizeof(Device));
 assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_DEVICETREE) == DEVICE_TYPE_DEVICETREE);
+assert_cc(DEVICE_SIZE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_EFIFW) == sizeof(Device));
+assert_cc(DEVICE_TYPE_FROM_DESCRIPTOR(DEVICE_DESCRIPTOR_EFIFW) == DEVICE_TYPE_EFIFW);
 
 /**
  * smbios_to_hashable_string() - Convert ascii smbios string to stripped char16_t.
@@ -107,13 +110,15 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, const Device 
                 return log_error_status(status, "Failed to populate board CHIDs: %m");
 
         size_t n_devices = 0;
+        uint32_t dev_type;
 
         /* Count devices and check validity */
         for (; (n_devices + 1) * sizeof(*devices) < hwid_length;) {
 
+                dev_type = DEVICE_TYPE_FROM_DESCRIPTOR(devices[n_devices].descriptor);
                 if (devices[n_devices].descriptor == DEVICE_DESCRIPTOR_EOL)
                         break;
-                if (devices[n_devices].descriptor != DEVICE_DESCRIPTOR_DEVICETREE)
+                if ((dev_type != DEVICE_TYPE_EFIFW) && (dev_type != DEVICE_TYPE_DEVICETREE))
                         return EFI_UNSUPPORTED;
                 n_devices++;
         }
