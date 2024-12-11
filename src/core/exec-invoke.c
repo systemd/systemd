@@ -3407,7 +3407,7 @@ static int apply_mount_namespace(
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
                 .private_namespace_dir = private_namespace_dir,
-                .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
+                .host_notify_socket = root_dir || root_image ? params->notify_socket : NULL,
                 .host_os_release_stage = host_os_release_stage,
 
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
