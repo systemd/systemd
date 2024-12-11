@@ -705,10 +705,6 @@ Manager* manager_free(Manager *m) {
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);
 
-        /* reject (e.g. unreachable) type routes are managed by Manager, but may be referenced by a
-         * link. E.g., DHCP6 with prefix delegation creates unreachable routes, and they are referenced
-         * by the upstream link. And the links may be referenced by netlink slots. Hence, two
-         * set_free() must be called after the above sd_netlink_unref(). */
         m->routes = set_free(m->routes);
 
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
