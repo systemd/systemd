@@ -732,10 +732,12 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         for (const char *i = *ibuf; i < *ibuf + isz + 1; i++) {
 
+                bool eot = i >= *ibuf + isz;
+
                 switch (state) {
 
                 case STATE_OTHER:
-                        if (i >= *ibuf + isz) /* EOT */
+                        if (eot)
                                 break;
 
                         if (*i == '\r') {
@@ -760,7 +762,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 case STATE_ESCAPE:
                         assert(n_carriage_returns == 0);
 
-                        if (i >= *ibuf + isz) { /* EOT */
+                        if (eot) {
                                 fputc('\x1B', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 1);
                                 break;
@@ -782,8 +784,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 case STATE_CSI:
                         assert(n_carriage_returns == 0);
 
-                        if (i >= *ibuf + isz || /* EOT … */
-                            !strchr("01234567890;m", *i)) { /* … or invalid chars in sequence */
+                        if (eot || !strchr("01234567890;m", *i)) { /* EOT or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc('[', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
@@ -800,8 +801,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         /* There are three kinds of OSC terminators: \x07, \x1b\x5c or \x9c. We only support
                          * the first two, because the last one is a valid UTF-8 codepoint and hence creates
                          * an ambiguity (many Terminal emulators refuse to support it as well). */
-                        if (i >= *ibuf + isz || /* EOT … */
-                            (!IN_SET(*i, '\x07', '\x1b') && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
+                        if (eot || (!IN_SET(*i, '\x07', '\x1b') && !osc_char_is_valid(*i))) { /* EOT or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
@@ -815,8 +815,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         break;
 
                 case STATE_OSC_CLOSING:
-                        if (i >= *ibuf + isz || /* EOT … */
-                            *i != '\x5c') { /* … or incomplete two-byte ST in sequence */
+                        if (eot || *i != '\x5c') { /* EOT or incomplete two-byte ST in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);

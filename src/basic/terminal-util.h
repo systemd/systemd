@@ -157,3 +157,9 @@ int terminal_is_pty_fd(int fd);
 
 int pty_open_peer_racefree(int fd, int mode);
 int pty_open_peer(int fd, int mode);
+
+static inline bool osc_char_is_valid(char c) {
+        /* Checks whether the specified character is safe to be included inside an ANSI OSC sequence, as per
+         * ECMA-48 5th edition, section 8.3.89 */
+        return (unsigned char) c >= 32U && (unsigned char) c < 127;
+}
