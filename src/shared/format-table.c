@@ -2220,12 +2220,6 @@ static const char* table_data_color(const TableData *d) {
         return NULL;
 }
 
-static const char* table_data_rgap_color(const TableData *d) {
-        assert(d);
-
-        return d->rgap_color ?: d->rgap_color;
-}
-
 static const char* table_data_underline(const TableData *d) {
         assert(d);
 
@@ -2642,7 +2636,7 @@ int table_print(Table *t, FILE *f) {
                                 if (color || underline)
                                         fputs(ANSI_NORMAL, f);
 
-                                gap_color = table_data_rgap_color(d);
+                                gap_color = d->rgap_color;
                                 gap_underline = table_data_rgap_underline(d);
                         }
 
