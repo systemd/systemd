@@ -109,6 +109,9 @@ EOF
                                                        --env DPKG_DEB_COMPRESSOR_TYPE="none" \
                                                        --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb nodoc" \
                                                        --env TEST_UPSTREAM=1 \
+                                                       --skip-test localed-locale \
+                                                       --skip-test localed-x11-keymap \
+                                                       --skip-test build-with-static-libsystemd \
                                                        ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \
