@@ -1804,7 +1804,7 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root_init);
 
         sd_bus_track_unref(m->subscribed);
-        strv_free(m->deserialized_subscribed);
+        strv_free(m->subscribe_serialization);
 
         unit_defaults_done(&m->defaults);
 
@@ -2142,10 +2142,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 manager_setup_bus(m);
 
                 /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->deserialized_subscribed);
+                r = bus_track_coldplug(m->api_bus, &m->subscribed, false, m->subscribe_serialization);
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-                m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+                m->subscribe_serialization = strv_free(m->subscribe_serialization);
 
                 r = manager_varlink_init(m);
                 if (r < 0)
