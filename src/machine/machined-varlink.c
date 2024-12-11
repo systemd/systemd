@@ -641,6 +641,7 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
 }
 
 static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
         struct params {
                 const char *image_name;
                 AcquireMetadata acquire_metadata;
@@ -667,7 +668,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 if (!image_name_is_valid(p.image_name))
                         return sd_varlink_error_invalid_parameter_name(link, "name");
 
-                r = image_find(IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
+                r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root = */ NULL, &found);
                 if (r == -ENOENT)
                         return sd_varlink_error(link, "io.systemd.MachineImage.NoSuchImage", NULL);
                 if (r < 0)
@@ -683,7 +684,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(IMAGE_MACHINE, /* root = */ NULL, images);
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 
