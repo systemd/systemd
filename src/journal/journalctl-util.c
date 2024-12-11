@@ -10,6 +10,7 @@
 #include "rlimit-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-name.h"
 
 char* format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
         assert(buf);
@@ -117,6 +118,7 @@ int journal_acquire_boot(sd_journal *j) {
 
 int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_type) {
         size_t n;
+        int r;
 
         assert(option_name);
         assert(ret_unit);
@@ -132,15 +134,26 @@ int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_
                                        "Using %s with multiple units is not supported.",
                                        option_name);
 
+        LogIdType type;
+        char **units;
         if (!strv_isempty(arg_system_units)) {
-                *ret_type = LOG_SYSTEM_UNIT_INVOCATION_ID;
-                *ret_unit = arg_system_units[0];
+                type = LOG_SYSTEM_UNIT_INVOCATION_ID;
+                units = arg_system_units;
         } else {
                 assert(!strv_isempty(arg_user_units));
-                *ret_type = LOG_USER_UNIT_INVOCATION_ID;
-                *ret_unit = arg_user_units[0];
+                type = LOG_USER_UNIT_INVOCATION_ID;
+                units = arg_user_units;
         }
 
+        _cleanup_free_ char *u = NULL;
+        r = unit_name_mangle(units[0], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name '%s': %m", units[0]);
+
+        free_and_replace(units[0], u);
+
+        *ret_type = type;
+        *ret_unit = units[0];
         return 0;
 }
 
