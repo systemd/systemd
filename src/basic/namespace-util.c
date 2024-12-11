@@ -18,34 +18,91 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "user-util.h"
 
 const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
-        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP, PROC_CGROUP_INIT_INO     },
-        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,    PROC_IPC_INIT_INO        },
-        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,    0                        },
+        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP, PIDFD_GET_CGROUP_NAMESPACE, PROC_CGROUP_INIT_INO },
+        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,    PIDFD_GET_IPC_NAMESPACE,    PROC_IPC_INIT_INO    },
+        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,    PIDFD_GET_NET_NAMESPACE,    0                    },
         /* So, the mount namespace flag is called CLONE_NEWNS for historical
          * reasons. Let's expose it here under a more explanatory name: "mnt".
          * This is in-line with how the kernel exposes namespaces in /proc/$PID/ns. */
-        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,     0                        },
-        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,    PROC_PID_INIT_INO        },
-        [NAMESPACE_USER]   =  { "user",   "ns/user",   CLONE_NEWUSER,   PROC_USER_INIT_INO       },
-        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,    PROC_UTS_INIT_INO        },
-        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,   PROC_TIME_INIT_INO       },
-        { /* Allow callers to iterate over the array without using _NAMESPACE_TYPE_MAX. */       },
+        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,     PIDFD_GET_MNT_NAMESPACE,    0                    },
+        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,    PIDFD_GET_PID_NAMESPACE,    PROC_PID_INIT_INO    },
+        [NAMESPACE_USER]   =  { "user",   "ns/user",   CLONE_NEWUSER,   PIDFD_GET_USER_NAMESPACE,   PROC_USER_INIT_INO   },
+        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,    PIDFD_GET_UTS_NAMESPACE,    PROC_UTS_INIT_INO    },
+        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,   PIDFD_GET_TIME_NAMESPACE,   PROC_TIME_INIT_INO   },
+        {}, /* Allow callers to iterate over the array without using _NAMESPACE_TYPE_MAX. */
 };
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
-static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
+NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
         for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
                 if (((namespace_info[t].clone_flag ^ clone_flag) & (CLONE_NEWCGROUP|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUSER|CLONE_NEWUTS|CLONE_NEWTIME)) == 0)
                         return t;
 
         return _NAMESPACE_TYPE_INVALID;
+}
+
+static int pidref_namespace_open_by_type_internal(const PidRef *pidref, NamespaceType type, bool *need_verify) {
+        int r;
+
+        assert(pidref_is_set(pidref));
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        if (pidref->fd >= 0) {
+                r = pidfd_get_namespace(pidref->fd, namespace_info[type].pidfd_get_ns_flag);
+                if (r != -EOPNOTSUPP)
+                        return r;
+        }
+
+        if (need_verify) /* The caller shall call pidref_verify() later */
+                *need_verify = true;
+
+        _cleanup_close_ int nsfd = -EBADF;
+        const char *p;
+
+        p = pid_namespace_path(pidref->pid, type);
+        nsfd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (nsfd < 0) {
+                if (errno == ENOENT && proc_mounted() == 0)
+                        return -ENOSYS;
+
+                return -errno;
+        }
+
+        if (!need_verify) { /* Otherwise we verify on our own */
+                r = pidref_verify(pidref);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(nsfd);
+}
+
+int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type) {
+        return pidref_namespace_open_by_type_internal(pidref, type, NULL);
+}
+
+int namespace_open_by_type(NamespaceType type) {
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        int r;
+
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        r = pidref_set_self(&self);
+        if (r < 0)
+                return r;
+
+        return pidref_namespace_open_by_type(&self, type);
 }
 
 int pidref_namespace_open(
@@ -58,58 +115,56 @@ int pidref_namespace_open(
 
         _cleanup_close_ int pidns_fd = -EBADF, mntns_fd = -EBADF, netns_fd = -EBADF,
                 userns_fd = -EBADF, root_fd = -EBADF;
+        bool need_verify = false;
         int r;
 
         assert(pidref_is_set(pidref));
 
-        if (ret_pidns_fd) {
-                const char *pidns;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
 
-                pidns = pid_namespace_path(pidref->pid, NAMESPACE_PID);
-                pidns_fd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (ret_pidns_fd) {
+                pidns_fd = pidref_namespace_open_by_type_internal(pidref, NAMESPACE_PID, &need_verify);
                 if (pidns_fd < 0)
-                        return -errno;
+                        return pidns_fd;
         }
 
         if (ret_mntns_fd) {
-                const char *mntns;
-
-                mntns = pid_namespace_path(pidref->pid, NAMESPACE_MOUNT);
-                mntns_fd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                mntns_fd = pidref_namespace_open_by_type_internal(pidref, NAMESPACE_MOUNT, &need_verify);
                 if (mntns_fd < 0)
-                        return -errno;
+                        return mntns_fd;
         }
 
         if (ret_netns_fd) {
-                const char *netns;
-
-                netns = pid_namespace_path(pidref->pid, NAMESPACE_NET);
-                netns_fd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                netns_fd = pidref_namespace_open_by_type_internal(pidref, NAMESPACE_NET, &need_verify);
                 if (netns_fd < 0)
-                        return -errno;
+                        return netns_fd;
         }
 
         if (ret_userns_fd) {
-                const char *userns;
-
-                userns = pid_namespace_path(pidref->pid, NAMESPACE_USER);
-                userns_fd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (userns_fd < 0 && errno != ENOENT)
-                        return -errno;
+                userns_fd = pidref_namespace_open_by_type_internal(pidref, NAMESPACE_USER, &need_verify);
+                if (userns_fd < 0 && !IN_SET(userns_fd, -ENOENT, -ENOPKG))
+                        return userns_fd;
         }
 
         if (ret_root_fd) {
                 const char *root;
 
                 root = procfs_file_alloca(pidref->pid, "root");
-                root_fd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                root_fd = RET_NERRNO(open(root, O_CLOEXEC|O_DIRECTORY));
+                if (root_fd == -ENOENT && proc_mounted() == 0)
+                        return -ENOSYS;
                 if (root_fd < 0)
-                        return -errno;
+                        return root_fd;
+
+                need_verify = true;
         }
 
-        r = pidref_verify(pidref);
-        if (r < 0)
-                return r;
+        if (need_verify) {
+                r = pidref_verify(pidref);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_pidns_fd)
                 *ret_pidns_fd = TAKE_FD(pidns_fd);
@@ -154,10 +209,10 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
                  * your own namespace, so check if namespaces are equal before attempting to enter. */
 
-                r = inode_same_at(userns_fd, "", AT_FDCWD, "/proc/self/ns/user", AT_EMPTY_PATH);
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
                 if (r < 0)
                         return r;
-                if (r)
+                if (r > 0)
                         userns_fd = -EBADF;
         }
 
@@ -188,50 +243,128 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return reset_uid_gid();
 }
 
-int fd_is_ns(int fd, unsigned long nsflag) {
-        struct statfs s;
+int fd_is_namespace(int fd, NamespaceType type) {
         int r;
 
-        /* Checks whether the specified file descriptor refers to a namespace created by specifying nsflag in clone().
-         * On old kernels there's no nice way to detect that, hence on those we'll return a recognizable error (EUCLEAN),
-         * so that callers can handle this somewhat nicely.
-         *
-         * This function returns > 0 if the fd definitely refers to a network namespace, 0 if it definitely does not
-         * refer to a network namespace, -EUCLEAN if we can't determine, and other negative error codes on error. */
+        /* Checks whether the specified file descriptor refers to a namespace (of type if type != _NAMESPACE_INVALID). */
 
-        if (fstatfs(fd, &s) < 0)
+        assert(fd >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        r = fd_is_fs_type(fd, NSFS_MAGIC);
+        if (r <= 0)
+                return r;
+
+        if (type < 0)
+                return true;
+
+        int clone_flag = ioctl(fd, NS_GET_NSTYPE);
+        if (clone_flag < 0)
                 return -errno;
 
-        if (!is_fs_type(&s, NSFS_MAGIC)) {
-                /* On really old kernels, there was no "nsfs", and network namespace sockets belonged to procfs
-                 * instead. Handle that in a somewhat smart way. */
+        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
+        if (found_type < 0)
+                return -EBADF; /* Uh? Unknown namespace type? */
 
-                if (is_fs_type(&s, PROC_SUPER_MAGIC)) {
-                        struct statfs t;
+        return found_type == type;
+}
 
-                        /* OK, so it is procfs. Let's see if our own network namespace is procfs, too. If so, then the
-                         * passed fd might refer to a network namespace, but we can't know for sure. In that case,
-                         * return a recognizable error. */
+int is_our_namespace(int fd, NamespaceType type) {
+        int r;
 
-                        if (statfs("/proc/self/ns/net", &t) < 0)
-                                return -errno;
+        assert(fd >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
 
-                        if (s.f_type == t.f_type)
-                                return -EUCLEAN; /* It's possible, we simply don't know */
+        r = fd_is_namespace(fd, type);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Not a namespace or not of the right type? */
+                return -EUCLEAN;
+
+        _cleanup_close_ int our_ns = namespace_open_by_type(type);
+        if (our_ns < 0)
+                return our_ns;
+
+        return fd_inode_same(fd, our_ns);
+}
+
+int namespace_is_init(NamespaceType type) {
+        int r;
+
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        if (namespace_info[type].root_inode == 0)
+                return -EBADR; /* Cannot answer this question */
+
+        const char *p = pid_namespace_path(0, type);
+
+        struct stat st;
+        r = RET_NERRNO(stat(p, &st));
+        if (r == -ENOENT)
+                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
+                return proc_mounted() == 0 ? -ENOSYS : true;
+        if (r < 0)
+                return r;
+
+        return st.st_ino == namespace_info[type].root_inode;
+}
+
+int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
+        _cleanup_close_ int ns1 = -EBADF, ns2 = -EBADF;
+
+        /* Accepts NULL to indicate our own process */
+
+        assert(!pid1 || pidref_is_set(pid1));
+        assert(!pid2 || pidref_is_set(pid2));
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        if (pidref_equal(pid1, pid2))
+                return true;
+
+        if (!pid1)
+                ns1 = namespace_open_by_type(type);
+        else
+                ns1 = pidref_namespace_open_by_type(pid1, type);
+        if (ns1 < 0)
+                return ns1;
+
+        if (!pid2)
+                ns2 = namespace_open_by_type(type);
+        else
+                ns2 = pidref_namespace_open_by_type(pid2, type);
+        if (ns2 < 0)
+                return ns2;
+
+        return fd_inode_same(ns1, ns2);
+}
+
+int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
+        int r;
+
+        assert(pid >= 0);
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+        assert(ret);
+
+        for (;;) {
+                pid_t ppid;
+
+                r = pid_get_ppid(pid, &ppid);
+                if (r < 0)
+                        return r;
+
+                r = in_same_namespace(pid, ppid, type);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* If the parent and the child are not in the same namespace, then the child is
+                         * the leader we are looking for. */
+                        *ret = pid;
+                        return 0;
                 }
 
-                return 0; /* No! */
+                pid = ppid;
         }
-
-        r = ioctl(fd, NS_GET_NSTYPE);
-        if (r < 0) {
-                if (errno == ENOTTY) /* Old kernels didn't know this ioctl, let's also return a recognizable error in that case */
-                        return -EUCLEAN;
-
-                return -errno;
-        }
-
-        return (unsigned long) r == nsflag;
 }
 
 int detach_mount_namespace(void) {
@@ -402,30 +535,6 @@ int netns_acquire(void) {
         return TAKE_FD(netns_fd);
 }
 
-int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
-        const char *ns_path;
-        struct stat ns_st1, ns_st2;
-
-        if (pid1 == 0)
-                pid1 = getpid_cached();
-
-        if (pid2 == 0)
-                pid2 = getpid_cached();
-
-        if (pid1 == pid2)
-                return 1;
-
-        ns_path = pid_namespace_path(pid1, type);
-        if (stat(ns_path, &ns_st1) < 0)
-                return -errno;
-
-        ns_path = pid_namespace_path(pid2, type);
-        if (stat(ns_path, &ns_st2) < 0)
-                return -errno;
-
-        return stat_inode_same(&ns_st1, &ns_st2);
-}
-
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
         _cleanup_free_ char *buffer = NULL;
         const char *range, *shift;
@@ -462,75 +571,6 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
                 *ret_uid_range = uid_range;
 
         return 0;
-}
-
-int namespace_open_by_type(NamespaceType type) {
-        const char *p;
-        int fd;
-
-        assert(type >= 0);
-        assert(type < _NAMESPACE_TYPE_MAX);
-
-        p = pid_namespace_path(0, type);
-
-        fd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
-        if (fd == -ENOENT && proc_mounted() == 0)
-                return -ENOSYS;
-
-        return fd;
-}
-
-int namespace_is_init(NamespaceType type) {
-        int r;
-
-        assert(type >= 0);
-        assert(type <= _NAMESPACE_TYPE_MAX);
-
-        if (namespace_info[type].root_inode == 0)
-                return -EBADR; /* Cannot answer this question */
-
-        const char *p = pid_namespace_path(0, type);
-
-        struct stat st;
-        r = RET_NERRNO(stat(p, &st));
-        if (r == -ENOENT)
-                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
-                return proc_mounted() == 0 ? -ENOSYS : true;
-        if (r < 0)
-                return r;
-
-        return st.st_ino == namespace_info[type].root_inode;
-}
-
-int is_our_namespace(int fd, NamespaceType request_type) {
-        int clone_flag;
-
-        assert(fd >= 0);
-
-        clone_flag = ioctl(fd, NS_GET_NSTYPE);
-        if (clone_flag < 0)
-                return -errno;
-
-        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
-        if (found_type < 0)
-                return -EBADF; /* Uh? Unknown namespace type? */
-
-        if (request_type >= 0 && request_type != found_type) /* It's a namespace, but not of the right type? */
-                return -EUCLEAN;
-
-        struct stat st_fd, st_ours;
-        if (fstat(fd, &st_fd) < 0)
-                return -errno;
-
-        const char *p = pid_namespace_path(0, found_type);
-        if (stat(p, &st_ours) < 0) {
-                if (errno == ENOENT)
-                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
-
-                return -errno;
-        }
-
-        return stat_inode_same(&st_ours, &st_fd);
 }
 
 int is_idmapping_supported(const char *path) {
