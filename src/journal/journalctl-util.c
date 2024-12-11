@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "glob-util.h"
 #include "id128-util.h"
 #include "journal-util.h"
 #include "journalctl.h"
@@ -163,10 +164,11 @@ int get_possible_units(
         return 0;
 }
 
-int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_type) {
+int acquire_unit(sd_journal *j, const char *option_name, const char **ret_unit, LogIdType *ret_type) {
         size_t n;
         int r;
 
+        assert(j);
         assert(option_name);
         assert(ret_unit);
         assert(ret_type);
@@ -193,11 +195,29 @@ int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_
         }
 
         _cleanup_free_ char *u = NULL;
-        r = unit_name_mangle(units[0], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &u);
+        r = unit_name_mangle(units[0], UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", units[0]);
 
-        free_and_replace(units[0], u);
+        if (string_is_glob(u)) {
+                _cleanup_set_free_ Set *s = NULL;
+
+                r = get_possible_units(j, type == LOG_SYSTEM_UNIT_INVOCATION_ID ? SYSTEM_UNITS : USER_UNITS,
+                                       STRV_MAKE(u), &s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get matching unit '%s' from journal: %m", u);
+                if (set_isempty(s))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No matching unit found for '%s' in journal.", u);
+                if (set_size(s) > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple matching units found for '%s' in journal.", u);
+
+                char *found = set_steal_first(s);
+                log_debug("Found matching unit '%s' for '%s'.", found, u);
+
+                free_and_replace(units[0], found);
+                assert(set_isempty(s));
+        } else
+                free_and_replace(units[0], u);
 
         *ret_type = type;
         *ret_unit = units[0];
@@ -225,7 +245,7 @@ int journal_acquire_invocation(sd_journal *j) {
          * system unit or user unit, and calling without unit name is allowed. Otherwise, a unit name must
          * be specified. */
         if (arg_invocation_offset != 0 || sd_id128_is_null(arg_invocation_id)) {
-                r = acquire_unit("-I/--invocation= with an offset", &unit, &type);
+                r = acquire_unit(j, "-I/--invocation= with an offset", &unit, &type);
                 if (r < 0)
                         return r;
         }
