@@ -10,12 +10,9 @@ at_exit() {
     rm -rfv "${CONFIG_FILE:?}"
 }
 
-trap at_exit EXIT
+(! systemd-detect-virt -cq)
 
-if systemd-detect-virt -cq; then
-    echo "Running in a container, skipping the systemd-modules-load test..."
-    exit 0
-fi
+trap at_exit EXIT
 
 ORIG_MODULES_LOAD_CONFIG="$(systemd-analyze cat-config modules-load.d)"
 
