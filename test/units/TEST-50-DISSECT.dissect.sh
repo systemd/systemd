@@ -79,6 +79,11 @@ systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/jou
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
 
+# Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
+# $NOTIFY_SOCKET is set correctly.
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'echo READY=1 | nc --unixsock --udp $NOTIFY_SOCKET --source /run/notify && ls /run/host/notify'
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'echo READY=1 | nc --unixsock --udp $NOTIFY_SOCKET --source /run/notify && env' | grep NOTIFY_SOCKET=/run/host/notify
+
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
 mv "$MINIMAL_IMAGE.roothash" "$MINIMAL_IMAGE.foohash"
