@@ -634,7 +634,7 @@
         <para>Note the difference between <option>--tpm2-pcrs=</option> and
         <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
         values; the latter binds decryption to any set of PCR values for which a signature by the specified
-        public key can be provided. The latter is hence more useful in scenarios where software updates shell
+        public key can be provided. The latter is hence more useful in scenarios where software updates shall
         be possible without losing access to all previously encrypted LUKS2 volumes. Like with
         <option>--tpm2-pcrs=</option>, names defined in the table above can also be used to specify the
         registers, for instance
