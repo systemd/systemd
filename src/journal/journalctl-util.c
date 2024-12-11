@@ -7,6 +7,7 @@
 #include "journalctl.h"
 #include "journalctl-util.h"
 #include "logs-show.h"
+#include "nulstr-util.h"
 #include "rlimit-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -114,6 +115,56 @@ int journal_acquire_boot(sd_journal *j) {
         }
 
         return 1;
+}
+
+int get_possible_units(
+                sd_journal *j,
+                const char *fields,
+                char * const *patterns,
+                Set **ret) {
+
+        _cleanup_set_free_ Set *found = NULL;
+        int r;
+
+        assert(j);
+        assert(fields);
+        assert(ret);
+
+        NULSTR_FOREACH(field, fields) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_query_unique(j, field);
+                if (r < 0)
+                        return r;
+
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        _cleanup_free_ char *u = NULL;
+                        char *eq;
+
+                        eq = memchr(data, '=', size);
+                        if (eq) {
+                                size -= eq - (char*) data + 1;
+                                data = ++eq;
+                        }
+
+                        u = strndup(data, size);
+                        if (!u)
+                                return -ENOMEM;
+
+                        size_t i;
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                                continue;
+
+                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(found);
+        return 0;
 }
 
 int acquire_unit(const char *option_name, const char **ret_unit, LogIdType *ret_type) {
