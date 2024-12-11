@@ -356,14 +356,13 @@ static int add_partition_swap(DissectedPartition *p) {
         if (!arg_swap_enabled)
                 return 0;
 
-        /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
-        r = fstab_has_fstype("swap");
+        /* Prioritize fstab for honoring custom swap options, see #6192. */
+        r = fstab_has_node(p->node);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse fstab: %m");
-        if (r > 0) {
-                log_debug("swap specified in fstab, ignoring.");
+                log_warning_errno(r, "Failed to check if fstab entry for device '%s' exists, ignoring: %m",
+                                  p->node);
+        if (r > 0)
                 return 0;
-        }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
                 r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
