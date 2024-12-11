@@ -562,6 +562,13 @@
         To disable the safety check that the extension-release file name matches the image file name, the
         <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
 
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a service carrying confext images is reloaded, the confext
+        itself will also be reloaded to pick up any changes. This only applies to confext extensions. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
+
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
         set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
@@ -605,6 +612,14 @@
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>This option can be used together with a <option>notify-reload</option> service type and
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to manage configuration updates. When such a system service carrying confext directories is reloaded,
+        the confext itself will also be reloaded to pick up any changes. This only applies to confext
+        extensions. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        also for details.</para>
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
