@@ -30,6 +30,7 @@ static const char *arg_image_root = NULL;
 static ImportFlags arg_import_flags = IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static ImageClass arg_class = IMAGE_MACHINE;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 static int normalize_local(const char *local, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -63,7 +64,7 @@ static int normalize_local(const char *local, char **ret) {
                         local = "imported";
 
                 if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
-                        r = image_find(arg_class, local, NULL, NULL);
+                        r = image_find(arg_runtime_scope, arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
