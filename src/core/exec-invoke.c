@@ -1341,7 +1341,7 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->memory_deny_write_execute ||
                 c->private_devices ||
                 c->protect_clock ||
-                c->protect_hostname ||
+                c->protect_hostname == PROTECT_HOSTNAME_YES ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1701,7 +1701,7 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
         assert(c);
         assert(p);
 
-        if (!c->protect_hostname)
+        if (c->protect_hostname == PROTECT_HOSTNAME_NO)
                 return 0;
 
         if (ns_type_supported(NAMESPACE_UTS)) {
@@ -1726,15 +1726,17 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
                                  "support UTS namespaces, ignoring namespace setup.");
 
 #if HAVE_SECCOMP
-        int r;
+        if (c->protect_hostname == PROTECT_HOSTNAME_YES) {
+                int r;
 
-        if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
-                return 0;
+                if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
+                        return 0;
 
-        r = seccomp_protect_hostname();
-        if (r < 0) {
-                *ret_exit_status = EXIT_SECCOMP;
-                return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                r = seccomp_protect_hostname();
+                if (r < 0) {
+                        *ret_exit_status = EXIT_SECCOMP;
+                        return log_exec_error_errno(c, p, r, "Failed to apply hostname restrictions: %m");
+                }
         }
 #endif
 
@@ -3417,7 +3419,10 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                .protect_hostname = needs_sandboxing && context->protect_hostname,
+                /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise, ProtectHostname=no
+                 * allows changing hostname for the host and ProtectHostname=private allows changing the hostname in the unit's UTS
+                 * namespace. */
+                .protect_hostname = needs_sandboxing && context->protect_hostname == PROTECT_HOSTNAME_YES,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
@@ -4055,7 +4060,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->protect_kernel_logs ||
                exec_needs_cgroup_mount(context, params) ||
                context->protect_clock ||
-               context->protect_hostname ||
+               context->protect_hostname != PROTECT_HOSTNAME_NO ||
                !strv_isempty(context->read_write_paths) ||
                !strv_isempty(context->read_only_paths) ||
                !strv_isempty(context->inaccessible_paths) ||
