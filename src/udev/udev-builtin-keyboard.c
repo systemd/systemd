@@ -20,8 +20,7 @@ static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYP
 static int install_force_release(sd_device *dev, const unsigned *release, unsigned release_count) {
         sd_device *atkbd;
         const char *cur;
-        char codes[4096];
-        char *s;
+        char *s, codes[4096];
         size_t l;
         unsigned i;
         int r;
@@ -161,8 +160,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
 
 static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        unsigned release[1024];
-        unsigned release_count = 0;
+        unsigned release[1024], release_count = 0;
         _cleanup_close_ int fd = -EBADF;
         const char *node;
         int has_abs = -1, r;

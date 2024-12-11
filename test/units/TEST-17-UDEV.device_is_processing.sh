@@ -18,7 +18,7 @@ at_exit() {
     # Forcibly kills sleep command invoked by the udev rule before restarting,
     # otherwise systemctl restart below will takes longer.
     killall -KILL sleep
-    systemctl restart systemd-udevd.service
+    udevadm control --reload
     ip link del "$IFNAME"
 }
 
@@ -36,7 +36,7 @@ cat >/run/udev/rules.d/99-testsuite.rules <<EOF
 SUBSYSTEM=="net", ACTION=="change", KERNEL=="${IFNAME}", OPTIONS="log_level=debug", RUN+="/usr/bin/sleep 1000"
 EOF
 
-systemctl restart systemd-udevd.service
+udevadm control --reload
 
 ip link add "$IFNAME" type dummy
 IFINDEX=$(ip -json link show "$IFNAME" | jq '.[].ifindex')
