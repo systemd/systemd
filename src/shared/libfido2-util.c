@@ -856,13 +856,16 @@ int fido2_generate_hmac_hash(
                 for (;;) {
                         _cleanup_strv_free_erase_ char **pin = NULL;
                         AskPasswordRequest req = {
+                                .tty_fd = -EBADF,
                                 .message = "Please enter security token PIN:",
                                 .icon = askpw_icon,
                                 .keyring = "fido2-pin",
                                 .credential = askpw_credential,
+                                .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
                         };
 
-                        r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &pin);
+                        r = ask_password_auto(&req, /* flags= */ 0, &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire user PIN: %m");
 
