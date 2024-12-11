@@ -2752,14 +2752,14 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 };
         }
 
-        if (p->notify_socket) {
+        if (p->notify_socket_path) {
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = p->notify_socket,
-                        .source_const = p->notify_socket,
+                        .path_const = p->notify_socket_path,
+                        .source_const = p->host_notify_socket,
                         .mode = MOUNT_BIND,
                         .read_only = true,
                 };
