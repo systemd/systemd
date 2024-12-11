@@ -284,6 +284,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
+               "  -m --mask                  Parse parameter as numeric capability mask\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
