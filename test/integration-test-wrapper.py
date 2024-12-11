@@ -95,8 +95,12 @@ def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
         text=True,
     )  # fmt: skip
 
-    # coredumpctl returns a non-zero exit status if there are no coredumps.
+    # coredumpctl older than 258 returns a non-zero exit status if there are no coredumps.
     if result.returncode != 0:
+        return False
+
+    # newer coredumpctl succeeds with an empty string if there are no coredumps.
+    if result.stdout.rstrip() == '':
         return False
 
     coredumps = json.loads(result.stdout)
