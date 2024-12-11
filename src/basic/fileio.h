@@ -94,11 +94,11 @@ static inline int verify_file(const char *fn, const char *blob, bool accept_extr
         return verify_file_at(AT_FDCWD, fn, blob, accept_extra_nl);
 }
 
-int executable_is_script(const char *path, char **interpreter);
+int script_get_shebang_interpreter(const char *path, char **ret);
 
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
 
-DIR *xopendirat(int dirfd, const char *name, int flags);
+DIR* xopendirat(int dir_fd, const char *name, int flags);
 
 typedef enum XfopenFlags {
         XFOPEN_UNLOCKED = 1 << 0, /* call __fsetlocking(FSETLOCKING_BYCALLER) after opened */
@@ -148,22 +148,20 @@ typedef enum ReadLineFlags {
 } ReadLineFlags;
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
+static inline int read_line(FILE *f, size_t limit, char **ret) {
+        return read_line_full(f, limit, 0, ret);
+}
+static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
+        return read_line_full(f, limit, READ_LINE_ONLY_NUL, ret);
+}
+
+int read_stripped_line(FILE *f, size_t limit, char **ret);
 
 static inline bool file_offset_beyond_memory_size(off_t x) {
         if (x < 0) /* off_t is signed, filter that out */
                 return false;
         return (uint64_t) x > (uint64_t) SIZE_MAX;
 }
-
-static inline int read_line(FILE *f, size_t limit, char **ret) {
-        return read_line_full(f, limit, 0, ret);
-}
-
-static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
-        return read_line_full(f, limit, READ_LINE_ONLY_NUL, ret);
-}
-
-int read_stripped_line(FILE *f, size_t limit, char **ret);
 
 int safe_fgetc(FILE *f, char *ret);
 
