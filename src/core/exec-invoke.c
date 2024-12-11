@@ -1796,6 +1796,7 @@ static int build_environment(
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 const char *memory_pressure_path,
+                bool needs_sandboxing,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1807,7 +1808,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -2042,6 +2043,14 @@ static int build_environment(
 
                         our_env[n_env++] = x;
                 }
+        }
+
+        if (p->notify_socket ) {
+                x = strjoin("NOTIFY_SOCKET=", exec_get_effective_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
         }
 
         assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
@@ -3407,7 +3416,8 @@ static int apply_mount_namespace(
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
                 .private_namespace_dir = private_namespace_dir,
-                .host_notify_socket = root_dir || root_image ? params->notify_socket : NULL,
+                .host_notify_socket = params->notify_socket,
+                .notify_socket_path = exec_get_effective_notify_socket_path(context, params, needs_sandboxing),
                 .host_os_release_stage = host_os_release_stage,
 
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
@@ -4847,6 +4857,7 @@ int exec_invoke(
                         journal_stream_dev,
                         journal_stream_ino,
                         memory_pressure_path,
+                        needs_sandboxing,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
