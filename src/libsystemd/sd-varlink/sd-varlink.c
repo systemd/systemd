@@ -2496,7 +2496,7 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
         return sd_varlink_reply(v, parameters);
 }
 
-static int varlink_reset_fds(sd_varlink *v) {
+_public_ int sd_varlink_reset_fds(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
         /* Closes all currently pending fds to send. This may be used whenever the caller is in the process
@@ -2527,7 +2527,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
          * fails. In that case the pushed fds need to be flushed out again. Under the assumption that it
          * never makes sense to send fds along with errors we simply flush them out here beforehand, so that
          * the callers don't need to do this explicitly. */
-        varlink_reset_fds(v);
+        sd_varlink_reset_fds(v);
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
