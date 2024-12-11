@@ -12,14 +12,14 @@
 # credentials shell.prompt.prefix, shell.prompt.suffix and shell.welcome, and
 # are propagated into these environment variables by pam_systemd(8).
 
-if [ -n "$SHELL_PROMPT_PREFIX" ]; then
+if [ -n "${SHELL_PROMPT_PREFIX-}" ]; then
     PS1="$SHELL_PROMPT_PREFIX$PS1"
 fi
 
-if [ -n "$SHELL_PROMPT_SUFFIX" ]; then
+if [ -n "${SHELL_PROMPT_SUFFIX-}" ]; then
     PS1="$PS1$SHELL_PROMPT_SUFFIX"
 fi
 
-if [ -n "$SHELL_WELCOME" ]; then
+if [ -n "${SHELL_WELCOME-}" ]; then
    printf '%b\n' "$SHELL_WELCOME"
 fi
