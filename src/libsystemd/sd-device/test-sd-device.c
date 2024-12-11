@@ -499,6 +499,43 @@ TEST(sd_device_enumerator_add_match_parent) {
         }
 }
 
+TEST(sd_device_enumerator_add_all_parents) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+
+        /* STEP 1: enumerate all block devices without all_parents() */
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+
+        /* filter in only a subsystem */
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+        ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
+
+        unsigned devices_count_with_parents = 0;
+        unsigned devices_count_without_parents = 0;
+        FOREACH_DEVICE(e, dev) {
+                ASSERT_TRUE(device_in_subsystem(dev, "block"));
+                ASSERT_TRUE(device_is_devtype(dev, "partition"));
+                devices_count_without_parents++;
+        }
+
+        log_debug("found %u devices", devices_count_without_parents);
+
+        /* STEP 2: enumerate again with all_parents() */
+        ASSERT_OK(sd_device_enumerator_add_all_parents(e) >= 0);
+
+        unsigned not_filtered_parent_count = 0;
+        FOREACH_DEVICE(e, dev) {
+                if (!device_in_subsystem(dev, "block") || !device_is_devtype(dev, "partition"))
+                        not_filtered_parent_count++;
+                devices_count_with_parents++;
+        }
+        log_debug("found %u devices out of %u that would have been excluded without all_parents()",
+                  not_filtered_parent_count,
+                  devices_count_with_parents);
+        ASSERT_EQ(devices_count_with_parents, devices_count_without_parents + not_filtered_parent_count);
+}
+
 TEST(sd_device_get_child) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
