@@ -418,4 +418,6 @@ fi
 
 # RestrictNamespaces=
 systemd-run --wait --pipe unshare -T true
-(! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
+if [[ ! -v ASAN_OPTIONS ]]; then
+    (! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
+fi
