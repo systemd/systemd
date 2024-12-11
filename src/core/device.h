@@ -31,6 +31,9 @@ struct Device {
         DeviceFound found, deserialized_found, enumerated_found;
 
         bool bind_mounts;
+        bool processed; /* Whether udevd has been processed the device, i.e. the device has database and
+                         * ID_PROCESSING=1 udev property is not set. This is used only by enumeration and
+                         * subsequent catchup process. */
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
         char **wants_property;
