@@ -702,14 +702,16 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
 
         assert(pid >= 0);
 
-        if (pid == 0 || pid == getpid_cached()) {
+        if (pid == 0)
+                pid = getpid_cached();
+        if (pid == 1) /* PID 1 has no parent, shortcut this case */
+                return -EADDRNOTAVAIL;
+
+        if (pid == getpid_cached()) {
                 if (ret)
                         *ret = getppid();
                 return 0;
         }
-
-        if (pid == 1) /* PID 1 has no parent, shortcut this case */
-                return -EADDRNOTAVAIL;
 
         p = procfs_file_alloca(pid, "stat");
         r = read_one_line_file(p, &line);
@@ -724,7 +726,6 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         p = strrchr(line, ')');
         if (!p)
                 return -EIO;
-
         p++;
 
         if (sscanf(p, " "
@@ -733,9 +734,9 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
                    &ppid) != 1)
                 return -EIO;
 
-        /* If ppid is zero the process has no parent. Which might be the case for PID 1 but also for
-         * processes originating in other namespaces that are inserted into a pidns. Return a recognizable
-         * error in this case. */
+        /* If ppid is zero the process has no parent. Which might be the case for PID 1 (caught above)
+         * but also for processes originating in other namespaces that are inserted into a pidns.
+         * Return a recognizable error in this case. */
         if (ppid == 0)
                 return -EADDRNOTAVAIL;
 
@@ -1226,12 +1227,12 @@ int pid_from_same_root_fs(pid_t pid) {
 }
 
 bool is_main_thread(void) {
-        static thread_local int cached = 0;
+        static thread_local int cached = -1;
 
-        if (_unlikely_(cached == 0))
-                cached = getpid_cached() == gettid() ? 1 : -1;
+        if (cached < 0)
+                cached = getpid_cached() == gettid();
 
-        return cached > 0;
+        return cached;
 }
 
 bool oom_score_adjust_is_valid(int oa) {
