@@ -157,3 +157,7 @@ int terminal_is_pty_fd(int fd);
 
 int pty_open_peer_racefree(int fd, int mode);
 int pty_open_peer(int fd, int mode);
+
+static inline bool vtnr_is_valid(unsigned n) {
+        return n >= 1 && n <= 63;
+}
