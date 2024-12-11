@@ -1035,7 +1035,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                 r = table_add_many(t,
                                    TABLE_STRING, de->d_name,
                                    TABLE_STRING, no ?: "yes",
-                                   TABLE_SET_COLOR, no ? ansi_highlight_red() : ansi_highlight_green());
+                                   TABLE_SET_COLOR, ansi_highlight_green_red(!no));
                 if (r < 0)
                         return table_log_add_error(r);
         }
