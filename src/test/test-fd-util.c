@@ -76,9 +76,9 @@ TEST(same_fd) {
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = open("/bin/sh", O_RDONLY|O_CLOEXEC)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
-        assert_se((d = open("/dev/null", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
+        assert_se((d = open("/bin/sh", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
         assert_se((e = fcntl(d, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
@@ -389,6 +389,8 @@ TEST(close_all_fds) {
                         test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
         }
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("Lacking privileges for test in namespace with /proc/ overmounted");
         assert_se(r >= 0);
 
         if (!is_seccomp_available())

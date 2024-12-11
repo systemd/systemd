@@ -20,6 +20,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "virt.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
@@ -253,6 +254,13 @@ static void test_capability_get_ambient(void) {
         int r;
 
         ASSERT_OK(capability_get_ambient(&c));
+
+        r = prctl(PR_CAPBSET_READ, CAP_MKNOD);
+        if (r <= 0)
+                return (void) log_tests_skipped("Lacking CAP_MKNOD, skipping getambient test.");
+        r = prctl(PR_CAPBSET_READ, CAP_LINUX_IMMUTABLE);
+        if (r <= 0)
+                return (void) log_tests_skipped("Lacking CAP_LINUX_IMMUTABLE, skipping getambient test.");
 
         r = safe_fork("(getambient)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
         ASSERT_OK(r);
