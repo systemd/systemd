@@ -679,6 +679,8 @@ OOMPolicy oom_policy_from_string(const char *s) _pure_;
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
 
+bool manager_was_dependency_cycle(const Manager *m);
+
 enum {
         /* most important … */
         EVENT_PRIORITY_USER_LOOKUP       = SD_EVENT_PRIORITY_NORMAL-12,
