@@ -205,6 +205,11 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">smbios11</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">chid</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -1078,6 +1083,34 @@ io.systemd.credential.binary:ssh.ephemeral-authorized_keys-all=c3NoLWVkMjU1MTkgQ
 io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
 
 3 SMBIOS Type #11 strings passed.
+</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze chid</command></title>
+
+      <para>Shows a list of Computer Hardware IDs (CHIDs) of the local system. These IDs identify the
+      system's computer hardware, based on SMBIOS data. See <ulink
+      url="https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/using-chids">Using Computer
+      Hardware IDs (CHIDs)</ulink> for details about CHIDs.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze chid
+TYPE                 CHID
+   3 520537c0-3b59-504f-b062-9682ea236b21
+   4 edf05dc8-a53d-5b2c-8023-630bca2a2463
+   5 ebc6a4d9-ec48-537a-916b-c69fa4fdd814
+   6 5ebe4bba-f598-5e90-9ff2-9fd0d3211465
+   7 1a3fb835-b42a-5f9c-a38c-eff5bfd5c41d
+   8 2a831dce-8163-5bad-8406-435b8c752dd8
+   9 7c21c878-4a75-50f7-9816-21e811588da0
+  10 9a003537-bcc5-500e-b10a-8d8892e4fc64
+  11 bb9122bb-8a5c-50d2-a742-a85beb719909
+  13 bfc36935-5032-5987-a0a3-6311f01de33a
 </programlisting>
       </example>
 

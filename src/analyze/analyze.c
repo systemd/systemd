@@ -18,6 +18,7 @@
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
 #include "analyze-cat-config.h"
+#include "analyze-chid.h"
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
 #include "analyze-critical-chain.h"
@@ -219,6 +220,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  filesystems [NAME...]      List known filesystems\n"
                "  architectures [NAME...]    List known architectures\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
+               "  chid                       List local CHIDs\n"
                "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
@@ -592,10 +594,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= requires one or more units to perform a security review.");
 
-        if (sd_json_format_enabled(arg_json_format_flags) && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures, capability, exit-status right now.");
-
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
@@ -629,10 +627,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
-
-        if ((!arg_legend && !STRPTR_IN_SET(argv[optind], "plot", "architectures")) ||
-           (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && !sd_json_format_enabled(arg_json_format_flags)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=.");
 
         if (arg_table && !streq_ptr(argv[optind], "plot"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --table is only supported for plot right now.");
@@ -690,6 +684,7 @@ static int run(int argc, char *argv[]) {
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
                 { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
+                { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
                 {}
         };
 
