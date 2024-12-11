@@ -7,7 +7,8 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-SERVICE_NAME=invocation-id-test-"$RANDOM".service
+SERVICE_NAME_SHORT=invocation-id-test-"$RANDOM"
+SERVICE_NAME="$SERVICE_NAME_SHORT".service
 
 TMP_DIR=$(mktemp -d)
 
@@ -26,6 +27,7 @@ done
 # systemd[1]: invocation-id-test-26448.service: Deactivated successfully.
 journalctl --sync
 
+journalctl --list-invocation -u "$SERVICE_NAME_SHORT" | tee "$TMP_DIR"/short
 journalctl --list-invocation -u "$SERVICE_NAME" | tee "$TMP_DIR"/10
 journalctl --list-invocation -u "$SERVICE_NAME" --reverse | tee "$TMP_DIR"/10-r
 journalctl --list-invocation -u "$SERVICE_NAME" -n +10 | tee "$TMP_DIR"/p10
@@ -44,6 +46,7 @@ journalctl --list-invocation -u "$SERVICE_NAME" -n +5 --reverse | tee "$TMP_DIR"
 [[ $(cat "$TMP_DIR"/p5 | wc -l) == 6 ]]
 [[ $(cat "$TMP_DIR"/p5-r | wc -l) == 6 ]]
 
+diff "$TMP_DIR"/10 "$TMP_DIR"/short
 diff <(tail -n 10 "$TMP_DIR"/10 | tac) <(tail -n 10 "$TMP_DIR"/10-r)
 diff <(tail -n 5 "$TMP_DIR"/10) <(tail -n 5 "$TMP_DIR"/5)
 diff <(tail -n 5 "$TMP_DIR"/10 | tac) <(tail -n 5 "$TMP_DIR"/5-r)
@@ -54,6 +57,8 @@ diff <(tail -n 10 "$TMP_DIR"/p10 | head -n 5 | tac) <(tail -n 5 "$TMP_DIR"/p5-r)
 tail -n 10 "$TMP_DIR"/10 |
     while read -r idx invocation _; do
         i="$(( idx + 10 ))"
+        assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${i}" -u "$SERVICE_NAME_SHORT")"
+        assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${idx}" -u "$SERVICE_NAME_SHORT")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${i}" -u "$SERVICE_NAME")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${idx}" -u "$SERVICE_NAME")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${invocation}")"
@@ -62,6 +67,8 @@ tail -n 10 "$TMP_DIR"/10 |
 tail -n 10 "$TMP_DIR"/p10 |
     while read -r i invocation _; do
         idx="$(( i - 10 ))"
+        assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${i}" -u "$SERVICE_NAME_SHORT")"
+        assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${idx}" -u "$SERVICE_NAME_SHORT")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${i}" -u "$SERVICE_NAME")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${idx}" -u "$SERVICE_NAME")"
         assert_in "invocation ${i} ${invocation}" "$(journalctl --no-hostname -n 1 -t bash --invocation="${invocation}")"
