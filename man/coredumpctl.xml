@@ -389,7 +389,10 @@
 
   <refsect1>
     <title>Exit status</title>
-    <para>On success, 0 is returned; otherwise, a non-zero failure code is returned.</para>
+    <para>On success, 0 is returned; otherwise, a non-zero failure
+    code is returned. Not finding any matching core dumps is treated as
+    failure.
+    </para>
   </refsect1>
 
   <refsect1>
