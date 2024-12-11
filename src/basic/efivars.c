@@ -96,6 +96,17 @@ int efi_get_variable(
                                 (void) usleep_safe(EFI_RETRY_DELAY);
                 }
 
+                /* According to comment of linux source code, efivarfs represents uncommitted
+                 * variables with zero-length files. Reading them should return EOF, even though
+                 * st.st_size > 0
+                 *
+                 * See https://github.com/systemd/systemd/blob/b6b8527cd184085008585c1a1f9725eb97c342ef/src/basic/efivars.c#L99-L101
+                 */
+                if (n == 0) {
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "EFI variable %s is uncommitted", p);
+                }
+
                 if (n != sizeof(a))
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                                "Read %zi bytes from EFI variable %s, expected %zu.",  n, p, sizeof(a));
