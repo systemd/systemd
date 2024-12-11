@@ -860,10 +860,10 @@ int bus_init_api(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up API bus: %m");
 
-        r = bus_track_coldplug(bus, &m->subscribed, /* recursive= */ false, m->deserialized_subscribed);
+        r = bus_track_coldplug(bus, &m->subscribed, /* recursive= */ false, m->subscribe_serialization);
         if (r < 0)
                 return r;
-        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+        m->subscribe_serialization = strv_free(m->subscribe_serialization);
         m->api_bus = TAKE_PTR(bus);
 
         return 0;
@@ -1015,7 +1015,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 r = bus_track_to_strv(m->subscribed, &subscribed);
                 if (r < 0)
                         log_error_errno(r, "Failed to serialize api subscribers: %m");
-                r = strv_extend_strv_consume(&m->deserialized_subscribed, TAKE_PTR(subscribed), /* filter_duplicates = */ false);
+                r = strv_extend_strv_consume(&m->subscribe_serialization, TAKE_PTR(subscribed), /* filter_duplicates = */ false);
                 if (r < 0)
                         log_error_errno(r, "Failed to record api subscribers: %m");
 

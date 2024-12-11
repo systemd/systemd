@@ -340,7 +340,7 @@ struct Manager {
         considered subscribes, since they last for very short only,
         and it is much simpler that way. */
         sd_bus_track *subscribed;
-        char **deserialized_subscribed;
+        char **subscribe_serialization;
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */
