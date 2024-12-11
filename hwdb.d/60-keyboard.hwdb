@@ -283,11 +283,6 @@ evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
  KEYBOARD_KEY_6b=touchpad_toggle                        # Touchpad Toggle
- KEYBOARD_KEY_7c=micmute
-
-# USB keyboard in Asus FX503VD
-evdev:input:b0003v0B05p1869*
- KEYBOARD_KEY_ff31007c=micmute
 
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
@@ -914,10 +909,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteDragonfly13.5inchG3NotebookPC:pvr*
 # Huawei
 ##########################################################
 
-# Huawei WMI hotkeys driver
-evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI:*
- KEYBOARD_KEY_287=micmute                               # Microphone mute button
-
 # Huawei MACH-WX9 and EUL-WX9
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:*
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnEUL-WX9:*
@@ -1009,7 +1000,6 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_15=volumedown
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
- KEYBOARD_KEY_1a=micmute                                # Microphone mute button
  KEYBOARD_KEY_45=bookmarks
  KEYBOARD_KEY_46=selective_screenshot                   # Fn + PrtSc, on Windows: Snipping tool
  KEYBOARD_KEY_4a=prog3                                  # Fn + Right shift, on Windows: No idea
@@ -1089,7 +1079,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnIBM*:pn18666TU:*
 # IdeaPad
 evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_0d=rfkill                                 # airplane mode switch (toggle all wireless devices)
- KEYBOARD_KEY_08=micmute
  KEYBOARD_KEY_42=touchpad_off
  KEYBOARD_KEY_43=touchpad_on
 
@@ -1746,14 +1735,6 @@ evdev:input:b0003v258Ap001E*
  KEYBOARD_KEY_700a5=brightnessdown
  KEYBOARD_KEY_700a6=brightnessup
  KEYBOARD_KEY_70066=sleep
-
-###########################################################
-# Plantronics
-###########################################################
-
-# Plantronics .Audio 626 DSP
-evdev:input:b0003v047FpC006*
- KEYBOARD_KEY_b002f=micmute                             # Microphone mute button
 
 ###########################################################
 # Purism
