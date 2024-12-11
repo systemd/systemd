@@ -174,6 +174,7 @@ struct NamespaceParameters {
 
         const char *private_namespace_dir;
         const char *notify_socket;
+        const char *notify_socket_path;
         const char *host_os_release_stage;
 
         bool ignore_protect_paths;
