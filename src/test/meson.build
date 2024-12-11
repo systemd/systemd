@@ -42,6 +42,18 @@ test_libudev_sym_c = custom_target(
 
 ############################################################
 
+generate_hwids_section_py = find_program('generate-hwids-section.py')
+
+test_hwids_section_c = custom_target(
+        'test-hwids-section.c',
+        input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device2.json'],
+        output : 'test-hwids-section.c',
+        command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
+        capture : true,
+        build_by_default : want_tests != 'false')
+
+############################################################
+
 simple_tests += files(
         'test-alloc-util.c',
         'test-architecture.c',
@@ -251,6 +263,12 @@ executables += [
         test_template + {
                 'sources' : files('test-chase-manual.c'),
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-chid-match.c') +
+                            files('chid-match-util.c') +
+                            test_hwids_section_c,
+                'include_directories': [includes, include_directories('.'), include_directories('../boot')],
         },
         test_template + {
                 'sources' : files('test-compress-benchmark.c'),
