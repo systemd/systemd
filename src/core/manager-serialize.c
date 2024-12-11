@@ -493,7 +493,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         (void) exec_shared_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
 
-                        r = strv_extend(&m->deserialized_subscribed, val);
+                        r = strv_extend(&m->subscribe_serialization, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "varlink-server-socket-address="))) {

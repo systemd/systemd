@@ -698,6 +698,28 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
         return r;
 }
 
+int bus_track_to_strv(sd_bus_track *t, char ***ret) {
+        _cleanup_strv_free_ char **subscribed = NULL;
+        int r = 0;
+
+        assert(ret);
+
+        for (const char *n = sd_bus_track_first(t); n; n = sd_bus_track_next(t)) {
+                r = sd_bus_track_count_name(t, n);
+                if (r < 0)
+                        return r;
+
+                for (int j = 0; j < r; j++) {
+                        r = strv_extend(&subscribed, n);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(subscribed);
+        return r;
+}
+
 int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         const char *e;
