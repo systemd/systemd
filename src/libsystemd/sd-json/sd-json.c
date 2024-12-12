@@ -5808,4 +5808,4 @@ static const char* const sd_json_variant_type_table[_SD_JSON_VARIANT_TYPE_MAX] =
         [SD_JSON_VARIANT_NULL]     = "null",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t);
+_DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t, _public_);

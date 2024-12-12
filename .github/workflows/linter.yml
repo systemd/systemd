@@ -47,14 +47,14 @@ jobs:
       - name: Run mypy
         run: |
           python3 -m mypy --version
-          python3 -m mypy src/ukify/ukify.py test/integration-test-wrapper.py
+          python3 -m mypy src/test/generate-sym-test.py src/ukify/ukify.py test/integration-test-wrapper.py
 
       - name: Run ruff check
         run: |
           ruff --version
-          ruff check src/ukify/ukify.py test/integration-test-wrapper.py
+          ruff check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-test-wrapper.py
 
       - name: Run ruff format
         run: |
           ruff --version
-          ruff format --check src/ukify/ukify.py test/integration-test-wrapper.py
+          ruff format --check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-test-wrapper.py
