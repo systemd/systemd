@@ -2637,9 +2637,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        /* Note, if proc is mounted with subset=pid then neither of the two paths will exist, i.e. they are
-         * implicitly protected by the mount option. */
-        if (p->protect_hostname) {
+        /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise,
+         * ProtectHostname=no allows changing hostname for the host, and ProtectHostname=private allows
+         * changing the hostname in the unit's UTS namespace. Note, if proc is mounted with subset=pid then
+         * neither of the two paths will exist, i.e. they are implicitly protected by the mount option. */
+        if (p->protect_hostname == PROTECT_HOSTNAME_YES) {
                 r = append_static_mounts(
                                 &ml,
                                 protect_hostname_yes_table,
