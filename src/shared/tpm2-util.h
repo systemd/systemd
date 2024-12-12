@@ -385,7 +385,7 @@ static inline int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, ch
 
 #endif /* HAVE_TPM2 */
 
-int tpm2_list_devices(void);
+int tpm2_list_devices(bool legend, bool quiet);
 int tpm2_find_device_auto(char **ret);
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret);
