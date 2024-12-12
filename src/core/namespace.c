@@ -480,13 +480,20 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
 }
 
 static int append_mount_images(MountList *ml, const MountImage *mount_images, size_t n) {
+        int r;
+
         assert(ml);
         assert(mount_images || n == 0);
 
         FOREACH_ARRAY(m, mount_images, n) {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
+
+                r = verity_settings_load(&verity, m->source, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check verity root hash of %s: %m", m->source);
 
                 *me = (MountEntry) {
                         .path_const = m->destination,
@@ -494,6 +501,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .source_const = m->source,
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
+                        .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                 };
         }
 
