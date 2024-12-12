@@ -48,9 +48,9 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
         EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
         EXEC_COMMAND_NO_SETUID        = 1 << 2,
-        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
-        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
+        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 3,
         _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
+        _EXEC_COMMAND_FLAGS_ALL       = (1 << 4) -1,
 } ExecCommandFlags;
 
 int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret);

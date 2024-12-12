@@ -101,10 +101,6 @@ Deprecations and removals:
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
 
-* drop support for kernels that lack ambient capabilities support (i.e. make
-  4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
-  is only supported for such old kernels.
-
 * drop support for kernels lacking memfd_create() (i.e. make 3.17 new
   baseline), then drop all pipe() based fallbacks.
 

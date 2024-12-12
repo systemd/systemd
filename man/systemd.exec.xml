@@ -832,10 +832,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         assigned to this option, the ambient capability set is reset to the empty capability set, and all prior
         settings have no effect. If set to <literal>~</literal> (without any further argument), the ambient capability
         set is reset to the full set of available capabilities, also undoing any previous settings. Note that adding
-        capabilities to the ambient capability set adds them to the process's inherited capability set. </para><para>
-        Ambient capability sets are useful if you want to execute a process as a non-privileged user but still want to
-        give it some capabilities. Note that in this case option <constant>keep-caps</constant> is automatically added
-        to <varname>SecureBits=</varname> to retain the capabilities over the user
+        capabilities to the ambient capability set adds them to the process's inherited capability set.</para>
+
+        <para>Ambient capability sets are useful if you want to execute a process as a non-privileged user but
+        still want to give it some capabilities. Note that in this case option <constant>keep-caps</constant>
+        is automatically added to <varname>SecureBits=</varname> to retain the capabilities over the user
         change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed with
         <literal>+</literal>.</para>
 
