@@ -2811,7 +2811,7 @@ static int drop_capabilities(uid_t uid) {
                 if (q.permitted == UINT64_MAX)
                         q.permitted = uid == 0 ? q.bounding : arg_caps_ambient;
 
-                if (q.ambient == UINT64_MAX && ambient_capabilities_supported())
+                if (q.ambient == UINT64_MAX)
                         q.ambient = arg_caps_ambient;
 
                 if (capability_quintet_mangle(&q))
@@ -2823,7 +2823,7 @@ static int drop_capabilities(uid_t uid) {
                         .effective = uid == 0 ? arg_caps_retain : 0,
                         .inheritable = uid == 0 ? arg_caps_retain : arg_caps_ambient,
                         .permitted = uid == 0 ? arg_caps_retain : arg_caps_ambient,
-                        .ambient = ambient_capabilities_supported() ? arg_caps_ambient : UINT64_MAX,
+                        .ambient = arg_caps_ambient,
                 };
 
                 /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)

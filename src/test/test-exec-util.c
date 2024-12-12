@@ -422,7 +422,6 @@ TEST(exec_command_flags_from_strv) {
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
-        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC));
         assert_se(!FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
 
         r = exec_command_flags_from_strv(invalid_strv, &flags);
@@ -433,8 +432,8 @@ TEST(exec_command_flags_from_strv) {
 TEST(exec_command_flags_to_strv) {
         _cleanup_strv_free_ char **opts = NULL;
 
-        ASSERT_OK(exec_command_flags_to_strv(EXEC_COMMAND_AMBIENT_MAGIC|EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_IGNORE_FAILURE, &opts));
-        assert_se(strv_equal(opts, STRV_MAKE("ignore-failure", "ambient", "no-env-expand")));
+        ASSERT_OK(exec_command_flags_to_strv(EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_IGNORE_FAILURE, &opts));
+        assert_se(strv_equal(opts, STRV_MAKE("ignore-failure", "no-env-expand")));
 
         opts = strv_free(opts);
 
