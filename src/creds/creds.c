@@ -77,7 +77,53 @@ static const char* transcode_mode_table[_TRANSCODE_MAX] = {
         [TRANSCODE_UNHEX]    = "unhex",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(transcode_mode, TranscodeMode);
+
+typedef enum CredKeyType {
+        CRED_KEY_TYPE_AUTO,
+        CRED_KEY_TYPE_AUTO_INITRD,
+        CRED_KEY_TYPE_HOST,
+        CRED_KEY_TYPE_TPM2,
+        CRED_KEY_TYPE_TPM2_PUBLIC,
+        CRED_KEY_TYPE_HOST_TPM2,
+        CRED_KEY_TYPE_TPM2_HOST,
+        CRED_KEY_TYPE_HOST_TPM2_PUBLIC,
+        CRED_KEY_TYPE_TPM2_PUBLIC_HOST,
+        CRED_KEY_TYPE_NULL,
+        CRED_KEY_TYPE_ABSENT,
+        _CRED_KEY_TYPE_MAX,
+        _CRED_KEY_TYPE_INVALID,
+} CredKeyType;
+
+static const char* cred_key_type_table[_CRED_KEY_TYPE_MAX] = {
+        [CRED_KEY_TYPE_AUTO]             = "auto",
+        [CRED_KEY_TYPE_AUTO_INITRD]      = "auto-initrd",
+        [CRED_KEY_TYPE_HOST]             = "host",
+        [CRED_KEY_TYPE_TPM2]             = "tpm2",
+        [CRED_KEY_TYPE_TPM2_PUBLIC]      = "tpm2-with-public-key",
+        [CRED_KEY_TYPE_HOST_TPM2]        = "host+tpm2",
+        [CRED_KEY_TYPE_TPM2_HOST]        = "tpm2+host",
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = "host+tpm2-with-public-key",
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = "tpm2-with-public-key+host",
+        [CRED_KEY_TYPE_NULL]             = "null",
+        [CRED_KEY_TYPE_ABSENT]           = "tpm2-absent",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType);
+
+static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
+        [CRED_KEY_TYPE_AUTO]             = _CRED_AUTO,
+        [CRED_KEY_TYPE_AUTO_INITRD]      = _CRED_AUTO_INITRD,
+        [CRED_KEY_TYPE_HOST]             = CRED_AES256_GCM_BY_HOST,
+        [CRED_KEY_TYPE_TPM2]             = CRED_AES256_GCM_BY_TPM2_HMAC,
+        [CRED_KEY_TYPE_TPM2_PUBLIC]      = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_HOST_TPM2]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+        [CRED_KEY_TYPE_TPM2_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_NULL]             = CRED_AES256_GCM_BY_NULL,
+        [CRED_KEY_TYPE_ABSENT]           = CRED_AES256_GCM_BY_NULL,
+};
 
 static int open_credential_directory(
                 bool encrypted,
@@ -849,6 +895,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TRANSCODE:
+                        if (streq(optarg, "help")) {
+                                if (arg_legend)
+                                        puts("Supported transcode types:");
+
+                                return DUMP_STRING_TABLE(transcode_mode, TranscodeMode, _TRANSCODE_MAX);
+                        }
+
                         if (parse_boolean(optarg) == 0) /* If specified as "false", turn transcoding off */
                                 arg_transcode = TRANSCODE_OFF;
                         else {
@@ -880,25 +933,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WITH_KEY:
-                        if (isempty(optarg) || streq(optarg, "auto"))
-                                arg_with_key = _CRED_AUTO;
-                        else if (streq(optarg, "auto-initrd"))
-                                arg_with_key = _CRED_AUTO_INITRD;
-                        else if (streq(optarg, "host"))
-                                arg_with_key = CRED_AES256_GCM_BY_HOST;
-                        else if (streq(optarg, "tpm2"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
-                        else if (streq(optarg, "tpm2-with-public-key"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK;
-                        else if (STR_IN_SET(optarg, "host+tpm2", "tpm2+host"))
-                                arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
-                        else if (STR_IN_SET(optarg, "host+tpm2-with-public-key", "tpm2-with-public-key+host"))
-                                arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK;
-                        else if (STR_IN_SET(optarg, "null", "tpm2-absent"))
-                                arg_with_key = CRED_AES256_GCM_BY_NULL;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
+                        if (streq(optarg, "help")) {
+                                if (arg_legend)
+                                        puts("Supported key types:");
 
+                                return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
+                        }
+
+                        if (isempty(optarg))
+                                arg_with_key = _CRED_AUTO;
+                        else {
+                                CredKeyType t = cred_key_type_from_string(optarg);
+                                if (t < 0)
+                                        return log_error_errno(t, "Failed to parse key type: %m");
+
+                                arg_with_key = cred_key_id[t];
+                        }
                         break;
 
                 case 'H':
