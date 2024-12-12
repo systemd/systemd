@@ -3419,16 +3419,12 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise, ProtectHostname=no
-                 * allows changing hostname for the host and ProtectHostname=private allows changing the hostname in the unit's UTS
-                 * namespace. */
-                .protect_hostname = needs_sandboxing && context->protect_hostname == PROTECT_HOSTNAME_YES,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
                 .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
-                .private_tmp = needs_sandboxing ? context->private_tmp : false,
+                .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
@@ -3436,10 +3432,11 @@ static int apply_mount_namespace(
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
 
-                .protect_home = needs_sandboxing ? context->protect_home : false,
-                .protect_system = needs_sandboxing ? context->protect_system : false,
-                .protect_proc = needs_sandboxing ? context->protect_proc : false,
-                .proc_subset = needs_sandboxing ? context->proc_subset : false,
+                .protect_home = needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
+                .protect_hostname = needs_sandboxing ? context->protect_hostname : PROTECT_HOSTNAME_NO,
+                .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
+                .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
+                .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
         };
 
         r = setup_namespace(&parameters, reterr_path);
