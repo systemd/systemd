@@ -25,10 +25,9 @@ __contains_word() {
 }
 
 __get_tpm2_devices() {
-    local i
-    for i in /dev/tpmrm*; do
-        [ -c "$i" ] && printf '%s\n' "$i"
-    done
+    local a b c
+    systemd-creds --no-legend --quiet --tpm2-device=list 2>/dev/null | \
+        { while read -r a b c; do echo " $a"; done }
 }
 
 __get_creds() {
@@ -129,10 +128,10 @@ _systemd_creds() {
                 comps=$( systemd-creds --json=help 2>/dev/null )
                 ;;
             --transcode)
-                comps='base64 unbase64 hex unhex'
+                comps=$( systemd-creds --no-legend --transcode=help 2>/dev/null )
                 ;;
             --with-key)
-                comps='host tpm2 host+tpm2 null auto auto-initrd'
+                comps=$( systemd-creds --no-legend --with-key=help 2>/dev/null )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
