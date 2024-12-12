@@ -10,9 +10,51 @@ def process_sym_file(file):
         m = re.search(r'^ +([a-zA-Z0-9_]+);', line)
         if m:
             if m[1] == 'sd_bus_object_vtable_format':
-                print('        {{"{0}", &{0}}},'.format(m[1]))
+                print('        {{ "{0}", &{0} }},'.format(m[1]))
             else:
-                print('        {{"{0}", {0}}},'.format(m[1]))
+                print('        {{ "{0}", {0} }},'.format(m[1]))
+
+
+def process_header_file(file):
+    print('/* {0} */'.format(file.name))
+    for line in file:
+        if (
+                line.startswith('#') or
+                line.startswith('typedef') or
+                line.startswith('extern "C"') or
+                line.startswith('__extension__') or
+                line.startswith('/*') or
+                ' __inline__ ' in line or
+                re.search(r'^\s+', line)
+        ):
+            continue
+
+        m = re.search(r'^(.*)\s*__attribute__', line)
+        if m:
+            line = m[1]
+
+        m = re.search(r'^(.*)\s*_sd_printf_', line)
+        if m:
+            line = m[1]
+
+        # Functions
+        m = re.search(r'^(\S+\s+)+\**(\w+)\s*\(', line)
+        if m:
+            print('        {{ "{0}", {0} }},'.format(m[2]))
+            continue
+
+        # Variables
+        m = re.search(r'^extern\s', line)
+        if m:
+            n = line.split()[-1].rstrip(';')
+            print('        {{ "{0}", &{0} }},'.format(n))
+            continue
+
+        # Functions defined by macro
+        m = re.search(r'_SD_DEFINE_POINTER_CLEANUP_FUNC\(\w+,\s*(\w+)\)', line)
+        if m:
+            print('        {{ "{0}", {0} }},'.format(m[1]))
+            continue
 
 def process_source_file(file):
     for line in file:
@@ -20,21 +62,37 @@ def process_source_file(file):
         m = re.search(r'^_public_\s+(\S+\s+)+\**(\w+)\s*\(', line)
         if m:
             print('        {{ "{0}", {0} }},'.format(m[2]))
+            continue
+
         # Variables
         m = re.search(r'^_public_\s+(\S+\s+)+\**(\w+)\s*=', line)
         if m:
             print('        {{ "{0}", &{0} }},'.format(m[2]))
+            continue
+
         # Functions defined through a macro
         m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_REF_FUNC\([^,]+,\s*(\w+)\s*\)', line)
         if m:
             print('        {{ "{0}_ref", {0}_ref }},'.format(m[1]))
+            continue
+
         m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC\([^,]+,\s*(\w+)\s*,', line)
         if m:
             print('        {{ "{0}_unref", {0}_unref }},'.format(m[1]))
+            continue
+
         m = re.search(r"^DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC\([^,]+,\s*(\w+)\s*,", line)
         if m:
             print('        {{ "{0}_ref", {0}_ref }},'.format(m[1]))
             print('        {{ "{0}_unref", {0}_unref }},'.format(m[1]))
+            continue
+
+        m = re.search(r'^_DEFINE_STRING_TABLE_LOOKUP\((\w+),\s*\w+,\s*_public_\s*\)', line)
+        if m:
+            print('        {{ "{0}_from_string", {0}_from_string }},'.format(m[1]))
+            print('        {{ "{0}_to_string", {0}_to_string }},'.format(m[1]))
+            continue
+
 
 print('''/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
@@ -63,6 +121,13 @@ with open(sys.argv[1], "r") as f:
     process_sym_file(f)
 
 print('''        {}
+}, symbols_from_header[] = {''')
+
+for header in sys.argv[3:]:
+    with open(header, "r") as f:
+        process_header_file(f)
+
+print('''        {}
 }, symbols_from_source[] = {''')
 
 for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
@@ -81,34 +146,66 @@ static int sort_callback(const void *a, const void *b) {
 }
 
 int main(void) {
-        size_t i, j;
+        size_t size = sizeof(symbols_from_sym[0]),
+                n_sym = sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0]) - 1,
+                n_header = sizeof(symbols_from_header)/sizeof(symbols_from_header[0]) - 1,
+                n_source = sizeof(symbols_from_source)/sizeof(symbols_from_source[0]) - 1;
 
-        qsort(symbols_from_sym, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
-        qsort(symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
+        qsort(symbols_from_sym, n_sym, size, sort_callback);
+        qsort(symbols_from_header, n_header, size, sort_callback);
+        qsort(symbols_from_source, n_source, size, sort_callback);
 
         puts("From symbol file:");
-        for (i = 0; symbols_from_sym[i].name; i++)
+        for (size_t i = 0; i < n_sym; i++)
                 printf("%p: %s\\n", symbols_from_sym[i].symbol, symbols_from_sym[i].name);
 
+        puts("\\nFrom header files:");
+        for (size_t i = 0; i < n_header; i++)
+                printf("%p: %s\\n", symbols_from_header[i].symbol, symbols_from_header[i].name);
+
         puts("\\nFrom source files:");
-        for (j = 0; symbols_from_source[j].name; j++)
-                printf("%p: %s\\n", symbols_from_source[j].symbol, symbols_from_source[j].name);
+        for (size_t i = 0; i < n_source; i++)
+                printf("%p: %s\\n", symbols_from_source[i].symbol, symbols_from_source[i].name);
 
         puts("");
-        printf("Found %zu symbols from symbol file.\\n", i);
-        printf("Found %zu symbols from source files.\\n", j);
+        printf("Found %zu symbols from symbol file.\\n", n_sym);
+        printf("Found %zu symbols from header files.\\n", n_header);
+        printf("Found %zu symbols from source files.\\n", n_source);
 
-        for (i = 0; symbols_from_sym[i].name; i++) {
-                struct symbol *n = bsearch(symbols_from_sym+i, symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
-                if (!n)
+        unsigned n_error = 0;
+
+        for (size_t i = 0; i < n_sym; i++) {
+                if (!bsearch(symbols_from_sym+i, symbols_from_header, n_header, size, sort_callback)) {
+                        printf("Found in symbol file, but not in headers: %s\\n", symbols_from_sym[i].name);
+                        n_error++;
+                }
+                if (!bsearch(symbols_from_sym+i, symbols_from_source, n_source, size, sort_callback)) {
                         printf("Found in symbol file, but not in sources: %s\\n", symbols_from_sym[i].name);
+                        n_error++;
+                }
         }
 
-        for (j = 0; symbols_from_source[j].name; j++) {
-                struct symbol *n = bsearch(symbols_from_source+j, symbols_from_sym, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
-                if (!n)
-                        printf("Found in sources, but not in symbol file: %s\\n", symbols_from_source[j].name);
+        for (size_t i = 0; i < n_header; i++) {
+                if (!bsearch(symbols_from_header+i, symbols_from_sym, n_sym, size, sort_callback)) {
+                        printf("Found in header file, but not in symbol file: %s\\n", symbols_from_header[i].name);
+                        n_error++;
+                }
+                if (!bsearch(symbols_from_header+i, symbols_from_source, n_source, size, sort_callback)) {
+                        printf("Found in header file, but not in sources: %s\\n", symbols_from_header[i].name);
+                        n_error++;
+                }
         }
 
-        return i == j ? EXIT_SUCCESS : EXIT_FAILURE;
+        for (size_t i = 0; i < n_source; i++) {
+                if (!bsearch(symbols_from_source+i, symbols_from_sym, n_sym, size, sort_callback)) {
+                        printf("Found in source file, but not in symbol file: %s\\n", symbols_from_source[i].name);
+                        n_error++;
+                }
+                if (!bsearch(symbols_from_source+i, symbols_from_header, n_header, size, sort_callback)) {
+                        printf("Found in source file, but not in header: %s\\n", symbols_from_source[i].name);
+                        n_error++;
+                }
+        }
+
+        return n_error == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }''')
