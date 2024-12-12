@@ -911,7 +911,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TPM2_DEVICE:
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices();
+                                return tpm2_list_devices(arg_legend, arg_quiet);
 
                         arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
                         break;
