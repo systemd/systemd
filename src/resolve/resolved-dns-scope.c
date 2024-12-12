@@ -16,6 +16,7 @@
 #include "resolved-dns-zone.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
+#include "resolved-timeouts.h"
 #include "socket-util.h"
 #include "strv.h"
 
