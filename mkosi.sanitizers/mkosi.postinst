@@ -78,6 +78,7 @@ wrap=(
     su
     tar
     tgtd
+    unshare
     useradd
     userdel
     veritysetup
@@ -100,7 +101,7 @@ for bin in "${wrap[@]}"; do
 
     cat >"$BUILDROOT/$target" <<EOF
 #!/bin/bash
-# Preload the ASan runtime DSO, otherwise ASAn will complain
+# Preload the ASan runtime DSO, otherwise ASan will complain
 export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
 # from 'external' binaries
