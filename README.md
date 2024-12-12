@@ -7,9 +7,6 @@ System and Service Manager
 [![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#systemd)<br/>
 [![CIFuzz](https://github.com/systemd/systemd/workflows/CIFuzz/badge.svg)](https://github.com/systemd/systemd/actions)<br/>
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
-[![CentOS CI - CentOS 9](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20CentOS%209&job=upstream-centos9s)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/job/upstream-centos9s/)<br/>
-[![CentOS CI - Arch](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch&job=upstream-vagrant-archlinux)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/job/upstream-vagrant-archlinux/)<br/>
-[![CentOS CI - Arch (sanitizers)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch%20(sanitizers)&job=upstream-vagrant-archlinux-sanitizers)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/job/upstream-vagrant-archlinux-sanitizers/)<br/>
 [![Fossies codespell report](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.html)</br>
 [![Weblate](https://translate.fedoraproject.org/widgets/systemd/-/master/svg-badge.svg)](https://translate.fedoraproject.org/engage/systemd/)</br>
 [![Coverage Status](https://coveralls.io/repos/github/systemd/systemd/badge.svg?branch=main)](https://coveralls.io/github/systemd/systemd?branch=main)</br>
