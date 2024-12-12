@@ -97,6 +97,10 @@ SUBSYSTEM=="hidraw", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
 # This also allows accessing HID devices with the libusb backend of hidapi.
 SUBSYSTEM=="usb", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
 
+# USB and Bluetooth controllable lights
+SUBSYSTEM=="hidraw", ENV{ID_AV_LIGHTS}=="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{ID_AV_LIGHTS}=="1", TAG+="uaccess"
+
 # Hardware wallets
 SUBSYSTEM=="usb", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
 SUBSYSTEM=="hidraw", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
