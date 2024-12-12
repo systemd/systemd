@@ -339,9 +339,6 @@ int sd_json_variant_strv(sd_json_variant *v, char ***ret);
 int sd_json_variant_unbase64(sd_json_variant *v, void **ret, size_t *ret_size);
 int sd_json_variant_unhex(sd_json_variant *v, void **ret, size_t *ret_size);
 
-const char* sd_json_variant_type_to_string(sd_json_variant_type_t t);
-sd_json_variant_type_t sd_json_variant_type_from_string(const char *s);
-
 _sd_const_ static __inline__ int sd_json_format_enabled(sd_json_format_flags_t flags) {
         return !(flags & SD_JSON_FORMAT_OFF);
 }

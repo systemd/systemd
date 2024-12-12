@@ -18,9 +18,9 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         ExecContext *ec = NULL;
         int cld_code, r;
 
-        assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, unit_name) == 0);
-        assert_se(ec = unit_get_exec_context(u));
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, unit_name));
+        ASSERT_NOT_NULL(ec = unit_get_exec_context(u));
 
         STRV_FOREACH(allow_filesystem, allowed_filesystems) {
                 r = config_parse_restrict_filesystems(
@@ -30,7 +30,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
                         return log_unit_error_errno(u, r, "Failed to parse RestrictFileSystems: %m");
         }
 
-        assert_se(exec_start = strjoin("cat ", file_path));
+        ASSERT_NOT_NULL(exec_start = strjoin("cat ", file_path));
         r = config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart",
                         SERVICE_EXEC_START, exec_start, SERVICE(u)->exec_command, u);
         if (r < 0)
@@ -84,19 +84,19 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
-        assert_se(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
         ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block and @application */
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")), 0);
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")));
         ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application")));
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application", "~tracefs")), 0);
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block", "@application")), 0);
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application", "~tracefs")));
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block", "@application")));
         ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block", "@application")));
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")), 0);
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")));
 
         return 0;
 }
