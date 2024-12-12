@@ -184,7 +184,6 @@ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_jso
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int sd_varlink_push_fd(sd_varlink *v, int fd);
 int sd_varlink_push_dup_fd(sd_varlink *v, int fd);
-int sd_varlink_reset_fds(sd_varlink *v);
 
 /* Read incoming fds from the socket (associated with the currently handled message) */
 int sd_varlink_peek_fd(sd_varlink *v, size_t i);
