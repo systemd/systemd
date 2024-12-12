@@ -315,8 +315,6 @@ int main(int argc, char *argv[]) {
         test_last_cap_file();
         test_last_cap_probe();
 
-        log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
-
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
 
