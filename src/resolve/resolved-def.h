@@ -84,3 +84,7 @@
 #define SD_RESOLVED_FROM_MASK       (SD_RESOLVED_FROM_CACHE|SD_RESOLVED_FROM_ZONE|SD_RESOLVED_FROM_TRUST_ANCHOR|SD_RESOLVED_FROM_NETWORK)
 
 #define SD_RESOLVED_QUERY_TIMEOUT_USEC (120 * USEC_PER_SEC)
+
+/* Should be longer than transaction timeout for a single UDP transaction, so we get at least
+ * one transaction retry before timeouting the whole candidate */
+#define SD_RESOLVED_CANDIDATE_TIMEOUT_USEC (6 * USEC_PER_SEC)

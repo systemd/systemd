@@ -25,6 +25,7 @@ struct DnsQueryCandidate {
         DnsSearchDomain *search_domain;
 
         Set *transactions;
+        sd_event_source *timeout_event_source;
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
