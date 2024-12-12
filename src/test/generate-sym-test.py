@@ -19,6 +19,47 @@ def process_sym_file(file: IO[str]) -> None:
                 print(f'        {{ "{m[1]}", {m[1]} }},')
 
 
+def process_header_file(file: IO[str]) -> None:
+    for line in file:
+        if (
+            line.startswith('#')
+            or line.startswith('typedef')
+            or line.startswith('extern "C"')
+            or line.startswith('__extension__')
+            or line.startswith('/*')
+            or ' __inline__ ' in line
+            or re.search(r'^\s+', line)
+        ):
+            continue
+
+        m = re.search(r'^(.*)\s*__attribute__', line)
+        if m:
+            line = m[1]
+
+        m = re.search(r'^(.*)\s*_sd_printf_', line)
+        if m:
+            line = m[1]
+
+        # Functions
+        m = re.search(r'^(\S+\s+)+\**(\w+)\s*\(', line)
+        if m:
+            print(f'        {{ "{m[2]}", {m[2]} }},')
+            continue
+
+        # Variables
+        m = re.search(r'^extern\s', line)
+        if m:
+            n = line.split()[-1].rstrip(';')
+            print(f'        {{ "{n}", &{n} }},')
+            continue
+
+        # Functions defined by macro
+        m = re.search(r'_SD_DEFINE_POINTER_CLEANUP_FUNC\(\w+,\s*(\w+)\)', line)
+        if m:
+            print(f'        {{ "{m[1]}", {m[1]} }},')
+            continue
+
+
 def process_source_file(file: IO[str]) -> None:
     for line in file:
         # Functions
@@ -84,6 +125,13 @@ with open(sys.argv[1], 'r') as f:
     process_sym_file(f)
 
 print("""        {}
+}, symbols_from_header[] = {""")
+
+for header in sys.argv[3:]:
+    with open(header, 'r') as f:
+        process_header_file(f)
+
+print("""        {}
 }, symbols_from_source[] = {""")
 
 for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
@@ -104,14 +152,20 @@ static int sort_callback(const void *a, const void *b) {
 int main(void) {
         size_t size = sizeof(symbols_from_sym[0]),
                 n_sym = sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0]) - 1,
+                n_header = sizeof(symbols_from_header)/sizeof(symbols_from_header[0]) - 1,
                 n_source = sizeof(symbols_from_source)/sizeof(symbols_from_source[0]) - 1;
 
         qsort(symbols_from_sym, n_sym, size, sort_callback);
+        qsort(symbols_from_header, n_header, size, sort_callback);
         qsort(symbols_from_source, n_source, size, sort_callback);
 
         puts("From symbol file:");
         for (size_t i = 0; i < n_sym; i++)
                 printf("%p: %s\\n", symbols_from_sym[i].symbol, symbols_from_sym[i].name);
+
+        puts("\\nFrom header files:");
+        for (size_t i = 0; i < n_header; i++)
+                printf("%p: %s\\n", symbols_from_header[i].symbol, symbols_from_header[i].name);
 
         puts("\\nFrom source files:");
         for (size_t i = 0; i < n_source; i++)
@@ -119,13 +173,29 @@ int main(void) {
 
         puts("");
         printf("Found %zu symbols from symbol file.\\n", n_sym);
+        printf("Found %zu symbols from header files.\\n", n_header);
         printf("Found %zu symbols from source files.\\n", n_source);
 
         unsigned n_error = 0;
 
         for (size_t i = 0; i < n_sym; i++) {
+                if (!bsearch(symbols_from_sym+i, symbols_from_header, n_header, size, sort_callback)) {
+                        printf("Found in symbol file, but not in headers: %s\\n", symbols_from_sym[i].name);
+                        n_error++;
+                }
                 if (!bsearch(symbols_from_sym+i, symbols_from_source, n_source, size, sort_callback)) {
                         printf("Found in symbol file, but not in sources: %s\\n", symbols_from_sym[i].name);
+                        n_error++;
+                }
+        }
+
+        for (size_t i = 0; i < n_header; i++) {
+                if (!bsearch(symbols_from_header+i, symbols_from_sym, n_sym, size, sort_callback)) {
+                        printf("Found in header file, but not in symbol file: %s\\n", symbols_from_header[i].name);
+                        n_error++;
+                }
+                if (!bsearch(symbols_from_header+i, symbols_from_source, n_source, size, sort_callback)) {
+                        printf("Found in header file, but not in sources: %s\\n", symbols_from_header[i].name);
                         n_error++;
                 }
         }
@@ -133,6 +203,10 @@ int main(void) {
         for (size_t i = 0; i < n_source; i++) {
                 if (!bsearch(symbols_from_source+i, symbols_from_sym, n_sym, size, sort_callback)) {
                         printf("Found in source file, but not in symbol file: %s\\n", symbols_from_source[i].name);
+                        n_error++;
+                }
+                if (!bsearch(symbols_from_source+i, symbols_from_header, n_header, size, sort_callback)) {
+                        printf("Found in source file, but not in header: %s\\n", symbols_from_source[i].name);
                         n_error++;
                 }
         }
