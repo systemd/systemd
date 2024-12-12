@@ -1062,5 +1062,7 @@ global:
 
 LIBSYSTEMD_258 {
 global:
+        sd_json_variant_type_from_string;
+        sd_json_variant_type_to_string;
         sd_varlink_reset_fds;
 } LIBSYSTEMD_257;
