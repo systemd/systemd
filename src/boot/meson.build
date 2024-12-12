@@ -7,6 +7,7 @@ libefitest = static_library(
         'efitest',
         files(
                 'bcd.c',
+                'chid.c',
                 'efi-string.c',
         ),
         build_by_default : false,

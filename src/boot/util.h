@@ -3,10 +3,13 @@
 
 #include "efi.h"
 #include "efi-string.h"
-#include "log.h"
 #include "memory-util-fundamental.h"
-#include "proto/file-io.h"
 #include "string-util-fundamental.h"
+
+#if SD_BOOT
+
+#include "log.h"
+#include "proto/file-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -236,3 +239,11 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 
 #define bswap_16(x) __builtin_bswap16(x)
 #define bswap_32(x) __builtin_bswap32(x)
+
+#else
+
+#include "alloc-util.h"
+
+#define xnew0(type, n) ASSERT_PTR(new0(type, n))
+
+#endif
