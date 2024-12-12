@@ -281,6 +281,9 @@ systemd-run -P \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
             cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.raw:/run/img2" \
+            veritysetup status "${MINIMAL_IMAGE_ROOTHASH}-verity" | grep -q "${MINIMAL_IMAGE_ROOTHASH}"
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -362,6 +365,12 @@ systemd-run -P \
             --property ExtensionImages=/etc/service-scoped-test.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+            --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
+            veritysetup status "$(cat /tmp/app0.roothash)-verity" | grep -q "$(cat /tmp/app0.roothash)"
+systemd-run -P \
+            --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
+            veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep -q "$(cat /tmp/conf0.roothash)"
 
 # Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
 mkdir -p /tmp/loop
