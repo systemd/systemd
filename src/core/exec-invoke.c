@@ -1406,7 +1406,7 @@ static bool skip_seccomp_unavailable(const ExecContext *c, const ExecParameters 
         return true;
 }
 
-static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, bool needs_ambient_hack) {
+static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
         uint32_t negative_action, default_action, action;
         int r;
 
@@ -1427,12 +1427,6 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p, b
         } else {
                 default_action = SCMP_ACT_ALLOW;
                 action = negative_action;
-        }
-
-        if (needs_ambient_hack) {
-                r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
-                if (r < 0)
-                        return r;
         }
 
         /* Sending over exec_fd or handoff_timestamp_fd requires write() syscall. */
@@ -4294,8 +4288,7 @@ int exec_invoke(
         bool userns_set_up = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
-                needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
-                needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
+                needs_mount_namespace;  /* Do we need to set up a mount namespace for this kernel? */
         bool keep_seccomp_privileges = false;
         bool has_cap_sys_admin = false;
 #if HAVE_SELINUX
@@ -4936,17 +4929,9 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up kernel keyring: %m");
         }
 
-        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked
-         * for it, and the kernel doesn't actually support ambient caps. */
-        needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
-
         /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
-         * excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not
-         * desired. */
-        if (needs_ambient_hack)
-                needs_setuid = false;
-        else
-                needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+         * excepted from either whole sandboxing or just setresuid() itself. */
+        needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
@@ -4993,19 +4978,16 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
                 }
 
-                if (ambient_capabilities_supported()) {
-                        uint64_t ambient_after_pam;
-
-                        /* PAM modules might have set some ambient caps. Query them here and merge them into
-                         * the caps we want to set in the end, so that we don't end up unsetting them. */
-                        r = capability_get_ambient(&ambient_after_pam);
-                        if (r < 0) {
-                                *exit_status = EXIT_CAPABILITIES;
-                                return log_exec_error_errno(context, params, r, "Failed to query ambient caps: %m");
-                        }
-
-                        capability_ambient_set |= ambient_after_pam;
+                /* PAM modules might have set some ambient caps. Query them here and merge them into
+                 * the caps we want to set in the end, so that we don't end up unsetting them. */
+                uint64_t ambient_after_pam;
+                r = capability_get_ambient(&ambient_after_pam);
+                if (r < 0) {
+                        *exit_status = EXIT_CAPABILITIES;
+                        return log_exec_error_errno(context, params, r, "Failed to query ambient caps: %m");
                 }
+
+                capability_ambient_set |= ambient_after_pam;
 
                 ngids_after_pam = getgroups_alloc(&gids_after_pam);
                 if (ngids_after_pam < 0) {
@@ -5309,13 +5291,6 @@ int exec_invoke(
 #endif
 
                 bset = context->capability_bounding_set;
-                /* If the ambient caps hack is enabled (which means the kernel can't do them, and the user asked for
-                 * our magic fallback), then let's add some extra caps, so that the service can drop privs of its own,
-                 * instead of us doing that */
-                if (needs_ambient_hack)
-                        bset |= (UINT64_C(1) << CAP_SETPCAP) |
-                                (UINT64_C(1) << CAP_SETUID) |
-                                (UINT64_C(1) << CAP_SETGID);
 
 #if HAVE_SECCOMP
                 /* If the service has any form of a seccomp filter and it allows dropping privileges, we'll
@@ -5358,7 +5333,7 @@ int exec_invoke(
                  *
                  * The requested ambient capabilities are raised in the inheritable set if the second
                  * argument is true. */
-                if (!needs_ambient_hack && capability_ambient_set != 0) {
+                if (capability_ambient_set != 0) {
                         r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
@@ -5402,7 +5377,7 @@ int exec_invoke(
                                 }
                         }
 
-                        if (!needs_ambient_hack && capability_ambient_set != 0) {
+                        if (capability_ambient_set != 0) {
 
                                 /* Raise the ambient capabilities after user change. */
                                 r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
@@ -5588,7 +5563,7 @@ int exec_invoke(
 #if HAVE_SECCOMP
                 /* This really should remain as close to the execve() as possible, to make sure our own code is affected
                  * by the filter as little as possible. */
-                r = apply_syscall_filter(context, params, needs_ambient_hack);
+                r = apply_syscall_filter(context, params);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         return log_exec_error_errno(context, params, r, "Failed to apply system call filters: %m");
