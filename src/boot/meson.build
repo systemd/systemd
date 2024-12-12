@@ -26,6 +26,16 @@ efitest_base = {
 efi_test_template = test_template + efitest_base
 efi_fuzz_template = fuzz_template + efitest_base
 
+generate_hwids_section_py = find_program('generate-hwids-section.py')
+
+test_hwids_section_c = custom_target(
+        'test-hwids-section.c',
+        input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device2.json'],
+        output : 'test-hwids-section.c',
+        command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
+        capture : true,
+        build_by_default : want_tests != 'false')
+
 executables += [
         efi_test_template + {
                 'sources' : files('test-bcd.c'),
@@ -34,6 +44,11 @@ executables += [
         },
         efi_test_template + {
                 'sources' : files('test-efi-string.c'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_test_template + {
+                'sources' : files('test-chid-match.c') +
+                            test_hwids_section_c,
                 'conditions' : ['ENABLE_BOOTLOADER'],
         },
         efi_fuzz_template + {
