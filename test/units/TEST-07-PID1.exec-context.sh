@@ -418,4 +418,13 @@ fi
 
 # RestrictNamespaces=
 systemd-run --wait --pipe unshare -T true
-(! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
+systemd-run --wait --pipe -p RestrictNamespaces=~time  unshare -m true
+systemd-run --wait --pipe -p RestrictNamespaces=mount  unshare -m true
+systemd-run --wait --pipe -p RestrictNamespaces=time   unshare -T true
+systemd-run --wait --pipe -p RestrictNamespaces=~mount unshare -T true
+if [[ ! -v ASAN_OPTIONS ]]; then
+    (! systemd-run --wait --pipe -p RestrictNamespaces=~time  unshare -T true)
+    (! systemd-run --wait --pipe -p RestrictNamespaces=mount  unshare -T true)
+    (! systemd-run --wait --pipe -p RestrictNamespaces=time   unshare -m true)
+    (! systemd-run --wait --pipe -p RestrictNamespaces=~mount unshare -m true)
+fi
