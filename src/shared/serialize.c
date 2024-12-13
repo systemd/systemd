@@ -547,21 +547,12 @@ void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value) {
 }
 
 int open_serialization_fd(const char *ident) {
-        int fd;
 
-        fd = memfd_create_wrapper(ident, MFD_CLOEXEC | MFD_NOEXEC_SEAL);
-        if (fd < 0) {
-                const char *path;
+        int fd = memfd_create_wrapper(ident, MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        if (fd < 0)
+                return fd;
 
-                path = getpid_cached() == 1 ? "/run/systemd" : "/tmp";
-                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
-                if (fd < 0)
-                        return fd;
-
-                log_debug("Serializing %s to %s.", ident, path);
-        } else
-                log_debug("Serializing %s to memfd.", ident);
-
+        log_debug("Serializing %s to memfd.", ident);
         return fd;
 }
 
