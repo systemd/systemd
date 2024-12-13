@@ -46,6 +46,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "netif-util.h"
 #include "pager.h"
 #include "parse-argument.h"
