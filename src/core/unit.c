@@ -3527,6 +3527,9 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         if (UNIT_VTABLE(u)->bus_name_owner_change)
                 UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
 
+        /* Now we know the owner, there's no need to ask again. */
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+
         return 0;
 }
 
@@ -3564,8 +3567,69 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
         return 0;
 }
 
-int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
+static int name_owner_changed_install_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        sd_bus *bus = sd_bus_message_get_bus(message);
+        usec_t timeout_usec = 0;
+        const sd_bus_error *e;
+        int r;
+
+        assert(message);
+        Unit *u = ASSERT_PTR(userdata);
+        const char *name = ASSERT_PTR(u->bus_name);
+
+        /* NameOwnerChanged and GetNameOwner is used to detect when a service finished starting up. The dbus
+         * call timeout shouldn't be earlier than that. If we couldn't get the start timeout, use the default
+         * value defined above. */
+        if (UNIT_VTABLE(u)->get_timeout_start_usec)
+                timeout_usec = UNIT_VTABLE(u)->get_timeout_start_usec(u);
+
+        e = sd_bus_message_get_error(message);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_unit_error_errno(u, r, "Failed to subscribe to NameOwnerChanged signal: %s", bus_error_message(e, r));
+                goto fail;
+        }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetNameOwner");
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_message_append(m, "s", name);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_call_async(
+                        bus,
+                        &u->get_name_owner_slot,
+                        m,
+                        get_name_owner_handler,
+                        u,
+                        timeout_usec);
+
+        if (r < 0)
+                goto fail;
+
+        log_unit_debug(u, "Watching D-Bus name '%s'.", name);
+
+        return 0;
+fail:
+        log_unit_warning_errno(u, r, "Failed to watch bus name '%s': %m", u->bus_name);
+        u->bus_name = NULL;
+        u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+        /* So, this is silly, but it is the default behavior of bus_add_match_full without a user supplied
+         * callback, so it actually just re-implements the status quo ante. */
+        sd_bus_close(bus);
+        return r;
+}
+
+int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         const char *match;
         usec_t timeout_usec = 0;
         int r;
@@ -3596,40 +3660,12 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                         true,
                         match,
                         signal_name_owner_changed,
-                        NULL,
+                        name_owner_changed_install_handler,
                         u,
                         timeout_usec);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "GetNameOwner");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_async(
-                        bus,
-                        &u->get_name_owner_slot,
-                        m,
-                        get_name_owner_handler,
-                        u,
-                        timeout_usec);
-
-        if (r < 0) {
-                u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
-                return r;
-        }
-
-        log_unit_debug(u, "Watching D-Bus name '%s'.", name);
         return 0;
 }
 
@@ -3641,6 +3677,9 @@ int unit_watch_bus_name(Unit *u, const char *name) {
 
         /* Watch a specific name on the bus. We only support one unit
          * watching each name for now. */
+
+        if (u->bus_name)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EBUSY), "Already watching %s", u->bus_name);
 
         if (u->manager->api_bus) {
                 /* If the bus is already available, install the match directly.
@@ -3657,6 +3696,8 @@ int unit_watch_bus_name(Unit *u, const char *name) {
                 return log_warning_errno(r, "Failed to put bus name to hashmap: %m");
         }
 
+        u->bus_name = name;
+
         return 0;
 }
 
@@ -3667,6 +3708,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
         (void) hashmap_remove_value(u->manager->watch_bus, name, u);
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+        u->bus_name = NULL;
 }
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
