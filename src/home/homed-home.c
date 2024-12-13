@@ -13,7 +13,6 @@
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -1266,7 +1265,7 @@ static int home_start_work(
         if (r < 0)
                 return r;
 
-        stdin_fd = acquire_data_fd(formatted);
+        stdin_fd = memfd_new_and_seal_string("request", formatted);
         if (stdin_fd < 0)
                 return stdin_fd;
 

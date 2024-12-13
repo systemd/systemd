@@ -11,6 +11,9 @@ int memfd_create_wrapper(const char *name, unsigned mode);
 int memfd_new(const char *name);
 int memfd_new_and_map(const char *name, size_t sz, void **p);
 int memfd_new_and_seal(const char *name, const void *data, size_t sz);
+static inline int memfd_new_and_seal_string(const char *name, const char *s) {
+        return memfd_new_and_seal(name, s, SIZE_MAX);
+}
 
 int memfd_add_seals(int fd, unsigned int seals);
 int memfd_get_seals(int fd, unsigned int *ret_seals);
