@@ -96,6 +96,19 @@ int efi_get_variable(
                                 (void) usleep_safe(EFI_RETRY_DELAY);
                 }
 
+                /* According to comment of linux source code, efivarfs represents uncommitted
+                 * variables with zero-length files. Unfortunately kernel reports EOF if there's
+                 * an inconsistency between efivarfs var list and what's actually stored in
+                 * firmware, c.f. #34304. Hence we translate EOF back to ENOENT here, as with
+                 * kernel behavior before torvalds/linux@3fab70c.
+                 *
+                 * See https://github.com/torvalds/linux/commit/3fab70c165795431f00ddf9be8b84ddd07bd1f8f
+                 */
+                if (n == 0) {
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "EFI variable %s is uncommitted", p);
+                }
+
                 if (n != sizeof(a))
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                                "Read %zi bytes from EFI variable %s, expected %zu.",  n, p, sizeof(a));
