@@ -234,7 +234,8 @@
         <listitem><para>When specified with the <command>cat</command> or <command>decrypt</command>
         commands, transcodes the output before showing it. Takes one of <literal>base64</literal>,
         <literal>unbase64</literal>, <literal>hex</literal> or <literal>unhex</literal> as argument, in order
-        to encode/decode the credential data with Base64 or as series of hexadecimal values.</para>
+        to encode/decode the credential data with Base64 or as series of hexadecimal values. The special
+        value <literal>help</literal> may be used to list supported transcode types.</para>
 
         <para>Note that this has no effect on the <command>encrypt</command> command, as encrypted
         credentials are unconditionally encoded in Base64.</para>
@@ -340,7 +341,8 @@
         information). If set to <literal>auto-initrd</literal> a TPM2 key is used if a TPM2 is found. If not
         a fixed zero length key is used, equivalent to <literal>null</literal> mode. This option is
         particularly useful to generate credentials files that are encrypted/authenticated against TPM2 where
-        available but still work on systems lacking support for this.</para>
+        available but still work on systems lacking support for this. The special value
+        <literal>help</literal> may be used to list supported key types.</para>
 
         <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
         <option>-T</option> is a shortcut for <option>--with-key=tpm2</option>.</para>

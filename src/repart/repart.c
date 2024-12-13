@@ -308,6 +308,19 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
         return flags;
 }
 
+static char* subvolume_flags_to_string(SubvolumeFlags flags) {
+        const char *l[CONST_LOG2U(_SUBVOLUME_FLAGS_MASK + 1) + 1]; /* one string per known flag at most */
+        size_t m = 0;
+
+        if (FLAGS_SET(flags, SUBVOLUME_RO))
+                l[m++] = "ro";
+
+        assert(m < ELEMENTSOF(l));
+        l[m] = NULL;
+
+        return strv_join((char**) l, ",");
+}
+
 typedef struct Subvolume {
         char *path;
         SubvolumeFlags flags;
@@ -2487,14 +2500,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
 
-        if (!ordered_hashmap_isempty(p->subvolumes) && arg_offline > 0)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "Subvolumes= cannot be used with --offline=yes.");
-
-        if (p->default_subvolume && arg_offline > 0)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "DefaultSubvolume= cannot be used with --offline=yes.");
-
         if (p->default_subvolume && !ordered_hashmap_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "DefaultSubvolume= must be one of the paths in Subvolumes=.");
@@ -4342,7 +4347,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
 static bool loop_device_error_is_fatal(const Partition *p, int r) {
         assert(p);
-        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !ordered_hashmap_isempty(p->subvolumes) || p->default_subvolume;
+        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r));
 }
 
 static int partition_target_prepare(
@@ -5902,6 +5907,38 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         return 0;
 }
 
+static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const char *default_subvolume) {
+        Subvolume *subvolume;
+        int r;
+
+        assert(l);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
+                _cleanup_free_ char *s = NULL, *f = NULL;
+
+                s = strdup(subvolume->path);
+                if (!s)
+                        return log_oom();
+
+                f = subvolume_flags_to_string(subvolume->flags);
+                if (!f)
+                        return log_oom();
+
+                if (streq_ptr(subvolume->path, default_subvolume) &&
+                    !strextend_with_separator(&f, ",", "default"))
+                        return log_oom();
+
+                if (!isempty(f) && !strextend_with_separator(&s, ":", f))
+                        return log_oom();
+
+                r = strv_extend_many(l, "--subvol", s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
         _cleanup_strv_free_ char **sv = NULL;
         int r;
@@ -5914,6 +5951,18 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
                                        p->format);
+
+        if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
+                r = append_btrfs_subvols(&sv, p->subvolumes, p->default_subvolume);
+                if (r < 0)
+                        return r;
+
+                if (p->suppressing) {
+                        r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         *ret = TAKE_PTR(sv);
         return 0;
@@ -7576,6 +7625,11 @@ static int context_minimize(Context *context) {
                         if (fstat(fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
+                        if ((uint64_t) st.st_size > partition_max_size(context, p))
+                                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                                       "Minimal partition size of %s filesystem of partition %s exceeds configured maximum size (%s > %s)",
+                                                       p->format, strna(hint), FORMAT_BYTES(st.st_size), FORMAT_BYTES(partition_max_size(context, p)));
+
                         log_info("Minimal partition size of %s filesystem of partition %s is %s",
                                  p->format, strna(hint), FORMAT_BYTES(st.st_size));
 
@@ -7612,8 +7666,12 @@ static int context_minimize(Context *context) {
                  * fool-proof. */
                 uint64_t heuristic = streq(p->format, "xfs") ? fsz : fsz / 2;
                 fsz = round_up_size(fsz + heuristic, context->grain_size);
-                if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
-                        fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
+                fsz = MAX(partition_min_size(context, p), fsz);
+
+                if (fsz > partition_max_size(context, p))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "Minimal partition size of %s filesystem of partition %s exceeds configured maximum size (%s > %s)",
+                                               p->format, strna(hint), FORMAT_BYTES(fsz), FORMAT_BYTES(partition_max_size(context, p)));
 
                 log_info("Minimal partition size of %s filesystem of partition %s is %s",
                          p->format, strna(hint), FORMAT_BYTES(fsz));
@@ -8160,7 +8218,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices();
+                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);

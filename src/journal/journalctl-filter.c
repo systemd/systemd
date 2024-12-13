@@ -12,7 +12,6 @@
 #include "journalctl-util.h"
 #include "logs-show.h"
 #include "missing_sched.h"
-#include "nulstr-util.h"
 #include "path-util.h"
 #include "unit-name.h"
 
@@ -65,73 +64,6 @@ static int add_dmesg(sd_journal *j) {
         return sd_journal_add_conjunction(j);
 }
 
-static int get_possible_units(
-                sd_journal *j,
-                const char *fields,
-                char **patterns,
-                Set **ret) {
-
-        _cleanup_set_free_ Set *found = NULL;
-        int r;
-
-        assert(j);
-        assert(fields);
-        assert(ret);
-
-        NULSTR_FOREACH(field, fields) {
-                const void *data;
-                size_t size;
-
-                r = sd_journal_query_unique(j, field);
-                if (r < 0)
-                        return r;
-
-                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        _cleanup_free_ char *u = NULL;
-                        char *eq;
-
-                        eq = memchr(data, '=', size);
-                        if (eq) {
-                                size -= eq - (char*) data + 1;
-                                data = ++eq;
-                        }
-
-                        u = strndup(data, size);
-                        if (!u)
-                                return -ENOMEM;
-
-                        size_t i;
-                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
-                                continue;
-
-                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
-                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        *ret = TAKE_PTR(found);
-        return 0;
-}
-
-/* This list is supposed to return the superset of unit names
- * possibly matched by rules added with add_matches_for_unit... */
-#define SYSTEM_UNITS                 \
-        "_SYSTEMD_UNIT\0"            \
-        "COREDUMP_UNIT\0"            \
-        "UNIT\0"                     \
-        "OBJECT_SYSTEMD_UNIT\0"      \
-        "_SYSTEMD_SLICE\0"
-
-/* ... and add_matches_for_user_unit */
-#define USER_UNITS                   \
-        "_SYSTEMD_USER_UNIT\0"       \
-        "USER_UNIT\0"                \
-        "COREDUMP_USER_UNIT\0"       \
-        "OBJECT_SYSTEMD_USER_UNIT\0" \
-        "_SYSTEMD_USER_SLICE\0"
-
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
         bool added = false;
@@ -175,7 +107,7 @@ static int add_units(sd_journal *j) {
                 _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
-                r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
+                r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
@@ -218,7 +150,7 @@ static int add_units(sd_journal *j) {
                 _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
-                r = get_possible_units(j, USER_UNITS, patterns, &units);
+                r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
@@ -317,7 +249,7 @@ static int add_matches_for_executable(sd_journal *j, const char *path) {
         assert(j);
         assert(path);
 
-        if (executable_is_script(path, &interpreter) > 0) {
+        if (script_get_shebang_interpreter(path, &interpreter) >= 0) {
                 _cleanup_free_ char *comm = NULL;
 
                 r = path_extract_filename(path, &comm);
@@ -329,14 +261,15 @@ static int add_matches_for_executable(sd_journal *j, const char *path) {
                         return log_error_errno(r, "Failed to add match: %m");
 
                 /* Append _EXE only if the interpreter is not a link. Otherwise, it might be outdated often. */
-                path = is_symlink(interpreter) > 0 ? interpreter : NULL;
+                if (is_symlink(interpreter) > 0)
+                        return 0;
+
+                path = interpreter;
         }
 
-        if (path) {
-                r = journal_add_match_pair(j, "_EXE", path);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
-        }
+        r = journal_add_match_pair(j, "_EXE", path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         return 0;
 }

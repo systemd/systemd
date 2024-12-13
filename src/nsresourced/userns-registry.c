@@ -567,7 +567,7 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
 
         cgroup_fd = safe_close(cgroup_fd);
 
-        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_PHYSICAL|REMOVE_CHMOD);
+        r = rm_rf_child(parent_fd, fname, REMOVE_ONLY_DIRECTORIES|REMOVE_CHMOD);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove delegated cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 

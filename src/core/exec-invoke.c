@@ -1796,6 +1796,7 @@ static int build_environment(
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 const char *memory_pressure_path,
+                bool needs_sandboxing,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1807,7 +1808,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -2044,6 +2045,14 @@ static int build_environment(
                 }
         }
 
+        if (p->notify_socket) {
+                x = strjoin("NOTIFY_SOCKET=", exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
         assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
 #undef N_ENV_VARS
 
@@ -2079,7 +2088,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
+static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2105,6 +2114,29 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
+                 * this is the same UID/GID map as the init user namespace and systemd's running_in_userns()
+                 * checks whether its in a user namespace by comparing uid_map/gid_map to `0 0 UINT32_MAX`.
+                 * Thus, we still map all UIDs/GIDs but do it using two extents to differentiate the new user
+                 * namespace from the init namespace:
+                 *   0 0 1
+                 *   1 1 UINT32_MAX - 1
+                 *
+                 * systemd will remove the heuristic in running_in_userns() and use namespace inodes in version 258
+                 * (PR #35382). But some users may be running a container image with older systemd < 258 so we keep
+                 * this uid_map/gid_map hack until version 259 for version N-1 compatibility.
+                 *
+                 * TODO: Switch to `0 0 UINT32_MAX` in systemd v259.
+                 *
+                 * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
+                 * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
+                 * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
+                 * use these UIDs/GIDs so we need to map them. */
+                r = asprintf(&uid_map, "0 0 1\n"
+                                       "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2124,6 +2156,11 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_FULL) {
+                r = asprintf(&gid_map, "0 0 1\n"
+                                       "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
@@ -2170,7 +2207,8 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (read(unshare_ready_fd, &c, sizeof(c)) < 0)
                         report_errno_and_exit(errno_pipe[1], -errno);
 
-                /* Disable the setgroups() system call in the child user namespace, for good. */
+                /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+                 * and using the system service manager. */
                 a = procfs_file_alloca(ppid, "setgroups");
                 fd = open(a, O_WRONLY|O_CLOEXEC);
                 if (fd < 0) {
@@ -2181,8 +2219,9 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
                         /* If the file is missing the kernel is too old, let's continue anyway. */
                 } else {
-                        if (write(fd, "deny\n", 5) < 0) {
-                                r = log_debug_errno(errno, "Failed to write \"deny\" to %s: %m", a);
+                        const char *setgroups = allow_setgroups ? "allow\n" : "deny\n";
+                        if (write(fd, setgroups, strlen(setgroups)) < 0) {
+                                r = log_debug_errno(errno, "Failed to write '%s' to %s: %m", setgroups, a);
                                 report_errno_and_exit(errno_pipe[1], r);
                         }
 
@@ -3407,7 +3446,8 @@ static int apply_mount_namespace(
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
                 .private_namespace_dir = private_namespace_dir,
-                .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
+                .host_notify_socket = params->notify_socket,
+                .notify_socket_path = exec_get_private_notify_socket_path(context, params, needs_sandboxing),
                 .host_os_release_stage = host_os_release_stage,
 
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
@@ -3419,16 +3459,12 @@ static int apply_mount_namespace(
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
                 .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
                 .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
-                /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise, ProtectHostname=no
-                 * allows changing hostname for the host and ProtectHostname=private allows changing the hostname in the unit's UTS
-                 * namespace. */
-                .protect_hostname = needs_sandboxing && context->protect_hostname == PROTECT_HOSTNAME_YES,
 
                 .private_dev = needs_sandboxing && context->private_devices,
                 .private_network = needs_sandboxing && exec_needs_network_namespace(context),
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
                 .private_pids = needs_sandboxing && exec_needs_pid_namespace(context) ? context->private_pids : PRIVATE_PIDS_NO,
-                .private_tmp = needs_sandboxing ? context->private_tmp : false,
+                .private_tmp = needs_sandboxing ? context->private_tmp : PRIVATE_TMP_NO,
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
                 .bind_log_sockets = needs_sandboxing && exec_context_get_effective_bind_log_sockets(context),
@@ -3436,10 +3472,11 @@ static int apply_mount_namespace(
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
 
-                .protect_home = needs_sandboxing ? context->protect_home : false,
-                .protect_system = needs_sandboxing ? context->protect_system : false,
-                .protect_proc = needs_sandboxing ? context->protect_proc : false,
-                .proc_subset = needs_sandboxing ? context->proc_subset : false,
+                .protect_home = needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
+                .protect_hostname = needs_sandboxing ? context->protect_hostname : PROTECT_HOSTNAME_NO,
+                .protect_system = needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
+                .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
+                .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4847,6 +4884,7 @@ int exec_invoke(
                         journal_stream_dev,
                         journal_stream_ino,
                         memory_pressure_path,
+                        needs_sandboxing,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -4984,7 +5022,9 @@ int exec_invoke(
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid);
+                /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
+                 * unprivileged user namespaces. */
+                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5154,7 +5194,8 @@ int exec_invoke(
          * different user namespace). */
 
         if (needs_sandboxing && !userns_set_up) {
-                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid);
+                r = setup_private_users(context->private_users, saved_uid, saved_gid, uid, gid,
+                                        /* allow_setgroups= */ context->private_users == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_exec_error_errno(context, params, r, "Failed to set up user namespacing: %m");

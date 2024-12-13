@@ -6165,7 +6165,7 @@ int tpm2_unseal_data(
 }
 #endif /* HAVE_TPM2 */
 
-int tpm2_list_devices(void) {
+int tpm2_list_devices(bool legend, bool quiet) {
 #if HAVE_TPM2
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -6178,6 +6178,8 @@ int tpm2_list_devices(void) {
         t = table_new("path", "device", "driver");
         if (!t)
                 return log_oom();
+
+        (void) table_set_header(t, legend);
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
@@ -6224,7 +6226,7 @@ int tpm2_list_devices(void) {
                 }
         }
 
-        if (table_isempty(t)) {
+        if (table_isempty(t) && !quiet) {
                 log_info("No suitable TPM2 devices found.");
                 return 0;
         }
