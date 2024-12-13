@@ -29,7 +29,7 @@ LICENSE:
         LGPL-2.1-or-later for all code, exceptions noted in LICENSES/README.md
 
 REQUIREMENTS:
-        Linux kernel ≥ 3.15
+        Linux kernel ≥ 3.17
                      ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces
@@ -42,9 +42,9 @@ REQUIREMENTS:
                      ≥ 5.4 for pidfd and signed Verity images
                      ≥ 5.7 for CLONE_INTO_CGROUP, BPF links and the BPF LSM hook
 
-        ⛔ Kernel versions below 3.15 ("minimum baseline") are not supported at
+        ⛔ Kernel versions below 3.17 ("minimum baseline") are not supported at
         all, and are missing required functionality (e.g. CLOCK_BOOTTIME
-        support for timerfd_create()).
+        support for timerfd_create() or memfd_create()).
 
         ⚠️ Kernel versions below 5.4 ("recommended baseline") have significant
         gaps in functionality and are not recommended for use with this version
