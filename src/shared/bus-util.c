@@ -21,10 +21,10 @@
 #include "capsule-util.h"
 #include "chase.h"
 #include "daemon-util.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "memfd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "socket-util.h"
@@ -803,7 +803,7 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
         if (r < 0)
                 return r;
 
-        fd = acquire_data_fd_full(dump, dump_size, /* flags = */ 0);
+        fd = memfd_new_and_seal("malloc-info", dump, dump_size);
         if (fd < 0)
                 return fd;
 

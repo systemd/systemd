@@ -14,7 +14,6 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "confidential-virt.h"
-#include "data-fd-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -33,6 +32,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "manager-dump.h"
+#include "memfd-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1447,7 +1447,7 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = acquire_data_fd(dump);
+        fd = memfd_new_and_seal_string("dump", dump);
         if (fd < 0)
                 return fd;
 

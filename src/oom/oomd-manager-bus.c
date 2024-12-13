@@ -4,8 +4,8 @@
 
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
-#include "data-fd-util.h"
 #include "fd-util.h"
+#include "memfd-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "user-util.h"
@@ -22,7 +22,7 @@ static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        fd = acquire_data_fd(dump);
+        fd = memfd_new_and_seal_string("oomd-dump", dump);
         if (fd < 0)
                 return fd;
 
