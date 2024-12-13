@@ -177,6 +177,9 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
 
         assert(data || sz == 0);
 
+        if (sz == SIZE_MAX)
+                sz = strlen(data);
+
         fd = memfd_new(name);
         if (fd < 0)
                 return fd;
