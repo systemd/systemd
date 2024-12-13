@@ -9,12 +9,11 @@
 #include "strv.h"
 
 int verb_cat_config(int argc, char *argv[], void *userdata) {
-        char **list;
         int r;
 
         pager_open(arg_pager_flags);
 
-        list = strv_skip(argv, 1);
+        char **list = strv_skip(argv, 1);
         STRV_FOREACH(arg, list) {
                 const char *t = NULL;
 

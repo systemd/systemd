@@ -691,122 +691,110 @@ static void dump_home_record(UserRecord *hr) {
         }
 }
 
-static char **mangle_user_list(char **list, char ***ret_allocated) {
-        _cleanup_free_ char *myself = NULL;
-        char **l;
+static int inspect_home(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        const char *json;
+        int incomplete;
+        uid_t uid;
+        int r;
 
-        if (!strv_isempty(list)) {
-                *ret_allocated = NULL;
-                return list;
-        }
+        r = parse_uid(name, &uid);
+        if (r < 0) {
+                if (!valid_user_group_name(name, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name '%s'.", name);
 
-        myself = getusername_malloc();
-        if (!myself)
-                return NULL;
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", name);
+        } else
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
 
-        l = new(char*, 2);
-        if (!l)
-                return NULL;
+        r = sd_bus_message_read(reply, "sbo", &json, &incomplete, NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
-        l[0] = TAKE_PTR(myself);
-        l[1] = NULL;
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON identity: %m");
 
-        *ret_allocated = l;
-        return l;
+        hr = user_record_new();
+        if (!hr)
+                return log_oom();
+
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+        if (r < 0)
+                return r;
+
+        hr->incomplete = incomplete;
+        dump_home_record(hr);
+        return 0;
 }
 
-static int inspect_home(int argc, char *argv[], void *userdata) {
+static int inspect_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
-        int r, ret = 0;
-        char **items;
-
-        pager_open(arg_pager_flags);
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        pager_open(arg_pager_flags);
 
-        STRV_FOREACH(i, items) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-                const char *json;
-                int incomplete;
-                uid_t uid;
-
-                r = parse_uid(*i, &uid);
-                if (r < 0) {
-                        if (!valid_user_group_name(*i, 0)) {
-                                log_error("Invalid user name '%s'.", *i);
-                                if (ret == 0)
-                                        ret = -EINVAL;
-
-                                continue;
-                        }
-
-                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
-                } else
-                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                r = sd_bus_message_read(reply, "sbo", &json, &incomplete, NULL);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse JSON identity: %m");
-                        if (ret == 0)
-                                ret = r;
-
-                        continue;
-                }
-
-                hr = user_record_new();
-                if (!hr)
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                _cleanup_free_ char *myself = getusername_malloc();
+                if (!myself)
                         return log_oom();
 
-                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
-                if (r < 0) {
-                        if (ret == 0)
-                                ret = r;
+                return inspect_home(bus, myself);
+        } else {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, inspect_home(bus, *arg));
 
-                        continue;
-                }
-
-                hr->incomplete = incomplete;
-                dump_home_record(hr);
+                return r;
         }
-
-        return ret;
 }
 
-static int authenticate_home(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **mangled_list = NULL;
-        int r, ret = 0;
-        char **items;
+static int authenticate_home(sd_bus *bus, const char *name) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        int r;
 
-        items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
-        if (!items)
-                return log_oom();
+        r = acquire_passed_secrets(name, &secret);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_secret(m, secret);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                if (r < 0) {
+                        r = handle_generic_user_record_error(name, secret, &error, r, false);
+                        if (r >= 0)
+                                continue;
+                }
+                return r;
+        }
+}
+
+static int authenticate_homes(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -814,44 +802,19 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        STRV_FOREACH(i, items) {
-                _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        char **args = strv_skip(argv, 1);
+        if (args) {
+                _cleanup_free_ char *myself = getusername_malloc();
+                if (!myself)
+                        return log_oom();
 
-                r = acquire_passed_secrets(*i, &secret);
-                if (r < 0)
-                        return r;
+                return authenticate_home(bus, myself);
+        } else {
+                STRV_FOREACH(arg, args)
+                        RET_GATHER(r, authenticate_home(bus, *arg));
 
-                for (;;) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                        r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(m, "s", *i);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = bus_message_append_secret(m, secret);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
-                        if (r < 0) {
-                                r = handle_generic_user_record_error(*i, secret, &error, r, false);
-                                if (r < 0) {
-                                        if (ret == 0)
-                                                ret = r;
-
-                                        break;
-                                }
-                        } else
-                                break;
-                }
+                return r;
         }
-
-        return ret;
 }
 
 static int update_last_change(sd_json_variant **v, bool with_password, bool override) {
@@ -4727,8 +4690,8 @@ static int run(int argc, char *argv[]) {
                 { "list",           VERB_ANY, 1,        VERB_DEFAULT, list_homes           },
                 { "activate",       2,        VERB_ANY, 0,            activate_home        },
                 { "deactivate",     2,        VERB_ANY, 0,            deactivate_home      },
-                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_home         },
-                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_home    },
+                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_homes        },
+                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_homes   },
                 { "create",         VERB_ANY, 2,        0,            create_home          },
                 { "remove",         2,        VERB_ANY, 0,            remove_home          },
                 { "update",         VERB_ANY, 2,        0,            update_home          },
