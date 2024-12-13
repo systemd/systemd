@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "data-fd-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -203,7 +203,7 @@ TEST(rearrange_stdio) {
                 assert_se(pipe_read_fd >= 3);
 
                 assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
-                assert_se(acquire_data_fd("foobar") == 2);
+                assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
 
