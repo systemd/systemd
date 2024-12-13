@@ -182,7 +182,6 @@ struct NamespaceParameters {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
-        bool protect_hostname;
 
         bool private_dev;
         bool private_network;
@@ -194,6 +193,7 @@ struct NamespaceParameters {
 
         ProtectControlGroups protect_control_groups;
         ProtectHome protect_home;
+        ProtectHostname protect_hostname;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
         ProcSubset proc_subset;
