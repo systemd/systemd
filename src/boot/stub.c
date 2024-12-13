@@ -1136,14 +1136,6 @@ static void settle_command_line(
                 if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
                         /* Drop the custom cmdline */
                         *cmdline = mfree(*cmdline);
-#if ALWAYS_USE_UKI_CMDLINE
-                /* Use the cmdline baked into the UKI if it exists */
-                else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
-                        *cmdline = mfree(*cmdline);
-                        *cmdline = mangle_stub_cmdline(pe_section_to_str16(loaded_image, sections + UNIFIED_SECTION_CMDLINE));
-                        return;
-                }
-#endif
                 else {
                         /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                          * duplicates what we already did in the boot menu, if that was already
