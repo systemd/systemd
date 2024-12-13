@@ -243,6 +243,7 @@ class UkifyConfig:
     efi_arch: str
     hwids: Path
     initrd: list[Path]
+    firmware: list[Path]
     join_profiles: list[Path]
     json: Union[Literal['pretty'], Literal['short'], Literal['off']]
     linux: Optional[Path]
@@ -363,21 +364,22 @@ class Uname:
 
 
 DEFAULT_SECTIONS_TO_SHOW = {
-    '.linux':   'binary',
-    '.initrd':  'binary',
-    '.ucode':   'binary',
-    '.splash':  'binary',
-    '.dtb':     'binary',
-    '.dtbauto': 'binary',
-    '.hwids':   'binary',
-    '.cmdline': 'text',
-    '.osrel':   'text',
-    '.uname':   'text',
-    '.pcrpkey': 'text',
-    '.pcrsig':  'text',
-    '.sbat':    'text',
-    '.sbom':    'binary',
-    '.profile': 'text',
+    '.linux':     'binary',
+    '.initrd':    'binary',
+    '.ucode':     'binary',
+    '.splash':    'binary',
+    '.dtb':       'binary',
+    '.dtbauto':   'binary',
+    '.hwids':     'binary',
+    '.fwauto':    'binary',
+    '.cmdline':   'text',
+    '.osrel':     'text',
+    '.uname':     'text',
+    '.pcrpkey':   'text',
+    '.pcrsig':    'text',
+    '.sbat':      'text',
+    '.sbom':      'binary',
+    '.profile':   'text',
 }  # fmt: skip
 
 
@@ -1158,16 +1160,17 @@ def make_uki(opts: UkifyConfig) -> None:
 
     sections = [
         # name,      content,         measure?
-        ('.osrel',   opts.os_release, True),
-        ('.cmdline', opts.cmdline,    True),
-        ('.dtb',     opts.devicetree, True),
+        ('.osrel',      opts.os_release, True),
+        ('.cmdline',    opts.cmdline,    True),
+        ('.dtb',        opts.devicetree, True),
         *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
-        ('.hwids',   hwids,           True),
-        ('.uname',   opts.uname,      True),
-        ('.splash',  opts.splash,     True),
-        ('.pcrpkey', pcrpkey,         True),
-        ('.initrd',  initrd,          True),
-        ('.ucode',   opts.microcode,  True),
+        ('.hwids',      hwids,           True),
+        ('.uname',      opts.uname,      True),
+        ('.splash',     opts.splash,     True),
+        ('.pcrpkey',    pcrpkey,         True),
+        ('.initrd',     initrd,          True),
+        *(('.fwauto',   fw, True) for fw in opts.firmware),
+        ('.ucode',      opts.microcode,  True),
     ]  # fmt: skip
 
     # If we're building a PE profile binary, the ".profile" section has to be the first one.
@@ -1223,6 +1226,7 @@ def make_uki(opts: UkifyConfig) -> None:
         '.osrel',
         '.cmdline',
         '.initrd',
+        '.fwauto',
         '.ucode',
         '.splash',
         '.dtb',
@@ -1686,6 +1690,16 @@ CONFIG_ITEMS = [
         action='append',
         help='initrd file [part of .initrd section]',
         config_key='UKI/Initrd',
+        config_push=ConfigItem.config_list_prepend,
+    ),
+    ConfigItem(
+        '--firmware',
+        metavar='PATH',
+        type=Path,
+        action='append',
+        default=[],
+        help='firmware file [.fwauto section]',
+        config_key='UKI/Firmware',
         config_push=ConfigItem.config_list_prepend,
     ),
     ConfigItem(
