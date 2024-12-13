@@ -1136,7 +1136,7 @@ static void settle_command_line(
                 if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
                         /* Drop the custom cmdline */
                         *cmdline = mfree(*cmdline);
-#ifdef ALWAYS_USE_UKI_CMDLINE
+#if ALWAYS_USE_UKI_CMDLINE
                 /* Use the cmdline baked into the UKI if it exists */
                 else if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE)) {
                         *cmdline = mfree(*cmdline);
