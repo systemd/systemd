@@ -1900,6 +1900,7 @@ static int scan_background_color_response(
 }
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue) {
+        bool disable_nonblock = false;
         int r;
 
         assert(ret_red);
@@ -1933,6 +1934,11 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 goto finish;
 
+        r = fd_nonblock(STDIN_FILENO, true);
+        if (r < 0)
+                goto finish;
+        disable_nonblock = true;
+
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
@@ -1941,7 +1947,6 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         for (bool first = true;; first = false) {
                 if (buf_full == 0) {
                         usec_t n = now(CLOCK_MONOTONIC);
-
                         if (n >= end) {
                                 r = -EOPNOTSUPP;
                                 goto finish;
@@ -1960,6 +1965,8 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                          * unnecessarily drop too many characters from the input queue. */
                         ssize_t l = read(STDIN_FILENO, buf, first ? sizeof(buf) : 1);
                         if (l < 0) {
+                                if (errno == EAGAIN)
+                                        continue;
                                 r = -errno;
                                 goto finish;
                         }
@@ -1990,6 +1997,9 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
+        if (disable_nonblock)
+                RET_GATHER(r, fd_nonblock(STDIN_FILENO, false));
+
         RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSADRAIN, &old_termios)));
         return r;
 }
@@ -2083,6 +2093,8 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_rows,
                 unsigned *ret_columns) {
 
+        bool disable_nonblock = false;
+
         assert(input_fd >= 0);
         assert(output_fd >= 0);
 
@@ -2130,6 +2142,14 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 goto finish;
 
+        /* Temporarily put the tty in nonblock mode, so that we won't ever hang in read() should someone else
+         * process the POLLIN */
+
+        r = fd_nonblock(input_fd, true);
+        if (r < 0)
+                goto finish;
+        disable_nonblock = true;
+
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
@@ -2138,7 +2158,6 @@ int terminal_get_size_by_dsr(
         for (bool first = true;; first = false) {
                 if (buf_full == 0) {
                         usec_t n = now(CLOCK_MONOTONIC);
-
                         if (n >= end) {
                                 r = -EOPNOTSUPP;
                                 goto finish;
@@ -2157,6 +2176,9 @@ int terminal_get_size_by_dsr(
                          * unnecessarily drop too many characters from the input queue. */
                         ssize_t l = read(input_fd, buf, first ? sizeof(buf) : 1);
                         if (l < 0) {
+                                if (errno == EAGAIN)
+                                        continue;
+
                                 r = -errno;
                                 goto finish;
                         }
@@ -2216,6 +2238,9 @@ int terminal_get_size_by_dsr(
         }
 
 finish:
+        if (disable_nonblock)
+                RET_GATHER(r, fd_nonblock(input_fd, false));
+
         /* Restore cursor position */
         if (saved_row > 0 && saved_column > 0)
                 RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
