@@ -200,17 +200,11 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
                 return r;
 
         if (ro) {
-                _cleanup_close_ int rfd = -EBADF;
-
                 r = memfd_set_sealed(mfd);
                 if (r < 0)
                         return r;
 
-                rfd = fd_reopen(mfd, mode);
-                if (rfd < 0)
-                        return rfd;
-
-                return TAKE_FD(rfd);
+                return fd_reopen(mfd, mode);
         }
 
         off_t f = lseek(mfd, 0, SEEK_SET);
