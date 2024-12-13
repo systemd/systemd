@@ -64,11 +64,9 @@
   <refsect1>
     <title>Options</title>
 
-    <para>All options are configured in the
-    [Manager] section:</para>
+    <para>All options are configured in the [Manager] section:</para>
 
     <variablelist class='config-directives'>
-
       <varlistentry>
         <term><varname>LogColor=</varname></term>
         <term><varname>LogLevel=</varname></term>
@@ -106,6 +104,65 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>StatusUnitFormat=</varname></term>
+
+        <listitem><para>Takes <option>name</option>, <option>description</option> or
+        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
+        names in status messages (e.g. <literal>systemd-journald.service</literal>), instead of the longer
+        and more informative descriptions set with <varname>Description=</varname> (e.g. <literal>Journal
+        Logging Service</literal>). If <option>combined</option>, the system manager will use both unit names
+        and descriptions in status messages (e.g. <literal>systemd-journald.service - Journal Logging
+        Service</literal>).</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about unit names and <varname>Description=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultTimerAccuracySec=</varname></term>
+
+        <listitem><para>Sets the default accuracy of timer units. This
+        controls the global default for the
+        <varname>AccuracySec=</varname> setting of timer units, see
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. <varname>AccuracySec=</varname> set in individual
+        units override the global default for the specific unit.
+        Defaults to 1min. Note that the accuracy of timer units is
+        also affected by the configured timer slack for PID 1, see
+        <varname>TimerSlackNSec=</varname> above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Resource Management</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>TimerSlackNSec=</varname></term>
+
+        <listitem><para>Sets the timer slack in nanoseconds for PID 1,
+        which is inherited by all executed processes, unless
+        overridden individually, for example with the
+        <varname>TimerSlackNSec=</varname> setting in service units
+        (for details see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        The timer slack controls the accuracy of wake-ups triggered by
+        system timers. See
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for more information. Note that in contrast to most other time
+        span definitions this parameter takes an integer value in
+        nano-seconds if no unit is specified. The usual time units are
+        understood too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Configures the CPU affinity for the service manager as well as the default CPU
@@ -141,355 +198,6 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>RuntimeWatchdogSec=</varname></term>
-        <term><varname>RebootWatchdogSec=</varname></term>
-        <term><varname>KExecWatchdogSec=</varname></term>
-
-        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in
-        seconds (or in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>,
-        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>), or the special strings
-        <literal>off</literal> or <literal>default</literal>. If set to <literal>off</literal>
-        (alternatively: <literal>0</literal>) the watchdog logic is disabled: no watchdog device is opened,
-        configured, or pinged. If set to the special string <literal>default</literal> the watchdog is opened
-        and pinged in regular intervals, but the timeout is not changed from the default. If set to any other
-        time value the watchdog timeout is configured to the specified value (or a value close to it,
-        depending on hardware capabilities).</para>
-
-        <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
-        (<filename>/dev/watchdog0</filename> or the path specified with <varname>WatchdogDevice=</varname> or
-        the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
-        reboot the system if it is not contacted within the specified timeout interval. The system manager
-        will ensure to contact it at least once in half the specified timeout interval. This feature requires
-        a hardware watchdog device to be present, as it is commonly the case in embedded and server
-        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in
-        which case the closest available timeout is picked.</para>
-
-        <para><varname>RebootWatchdogSec=</varname> may be used to configure the hardware watchdog when the
-        system is asked to reboot. It works as a safety net to ensure that the reboot takes place even if a
-        clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout applies
-        only to the second phase of the reboot, i.e. after all regular services are already terminated, and
-        after the system and service manager process (PID 1) got replaced by the
-        <filename>systemd-shutdown</filename> binary, see system
-        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details. During the first phase of the shutdown operation the system and service manager remains
-        running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a
-        timeout on this first phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and
-        <varname>JobTimeoutAction=</varname> in the [Unit] section of the
-        <filename>shutdown.target</filename> unit. By default <varname>RuntimeWatchdogSec=</varname> defaults
-        to 0 (off), and <varname>RebootWatchdogSec=</varname> to 10min.</para>
-
-        <para><varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
-        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on
-        kexec (depending on the specific hardware and/or driver), in this case the watchdog might not get
-        disabled after kexec succeeds and thus the system might get rebooted, unless
-        <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.  For this reason it is
-        recommended to enable <varname>KExecWatchdogSec=</varname> only if
-        <varname>RuntimeWatchdogSec=</varname> is also enabled.</para>
-
-        <para>These settings have no effect if a hardware watchdog is not available.</para>
-
-        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>RuntimeWatchdogPreSec=</varname></term>
-
-        <listitem><para>Configure the hardware watchdog device pre-timeout value.
-        Takes a timeout value in seconds (or in other time units similar to
-        <varname>RuntimeWatchdogSec=</varname>). A watchdog pre-timeout is a
-        notification generated by the watchdog before the watchdog reset might
-        occur in the event the watchdog has not been serviced. This notification
-        is handled by the kernel and can be configured to take an action (i.e.
-        generate a kernel panic) using <varname>RuntimeWatchdogPreGovernor=</varname>.
-        Not all watchdog hardware or drivers support generating a pre-timeout and
-        depending on the state of the system, the kernel may be unable to take the
-        configured action before the watchdog reboot. The watchdog will be configured
-        to generate the pre-timeout event at the amount of time specified by
-        <varname>RuntimeWatchdogPreSec=</varname> before the runtime watchdog timeout
-        (set by <varname>RuntimeWatchdogSec=</varname>). For example, if the we have
-        <varname>RuntimeWatchdogSec=30</varname> and
-        <varname>RuntimeWatchdogPreSec=10</varname>, then the pre-timeout event
-        will occur if the watchdog has not pinged for 20s (10s before the
-        watchdog would fire). By default, <varname>RuntimeWatchdogPreSec=</varname>
-        defaults to 0 (off). The value set for <varname>RuntimeWatchdogPreSec=</varname>
-        must be smaller than the timeout value for <varname>RuntimeWatchdogSec=</varname>.
-        This setting has no effect if a hardware watchdog is not available or the
-        hardware watchdog does not support a pre-timeout and will be ignored by the
-        kernel if the setting is greater than the actual watchdog timeout.</para>
-
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>RuntimeWatchdogPreGovernor=</varname></term>
-
-        <listitem><para>Configure the action taken by the hardware watchdog device
-        when the pre-timeout expires. The default action for the pre-timeout event
-        depends on the kernel configuration, but it is usually to log a kernel
-        message. For a list of valid actions available for a given watchdog device,
-        check the content of the
-        <filename>/sys/class/watchdog/watchdog<replaceable>X</replaceable>/pretimeout_available_governors</filename>
-        file. Typically, available governor types are <varname>noop</varname> and <varname>panic</varname>.
-        Availability, names and functionality might vary depending on the specific device driver
-        in use. If the <filename>pretimeout_available_governors</filename> sysfs file is empty,
-        the governor might be built as a kernel module and might need to be manually loaded
-        (e.g. <varname>pretimeout_noop.ko</varname>), or the watchdog device might not support
-        pre-timeouts.</para>
-
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>WatchdogDevice=</varname></term>
-
-        <listitem><para>Configure the hardware watchdog device that the
-        runtime and shutdown watchdog timers will open and use. Defaults
-        to <filename>/dev/watchdog0</filename>. This setting has no
-        effect if a hardware watchdog is not available.</para>
-
-        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>CapabilityBoundingSet=</varname></term>
-
-        <listitem><para>Controls which capabilities to include in the
-        capability bounding set for PID 1 and its children. See
-        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details. Takes a whitespace-separated list of capability
-        names as read by
-        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        Capabilities listed will be included in the bounding set, all
-        others are removed. If the list of capabilities is prefixed
-        with ~, all but the listed capabilities will be included, the
-        effect of the assignment inverted. Note that this option also
-        affects the respective capabilities in the effective,
-        permitted and inheritable capability sets. The capability
-        bounding set may also be individually configured for units
-        using the <varname>CapabilityBoundingSet=</varname> directive
-        for units, but note that capabilities dropped for PID 1 cannot
-        be regained in individual units, they are lost for
-        good.</para>
-
-        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>NoNewPrivileges=</varname></term>
-
-        <listitem><para>Takes a boolean argument. If true, ensures that PID 1
-        and all its children can never gain new privileges through
-        <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        (e.g. via setuid or setgid bits, or filesystem capabilities).
-        Defaults to false. General purpose distributions commonly rely
-        on executables with setuid or setgid bits and will thus not
-        function properly with this option enabled. Individual units
-        cannot disable this option.
-        Also see <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
-        </para>
-
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>ProtectSystem=</varname></term>
-
-        <listitem><para>Takes a boolean argument or the string <literal>auto</literal>. If set to true this
-        will remount <filename>/usr/</filename> read-only. If set to <literal>auto</literal> (the default)
-        and running in an initrd equivalent to true, otherwise false. This implements a restricted subset of
-        the per-unit setting of the same name, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details: currently, the <literal>full</literal> or <literal>struct</literal> values are not
-        supported.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>SystemCallArchitectures=</varname></term>
-
-        <listitem><para>Takes a space-separated list of architecture
-        identifiers. Selects from which architectures system calls may
-        be invoked on this system. This may be used as an effective
-        way to disable invocation of non-native binaries system-wide,
-        for example to prohibit execution of 32-bit x86 binaries on
-        64-bit x86-64 systems. This option operates system-wide, and
-        acts similar to the
-        <varname>SystemCallArchitectures=</varname> setting of unit
-        files, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting defaults to the empty list, in which
-        case no filtering of system calls based on architecture is
-        applied. Known architecture identifiers are
-        <literal>x86</literal>, <literal>x86-64</literal>,
-        <literal>x32</literal>, <literal>arm</literal> and the special
-        identifier <literal>native</literal>. The latter implicitly
-        maps to the native architecture of the system (or more
-        specifically, the architecture the system manager was compiled
-        for). Set this setting to <literal>native</literal> to
-        prohibit execution of any non-native binaries. When a binary
-        executes a system call of an architecture that is not listed
-        in this setting, it will be immediately terminated with the
-        SIGSYS signal.</para>
-
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>TimerSlackNSec=</varname></term>
-
-        <listitem><para>Sets the timer slack in nanoseconds for PID 1,
-        which is inherited by all executed processes, unless
-        overridden individually, for example with the
-        <varname>TimerSlackNSec=</varname> setting in service units
-        (for details see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        The timer slack controls the accuracy of wake-ups triggered by
-        system timers. See
-        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for more information. Note that in contrast to most other time
-        span definitions this parameter takes an integer value in
-        nano-seconds if no unit is specified. The usual time units are
-        understood too.</para>
-
-        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>StatusUnitFormat=</varname></term>
-
-        <listitem><para>Takes <option>name</option>, <option>description</option> or
-        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
-        names in status messages (e.g. <literal>systemd-journald.service</literal>), instead of the longer
-        and more informative descriptions set with <varname>Description=</varname> (e.g. <literal>Journal
-        Logging Service</literal>). If <option>combined</option>, the system manager will use both unit names
-        and descriptions in status messages (e.g. <literal>systemd-journald.service - Journal Logging
-        Service</literal>).</para>
-
-        <para>See
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details about unit names and <varname>Description=</varname>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultTimerAccuracySec=</varname></term>
-
-        <listitem><para>Sets the default accuracy of timer units. This
-        controls the global default for the
-        <varname>AccuracySec=</varname> setting of timer units, see
-        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. <varname>AccuracySec=</varname> set in individual
-        units override the global default for the specific unit.
-        Defaults to 1min. Note that the accuracy of timer units is
-        also affected by the configured timer slack for PID 1, see
-        <varname>TimerSlackNSec=</varname> above.</para>
-
-        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultTimeoutStartSec=</varname></term>
-        <term><varname>DefaultTimeoutStopSec=</varname></term>
-        <term><varname>DefaultTimeoutAbortSec=</varname></term>
-        <term><varname>DefaultRestartSec=</varname></term>
-
-        <listitem><para>Configures the default timeouts for starting, stopping and aborting of units, as well
-        as the default time to sleep between automatic restarts of units, as configured per-unit in
-        <varname>TimeoutStartSec=</varname>, <varname>TimeoutStopSec=</varname>,
-        <varname>TimeoutAbortSec=</varname> and <varname>RestartSec=</varname> (for services, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings). For non-service units,
-        <varname>DefaultTimeoutStartSec=</varname> sets the default <varname>TimeoutSec=</varname> value.
-        </para>
-
-        <para><varname>DefaultTimeoutStartSec=</varname> and <varname>DefaultTimeoutStopSec=</varname>
-        default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
-        <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
-        </para>
-
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultDeviceTimeoutSec=</varname></term>
-
-        <listitem><para>Configures the default timeout for waiting for devices. It can be changed per
-        device via the <varname>x-systemd.device-timeout=</varname> option in <filename>/etc/fstab</filename>
-        and <filename>/etc/crypttab</filename> (see
-        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        Defaults to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        </para>
-
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultStartLimitIntervalSec=</varname></term>
-        <term><varname>DefaultStartLimitBurst=</varname></term>
-
-        <listitem><para>Configure the default unit start rate
-        limiting, as configured per-service by
-        <varname>StartLimitIntervalSec=</varname> and
-        <varname>StartLimitBurst=</varname>. See
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-service settings.
-        <varname>DefaultStartLimitIntervalSec=</varname> defaults to
-        10s. <varname>DefaultStartLimitBurst=</varname> defaults to
-        5.</para>
-
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>DefaultEnvironment=</varname></term>
-
-        <listitem><para>Configures environment variables passed to all executed processes. Takes a
-        space-separated list of variable assignments. See <citerefentry
-        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details about environment variables.</para>
-
-        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
-        specifiers.</para>
-
-        <para>Example:
-
-        <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
-
-        Sets three variables
-        <literal>VAR1</literal>,
-        <literal>VAR2</literal>,
-        <literal>VAR3</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>ManagerEnvironment=</varname></term>
-
-        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
-        environment variables for the manager process itself. These variables are inherited by processes
-        spawned by user managers, but not the system manager - use <varname>DefaultEnvironment=</varname>
-        for that. Note that these variables are merged into the existing environment block. In particular, in
-        case of the system manager, this includes variables set by the kernel based on the kernel command line.
-        As with <varname>DefaultEnvironment=</varname>, this environment block is internal, and changes are not
-        reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
-
-        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
-        See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a
-        descriptions of some variables understood by <command>systemd</command>.</para>
-
-        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
-        specifiers.</para>
-
-        <xi:include href="version-info.xml" xpointer="v248"/>
-        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -609,6 +317,227 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultMemoryPressureWatch=</varname></term>
+        <term><varname>DefaultMemoryPressureThresholdSec=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>MemoryPressureWatch=</varname> and <varname>MemoryPressureThresholdSec=</varname>
+        settings. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
+        also sets the memory pressure monitoring threshold for the service manager itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Hardware Watchdog</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>RuntimeWatchdogSec=</varname></term>
+        <term><varname>RebootWatchdogSec=</varname></term>
+        <term><varname>KExecWatchdogSec=</varname></term>
+
+        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in
+        seconds (or in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>,
+        <literal>h</literal>, <literal>d</literal>, <literal>w</literal>), or the special strings
+        <literal>off</literal> or <literal>default</literal>. If set to <literal>off</literal>
+        (alternatively: <literal>0</literal>) the watchdog logic is disabled: no watchdog device is opened,
+        configured, or pinged. If set to the special string <literal>default</literal> the watchdog is opened
+        and pinged in regular intervals, but the timeout is not changed from the default. If set to any other
+        time value the watchdog timeout is configured to the specified value (or a value close to it,
+        depending on hardware capabilities).</para>
+
+        <para>If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero value, the watchdog hardware
+        (<filename>/dev/watchdog0</filename> or the path specified with <varname>WatchdogDevice=</varname> or
+        the kernel option <varname>systemd.watchdog-device=</varname>) will be programmed to automatically
+        reboot the system if it is not contacted within the specified timeout interval. The system manager
+        will ensure to contact it at least once in half the specified timeout interval. This feature requires
+        a hardware watchdog device to be present, as it is commonly the case in embedded and server
+        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in
+        which case the closest available timeout is picked.</para>
+
+        <para><varname>RebootWatchdogSec=</varname> may be used to configure the hardware watchdog when the
+        system is asked to reboot. It works as a safety net to ensure that the reboot takes place even if a
+        clean reboot attempt times out. Note that the <varname>RebootWatchdogSec=</varname> timeout applies
+        only to the second phase of the reboot, i.e. after all regular services are already terminated, and
+        after the system and service manager process (PID 1) got replaced by the
+        <filename>systemd-shutdown</filename> binary, see system
+        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details. During the first phase of the shutdown operation the system and service manager remains
+        running and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a
+        timeout on this first phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and
+        <varname>JobTimeoutAction=</varname> in the [Unit] section of the
+        <filename>shutdown.target</filename> unit. By default <varname>RuntimeWatchdogSec=</varname> defaults
+        to 0 (off), and <varname>RebootWatchdogSec=</varname> to 10min.</para>
+
+        <para><varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
+        is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on
+        kexec (depending on the specific hardware and/or driver), in this case the watchdog might not get
+        disabled after kexec succeeds and thus the system might get rebooted, unless
+        <varname>RuntimeWatchdogSec=</varname> is also enabled at the same time.  For this reason it is
+        recommended to enable <varname>KExecWatchdogSec=</varname> only if
+        <varname>RuntimeWatchdogSec=</varname> is also enabled.</para>
+
+        <para>These settings have no effect if a hardware watchdog is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeWatchdogPreSec=</varname></term>
+
+        <listitem><para>Configure the hardware watchdog device pre-timeout value.
+        Takes a timeout value in seconds (or in other time units similar to
+        <varname>RuntimeWatchdogSec=</varname>). A watchdog pre-timeout is a
+        notification generated by the watchdog before the watchdog reset might
+        occur in the event the watchdog has not been serviced. This notification
+        is handled by the kernel and can be configured to take an action (i.e.
+        generate a kernel panic) using <varname>RuntimeWatchdogPreGovernor=</varname>.
+        Not all watchdog hardware or drivers support generating a pre-timeout and
+        depending on the state of the system, the kernel may be unable to take the
+        configured action before the watchdog reboot. The watchdog will be configured
+        to generate the pre-timeout event at the amount of time specified by
+        <varname>RuntimeWatchdogPreSec=</varname> before the runtime watchdog timeout
+        (set by <varname>RuntimeWatchdogSec=</varname>). For example, if the we have
+        <varname>RuntimeWatchdogSec=30</varname> and
+        <varname>RuntimeWatchdogPreSec=10</varname>, then the pre-timeout event
+        will occur if the watchdog has not pinged for 20s (10s before the
+        watchdog would fire). By default, <varname>RuntimeWatchdogPreSec=</varname>
+        defaults to 0 (off). The value set for <varname>RuntimeWatchdogPreSec=</varname>
+        must be smaller than the timeout value for <varname>RuntimeWatchdogSec=</varname>.
+        This setting has no effect if a hardware watchdog is not available or the
+        hardware watchdog does not support a pre-timeout and will be ignored by the
+        kernel if the setting is greater than the actual watchdog timeout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeWatchdogPreGovernor=</varname></term>
+
+        <listitem><para>Configure the action taken by the hardware watchdog device
+        when the pre-timeout expires. The default action for the pre-timeout event
+        depends on the kernel configuration, but it is usually to log a kernel
+        message. For a list of valid actions available for a given watchdog device,
+        check the content of the
+        <filename>/sys/class/watchdog/watchdog<replaceable>X</replaceable>/pretimeout_available_governors</filename>
+        file. Typically, available governor types are <varname>noop</varname> and <varname>panic</varname>.
+        Availability, names and functionality might vary depending on the specific device driver
+        in use. If the <filename>pretimeout_available_governors</filename> sysfs file is empty,
+        the governor might be built as a kernel module and might need to be manually loaded
+        (e.g. <varname>pretimeout_noop.ko</varname>), or the watchdog device might not support
+        pre-timeouts.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WatchdogDevice=</varname></term>
+
+        <listitem><para>Configure the hardware watchdog device that the
+        runtime and shutdown watchdog timers will open and use. Defaults
+        to <filename>/dev/watchdog0</filename>. This setting has no
+        effect if a hardware watchdog is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>CapabilityBoundingSet=</varname></term>
+
+        <listitem><para>Controls which capabilities to include in the
+        capability bounding set for PID 1 and its children. See
+        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details. Takes a whitespace-separated list of capability
+        names as read by
+        <citerefentry project='mankier'><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        Capabilities listed will be included in the bounding set, all
+        others are removed. If the list of capabilities is prefixed
+        with ~, all but the listed capabilities will be included, the
+        effect of the assignment inverted. Note that this option also
+        affects the respective capabilities in the effective,
+        permitted and inheritable capability sets. The capability
+        bounding set may also be individually configured for units
+        using the <varname>CapabilityBoundingSet=</varname> directive
+        for units, but note that capabilities dropped for PID 1 cannot
+        be regained in individual units, they are lost for
+        good.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NoNewPrivileges=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, ensures that PID 1
+        and all its children can never gain new privileges through
+        <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        (e.g. via setuid or setgid bits, or filesystem capabilities).
+        Defaults to false. General purpose distributions commonly rely
+        on executables with setuid or setgid bits and will thus not
+        function properly with this option enabled. Individual units
+        cannot disable this option.
+        Also see <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectSystem=</varname></term>
+
+        <listitem><para>Takes a boolean argument or the string <literal>auto</literal>. If set to true this
+        will remount <filename>/usr/</filename> read-only. If set to <literal>auto</literal> (the default)
+        and running in an initrd equivalent to true, otherwise false. This implements a restricted subset of
+        the per-unit setting of the same name, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details: currently, the <literal>full</literal> or <literal>strict</literal> values are not
+        supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SystemCallArchitectures=</varname></term>
+
+        <listitem><para>Takes a space-separated list of architecture
+        identifiers. Selects from which architectures system calls may
+        be invoked on this system. This may be used as an effective
+        way to disable invocation of non-native binaries system-wide,
+        for example to prohibit execution of 32-bit x86 binaries on
+        64-bit x86-64 systems. This option operates system-wide, and
+        acts similar to the
+        <varname>SystemCallArchitectures=</varname> setting of unit
+        files, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This setting defaults to the empty list, in which
+        case no filtering of system calls based on architecture is
+        applied. Known architecture identifiers are
+        <literal>x86</literal>, <literal>x86-64</literal>,
+        <literal>x32</literal>, <literal>arm</literal> and the special
+        identifier <literal>native</literal>. The latter implicitly
+        maps to the native architecture of the system (or more
+        specifically, the architecture the system manager was compiled
+        for). Set this setting to <literal>native</literal> to
+        prohibit execution of any non-native binaries. When a binary
+        executes a system call of an architecture that is not listed
+        in this setting, it will be immediately terminated with the
+        SIGSYS signal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultSmackProcessLabel=</varname></term>
 
         <listitem><para>Takes a <option>SMACK64</option> security label as the argument. The process executed
@@ -620,6 +549,67 @@
         are assigned and the compile-time default is ignored.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Timeouts and Rate Limits</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>DefaultTimeoutStartSec=</varname></term>
+        <term><varname>DefaultTimeoutStopSec=</varname></term>
+        <term><varname>DefaultTimeoutAbortSec=</varname></term>
+        <term><varname>DefaultRestartSec=</varname></term>
+
+        <listitem><para>Configures the default timeouts for starting, stopping and aborting of units, as well
+        as the default time to sleep between automatic restarts of units, as configured per-unit in
+        <varname>TimeoutStartSec=</varname>, <varname>TimeoutStopSec=</varname>,
+        <varname>TimeoutAbortSec=</varname> and <varname>RestartSec=</varname> (for services, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details on the per-unit settings). For non-service units,
+        <varname>DefaultTimeoutStartSec=</varname> sets the default <varname>TimeoutSec=</varname> value.
+        </para>
+
+        <para><varname>DefaultTimeoutStartSec=</varname> and <varname>DefaultTimeoutStopSec=</varname>
+        default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
+        <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
+        <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultDeviceTimeoutSec=</varname></term>
+
+        <listitem><para>Configures the default timeout for waiting for devices. It can be changed per
+        device via the <varname>x-systemd.device-timeout=</varname> option in <filename>/etc/fstab</filename>
+        and <filename>/etc/crypttab</filename> (see
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Defaults to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultStartLimitIntervalSec=</varname></term>
+        <term><varname>DefaultStartLimitBurst=</varname></term>
+
+        <listitem><para>Configure the default unit start rate
+        limiting, as configured per-service by
+        <varname>StartLimitIntervalSec=</varname> and
+        <varname>StartLimitBurst=</varname>. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details on the per-service settings.
+        <varname>DefaultStartLimitIntervalSec=</varname> defaults to
+        10s. <varname>DefaultStartLimitBurst=</varname> defaults to
+        5.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -635,19 +625,56 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>ManagerEnvironment=</varname></term>
+
+        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
+        environment variables for the manager process itself. These variables are inherited by processes
+        spawned by user managers, but not the system manager - use <varname>DefaultEnvironment=</varname>
+        for that. Note that these variables are merged into the existing environment block. In particular, in
+        case of the system manager, this includes variables set by the kernel based on the kernel command line.
+        As with <varname>DefaultEnvironment=</varname>, this environment block is internal, and changes are not
+        reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
+
+        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
+        See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a
+        descriptions of some variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
-        <term><varname>DefaultMemoryPressureWatch=</varname></term>
-        <term><varname>DefaultMemoryPressureThresholdSec=</varname></term>
+        <term><varname>DefaultEnvironment=</varname></term>
 
-        <listitem><para>Configures the default settings for the per-unit
-        <varname>MemoryPressureWatch=</varname> and <varname>MemoryPressureThresholdSec=</varname>
-        settings. See
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
-        also sets the memory pressure monitoring threshold for the service manager itself.</para>
+        <listitem><para>Configures environment variables passed to all executed processes. Takes a
+        space-separated list of variable assignments. See <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details about environment variables.</para>
 
-        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
+        <para>Example:
+
+        <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
+
+        Sets three variables
+        <literal>VAR1</literal>,
+        <literal>VAR2</literal>,
+        <literal>VAR3</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

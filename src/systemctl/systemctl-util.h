@@ -13,7 +13,10 @@ typedef enum BusFocus {
         _BUS_FOCUS_MAX
 } BusFocus;
 
-int acquire_bus(BusFocus focus, sd_bus **ret);
+int acquire_bus_full(BusFocus focus, bool graceful, sd_bus **ret);
+static inline int acquire_bus(BusFocus focus, sd_bus **ret) {
+        return acquire_bus_full(focus, false, ret);
+}
 void release_busses(void);
 
 void ask_password_agent_open_maybe(void);

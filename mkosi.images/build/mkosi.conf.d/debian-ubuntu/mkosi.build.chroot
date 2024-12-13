@@ -48,6 +48,10 @@ MKOSI_MESON_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
 if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
     MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
 fi
+if ((COVERAGE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D b_coverage=true"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fprofile-dir=/coverage"
+fi
 
 # TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
 build() {

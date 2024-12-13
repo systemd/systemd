@@ -24,8 +24,7 @@ int acquire_fido2_key(
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
-                const void *key_data,
-                size_t key_data_size,
+                const struct iovec *key_data,
                 usec_t until,
                 Fido2EnrollFlags required,
                 const char *askpw_credential,
@@ -45,10 +44,10 @@ int acquire_fido2_key(
                                         "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
         assert(cid);
-        assert(key_file || key_data);
+        assert(key_file || iovec_is_set(key_data));
 
-        if (key_data)
-                salt = IOVEC_MAKE(key_data, key_data_size);
+        if (iovec_is_set(key_data))
+                salt = *key_data;
         else {
                 if (key_file_size > 0)
                         log_debug("Ignoring 'keyfile-size=' option for a FIDO2 salt file.");
@@ -252,7 +251,7 @@ int acquire_fido2_key_auto(
                                 /* key_file= */ NULL, /* salt is read from LUKS header instead of key_file */
                                 /* key_file_size= */ 0,
                                 /* key_file_offset= */ 0,
-                                salt, salt_size,
+                                &IOVEC_MAKE(salt, salt_size),
                                 until,
                                 required,
                                 "cryptsetup.fido2-pin",

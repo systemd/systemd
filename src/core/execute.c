@@ -672,6 +672,7 @@ void exec_context_done(ExecContext *c) {
 
         c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
+        c->syscall_log = hashmap_free(c->syscall_log);
         c->address_families = set_free(c->address_families);
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -1070,7 +1071,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, yes_no(c->protect_hostname),
+                prefix, protect_hostname_to_string(c->protect_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset));
 

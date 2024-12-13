@@ -182,6 +182,7 @@ create_dummy_container() {
     fi
 
     mkdir -p "$root"
+    chmod 555 "$root"
     cp -a /usr/share/TEST-13-NSPAWN-container-template/* "$root"
     coverage_create_nspawn_dropin "$root"
 }
@@ -283,6 +284,7 @@ EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/app0.raw -noappend
+        veritysetup format /tmp/app0.raw /tmp/app0.verity --root-hash-file /tmp/app0.roothash
 
         initdir="/var/tmp/conf0"
         mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system" "$initdir/opt"
@@ -294,6 +296,7 @@ EOF
         ) >>"$initdir/etc/extension-release.d/extension-release.conf0"
         echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/conf0.raw -noappend
+        veritysetup format /tmp/conf0.raw /tmp/conf0.verity --root-hash-file /tmp/conf0.roothash
 
         initdir="/var/tmp/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"

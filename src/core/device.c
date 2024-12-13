@@ -1048,9 +1048,6 @@ static void device_enumerate(Manager *m) {
                 _cleanup_set_free_ Set *ready_units = NULL, *not_ready_units = NULL;
                 Device *d;
 
-                if (device_is_processed(dev) <= 0)
-                        continue;
-
                 if (device_setup_units(m, dev, &ready_units, &not_ready_units) < 0)
                         continue;
 

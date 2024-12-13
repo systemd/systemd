@@ -518,7 +518,7 @@ static int create_disk(
                         "After=modprobe@loop.service\n",
                         u_escaped);
 
-        r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
+        r = generator_write_device_timeout(arg_dest, device, options, &filtered);
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in: %m");
 

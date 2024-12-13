@@ -9,17 +9,6 @@ if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
     exit 0
 fi
 
-# Sanitizers log to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
-# all the sanitizer logs. To rectify that, let's connect journald's stdout to kmsg so that the sanitizer
-# failures end up in the journal.
-if [[ -f "$BUILDROOT"/usr/lib/systemd/system/systemd-journald.service ]]; then
-    mkdir -p "$BUILDROOT"/etc/systemd/system/systemd-journald.service.d
-    cat >"$BUILDROOT"/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf <<EOF
-[Service]
-StandardOutput=kmsg
-EOF
-fi
-
 # ASAN and syscall filters aren't compatible with each other.
 find "$BUILDROOT"/usr "$BUILDROOT"/etc -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
 
@@ -57,6 +46,8 @@ wrap=(
     delv
     dhcpd
     dig
+    dnf
+    dnf5
     dmsetup
     dnsmasq
     findmnt
@@ -87,13 +78,14 @@ wrap=(
     su
     tar
     tgtd
+    unshare
     useradd
     userdel
     veritysetup
 )
 
 for bin in "${wrap[@]}"; do
-    if ! mkosi-chroot command -v "$bin" >/dev/null; then
+    if ! mkosi-chroot bash -c "command -v $bin" >/dev/null; then
         continue
     fi
 
@@ -103,13 +95,13 @@ for bin in "${wrap[@]}"; do
         enable_lsan=0
     fi
 
-    target="$(mkosi-chroot command -v "$bin")"
+    target="$(mkosi-chroot bash -c "command -v $bin")"
 
     mv "$BUILDROOT/$target" "$BUILDROOT/$target.orig"
 
     cat >"$BUILDROOT/$target" <<EOF
 #!/bin/bash
-# Preload the ASan runtime DSO, otherwise ASAn will complain
+# Preload the ASan runtime DSO, otherwise ASan will complain
 export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
 # from 'external' binaries

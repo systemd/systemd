@@ -20,6 +20,7 @@
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "varlink-io.systemd.PCRExtend.h"
+#include "varlink-util.h"
 
 static bool arg_graceful = false;
 static char *arg_tpm2_device = NULL;
@@ -130,7 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices();
+                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
@@ -312,7 +313,7 @@ static int run(int argc, char *argv[]) {
 
                 /* Invocation as Varlink service */
 
-                r = sd_varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY);
+                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 

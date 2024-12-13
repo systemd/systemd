@@ -2280,10 +2280,9 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
         r = path_extract_directory(from, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract directory from %s: %m", from);
-        if (!path_equal(parent, "/dev/")) {
-                if (userns_mkdir(dest, parent, 0755, 0, 0) < 0)
-                        return log_error_errno(r, "Failed to create directory %s: %m", parent);
-        }
+        r = userns_mkdir(dest, parent, 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory %s: %m", parent);
 
         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                 r = -errno; /* Save the original error code. */
@@ -4654,7 +4653,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid != inner_child_pid) {
-                log_debug("Received notify message without valid credentials. Ignoring.");
+                log_debug("Received notify message from process that is not the payload's PID 1. Ignoring.");
                 return 0;
         }
 
@@ -5773,7 +5772,7 @@ static int run_container(
         r = wait_for_container(TAKE_PID(*pid), &container_status);
 
         /* Tell machined that we are gone. */
-        if (bus)
+        if (arg_register && bus)
                 (void) unregister_machine(bus, arg_machine);
 
         if (r < 0)
@@ -6201,9 +6200,12 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (access_nofollow(p, F_OK) < 0) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                    "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                        r = access_nofollow(p, F_OK);
+                        if (r == -ENOENT) {
+                                log_error_errno(r, "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
+                                goto finish;
+                        } else if (r < 0) {
+                                log_error_errno(r, "Unable to determine if %s looks like it has an OS tree (i.e. whether /usr/ exists): %m", arg_directory);
                                 goto finish;
                         }
                 }

@@ -28,6 +28,14 @@ typedef enum ProtectHome {
         _PROTECT_HOME_INVALID = -EINVAL,
 } ProtectHome;
 
+typedef enum ProtectHostname {
+        PROTECT_HOSTNAME_NO,
+        PROTECT_HOSTNAME_YES,
+        PROTECT_HOSTNAME_PRIVATE,
+        _PROTECT_HOSTNAME_MAX,
+        _PROTECT_HOSTNAME_INVALID = -EINVAL,
+} ProtectHostname;
+
 typedef enum ProtectSystem {
         PROTECT_SYSTEM_NO,
         PROTECT_SYSTEM_YES,
@@ -65,6 +73,7 @@ typedef enum PrivateUsers {
         PRIVATE_USERS_NO,
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
+        PRIVATE_USERS_FULL,
         _PRIVATE_USERS_MAX,
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
@@ -173,7 +182,6 @@ struct NamespaceParameters {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
-        bool protect_hostname;
 
         bool private_dev;
         bool private_network;
@@ -185,6 +193,7 @@ struct NamespaceParameters {
 
         ProtectControlGroups protect_control_groups;
         ProtectHome protect_home;
+        ProtectHostname protect_hostname;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
         ProcSubset proc_subset;
@@ -214,6 +223,9 @@ int open_shareable_ns_path(int netns_storage_socket[static 2], const char *path,
 
 const char* protect_home_to_string(ProtectHome p) _const_;
 ProtectHome protect_home_from_string(const char *s) _pure_;
+
+const char* protect_hostname_to_string(ProtectHostname p) _const_;
+ProtectHostname protect_hostname_from_string(const char *s) _pure_;
 
 const char* protect_system_to_string(ProtectSystem p) _const_;
 ProtectSystem protect_system_from_string(const char *s) _pure_;

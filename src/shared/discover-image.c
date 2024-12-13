@@ -351,15 +351,12 @@ static int image_make(
                 st = &stbuf;
         }
 
-        if (!path) {
-                if (dfd == AT_FDCWD)
-                        (void) safe_getcwd(&parent);
-                else
-                        (void) fd_get_path(dfd, &parent);
-        }
+        if (!path)
+                (void) fd_get_path(dfd, &parent);
 
         read_only =
                 (path && path_startswith(path, "/usr")) ||
+                (parent && path_startswith(parent, "/usr")) ||
                 (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {

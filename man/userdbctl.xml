@@ -416,7 +416,7 @@
     <para>The <command>userdbctl</command> tool may be used to make the list of SSH authorized keys possibly
     contained in a user record available to the SSH daemon for authentication. For that configure the
     following in <citerefentry
-    project='die-net'><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>:</para>
+    project='man-pages'><refentrytitle>sshd_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>:</para>
 
     <programlisting>…
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u

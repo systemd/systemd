@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "errno-util.h"
+#include "string-util.h"
 #include "varlink-internal.h"
 #include "varlink-util.h"
+#include "version.h"
 
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret) {
         int r;
@@ -16,7 +19,7 @@ int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret) {
 
         int pidfd = sd_varlink_get_peer_pidfd(v);
         if (pidfd < 0) {
-                if (!ERRNO_IS_NEG_NOT_SUPPORTED(pidfd))
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(pidfd) && pidfd != -EINVAL)
                         return pidfd;
 
                 pid_t pid;
@@ -132,4 +135,41 @@ int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters
                 RET_GATHER(r, sd_varlink_error(link, error_id, parameters));
 
         return r;
+}
+
+int varlink_set_info_systemd(sd_varlink_server *server) {
+        _cleanup_free_ char *product = NULL;
+
+        product = strjoin("systemd (", program_invocation_short_name, ")");
+        if (!product)
+                return -ENOMEM;
+
+        return sd_varlink_server_set_info(
+                        server,
+                        "The systemd Project",
+                        product,
+                        PROJECT_VERSION_FULL " (" GIT_VERSION ")",
+                        "https://systemd.io/");
+}
+
+int varlink_server_new(
+                sd_varlink_server **ret,
+                sd_varlink_server_flags_t flags,
+                void *userdata) {
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        int r;
+
+        r = sd_varlink_server_new(&s, flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
+
+        r = varlink_set_info_systemd(s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to configure varlink server object: %m");
+
+        sd_varlink_server_set_userdata(s, userdata);
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }

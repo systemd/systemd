@@ -71,6 +71,8 @@
       <varname>Cmdline=</varname>/<option>--cmdline=</option>,
       <varname>OSRelease=</varname>/<option>--os-release=</option>,
       <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
+      <varname>DeviceTreeAuto=</varname>/<option>--devicetree-auto=</option>,
+      <varname>HWIDs=</varname>/<option>--hwids=</option>,
       <varname>Splash=</varname>/<option>--splash=</option>,
       <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
       <varname>Uname=</varname>/<option>--uname=</option>,
@@ -220,7 +222,8 @@
           <para>For the <command>inspect</command> verb, the second syntax is used.
           The section <replaceable>NAME</replaceable> will be inspected (if found).
           If the second argument is <literal>text</literal>, the contents will be printed.
-          If the third argument is given, the contents will be saved to file <replaceable>PATH</replaceable>.
+          If the third argument is given, the contents will be saved to the file named
+          <replaceable>PATH</replaceable>.
           </para>
 
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
@@ -374,6 +377,35 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>DeviceTreeAuto=<replaceable>PATH</replaceable>...</varname></term>
+          <term><option>--devicetree-auto=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Zero or more automatically selectable DeviceTree files. In the configuration file, items are separated by
+          whitespace. Each DeviceTree will be in a separate <literal>.dtbauto</literal> section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>HWIDs=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--hwids=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>The hardware ID device table (the <literal>.hwids</literal> section). The argument is a
+          path to a directory with JSON HWID device description files. Each file needs to contain a single JSON object with a <literal>name</literal>, <literal>compatible</literal> and <literal>hwids</literal> keys. The <literal>name</literal> and <literal>compatible</literal> keys must have string values and the <literal>hwids</literal> key must have a list of strings as value, where the strings must be valid UUIDs that represent CHIDs/HWIDs.
+          Example:
+          <programlisting><xi:include href="ukify_hwid.json.example" parse="text" /></programlisting>
+          Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined by the manufacturer),
+          <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal> (as defined by the kernel) and <literal>hwids</literal>
+          is an array of CHIDs/HWIDs (extracted i.e. from <command>fwupdtool hwids</command> output).
+          If not specified, the section will not be present. It is recommended to specify this parameter if automatically
+          selectable DeviceTrees are to be used.
+
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
           <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
 
@@ -393,9 +425,9 @@
           <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
           whole groups of UKIs or addons with a single, static policy update that does not take space in
           DBX/MOKX. If not specified manually, a default metadata entry consisting of
-          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
+          <programlisting>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</programlisting>
           for UKIs and
-          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
+          <programlisting>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</programlisting>
           for addons will be used, to ensure it is always possible to revoke them. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
           </para>

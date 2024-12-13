@@ -2009,8 +2009,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument or one of <literal>self</literal> or
-        <literal>identity</literal>. Defaults to false. If enabled, sets up a new user namespace for the
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal>, <literal>identity</literal>,
+        or <literal>full</literal>. Defaults to false. If enabled, sets up a new user namespace for the
         executed processes and configures a user and group mapping. If set to a true value or
         <literal>self</literal>, a minimal user and group mapping is configured that maps the
         <literal>root</literal> user and group as well as the unit's own user and group to themselves and
@@ -2025,6 +2025,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <literal>nobody</literal> user and group, respectively. While this does not provide UID/GID isolation,
         since all UIDs/GIDs are chosen identically it does provide process capability isolation, and hence is
         often a good choice if proper user namespacing with distinct UID maps is not appropriate.</para>
+
+        <para>If the parameter is <literal>full</literal>, user namespacing is set up with an identity
+        mapping for all UIDs/GIDs. In addition, for system services, <literal>full</literal> allows the unit
+        to call <function>setgroups()</function> system calls (by setting
+        <filename>/proc/<replaceable>pid</replaceable>/setgroups</filename> to <literal>allow</literal>).
+        Similar to <literal>identity</literal>, this does not provide UID/GID isolation, but it does provide
+        process capability isolation.</para>
 
         <para>If this mode is enabled, all unit processes are run without privileges in the host user
         namespace (regardless if the unit's own user/group is <literal>root</literal> or not). Specifically
@@ -2055,8 +2062,11 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectHostname=</varname></term>
 
-        <listitem><para>Takes a boolean argument. When set, sets up a new UTS namespace for the executed
-        processes. In addition, changing hostname or domainname is prevented. Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or <literal>private</literal>. If enabled, sets up a new UTS namespace
+        for the executed processes. If set to a true value, changing hostname or domainname via
+        <function>sethostname()</function> and <function>setdomainname()</function> system calls is prevented. If set to
+        <literal>private</literal>, changing hostname or domainname is allowed but only affects the unit's UTS namespace.
+        Defaults to off.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces
         are not available), and the unit should be written in a way that does not solely rely on this setting
@@ -2065,6 +2075,12 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that when this option is enabled for a service hostname changes no longer propagate from
         the system into the service, it is hence not suitable for services that need to take notice of system
         hostname changes dynamically.</para>
+
+        <para>Note that this option does not prevent changing system hostname via <command>hostnamectl</command>.
+        However, <varname>User=</varname> and <varname>Group=</varname> may be used to run as an unprivileged user
+        to disallow changing system hostname. See <function>SetHostname()</function> in
+        <citerefentry project="man-pages"><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -2322,15 +2338,15 @@ RestrictFileSystems=ext4</programlisting>
         restrictions on namespace creation and switching are made. If true, access to any kind of namespacing is
         prohibited. Otherwise, a space-separated list of namespace type identifiers must be specified, consisting of
         any combination of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
-        <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant> and <constant>uts</constant>. Any
-        namespace type listed is made accessible to the unit's processes, access to namespace types not listed is
-        prohibited (allow-listing). By prepending the list with a single tilde character (<literal>~</literal>) the
-        effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
-        permitted (deny-listing). If the empty string is assigned, the default namespace restrictions are applied,
-        which is equivalent to false. This option may appear more than once, in which case the namespace types are
-        merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines are prefixed with
-        <literal>~</literal> (see examples below). Internally, this setting limits access to the
-        <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant>, <constant>uts</constant>, and
+        <constant>time</constant>. Any namespace type listed is made accessible to the unit's processes, access to
+        namespace types not listed is prohibited (allow-listing). By prepending the list with a single tilde
+        character (<literal>~</literal>) the effect may be inverted: only the listed namespace types will be made
+        inaccessible, all unlisted ones are permitted (deny-listing). If the empty string is assigned, the default
+        namespace restrictions are applied, which is equivalent to false. This option may appear more than once, in
+        which case the namespace types are merged by <constant>OR</constant>, or by <constant>AND</constant> if the
+        lines are prefixed with <literal>~</literal> (see examples below). Internally, this setting limits access to
+        the <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
         the specified flags parameters into account. Note that — if this option is used — in addition to restricting
@@ -4182,7 +4198,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>$MONITOR_INVOCATION_ID</varname> and <varname>$MONITOR_UNIT</varname> are set to the
           invocation id and unit name of the service which triggered the dependency.</para>
 
-          <para>Note that when multiple services trigger the same unit, those variables will be
+          <para>Note that when multiple services specify the same unit as their
+          <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> handler, those variables will
           <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:
           <literal>OnFailure=<replaceable>handler</replaceable>@%n.service</literal> for non-templated units,
           or <literal>OnFailure=<replaceable>handler</replaceable>@%p-%i.service</literal> for templated

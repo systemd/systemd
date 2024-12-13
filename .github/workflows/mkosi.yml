@@ -60,52 +60,60 @@ jobs:
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             relabel: no
+            qemu: 1
           - distro: debian
             release: testing
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: ubuntu
             release: noble
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: fedora
             release: "41"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: fedora
             release: rawhide
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: opensuse
             release: tumbleweed
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
+            qemu: 0
           - distro: centos
             release: "9"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
           - distro: centos
             release: "10"
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
+            qemu: 0
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@8976a0abb19221e65300222f2d33067970cca0f1
+      - uses: systemd/mkosi@c4bbf3b71a3e2cf947995caedf10f69da3c4957a
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -132,6 +140,7 @@ jobs:
         run: |
           # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
           sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
+
           tee mkosi.local.conf <<EOF
           [Distribution]
           Distribution=${{ matrix.distro }}
@@ -143,6 +152,9 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
+          ToolsTree=default
+          ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
 
           WorkspaceDirectory=$TMPDIR
           PackageCacheDirectory=$TMPDIR/cache
@@ -169,44 +181,29 @@ jobs:
       - name: Show image summary
         run: mkosi summary
 
-      - name: Install dependencies
-        run: |
-          mkosi dependencies |
-          xargs -d '\n' sudo apt-get install \
-              gperf \
-              libblkid-dev \
-              libcap-dev \
-              libcryptsetup-dev \
-              libcurl4-openssl-dev \
-              libfdisk-dev \
-              libmicrohttpd-dev \
-              libmount-dev \
-              libtss2-dev \
-              meson
+      - name: Build tools tree
+        run: mkosi -f sandbox true
 
       - name: Configure meson
-        run: |
-          meson setup build \
-              --buildtype=debugoptimized \
-              -Dintegration-tests=true \
-              -Dremote=enabled \
-              -Dopenssl=enabled \
-              -Dblkid=enabled \
-              -Dtpm2=enabled \
-              -Dlibcryptsetup=enabled \
-              -Dlibcurl=enabled \
-              -Drepart=enabled \
-              -Dfirstboot=true \
-              -Dsysusers=true \
-              -Dtmpfiles=true \
-              -Dhwdb=true \
-              -Dvmspawn=enabled
+        run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
 
       - name: Build image
-        run: sudo meson compile -C build mkosi
+        run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
 
       - name: Run integration tests
-        run: sudo --preserve-env meson test -C build --no-rebuild --suite integration-tests --print-errorlogs --no-stdsplit --num-processes "$(($(nproc) - 1))"
+        run: |
+          sudo --preserve-env \
+            mkosi sandbox \
+            env \
+            TEST_PREFER_QEMU=${{ matrix.qemu }} \
+            meson test \
+            -C build \
+            --no-rebuild \
+            --suite integration-tests \
+            --print-errorlogs \
+            --no-stdsplit \
+            --num-processes "$(($(nproc) - 1))" \
+            --max-lines 300
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4

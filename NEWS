@@ -1,6 +1,56 @@
 systemd System and Service Manager
 
-CHANGES WITH 257 in spe:
+CHANGES WITH 258 in spe:
+
+        Incompatible changes:
+
+        * systemd-run's --expand-environment= switch, which was disabled
+          by default when combined with --scope, has been changed to to be
+          enabled by default. This brings cmdline expansion of transient
+          scopes on par with services.
+
+        Announcements of Future Feature Removals:
+
+        * The D-Bus method org.freedesktop.systemd1.StartAuxiliaryScope() is
+          deprecated because accounting data and such cannot be reasonably
+          migrated between cgroups. It is likely to be fully removed in a
+          future release (reach out if you have use cases).
+
+        * The recommended kernel baseline version has been bumped to v5.4
+          (released in 2019). Expect limited testing on older kernel versions,
+          where "old-kernel" taint flag would also be set. Support for them
+          will be phased out in a future release in 2025, i.e. we expect to bump
+          the minimum baseline to v5.4 then too.
+
+        * The complete removal of support for cgroup v1 ('legacy' and 'hybrid'
+          hierarchies) is scheduled for v258.
+
+        * Support for System V service scripts is deprecated and will be
+          removed in v258. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * To work around limitations of X11's keyboard handling systemd's
+          keyboard mapping hardware database (hwdb.d/60-keyboard.hwdb) so far
+          mapped the microphone mute and touchpad on/off/toggle keys to the
+          function keys F20, F21, F22, F23 instead of their correct key codes.
+          This key code mangling will be removed in the next systemd release.
+          To maintain compatibility with X11 applications that rely on the old
+          function key code mappings, this mangling has now been moved to the
+          relevant X11 keyboard driver modules. In order to ensure these keys
+          continue to work, update to xf86-input-evdev >= 2.11.0 and
+          xf86-input-libinput >= 1.5.0 before updating to systemd >= 258.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        — <place>, <date>
+
+CHANGES WITH 257:
 
         Incompatible changes:
 
@@ -335,8 +385,9 @@ CHANGES WITH 257 in spe:
 
         systemd-networkd and networkctl:
 
-        * IPv6 address labels can be configured in a new [IPv6AddressLabel]
-          section with Prefix= and Label= settings.
+        * IPv6 address labels can be also configured in a new [IPv6AddressLabel]
+          section with Prefix= and Label= settings in networkd.conf. Please see
+          networkd.conf(5) for more details.
 
         * 'networkctl edit' can now read the new file contents from standard
           input with the new --stdin option.
@@ -367,6 +418,28 @@ CHANGES WITH 257 in spe:
 
         * systemd-networkd will now make RFC9463 DNR fields available to
           systemd-resolved, for automatic DNS DoT configuration, and similar.
+
+        * The "dhcp" and "dhcp-on-stop" values for KeepConfiguration= setting in
+          .network file are replaced with "dynamic" and "dynamic-on-stop",
+          respectively. When specified, systemd-networkd will preserve all
+          dynamic configurations via DHCPv4, DHCPv6, NDISC, and IPv4LL with
+          ACD, while previously only DHCPv4 configurations were kept. Also,
+          when systemd-networkd is restarted, regardless of the setting, these
+          dynamic configurations are unconditionally kept. So, systemd-networkd
+          can be restarted without disturbing ongoing connections.
+
+        * systemd-networkd now updates traffic control configuration without
+          clearing existing settings. Thus, those settings can be updated by
+          editing relevant .network files and triggering 'networkctl reload'.
+
+        * systemd-networkd now gracefully updates netdev settings specified in
+          .netdev files when 'networkctl reload' is called. Previously, if the
+          relevant interfaces existed, new settings would not be applied. Now,
+          new settings will be applied if possible. Some settings cannot be
+          updated after a netdev is configured, e.g. VLAN ID can be only
+          specified on creation. To change such settings, user needs to remove
+          existing interfaces, and invoke 'networkctl reload' or restart
+          systemd-networkd.
 
         systemd-boot, systemd-stub, and related tools:
 
@@ -764,62 +837,71 @@ CHANGES WITH 257 in spe:
           other cases EnterNamespace= might be an suitable approach to acquire
           symbolized backtraces.)
 
+        Special thanks to Nick Owens for bringing attention to and testing
+        fixes for issue #34516.
+
         Contributions from: 12paper, A. Wilcox, Abderrahim Kitouni,
         Adrian Vovk, Alain Greppin, Allison Karlitskaya, Alyssa Ross,
-        Anders Jonsson, Andika Triwidada, Andres Beltran, Anouk Ceyssens,
-        Anselm Schueler, Anton Golubev, Antonio Alvarez Feijoo,
-        Arian van Putten, Arnaud Patard, Arthur Shau, Bastien Nocera,
-        Benjamin ROBIN, Brenton Simpson, Bryan Gurney, ButterflyOfFire,
-        Carlo Teubner, Celeste Liu, Chen Guanqiao, Chen Qi, Chengen Du,
+        Anders Jonsson, Andika Triwidada, Andreas Schwab, Andres Beltran,
+        Ani Sinha, Anouk Ceyssens, Anselm Schueler, Anton Golubev,
+        Antonio Alvarez Feijoo, Arian van Putten, Arnaud Patard,
+        Arthur Shau, Bastien Nocera, Benjamin ROBIN, Brenton Simpson,
+        Bryan Gurney, ButterflyOfFire, Carlo Teubner, Celeste Liu,
+        Chen Guanqiao, Chen Qi, Chengen Du, Christian Hesse,
         Christoph Anton Mitterer, Colin Foster, Collin L,
         Cristian Rodríguez, Daan De Meyer, Dan Nicholson, Daniel Dawson,
         Daniel Martinez, Daniel P. Berrangé, Daniel Rusek,
         Darsey Litzenberger, David Joaquín Shourabi Porcel,
         David Michael, David Rheinsberg, David Tardon, Davide Cavalca,
         Derek J. Clark, Diego Viola, Dimitrys Meliates, Diogo Ivo,
-        DocNITE, Dominique Martinet, Dr. David Alan Gilbert,
-        Edson Juliano Drosdeck, Erik Sjölund, Etienne Champetier,
-        Etienne Cordonnier, Ettore Atalan, Eugeny Shcheglov, Fabian Vogt,
+        Dmytro Markevych, DocNITE, Dominique Martinet,
+        Dr. David Alan Gilbert, Edson Juliano Drosdeck, Erik Sjölund,
+        Etienne Champetier, Etienne Cordonnier, Ettore Atalan,
+        Eugeny Shcheglov, Excited-bore, Fabian Vogt, Federico Giovanardi,
         Filip Lewiński, Florian Schmaus, Franck Bui, Frantisek Sumsal,
         Fábio Rodrigues Ribeiro, Gabriel Elyas, Gaël PORTAY,
-        Giovanni Baratta, Gregor Herburger, Gregory Arenius, GwynBleidD,
-        Göran Uddeborg, Hans de Goede, Helmut Grohne, Henry Chen,
-        Ian Abbott, Integral, Ivan Kruglov, Ivan Shapovalov, James Coglan,
-        James Hilliard, James Muir, Jason Yundt, Jeffrey Bosboom,
-        Jian Zhang, Johannes Schneider, John A. Leuenhagen,
+        Geraldo S. Simião Kutz, Giovanni Baratta, Greg Heartsfield,
+        Gregor Herburger, Gregory Arenius, GwynBleidD, Göran Uddeborg,
+        Hans de Goede, Helmut Grohne, Henry Chen, Ian Abbott, Integral,
+        Ivan Kruglov, Ivan Shapovalov, James Coglan, James Hilliard,
+        James Muir, Jason Yundt, Jeffrey Bosboom, Jian Zhang,
+        Jiri Grönroos, Johannes Schneider, John A. Leuenhagen,
         Jose Ignacio Tornos Martinez, JoseskVolpe, Joshua Grisham,
         Jörg Behrmann, Kai-Chuan Hsieh, Kamil Szczęk, Karel Zak,
         Kornilios Kourtis, Kuntal Majumder, Lennart Poettering,
         Lidong Zhong, Luca Boccassi, Lucas Adriano Salles,
         Lucas Werkmeister, Ludwig Nussel, Luke T. Shumaker,
         Lukáš Nykrýn, Luna Jernberg, Léane GRASSER, Maanya Goenka,
-        Mantas Mikulėnas, Marc Reisner, Marcel Hellwig, Marin Kresic,
-        Marius Hoch, Martin Srebotnjak, Martin Wilck, Mary Strodl,
-        Matteo Croce, Matthias Lisin, Matthias Schiffer,
+        Mantas Mikulėnas, Marc Reisner, Marcel Hellwig, Marco Tomaschett,
+        Marin Kresic, Marius Hoch, Martin Srebotnjak, Martin Wilck,
+        Mary Strodl, Matteo Croce, Matthias Lisin, Matthias Schiffer,
         Matthieu Baerts (NGI0), Matthieu CHARETTE,
         Mauri de Souza Meneguzzo, Maximilian Wilhelm, Merlin Jehli,
-        Michael Ferrari, Michal Koutný, Michal Sekletár,
+        Michael Ferrari, Michal Koutný, Michal Sekletár, Michał Górny,
         Michele Dionisio, Michiel, Mickaël Salaün, Mike Gilbert,
         Mike Yuan, MkKvcs, Nick Cao, Nick Rosbrook, Nils K, Nova840,
         Oğuz Ersen, Pavel Borecki, PavlNekrasov, Peter Hutterer,
         Peter Rajnoha, Piotr Drąg, Raphaël Mélotte, Renan Guilherme,
         Renjaya Raga Zenta, Ricky Tigg, Riku, Robin Lee, Ronan Pigott,
-        Ryan Wilson, Sam James, Sascha Mester, Sean Rhodes, Sergey A,
-        ShreyasMahangade, Simon Pilkington, Skye Chappelle, Steve Traylen,
-        Stuart Hayhurst, Susant Sahani, Takeo Kondo, Temuri Doghonadze,
-        Thomas Blume, Thorsten Scherer, Tobias Fleig, Tom Coldrick,
-        Tom Yan, Tomas Bzatek, Topi Miettinen, Uday Shankar,
-        Valentin David, Vasiliy Kovalev, Vitaly Kuznetsov, Vito Caputo,
-        Vladimir Panteleev, Vursc, Will Fancher, WilliButz, Xeonacid,
-        Yanqing Jing, Yu Watanabe, Yuri Chornoivan, ZHANG Yuntian,
-        Zbigniew Jędrzejewski-Szmek, Zhou Qiankang, andre4ik3, anonymix007,
-        bryango, chayleaf, chenjiayi, csp5me, cvlc12, fwfy, hugo303,
-        jan@neighbourhood.ie, jauge-technica, lumingzh, maia x., marginaldev,
-        migleeson, nerdopolis, oldherl, pyfisch, q66, rajmohan r, reDBo0n,
-        rhellstrom, rindeal, samuelvw01, sinus-x, tfg13, vdovhanych, xujing,
-        Łukasz Stelmach, Štěpán Němec, Дамјан Георгиевски
+        Ryan Wilson, Sam James, Sascha Mester, Sean Rhodes,
+        Sebastian Gross, Septatrix, Sergey A, ShreyasMahangade,
+        Simon Pilkington, Skye Chappelle, Steve Traylen, Stuart Hayhurst,
+        SuhailAhmedVelorum, Susant Sahani, Takeo Kondo, Temuri Doghonadze,
+        Thomas Blume, Thorsten Kukuk, Thorsten Scherer, Tobias Fleig,
+        Tobias Zimmermann, Tom Coldrick, Tom Yan, Tomas Bzatek,
+        Topi Miettinen, Tristan F.-R., Uday Shankar, Valentin David,
+        Vasiliy Kovalev, Vitaly Kuznetsov, Vito Caputo, Vladimir Panteleev,
+        Vursc, Will Fancher, WilliButz, Winterhuman, Xeonacid, Xuanjun Wen,
+        Yanqing Jing, Yaron Shahrabani, Yu Watanabe, Yuri Chornoivan,
+        ZHANG Yuntian, Zbigniew Jędrzejewski-Szmek, Zhou Qiankang,
+        andre4ik3, anonymix007, bryango, chayleaf, chenjiayi, csp5me, cvlc12,
+        fwfy, gerblesh, hugo303, jan@neighbourhood.ie, jauge-technica,
+        lumingzh, maia x., marginaldev, migleeson, nerdopolis, oldherl,
+        pyfisch, q66, rajmohan r, reDBo0n, rhellstrom, rindeal, samuelvw01,
+        sinus-x, tfg13, vdovhanych, xujing, Łukasz Stelmach,
+        Štěpán Němec, Дамјан Георгиевски, 白一百
 
-        — Edinburgh, 2024-11-15
+        — Edinburgh, 2024-12-10
 
 CHANGES WITH 256:
 

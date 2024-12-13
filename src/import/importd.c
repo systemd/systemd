@@ -1969,11 +1969,11 @@ static int manager_connect_varlink(Manager *m) {
         assert(m->event);
         assert(!m->varlink_server);
 
-        r = sd_varlink_server_new(&m->varlink_server, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&m->varlink_server,
+                               SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                               m);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-        sd_varlink_server_set_userdata(m->varlink_server, m);
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_Import);
         if (r < 0)

@@ -250,7 +250,7 @@ static const MountEntry protect_system_strict_table[] = {
 };
 
 /* ProtectHostname=yes able */
-static const MountEntry protect_hostname_table[] = {
+static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
 };
@@ -480,13 +480,20 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
 }
 
 static int append_mount_images(MountList *ml, const MountImage *mount_images, size_t n) {
+        int r;
+
         assert(ml);
         assert(mount_images || n == 0);
 
         FOREACH_ARRAY(m, mount_images, n) {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
+
+                r = verity_settings_load(&verity, m->source, /* root_hash_path= */ NULL, /* root_hash_sig_path= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check verity root hash of %s: %m", m->source);
 
                 *me = (MountEntry) {
                         .path_const = m->destination,
@@ -494,6 +501,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .source_const = m->source,
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
+                        .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                 };
         }
 
@@ -2637,13 +2645,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        /* Note, if proc is mounted with subset=pid then neither of the two paths will exist, i.e. they are
-         * implicitly protected by the mount option. */
-        if (p->protect_hostname) {
+        /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise,
+         * ProtectHostname=no allows changing hostname for the host, and ProtectHostname=private allows
+         * changing the hostname in the unit's UTS namespace. Note, if proc is mounted with subset=pid then
+         * neither of the two paths will exist, i.e. they are implicitly protected by the mount option. */
+        if (p->protect_hostname == PROTECT_HOSTNAME_YES) {
                 r = append_static_mounts(
                                 &ml,
-                                protect_hostname_table,
-                                ELEMENTSOF(protect_hostname_table),
+                                protect_hostname_yes_table,
+                                ELEMENTSOF(protect_hostname_yes_table),
                                 ignore_protect_proc);
                 if (r < 0)
                         return r;
@@ -3305,6 +3315,14 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
 
+static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
+        [PROTECT_HOSTNAME_NO]      = "no",
+        [PROTECT_HOSTNAME_YES]     = "yes",
+        [PROTECT_HOSTNAME_PRIVATE] = "private",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, PROTECT_HOSTNAME_YES);
+
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO]     = "no",
         [PROTECT_SYSTEM_YES]    = "yes",
@@ -3364,6 +3382,7 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
         [PRIVATE_USERS_NO]       = "no",
         [PRIVATE_USERS_SELF]     = "self",
         [PRIVATE_USERS_IDENTITY] = "identity",
+        [PRIVATE_USERS_FULL]     = "full",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);

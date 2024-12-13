@@ -1414,7 +1414,7 @@ static int verb_enable(int argc, char **argv, void *userdata) {
                                        "SetFeatureEnabled",
                                        &error,
                                        /* reply= */ NULL,
-                                       "sbt",
+                                       "sit",
                                        *feature,
                                        (int) enable,
                                        UINT64_C(0));

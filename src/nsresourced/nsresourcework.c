@@ -44,6 +44,7 @@
 #include "userns-restrict.h"
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-util.h"
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -1689,9 +1690,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
-        r = sd_varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&server, SD_VARLINK_SERVER_INHERIT_USERDATA, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate server: %m");
+                return log_error_errno(r, "Failed to allocate varlink server: %m");
 
         r = sd_varlink_server_add_interface_many(
                         server,

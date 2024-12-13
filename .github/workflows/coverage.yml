@@ -1,0 +1,145 @@
+---
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: coverage
+
+on:
+  schedule:
+    # Calculate coverage daily at midnight
+    - cron:  '0 0 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: systemd/mkosi@07ef37c4c0dad5dfc6cec86c967a7600df1cd88c
+
+      # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
+      # immediately, we remove the files in the background. However, we first move them to a different location
+      # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
+      - name: Free disk space
+        run: |
+          sudo mv /usr/local /usr/local.trash
+          sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
+          sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+
+      - name: Btrfs
+        run: |
+          truncate --size=100G btrfs.raw
+          mkfs.btrfs btrfs.raw
+          sudo mkdir /mnt/mkosi
+          LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
+          sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
+          sudo chown "$(id -u):$(id -g)" /mnt/mkosi
+          mkdir /mnt/mkosi/tmp
+          echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
+          ln -s /mnt/mkosi/build build
+
+      - name: Configure
+        run: |
+          # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
+          sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
+
+          tee mkosi.local.conf <<EOF
+          [Distribution]
+          Distribution=arch
+
+          [Build]
+          ToolsTree=default
+          ToolsTreeDistribution=arch
+          UseSubvolumes=yes
+          WithTests=no
+
+          WorkspaceDirectory=$TMPDIR
+          PackageCacheDirectory=$TMPDIR/cache
+
+          Environment=
+                  # Build debuginfo packages since we'll be publishing the packages as artifacts.
+                  WITH_DEBUG=1
+                  CFLAGS=-Og
+                  MESON_OPTIONS=--werror
+                  COVERAGE=1
+
+          [Host]
+          QemuMem=4G
+          EOF
+
+      - name: Generate secure boot key
+        run: mkosi --debug genkey
+
+      - name: Show image summary
+        run: mkosi summary
+
+      - name: Build tools tree
+        run: mkosi -f sandbox true
+
+      - name: PATH
+        run: echo "$PATH"
+
+      - name: Configure meson
+        run: mkosi sandbox meson setup --buildtype=debugoptimized -Dintegration-tests=true build
+
+      - name: Build image
+        run: sudo --preserve-env mkosi sandbox meson compile -C build mkosi
+
+      - name: Initial coverage report
+        run: |
+          mkdir -p build/test/coverage
+          mkosi sandbox \
+            lcov \
+            --directory build/mkosi.builddir/arch~rolling~x86-64 \
+            --capture \
+            --initial \
+            --exclude "*.gperf" \
+            --output-file build/test/coverage/initial.coverage-info \
+            --base-directory src/ \
+            --ignore-errors source \
+            --no-external \
+            --substitute "s#src/src#src#g"
+
+      - name: Run integration tests
+        run: |
+          sudo --preserve-env \
+            mkosi sandbox \
+            meson test \
+            -C build \
+            --no-rebuild \
+            --suite integration-tests \
+            --print-errorlogs \
+            --no-stdsplit \
+            --num-processes "$(($(nproc) - 1))" \
+            --timeout-multiplier 2 \
+            --max-lines 300
+
+      - name: Archive failed test journals
+        uses: actions/upload-artifact@v4
+        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        with:
+          name: ci-coverage-${{ github.run_id }}-${{ github.run_attempt }}-arch-rolling-failed-test-journals
+          path: |
+            build/test/journal/*.journal
+            build/meson-logs/*
+          retention-days: 7
+
+      - name: Combine coverage reports
+        run: |
+          lcov_args=()
+
+          while read -r file; do
+              lcov_args+=(--add-tracefile "${file}")
+          done < <(find build/test/coverage -name "TEST-*.coverage-info")
+
+          mkosi sandbox lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
+
+      - name: List coverage report
+        run: mkosi sandbox lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@cfd0633edbd2411b532b808ba7a8b5e04f76d2c8
+        if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+        with:
+          file: build/test/coverage/everything.coverage-info

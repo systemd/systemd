@@ -76,6 +76,25 @@ bool urlify_enabled(void) {
 #endif
 }
 
+static bool url_suitable_for_osc8(const char *url) {
+        assert(url);
+
+        /* Not all URLs are safe for inclusion in OSC 8 due to charset and length restrictions. Let's detect
+         * which ones those are */
+
+        /* If the URL is longer than 2K let's not try to do OSC 8. As per recommendation in
+         * https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda#length-limits */
+        if (strlen(url) > 2000)
+                return false;
+
+        /* OSC sequences may only contain chars from the 32..126 range, as per ECMA-48 */
+        for (const char *c = url; *c; c++)
+                if (!osc_char_is_valid(*c))
+                        return false;
+
+        return true;
+}
+
 int terminal_urlify(const char *url, const char *text, char **ret) {
         char *n;
 
@@ -87,7 +106,7 @@ int terminal_urlify(const char *url, const char *text, char **ret) {
         if (isempty(text))
                 text = url;
 
-        if (urlify_enabled())
+        if (urlify_enabled() && url_suitable_for_osc8(url))
                 n = strjoin(ANSI_OSC "8;;", url, ANSI_ST,
                             text,
                             ANSI_OSC "8;;" ANSI_ST);
@@ -293,12 +312,13 @@ void print_separator(void) {
                 size_t c = columns();
 
                 flockfile(stdout);
-                fputs_unlocked(ANSI_GREY_UNDERLINE, stdout);
+                fputs_unlocked(ansi_grey_underline(), stdout);
 
                 for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
-                fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
+                fputs_unlocked(ansi_normal(), stdout);
+                fputs_unlocked("\n\n", stdout);
                 funlockfile(stdout);
         } else
                 fputs("\n\n", stdout);

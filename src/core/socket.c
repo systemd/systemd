@@ -2070,7 +2070,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
 
         unit_unref_uid_gid(UNIT(s), true);
 }

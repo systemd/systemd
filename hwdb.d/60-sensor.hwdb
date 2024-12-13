@@ -295,6 +295,10 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# Chuwi Hi10 X1
+sensor:modalias:acpi:NSA2513*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X1:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
 # Chuwi Hi10 Go
 sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIINNOVATIONLIMITED:pnHi10Go:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0,-1, 0; 0, 0, 1
@@ -952,6 +956,15 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnDefaultstring*:pnP612F:*
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# Pine64
+#########################################
+
+# PineTab2
+
+sensor:modalias:of:NaccelerometerT_null_Csilan,sc7a20:*
+ ACCEL_MOUNT_MATRIX=0, 0, -1; 1, 0, 0; 0, -1, 0
 
 #########################################
 # Pipo

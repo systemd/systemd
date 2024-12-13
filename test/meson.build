@@ -297,6 +297,8 @@ integration_test_template = {
         'qemu-args' : [],
         'exit-code' : 123,
         'vm' : false,
+        'coredump-exclude-regex' : '',
+        'sanitizer-exclude-regex' : '',
 }
 testdata_subdirs = [
         'auxv',
@@ -391,6 +393,8 @@ foreach integration_test : integration_tests
                 '--storage', integration_test['storage'],
                 '--firmware', integration_test['firmware'],
                 '--exit-code', integration_test['exit-code'].to_string(),
+                '--coredump-exclude-regex', integration_test['coredump-exclude-regex'],
+                '--sanitizer-exclude-regex', integration_test['sanitizer-exclude-regex'],
         ]
 
         if 'unit' in integration_test

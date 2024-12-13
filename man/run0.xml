@@ -61,7 +61,10 @@
     <literal>systemd-run0</literal> PAM stack.</para>
 
     <para>Note that <command>run0</command> is implemented as an alternative multi-call invocation of
-    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>. That is,
+    <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
+    behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
+    <command>systemd-run</command>.</para>
   </refsect1>
 
   <refsect1>
@@ -81,7 +84,7 @@
       <varlistentry>
         <term><option>--property=</option></term>
 
-        <listitem><para>Sets a property on the service unit that is created. This option takes an assignment
+        <listitem><para>Sets a property of the service unit that is created. This option takes an assignment
         in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para>
@@ -225,7 +228,7 @@
         <term><option>--machine=</option></term>
 
         <listitem>
-          <para>Execute operation on a local container. Specify a container name to connect to.</para>
+          <para>Execute operation in a local container. Specify a container name to connect to.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>

@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "parse-util.h"
@@ -31,8 +32,7 @@ int decrypt_pkcs11_key(
                 const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
                 size_t key_file_size,
                 uint64_t key_file_offset,
-                const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
-                size_t key_data_size,
+                const struct iovec *key_data, /* … or literal keys via key_data */
                 usec_t until,
                 AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
@@ -47,15 +47,15 @@ int decrypt_pkcs11_key(
 
         assert(friendly_name);
         assert(pkcs11_uri);
-        assert(key_file || key_data);
+        assert(key_file || iovec_is_set(key_data));
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
 
         /* The functions called here log about all errors, except for EAGAIN which means "token not found right now" */
 
-        if (key_data) {
-                data.encrypted_key = (void*) key_data;
-                data.encrypted_key_size = key_data_size;
+        if (iovec_is_set(key_data)) {
+                data.encrypted_key = (void*) key_data->iov_base;
+                data.encrypted_key_size = key_data->iov_len;
 
                 data.free_encrypted_key = false;
         } else {

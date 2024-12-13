@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "web-util.h"
 
@@ -229,8 +230,8 @@ static bool print_multiline(
                 get_log_colors(priority, &color_on, &color_off, &highlight_on);
 
                 if (audit && strempty(color_on)) {
-                        color_on = ANSI_BLUE;
-                        color_off = ANSI_NORMAL;
+                        color_on = ansi_blue();
+                        color_off = ansi_normal();
                 }
         }
 
@@ -826,12 +827,12 @@ static int output_verbose(
         timestamp = format_timestamp_style(buf, sizeof buf, usec,
                                            flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s%s%s %s[%s]%s\n",
-                timestamp && (flags & OUTPUT_COLOR) ? ANSI_UNDERLINE : "",
+                timestamp && (flags & OUTPUT_COLOR) ? ansi_underline() : "",
                 timestamp ?: "(no timestamp)",
-                timestamp && (flags & OUTPUT_COLOR) ? ANSI_NORMAL : "",
-                (flags & OUTPUT_COLOR) ? ANSI_GREY : "",
+                timestamp && (flags & OUTPUT_COLOR) ? ansi_normal() : "",
+                (flags & OUTPUT_COLOR) ? ansi_grey() : "",
                 cursor,
-                (flags & OUTPUT_COLOR) ? ANSI_NORMAL : "");
+                (flags & OUTPUT_COLOR) ? ansi_grey() : "");
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 _cleanup_free_ char *urlified = NULL;
@@ -858,8 +859,8 @@ static int output_verbose(
 
                 if (flags & OUTPUT_COLOR) {
                         if (startswith(data, "MESSAGE=")) {
-                                on = ANSI_HIGHLIGHT;
-                                off = ANSI_NORMAL;
+                                on = ansi_highlight();
+                                off = ansi_normal();
                         } else if (startswith(data, "CONFIG_FILE=")) {
                                 _cleanup_free_ char *u = NULL;
 
@@ -874,8 +875,8 @@ static int output_verbose(
 
                         } else if (startswith(data, "_")) {
                                 /* Highlight trusted data as such */
-                                on = ANSI_GREEN;
-                                off = ANSI_NORMAL;
+                                on = ansi_green();
+                                off = ansi_normal();
                         }
                 }
 
@@ -1627,7 +1628,39 @@ int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id) {
         return r;
 }
 
-int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
+static int add_matches_for_coredump_uid(sd_journal *j, MatchUnitFlag flags, const char *unit) {
+        static uid_t cached_uid = 0;
+        int r;
+
+        assert(j);
+        assert(unit);
+
+        if (!FLAGS_SET(flags, MATCH_UNIT_COREDUMP_UID))
+                return 0;
+
+        if (cached_uid == 0) {
+                const char *user = "systemd-coredump";
+
+                r = get_user_creds(&user, &cached_uid, NULL, NULL, NULL, 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve systemd-coredump user, ignoring: %m");
+                        cached_uid = UID_INVALID;
+                } else if (cached_uid == 0) /* Huh? Let's handle that gracefully. */
+                        cached_uid = UID_INVALID;
+        }
+
+        if (!uid_is_valid(cached_uid))
+                return 0;
+
+        r = journal_add_matchf(j, "_UID="UID_FMT, cached_uid);
+        if (r < 0)
+                return r;
+
+        /* for systemd-coredump older than 888e378da2dbf4520e68a9d7e59712a3cd5a830f */
+        return sd_journal_add_match(j, "_UID=0", SIZE_MAX);
+}
+
+int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit) {
         int r;
 
         assert(j);
@@ -1648,16 +1681,16 @@ int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
                 (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
         );
 
-        if (r == 0 && all)
+        if (r == 0 && FLAGS_SET(flags, MATCH_UNIT_COREDUMP))
                 (void) (
                         /* Look for coredumps of the service */
                         (r = sd_journal_add_disjunction(j)) ||
                         (r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX)) ||
-                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
+                        (r = add_matches_for_coredump_uid(j, flags, unit)) ||
                         (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit))
                 );
 
-        if (r == 0 && all && endswith(unit, ".slice"))
+        if (r == 0 && FLAGS_SET(flags, MATCH_UNIT_SLICE) && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1667,7 +1700,7 @@ int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
         return r;
 }
 
-int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
+int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit) {
         uid_t uid = getuid();
         int r;
 
@@ -1691,7 +1724,7 @@ int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
                 (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
         );
 
-        if (r == 0 && all)
+        if (r == 0 && FLAGS_SET(flags, MATCH_UNIT_COREDUMP))
                 (void) (
                         /* Look for coredumps of the service */
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1700,7 +1733,7 @@ int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
                         (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
                 );
 
-        if (r == 0 && all && endswith(unit, ".slice"))
+        if (r == 0 && FLAGS_SET(flags, MATCH_UNIT_SLICE) && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1907,10 +1940,10 @@ static int set_matches_for_discover_id(
                 return add_matches_for_invocation_id(j, id);
 
         if (type == LOG_SYSTEM_UNIT_INVOCATION_ID)
-                return add_matches_for_unit_full(j, /* all = */ false, unit);
+                return add_matches_for_unit_full(j, /* flags = */ 0, unit);
 
         if (type == LOG_USER_UNIT_INVOCATION_ID)
-                return add_matches_for_user_unit_full(j, /* all = */ false, unit);
+                return add_matches_for_user_unit_full(j, /* flags = */ 0, unit);
 
         return -EINVAL;
 }

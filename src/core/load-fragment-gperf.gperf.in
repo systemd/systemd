@@ -180,7 +180,7 @@
 {% else %}
 {{type}}.SmackProcessLabel,                   config_parse_warn_compat,                           DISABLED_CONFIGURATION,             0
 {% endif %}
-{{type}}.ProtectHostname,                     config_parse_bool,                                  0,                                  offsetof({{type}}, exec_context.protect_hostname)
+{{type}}.ProtectHostname,                     config_parse_protect_hostname,                      0,                                  offsetof({{type}}, exec_context.protect_hostname)
 {{type}}.MemoryKSM,                           config_parse_tristate,                              0,                                  offsetof({{type}}, exec_context.memory_ksm)
 {%- endmacro -%}
 
@@ -374,6 +374,7 @@ Unit.ConditionOSRelease,                      config_parse_unit_condition_string
 Unit.ConditionMemoryPressure,                 config_parse_unit_condition_string,                 CONDITION_MEMORY_PRESSURE,          offsetof(Unit, conditions)
 Unit.ConditionCPUPressure,                    config_parse_unit_condition_string,                 CONDITION_CPU_PRESSURE,             offsetof(Unit, conditions)
 Unit.ConditionIOPressure,                     config_parse_unit_condition_string,                 CONDITION_IO_PRESSURE,              offsetof(Unit, conditions)
+Unit.ConditionKernelModuleLoaded,             config_parse_unit_condition_string,                 CONDITION_KERNEL_MODULE_LOADED,     offsetof(Unit, conditions)
 Unit.AssertPathExists,                        config_parse_unit_condition_path,                   CONDITION_PATH_EXISTS,              offsetof(Unit, asserts)
 Unit.AssertPathExistsGlob,                    config_parse_unit_condition_path,                   CONDITION_PATH_EXISTS_GLOB,         offsetof(Unit, asserts)
 Unit.AssertPathIsDirectory,                   config_parse_unit_condition_path,                   CONDITION_PATH_IS_DIRECTORY,        offsetof(Unit, asserts)
@@ -406,6 +407,7 @@ Unit.AssertOSRelease,                         config_parse_unit_condition_string
 Unit.AssertMemoryPressure,                    config_parse_unit_condition_string,                 CONDITION_MEMORY_PRESSURE,          offsetof(Unit, asserts)
 Unit.AssertCPUPressure,                       config_parse_unit_condition_string,                 CONDITION_CPU_PRESSURE,             offsetof(Unit, asserts)
 Unit.AssertIOPressure,                        config_parse_unit_condition_string,                 CONDITION_IO_PRESSURE,              offsetof(Unit, asserts)
+Unit.AssertKernelModuleLoaded,                config_parse_unit_condition_string,                 CONDITION_KERNEL_MODULE_LOADED,     offsetof(Unit, asserts)
 Unit.CollectMode,                             config_parse_collect_mode,                          0,                                  offsetof(Unit, collect_mode)
 Service.PIDFile,                              config_parse_pid_file,                              0,                                  offsetof(Service, pid_file)
 Service.ExecCondition,                        config_parse_exec,                                  SERVICE_EXEC_CONDITION,             offsetof(Service, exec_command)

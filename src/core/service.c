@@ -1341,7 +1341,7 @@ static void service_set_state(Service *s, ServiceState state) {
                         }
 
                 if (start_only)
-                        unit_destroy_runtime_data(u, &s->exec_context);
+                        unit_destroy_runtime_data(u, &s->exec_context, /* destroy_runtime_dir = */ false);
         }
 
         if (old_state != state)
@@ -1648,13 +1648,7 @@ static Service *service_get_triggering_service(Service *s) {
          * or OnSuccess= then we return NULL. This is since we don't know from which
          * one to propagate the exit status. */
 
-        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_FAILURE_OF) {
-                if (candidate)
-                        goto have_other;
-                candidate = other;
-        }
-
-        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_SUCCESS_OF) {
+        UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_SUCCESS_OF|UNIT_ATOM_ON_FAILURE_OF) {
                 if (candidate)
                         goto have_other;
                 candidate = other;
@@ -1879,7 +1873,7 @@ static int service_spawn_internal(
                 }
         }
 
-        if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG && UNIT(s)->debug_invocation) {
+        if (UNIT(s)->debug_invocation) {
                 char *t = strdup("DEBUG_INVOCATION=1");
                 if (!t)
                         return -ENOMEM;
@@ -2163,7 +2157,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         /* Also, remove the runtime directory */
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
 
         /* Also get rid of the fd store, if that's configured. */
         if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO)
@@ -3426,14 +3420,12 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return 0;
                 }
 
-                r = service_add_fd_store(s, fd, fdn, do_poll);
+                r = service_add_fd_store(s, TAKE_FD(fd), fdn, do_poll);
                 if (r < 0) {
                         log_unit_debug_errno(u, r,
                                              "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
-
-                TAKE_FD(fd);
         } else if (streq(key, "extra-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL;
                 _cleanup_close_ int fd = -EBADF;

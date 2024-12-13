@@ -407,11 +407,15 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         Session *s;
         bool idle_hint;
-        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp ts;
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* block= */ true, t, false, false, 0, NULL);
+        /* Initialize the baseline timestamp with the time the manager got initialized to avoid reporting
+         * unreasonable large idle periods starting with the Unix epoch. */
+        ts = m->init_ts;
+
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t, /* flags= */ 0, UID_INVALID, NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
