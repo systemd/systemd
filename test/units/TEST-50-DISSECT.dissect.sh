@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
-# shellcheck disable=SC2233,SC2235
+# shellcheck disable=SC2233,SC2235,SC2016
 set -eux
 set -o pipefail
 
@@ -78,6 +78,11 @@ systemd-dissect --umount "$IMAGE_DIR/mount2"
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
+
+# Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
+# $NOTIFY_SOCKET is set correctly.
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'echo READY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify && ls /run/host/notify'
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'echo READY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify && env' | grep NOTIFY_SOCKET=/run/host/notify
 
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
