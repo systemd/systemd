@@ -1116,6 +1116,22 @@ static EFI_STATUS find_sections(
         return EFI_SUCCESS;
 }
 
+static size_t count_cmdline_args(const char16_t *cmdline) {
+
+        char16_t *tmp = xstrdup16(*cmdline);
+        tmp = mangle_stub_cmdline(tmp);
+
+        size_t count = 0;
+        const char16_t *p = tmp;
+        while (*p != 0)
+                if (*(p++) == ' ') count++;
+
+        if (count) count--;
+
+        mfree(tmp);
+        return count;
+}
+
 static void settle_command_line(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
@@ -1131,11 +1147,15 @@ static void settle_command_line(
          *
          * We'll suppress the custom cmdline if we are in Secure Boot mode, and if either there is already
          * a cmdline baked into the UKI or we are in confidential VM mode. */
-
         if (!isempty(*cmdline)) {
-                if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
+                if (count_cmdline_args(*cmdline) == 1)
                         /* Drop the custom cmdline */
                         *cmdline = mfree(*cmdline);
+
+                else if (secure_boot_enabled() && (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) || is_confidential_vm()))
+                        /* Drop the custom cmdline */
+                        *cmdline = mfree(*cmdline);
+
                 else {
                         /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                          * duplicates what we already did in the boot menu, if that was already
