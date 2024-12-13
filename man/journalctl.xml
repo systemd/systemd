@@ -834,6 +834,9 @@
         with <option>--setup-keys</option>. Shorter intervals increase CPU consumption but shorten the time
         range of undetectable journal alterations. Defaults to 15min.</para>
 
+        <para>Note, <option>--output=json-sse</option> and <option>--output=json-seq</option> are silently
+        migrated to <option>--output=json</option>.</para>
+
         <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>
 
