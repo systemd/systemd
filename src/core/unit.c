@@ -3632,7 +3632,6 @@ fail:
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         const char *match;
-        usec_t timeout_usec = 0;
         int r;
 
         assert(u);
@@ -3641,12 +3640,6 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
 
         if (u->match_bus_slot || u->get_name_owner_slot)
                 return -EBUSY;
-
-        /* NameOwnerChanged and GetNameOwner is used to detect when a service finished starting up. The dbus
-         * call timeout shouldn't be earlier than that. If we couldn't get the start timeout, use the default
-         * value defined above. */
-        if (UNIT_VTABLE(u)->get_timeout_start_usec)
-                timeout_usec = UNIT_VTABLE(u)->get_timeout_start_usec(u);
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.DBus',"
@@ -3663,7 +3656,7 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                         signal_name_owner_changed,
                         name_owner_changed_install_handler,
                         u,
-                        timeout_usec);
+                        USEC_INFINITY);
         if (r < 0)
                 return r;
 
