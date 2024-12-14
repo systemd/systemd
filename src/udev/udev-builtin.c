@@ -9,8 +9,6 @@
 #include "strv.h"
 #include "udev-builtin.h"
 
-static bool initialized;
-
 static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_BLKID
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
@@ -33,25 +31,15 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 };
 
 void udev_builtin_init(void) {
-        if (initialized)
-                return;
-
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && builtins[i]->init)
-                        builtins[i]->init();
-
-        initialized = true;
+        FOREACH_ELEMENT(b, builtins)
+                if (*b && (*b)->init)
+                        (*b)->init();
 }
 
 void udev_builtin_exit(void) {
-        if (!initialized)
-                return;
-
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && builtins[i]->exit)
-                        builtins[i]->exit();
-
-        initialized = false;
+        FOREACH_ELEMENT(b, builtins)
+                if (*b && (*b)->exit)
+                        (*b)->exit();
 }
 
 bool udev_builtin_should_reload(void) {
@@ -62,9 +50,9 @@ bool udev_builtin_should_reload(void) {
 }
 
 void udev_builtin_list(void) {
-        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i])
-                        fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
+        FOREACH_ELEMENT(b, builtins)
+                if (*b)
+                        fprintf(stderr, "  %-14s  %s\n", (*b)->name, (*b)->help);
 }
 
 const char* udev_builtin_name(UdevBuiltinCommand cmd) {
