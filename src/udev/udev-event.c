@@ -12,11 +12,13 @@
 #include "strv.h"
 #include "udev-event.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-trace.h"
 #include "udev-util.h"
+#include "udev-worker.h"
 #include "user-util.h"
 
-UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
+UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
         int log_level = worker ? worker->log_level : log_get_max_level();
         UdevEvent *event;
 
@@ -42,7 +44,7 @@ UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
         return event;
 }
 
-UdevEvent *udev_event_free(UdevEvent *event) {
+UdevEvent* udev_event_free(UdevEvent *event) {
         if (!event)
                 return NULL;
 
