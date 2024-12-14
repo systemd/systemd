@@ -42,11 +42,27 @@ void udev_builtin_exit(void) {
                         (*b)->exit();
 }
 
-bool udev_builtin_should_reload(void) {
+UdevReloadFlag udev_builtin_should_reload(void) {
+        UdevReloadFlag flags = 0;
+
         for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->should_reload && builtins[i]->should_reload())
-                        return true;
-        return false;
+                        flags |= (1u << i);
+
+        if (flags != 0)
+                flags |= UDEV_RELOAD_KILL_WORKERS;
+
+        return flags;
+}
+
+void udev_builtin_reload(UdevReloadFlag flags) {
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
+                if (FLAGS_SET(flags, 1u << i) && builtins[i]) {
+                        if (builtins[i]->exit)
+                                builtins[i]->exit();
+                        if (builtins[i]->init)
+                                builtins[i]->init();
+                }
 }
 
 void udev_builtin_list(void) {
@@ -108,10 +124,10 @@ int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *comma
         return builtins[cmd]->cmd(event, strv_length(argv), argv);
 }
 
-int udev_builtin_add_property(sd_device *dev, EventMode mode, const char *key, const char *val) {
+int udev_builtin_add_property(UdevEvent *event, const char *key, const char *val) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
-        assert(dev);
         assert(key);
 
         r = device_add_property(dev, key, val);
@@ -119,18 +135,18 @@ int udev_builtin_add_property(sd_device *dev, EventMode mode, const char *key, c
                 return log_device_debug_errno(dev, r, "Failed to add property '%s%s%s'",
                                               key, val ? "=" : "", strempty(val));
 
-        if (mode == EVENT_UDEVADM_TEST_BUILTIN)
+        if (event->event_mode == EVENT_UDEVADM_TEST_BUILTIN)
                 printf("%s=%s\n", key, strempty(val));
 
         return 0;
 }
 
-int udev_builtin_add_propertyf(sd_device *dev, EventMode mode, const char *key, const char *valf, ...) {
+int udev_builtin_add_propertyf(UdevEvent *event, const char *key, const char *valf, ...) {
         _cleanup_free_ char *val = NULL;
         va_list ap;
         int r;
 
-        assert(dev);
+        assert(event);
         assert(key);
         assert(valf);
 
@@ -140,26 +156,26 @@ int udev_builtin_add_propertyf(sd_device *dev, EventMode mode, const char *key, 
         if (r < 0)
                 return log_oom_debug();
 
-        return udev_builtin_add_property(dev, mode, key, val);
+        return udev_builtin_add_property(event, key, val);
 }
 
-int udev_builtin_import_property(sd_device *dev, sd_device *src, EventMode mode, const char *key) {
+int udev_builtin_import_property(UdevEvent *event, const char *key) {
         const char *val;
         int r;
 
-        assert(dev);
-        assert(key);
+        assert(event);
+        assert(event->dev);
 
-        if (!src)
+        if (!event->dev_db_clone)
                 return 0;
 
-        r = sd_device_get_property_value(src, key, &val);
+        r = sd_device_get_property_value(event->dev_db_clone, key, &val);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_device_debug_errno(src, r, "Failed to get property \"%s\", ignoring: %m", key);
+                return log_device_debug_errno(event->dev_db_clone, r, "Failed to get property \"%s\", ignoring: %m", key);
 
-        r = udev_builtin_add_property(dev, mode, key, val);
+        r = udev_builtin_add_property(event, key, val);
         if (r < 0)
                 return r;
 

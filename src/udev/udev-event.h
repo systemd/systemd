@@ -14,22 +14,17 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "time-util.h"
-#include "udev-rules.h"
-#include "udev-worker.h"
+#include "udev-def.h"
 #include "user-util.h"
 
-typedef enum EventMode {
-        EVENT_UDEV_WORKER,
-        EVENT_UDEVADM_TEST,
-        EVENT_UDEVADM_TEST_BUILTIN,
-        EVENT_TEST_RULE_RUNNER,
-        EVENT_TEST_SPAWN,
-} EventMode;
+typedef struct UdevRules UdevRules;
+typedef struct UdevWorker UdevWorker;
 
 typedef struct UdevEvent {
+        unsigned n_ref;
+
         UdevWorker *worker;
         sd_netlink *rtnl;
-
         sd_device *dev;
         sd_device *dev_parent;
         sd_device *dev_db_clone;
@@ -59,8 +54,9 @@ typedef struct UdevEvent {
 } UdevEvent;
 
 UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);
-UdevEvent* udev_event_free(UdevEvent *event);
-DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
+UdevEvent* udev_event_ref(UdevEvent *event);
+UdevEvent* udev_event_unref(UdevEvent *event);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_unref);
 
 int udev_event_execute_rules(UdevEvent *event, UdevRules *rules);
 
