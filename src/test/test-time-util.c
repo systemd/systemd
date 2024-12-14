@@ -413,7 +413,8 @@ static void test_format_timestamp_impl(usec_t x) {
                  x, xx, y, yy,
                  override ? ", ignoring." : "");
         if (!override) {
-                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                log_warning("tzname[0]=\"%s\", tzname[1]=\"%s\"", tzname[0], tzname[1]);
+                ASSERT_EQ(x / USEC_PER_SEC, y / USEC_PER_SEC);
                 ASSERT_STREQ(xx, yy);
         }
 }
