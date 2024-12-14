@@ -416,6 +416,13 @@ fi
 (! systemd-run --wait --pipe -p RootDirectory=/tmp/root /foo)
 (! systemd-run --wait --pipe --service-type=oneshot -p ExecStartPre=-/foo/bar/baz -p ExecStart=-/foo/bar/baz -p RootDirectory=/tmp/root -- "- foo")
 
-# RestrictNamespaces=
-systemd-run --wait --pipe unshare -T true
-(! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
+# Tests for RestrictNamespaces=
+# For some reasons, the following test cases fail when running with sanitizers:
+# TEST-07-PID1.sh[194]: + systemd-run --wait --pipe unshare -T true
+# TEST-07-PID1.sh[718]: ==718==ASan runtime does not come first in
+#         initial library list; you should either link runtime to your
+#         application or manually preload it with LD_PRELOAD.
+if [[ ! -v ASAN_OPTIONS ]]; then
+   systemd-run --wait --pipe unshare -T true
+   (! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
+fi
