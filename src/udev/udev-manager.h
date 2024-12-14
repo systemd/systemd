@@ -10,9 +10,10 @@
 #include "macro.h"
 #include "time-util.h"
 #include "udev-ctrl.h"
-#include "udev-rules.h"
+#include "udev-def.h"
 
 typedef struct Event Event;
+typedef struct UdevRules UdevRules;
 typedef struct Worker Worker;
 
 typedef struct Manager {
@@ -53,7 +54,7 @@ Manager* manager_free(Manager *manager);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 void manager_adjust_arguments(Manager *manager);
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent);
+int manager_init(Manager *manager);
 int manager_main(Manager *manager);
 
 bool devpath_conflict(const char *a, const char *b);
