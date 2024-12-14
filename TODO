@@ -129,9 +129,6 @@ Deprecations and removals:
 
 Features:
 
-* our logging tools should look for $DEBUG_INVOCATION and consider equivalent
-  to $SYSTEMD_LOG_LEVEL=debug
-
 * Teach systemd-ssh-generator to generated an /run/issue.d/ drop-in telling
   users how to connect to the system via the AF_VSOCK, as per:
   https://github.com/systemd/systemd/issues/35071#issuecomment-2462803142

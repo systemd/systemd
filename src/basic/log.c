@@ -1406,14 +1406,29 @@ static bool should_parse_proc_cmdline(void) {
 
 void log_parse_environment_variables(void) {
         const char *e;
+        int r;
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
                 log_warning("Failed to parse log target '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_LEVEL");
-        if (e && log_set_max_level_from_string(e) < 0)
-                log_warning("Failed to parse log level '%s', ignoring.", e);
+        if (e) {
+                r = log_set_max_level_from_string(e);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse log level '%s', ignoring: %m", e);
+        } else {
+                /* If no explicit log level is specified then let's see if this is a debug invocation, and if
+                 * so raise the log level to debug too. Note that this is not symmetric: just because
+                 * DEBUG_INVOCATION is explicitly set to 0 we won't lower the log level below debug. This
+                 * follows the logic that debug logging is an opt-in thing anyway, and if there's any reason
+                 * to enable it we should not disable it here automatically. */
+                r = getenv_bool("DEBUG_INVOCATION");
+                if (r < 0 && r != -ENXIO)
+                        log_warning_errno(r, "Failed to parse $DEBUG_INVOCATION value, ignoring: %m");
+                else if (r > 0)
+                        log_set_max_level(LOG_DEBUG);
+        }
 
         e = getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
