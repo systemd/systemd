@@ -78,7 +78,6 @@ wrap=(
     su
     tar
     tgtd
-    unshare
     useradd
     userdel
     veritysetup
