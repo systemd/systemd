@@ -29,6 +29,7 @@
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-node.h"
+#include "udev-rules.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
 #include "udev-util.h"
@@ -1227,15 +1228,69 @@ void manager_adjust_arguments(Manager *manager) {
         }
 }
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+static int listen_fds(int *ret_ctrl, int *ret_netlink) {
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_close_ int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+
+        assert(ret_ctrl);
+        assert(ret_netlink);
+
+        int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
+        if (n < 0)
+                return n;
+
+        if (strv_length(names) != (size_t) n)
+                return -EIO;
+
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+
+                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
+                        if (ctrl_fd >= 0) {
+                                log_debug("Received multiple seqpacket socket (%s), ignoring.", names[i]);
+                                goto unused;
+                        }
+
+                        ctrl_fd = fd;
+                        continue;
+                }
+
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (netlink_fd >= 0) {
+                                log_debug("Received multiple netlink socket (%s), ignoring.", names[i]);
+                                goto unused;
+                        }
+
+                        netlink_fd = fd;
+                        continue;
+                }
+
+                log_debug("Received unexpected fd (%s), ignoring.", names[i]);
+
+        unused:
+                close_and_notify_warn(fd, names[i]);
+        }
+
+        *ret_ctrl = TAKE_FD(ctrl_fd);
+        *ret_netlink = TAKE_FD(netlink_fd);
+        return 0;
+}
+
+int manager_init(Manager *manager) {
+        _cleanup_close_ int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(manager);
 
+        r = listen_fds(&fd_ctrl, &fd_uevent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to listen on fds: %m");
+
         r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control socket: %m");
+        TAKE_FD(fd_ctrl);
 
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)
@@ -1244,6 +1299,7 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
+        TAKE_FD(fd_uevent);
 
         (void) sd_device_monitor_set_description(manager->monitor, "manager");
 
