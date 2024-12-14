@@ -393,27 +393,29 @@ TEST(format_timestamp) {
 static void test_format_timestamp_impl(usec_t x) {
         bool success, override;
         const char *xx, *yy;
-        usec_t y;
+        usec_t y, x_sec, y_sec;
 
-        xx = FORMAT_TIMESTAMP(x);
-        assert_se(xx);
-        assert_se(parse_timestamp(xx, &y) >= 0);
-        yy = FORMAT_TIMESTAMP(y);
-        assert_se(yy);
+        ASSERT_NOT_NULL(xx = FORMAT_TIMESTAMP(x));
+        ASSERT_OK(parse_timestamp(xx, &y));
+        ASSERT_NOT_NULL(yy = FORMAT_TIMESTAMP(y));
 
-        success = (x / USEC_PER_SEC == y / USEC_PER_SEC) && streq(xx, yy);
+        x_sec = x / USEC_PER_SEC;
+        y_sec = y / USEC_PER_SEC;
+        success = (x_sec == y_sec) && streq(xx, yy);
         /* Workaround for https://github.com/systemd/systemd/issues/28472
          * and https://github.com/systemd/systemd/pull/35471. */
         override = !success &&
                    (STRPTR_IN_SET(tzname[0], "CAT", "EAT", "WET") ||
                     STRPTR_IN_SET(tzname[1], "CAT", "EAT", "WET")) &&
-                   DIV_ROUND_UP(x > y ? x - y : y - x, USEC_PER_SEC) == 3600; /* 1 hour, ignore fractional second */
+                   (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600; /* 1 hour, ignore fractional second */
         log_full(success ? LOG_DEBUG : override ? LOG_WARNING : LOG_ERR,
                  "@" USEC_FMT " → %s → @" USEC_FMT " → %s%s",
                  x, xx, y, yy,
                  override ? ", ignoring." : "");
         if (!override) {
-                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                if (!success)
+                        log_warning("tzname[0]=\"%s\", tzname[1]=\"%s\"", tzname[0], tzname[1]);
+                ASSERT_EQ(x_sec, y_sec);
                 ASSERT_STREQ(xx, yy);
         }
 }
