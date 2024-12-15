@@ -376,21 +376,18 @@ Link* link_free(Link *link) {
         if (!link)
                 return NULL;
 
-        sd_device_unref(link->device);
-        sd_device_unref(link->device_db_clone);
+        udev_event_unref(link->event);
         free(link->kind);
-        strv_free(link->altnames);
         return mfree(link);
 }
 
-int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret) {
+int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(link_freep) Link *link = NULL;
         int r;
 
         assert(ctx);
-        assert(rtnl);
-        assert(device);
-        assert(device_db_clone);
+        assert(event);
         assert(ret);
 
         link = new(Link, 1);
@@ -398,31 +395,30 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_de
                 return -ENOMEM;
 
         *link = (Link) {
-                .device = sd_device_ref(device),
-                .device_db_clone = sd_device_ref(device_db_clone),
+                .event = udev_event_ref(event),
         };
 
-        r = sd_device_get_sysname(device, &link->ifname);
+        r = sd_device_get_sysname(dev, &link->ifname);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_ifindex(device, &link->ifindex);
+        r = sd_device_get_ifindex(dev, &link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_action(device, &link->action);
+        r = sd_device_get_action(dev, &link->action);
         if (r < 0)
                 return r;
 
-        r = device_unsigned_attribute(device, "name_assign_type", &link->name_assign_type);
+        r = device_unsigned_attribute(dev, "name_assign_type", &link->name_assign_type);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get \"name_assign_type\" attribute, ignoring: %m");
 
-        r = device_unsigned_attribute(device, "addr_assign_type", &link->addr_assign_type);
+        r = device_unsigned_attribute(dev, "addr_assign_type", &link->addr_assign_type);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get \"addr_assign_type\" attribute, ignoring: %m");
 
-        r = rtnl_get_link_info(rtnl, link->ifindex, &link->iftype, &link->flags,
+        r = rtnl_get_link_info(&event->rtnl, link->ifindex, &link->iftype, &link->flags,
                                &link->kind, &link->hw_addr, &link->permanent_hw_addr);
         if (r < 0)
                 return r;
@@ -433,7 +429,7 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_de
                         log_link_debug_errno(link, r, "Failed to get permanent hardware address, ignoring: %m");
         }
 
-        r = sd_device_get_property_value(link->device, "ID_NET_DRIVER", &link->driver);
+        r = sd_device_get_property_value(dev, "ID_NET_DRIVER", &link->driver);
         if (r < 0 && r != -ENOENT)
                 log_link_debug_errno(link, r, "Failed to get driver, ignoring: %m");
 
@@ -454,7 +450,7 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
         LIST_FOREACH(configs, config, ctx->configs) {
                 r = net_match_config(
                                 &config->match,
-                                link->device,
+                                link->event->dev,
                                 &link->hw_addr,
                                 &link->permanent_hw_addr,
                                 link->driver,
@@ -483,22 +479,18 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
         return -ENOENT;
 }
 
-static int link_apply_ethtool_settings(Link *link, int *ethtool_fd, EventMode mode) {
-        LinkConfig *config;
-        const char *name;
+static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
+        LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
+        const char *name = ASSERT_PTR(link->ifname);
         int r;
 
-        assert(link);
-        assert(link->config);
+        assert(link->event);
         assert(ethtool_fd);
 
-        if (mode != EVENT_UDEV_WORKER) {
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of ethtool settings.");
                 return 0;
         }
-
-        config = link->config;
-        name = link->ifname;
 
         r = ethtool_set_glinksettings(ethtool_fd, name,
                                       config->autonegotiation, config->advertise,
@@ -589,7 +581,8 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
 
         assert(link);
         assert(link->config);
-        assert(link->device);
+        assert(link->event);
+        assert(link->event->dev);
         assert(ret);
 
         if (link->hw_addr.length == 0)
@@ -655,7 +648,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
         else {
                 uint64_t result;
 
-                r = net_get_unique_predictable_data(link->device,
+                r = net_get_unique_predictable_data(link->event->dev,
                                                     naming_scheme_has(NAMING_STABLE_VIRTUAL_MACS),
                                                     &result);
                 if (r < 0)
@@ -689,25 +682,21 @@ finalize:
         return 0;
 }
 
-static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl, EventMode mode) {
+static int link_apply_rtnl_settings(Link *link) {
         struct hw_addr_data hw_addr = {};
-        LinkConfig *config;
+        LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
         int r;
 
-        assert(link);
-        assert(link->config);
-        assert(rtnl);
+        assert(link->event);
 
-        if (mode != EVENT_UDEV_WORKER) {
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of rtnl settings.");
                 return 0;
         }
 
-        config = link->config;
-
         (void) link_generate_new_hw_addr(link, &hw_addr);
 
-        r = rtnl_set_link_properties(rtnl, link->ifindex, config->alias, &hw_addr,
+        r = rtnl_set_link_properties(&link->event->rtnl, link->ifindex, config->alias, &hw_addr,
                                      config->txqueues, config->rxqueues, config->txqueuelen,
                                      config->mtu, config->gso_max_size, config->gso_max_segments);
         if (r < 0)
@@ -741,15 +730,8 @@ static bool enable_name_policy(void) {
 }
 
 static int link_generate_new_name(Link *link) {
-        LinkConfig *config;
-        sd_device *device;
-
-        assert(link);
-        assert(link->config);
-        assert(link->device);
-
-        config = link->config;
-        device = link->device;
+        LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);;
+        sd_device *device = ASSERT_PTR(ASSERT_PTR(link->event)->dev);
 
         if (link->action != SD_DEVICE_ADD) {
                 log_link_debug(link, "Not applying Name= and NamePolicy= on '%s' uevent.",
@@ -822,14 +804,11 @@ no_rename:
 
 static int link_generate_alternative_names(Link *link) {
         _cleanup_strv_free_ char **altnames = NULL;
-        LinkConfig *config;
-        sd_device *device;
+        LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
+        sd_device *device = ASSERT_PTR(ASSERT_PTR(link->event)->dev);
         int r;
 
-        assert(link);
-        config = ASSERT_PTR(link->config);
-        device = ASSERT_PTR(link->device);
-        assert(!link->altnames);
+        assert(!ASSERT_PTR(link->event)->altnames);
 
         if (link->action != SD_DEVICE_ADD) {
                 log_link_debug(link, "Not applying AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
@@ -873,7 +852,7 @@ static int link_generate_alternative_names(Link *link) {
                         }
                 }
 
-        link->altnames = TAKE_PTR(altnames);
+        link->event->altnames = TAKE_PTR(altnames);
         return 0;
 }
 
@@ -906,28 +885,28 @@ static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
         return 0;
 }
 
-static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl, EventMode mode) {
+static int link_apply_sr_iov_config(Link *link) {
         SRIOV *sr_iov;
         uint32_t n;
         int r;
 
         assert(link);
         assert(link->config);
-        assert(link->device);
+        assert(ASSERT_PTR(link->event)->dev);
 
-        if (mode != EVENT_UDEV_WORKER) {
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of SR-IOV settings.");
                 return 0;
         }
 
-        r = sr_iov_set_num_vfs(link->device, link->config->sr_iov_num_vfs, link->config->sr_iov_by_section);
+        r = sr_iov_set_num_vfs(link->event->dev, link->config->sr_iov_num_vfs, link->config->sr_iov_by_section);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to set the number of SR-IOV virtual functions, ignoring: %m");
 
         if (ordered_hashmap_isempty(link->config->sr_iov_by_section))
                 return 0;
 
-        r = sr_iov_get_num_vfs(link->device, &n);
+        r = sr_iov_get_num_vfs(link->event->dev, &n);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Failed to get the number of SR-IOV virtual functions, ignoring [SR-IOV] sections: %m");
                 return 0;
@@ -943,7 +922,7 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl, EventMode mod
                         continue;
                 }
 
-                r = sr_iov_configure(link, rtnl, sr_iov);
+                r = sr_iov_configure(link, &link->event->rtnl, sr_iov);
                 if (r < 0)
                         log_link_warning_errno(link, r,
                                                "Failed to configure SR-IOV virtual function %"PRIu32", ignoring: %m",
@@ -953,15 +932,15 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl, EventMode mod
         return 0;
 }
 
-static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
+static int link_apply_rps_cpu_mask(Link *link) {
         _cleanup_free_ char *mask_str = NULL;
         LinkConfig *config;
         int r;
 
-        assert(link);
-        config = ASSERT_PTR(link->config);
+        config = ASSERT_PTR(ASSERT_PTR(link)->config);
+        assert(ASSERT_PTR(link->event)->dev);
 
-        if (mode != EVENT_UDEV_WORKER) {
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of RPS setting.");
                 return 0;
         }
@@ -977,7 +956,7 @@ static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
         log_link_debug(link, "Applying RPS CPU mask: %s", mask_str);
 
         /* Currently, this will set CPU mask to all rx queue of matched device. */
-        FOREACH_DEVICE_SYSATTR(link->device, attr) {
+        FOREACH_DEVICE_SYSATTR(link->event->dev, attr) {
                 const char *c;
 
                 c = path_startswith(attr, "queues/");
@@ -993,7 +972,7 @@ static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
                 if (!path_equal(c, "/rps_cpus"))
                         continue;
 
-                r = sd_device_set_sysattr_value(link->device, attr, mask_str);
+                r = sd_device_set_sysattr_value(link->event->dev, attr, mask_str);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to write %s sysfs attribute, ignoring: %m", attr);
         }
@@ -1001,18 +980,13 @@ static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
         return 0;
 }
 
-static int link_apply_udev_properties(Link *link, EventMode mode) {
-        LinkConfig *config;
-        sd_device *device;
-
-        assert(link);
-
-        config = ASSERT_PTR(link->config);
-        device = ASSERT_PTR(link->device);
+static int link_apply_udev_properties(Link *link) {
+        LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
+        UdevEvent *event = ASSERT_PTR(link->event);
 
         /* 1. apply ImportProperty=. */
         STRV_FOREACH(p, config->import_properties)
-                (void) udev_builtin_import_property(device, link->device_db_clone, mode, *p);
+                (void) udev_builtin_import_property(event, *p);
 
         /* 2. apply Property=. */
         STRV_FOREACH(p, config->properties) {
@@ -1027,15 +1001,15 @@ static int link_apply_udev_properties(Link *link, EventMode mode) {
                 if (!key)
                         return log_oom();
 
-                (void) udev_builtin_add_property(device, mode, key, eq + 1);
+                (void) udev_builtin_add_property(event, key, eq + 1);
         }
 
         /* 3. apply UnsetProperty=. */
         STRV_FOREACH(p, config->unset_properties)
-                (void) udev_builtin_add_property(device, mode, *p, NULL);
+                (void) udev_builtin_add_property(event, *p, NULL);
 
         /* 4. set the default properties. */
-        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE", config->filename);
+        (void) udev_builtin_add_property(event, "ID_NET_LINK_FILE", config->filename);
 
         _cleanup_free_ char *joined = NULL;
         STRV_FOREACH(d, config->dropins) {
@@ -1049,26 +1023,25 @@ static int link_apply_udev_properties(Link *link, EventMode mode) {
                         return log_oom();
         }
 
-        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE_DROPINS", joined);
+        (void) udev_builtin_add_property(event, "ID_NET_LINK_FILE_DROPINS", joined);
 
         if (link->new_name)
-                (void) udev_builtin_add_property(device, mode, "ID_NET_NAME", link->new_name);
+                (void) udev_builtin_add_property(event, "ID_NET_NAME", link->new_name);
 
         return 0;
 }
 
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, EventMode mode) {
+int link_apply_config(LinkConfigContext *ctx, Link *link) {
         int r;
 
         assert(ctx);
-        assert(rtnl);
         assert(link);
 
-        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, mode);
+        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
         if (r < 0)
                 return r;
 
-        r = link_apply_rtnl_settings(link, rtnl, mode);
+        r = link_apply_rtnl_settings(link);
         if (r < 0)
                 return r;
 
@@ -1080,15 +1053,15 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, Eve
         if (r < 0)
                 return r;
 
-        r = link_apply_sr_iov_config(link, rtnl, mode);
+        r = link_apply_sr_iov_config(link);
         if (r < 0)
                 return r;
 
-        r = link_apply_rps_cpu_mask(link, mode);
+        r = link_apply_rps_cpu_mask(link);
         if (r < 0)
                 return r;
 
-        return link_apply_udev_properties(link, mode);
+        return link_apply_udev_properties(link);
 }
 
 int config_parse_udev_property(

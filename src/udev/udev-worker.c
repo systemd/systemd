@@ -170,7 +170,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 }
 
 static int worker_process_device(UdevWorker *worker, sd_device *dev) {
-        _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
+        _cleanup_(udev_event_unrefp) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
@@ -194,7 +194,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         if (r < 0)
                 return r;
 
-        if (worker->blockdev_read_only)
+        if (worker->config.blockdev_read_only)
                 (void) worker_mark_block_device_read_only(dev);
 
         /* Disable watch during event processing. */
@@ -321,7 +321,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
 
         /* Reset the log level, as it might be changed by "OPTIONS=log_level=". */
-        log_set_max_level(worker->log_level);
+        log_set_max_level(worker->config.log_level);
 
         return 1;
 }

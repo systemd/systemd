@@ -89,7 +89,7 @@ static int fake_filesystems(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
+        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *devpath, *devname, *action;
         int r;

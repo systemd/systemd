@@ -32,7 +32,7 @@ static int builtin_net_driver_set_driver(UdevEvent *event, int argc, char **argv
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get driver for '%s': %m", sysname);
 
-        return udev_builtin_add_property(event->dev, event->event_mode, "ID_NET_DRIVER", driver);
+        return udev_builtin_add_property(event, "ID_NET_DRIVER", driver);
 }
 
 const UdevBuiltin udev_builtin_net_driver = {
