@@ -723,6 +723,8 @@ void exec_context_done(ExecContext *c) {
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
+
+        c->private_hostname = mfree(c->private_hostname);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -1066,7 +1068,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sRestrictRealtime: %s\n"
                 "%sRestrictSUIDSGID: %s\n"
                 "%sKeyringMode: %s\n"
-                "%sProtectHostname: %s\n"
+                "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n",
                 prefix, c->umask,
@@ -1093,7 +1095,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, protect_hostname_to_string(c->protect_hostname),
+                prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset));
 
