@@ -4240,6 +4240,9 @@ static int unit_verify_contexts(const Unit *u) {
         if (exec_needs_pid_namespace(ec) && !UNIT_VTABLE(u)->notify_pidref)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
+        if (ec->private_hostname && ec->protect_hostname != PROTECT_HOSTNAME_PRIVATE)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateHostname= setting is only supported with ProtectHostname=private. Refusing.");
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
@@ -4290,6 +4293,9 @@ int unit_patch_contexts(Unit *u) {
 
                 if (ec->protect_clock)
                         ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) | (UINT64_C(1) << CAP_WAKE_ALARM));
+
+                if (ec->protect_hostname < 0)
+                        ec->protect_hostname = ec->private_hostname ? PROTECT_HOSTNAME_PRIVATE : PROTECT_HOSTNAME_NO;
 
                 if (ec->dynamic_user) {
                         if (!ec->user) {
