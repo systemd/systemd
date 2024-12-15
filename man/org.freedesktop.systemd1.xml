@@ -3359,7 +3359,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5552,7 +5552,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7561,7 +7561,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9537,7 +9537,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s ProtectHostnameEx = '...';
+      readonly (ss) ProtectHostnameEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
