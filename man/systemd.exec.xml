@@ -2062,11 +2062,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectHostname=</varname></term>
 
-        <listitem><para>Takes a boolean argument or <literal>private</literal>. If enabled, sets up a new UTS namespace
-        for the executed processes. If set to a true value, changing hostname or domainname via
-        <function>sethostname()</function> and <function>setdomainname()</function> system calls is prevented. If set to
-        <literal>private</literal>, changing hostname or domainname is allowed but only affects the unit's UTS namespace.
-        Defaults to off.</para>
+        <listitem><para>Takes a boolean argument or <literal>private</literal>. If enabled, sets up a new UTS
+        namespace for the executed processes. If enabled, a hostname can be optionally specified following a
+        colon (e.g. <literal>yes:foo</literal> or <literal>private:host.example.com</literal>), and the
+        hostname is set in the new UTS namespace for the unit. If set to a true value, changing hostname or
+        domainname via <function>sethostname()</function> and <function>setdomainname()</function> system
+        calls is prevented. If set to <literal>private</literal>, changing hostname or domainname is allowed
+        but only affects the unit's UTS namespace. Defaults to off.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces
         are not available), and the unit should be written in a way that does not solely rely on this setting
