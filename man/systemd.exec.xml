@@ -2066,7 +2066,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         for the executed processes. If set to a true value, changing hostname or domainname via
         <function>sethostname()</function> and <function>setdomainname()</function> system calls is prevented. If set to
         <literal>private</literal>, changing hostname or domainname is allowed but only affects the unit's UTS namespace.
-        Defaults to off.</para>
+        Defaults to <literal>private</literal> if <varname>PrivateHostname=</varname> is set, otherwise off.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces
         are not available), and the unit should be written in a way that does not solely rely on this setting
@@ -2085,6 +2085,19 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrivateHostname=</varname></term>
+
+        <listitem><para>Takes a hostname to be set in the private UTS namespace. This implies
+        <varname>ProtectHostname=private</varname>. If the service manager cannot create a new UTS namespace,
+        then the setting will be ignored. See also the above note for <varname>ProtectHostname=</varname>.
+        Defaults to unset, and no new hostname will be applied.</para>
+
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
       <varlistentry>
