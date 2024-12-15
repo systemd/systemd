@@ -81,8 +81,33 @@ systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/jou
 
 # Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
 # $NOTIFY_SOCKET is set correctly.
-systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'printf MAINPID=$$$$\\nREADY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify && test -S /run/host/notify'
-systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p NotifyAccess=all --service-type=notify --pipe sh -c 'printf MAINPID=$$$$\\nREADY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify && env' | grep NOTIFY_SOCKET=/run/host/notify
+systemd-run \
+    --wait \
+    -p RootImage="$MINIMAL_IMAGE.raw" \
+    -p NotifyAccess=all \
+    --service-type=notify \
+    --pipe \
+    bash -xec \
+    '
+        printf MAINPID=$$$$\\nREADY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify
+        [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+        [[ "$$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
+        test -S /run/host/notify
+    '
+# Same test with systemd-notify and RootDirectory=
+systemd-run \
+    --wait \
+    -p RootDirectory=/ \
+    -p NotifyAccess=all \
+    --service-type=notify \
+    --pipe \
+    bash -xec \
+    '
+        systemd-notify --pid=auto --ready
+        [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+        [[ "$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
+        test -S /run/host/notify
+    '
 
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
