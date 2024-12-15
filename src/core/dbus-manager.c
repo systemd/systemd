@@ -1337,10 +1337,6 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (sd_bus_message_get_bus(message) == m->api_bus) {
-
-                /* Note that direct bus connection subscribe by
-                 * default, we only track peers on the API bus here */
-
                 if (!m->subscribed) {
                         r = sd_bus_track_new(sd_bus_message_get_bus(message), &m->subscribed, NULL, NULL);
                         if (r < 0)
@@ -1350,9 +1346,14 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
                 r = sd_bus_track_add_sender(m->subscribed, message);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return sd_bus_error_set(error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+        } else {
+                r = set_ensure_put(&m->private_buses_subscribed, NULL, sd_bus_message_get_bus(message));
+                if (r < 0)
+                        return r;
         }
+
+        if (r == 0)
+                return sd_bus_error_set(error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1373,9 +1374,11 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
                 r = sd_bus_track_remove_sender(m->subscribed, message);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return sd_bus_error_set(error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
-        }
+        } else
+                r = !!set_remove(m->private_buses_subscribed, sd_bus_message_get_bus(message));
+
+        if (r == 0)
+                return sd_bus_error_set(error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -2339,7 +2342,7 @@ static void manager_unit_files_changed(Manager *m, const InstallChange *changes,
         /* See comments for this variable in manager.h */
         m->unit_file_state_outdated = true;
 
-        r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
+        r = bus_foreach_bus_signal(m, NULL, send_unit_files_changed, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send UnitFilesChanged signal, ignoring: %m");
 }
@@ -3706,7 +3709,7 @@ void bus_manager_send_finished(
 
         assert(m);
 
-        r = bus_foreach_bus(
+        r = bus_foreach_bus_signal(
                         m,
                         NULL,
                         send_finished,
@@ -3744,7 +3747,7 @@ void bus_manager_send_reloading(Manager *m, bool active) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_reloading, INT_TO_PTR(active));
+        r = bus_foreach_bus_signal(m, NULL, send_reloading, INT_TO_PTR(active));
         if (r < 0)
                 log_debug_errno(r, "Failed to send reloading signal: %m");
 }
@@ -3763,7 +3766,7 @@ void bus_manager_send_change_signal(Manager *m) {
 
         assert(m);
 
-        r = bus_foreach_bus(m, NULL, send_changed_signal, NULL);
+        r = bus_foreach_bus_signal(m, NULL, send_changed_signal, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to send manager change signal: %m");
 }
