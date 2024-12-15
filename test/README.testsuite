@@ -18,7 +18,7 @@ To make sure `mkosi` doesn't try to build systemd from source during the image b
 process, you can add the following to `mkosi.local.conf`:
 
 ```
-[Content]
+[Build]
 Environment=NO_BUILD=1
 ```
 
