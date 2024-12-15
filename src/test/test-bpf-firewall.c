@@ -151,6 +151,7 @@ int main(int argc, char *argv[]) {
 
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
+        ASSERT_OK(unit_patch_contexts(u));
 
         unit_dump(u, stdout, NULL);
 
@@ -205,6 +206,7 @@ int main(int argc, char *argv[]) {
 
                 SERVICE(u)->type = SERVICE_ONESHOT;
                 u->load_state = UNIT_LOADED;
+                ASSERT_OK(unit_patch_contexts(u));
 
                 ASSERT_OK(unit_start(u, NULL));
 

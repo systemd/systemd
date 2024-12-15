@@ -13,6 +13,7 @@
 #include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
+#include "dns-domain.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -21,6 +22,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
@@ -1260,6 +1262,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostname", "b", property_get_protect_hostname, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostnameEx", "s", property_get_protect_hostname_ex, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivateHostname", "s", NULL, offsetof(ExecContext, private_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2042,6 +2045,35 @@ int bus_exec_context_set_transient_property(
                         c->protect_hostname = t;
                         (void) unit_write_settingf(u, flags, name, "ProtectHostname=%s",
                                                    protect_hostname_to_string(c->protect_hostname));
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "PrivateHostname")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(s)) {
+                        if (!hostname_is_valid(s, /* flags = */ 0))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, s);
+
+                        r = dns_name_is_valid(s);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, s);
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = free_and_strdup(&c->private_hostname, s);
+                        if (r < 0)
+                                return r;
+
+                        (void) unit_write_settingf(u, flags, name, "%s=%s", name, strempty(s));
                 }
 
                 return 1;

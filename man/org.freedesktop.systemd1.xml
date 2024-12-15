@@ -3361,6 +3361,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHostnameEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -3959,6 +3961,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -4683,6 +4687,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -5554,6 +5560,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHostnameEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -6164,6 +6172,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -6860,6 +6870,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -7563,6 +7575,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHostnameEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -8099,6 +8113,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -8707,6 +8723,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -9539,6 +9557,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHostnameEx = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s PrivateHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
@@ -10061,6 +10081,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProtectProc is not documented!-->
 
     <!--property ProcSubset is not documented!-->
+
+    <!--property PrivateHostname is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
 
@@ -10655,6 +10677,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostnameEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
@@ -12319,7 +12343,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>,
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>, and
+      <varname>PrivateHostname</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12363,7 +12388,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>, and
+      <varname>PrivateHostname</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12404,7 +12430,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>, and
+      <varname>PrivateHostname</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12445,7 +12472,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname>, and
+      <varname>PrivateHostname</varname> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>

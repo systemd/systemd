@@ -26,8 +26,9 @@ testcase_yes() {
 }
 
 testcase_private() {
-    systemd-run --wait -p ProtectHostnameEx=private \
+    systemd-run --wait -p ProtectHostnameEx=private -p PrivateHostname=hoge \
         -P bash -xec '
+            test "$(hostname)" = "hoge"
             hostname foo
             test "$(hostname)" = "foo"
         '
@@ -35,6 +36,22 @@ testcase_private() {
     # Verify host hostname is unchanged.
     test "$(hostname)" = "$LEGACY_HOSTNAME"
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
+    # PrivateHostname= implies ProtectHostname=
+    systemd-run --wait -p PrivateHostname=hoge \
+        -P bash -xec '
+            test "$(hostname)" = "hoge"
+            hostname foo
+            test "$(hostname)" = "foo"
+        '
+
+    # Verify host hostname is unchanged.
+    test "$(hostname)" = "$LEGACY_HOSTNAME"
+    test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
+    # PrivateHostname= combined with ProtectHostname=yes/no is refused
+    (! systemd-run --wait -p ProtectHostname=yes -p PrivateHostname=hoge true)
+    (! systemd-run --wait -p ProtectHostname=no  -p PrivateHostname=hoge true)
 
     # Verify /proc/sys/kernel/hostname is not bind mounted from host read-only.
     (! systemd-run --wait -p ProtectHostnameEx=private -p PrivateMounts=yes \
