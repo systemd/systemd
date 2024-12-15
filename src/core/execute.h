@@ -337,6 +337,7 @@ struct ExecContext {
         ProtectHome protect_home;
         PrivatePIDs private_pids;
         ProtectHostname protect_hostname;
+        char *private_hostname;
 
         bool dynamic_user;
         bool remove_ipc;
