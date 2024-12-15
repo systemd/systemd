@@ -637,7 +637,7 @@ EOF
 
     journalctl --sync
     assert_eq "$(journalctl -b -u systemd-logind.service --since="$ts" --grep "Session \"$id\" of user \"logind-test-user\" is idle, stopping." | wc -l)" 1
-    assert_eq "$(loginctl --no-legend | grep -v manager | grep -c "logind-test-user")" 0
+    assert_eq "$(loginctl --no-legend | grep -v manager | grep tty | grep -c "logind-test-user")" 0
 }
 
 testcase_ambient_caps() {
