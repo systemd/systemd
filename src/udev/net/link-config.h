@@ -12,10 +12,10 @@
 #include "list.h"
 #include "net-condition.h"
 #include "netif-naming-scheme.h"
-#include "udev-event.h"
 
 typedef struct LinkConfigContext LinkConfigContext;
 typedef struct LinkConfig LinkConfig;
+typedef struct UdevEvent UdevEvent;
 
 typedef enum MACAddressPolicy {
         MAC_ADDRESS_POLICY_PERSISTENT,
@@ -26,16 +26,15 @@ typedef enum MACAddressPolicy {
 } MACAddressPolicy;
 
 typedef struct Link {
-        int ifindex;
-        const char *ifname;
-        const char *new_name;
-        char **altnames;
-
+        UdevEvent *event;
         LinkConfig *config;
-        sd_device *device;
-        sd_device *device_db_clone;
+
+        /* from sd_device */
+        const char *ifname;
+        int ifindex;
         sd_device_action_t action;
 
+        /* from rtnl */
         char *kind;
         const char *driver;
         uint16_t iftype;
@@ -44,6 +43,9 @@ typedef struct Link {
         struct hw_addr_data permanent_hw_addr;
         unsigned name_assign_type;
         unsigned addr_assign_type;
+
+        /* generated name */
+        const char *new_name;
 } Link;
 
 struct LinkConfig {
@@ -102,12 +104,12 @@ int link_load_one(LinkConfigContext *ctx, const char *filename);
 int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret);
+int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret);
 Link* link_free(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 int link_get_config(LinkConfigContext *ctx, Link *link);
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, EventMode mode);
+int link_apply_config(LinkConfigContext *ctx, Link *link);
 
 const char* mac_address_policy_to_string(MACAddressPolicy p) _const_;
 MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;

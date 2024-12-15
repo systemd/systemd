@@ -12,7 +12,7 @@
 
 static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result_buf, size_t buf_size) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
+        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1));
 

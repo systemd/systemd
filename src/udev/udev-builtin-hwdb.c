@@ -18,11 +18,10 @@
 static sd_hwdb *hwdb;
 
 int udev_builtin_hwdb_lookup(
-                sd_device *dev,
+                UdevEvent *event,
                 const char *prefix,
                 const char *modalias,
-                const char *filter,
-                EventMode mode) {
+                const char *filter) {
 
         _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
@@ -42,7 +41,7 @@ int udev_builtin_hwdb_lookup(
                 if (filter && fnmatch(filter, key, FNM_NOESCAPE) != 0)
                         continue;
 
-                r = udev_builtin_add_property(dev, mode, key, value);
+                r = udev_builtin_add_property(event, key, value);
                 if (r < 0)
                         return r;
                 n++;
@@ -69,18 +68,18 @@ static const char* modalias_usb(sd_device *dev, char *s, size_t size) {
 }
 
 static int udev_builtin_hwdb_search(
-                sd_device *dev,
+                UdevEvent *event,
                 sd_device *srcdev,
                 const char *subsystem,
                 const char *prefix,
-                const char *filter,
-                EventMode mode) {
+                const char *filter) {
 
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         char s[LINE_MAX];
         bool last = false;
         int r = 0;
 
-        assert(dev);
+        assert(event);
 
         if (!srcdev)
                 srcdev = dev;
@@ -108,7 +107,7 @@ static int udev_builtin_hwdb_search(
 
                 log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
 
-                r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, mode);
+                r = udev_builtin_hwdb_lookup(event, prefix, modalias, filter);
                 if (r > 0)
                         break;
 
@@ -166,7 +165,7 @@ static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
 
         /* query a specific key given as argument */
         if (argv[optind]) {
-                r = udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, event->event_mode);
+                r = udev_builtin_hwdb_lookup(event, prefix, argv[optind], filter);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to look up hwdb: %m");
                 if (r == 0)
@@ -181,7 +180,7 @@ static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
                         return log_device_debug_errno(dev, r, "Failed to create sd_device object '%s': %m", device);
         }
 
-        r = udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, event->event_mode);
+        r = udev_builtin_hwdb_search(event, srcdev, subsystem, prefix, filter);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to look up hwdb: %m");
         if (r == 0)
