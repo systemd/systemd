@@ -739,6 +739,19 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# 2170p running coreboot
+evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHewlett-Packard*:pn*EliteBook2170p:*
+evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHP*:pn*EliteBook2170p:*
+ KEYBOARD_KEY_66=backspace
+ KEYBOARD_KEY_be=battery		# Fn+F2
+ KEYBOARD_KEY_d7=switchvideomode	# Fn+F4
+ KEYBOARD_KEY_a3=mute			# Fn+F5
+ KEYBOARD_KEY_a1=volumedown		# Fn+F6
+ KEYBOARD_KEY_a2=volumeup		# Fn+F7
+ KEYBOARD_KEY_a4=brightnessdown		# Fn+F9
+ KEYBOARD_KEY_c3=brightnessup		# Fn+F10
+ KEYBOARD_KEY_e3=wlan			# Fn+F12
+
 # Elitebook 2760p
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
  KEYBOARD_KEY_89=battery                                # Fn+F8
