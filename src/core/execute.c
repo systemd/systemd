@@ -620,6 +620,7 @@ void exec_context_init(ExecContext *c) {
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
+                .protect_hostname = _PROTECT_HOSTNAME_INVALID,
         };
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
@@ -723,6 +724,8 @@ void exec_context_done(ExecContext *c) {
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
+
+        c->private_hostname = mfree(c->private_hostname);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -1066,9 +1069,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sRestrictRealtime: %s\n"
                 "%sRestrictSUIDSGID: %s\n"
                 "%sKeyringMode: %s\n"
-                "%sProtectHostname: %s\n"
                 "%sProtectProc: %s\n"
-                "%sProcSubset: %s\n",
+                "%sProcSubset: %s\n"
+                "%sProtectHostname: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1093,9 +1096,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, protect_hostname_to_string(c->protect_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
-                prefix, proc_subset_to_string(c->proc_subset));
+                prefix, proc_subset_to_string(c->proc_subset),
+                prefix, protect_hostname_to_string(c->protect_hostname));
+
+        if (c->private_hostname)
+                fprintf(f, "%sPrivateHostname: %s\n", prefix, c->private_hostname);
 
         if (c->set_login_environment >= 0)
                 fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));
