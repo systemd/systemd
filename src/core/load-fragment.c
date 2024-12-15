@@ -141,7 +141,6 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMo
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_hostname, protect_hostname, ProtectHostname);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_preserve_mode, exec_preserve_mode, ExecPreserveMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType);
@@ -6742,4 +6741,58 @@ int config_parse_cgroup_nft_set(
         Unit *u = ASSERT_PTR(userdata);
 
         return config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->nft_set_context, u);
+}
+
+int config_parse_protect_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        Unit *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *h = NULL, *p = NULL;
+        int r;
+
+        if (isempty(rvalue)) {
+                c->protect_hostname = PROTECT_HOSTNAME_NO;
+                c->private_hostname = mfree(c->private_hostname);
+                return 1;
+        }
+
+        const char *colon = strchr(rvalue, ':');
+        if (colon) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = unit_full_printf_full(u, colon + 1, HOST_NAME_MAX, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+
+                if (isempty(resolved))
+                        return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+                r = config_parse_hostname(unit, filename, line, section, section_line, lvalue, ltype, resolved, &h, /* userdata = */ NULL);
+                if (r <= 0)
+                        return r;
+
+                p = strndup(rvalue, colon - rvalue);
+                if (!p)
+                        return log_oom();
+        }
+
+        ProtectHostname t = protect_hostname_from_string(p ?: rvalue);
+        if (t < 0 || (t == PROTECT_HOSTNAME_NO && h))
+                return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
+
+        c->protect_hostname = t;
+        free_and_replace(c->private_hostname, h);
+        return 1;
 }

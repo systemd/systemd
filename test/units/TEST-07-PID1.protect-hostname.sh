@@ -21,6 +21,33 @@ testcase_yes() {
     # can only set hostname.
     (! systemd-run --wait -p ProtectHostname=yes hostname foo)
 
+    # ProtectHostname=yes can optionally take a hostname.
+    systemd-run --wait -p ProtectHostnameEx=yes:hoge \
+        -P bash -xec '
+            test "$(hostname)" = "hoge"
+            (! hostname foo)
+            test "$(hostname)" = "hoge"
+        '
+
+    # Verify host hostname is unchanged.
+    test "$(hostname)" = "$LEGACY_HOSTNAME"
+    test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
+    # ProtectHostname= supportes specifiers.
+    mkdir -p /run/systemd/system/
+    cat >/run/systemd/system/test-protect-hostname-yes@.service <<EOF
+[Service]
+Type=oneshot
+ExecStart=bash -xec 'test "\$\$(hostname)" = "%i"; (! hostname foo); test "\$\$(hostname)" = "%i"'
+ProtectHostname=yes:%i
+EOF
+    systemctl daemon-reload
+    systemctl start --wait test-protect-hostname-yes@hoge.example.com.service
+
+    # Verify host hostname is unchanged.
+    test "$(hostname)" = "$LEGACY_HOSTNAME"
+    test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
     systemd-run --wait -p ProtectHostname=yes -p PrivateMounts=yes \
         findmnt --mountpoint /proc/sys/kernel/hostname
 }
@@ -36,9 +63,51 @@ testcase_private() {
     test "$(hostname)" = "$LEGACY_HOSTNAME"
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
 
+    # ProtectHostname=private can optionally take a hostname.
+    systemd-run --wait -p ProtectHostnameEx=private:hoge \
+        -P bash -xec '
+            test "$(hostname)" = "hoge"
+            hostname foo
+            test "$(hostname)" = "foo"
+        '
+
+    # Verify host hostname is unchanged.
+    test "$(hostname)" = "$LEGACY_HOSTNAME"
+    test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
+    # ProtectHostname= supportes specifiers.
+    mkdir -p /run/systemd/system/
+    cat >/run/systemd/system/test-protect-hostname-private@.service <<EOF
+[Service]
+Type=oneshot
+ExecStart=bash -xec 'test "\$\$(hostname)" = "%i"; hostname foo; test "\$\$(hostname)" = "foo"'
+ProtectHostname=private:%i
+EOF
+    systemctl daemon-reload
+    systemctl start --wait test-protect-hostname-private@hoge.example.com.service
+
+    # Verify host hostname is unchanged.
+    test "$(hostname)" = "$LEGACY_HOSTNAME"
+    test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
+
     # Verify /proc/sys/kernel/hostname is not bind mounted from host read-only.
     (! systemd-run --wait -p ProtectHostnameEx=private -p PrivateMounts=yes \
         findmnt --mountpoint /proc/sys/kernel/hostname)
+}
+
+testcase_invalid() {
+    # ProtectHostname=no cannot take hostname.
+    (! systemd-run --wait -p ProtectHostnameEx=no:hoge true)
+
+    # Invalid hostname.
+    (! systemd-run --wait -p ProtectHostnameEx=yes: true)
+    (! systemd-run --wait -p ProtectHostnameEx=yes:.foo true)
+    (! systemd-run --wait -p ProtectHostnameEx=yes:foo.-example.com true)
+    (! systemd-run --wait -p ProtectHostnameEx=yes:foo..example.com true)
+    (! systemd-run --wait -p ProtectHostnameEx=private: true)
+    (! systemd-run --wait -p ProtectHostnameEx=private:.foo true)
+    (! systemd-run --wait -p ProtectHostnameEx=private:foo.-example.com true)
+    (! systemd-run --wait -p ProtectHostnameEx=private:foo..example.com true)
 }
 
 run_testcases
