@@ -36,8 +36,6 @@ typedef enum AnsiColorState  {
         ANSI_COLOR_STATE_ESC,
         ANSI_COLOR_STATE_CSI_SEQUENCE,
         ANSI_COLOR_STATE_OSC_SEQUENCE,
-        ANSI_COLOR_STATE_NEWLINE,
-        ANSI_COLOR_STATE_CARRIAGE_RETURN,
         _ANSI_COLOR_STATE_MAX,
         _ANSI_COLOR_STATE_INVALID = -EINVAL,
 } AnsiColorState;
@@ -427,39 +425,33 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                 switch (f->ansi_color_state) {
 
                 case ANSI_COLOR_STATE_TEXT:
-                        break;
-
-                case ANSI_COLOR_STATE_NEWLINE:
-                case ANSI_COLOR_STATE_CARRIAGE_RETURN:
-                        /* Immediately after a newline (ASCII 10) or carriage return (ASCII 13) insert an
-                         * ANSI sequence set the background color back. */
-
-                        r = insert_background_color(f, i);
-                        if (r < 0)
-                                return r;
-
-                        i += r;
+                        if (IN_SET(c, '\n', '\r')) {
+                                /* Immediately after a newline (ASCII 10) or carriage return (ASCII 13) insert an
+                                 * ANSI sequence set the background color back. */
+                                r = insert_background_color(f, i+1);
+                                if (r < 0)
+                                        return r;
+                                i += r;
+                        } else if (c == 0x1B) /* ESC */
+                                f->ansi_color_state = ANSI_COLOR_STATE_ESC;
                         break;
 
                 case ANSI_COLOR_STATE_ESC:
 
-                        if (c == '[') {
+                        if (c == '[')
                                 f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
-                                continue;
-                        } else if (c == ']') {
+                        else if (c == ']')
                                 f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
-                                continue;
-                        } else if (c == 'c') {
-                                /* "Full reset" aka "Reset to initial state"*/
+                        else if (c == 'c') {
+                                /* "Full reset" aka "Reset to initial state" */
                                 r = insert_background_color(f, i+1);
                                 if (r < 0)
                                         return r;
 
                                 i += r;
-
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
-                                continue;
-                        }
+                        } else
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         break;
 
                 case ANSI_COLOR_STATE_CSI_SEQUENCE:
@@ -472,7 +464,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                         /* Safety check: lets not accept unbounded CSI sequences */
 
                                         f->csi_sequence = mfree(f->csi_sequence);
-                                        break;
+                                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                                 } else if (!strextend(&f->csi_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
                         } else {
@@ -498,7 +490,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->csi_sequence = mfree(f->csi_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-                        continue;
+                        break;
 
                 case ANSI_COLOR_STATE_OSC_SEQUENCE:
 
@@ -506,7 +498,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 if (strlen_ptr(f->osc_sequence) >= ANSI_SEQUENCE_LENGTH_MAX) {
                                         /* Safety check: lets not accept unbounded OSC sequences */
                                         f->osc_sequence = mfree(f->osc_sequence);
-                                        break;
+                                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                                 } else if (!strextend(&f->osc_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
                         } else {
@@ -534,20 +526,11 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-                        continue;
+                        break;
 
                 default:
                         assert_not_reached();
                 }
-
-                if (c == '\n')
-                        f->ansi_color_state = ANSI_COLOR_STATE_NEWLINE;
-                else if (c == '\r')
-                        f->ansi_color_state = ANSI_COLOR_STATE_CARRIAGE_RETURN;
-                else if (c == 0x1B) /* ESC */
-                        f->ansi_color_state = ANSI_COLOR_STATE_ESC;
-                else
-                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
         }
 
         return 0;
