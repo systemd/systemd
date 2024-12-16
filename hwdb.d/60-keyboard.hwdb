@@ -2223,6 +2223,11 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFE*:pvr*:*
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
 
+# VAIO VJFH52
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFH52F11X*:pvr*:*
+ KEYBOARD_KEY_f7=f23		                        # Fn+F1 toggle touchpad off
+ KEYBOARD_KEY_f8=f22		                        # Fn+F1 toggle touchpad on
+
 ###########################################################
 # Positivo
 ###########################################################
