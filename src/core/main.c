@@ -1233,13 +1233,13 @@ static int prepare_reexecute(
         assert(ret_f);
         assert(ret_fds);
 
-        r = manager_open_serialization(m, &f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create serialization file: %m");
-
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading++;
         bus_manager_send_reloading(m, true);
+
+        r = manager_open_serialization(m, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create serialization file: %m");
 
         fds = fdset_new();
         if (!fds)
@@ -1248,9 +1248,6 @@ static int prepare_reexecute(
         r = manager_serialize(m, f, fds, switching_root);
         if (r < 0)
                 return r;
-
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0)
