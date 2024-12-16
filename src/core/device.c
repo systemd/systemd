@@ -85,7 +85,9 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         Unit *u = UNIT(ASSERT_PTR(d));
         int r;
 
-        if (streq_ptr(d->sysfs, sysfs))
+        assert(sysfs);
+
+        if (path_equal(d->sysfs, sysfs))
                 return 0;
 
         Hashmap **devices = &u->manager->devices_by_sysfs;
