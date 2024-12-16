@@ -59,6 +59,7 @@ struct SocketPeer {
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD]             = UNIT_INACTIVE,
         [SOCKET_START_PRE]        = UNIT_ACTIVATING,
+        [SOCKET_START_OPEN]       = UNIT_ACTIVATING,
         [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
         [SOCKET_START_POST]       = UNIT_ACTIVATING,
         [SOCKET_LISTENING]        = UNIT_ACTIVE,
@@ -1821,6 +1822,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                 socket_unwatch_fds(s);
 
         if (!IN_SET(state,
+                    SOCKET_START_OPEN,
                     SOCKET_START_CHOWN,
                     SOCKET_START_POST,
                     SOCKET_LISTENING,
@@ -1859,6 +1861,7 @@ static int socket_coldplug(Unit *u) {
         }
 
         if (IN_SET(s->deserialized_state,
+                   SOCKET_START_OPEN,
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST,
                    SOCKET_LISTENING,
@@ -1867,7 +1870,11 @@ static int socket_coldplug(Unit *u) {
                 /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
                  * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN state for
                  * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
-                 * and if there's a mismatch, warn loudly. */
+                 * and if there's a mismatch, warn loudly.
+                 *
+                 * Note that SOCKET_START_OPEN requires no special treatment, as it's only intermediate
+                 * between SOCKET_START_PRE and SOCKET_START_CHOWN and shall otherwise not be observed.
+                 * It's listed only for consistency. */
 
                 r = socket_check_open(s);
                 if (r == SOCKET_OPEN_NONE)
@@ -2225,12 +2232,7 @@ static void socket_enter_start_chown(Socket *s) {
         int r;
 
         assert(s);
-
-        r = socket_open_fds(s);
-        if (r < 0) {
-                log_unit_warning_errno(UNIT(s), r, "Failed to listen on sockets: %m");
-                goto fail;
-        }
+        assert(s->state == SOCKET_START_OPEN);
 
         if (!isempty(s->user) || !isempty(s->group)) {
 
@@ -2241,17 +2243,36 @@ static void socket_enter_start_chown(Socket *s) {
                 r = socket_chown(s, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-chown' task: %m");
-                        goto fail;
+                        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                        return;
                 }
 
                 socket_set_state(s, SOCKET_START_CHOWN);
         } else
                 socket_enter_start_post(s);
+}
 
-        return;
+static void socket_enter_start_open(Socket *s) {
+        int r;
 
-fail:
-        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+        assert(s);
+        assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED, SOCKET_START_PRE));
+
+        /* We force a state transition here even though we're not spawning any process (i.e. the state is purely
+         * intermediate), so that failure of socket_open_fds() always causes a state change in unit_notify().
+         * Otherwise, if no Exec*= is defined, we might go from previous SOCKET_FAILED to SOCKET_FAILED,
+         * meaning the OnFailure= deps are unexpectedly skipped (#35635). */
+
+        socket_set_state(s, SOCKET_START_OPEN);
+
+        r = socket_open_fds(s);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(s), r, "Failed to listen on sockets: %m");
+                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                return;
+        }
+
+        socket_enter_start_chown(s);
 }
 
 static void socket_enter_start_pre(Socket *s) {
@@ -2278,7 +2299,7 @@ static void socket_enter_start_pre(Socket *s) {
 
                 socket_set_state(s, SOCKET_START_PRE);
         } else
-                socket_enter_start_chown(s);
+                socket_enter_start_open(s);
 }
 
 static void socket_enter_running(Socket *s, int cfd_in) {
@@ -2466,6 +2487,7 @@ static int socket_start(Unit *u) {
         /* Already on it! */
         if (IN_SET(s->state,
                    SOCKET_START_PRE,
+                   SOCKET_START_OPEN,
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST))
                 return 0;
@@ -2517,6 +2539,7 @@ static int socket_stop(Unit *u) {
          * kill mode. */
         if (IN_SET(s->state,
                    SOCKET_START_PRE,
+                   SOCKET_START_OPEN,
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST)) {
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, SOCKET_SUCCESS);
@@ -3153,7 +3176,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 case SOCKET_START_PRE:
                         if (f == SOCKET_SUCCESS)
-                                socket_enter_start_chown(s);
+                                socket_enter_start_open(s);
                         else
                                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, f);
                         break;
