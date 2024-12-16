@@ -41,7 +41,7 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
         return RET_NERRNO(memfd_create(name, mode_compat));
 }
 
-int memfd_new(const char *name) {
+int memfd_new_full(const char *name, unsigned extra_flags) {
         _cleanup_free_ char *g = NULL;
 
         if (!name) {
@@ -70,7 +70,9 @@ int memfd_new(const char *name) {
                 }
         }
 
-        return memfd_create_wrapper(name, MFD_ALLOW_SEALING | MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        return memfd_create_wrapper(
+                        name,
+                        MFD_CLOEXEC | MFD_NOEXEC_SEAL | extra_flags);
 }
 
 int memfd_add_seals(int fd, unsigned int seals) {
@@ -183,7 +185,7 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
         if (sz == SIZE_MAX)
                 sz = strlen(data);
 
-        fd = memfd_new(name);
+        fd = memfd_new_full(name, MFD_ALLOW_SEALING);
         if (fd < 0)
                 return fd;
 
