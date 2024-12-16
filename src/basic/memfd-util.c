@@ -24,6 +24,11 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
         unsigned mode_compat;
         int mfd;
 
+        assert(name);
+
+        /* Wrapper around memfd_create() which adds compat with older kernels where memfd_create() didn't
+         * support MFD_EXEC/MFD_NOEXEC_SEAL. (kernel 6.3+) */
+
         mfd = RET_NERRNO(memfd_create(name, mode));
         if (mfd != -EINVAL)
                 return mfd;
@@ -36,11 +41,11 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
         return RET_NERRNO(memfd_create(name, mode_compat));
 }
 
-int memfd_new(const char *name) {
+int memfd_new_full(const char *name, unsigned extra_flags) {
         _cleanup_free_ char *g = NULL;
 
         if (!name) {
-                char pr[17] = {};
+                char pr[TASK_COMM_LEN] = {};
 
                 /* If no name is specified we generate one. We include
                  * a hint indicating our library implementation, and
@@ -65,16 +70,18 @@ int memfd_new(const char *name) {
                 }
         }
 
-        return memfd_create_wrapper(name, MFD_ALLOW_SEALING | MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        return memfd_create_wrapper(
+                        name,
+                        MFD_CLOEXEC | MFD_NOEXEC_SEAL | extra_flags);
 }
 
-int memfd_add_seals(int fd, unsigned int seals) {
+int memfd_add_seals(int fd, unsigned seals) {
         assert(fd >= 0);
 
         return RET_NERRNO(fcntl(fd, F_ADD_SEALS, seals));
 }
 
-int memfd_get_seals(int fd, unsigned int *ret_seals) {
+int memfd_get_seals(int fd, unsigned *ret_seals) {
         int r;
 
         assert(fd >= 0);
@@ -88,14 +95,14 @@ int memfd_get_seals(int fd, unsigned int *ret_seals) {
         return 0;
 }
 
-int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
+int memfd_map(int fd, uint64_t offset, size_t size, void **ret) {
         unsigned int seals;
         void *q;
         int r;
 
         assert(fd >= 0);
         assert(size > 0);
-        assert(p);
+        assert(ret);
 
         r = memfd_get_seals(fd, &seals);
         if (r < 0)
@@ -108,7 +115,7 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         if (q == MAP_FAILED)
                 return -errno;
 
-        *p = q;
+        *ret = q;
         return 0;
 }
 
@@ -128,16 +135,16 @@ int memfd_get_sealed(int fd) {
         return FLAGS_SET(seals, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
 
-int memfd_get_size(int fd, uint64_t *sz) {
+int memfd_get_size(int fd, uint64_t *ret) {
         struct stat stat;
 
         assert(fd >= 0);
-        assert(sz);
+        assert(ret);
 
         if (fstat(fd, &stat) < 0)
                 return -errno;
 
-        *sz = stat.st_size;
+        *ret = stat.st_size;
         return 0;
 }
 
@@ -147,12 +154,12 @@ int memfd_set_size(int fd, uint64_t sz) {
         return RET_NERRNO(ftruncate(fd, sz));
 }
 
-int memfd_new_and_map(const char *name, size_t sz, void **p) {
+int memfd_new_and_map(const char *name, size_t sz, void **ret) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(sz > 0);
-        assert(p);
+        assert(ret);
 
         fd = memfd_new(name);
         if (fd < 0)
@@ -162,7 +169,7 @@ int memfd_new_and_map(const char *name, size_t sz, void **p) {
         if (r < 0)
                 return r;
 
-        r = memfd_map(fd, 0, sz, p);
+        r = memfd_map(fd, 0, sz, ret);
         if (r < 0)
                 return r;
 
@@ -171,26 +178,23 @@ int memfd_new_and_map(const char *name, size_t sz, void **p) {
 
 int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
         _cleanup_close_ int fd = -EBADF;
-        ssize_t n;
-        off_t f;
         int r;
 
         assert(data || sz == 0);
 
-        fd = memfd_new(name);
+        if (sz == SIZE_MAX)
+                sz = strlen(data);
+
+        fd = memfd_new_full(name, MFD_ALLOW_SEALING);
         if (fd < 0)
                 return fd;
 
         if (sz > 0) {
-                n = write(fd, data, sz);
+                ssize_t n = pwrite(fd, data, sz, 0);
                 if (n < 0)
                         return -errno;
                 if ((size_t) n != sz)
                         return -EIO;
-
-                f = lseek(fd, 0, SEEK_SET);
-                if (f != 0)
-                        return -errno;
         }
 
         r = memfd_set_sealed(fd);
