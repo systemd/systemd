@@ -549,7 +549,7 @@ void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value) {
 int open_serialization_fd(const char *ident) {
         assert(ident);
 
-        int fd = memfd_new(ident);
+        int fd = memfd_new_full(ident, MFD_ALLOW_SEALING);
         if (fd < 0)
                 return fd;
 
@@ -572,6 +572,33 @@ int open_serialization_file(const char *ident, FILE **ret) {
                 return -errno;
 
         *ret = TAKE_PTR(f);
-
         return 0;
+}
+
+int finish_serialization_fd(int fd) {
+        assert(fd >= 0);
+
+        if (lseek(fd, 0, SEEK_SET) < 0)
+                return -errno;
+
+        return memfd_set_sealed(fd);
+}
+
+int finish_serialization_file(FILE *f) {
+        int r;
+
+        assert(f);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        if (fseeko(f, 0, SEEK_SET) < 0)
+                return -errno;
+
+        int fd = fileno(f);
+        if (fd < 0)
+                return -EBADF;
+
+        return memfd_set_sealed(fd);
 }

@@ -80,6 +80,7 @@
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -3762,8 +3763,9 @@ int manager_reload(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finish serialization: %m");
 
         /* 💀 This is the point of no return, from here on there is no way back. 💀 */
         reloading = NULL;
