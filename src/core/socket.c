@@ -1847,8 +1847,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                     SOCKET_RUNNING,
                     SOCKET_STOP_PRE,
                     SOCKET_STOP_PRE_SIGTERM,
-                    SOCKET_STOP_PRE_SIGKILL,
-                    SOCKET_CLEANING))
+                    SOCKET_STOP_PRE_SIGKILL))
                 socket_close_fds(s);
 
         if (state != old_state)
