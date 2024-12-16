@@ -93,7 +93,7 @@ static const MountPoint mount_table[] = {
 #endif
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devpts",      "/dev/pts",                  "devpts",     "mode=0620,gid=" STRINGIFY(TTY_GID),        MS_NOSUID|MS_NOEXEC,
+        { "devpts",      "/dev/pts",                  "devpts",     "mode="DEV_TTY_MODE",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
           NULL,          MNT_IN_CONTAINER           },
 #if ENABLE_SMACK
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
