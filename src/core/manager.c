@@ -3124,9 +3124,6 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         case SIGTERM:
                 if (MANAGER_IS_SYSTEM(m)) {
                         /* This is for compatibility with the original sysvinit */
-                        if (verify_run_space_and_log("Refusing to reexecute") < 0)
-                                break;
-
                         m->objective = MANAGER_REEXECUTE;
                         break;
                 }
@@ -3180,9 +3177,6 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         case SIGHUP:
-                if (verify_run_space_and_log("Refusing to reload") < 0)
-                        break;
-
                 m->objective = MANAGER_RELOAD;
                 break;
 
