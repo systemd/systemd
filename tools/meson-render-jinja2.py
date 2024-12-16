@@ -17,7 +17,9 @@ def parse_config_h(filename):
         if not m:
             continue
         a, b = m.groups()
-        if b and b[0] in '0123456789"':
+        # The function ast.literal_eval() cannot evaluate octal integers, e.g. 0600.
+        # So, it is intentional that the string below does not contain '0'.
+        if b and (b[0] in '123456789"' or b == '0'):
             b = ast.literal_eval(b)
         ans[a] = b
     return ans
