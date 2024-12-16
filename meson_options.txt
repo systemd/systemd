@@ -549,6 +549,3 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
-
-option('always-use-uki-cmdline', type : 'boolean', value: false,
-       description : 'controls what cmdline the stub uses')

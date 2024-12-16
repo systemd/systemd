@@ -55,7 +55,6 @@ endif
 
 efi_conf = configuration_data()
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
-efi_conf.set10('ALWAYS_USE_UKI_CMDLINE', get_option('always-use-uki-cmdline'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
         c = get_option('efi-' + ctype).split(',')
