@@ -330,6 +330,8 @@ option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
 option('group-render-mode', type : 'string', value : '0666',
        description : 'Access mode for devices owned by render group (e.g. /dev/dri/renderD*, /dev/kfd).')
+option('dev-tty-mode', type : 'string', value : '0620',
+       description : 'Access mode for tty/pts devices.')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
