@@ -1271,7 +1271,7 @@ static int home_start_work(
 
         log_debug("Sending to worker: %s", formatted);
 
-        stdout_fd = memfd_create_wrapper("homework-stdout", MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)
                 return stdout_fd;
 

@@ -547,8 +547,9 @@ void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value) {
 }
 
 int open_serialization_fd(const char *ident) {
+        assert(ident);
 
-        int fd = memfd_create_wrapper(ident, MFD_CLOEXEC | MFD_NOEXEC_SEAL);
+        int fd = memfd_new(ident);
         if (fd < 0)
                 return fd;
 
