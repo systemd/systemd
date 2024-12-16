@@ -36,6 +36,7 @@ typedef enum AnsiColorState  {
         ANSI_COLOR_STATE_ESC,
         ANSI_COLOR_STATE_CSI_SEQUENCE,
         ANSI_COLOR_STATE_OSC_SEQUENCE,
+        ANSI_COLOR_STATE_OSC_SEQUENCE_TERMINATING,
         _ANSI_COLOR_STATE_MAX,
         _ANSI_COLOR_STATE_INVALID = -EINVAL,
 } AnsiColorState;
@@ -501,31 +502,44 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                         f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                                 } else if (!strextend(&f->osc_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
-                        } else {
+                        } else if (c == '\x07') {
                                 /* Otherwise, the OSC sequence is over
                                  *
                                  * There are three documented ways to end an OSC sequence:
                                  *     1. BEL aka ^G aka \x07
                                  *     2. \x9c
                                  *     3. \x1b\x5c
-                                 * since we cannot look ahead to see if the Esc is followed by a "\"
-                                 * we cut a corner here and assume it will be "\"e.
-                                 *
                                  * Note that we do not support \x9c here, because that's also a valid UTF8
                                  * codepoint, and that would create ambiguity. Various terminal emulators
                                  * similar do not support it. */
 
-                                if (IN_SET(c, '\x07', '\x1b')) {
-                                        r = insert_window_title_fix(f, i+1);
-                                        if (r < 0)
-                                                return r;
-
-                                        i += r;
-                                }
+                                r = insert_window_title_fix(f, i+1);
+                                if (r < 0)
+                                        return r;
+                                i += r;
 
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                        } else if (c == '\x1b')
+                                /* See the comment above. */
+                                f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE_TERMINATING;
+                        else {
+                                /* Unexpected or unsupported OSC sequence. */
+                                f->osc_sequence = mfree(f->osc_sequence);
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
+                        break;
+
+                case ANSI_COLOR_STATE_OSC_SEQUENCE_TERMINATING:
+                        if (c == '\x5c') {
+                                r = insert_window_title_fix(f, i+1);
+                                if (r < 0)
+                                        return r;
+                                i += r;
+                        }
+
+                        f->osc_sequence = mfree(f->osc_sequence);
+                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         break;
 
                 default:
