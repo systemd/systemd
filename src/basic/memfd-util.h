@@ -8,8 +8,13 @@
 
 int memfd_create_wrapper(const char *name, unsigned mode);
 
-int memfd_new(const char *name);
+int memfd_new_full(const char *name, unsigned extra_flags);
+static inline int memfd_new(const char *name) {
+        return memfd_new_full(name, 0);
+}
+
 int memfd_new_and_map(const char *name, size_t sz, void **p);
+
 int memfd_new_and_seal(const char *name, const void *data, size_t sz);
 static inline int memfd_new_and_seal_string(const char *name, const char *s) {
         return memfd_new_and_seal(name, s, SIZE_MAX);
