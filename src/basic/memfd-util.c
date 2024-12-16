@@ -24,6 +24,11 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
         unsigned mode_compat;
         int mfd;
 
+        assert(name);
+
+        /* Wrapper around memfd_create() which adds compat with older kernels where memfd_create() didn't
+         * support MFD_EXEC/MFD_NOEXEC_SEAL. (kernel 6.3+) */
+
         mfd = RET_NERRNO(memfd_create(name, mode));
         if (mfd != -EINVAL)
                 return mfd;
