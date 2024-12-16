@@ -199,8 +199,9 @@ static int do_execute(
                         }
 
                         if (callbacks) {
-                                if (lseek(fd, 0, SEEK_SET) < 0)
-                                        return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+                                r = finish_serialization_fd(fd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to finish serialization fd: %m");
 
                                 r = callbacks[STDOUT_GENERATE](TAKE_FD(fd), callback_args[STDOUT_GENERATE]);
                                 if (r < 0)
@@ -290,12 +291,14 @@ int execute_strv(
         if (!callbacks)
                 return 0;
 
-        if (lseek(fd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
+        r = finish_serialization_fd(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finish serialization fd: %m");
 
         r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
+
         return 0;
 }
 
