@@ -75,7 +75,6 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
-static void flush_ports(Socket *s);
 
 static bool SOCKET_STATE_WITH_PROCESS(SocketState state) {
         return IN_SET(state,
@@ -372,11 +371,13 @@ static int socket_add_extras(Socket *s) {
         return 0;
 }
 
-static const char *socket_find_symlink_target(Socket *s) {
+static const char* socket_find_symlink_target(Socket *s) {
         const char *found = NULL;
 
+        assert(s);
+
         LIST_FOREACH(port, p, s->ports) {
-                const char *f = NULL;
+                const char *f;
 
                 switch (p->type) {
 
@@ -389,7 +390,7 @@ static const char *socket_find_symlink_target(Socket *s) {
                         break;
 
                 default:
-                        break;
+                        f = NULL;
                 }
 
                 if (f) {
@@ -483,7 +484,7 @@ static int socket_load(Unit *u) {
         return socket_verify(s);
 }
 
-static SocketPeer *socket_peer_dup(const SocketPeer *q) {
+static SocketPeer* socket_peer_dup(const SocketPeer *q) {
         SocketPeer *p;
 
         assert(q);
@@ -502,7 +503,7 @@ static SocketPeer *socket_peer_dup(const SocketPeer *q) {
         return p;
 }
 
-static SocketPeer *socket_peer_free(SocketPeer *p) {
+static SocketPeer* socket_peer_free(SocketPeer *p) {
         assert(p);
 
         if (p->socket)
@@ -578,7 +579,6 @@ static const char* listen_lookup(int family, int type) {
                 return "ListenSequentialPacket";
 
         assert_not_reached();
-        return NULL;
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
@@ -973,7 +973,7 @@ static void socket_close_fds(Socket *s) {
                         break;
 
                 default:
-                        break;
+                        ;
                 }
         }
 
@@ -983,6 +983,8 @@ static void socket_close_fds(Socket *s) {
 
         /* Note that we don't return NULL here, since s has not been freed. */
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
 
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
@@ -1295,7 +1297,6 @@ static int socket_symlink(Socket *s) {
                 (void) mkdir_parents_label(*i, s->directory_mode);
 
                 r = symlink_idempotent(p, *i, false);
-
                 if (r == -EEXIST && s->remove_on_stop) {
                         /* If there's already something where we want to create the symlink, and the destructive
                          * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
@@ -1304,7 +1305,6 @@ static int socket_symlink(Socket *s) {
                         if (unlink(*i) >= 0)
                                 r = symlink_idempotent(p, *i, false);
                 }
-
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
                                                p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
@@ -1624,8 +1624,6 @@ static int socket_address_listen_in_cgroup(
         return fd;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket *, socket_close_fds, NULL);
-
 static int socket_open_fds(Socket *orig_s) {
         _cleanup_(socket_close_fdsp) Socket *s = orig_s;
         _cleanup_freecon_ char *label = NULL;
@@ -1685,7 +1683,7 @@ static int socket_open_fds(Socket *orig_s) {
 
                         p->fd = special_address_create(p->path, s->writable);
                         if (p->fd < 0)
-                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open special file %s: %m", p->path);
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open special file '%s': %m", p->path);
                         break;
 
                 case SOCKET_FIFO:
@@ -1695,7 +1693,7 @@ static int socket_open_fds(Socket *orig_s) {
                                         s->directory_mode,
                                         s->socket_mode);
                         if (p->fd < 0)
-                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open FIFO %s: %m", p->path);
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open FIFO '%s': %m", p->path);
 
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
@@ -1709,7 +1707,7 @@ static int socket_open_fds(Socket *orig_s) {
                                         s->mq_maxmsg,
                                         s->mq_msgsize);
                         if (p->fd < 0)
-                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open message queue %s: %m", p->path);
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open message queue '%s': %m", p->path);
                         break;
 
                 case SOCKET_USB_FUNCTION: {
@@ -1733,12 +1731,13 @@ static int socket_open_fds(Socket *orig_s) {
 
                         break;
                 }
+
                 default:
                         assert_not_reached();
                 }
         }
 
-        s = NULL;
+        TAKE_PTR(s);
         return 0;
 }
 
@@ -2127,7 +2126,6 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
         }
-
         if (r > 0) {
                 r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
                 if (r < 0) {
@@ -2179,6 +2177,21 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
                 socket_set_state(s, SOCKET_STOP_PRE);
         } else
                 socket_enter_stop_post(s, SOCKET_SUCCESS);
+}
+
+static void flush_ports(Socket *s) {
+        assert(s);
+
+        /* Flush all incoming traffic, regardless if actual bytes or new connections, so that this socket isn't busy
+         * anymore */
+
+        LIST_FOREACH(port, p, s->ports) {
+                if (p->fd < 0)
+                        continue;
+
+                (void) flush_accept(p->fd);
+                (void) flush_fd(p->fd);
+        }
 }
 
 static void socket_enter_listening(Socket *s) {
@@ -2283,21 +2296,6 @@ static void socket_enter_start_pre(Socket *s) {
                 socket_set_state(s, SOCKET_START_PRE);
         } else
                 socket_enter_start_chown(s);
-}
-
-static void flush_ports(Socket *s) {
-        assert(s);
-
-        /* Flush all incoming traffic, regardless if actual bytes or new connections, so that this socket isn't busy
-         * anymore */
-
-        LIST_FOREACH(port, p, s->ports) {
-                if (p->fd < 0)
-                        continue;
-
-                (void) flush_accept(p->fd);
-                (void) flush_fd(p->fd);
-        }
 }
 
 static void socket_enter_running(Socket *s, int cfd_in) {
