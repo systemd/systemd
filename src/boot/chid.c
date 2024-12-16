@@ -58,13 +58,10 @@ typedef struct SmbiosInfo {
 } SmbiosInfo;
 
 static void smbios_info_populate(SmbiosInfo *ret_info) {
-        static RawSmbiosInfo raw = {};
-        static bool raw_info_populated = false;
+        assert(ret_info);
 
-        if (!raw_info_populated) {
-                smbios_raw_info_populate(&raw);
-                raw_info_populated = true;
-        }
+        RawSmbiosInfo raw;
+        smbios_raw_info_get_cached(&raw);
 
         ret_info->smbios_fields[CHID_SMBIOS_MANUFACTURER] = smbios_to_hashable_string(raw.manufacturer);
         ret_info->smbios_fields[CHID_SMBIOS_PRODUCT_NAME] = smbios_to_hashable_string(raw.product_name);

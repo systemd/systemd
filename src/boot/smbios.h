@@ -17,3 +17,4 @@ typedef struct RawSmbiosInfo {
 } RawSmbiosInfo;
 
 void smbios_raw_info_populate(RawSmbiosInfo *ret_info);
+void smbios_raw_info_get_cached(RawSmbiosInfo *ret_info);

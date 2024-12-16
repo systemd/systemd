@@ -259,3 +259,17 @@ void smbios_raw_info_populate(RawSmbiosInfo *ret_info) {
                 ret_info->baseboard_product = NULL;
         }
 }
+
+void smbios_raw_info_get_cached(RawSmbiosInfo *ret_info) {
+        static RawSmbiosInfo info = {};
+        static bool cached = false;
+
+        assert(ret_info);
+
+        if (!cached) {
+                smbios_raw_info_populate(&info);
+                cached = true;
+        }
+
+        *ret_info = info;
+}
