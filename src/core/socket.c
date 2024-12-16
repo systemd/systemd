@@ -1733,12 +1733,13 @@ static int socket_open_fds(Socket *orig_s) {
 
                         break;
                 }
+
                 default:
                         assert_not_reached();
                 }
         }
 
-        s = NULL;
+        TAKE_PTR(s);
         return 0;
 }
 
@@ -2127,7 +2128,6 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
         }
-
         if (r > 0) {
                 r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
                 if (r < 0) {
