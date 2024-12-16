@@ -3762,9 +3762,6 @@ int manager_reload(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
-
         /* 💀 This is the point of no return, from here on there is no way back. 💀 */
         reloading = NULL;
 

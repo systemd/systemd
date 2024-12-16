@@ -516,8 +516,9 @@ int exec_spawn(
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to finish serialization stream: %m");
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0)
