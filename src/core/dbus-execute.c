@@ -1443,8 +1443,7 @@ static char *exec_command_flags_to_exec_chars(ExecCommandFlags flags) {
         return strjoin(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE)   ? "-" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND)    ? ":" : "",
                        FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) ? "+" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "",
-                       FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC)    ? "!!" : "");
+                       FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID)        ? "!" : "");
 }
 
 int bus_set_transient_exec_command(

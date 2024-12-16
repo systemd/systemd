@@ -123,12 +123,6 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
 
         /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
 
-        /* Check that we can use PR_CAP_AMBIENT or quit early. */
-        if (!ambient_capabilities_supported())
-                return (set & all_capabilities()) == 0 ?
-                        0 : -EOPNOTSUPP; /* if actually no ambient caps are to be set, be silent,
-                                          * otherwise fail recognizably */
-
         if (also_inherit) {
                 caps = cap_get_proc();
                 if (!caps)
@@ -395,32 +389,12 @@ int keep_capability(cap_value_t cv) {
         return change_capability(cv, CAP_SET);
 }
 
-bool ambient_capabilities_supported(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps are
-         * available. */
-
-        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 ||
-                !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
-
-        return cache;
-}
-
 bool capability_quintet_mangle(CapabilityQuintet *q) {
         uint64_t combined, drop = 0;
-        bool ambient_supported;
 
         assert(q);
 
-        combined = q->effective | q->bounding | q->inheritable | q->permitted;
-
-        ambient_supported = q->ambient != CAP_MASK_UNSET;
-        if (ambient_supported)
-                combined |= q->ambient;
+        combined = q->effective | q->bounding | q->inheritable | q->permitted | q->ambient;
 
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
                 unsigned long bit = UINT64_C(1) << i;
@@ -439,9 +413,7 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
         q->bounding &= ~drop;
         q->inheritable &= ~drop;
         q->permitted &= ~drop;
-
-        if (ambient_supported)
-                q->ambient &= ~drop;
+        q->ambient &= ~drop;
 
         return drop != 0; /* Let the caller know we changed something */
 }
@@ -622,11 +594,6 @@ int capability_get_ambient(uint64_t *ret) {
         int r;
 
         assert(ret);
-
-        if (!ambient_capabilities_supported()) {
-                *ret = 0;
-                return 0;
-        }
 
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
                 r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
