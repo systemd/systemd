@@ -95,30 +95,6 @@ int memfd_get_seals(int fd, unsigned *ret_seals) {
         return 0;
 }
 
-int memfd_map(int fd, uint64_t offset, size_t size, void **ret) {
-        unsigned int seals;
-        void *q;
-        int r;
-
-        assert(fd >= 0);
-        assert(size > 0);
-        assert(ret);
-
-        r = memfd_get_seals(fd, &seals);
-        if (r < 0)
-                return r;
-
-        if (seals & F_SEAL_WRITE)
-                q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, offset);
-        else
-                q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
-        if (q == MAP_FAILED)
-                return -errno;
-
-        *ret = q;
-        return 0;
-}
-
 int memfd_set_sealed(int fd) {
         return memfd_add_seals(fd, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 }
@@ -152,28 +128,6 @@ int memfd_set_size(int fd, uint64_t sz) {
         assert(fd >= 0);
 
         return RET_NERRNO(ftruncate(fd, sz));
-}
-
-int memfd_new_and_map(const char *name, size_t sz, void **ret) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(sz > 0);
-        assert(ret);
-
-        fd = memfd_new(name);
-        if (fd < 0)
-                return fd;
-
-        r = memfd_set_size(fd, sz);
-        if (r < 0)
-                return r;
-
-        r = memfd_map(fd, 0, sz, ret);
-        if (r < 0)
-                return r;
-
-        return TAKE_FD(fd);
 }
 
 int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
