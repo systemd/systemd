@@ -57,7 +57,7 @@ int copy_data_fd(int fd) {
         if (!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_MEMORY_LIMIT) {
 
                 /* Try a memfd first */
-                copy_fd = memfd_new("data-fd");
+                copy_fd = memfd_new_full("data-fd", MFD_ALLOW_SEALING);
                 if (copy_fd < 0)
                         return copy_fd;
 

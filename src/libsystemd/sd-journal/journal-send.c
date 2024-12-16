@@ -22,6 +22,7 @@
 #include "iovec-util.h"
 #include "journal-send.h"
 #include "memfd-util.h"
+#include "missing_mman.h"
 #include "missing_syscall.h"
 #include "process-util.h"
 #include "socket-util.h"
@@ -313,7 +314,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         /* Message doesn't fit... Let's dump the data in a memfd or temporary file and just pass a file
          * descriptor of it to the other side. */
-        buffer_fd = memfd_new("journal-data");
+        buffer_fd = memfd_new_full("journal-data", MFD_ALLOW_SEALING);
         if (buffer_fd < 0)
                 return buffer_fd;
 
