@@ -40,7 +40,7 @@ int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;
 
         if (!name) {
-                char pr[17] = {};
+                char pr[TASK_COMM_LEN] = {};
 
                 /* If no name is specified we generate one. We include
                  * a hint indicating our library implementation, and
