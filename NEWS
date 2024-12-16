@@ -4,6 +4,11 @@ CHANGES WITH 258 in spe:
 
         Incompatible changes:
 
+        * The default access mode of tty/pts device nodes has been changed to
+          0600, which was 0620 in the older releases, due to general security
+          concerns about terminals being written to by other users. To restore
+          the old default access mode, use '-Dtty-mode=0620' meson build option.
+
         * systemd-run's --expand-environment= switch, which was disabled
           by default when combined with --scope, has been changed to to be
           enabled by default. This brings cmdline expansion of transient
