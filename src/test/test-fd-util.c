@@ -127,6 +127,8 @@ TEST(open_serialization_fd) {
         assert_se(fd >= 0);
 
         assert_se(write(fd, "test\n", 5) == 5);
+
+        assert_se(finish_serialization_fd(fd) >= 0);
 }
 
 TEST(open_serialization_file) {
@@ -138,6 +140,8 @@ TEST(open_serialization_file) {
         assert_se(f);
 
         assert_se(fwrite("test\n", 1, 5, f) == 5);
+
+        assert_se(finish_serialization_file(f) >= 0);
 }
 
 TEST(fd_move_above_stdio) {

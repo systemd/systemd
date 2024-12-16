@@ -186,10 +186,6 @@ int manager_serialize(
                         return r;
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to flush serialization: %m");
-
         r = bus_fdset_add_all(m, fds);
         if (r < 0)
                 return log_error_errno(r, "Failed to add bus sockets to serialization: %m");
