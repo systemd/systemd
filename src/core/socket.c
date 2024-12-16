@@ -32,6 +32,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
@@ -111,9 +112,8 @@ static bool SOCKET_SERVICE_IS_ACTIVE(Service *s, bool allow_finalize) {
 }
 
 static void socket_init(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         s->backlog = SOMAXCONN_DELUXE;
@@ -144,7 +144,7 @@ static void socket_unwatch_control_pid(Socket *s) {
         unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
-static void socket_cleanup_fd_list(SocketPort *p) {
+static void socket_port_close_auxiliary_fds(SocketPort *p) {
         assert(p);
 
         close_many(p->auxiliary_fds, p->n_auxiliary_fds);
@@ -152,13 +152,13 @@ static void socket_cleanup_fd_list(SocketPort *p) {
         p->n_auxiliary_fds = 0;
 }
 
-SocketPort *socket_port_free(SocketPort *p) {
+SocketPort* socket_port_free(SocketPort *p) {
         if (!p)
                 return NULL;
 
         sd_event_source_unref(p->event_source);
 
-        socket_cleanup_fd_list(p);
+        socket_port_close_auxiliary_fds(p);
         safe_close(p->fd);
         free(p->path);
 
@@ -941,13 +941,11 @@ static void socket_close_fds(Socket *s) {
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
-                bool was_open;
-
-                was_open = p->fd >= 0;
+                bool was_open = p->fd >= 0;
 
                 p->event_source = sd_event_source_disable_unref(p->event_source);
                 p->fd = safe_close(p->fd);
-                socket_cleanup_fd_list(p);
+                socket_port_close_auxiliary_fds(p);
 
                 /* One little note: we should normally not delete any sockets in the file system here! After all some
                  * other process we spawned might still have a reference of this fd and wants to continue to use
@@ -1219,13 +1217,14 @@ static int special_address_create(const char *path, bool writable) {
         return TAKE_FD(fd);
 }
 
-static int usbffs_address_create(const char *path) {
+static int usbffs_address_create_at(int dfd, const char *name) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
-        assert(path);
+        assert(dfd >= 0);
+        assert(name);
 
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = openat(dfd, name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -1329,57 +1328,40 @@ static int usbffs_write_descs(int fd, Service *s) {
         return copy_file_fd(s->usb_function_strings, fd, 0);
 }
 
-static int usbffs_select_ep(const struct dirent *d) {
-        return d->d_name[0] != '.' && !streq(d->d_name, "ep0");
-}
-
-static int usbffs_dispatch_eps(SocketPort *p) {
-        _cleanup_free_ struct dirent **ent = NULL;
-        size_t n, k;
+static int usbffs_dispatch_eps(SocketPort *p, int dfd) {
+        _cleanup_free_ DirectoryEntries *des = NULL;
         int r;
 
-        r = scandir(p->path, &ent, usbffs_select_ep, alphasort);
+        assert(p);
+        assert(dfd >= 0);
+
+        r = readdir_all(dfd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &des);
         if (r < 0)
-                return -errno;
+                return r;
 
-        n = (size_t) r;
-        p->auxiliary_fds = new(int, n);
-        if (!p->auxiliary_fds) {
-                r = -ENOMEM;
-                goto clear;
-        }
+        p->auxiliary_fds = new(int, des->n_entries);
+        if (!p->auxiliary_fds)
+                return -ENOMEM;
 
-        p->n_auxiliary_fds = n;
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                const struct dirent *de = *i;
 
-        k = 0;
-        for (size_t i = 0; i < n; ++i) {
-                _cleanup_free_ char *ep = NULL;
+                if (streq(de->d_name, "ep0"))
+                        continue;
 
-                ep = path_make_absolute(ent[i]->d_name, p->path);
-                if (!ep) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                path_simplify(ep);
-
-                r = usbffs_address_create(ep);
+                r = usbffs_address_create_at(dfd, de->d_name);
                 if (r < 0)
                         goto fail;
 
-                p->auxiliary_fds[k++] = r;
+                p->auxiliary_fds[p->n_auxiliary_fds++] = r;
         }
 
-        r = 0;
-        goto clear;
+        assert(p->n_auxiliary_fds < des->n_entries);
+
+        return 0;
 
 fail:
-        close_many(p->auxiliary_fds, k);
-        p->auxiliary_fds = mfree(p->auxiliary_fds);
-        p->n_auxiliary_fds = 0;
-
-clear:
-        free_many((void**) ent, n);
+        socket_port_close_auxiliary_fds(p);
         return r;
 }
 
@@ -1711,23 +1693,24 @@ static int socket_open_fds(Socket *orig_s) {
                         break;
 
                 case SOCKET_USB_FUNCTION: {
-                        _cleanup_free_ char *ep = NULL;
+                        _cleanup_close_ int dfd = -EBADF;
 
-                        ep = path_make_absolute("ep0", p->path);
-                        if (!ep)
-                                return -ENOMEM;
+                        dfd = open(p->path, O_DIRECTORY|O_CLOEXEC);
+                        if (dfd < 0)
+                                return log_unit_error_errno(UNIT(s), errno,
+                                                            "Failed to open USB FunctionFS dir '%s': %m", p->path);
 
-                        p->fd = usbffs_address_create(ep);
+                        p->fd = usbffs_address_create_at(dfd, "ep0");
                         if (p->fd < 0)
-                                return p->fd;
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open USB FunctionFS ep0: %m");
 
                         r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
-                                return r;
+                                return log_unit_error_errno(UNIT(s), r, "Failed to write to USB FunctionFS ep0: %m");
 
-                        r = usbffs_dispatch_eps(p);
+                        r = usbffs_dispatch_eps(p, dfd);
                         if (r < 0)
-                                return r;
+                                return log_unit_error_errno(UNIT(s), r, "Failed to dispatch USB FunctionFS eps: %m");
 
                         break;
                 }
