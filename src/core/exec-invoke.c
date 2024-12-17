@@ -31,7 +31,6 @@
 #include "chattr-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
-#include "data-fd-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exec-credential.h"
@@ -44,6 +43,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "memfd-util.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
 #include "missing_sched.h"
@@ -406,7 +406,7 @@ static int setup_input(
         case EXEC_INPUT_DATA: {
                 int fd;
 
-                fd = acquire_data_fd_full(context->stdin_data, context->stdin_data_size, /* flags = */ 0);
+                fd = memfd_new_and_seal("exec-input", context->stdin_data, context->stdin_data_size);
                 if (fd < 0)
                         return fd;
 
