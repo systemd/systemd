@@ -1045,7 +1045,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "SyslogIdentifier",
                               "ProtectSystem",
                               "ProtectHome",
-                              "ProtectHostnameEx",
                               "PrivateTmpEx",
                               "PrivateUsersEx",
                               "ProtectControlGroupsEx",
@@ -2269,6 +2268,24 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
+        if (streq(field, "ProtectHostnameEx")) {
+                const char *colon = strchr(eq, ':');
+                if (colon) {
+                        if (isempty(colon + 1))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s=%s", field, eq);
+
+                        _cleanup_free_ char *p = strndup(eq, colon - eq);
+                        if (!p)
+                                return -ENOMEM;
+
+                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", p, colon + 1);
+                } else
+                        r = sd_bus_message_append(m, "(sv)", field, "(ss)", eq, NULL);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
         return 0;
 }
 

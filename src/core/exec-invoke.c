@@ -40,6 +40,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
@@ -1698,6 +1699,8 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
 #endif
 
 static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p, int *ret_exit_status) {
+        int r;
+
         assert(c);
         assert(p);
 
@@ -1708,27 +1711,27 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
                 if (unshare(CLONE_NEWUTS) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
                                 *ret_exit_status = EXIT_NAMESPACE;
-                                return log_exec_error_errno(c,
-                                                            p,
-                                                            errno,
-                                                            "Failed to set up UTS namespacing: %m");
+                                return log_exec_error_errno(c, p, errno, "Failed to set up UTS namespacing: %m");
                         }
 
-                        log_exec_warning(c,
-                                         p,
-                                         "ProtectHostname=yes is configured, but UTS namespace setup is "
-                                         "prohibited (container manager?), ignoring namespace setup.");
+                        log_exec_warning(c, p,
+                                         "ProtectHostname=%s is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.",
+                                         protect_hostname_to_string(c->protect_hostname));
+
+                } else if (c->private_hostname) {
+                        r = sethostname_idempotent(c->private_hostname);
+                        if (r < 0) {
+                                *ret_exit_status = EXIT_NAMESPACE;
+                                return log_exec_error_errno(c, p, r, "Failed to set private hostname '%s': %m", c->private_hostname);
+                        }
                 }
         } else
-                log_exec_warning(c,
-                                 p,
-                                 "ProtectHostname=yes is configured, but the kernel does not "
-                                 "support UTS namespaces, ignoring namespace setup.");
+                log_exec_warning(c, p,
+                                 "ProtectHostname=%s is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.",
+                                 protect_hostname_to_string(c->protect_hostname));
 
 #if HAVE_SECCOMP
         if (c->protect_hostname == PROTECT_HOSTNAME_YES) {
-                int r;
-
                 if (skip_seccomp_unavailable(c, p, "ProtectHostname="))
                         return 0;
 
