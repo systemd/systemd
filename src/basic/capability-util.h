@@ -67,7 +67,7 @@ typedef struct CapabilityQuintet {
 
 assert_cc(CAP_LAST_CAP < 64);
 
-#define CAPABILITY_QUINTET_NULL { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
+#define CAPABILITY_QUINTET_NULL (CapabilityQuintet) { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
 
 static inline bool capability_is_set(uint64_t v) {
         return v != CAP_MASK_UNSET;
