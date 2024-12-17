@@ -178,6 +178,8 @@ int log_struct_iovec_internal(
                 const struct iovec *input_iovec,
                 size_t n_input_iovec);
 
+void log_backtrace(int level);
+
 /* This modifies the buffer passed! */
 int log_dump_internal(
                 int level,
@@ -188,6 +190,14 @@ int log_dump_internal(
                 char *buffer);
 
 /* Logging for various assertions */
+void log_assert(
+                int level,
+                const char *text,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format);
+
 _noreturn_ void log_assert_failed(
                 const char *text,
                 const char *file,
