@@ -13,7 +13,7 @@ def main():
     with open("/usr/lib/os-release") as f:
         for line in f:
             if line.startswith("ID="):
-                if "debian" in line:
+                if "debian" in line or "ubuntu" in line:
                     sys.exit(77)
 
     logger = logging.getLogger("test-shutdown")
