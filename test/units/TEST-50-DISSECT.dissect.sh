@@ -89,32 +89,40 @@ systemd-run \
     --pipe \
     bash -xec \
     '
-        printf MAINPID=$$$$\\nREADY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify
+        systemd-notify --ready
         [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
-        [[ "$$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
         test -S /run/host/notify
     '
-if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
-    [[ -d /test-dissect-btrfs-snapshot ]] && btrfs subvolume delete /test-dissect-btrfs-snapshot
-    btrfs subvolume snapshot / /test-dissect-btrfs-snapshot
-
-    # Same test with systemd-notify and RootDirectory=
-    systemd-run \
-        --wait \
-        -p RootDirectory=/test-dissect-btrfs-snapshot \
-        -p NotifyAccess=all \
-        --service-type=notify \
-        --pipe \
-        bash -xec \
-        '
-            systemd-notify --pid=auto --ready
-            [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
-            [[ "$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
-            test -S /run/host/notify
-        '
-
-    btrfs subvolume delete /test-dissect-btrfs-snapshot
-fi
+# Same test with RootDirectory=
+rm -rf /tmp/img
+unsquashfs -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
+systemd-run \
+    --wait \
+    -p RootDirectory=/tmp/img \
+    -p NotifyAccess=all \
+    --service-type=notify \
+    --pipe \
+    bash -xec \
+    '
+        systemd-notify --ready
+        [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+        test -S /run/host/notify
+    '
+# Also with RootEphemeral=yes
+systemd-run \
+    --wait \
+    -p RootDirectory=/tmp/img \
+    -p RootEphemeral=yes \
+    -p NotifyAccess=all \
+    --service-type=notify \
+    --pipe \
+    bash -xec \
+    '
+        systemd-notify --ready
+        [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
+        test -S /run/host/notify
+    '
+rm -rf /tmp/img
 
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
