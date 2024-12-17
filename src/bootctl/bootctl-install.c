@@ -984,9 +984,12 @@ int verb_install(int argc, char *argv[], void *userdata) {
                                 arg_private_key_source,
                                 arg_private_key,
                                 &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
                                         .id = "bootctl-private-key-pin",
                                         .keyring = arg_private_key,
                                         .credential = "bootctl.private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
                                 },
                                 &private_key,
                                 &ui);
