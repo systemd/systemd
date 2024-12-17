@@ -933,7 +933,7 @@ int config_parse_exec(
                 }
 
                 const char *f = firstword;
-                bool ignore, separate_argv0 = false;
+                bool ignore, separate_argv0 = false, ambient_hack = false;
                 ExecCommandFlags flags = 0;
 
                 for (;; f++) {
@@ -944,28 +944,29 @@ int config_parse_exec(
                          * ":":  Disable environment variable substitution
                          * "+":  Run with full privileges and no sandboxing
                          * "!":  Apply sandboxing except for user/group credentials
-                         * "!!": Apply user/group credentials if the kernel supports ambient capabilities -
-                         *       if it doesn't we don't apply the credentials themselves, but do apply
-                         *       most other sandboxing, with some special exceptions for changing UID.
-                         *
-                         * The idea is that '!!' may be used to write services that can take benefit of
-                         * systemd's UID/GID dropping if the kernel supports ambient creds, but provide
-                         * an automatic fallback to privilege dropping within the daemon if the kernel
-                         * does not offer that. */
+                         */
 
-                        if (*f == '-' && !(flags & EXEC_COMMAND_IGNORE_FAILURE))
+                        if (*f == '-' && !FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE))
                                 flags |= EXEC_COMMAND_IGNORE_FAILURE;
                         else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
-                        else if (*f == ':' && !(flags & EXEC_COMMAND_NO_ENV_EXPAND))
+                        else if (*f == ':' && !FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
                                 flags |= EXEC_COMMAND_NO_ENV_EXPAND;
-                        else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                        else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
-                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
+                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_NO_SETUID;
-                        else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_AMBIENT_MAGIC))) {
+                        else if (*f == '!' && !FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED) && !ambient_hack) {
+                                /* Compatibility with the old !! ambient caps hack (removed in v258). Since
+                                 * we don't support that anymore and !! was a noop on non-supporting systems,
+                                 * we'll just turn off the EXEC_COMMAND_NO_SETUID flag again and be done with
+                                 * it. */
                                 flags &= ~EXEC_COMMAND_NO_SETUID;
-                                flags |= EXEC_COMMAND_AMBIENT_MAGIC;
+                                ambient_hack = true;
+
+                                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                                           "The !! modifier for %s= lines is no longer supported and is now ignored. "
+                                           "Please update your unit files and remove the modifier.", lvalue);
                         } else
                                 break;
                 }

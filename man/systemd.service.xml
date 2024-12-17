@@ -1410,12 +1410,6 @@
 
             <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
           </row>
-
-          <row>
-            <entry><literal>!!</literal></entry>
-
-            <entry>This prefix is very similar to <literal>!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilities themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
-          </row>
         </tbody>
       </tgroup>
     </table>
