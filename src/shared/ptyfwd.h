@@ -25,10 +25,10 @@ typedef enum PTYForwardFlags {
 
 typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
 
-int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **f);
-PTYForward *pty_forward_free(PTYForward *f);
+int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **ret);
+PTYForward* pty_forward_free(PTYForward *f);
 
-int pty_forward_get_last_char(PTYForward *f, char *ch);
+int pty_forward_get_last_char(PTYForward *f, char *ret);
 
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup);
 bool pty_forward_get_ignore_vhangup(PTYForward *f);
