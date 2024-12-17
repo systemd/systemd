@@ -973,6 +973,115 @@ char** machine_default_shell_args(const char *user) {
         return TAKE_PTR(args);
 }
 
+int machine_copy_from_to(Manager *manager, Machine *machine, const char *host_path, const char *container_path, bool copy_from, CopyFlags copy_flags, Operation **ret) {
+        _cleanup_close_ int hostfd = -EBADF, mntns_fd = -EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
+        uid_t uid_shift;
+        pid_t child;
+        int r;
+
+        assert(manager);
+        assert(machine);
+        assert(ret);
+
+        if (isempty(host_path) || isempty(container_path))
+                return -EINVAL;
+
+        r = path_extract_filename(host_path, &host_basename);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", host_path);
+
+        r = path_extract_filename(container_path, &container_basename);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", container_path);
+
+        hostfd = open_parent(host_path, O_CLOEXEC, 0);
+        if (hostfd < 0)
+                return log_debug_errno(hostfd, "Failed to open host directory %s: %m", host_path);
+
+        r = machine_get_uid_shift(machine, &uid_shift);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine '%s' UID shift: %m", machine->name);
+
+        r = pidref_namespace_open(&machine->leader,
+                        /* ret_pidns_fd = */  NULL,
+                        &mntns_fd,
+                        /* ret_netns_fd = */  NULL,
+                        /* ret_userns_fd = */ NULL,
+                        /* ret_root_fd = */   NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open namespace for machine '%s': %m", machine->name);
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        r = namespace_fork("(sd-copyns)",
+                           "(sd-copy)",
+                           /* except_fds = */ NULL,
+                           /* n_except_fds = */ 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                           /* pidns_fd = */ -1,
+                           mntns_fd,
+                           /* netns_fd = */ -1,
+                           /* userns_fd = */ -1,
+                           /* root_fd = */ -1,
+                           &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork() for machine '%s': %m", machine->name);
+        if (r == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                _cleanup_close_ int containerfd = -EBADF;
+                containerfd = open_parent(container_path, O_CLOEXEC, 0);
+                if (containerfd < 0) {
+                        log_error_errno(containerfd, "Failed to open destination directory: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], containerfd);
+                }
+
+                /* Run the actual copy operation. Note that when a UID shift is set we'll either clamp the UID/GID to */
+                /* 0 or to the actual UID shift depending on the direction we copy. If no UID shift is set we'll copy */
+                /* the UID/GIDs as they are.  */
+                r = copy_from ? copy_tree_at(
+                                        containerfd,
+                                        container_basename,
+                                        hostfd,
+                                        host_basename,
+                                        uid_shift == 0 ? UID_INVALID : 0,
+                                        uid_shift == 0 ? GID_INVALID : 0,
+                                        copy_flags,
+                                        /* denylist = */ NULL,
+                                        /* subvolumes = */ NULL)
+                              : copy_tree_at(
+                                        hostfd,
+                                        host_basename,
+                                        containerfd,
+                                        container_basename,
+                                        uid_shift == 0 ? UID_INVALID : uid_shift,
+                                        uid_shift == 0 ? GID_INVALID : uid_shift,
+                                        copy_flags,
+                                        /* denylist = */ NULL,
+                                        /* subvolumes = */ NULL);
+                if (r < 0)
+                        log_error_errno(r, "Failed to copy tree: %m");
+
+                report_errno_and_exit(errno_pipe_fd[1], r);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        Operation *operation;
+        r = operation_new(manager, machine, child, errno_pipe_fd[0], &operation);
+        if (r < 0) {
+                sigkill_wait(child);
+                return r;
+        }
+
+        TAKE_FD(errno_pipe_fd[0]);
+        *ret = operation;
+        return 0;
+}
+
 void machine_release_unit(Machine *m) {
         assert(m);
 

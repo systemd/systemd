@@ -121,9 +121,30 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(ptyFileDescriptor, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Path to the allocated pseudo TTY"),
                 SD_VARLINK_DEFINE_OUTPUT(ptyPath, SD_VARLINK_STRING, 0));
+static SD_VARLINK_DEFINE_METHOD(
+                CopyFrom,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("A source directory/file in the container"),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A destination directory/file in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the destination will be replaced"),
+                SD_VARLINK_DEFINE_INPUT(replace, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                CopyTo,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("A source directory/file on the host"),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("A destination directory/file in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true the destination will be replaced"),
+                SD_VARLINK_DEFINE_INPUT(replace, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
+static SD_VARLINK_DEFINE_ERROR(NoSuchFile);
+static SD_VARLINK_DEFINE_ERROR(FileExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
 static SD_VARLINK_DEFINE_ERROR(NoOSReleaseInformation);
 static SD_VARLINK_DEFINE_ERROR(NoUIDShift);
@@ -154,9 +175,17 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_MachineOpenMode,
                 SD_VARLINK_SYMBOL_COMMENT("Allocates a pseudo TTY in the container in various modes"),
                 &vl_method_Open,
+                SD_VARLINK_SYMBOL_COMMENT("Copy files or directories from a container into the host"),
+                &vl_method_CopyFrom,
+                SD_VARLINK_SYMBOL_COMMENT("Copy files or directories from the host into a container"),
+                &vl_method_CopyTo,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
+                SD_VARLINK_SYMBOL_COMMENT("No such file"),
+                &vl_error_NoSuchFile,
+                SD_VARLINK_SYMBOL_COMMENT("File exists"),
+                &vl_error_FileExists,
                 SD_VARLINK_SYMBOL_COMMENT("Machine does not use private networking"),
                 &vl_error_NoPrivateNetworking,
                 SD_VARLINK_SYMBOL_COMMENT("Machine does not contain OS release information"),

@@ -31,11 +31,53 @@ struct Operation {
         LIST_FIELDS(Operation, operations_by_machine);
 };
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, sd_varlink *link, int errno_fd, Operation **ret);
+int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd, Operation **ret);
 Operation *operation_free(Operation *o);
-static inline int operation_new_with_bus_reply(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret) {
-        return operation_new(manager, machine, child, message, /* link = */ NULL, errno_fd, ret);
+
+static inline void operation_with_bus_reply(Operation *op, sd_bus_message *message) {
+        assert(op);
+        assert(!op->message);
+        assert(!op->link);
+        assert(message);
+        op->message = sd_bus_message_ref(message);
 }
+
+static inline void operation_with_varlink_reply(Operation *op, sd_varlink *link) {
+        assert(op);
+        assert(!op->message);
+        assert(!op->link);
+        assert(link);
+        op->link = sd_varlink_ref(link);
+}
+
+static inline int operation_new_with_bus_reply(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret) {
+        Operation *op;
+        int r;
+
+        r = operation_new(manager, machine, child, errno_fd, &op);
+        if (r < 0)
+                return r;
+
+        operation_with_bus_reply(op, message);
+
+        if (ret)
+                *ret = op;
+
+        return 0;
+}
+
 static inline int operation_new_with_varlink_reply(Manager *manager, Machine *machine, pid_t child, sd_varlink *link, int errno_fd, Operation **ret) {
-        return operation_new(manager, machine, child, /* message = */ NULL, link, errno_fd, ret);
+        Operation *op;
+        int r;
+
+        r = operation_new(manager, machine, child, errno_fd, &op);
+        if (r < 0)
+                return r;
+
+        operation_with_varlink_reply(op, link);
+
+        if (ret)
+                *ret = op;
+
+        return 0;
 }
