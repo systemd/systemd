@@ -243,7 +243,7 @@ static bool drained(PTYForward *f) {
         return true;
 }
 
-static char *background_color_sequence(PTYForward *f) {
+static char* background_color_sequence(PTYForward *f) {
         assert(f);
         assert(f->background_color);
 
@@ -960,7 +960,7 @@ int pty_forward_new(
         return 0;
 }
 
-PTYForward *pty_forward_free(PTYForward *f) {
+PTYForward* pty_forward_free(PTYForward *f) {
         if (!f)
                 return NULL;
 
@@ -972,14 +972,14 @@ PTYForward *pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
-int pty_forward_get_last_char(PTYForward *f, char *ch) {
+int pty_forward_get_last_char(PTYForward *f, char *ret) {
         assert(f);
-        assert(ch);
+        assert(ret);
 
         if (!f->last_char_set)
                 return -ENXIO;
 
-        *ch = f->last_char;
+        *ret = f->last_char;
         return 0;
 }
 
