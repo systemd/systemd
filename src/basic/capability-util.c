@@ -8,8 +8,9 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "capability-util.h"
 #include "cap-list.h"
+#include "capability-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "logarithm.h"
@@ -17,6 +18,8 @@
 #include "missing_prctl.h"
 #include "missing_threads.h"
 #include "parse-util.h"
+#include "pidref.h"
+#include "stat-util.h"
 #include "user-util.h"
 
 int have_effective_cap(int value) {
@@ -606,4 +609,79 @@ int capability_get_ambient(uint64_t *ret) {
 
         *ret = a;
         return 1;
+}
+
+int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        const char *path = procfs_file_alloca(pidref->pid, "status");
+        _cleanup_fclose_ FILE *f = fopen(path, "re");
+        if (!f) {
+                if (errno == ENOENT && proc_mounted() == 0)
+                        return -ENOSYS;
+
+                return -errno;
+        }
+
+        CapabilityQuintet q = CAPABILITY_QUINTET_NULL;
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                static const struct {
+                        const char *field;
+                        size_t offset;
+                } fields[] = {
+                        { "CapBnd:", offsetof(CapabilityQuintet, bounding)    },
+                        { "CapInh:", offsetof(CapabilityQuintet, inheritable) },
+                        { "CapPrm:", offsetof(CapabilityQuintet, permitted)   },
+                        { "CapEff:", offsetof(CapabilityQuintet, effective)   },
+                        { "CapAmb:", offsetof(CapabilityQuintet, ambient)     },
+                };
+
+                FOREACH_ELEMENT(i, fields) {
+
+                        const char *p = first_word(line, i->field);
+                        if (!p)
+                                continue;
+
+                        uint64_t *v = (uint64_t*) ((uint8_t*) &q + i->offset);
+
+                        if (*v != CAP_MASK_UNSET)
+                                return -EBADMSG;
+
+                        r = safe_atoux64(p, v);
+                        if (r < 0)
+                                return r;
+
+                        if (*v == CAP_MASK_UNSET)
+                                return -EBADMSG;
+                }
+        }
+
+        if (q.effective == CAP_MASK_UNSET ||
+            q.inheritable == CAP_MASK_UNSET ||
+            q.permitted == CAP_MASK_UNSET ||
+            q.effective == CAP_MASK_UNSET ||
+            q.ambient == CAP_MASK_UNSET)
+                return -EBADMSG;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = q;
+
+        return 0;
 }
