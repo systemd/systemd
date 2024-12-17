@@ -586,46 +586,73 @@ static int parse_one_option(const char *option) {
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
                 const char *sep;
 
-                /* Stick with cryptsetup --link-vk-to-keyring format
-                 * <keyring_description>::%<key_type>:<key_description>,
-                 * where %<key_type> is optional and defaults to 'user'.
-                 */
                 sep = strstr(val, "::");
-                if (!sep)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
+                if (sep) {
+                        /* Stick with cryptsetup --link-vk-to-keyring format
+                         * <keyring_description>::%<key_type>:<key_description>,
+                         * where %<key_type> is optional and defaults to 'user'.
+                         */
 
-                /* cryptsetup (cli) supports <keyring_description> passed in various formats:
-                 * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
-                 * - text descriptions prefixed with "%:" or "%keyring:".
-                 * - text description with no prefix.
-                 * - numeric keyring id (ignored in current patch set). */
-                if (IN_SET(*val, '@', '%'))
-                        keyring = strndup(val, sep - val);
-                else
-                        /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */
-                        keyring = strnappend("%:", val, sep - val);
-                if (!keyring)
-                        return log_oom();
-
-                sep += 2;
-
-                /* %<key_type> is optional (and defaults to 'user') */
-                if (*sep == '%') {
-                        /* must be separated by colon */
-                        const char *c = strchr(sep, ':');
-                        if (!c)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
-
-                        key_type = strndup(sep + 1, c - sep - 1);
-                        if (!key_type)
+                        /* cryptsetup (cli) supports <keyring_description> passed in various formats:
+                         * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
+                         * - text descriptions prefixed with "%:" or "%keyring:".
+                         * - text description with no prefix.
+                         * - numeric keyring id (ignored in current patch set). */
+                        if (IN_SET(*val, '@', '%'))
+                                keyring = strndup(val, sep - val);
+                        else
+                                /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */
+                                keyring = strnappend("%:", val, sep - val);
+                        if (!keyring)
                                 return log_oom();
 
-                        sep = c + 1;
+                        sep += 2;
+
+                        /* %<key_type> is optional (and defaults to 'user') */
+                        if (*sep == '%') {
+                                const char *c = strchr(++sep, ':');
+
+                                if (!c) {
+                                        /* link volume key in <keyring_description> keyring,
+                                         * key type %<key_type>, key description derived from uuid */
+                                        key_type = strdup(sep);
+                                        sep = NULL;
+                                } else {
+                                        key_type = strndup(sep, c - sep);
+                                        sep = c + 1;
+                                }
+                                if (!key_type)
+                                        return log_oom();
+                        }
+
+                        if (sep) {
+                                key_description = strdup(sep);
+                                if (!key_description)
+                                        return log_oom();
+                        }
+
+                } else {
+                        /* link volume key in requested keyring, key type 'user' (default),
+                         * key description derived from uuid */
+
+                        /* cryptsetup (cli) supports <keyring_description> passed in various formats:
+                         * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
+                         * - text descriptions prefixed with "%:" or "%keyring:".
+                         * - text description with no prefix.
+                         * - numeric keyring id (ignored in current patch set). */
+                        if (IN_SET(*val, '@', '%'))
+                                keyring = strdup(val);
+                        else
+                                /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */
+                                keyring = strjoin("%:", val);
+                        if (!keyring)
+                                return log_oom();
                 }
 
-                key_description = strdup(sep);
-                if (!key_description)
-                        return log_oom();
+                /* it would fail in crypt_set_keyring_to_link() anyway, but report it early */
+                if (STRPTR_IN_SET(keyring, "", "@", "%", "%:") || streq_ptr(key_type, "") ||
+                    streq_ptr(key_description, ""))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %s", val);
 
                 free_and_replace(arg_link_keyring, keyring);
                 free_and_replace(arg_link_key_type, key_type);
@@ -2491,11 +2518,30 @@ static int run(int argc, char *argv[]) {
 
 /* since cryptsetup 2.7.0 (Jan 2024) */
 #if HAVE_CRYPT_SET_KEYRING_TO_LINK
-                        if (arg_link_key_description) {
+                        if (arg_link_keyring && arg_link_key_description)
                                 r = crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
+                        else if (arg_link_keyring) {
+                                _cleanup_free_ char *key_description_1 = NULL, *key_description_2 = NULL;
+
+                                key_description_1 = strjoin("systemd-cryptsetup:vk-",
+                                                            strempty(crypt_get_uuid(cd)),
+                                                            "-id1");
+                                if (!key_description_1)
+                                        return log_oom();
+
+                                key_description_2 = strjoin("systemd-cryptsetup:vk-",
+                                                            strempty(crypt_get_uuid(cd)),
+                                                            "-id2");
+                                if (!key_description_2)
+                                        return log_oom();
+
+                                r = crypt_set_keyring_to_link(cd, key_description_1, NULL, arg_link_key_type, arg_link_keyring);
+                                /* use key_description_2 only if device requires two volume keys */
+                                if (r == -ESRCH)
+                                        r = crypt_set_keyring_to_link(cd, key_description_1, key_description_2, arg_link_key_type, arg_link_keyring);
                         }
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
 #endif
 
                         if (arg_header) {
