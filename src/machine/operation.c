@@ -88,15 +88,14 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, sd_varlink *link, int errno_fd, Operation **ret) {
+int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd, Operation **ret) {
         Operation *o;
         int r;
 
         assert(manager);
         assert(child > 1);
         assert(errno_fd >= 0);
-        assert(message || link);
-        assert(!(message && link));
+        assert(ret);
 
         o = new0(Operation, 1);
         if (!o)
@@ -111,8 +110,8 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
         }
 
         o->pid = child;
-        o->message = sd_bus_message_ref(message);
-        o->link = sd_varlink_ref(link);
+        o->message = NULL;
+        o->link = NULL;
         o->errno_fd = errno_fd;
 
         LIST_PREPEND(operations, manager->operations, o);
@@ -128,9 +127,7 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
 
         /* At this point we took ownership of both the child and the errno file descriptor! */
 
-        if (ret)
-                *ret = o;
-
+        *ret = o;
         return 0;
 }
 
