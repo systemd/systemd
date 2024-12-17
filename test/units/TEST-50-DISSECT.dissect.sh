@@ -85,31 +85,25 @@ systemd-run \
     --wait \
     -p RootImage="$MINIMAL_IMAGE.raw" \
     -p NotifyAccess=all \
-    --service-type=notify \
-    --pipe \
     bash -xec \
     '
-        printf MAINPID=$$$$\\nREADY=1 | ncat --unixsock --udp $NOTIFY_SOCKET --source /run/notify
         [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
-        [[ "$$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
         test -S /run/host/notify
     '
 if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
     [[ -d /test-dissect-btrfs-snapshot ]] && btrfs subvolume delete /test-dissect-btrfs-snapshot
     btrfs subvolume snapshot / /test-dissect-btrfs-snapshot
 
-    # Same test with systemd-notify and RootDirectory=
+    # Same test with RootDirectory=, also try to send READY=1, as we can use systemd-notify.
     systemd-run \
         --wait \
         -p RootDirectory=/test-dissect-btrfs-snapshot \
         -p NotifyAccess=all \
         --service-type=notify \
-        --pipe \
         bash -xec \
         '
             systemd-notify --pid=auto --ready
             [[ "$$NOTIFY_SOCKET" == "/run/host/notify" ]]
-            [[ "$(env)" =~ "NOTIFY_SOCKET=/run/host/notify" ]]
             test -S /run/host/notify
         '
 
