@@ -37,6 +37,7 @@
 #include "networkd-state-file.h"
 #include "nlmon.h"
 #include "path-lookup.h"
+#include "path-util.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1004,6 +1005,7 @@ static int netdev_request_to_create(NetDev *netdev) {
 
 int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
+        _cleanup_free_ char *file_basename = NULL;
         const char *dropin_dirname;
         int r;
 
@@ -1027,7 +1029,11 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                 .state = _NETDEV_STATE_INVALID, /* an invalid state means done() of the implementation won't be called on destruction */
         };
 
-        dropin_dirname = strjoina(basename(filename), ".d");
+        r = path_extract_filename(filename, &file_basename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name of '%s': %m", filename);
+
+        dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
                         STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
