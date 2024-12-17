@@ -34,12 +34,12 @@
 #include "clock-warp.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
+#include "constants.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
 #include "dbus-manager.h"
 #include "dbus.h"
-#include "constants.h"
 #include "dev-setup.h"
 #include "efi-random.h"
 #include "efivars.h"
@@ -87,6 +87,7 @@
 #include "seccomp-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -1233,13 +1234,13 @@ static int prepare_reexecute(
         assert(ret_f);
         assert(ret_fds);
 
-        r = manager_open_serialization(m, &f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create serialization file: %m");
-
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading++;
         bus_manager_send_reloading(m, true);
+
+        r = manager_open_serialization(m, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create serialization file: %m");
 
         fds = fdset_new();
         if (!fds)
@@ -1249,8 +1250,9 @@ static int prepare_reexecute(
         if (r < 0)
                 return r;
 
-        if (fseeko(f, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to rewind serialization fd: %m");
+        r = finish_serialization_file(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to finish serialization file: %m");
 
         r = fd_cloexec(fileno(f), false);
         if (r < 0)

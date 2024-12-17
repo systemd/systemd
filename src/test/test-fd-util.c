@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "data-fd-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "memfd-util.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -127,6 +127,8 @@ TEST(open_serialization_fd) {
         assert_se(fd >= 0);
 
         assert_se(write(fd, "test\n", 5) == 5);
+
+        assert_se(finish_serialization_fd(fd) >= 0);
 }
 
 TEST(open_serialization_file) {
@@ -138,6 +140,8 @@ TEST(open_serialization_file) {
         assert_se(f);
 
         assert_se(fwrite("test\n", 1, 5, f) == 5);
+
+        assert_se(finish_serialization_file(f) >= 0);
 }
 
 TEST(fd_move_above_stdio) {
@@ -203,7 +207,7 @@ TEST(rearrange_stdio) {
                 assert_se(pipe_read_fd >= 3);
 
                 assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
-                assert_se(acquire_data_fd("foobar") == 2);
+                assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
 
