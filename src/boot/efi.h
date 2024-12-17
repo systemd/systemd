@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "efi-fundamental.h"
 #include "macro-fundamental.h"
 
 #if SD_BOOT
@@ -118,30 +119,11 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 #define EFI_IP_ADDRESS_CONFLICT  EFIERR(34)
 #define EFI_HTTP_ERROR           EFIERR(35)
 
-typedef struct {
-        uint32_t Data1;
-        uint16_t Data2;
-        uint16_t Data3;
-        uint8_t Data4[8];
-} EFI_GUID;
-
-#define GUID_DEF(d1, d2, d3, d4_1, d4_2, d4_3, d4_4, d4_5, d4_6, d4_7, d4_8) \
-    { d1, d2, d3, { d4_1, d4_2, d4_3, d4_4, d4_5, d4_6, d4_7, d4_8 } }
-
-/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
- * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
- * as non-const, but almost all of them are in fact const. */
-#define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
-
 /* These allow MAKE_GUID_PTR() to work without requiring an extra _GUID in the passed name. We want to
  * keep the GUID definitions in line with the UEFI spec. */
 #define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
 #define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
 
-#define EFI_GLOBAL_VARIABLE \
-        GUID_DEF(0x8be4df61, 0x93ca, 0x11d2, 0xaa, 0x0d, 0x00, 0xe0, 0x98, 0x03, 0x2b, 0x8c)
-#define EFI_IMAGE_SECURITY_DATABASE_GUID \
-        GUID_DEF(0xd719b2cb, 0x3d3a, 0x4596, 0xa3, 0xbc, 0xda, 0xd0, 0x0e, 0x67, 0x65, 0x6f)
 #define EFI_CUSTOM_MODE_ENABLE_GUID \
         GUID_DEF(0xc076ec0c, 0x7028, 0x4399, 0xa0, 0x72, 0x71, 0xee, 0x5c, 0x44, 0x8b, 0x9f)
 
@@ -237,20 +219,6 @@ typedef enum {
         EfiResetShutdown,
         EfiResetPlatformSpecific,
 } EFI_RESET_TYPE;
-
-typedef struct {
-        uint16_t Year;
-        uint8_t Month;
-        uint8_t Day;
-        uint8_t Hour;
-        uint8_t Minute;
-        uint8_t Second;
-        uint8_t Pad1;
-        uint32_t Nanosecond;
-        int16_t TimeZone;
-        uint8_t Daylight;
-        uint8_t Pad2;
-} EFI_TIME;
 
 typedef struct {
         uint32_t Resolution;
