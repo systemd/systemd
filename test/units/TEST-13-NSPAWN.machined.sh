@@ -381,6 +381,11 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "login"}'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
 
+rm -f /tmp/none-existent-file
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
+timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
+grep -q "BAR" /tmp/none-existent-file
+
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'
 container_uid=$(varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0}' | jq '.uid')
@@ -389,11 +394,6 @@ container_gid=$(varlinkctl call /run/systemd/machine/io.systemd.Machine io.syste
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo "{\"uid\": $container_uid, \"gid\": $container_gid}" | grep "long-running"
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo '{"uid": 0}')
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo '{"gid": 0}')
-
-rm -f /tmp/none-existent-file
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
-timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
-grep -q "BAR" /tmp/none-existent-file
 
 # test io.systemd.Machine.CopyTo
 rm -f /tmp/foo /var/lib/machines/long-running/root/foo
