@@ -1477,9 +1477,11 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
 
-        r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_send_bootp);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set BOOTP flag: %m");
+        if (link->network->dhcp_send_bootp) {
+                r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_send_bootp);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set BOOTP flag: %m");
+        }
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
         if (r < 0)
