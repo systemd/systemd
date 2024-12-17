@@ -363,7 +363,7 @@ TEST(status_field) {
         }
 }
 
-TEST(capeff) {
+TEST(capeff, .proc_mounted = true) {
         for (int pid = 0; pid < 2; pid++) {
                 _cleanup_free_ char *capeff = NULL;
                 int r, p;
@@ -481,7 +481,7 @@ TEST(write_string_file_no_create) {
         ASSERT_STREQ(buf, "boohoo\n");
 }
 
-TEST(write_string_file_verify) {
+TEST(write_string_file_verify, .proc_mounted = true) {
         _cleanup_free_ char *buf = NULL, *buf2 = NULL;
         int r;
 
@@ -521,7 +521,7 @@ static void check_file_pairs_one(char **l) {
         }
 }
 
-TEST(load_env_file_pairs) {
+TEST(load_env_file_pairs, .proc_mounted = true) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
         int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
@@ -936,7 +936,7 @@ TEST(read_nul_string) {
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 0 && streq_ptr(s, ""));
 }
 
-TEST(read_full_file_socket) {
+TEST(read_full_file_socket, .proc_mounted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
         _cleanup_close_ int listener = -EBADF;
         _cleanup_free_ char *data = NULL, *clientname = NULL;
@@ -1102,7 +1102,7 @@ TEST(read_virtual_file) {
         test_read_virtual_file_one(SIZE_MAX);
 }
 
-TEST(fdopen_independent) {
+TEST(fdopen_independent, .proc_mounted = true) {
 #define TEST_TEXT "this is some random test text we are going to write to a memfd"
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;

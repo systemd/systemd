@@ -466,7 +466,7 @@ static void test_format_timestamp_with_tz_one(const char *tz) {
         tzset();
 }
 
-TEST(FORMAT_TIMESTAMP_with_tz) {
+TEST(FORMAT_TIMESTAMP_with_tz, .proc_mounted = true) {
         _cleanup_strv_free_ char **timezones = NULL;
 
         test_format_timestamp_with_tz_one("UTC");

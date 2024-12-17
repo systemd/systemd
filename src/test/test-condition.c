@@ -45,7 +45,7 @@
 #include "user-util.h"
 #include "virt.h"
 
-TEST(condition_test_path) {
+TEST(condition_test_path, .proc_mounted = true) {
         Condition *condition;
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false));
@@ -438,7 +438,7 @@ TEST(condition_test_firmware_smbios) {
         condition_free(condition);
 }
 
-TEST(condition_test_kernel_command_line) {
+TEST(condition_test_kernel_command_line, .proc_mounted = true) {
         Condition *condition;
         int r;
 
@@ -719,7 +719,7 @@ TEST(condition_test_virtualization) {
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false));
         r = condition_test(condition, environ);
         log_info("ConditionVirtualization=private-users → %i", r);
-        assert_se(r == !!running_in_userns());
+        assert_se(ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == !!running_in_userns());
         condition_free(condition);
 
         NULSTR_FOREACH(virt,

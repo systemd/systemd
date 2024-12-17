@@ -180,6 +180,9 @@ int main(int argc, char *argv[]) {
         const char *verification_key = NULL;
         int max_iterations = 512;
 
+        if (proc_mounted() <= 0)
+                return log_tests_skipped("procfs not available");
+
         if (argc > 1) {
                 /* Don't limit the number of iterations when the verification key
                  * is provided on the command line, we want to do that only in CIs */
