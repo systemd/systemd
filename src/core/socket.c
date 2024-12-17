@@ -2104,8 +2104,10 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
 }
 
 static int state_to_kill_operation(Socket *s, SocketState state) {
-        if (state == SOCKET_STOP_PRE_SIGTERM && unit_has_job_type(UNIT(s), JOB_RESTART))
-                return KILL_RESTART;
+        assert(s);
+
+        if (state == SOCKET_STOP_PRE_SIGTERM)
+                return unit_has_job_type(UNIT(s), JOB_RESTART) ? KILL_RESTART : KILL_TERMINATE;
 
         if (state == SOCKET_FINAL_SIGTERM)
                 return KILL_TERMINATE;
