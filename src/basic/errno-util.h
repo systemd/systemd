@@ -158,7 +158,7 @@ static inline bool ERRNO_IS_NEG_RESOURCE(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(RESOURCE);
 
-/* Seven different errors for "operation/system call/ioctl/socket feature not supported" */
+/* Seven different errors for "operation/system call/socket feature not supported" */
 static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(intmax_t r) {
         return IN_SET(r,
                       -EOPNOTSUPP,
@@ -171,6 +171,12 @@ static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(intmax_t r) {
                       -ENOPROTOOPT);
 }
 _DEFINE_ABS_WRAPPER(NOT_SUPPORTED);
+
+/* ioctl() with unsupported command/arg might additionally return EINVAL */
+static inline bool ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(intmax_t r) {
+        return ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EINVAL;
+}
+_DEFINE_ABS_WRAPPER(IOCTL_NOT_SUPPORTED);
 
 /* Two different errors for access problems */
 static inline bool ERRNO_IS_NEG_PRIVILEGE(intmax_t r) {
