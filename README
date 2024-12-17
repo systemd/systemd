@@ -43,7 +43,7 @@ REQUIREMENTS:
 
         ⛔ Kernel versions below 4.3 ("minimum baseline") are not supported at
         all, and are missing required functionality (e.g. CLOCK_BOOTTIME
-        support for timerfd_create() or ambient capabilities).
+        support for timerfd_create(), ambient capabilities, or memfd_create()).
 
         ⚠️ Kernel versions below 5.4 ("recommended baseline") have significant
         gaps in functionality and are not recommended for use with this version
