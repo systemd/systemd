@@ -28,13 +28,17 @@ efi_fuzz_template = fuzz_template + efitest_base
 
 generate_hwids_section_py = find_program('generate-hwids-section.py')
 
-test_hwids_section_c = custom_target(
-        'test-hwids-section.c',
-        input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device2.json'],
-        output : 'test-hwids-section.c',
-        command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
-        capture : true,
-        build_by_default : want_tests != 'false')
+if conf.get('ENABLE_UKIFY') == 1
+        test_hwids_section_c = custom_target(
+                'test-hwids-section.c',
+                input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device2.json'],
+                output : 'test-hwids-section.c',
+                command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
+                capture : true,
+                build_by_default : want_tests != 'false')
+else
+        test_hwids_section_c = ''
+endif
 
 executables += [
         efi_test_template + {
@@ -49,7 +53,7 @@ executables += [
         efi_test_template + {
                 'sources' : files('test-chid-match.c') +
                             test_hwids_section_c,
-                'conditions' : ['ENABLE_BOOTLOADER'],
+                'conditions' : ['ENABLE_BOOTLOADER', 'ENABLE_UKIFY'],
         },
         efi_fuzz_template + {
                 'sources' : files('fuzz-bcd.c'),
