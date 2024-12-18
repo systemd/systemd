@@ -796,7 +796,7 @@ EOF
 
 testcase_machinectl_bind() {
     local service_path service_name root container_name ec
-    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep .5; done; exit 1;'
+    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker && test -f /tmp/marker-varlink; then exit 0; fi; sleep .5; done; exit 1;'
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.machinectl-bind.XXX)"
     create_dummy_container "$root"
@@ -814,6 +814,8 @@ EOF
     systemctl start "$service_name"
     touch /tmp/marker
     machinectl bind --mkdir "$container_name" /tmp/marker
+    touch /tmp/marker-varlink
+    varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.BindMount '{"name": "'$container_name'", "source": "/tmp/marker-varlink", "makeFileOrDirectory": true}'
 
     timeout 10 bash -c "while [[ '\$(systemctl show -P SubState $service_name)' == running ]]; do sleep .2; done"
     ec="$(systemctl show -P ExecMainStatus "$service_name")"

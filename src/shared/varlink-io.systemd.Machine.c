@@ -147,6 +147,18 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Machine's name which owns mapped UID/GID"),
                 SD_VARLINK_DEFINE_OUTPUT(machineName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                BindMount,
+                VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
+                SD_VARLINK_FIELD_COMMENT("The source directory/fil on the host"),
+                SD_VARLINK_DEFINE_INPUT(source, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The destination directory/file in the container. If null, it's equal to 'source'"),
+                SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, the bind mount shall be read-only"),
+                SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The destination mount point shall be created first, if it is missing"),
+                SD_VARLINK_DEFINE_INPUT(makeFileOrDirectory, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchMachine);
 static SD_VARLINK_DEFINE_ERROR(MachineExists);
 static SD_VARLINK_DEFINE_ERROR(NoPrivateNetworking);
@@ -187,6 +199,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MapFrom,
                 SD_VARLINK_SYMBOL_COMMENT("Maps given host's UID/GID to a machine and corresponding UID/GID"),
                 &vl_method_MapTo,
+                SD_VARLINK_SYMBOL_COMMENT("Bind mounts a file or directory from the host into the container"),
+                &vl_method_BindMount,
                 SD_VARLINK_SYMBOL_COMMENT("No matching machine currently running"),
                 &vl_error_NoSuchMachine,
                 &vl_error_MachineExists,
