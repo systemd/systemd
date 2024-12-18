@@ -395,6 +395,8 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open 
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
 
+# io.systemd.Machine.BindMount is covered by testcase_check_machinectl_bind() in nspawn tests
+
 # terminate machines
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
