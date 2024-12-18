@@ -252,7 +252,7 @@ static void link_free_engines(Link *link) {
 static Link *link_free(Link *link) {
         assert(link);
 
-        (void) sysctl_clear_link_shadows(link);
+        (void) link_clear_sysctl_shadows(link);
 
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
