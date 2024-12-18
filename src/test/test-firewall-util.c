@@ -14,42 +14,42 @@ static void test_v6(FirewallContext *ctx) {
         uint8_t prefixlen;
         int r;
 
-        assert_se(ctx);
+        ASSERT_NOT_NULL(ctx);
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
         if (!socket_ipv6_is_supported())
                 return log_info("IPv6 is not supported by kernel, skipping tests.");
 
-        assert_se(in_addr_from_string(AF_INET6, "dead::beef", &u1) >= 0);
-        assert_se(in_addr_from_string(AF_INET6, "1c3::c01d", &u2) >= 0);
+        ASSERT_OK(in_addr_from_string(AF_INET6, "dead::beef", &u1));
+        ASSERT_OK(in_addr_from_string(AF_INET6, "1c3::c01d", &u2));
 
         prefixlen = random_u64_range(128 + 1 - 8) + 8;
         random_bytes(&u3, sizeof(u3));
 
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 128) >= 0);
-        assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 128) >= 0);
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 64) >= 0);
-        assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 64) >= 0);
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET6, &u3, prefixlen) >= 0);
-        assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u3, prefixlen) >= 0);
+        ASSERT_OK(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 128));
+        ASSERT_OK(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 128));
+        ASSERT_OK(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 64));
+        ASSERT_OK(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 64));
+        ASSERT_OK(fw_add_masquerade(&ctx, true, AF_INET6, &u3, prefixlen));
+        ASSERT_OK(fw_add_masquerade(&ctx, false, AF_INET6, &u3, prefixlen));
 
         r = fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u1, 815, NULL);
         if (r == -EOPNOTSUPP) {
                 log_info("IPv6 DNAT seems not supported, skipping the following tests.");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL) >= 0);
+        ASSERT_OK(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1));
+        ASSERT_OK(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL));
 
 }
 
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {
-        assert_se(str);
-        assert_se(u);
-        assert_se(in_addr_from_string(AF_INET, str, u) >= 0);
+        ASSERT_NOT_NULL(str);
+        ASSERT_NOT_NULL(u);
+        ASSERT_OK(in_addr_from_string(AF_INET, str, u));
         return u;
 }
 
@@ -57,7 +57,7 @@ static bool test_v4(FirewallContext *ctx) {
         union in_addr_union u, v;
         int r;
 
-        assert_se(ctx);
+        ASSERT_NOT_NULL(ctx);
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
@@ -68,8 +68,8 @@ static bool test_v4(FirewallContext *ctx) {
         }
 #endif
 
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET, NULL, 0) == -EINVAL);
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.1.2.0", &u), 0) == -EINVAL);
+        ASSERT_ERROR(fw_add_masquerade(&ctx, true, AF_INET, NULL, 0), EINVAL);
+        ASSERT_ERROR(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.1.2.0", &u), 0), EINVAL);
 
         r = fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.1.2.3", &u), 32);
         if (r < 0) {
@@ -82,15 +82,15 @@ static bool test_v4(FirewallContext *ctx) {
                 if (ignore)
                         return false;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
-        assert_se(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
-        assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
-        assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.1.2.3", &u), 32) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, parse_addr("1.2.3.4", &v)) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, false, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, NULL) >= 0);
+        ASSERT_OK(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.0.2.0", &u), 28));
+        ASSERT_OK(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.0.2.0", &u), 28));
+        ASSERT_OK(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.1.2.3", &u), 32));
+        ASSERT_OK(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL));
+        ASSERT_OK(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL));
+        ASSERT_OK(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, parse_addr("1.2.3.4", &v)));
+        ASSERT_OK(fw_add_local_dnat(&ctx, false, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, NULL));
 
         return true;
 }
@@ -103,8 +103,8 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        assert_se(fw_ctx_new(&ctx) >= 0);
-        assert_se(ctx);
+        ASSERT_OK(fw_ctx_new(&ctx));
+        ASSERT_NOT_NULL(ctx);
 
         if (ctx->backend == FW_BACKEND_NONE)
                 return log_tests_skipped("no firewall backend supported");
