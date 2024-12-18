@@ -42,6 +42,8 @@ create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
 #!/usr/bin/bash
 
+set -x
+
 PID=0
 
 trap 'touch /terminate; kill 0' RTMIN+3
