@@ -27,8 +27,6 @@
 
 int copy_data_fd(int fd) {
         _cleanup_close_ int copy_fd = -EBADF, tmp_fd = -EBADF;
-        _cleanup_free_ void *remains = NULL;
-        size_t remains_size = 0;
         const char *td;
         struct stat st;
         int r;
@@ -82,8 +80,7 @@ int copy_data_fd(int fd) {
         }
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
-        if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT) &&
-            (DATA_FD_MEMORY_LIMIT + remains_size) < DATA_FD_TMP_LIMIT) {
+        if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT)) {
                 tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR|O_CLOEXEC);
                 if (tmp_fd < 0)
                         return tmp_fd;
@@ -99,16 +96,7 @@ int copy_data_fd(int fd) {
                         assert(r == 0);
                 }
 
-                if (remains_size > 0) {
-                        /* If there were remaining bytes (i.e. read into memory, but not written out yet) from the
-                         * failed copy operation, let's flush them out next. */
-
-                        r = loop_write(tmp_fd, remains, remains_size);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = copy_bytes(fd, tmp_fd, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT - remains_size, COPY_REFLINK);
+                r = copy_bytes(fd, tmp_fd, DATA_FD_TMP_LIMIT - DATA_FD_MEMORY_LIMIT, COPY_REFLINK);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -122,9 +110,6 @@ int copy_data_fd(int fd) {
                         return -EIO;
 
                 close_and_replace(copy_fd, tmp_fd);
-
-                remains = mfree(remains);
-                remains_size = 0;
         }
 
         /* As last fallback use /var/tmp/ */
@@ -144,13 +129,6 @@ int copy_data_fd(int fd) {
                         return r;
 
                 assert(r == 0);
-        }
-
-        if (remains_size > 0) {
-                /* Then, copy in any read but not yet written bytes. */
-                r = loop_write(tmp_fd, remains, remains_size);
-                if (r < 0)
-                        return r;
         }
 
         /* Copy in the rest */
