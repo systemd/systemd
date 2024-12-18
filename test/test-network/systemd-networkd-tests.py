@@ -7746,6 +7746,27 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPACK(veth-peer)', output)
 
+    def test_bootp_client(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-bootp-client.network')
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+
+        start_dnsmasq('--dhcp-host=12:34:56:78:9a:bc,192.168.5.42,trixie-mule')
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24', ipv='-4')
+
+        state = get_dhcp4_client_state('veth99')
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'bound')
+
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('BOOTP(veth-peer)', output)
+        self.assertNotIn('DHCPDISCOVER(veth-peer)', output)
+        self.assertNotIn('DHCPOFFER(veth-peer)', output)
+        self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+        self.assertNotIn('DHCPACK(veth-peer)', output)
+
     def test_dhcp_client_ipv6_only_mode_without_ipv6_connectivity(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-ipv6-only-mode.network',
