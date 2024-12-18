@@ -1212,7 +1212,6 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
 }
 
 static int process_forward(sd_event *event, PTYForward **forward, int master, PTYForwardFlags flags, const char *name) {
-        char last_char = 0;
         bool machine_died;
         int r;
 
@@ -1239,16 +1238,11 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        pty_forward_get_last_char(*forward, &last_char);
-
         machine_died =
                 (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
                 pty_forward_get_ignore_vhangup(*forward) == 0;
 
         *forward = pty_forward_free(*forward);
-
-        if (last_char != '\n')
-                fputc('\n', stdout);
 
         if (!arg_quiet) {
                 if (machine_died)
