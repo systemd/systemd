@@ -1555,16 +1555,9 @@ static int run_context_reconnect(RunContext *c) {
 }
 
 static void run_context_check_done(RunContext *c) {
-        bool done;
-
         assert(c);
 
-        done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
-
-        if (c->forward && !pty_forward_is_done(c->forward) && done) /* If the service is gone, it's time to drain the output */
-                done = pty_forward_drain(c->forward);
-
-        if (done)
+        if (STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job)
                 (void) sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
@@ -2094,20 +2087,7 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                if (c.forward) {
-                        char last_char = 0;
-
-                        r = pty_forward_get_last_char(c.forward, &last_char);
-                        if (r >= 0 && !arg_quiet && last_char != '\n')
-                                fputc('\n', stdout);
-                }
-
                 if (arg_wait && !arg_quiet) {
-
-                        /* Explicitly destroy the PTY forwarder, so that the PTY device is usable again, with its
-                         * original settings (i.e. proper line breaks), so that we can show the summary in a pretty
-                         * way. */
-                        c.forward = pty_forward_free(c.forward);
 
                         if (!isempty(c.result))
                                 log_info("Finished with result: %s", strna(c.result));

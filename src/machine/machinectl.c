@@ -1188,35 +1188,29 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
 }
 
 static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        PTYForward ** forward = (PTYForward**) userdata;
+        PTYForward *forward = ASSERT_PTR(userdata);
         int r;
 
         assert(m);
-        assert(forward);
 
-        if (*forward) {
-                /* If the forwarder is already initialized, tell it to
-                 * exit on the next vhangup(), so that we still flush
-                 * out what might be queued and exit then. */
+        /* Tell the forwarder to exit on the next vhangup(), so that we still flush out what might be queued
+         * and exit then. */
 
-                r = pty_forward_set_ignore_vhangup(*forward, false);
-                if (r >= 0)
-                        return 0;
-
+        r = pty_forward_set_ignore_vhangup(forward, false);
+        if (r < 0) {
+                /* On error, quit immediately. */
                 log_error_errno(r, "Failed to set ignore_vhangup flag: %m");
+                (void) sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), EXIT_FAILURE);
         }
 
-        /* On error, or when the forwarder is not initialized yet, quit immediately */
-        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), EXIT_FAILURE);
         return 0;
 }
 
-static int process_forward(sd_event *event, PTYForward **forward, int master, PTYForwardFlags flags, const char *name) {
-        char last_char = 0;
-        bool machine_died;
+static int process_forward(sd_event *event, sd_bus_slot *machine_removed_slot, int master, PTYForwardFlags flags, const char *name) {
         int r;
 
         assert(event);
+        assert(machine_removed_slot);
         assert(master >= 0);
         assert(name);
 
@@ -1231,24 +1225,21 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SIGINT/SITERM handling: %m");
 
-        r = pty_forward_new(event, master, flags, forward);
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        r = pty_forward_new(event, master, flags, &forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+        /* No userdata should not set previously. */
+        assert_se(!sd_bus_slot_set_userdata(machine_removed_slot, forward));
 
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        pty_forward_get_last_char(*forward, &last_char);
-
-        machine_died =
+        bool machine_died =
                 (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
-                pty_forward_get_ignore_vhangup(*forward) == 0;
-
-        *forward = pty_forward_free(*forward);
-
-        if (last_char != '\n')
-                fputc('\n', stdout);
+                pty_forward_get_ignore_vhangup(forward) == 0;
 
         if (!arg_quiet) {
                 if (machine_died)
@@ -1300,7 +1291,6 @@ static int parse_machine_uid(const char *spec, const char **machine, char **uid)
 static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
@@ -1334,7 +1324,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request machine removal match: %m");
 
@@ -1346,13 +1336,12 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
+        return process_forward(event, slot, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
 static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
@@ -1396,7 +1385,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request machine removal match: %m");
 
@@ -1426,7 +1415,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, &forward, master, 0, machine);
+        return process_forward(event, slot, master, /* flags = */ 0, machine);
 }
 
 static int normalize_nspawn_filename(const char *name, char **ret_file) {
