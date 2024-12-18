@@ -13,7 +13,6 @@
 #include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
-#include "dns-domain.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
