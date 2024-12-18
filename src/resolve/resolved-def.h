@@ -83,8 +83,38 @@
 
 #define SD_RESOLVED_FROM_MASK       (SD_RESOLVED_FROM_CACHE|SD_RESOLVED_FROM_ZONE|SD_RESOLVED_FROM_TRUST_ANCHOR|SD_RESOLVED_FROM_NETWORK)
 
+/* LLMNR Jitter interval, see RFC 4795 Section 7 */
+#define SD_RESOLVED_LLMNR_JITTER_INTERVAL_USEC (100 * USEC_PER_MSEC)
+
+/* mDNS probing interval, see RFC 6762 Section 8.1 */
+#define SD_RESOLVED_MDNS_PROBING_INTERVAL_USEC (250 * USEC_PER_MSEC)
+
+/* Maximum attempts to send DNS requests, across all DNS servers */
+#define SD_RESOLVED_DNS_TRANSACTION_ATTEMPTS_MAX 24
+
+/* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
+#define SD_RESOLVED_LLMNR_TRANSACTION_ATTEMPTS_MAX 3
+
+/* Maximum attempts to send MDNS requests, see RFC 6762 Section 8.1 */
+#define SD_RESOLVED_MDNS_TRANSACTION_ATTEMPTS_MAX 3
+
+#define SD_RESOLVED_TRANSACTION_ATTEMPTS_MAX(p) (\
+                                     (p) == DNS_PROTOCOL_LLMNR ?        \
+                                     SD_RESOLVED_LLMNR_TRANSACTION_ATTEMPTS_MAX :   \
+                                     (p) == DNS_PROTOCOL_MDNS ?         \
+                                     SD_RESOLVED_MDNS_TRANSACTION_ATTEMPTS_MAX :    \
+                                     SD_RESOLVED_DNS_TRANSACTION_ATTEMPTS_MAX)
+
 #define SD_RESOLVED_QUERY_TIMEOUT_USEC (120 * USEC_PER_SEC)
+
+/* After how much time to repeat classic DNS requests */
+#define SD_RESOLVED_UDP_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / SD_RESOLVED_DNS_TRANSACTION_ATTEMPTS_MAX)
+
+/* When we do TCP, grant a much longer timeout, as in this case there's no need for us to quickly
+ * resend, as the kernel does that anyway for us, and we really don't want to interrupt it in that
+ * needlessly. */
+#define SD_RESOLVED_TCP_TIMEOUT_USEC (10 * USEC_PER_SEC)
 
 /* Should be longer than transaction timeout for a single UDP transaction, so we get at least
  * one transaction retry before timeouting the whole candidate */
-#define SD_RESOLVED_CANDIDATE_TIMEOUT_USEC (6 * USEC_PER_SEC)
+#define SD_RESOLVED_CANDIDATE_EXPEDITED_TIMEOUT_USEC (SD_RESOLVED_UDP_TIMEOUT_USEC + 1*USEC_PER_SEC)

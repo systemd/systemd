@@ -17,10 +17,6 @@
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
-#define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
-
-/* After how much time to repeat classic DNS requests */
-#define DNS_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -1632,17 +1628,14 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_DNS:
 
-                /* When we do TCP, grant a much longer timeout, as in this case there's no need for us to quickly
-                 * resend, as the kernel does that anyway for us, and we really don't want to interrupt it in that
-                 * needlessly. */
                 if (t->stream)
-                        return TRANSACTION_TCP_TIMEOUT_USEC;
+                        return SD_RESOLVED_TCP_TIMEOUT_USEC;
 
-                return DNS_TIMEOUT_USEC;
+                return SD_RESOLVED_UDP_TIMEOUT_USEC;
 
         case DNS_PROTOCOL_MDNS:
                 if (t->probing)
-                        return MDNS_PROBING_INTERVAL_USEC;
+                        return SD_RESOLVED_MDNS_PROBING_INTERVAL_USEC;
 
                 /* See RFC 6762 Section 5.1 suggests that timeout should be a few seconds. */
                 assert(t->n_attempts > 0);
@@ -1699,7 +1692,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
+        if (t->n_attempts >= SD_RESOLVED_TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 DnsTransactionState result;
 
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
@@ -2130,12 +2123,12 @@ int dns_transaction_go(DnsTransaction *t) {
                 switch (t->scope->protocol) {
 
                 case DNS_PROTOCOL_LLMNR:
-                        jitter = random_u64_range(LLMNR_JITTER_INTERVAL_USEC);
+                        jitter = random_u64_range(SD_RESOLVED_LLMNR_JITTER_INTERVAL_USEC);
                         break;
 
                 case DNS_PROTOCOL_MDNS:
                         if (t->probing)
-                                jitter = random_u64_range(MDNS_PROBING_INTERVAL_USEC);
+                                jitter = random_u64_range(SD_RESOLVED_MDNS_PROBING_INTERVAL_USEC);
                         else
                                 jitter = 0;
                         break;

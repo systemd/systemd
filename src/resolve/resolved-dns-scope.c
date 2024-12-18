@@ -1291,7 +1291,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
                         scope->manager->event,
                         &scope->conflict_event_source,
                         CLOCK_BOOTTIME,
-                        random_u64_range(LLMNR_JITTER_INTERVAL_USEC),
+                        random_u64_range(SD_RESOLVED_LLMNR_JITTER_INTERVAL_USEC),
                         0,
                         on_conflict_dispatch, scope);
         if (r < 0)
