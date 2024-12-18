@@ -5740,15 +5740,8 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        if (forward) {
-                char last_char = 0;
-
-                (void) pty_forward_get_last_char(forward, &last_char);
+        if (forward)
                 forward = pty_forward_free(forward);
-
-                if (!arg_quiet && last_char != '\n')
-                        putc('\n', stdout);
-        }
 
         /* Kill if it is not dead yet anyway */
         if (!arg_register && !arg_keep_unit && bus)

@@ -135,6 +135,19 @@ static void pty_forward_disconnect(PTYForward *f) {
                                 (void) loop_write(f->output_fd, ANSI_WINDOW_TITLE_POP, SIZE_MAX);
                 }
 
+                if (f->last_char_set && f->last_char != '\n') {
+                        const char *s;
+
+                        if (isatty_safe(f->output_fd) && !getenv_terminal_is_dumb() && f->last_char != '\r')
+                                s = "\r\n";
+                        else
+                                s = "\n";
+                        if (write(f->output_fd, s, strlen(s)) < 0)
+                                log_debug_errno(errno, "Failed to write final line break, ignoring: %m");
+
+                        f->last_char = '\n';
+                }
+
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
         }
@@ -991,17 +1004,6 @@ PTYForward* pty_forward_free(PTYForward *f) {
         free(f->title_prefix);
 
         return mfree(f);
-}
-
-int pty_forward_get_last_char(PTYForward *f, char *ret) {
-        assert(f);
-        assert(ret);
-
-        if (!f->last_char_set)
-                return -ENXIO;
-
-        *ret = f->last_char;
-        return 0;
 }
 
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {

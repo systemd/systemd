@@ -2094,14 +2094,6 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                if (c.forward) {
-                        char last_char = 0;
-
-                        r = pty_forward_get_last_char(c.forward, &last_char);
-                        if (r >= 0 && !arg_quiet && last_char != '\n')
-                                fputc('\n', stdout);
-                }
-
                 if (arg_wait && !arg_quiet) {
 
                         /* Explicitly destroy the PTY forwarder, so that the PTY device is usable again, with its
