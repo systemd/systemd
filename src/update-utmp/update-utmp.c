@@ -53,6 +53,12 @@ static int get_startup_monotonic_time(Context *c, usec_t *ret) {
         assert(c);
         assert(ret);
 
+        if (!c->bus) {
+                r = bus_connect_system_systemd(&c->bus);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to get D-Bus connection, ignoring: %m");
+        }
+
         r = bus_get_property_trivial(
                         c->bus,
                         bus_systemd_mgr,
@@ -94,10 +100,13 @@ static int get_current_runlevel(Context *c) {
                                 UINT64_C(100) * USEC_PER_MSEC +
                                 random_u64_range(UINT64_C(1900) * USEC_PER_MSEC * n_attempts / MAX_ATTEMPTS);
                         (void) usleep_safe(usec);
+                }
 
+                if (!c->bus) {
                         r = bus_connect_system_systemd(&c->bus);
                         if (r == -ECONNREFUSED && n_attempts < 64) {
-                                log_debug_errno(r, "Failed to reconnect to system bus, retrying after a slight delay: %m");
+                                log_debug_errno(r, "Failed to %s to system bus, retrying after a slight delay: %m",
+                                                n_attempts <= 1 ? "connect" : "reconnect");
                                 continue;
                         }
                         if (r < 0)
@@ -251,7 +260,6 @@ static int run(int argc, char *argv[]) {
                 .audit_fd = -EBADF,
 #endif
         };
-        int r;
 
         log_setup();
 
@@ -264,9 +272,6 @@ static int run(int argc, char *argv[]) {
                 log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_WARNING,
                                errno, "Failed to connect to audit log, ignoring: %m");
 #endif
-        r = bus_connect_system_systemd(&c.bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         return dispatch_verb(argc, argv, verbs, &c);
 }
