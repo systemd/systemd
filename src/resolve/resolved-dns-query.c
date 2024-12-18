@@ -48,7 +48,7 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
 
         assert(c);
 
-        event_source_disable(c->timeout_event_source);
+        (void) event_source_disable(c->timeout_event_source);
 
         /* Detach all the DnsTransactions attached to this query */
 
@@ -324,12 +324,24 @@ static int on_candidate_timeout(sd_event_source *s, usec_t usec, void *userdata)
         assert(s);
         assert(c);
 
-        if (DNS_TRANSACTION_IS_LIVE(c->query->state)) {
-                log_debug("Accepting incomplete query candidate");
-                dns_query_accept(c->query, c);
-        }
+        // TODO can we get rid of this if check?
+        if (!DNS_TRANSACTION_IS_LIVE(c->query->state))
+                return 0;
+
+        log_debug("Accepting incomplete query candidate after expedited timeout on partial success");
+        dns_query_accept(c->query, c);
 
         return 0;
+}
+
+static bool dns_query_candidate_has_partially_succeeded(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        SET_FOREACH(t, c->transactions)
+                if (t->state == DNS_TRANSACTION_SUCCESS)
+                        return true;
+
+        return false;
 }
 
 void dns_query_candidate_notify(DnsQueryCandidate *c) {
@@ -344,30 +356,22 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
         state = dns_query_candidate_state(c);
 
         if (DNS_TRANSACTION_IS_LIVE(state)) {
-                DnsTransaction *t;
-                bool at_least_one_succeeded = false;
-                SET_FOREACH(t, c->transactions) {
-                        if (t->state == DNS_TRANSACTION_SUCCESS) {
-                                at_least_one_succeeded = true;
-                                break;
-                        }
-                }
-                if (at_least_one_succeeded && !c->timeout_event_source) {
-                        event_reset_time_relative(
+                if (dns_query_candidate_has_partially_succeeded(c))
+                        (void) event_reset_time_relative(
                                         c->query->manager->event,
                                         &c->timeout_event_source,
                                         CLOCK_BOOTTIME,
-                                        SD_RESOLVED_CANDIDATE_EXPEDITED_TIMEOUT_USEC,
-                                        0, on_candidate_timeout, c,
-                                        0, "candidate-timeout", true);
-                }
+                                        SD_RESOLVED_CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy_usec= */ 0,
+                                        on_candidate_timeout, c,
+                                        /* priority= */ 0, "candidate-timeout",
+                                        /* force_reset= */ false);
 
                 return;
         }
 
         if (state != DNS_TRANSACTION_SUCCESS && c->search_domain) {
 
-                event_source_disable(c->timeout_event_source);
+                (void) event_source_disable(c->timeout_event_source);
 
                 r = dns_query_candidate_next_search_domain(c);
                 if (r < 0)
