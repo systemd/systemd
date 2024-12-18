@@ -64,6 +64,8 @@ static void dns_query_candidate_abandon(DnsQueryCandidate *c) {
 
         assert(c);
 
+        (void) event_source_disable(c->timeout_event_source);
+
         /* Abandon all the DnsTransactions attached to this query */
 
         while ((t = set_steal_first(c->transactions))) {
@@ -323,10 +325,6 @@ static int on_candidate_timeout(sd_event_source *s, usec_t usec, void *userdata)
 
         assert(s);
         assert(c);
-
-        // TODO can we get rid of this if check?
-        if (!DNS_TRANSACTION_IS_LIVE(c->query->state))
-                return 0;
 
         log_debug("Accepting incomplete query candidate after expedited timeout on partial success");
         dns_query_accept(c->query, c);
