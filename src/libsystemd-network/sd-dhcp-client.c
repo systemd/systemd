@@ -1608,14 +1608,11 @@ static int client_parse_message(
         if (client->bootp)
                 lease->lifetime = USEC_INFINITY;
 
-        if (lease->server_address == 0 && !client->bootp)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks server address, ignoring.");
-
         if (lease->address == 0 ||
+            lease->server_address == 0 ||
             lease->lifetime == 0)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address or lease lifetime, ignoring.");
+                                             "received lease lacks address, server address or lease lifetime, ignoring.");
 
         r = dhcp_lease_set_default_subnet_mask(lease);
         if (r < 0)
