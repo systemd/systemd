@@ -89,6 +89,8 @@ struct PTYForward {
         char in_buffer[LINE_MAX], *out_buffer;
         size_t out_buffer_size;
         size_t in_buffer_full, out_buffer_full;
+        size_t out_buffer_write_len; /* The length of the output in the buffer except for the trailing
+                                      * truncated OSC, CSI, or some (but not all) ESC sequence. */
 
         usec_t escape_timestamp;
         unsigned escape_counter;
@@ -151,6 +153,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->out_buffer = mfree(f->out_buffer);
         f->out_buffer_size = 0;
         f->out_buffer_full = 0;
+        f->out_buffer_write_len = 0;
         f->in_buffer_full = 0;
 
         f->csi_sequence = mfree(f->csi_sequence);
@@ -277,6 +280,9 @@ static int insert_background_color(PTYForward *f, size_t offset) {
 
         assert(f);
 
+        if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
+                return 0;
+
         if (!f->background_color)
                 return 0;
 
@@ -359,6 +365,9 @@ static int is_csi_background_reset_sequence(const char *seq) {
 static int insert_background_fix(PTYForward *f, size_t offset) {
         assert(f);
 
+        if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
+                return 0;
+
         if (!f->background_color)
                 return 0;
 
@@ -391,6 +400,9 @@ bool shall_set_terminal_title(void) {
 static int insert_window_title_fix(PTYForward *f, size_t offset) {
         assert(f);
 
+        if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
+                return 0;
+
         if (!f->title_prefix)
                 return 0;
 
@@ -413,12 +425,6 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
 
         assert(f);
         assert(offset <= f->out_buffer_full);
-
-        if (!f->background_color && !f->title_prefix)
-                return 0;
-
-        if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
-                return 0;
 
         for (size_t i = offset; i < f->out_buffer_full; i++) {
                 char c = f->out_buffer[i];
@@ -545,6 +551,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                 default:
                         assert_not_reached();
                 }
+
+                if (f->ansi_color_state == ANSI_COLOR_STATE_TEXT)
+                        f->out_buffer_write_len = i + 1;
         }
 
         return 0;
@@ -579,7 +588,7 @@ static int do_shovel(PTYForward *f) {
                 }
 
                 if (f->out_buffer) {
-                        f->out_buffer_full = strlen(f->out_buffer);
+                        f->out_buffer_full = f->out_buffer_write_len = strlen(f->out_buffer);
                         f->out_buffer_size = MALLOC_SIZEOF_SAFE(f->out_buffer);
                 }
         }
@@ -679,9 +688,10 @@ static int do_shovel(PTYForward *f) {
                         }
                 }
 
-                if (f->stdout_writable && f->out_buffer_full > 0) {
+                if (f->stdout_writable && f->out_buffer_write_len > 0) {
+                        assert(f->out_buffer_write_len <= f->out_buffer_full);
 
-                        k = write(f->output_fd, f->out_buffer, f->out_buffer_full);
+                        k = write(f->output_fd, f->out_buffer, f->out_buffer_write_len);
                         if (k < 0) {
 
                                 if (errno == EAGAIN)
@@ -700,9 +710,10 @@ static int do_shovel(PTYForward *f) {
                                         f->last_char_set = true;
                                 }
 
-                                assert(f->out_buffer_full >= (size_t) k);
+                                assert(f->out_buffer_write_len >= (size_t) k);
                                 memmove(f->out_buffer, f->out_buffer + k, f->out_buffer_full - k);
                                 f->out_buffer_full -= k;
+                                f->out_buffer_write_len -= k;
                         }
                 }
         }
@@ -711,7 +722,7 @@ static int do_shovel(PTYForward *f) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
 
-                if ((f->out_buffer_full <= 0 || f->stdout_hangup) &&
+                if ((f->out_buffer_write_len <= 0 || f->stdout_hangup) &&
                     (f->in_buffer_full <= 0 || f->master_hangup))
                         return pty_forward_done(f, 0);
         }
