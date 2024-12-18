@@ -1548,8 +1548,11 @@ static int client_parse_message(
         }
 
         r = dhcp_option_parse(message, len, dhcp_lease_parse_options, lease, &error_message);
-        if (r == -ENOMSG && client->bootp)
-                r = DHCP_ACK; /* BOOTP messages don't have a DHCP message type option */
+        if (r == -ENOMSG && client->bootp) {
+                /* BOOTP messages don't have a DHCP message type option */
+                log_dhcp_client(client, "received BOOTREQUEST");
+                r = DHCP_ACK;
+        }
         else if (r < 0)
                 return log_dhcp_client_errno(client, r, "Failed to parse DHCP options, ignoring: %m");
 
@@ -1602,17 +1605,21 @@ static int client_parse_message(
         lease->next_server = message->siaddr;
         lease->address = message->yiaddr;
 
-        if (client->bootp)
+        if (client->bootp) {
                 lease->lifetime = USEC_INFINITY;
 
-        if (lease->server_address == 0 && !client->bootp)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks server address, ignoring.");
+                log_dhcp_client(client, "BOOTP identified, using infinite lease and server_address=(%#x)", lease->server_address);
+        }
 
         if (lease->address == 0 ||
+            lease->server_address == 0 ||
             lease->lifetime == 0)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address or lease lifetime, ignoring.");
+                                             "received lease lacks address(%#x), server address(%#x) or lease lifetime(%#llx), ignoring.",
+                                             lease->address,
+                                             lease->server_address,
+                                             (unsigned long long) lease->lifetime);
+
 
         r = dhcp_lease_set_default_subnet_mask(lease);
         if (r < 0)
@@ -1648,8 +1655,14 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
 
         dhcp_lease_unref_and_replace(client->lease, lease);
 
-        if (client->lease->rapid_commit || client->bootp) {
+        if (client->lease->rapid_commit) {
                 log_dhcp_client(client, "ACK");
+
+                return SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+        }
+        else if (client->bootp) {
+                log_dhcp_client(client, "BOOTREPLY");
+
                 return SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
         }
 
