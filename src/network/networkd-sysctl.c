@@ -102,10 +102,10 @@ int manager_install_sysctl_monitor(Manager *manager) {
         assert(manager);
 
         r = dlopen_bpf();
-        if (r < 0) {
-                log_info_errno(r, "sysctl monitor disabled, as BPF support is not available.");
-                return 0;
-        }
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return log_debug_errno(r, "sysctl monitor disabled, as BPF support is not available.");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to load libbpf, not installing sysctl monitor: %m");
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
@@ -113,13 +113,12 @@ int manager_install_sysctl_monitor(Manager *manager) {
 
         root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
         if (root_cgroup_fd < 0)
-                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m.");
+                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m");
 
         obj = sysctl_monitor_bpf__open_and_load();
-        if (!obj) {
-                log_info_errno(errno, "Unable to load sysctl monitor BPF program, ignoring: %m.");
-                return 0;
-        }
+        if (!obj)
+                return log_full_errno(errno == EINVAL ? LOG_DEBUG : LOG_INFO, errno,
+                                      "Unable to load sysctl monitor BPF program, ignoring: %m");
 
         cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, cgroup);
         if (cgroup_fd < 0)
@@ -130,10 +129,8 @@ int manager_install_sysctl_monitor(Manager *manager) {
 
         sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, root_cgroup_fd);
         r = bpf_get_error_translated(sysctl_link);
-        if (r < 0) {
-                log_info_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m.");
-                return 0;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m");
 
         fd = sym_bpf_map__fd(obj->maps.written_sysctls);
         if (fd < 0)
