@@ -58,8 +58,8 @@ struct PTYForward {
         sd_event_source *stdin_event_source;
         sd_event_source *stdout_event_source;
         sd_event_source *master_event_source;
-
         sd_event_source *sigwinch_event_source;
+        sd_event_source *exit_event_source;
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
@@ -116,9 +116,9 @@ static void pty_forward_disconnect(PTYForward *f) {
 
         f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
-
         f->master_event_source = sd_event_source_unref(f->master_event_source);
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
+        f->exit_event_source = sd_event_source_unref(f->exit_event_source);
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
@@ -829,6 +829,20 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         return 0;
 }
 
+static int on_exit_event(sd_event_source *e, void *userdata) {
+        PTYForward *f = ASSERT_PTR(userdata);
+
+        assert(e);
+        assert(e == f->exit_event_source);
+
+        if (f->done)
+                return 0;
+
+        f->drain = true;
+        (void) pty_forward_done(f, do_shovel(f));
+        return 0;
+}
+
 int pty_forward_new(
                 sd_event *event,
                 int master,
@@ -989,6 +1003,12 @@ int pty_forward_new(
 
         (void) sd_event_source_set_description(f->sigwinch_event_source, "ptyfwd-sigwinch");
 
+        r = sd_event_add_exit(f->event, &f->exit_event_source, on_exit_event, f);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(f->exit_event_source, "ptyfwd-exit");
+
         *ret = TAKE_PTR(f);
 
         return 0;
@@ -1035,31 +1055,11 @@ bool pty_forward_get_ignore_vhangup(PTYForward *f) {
         return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
 }
 
-bool pty_forward_is_done(PTYForward *f) {
-        assert(f);
-
-        return f->done;
-}
-
 void pty_forward_set_handler(PTYForward *f, PTYForwardHandler cb, void *userdata) {
         assert(f);
 
         f->handler = cb;
         f->userdata = userdata;
-}
-
-bool pty_forward_drain(PTYForward *f) {
-        assert(f);
-
-        /* Starts draining the forwarder. Specifically:
-         *
-         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
-         *
-         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
-         */
-
-        f->drain = true;
-        return drained(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
