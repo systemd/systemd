@@ -10,6 +10,7 @@
 #include "resolved-dns-query.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-timeouts.h"
 #include "string-util.h"
 
 #define QUERIES_MAX 2048
@@ -48,6 +49,8 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
 
         assert(c);
 
+        (void) event_source_disable(c->timeout_event_source);
+
         /* Detach all the DnsTransactions attached to this query */
 
         while ((t = set_steal_first(c->transactions))) {
@@ -61,6 +64,8 @@ static void dns_query_candidate_abandon(DnsQueryCandidate *c) {
         DnsTransaction *t;
 
         assert(c);
+
+        (void) event_source_disable(c->timeout_event_source);
 
         /* Abandon all the DnsTransactions attached to this query */
 
@@ -93,6 +98,8 @@ static DnsQueryCandidate* dns_query_candidate_unlink(DnsQueryCandidate *c) {
 static DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
         if (!c)
                 return NULL;
+
+        c->timeout_event_source = sd_event_source_disable_unref(c->timeout_event_source);
 
         dns_query_candidate_stop(c);
         dns_query_candidate_unlink(c);
@@ -312,6 +319,30 @@ fail:
         return r;
 }
 
+static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c);
+
+static int on_candidate_timeout(sd_event_source *s, usec_t usec, void *userdata) {
+        DnsQueryCandidate *c = userdata;
+
+        assert(s);
+        assert(c);
+
+        log_debug("Accepting incomplete query candidate after expedited timeout on partial success");
+        dns_query_accept(c->query, c);
+
+        return 0;
+}
+
+static bool dns_query_candidate_has_partially_succeeded(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        SET_FOREACH(t, c->transactions)
+                if (t->state == DNS_TRANSACTION_SUCCESS)
+                        return true;
+
+        return false;
+}
+
 void dns_query_candidate_notify(DnsQueryCandidate *c) {
         DnsTransactionState state;
         int r;
@@ -323,10 +354,23 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
 
         state = dns_query_candidate_state(c);
 
-        if (DNS_TRANSACTION_IS_LIVE(state))
+        if (DNS_TRANSACTION_IS_LIVE(state)) {
+                if (dns_query_candidate_has_partially_succeeded(c))
+                        (void) event_reset_time_relative(
+                                        c->query->manager->event,
+                                        &c->timeout_event_source,
+                                        CLOCK_BOOTTIME,
+                                        CANDIDATE_EXPEDITED_TIMEOUT_USEC, /* accuracy_usec= */ 0,
+                                        on_candidate_timeout, c,
+                                        /* priority= */ 0, "candidate-timeout",
+                                        /* force_reset= */ false);
+
                 return;
+        }
 
         if (state != DNS_TRANSACTION_SUCCESS && c->search_domain) {
+
+                (void) event_source_disable(c->timeout_event_source);
 
                 r = dns_query_candidate_next_search_domain(c);
                 if (r < 0)
