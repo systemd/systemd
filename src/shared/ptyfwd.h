@@ -31,11 +31,7 @@ PTYForward* pty_forward_free(PTYForward *f);
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup);
 bool pty_forward_get_ignore_vhangup(PTYForward *f);
 
-bool pty_forward_is_done(PTYForward *f);
-
 void pty_forward_set_handler(PTYForward *f, PTYForwardHandler handler, void *userdata);
-
-bool pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 
