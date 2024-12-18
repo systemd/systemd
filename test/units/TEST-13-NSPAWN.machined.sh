@@ -42,6 +42,8 @@ create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
 #!/usr/bin/bash
 
+set -x
+
 PID=0
 
 trap 'touch /terminate; kill 0' RTMIN+3
@@ -310,6 +312,10 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unreg
 # test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
 create_dummy_container "/var/lib/machines/container-without-os-release"
 cat >>/var/lib/machines/container-without-os-release/sbin/init <<\EOF
+#!/usr/bin/bash
+
+set -x
+
 ip link add hoge type dummy
 ip link set hoge up
 ip address add 192.0.2.1/24 dev hoge
