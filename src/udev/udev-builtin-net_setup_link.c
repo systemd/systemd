@@ -30,18 +30,18 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
                                  device_action_to_string(action));
 
                 /* Import previously assigned .link file name. */
-                (void) udev_builtin_import_property(dev, event->dev_db_clone, event->event_mode, "ID_NET_LINK_FILE");
-                (void) udev_builtin_import_property(dev, event->dev_db_clone, event->event_mode, "ID_NET_LINK_FILE_DROPINS");
+                (void) udev_builtin_import_property(event, "ID_NET_LINK_FILE");
+                (void) udev_builtin_import_property(event, "ID_NET_LINK_FILE_DROPINS");
 
                 /* Set ID_NET_NAME= with the current interface name. */
                 const char *value;
                 if (sd_device_get_sysname(dev, &value) >= 0)
-                        (void) udev_builtin_add_property(dev, event->event_mode, "ID_NET_NAME", value);
+                        (void) udev_builtin_add_property(event, "ID_NET_NAME", value);
 
                 return 0;
         }
 
-        r = link_new(ctx, &event->rtnl, dev, event->dev_db_clone, &link);
+        r = link_new(ctx, event, &link);
         if (r == -ENODEV) {
                 log_device_debug_errno(dev, r, "Link vanished while getting information, ignoring.");
                 return 0;
@@ -59,13 +59,11 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
-        r = link_apply_config(ctx, &event->rtnl, link, event->event_mode);
+        r = link_apply_config(ctx, link);
         if (r == -ENODEV)
                 log_device_debug_errno(dev, r, "Link vanished while applying configuration, ignoring.");
         else if (r < 0)
                 log_device_warning_errno(dev, r, "Could not apply link configuration, ignoring: %m");
-
-        event->altnames = TAKE_PTR(link->altnames);
 
         return 0;
 }
