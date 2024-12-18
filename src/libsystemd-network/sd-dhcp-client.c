@@ -1648,8 +1648,14 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
 
         dhcp_lease_unref_and_replace(client->lease, lease);
 
-        if (client->lease->rapid_commit || client->bootp) {
-                log_dhcp_client(client, client->bootp ? "BOOTREPLY" : "ACK");
+        if (client->lease->rapid_commit) {
+                log_dhcp_client(client, "ACK");
+
+                return SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+        }
+        else if (client->bootp) {
+                log_dhcp_client(client, "BOOTREPLY");
+
                 return SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
         }
 
