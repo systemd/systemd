@@ -85,6 +85,7 @@ struct PTYForward {
 
         bool last_char_set:1;
         char last_char;
+        char last_char_safe;
 
         char in_buffer[LINE_MAX], *out_buffer;
         size_t out_buffer_size;
@@ -439,8 +440,11 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 if (r < 0)
                                         return r;
                                 i += r;
+                                f->last_char_safe = c;
                         } else if (c == 0x1B) /* ESC */
                                 f->ansi_color_state = ANSI_COLOR_STATE_ESC;
+                        else if (!char_is_cc(c))
+                                f->last_char_safe = c;
                         break;
 
                 case ANSI_COLOR_STATE_ESC:
@@ -705,8 +709,15 @@ static int do_shovel(PTYForward *f) {
 
                         } else {
 
-                                if (k > 0) {
-                                        f->last_char = f->out_buffer[k-1];
+                                if (k > 0 && f->last_char_safe != '\0') {
+                                        if ((size_t) k == f->out_buffer_write_len)
+                                                /* If we wrote all, then save the last safe character. */
+                                                f->last_char = f->last_char_safe;
+                                        else
+                                                /* If we wrote partially, then tentatively save the last written character.
+                                                 * Hopefully, we will write more in the next loop. */
+                                                f->last_char = f->out_buffer[k-1];
+
                                         f->last_char_set = true;
                                 }
 
