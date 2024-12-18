@@ -1242,8 +1242,6 @@ static int process_forward(sd_event *event, PTYForward **forward, int master, PT
                 (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
                 pty_forward_get_ignore_vhangup(*forward) == 0;
 
-        *forward = pty_forward_free(*forward);
-
         if (!arg_quiet) {
                 if (machine_died)
                         log_info("Machine %s terminated.", name);

@@ -5740,9 +5740,6 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
-        if (forward)
-                forward = pty_forward_free(forward);
-
         /* Kill if it is not dead yet anyway */
         if (!arg_register && !arg_keep_unit && bus)
                 terminate_scope(bus, arg_machine);
