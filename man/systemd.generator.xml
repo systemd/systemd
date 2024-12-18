@@ -64,6 +64,10 @@
     override existing definitions. For tests, generators may be called with just one argument; the generator
     should assume that all three paths are the same in that case.</para>
 
+    <para>Generators executed by the system manager are invoked in a sandbox with a private
+    <filename>/tmp</filename> directory and where most of the file system is read-only except for the
+    generator output directories.</para>
+
     <para>Directory paths for generator output differ by priority: <filename>…/generator.early</filename> has
     priority higher than the admin configuration in <filename>/etc/</filename>, while
     <filename>…/generator</filename> has lower priority than <filename>/etc/</filename> but higher than
