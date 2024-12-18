@@ -47,7 +47,7 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
          * so do it only in case of a fatal error like a version mismatch. */
         if (we->version != 1)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                "Unexpected sysctl event, disabling sysctl monitoring: %d", we->version);
+                                         "Unexpected sysctl event, disabling sysctl monitoring: %d", we->version);
 
         if (we->errorcode != 0) {
                 log_warning_errno(we->errorcode, "Sysctl monitor BPF returned error: %m");
@@ -56,7 +56,7 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
 
         path = path_join("/proc/sys", we->path);
         if (!path) {
-                log_oom();
+                log_oom_warning();
                 return 0;
         }
 
@@ -91,7 +91,7 @@ static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *use
         return 0;
 }
 
-int sysctl_add_monitor(Manager *manager) {
+int manager_install_sysctl_monitor(Manager *manager) {
         _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
         _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *sysctl_buffer = NULL;
@@ -102,10 +102,9 @@ int sysctl_add_monitor(Manager *manager) {
         assert(manager);
 
         r = dlopen_bpf();
-        if (r < 0) {
-                log_info_errno(r, "sysctl monitor disabled, as BPF support is not available.");
-                return 0;
-        }
+        if (r < 0)
+                return log_full_errno(r == -EOPNOTSUPP ? LOG_DEBUG : LOG_INFO, r,
+                                      "sysctl monitor disabled, as BPF support is not available.");
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
@@ -113,13 +112,12 @@ int sysctl_add_monitor(Manager *manager) {
 
         root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
         if (root_cgroup_fd < 0)
-                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m.");
+                return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m");
 
         obj = sysctl_monitor_bpf__open_and_load();
-        if (!obj) {
-                log_info_errno(errno, "Unable to load sysctl monitor BPF program, ignoring: %m.");
-                return 0;
-        }
+        if (!obj)
+                return log_full_errno(errno == EINVAL ? LOG_DEBUG : LOG_INFO, errno,
+                                      "Unable to load sysctl monitor BPF program, ignoring: %m");
 
         cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, cgroup);
         if (cgroup_fd < 0)
@@ -130,10 +128,8 @@ int sysctl_add_monitor(Manager *manager) {
 
         sysctl_link = sym_bpf_program__attach_cgroup(obj->progs.sysctl_monitor, root_cgroup_fd);
         r = bpf_get_error_translated(sysctl_link);
-        if (r < 0) {
-                log_info_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m.");
-                return 0;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Unable to attach sysctl monitor BPF program to cgroup, ignoring: %m");
 
         fd = sym_bpf_map__fd(obj->maps.written_sysctls);
         if (fd < 0)
@@ -160,7 +156,7 @@ int sysctl_add_monitor(Manager *manager) {
         return 0;
 }
 
-void sysctl_remove_monitor(Manager *manager) {
+void manager_remove_sysctl_monitor(Manager *manager) {
         assert(manager);
 
         manager->sysctl_event_source = sd_event_source_disable_unref(manager->sysctl_event_source);
@@ -171,7 +167,7 @@ void sysctl_remove_monitor(Manager *manager) {
         manager->sysctl_shadow = hashmap_free(manager->sysctl_shadow);
 }
 
-int sysctl_clear_link_shadows(Link *link) {
+int link_clear_sysctl_shadows(Link *link) {
         _cleanup_free_ char *ipv4 = NULL, *ipv6 = NULL;
         char *key = NULL, *value = NULL;
 
@@ -188,7 +184,7 @@ int sysctl_clear_link_shadows(Link *link) {
 
         HASHMAP_FOREACH_KEY(value, key, link->manager->sysctl_shadow)
                 if (path_startswith(key, ipv4) || path_startswith(key, ipv6)) {
-                        assert_se(hashmap_remove_value(link->manager->sysctl_shadow, key, value) == value);
+                        assert_se(hashmap_remove_value(link->manager->sysctl_shadow, key, value));
                         free(key);
                         free(value);
                 }
