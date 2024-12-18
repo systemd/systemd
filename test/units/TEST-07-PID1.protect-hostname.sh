@@ -33,7 +33,7 @@ testcase_yes() {
     test "$(hostname)" = "$LEGACY_HOSTNAME"
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
 
-    # ProtectHostname= supportes specifiers.
+    # ProtectHostname= supports specifiers.
     mkdir -p /run/systemd/system/
     cat >/run/systemd/system/test-protect-hostname-yes@.service <<EOF
 [Service]
@@ -75,7 +75,7 @@ testcase_private() {
     test "$(hostname)" = "$LEGACY_HOSTNAME"
     test "$(hostnamectl hostname)" = "$HOSTNAME_FROM_SYSTEMD"
 
-    # ProtectHostname= supportes specifiers.
+    # ProtectHostname= supports specifiers.
     mkdir -p /run/systemd/system/
     cat >/run/systemd/system/test-protect-hostname-private@.service <<EOF
 [Service]
