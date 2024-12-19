@@ -2,7 +2,6 @@
 
 #include "sd-varlink-idl.h"
 
-#include "ansi-color.h"
 #include "json-util.h"
 #include "memstream-util.h"
 #include "set.h"

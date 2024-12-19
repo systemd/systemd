@@ -13,7 +13,6 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"

@@ -10,7 +10,6 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
 #include "bpf-socket-bind.h"

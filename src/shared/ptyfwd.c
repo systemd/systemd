@@ -17,7 +17,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"

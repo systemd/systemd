@@ -16,7 +16,6 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"

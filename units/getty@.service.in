@@ -34,9 +34,10 @@ Before=rescue.service
 ConditionPathExists=/dev/tty0
 
 [Service]
+# the VT is cleared by TTYVTDisallocate
 # The '-o' option value tells agetty to replace 'login' arguments with '--' for
 # safety, and then the entered username.
-ExecStart=-/sbin/agetty -o '-- \\u' --noreset --noclear - ${TERM}
+ExecStart=-/sbin/agetty -o '-- \\u' --noclear - $TERM
 Type=idle
 Restart=always
 RestartSec=0

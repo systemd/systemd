@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ansi-color.h"
 #include "locale-util.h"
 #include "sort-util.h"
 #include "special.h"

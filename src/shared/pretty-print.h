@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "ansi-color.h"
 #include "glyph-util.h"
 #include "terminal-util.h"
 

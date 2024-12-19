@@ -2,7 +2,6 @@
 
 #include <getopt.h>
 
-#include "ansi-color.h"
 #include "authenticode.h"
 #include "build.h"
 #include "copy.h"
@@ -15,6 +14,7 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 

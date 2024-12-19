@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"

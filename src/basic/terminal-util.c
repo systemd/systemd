@@ -21,8 +21,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
-#include "chase.h"
 #include "constants.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -35,7 +33,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_magic.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -321,6 +318,92 @@ int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage)
         return 0;
 }
 
+int reset_terminal_fd(int fd, bool switch_to_text) {
+        struct termios termios;
+        int r;
+
+        /* Set terminal to some sane defaults */
+
+        assert(fd >= 0);
+
+        if (!isatty_safe(fd))
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
+
+        /* Disable exclusive mode, just in case */
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
+
+        /* Switch to text mode */
+        if (switch_to_text)
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
+
+        /* Set default keyboard mode */
+        r = vt_reset_keyboard(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
+
+        if (tcgetattr(fd, &termios) < 0) {
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
+                goto finish;
+        }
+
+        /* We only reset the stuff that matters to the software. How
+         * hardware is set up we don't touch assuming that somebody
+         * else will do that for us */
+
+        termios.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | IUCLC);
+        termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
+        termios.c_oflag |= ONLCR | OPOST;
+        termios.c_cflag |= CREAD;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
+
+        termios.c_cc[VINTR]    =   03;  /* ^C */
+        termios.c_cc[VQUIT]    =  034;  /* ^\ */
+        termios.c_cc[VERASE]   = 0177;
+        termios.c_cc[VKILL]    =  025;  /* ^X */
+        termios.c_cc[VEOF]     =   04;  /* ^D */
+        termios.c_cc[VSTART]   =  021;  /* ^Q */
+        termios.c_cc[VSTOP]    =  023;  /* ^S */
+        termios.c_cc[VSUSP]    =  032;  /* ^Z */
+        termios.c_cc[VLNEXT]   =  026;  /* ^V */
+        termios.c_cc[VWERASE]  =  027;  /* ^W */
+        termios.c_cc[VREPRINT] =  022;  /* ^R */
+        termios.c_cc[VEOL]     =    0;
+        termios.c_cc[VEOL2]    =    0;
+
+        termios.c_cc[VTIME]  = 0;
+        termios.c_cc[VMIN]   = 1;
+
+        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
+        if (r < 0)
+                log_debug_errno(r, "Failed to set terminal parameters: %m");
+
+finish:
+        /* Just in case, flush all crap out */
+        (void) tcflush(fd, TCIOFLUSH);
+
+        return r;
+}
+
+int reset_terminal(const char *name) {
+        _cleanup_close_ int fd = -EBADF;
+
+        /* We open the terminal with O_NONBLOCK here, to ensure we
+         * don't block on carrier if this is a terminal with carrier
+         * configured. */
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return fd;
+
+        return reset_terminal_fd(fd, true);
+}
+
 int open_terminal(const char *name, int mode) {
         _cleanup_close_ int fd = -EBADF;
 
@@ -503,222 +586,69 @@ int terminal_vhangup_fd(int fd) {
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
-int terminal_vhangup(const char *tty) {
+int terminal_vhangup(const char *name) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(tty);
-
-        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
         return terminal_vhangup_fd(fd);
 }
 
-int vt_disallocate(const char *tty_path) {
-        assert(tty_path);
+int vt_disallocate(const char *name) {
+        const char *e;
+        int r;
 
-        /* Deallocate the VT if possible. If not possible (i.e. because it is the active one), at least clear
-         * it entirely (including the scrollback buffer). */
+        /* Deallocate the VT if possible. If not possible
+         * (i.e. because it is the active one), at least clear it
+         * entirely (including the scrollback buffer). */
 
-        int ttynr = vtnr_from_tty(tty_path);
-        if (ttynr > 0) {
-                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        e = path_startswith(name, "/dev/");
+        if (!e)
+                return -EINVAL;
+
+        if (tty_is_vc(name)) {
+                _cleanup_close_ int fd = -EBADF;
+                unsigned u;
+                const char *n;
+
+                n = startswith(e, "tty");
+                if (!n)
+                        return -EINVAL;
+
+                r = safe_atou(n, &u);
+                if (r < 0)
+                        return r;
+
+                if (u <= 0)
+                        return -EINVAL;
+
+                /* Try to deallocate */
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
-                /* Try to deallocate */
-                if (ioctl(fd, VT_DISALLOCATE, ttynr) >= 0)
+                r = ioctl(fd, VT_DISALLOCATE, u);
+                if (r >= 0)
                         return 0;
                 if (errno != EBUSY)
                         return -errno;
         }
 
-        /* So this is not a VT (in which case we cannot deallocate it), or we failed to deallocate. Let's at
-         * least clear the screen. */
+        /* So this is not a VT (in which case we cannot deallocate it),
+         * or we failed to deallocate. Let's at least clear the screen. */
 
-        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int fd2 = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd2 < 0)
                 return fd2;
 
-        return loop_write_full(fd2,
-                               "\033[r"   /* clear scrolling region */
-                               "\033[H"   /* move home */
-                               "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
-                               "\033c",   /* reset to initial state */
-                               SIZE_MAX,
-                               100 * USEC_PER_MSEC);
-}
-
-static int vt_default_utf8(void) {
-        _cleanup_free_ char *b = NULL;
-        int r;
-
-        /* Read the default VT UTF8 setting from the kernel */
-
-        r = read_one_line_file("/sys/module/vt/parameters/default_utf8", &b);
-        if (r < 0)
-                return r;
-
-        return parse_boolean(b);
-}
-
-static int vt_reset_keyboard(int fd) {
-        int r, kb;
-
-        assert(fd >= 0);
-
-        /* If we can't read the default, then default to Unicode. It's 2024 after all. */
-        r = vt_default_utf8();
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine kernel VT UTF-8 mode, assuming enabled: %m");
-
-        kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
-        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
-}
-
-static int terminal_reset_ioctl(int fd, bool switch_to_text) {
-        struct termios termios;
-        int r;
-
-        /* Set terminal to some sane defaults */
-
-        assert(fd >= 0);
-
-        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
-         * and we don't interfere with that. */
-
-        /* Disable exclusive mode, just in case */
-        if (ioctl(fd, TIOCNXCL) < 0)
-                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
-
-        /* Switch to text mode */
-        if (switch_to_text)
-                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
-                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
-
-        /* Set default keyboard mode */
-        r = vt_reset_keyboard(fd);
-        if (r < 0)
-                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
-
-        if (tcgetattr(fd, &termios) < 0) {
-                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
-                goto finish;
-        }
-
-        /* We only reset the stuff that matters to the software. How
-         * hardware is set up we don't touch assuming that somebody
-         * else will do that for us */
-
-        termios.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | IUCLC);
-        termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
-        termios.c_oflag |= ONLCR | OPOST;
-        termios.c_cflag |= CREAD;
-        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
-
-        termios.c_cc[VINTR]    =   03;  /* ^C */
-        termios.c_cc[VQUIT]    =  034;  /* ^\ */
-        termios.c_cc[VERASE]   = 0177;
-        termios.c_cc[VKILL]    =  025;  /* ^X */
-        termios.c_cc[VEOF]     =   04;  /* ^D */
-        termios.c_cc[VSTART]   =  021;  /* ^Q */
-        termios.c_cc[VSTOP]    =  023;  /* ^S */
-        termios.c_cc[VSUSP]    =  032;  /* ^Z */
-        termios.c_cc[VLNEXT]   =  026;  /* ^V */
-        termios.c_cc[VWERASE]  =  027;  /* ^W */
-        termios.c_cc[VREPRINT] =  022;  /* ^R */
-        termios.c_cc[VEOL]     =    0;
-        termios.c_cc[VEOL2]    =    0;
-
-        termios.c_cc[VTIME]  = 0;
-        termios.c_cc[VMIN]   = 1;
-
-        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
-        if (r < 0)
-                log_debug_errno(r, "Failed to set terminal parameters: %m");
-
-finish:
-        /* Just in case, flush all crap out */
-        (void) tcflush(fd, TCIOFLUSH);
-
-        return r;
-}
-
-static int terminal_reset_ansi_seq(int fd) {
-        int r, k;
-
-        assert(fd >= 0);
-
-        if (getenv_terminal_is_dumb())
-                return 0;
-
-        r = fd_nonblock(fd, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
-
-        k = loop_write_full(fd,
-                            "\033[!p"      /* soft terminal reset */
-                            "\033]104\007" /* reset colors */
-                            "\033[?7h",    /* enable line-wrapping */
-                            SIZE_MAX,
-                            100 * USEC_PER_MSEC);
-        if (k < 0)
-                log_debug_errno(k, "Failed to reset terminal through ANSI sequences: %m");
-
-        if (r > 0) {
-                r = fd_nonblock(fd, false);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
-        }
-
-        return k < 0 ? k : r;
-}
-
-void reset_dev_console_fd(int fd, bool switch_to_text) {
-        int r;
-
-        assert(fd >= 0);
-
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
-
-        r = terminal_reset_ioctl(fd, switch_to_text);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console, ignoring: %m");
-
-        unsigned rows, cols;
-        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
-        if (r < 0)
-                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
-        else if (r > 0) {
-                r = terminal_set_size_fd(fd, NULL, rows, cols);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
-        } else
-                (void) terminal_fix_size(fd, fd);
-
-        r = terminal_reset_ansi_seq(fd);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console using ANSI sequences, ignoring: %m");
-}
-
-int lock_dev_console(void) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
-         * pty in /dev/console, in which case it should be fine to lock the target TTY. */
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0)
-                return r;
-
-        return TAKE_FD(fd);
+        (void) loop_write(fd2,
+                          "\033[r"   /* clear scrolling region */
+                          "\033[H"   /* move home */
+                          "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
+                          10);
+        return 0;
 }
 
 int make_console_stdio(void) {
@@ -737,7 +667,25 @@ int make_console_stdio(void) {
                         return log_error_errno(r, "Failed to make /dev/null stdin/stdout/stderr: %m");
 
         } else {
-                reset_dev_console_fd(fd, /* switch_to_text= */ true);
+                unsigned rows, cols;
+
+                r = reset_terminal_fd(fd, /* switch_to_text= */ true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+
+                r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+                else if (r > 0) {
+                        r = terminal_set_size_fd(fd, NULL, rows, cols);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set configured terminal size, ignoring: %m");
+                } else
+                        (void) terminal_fix_size(fd, fd);
+
+                r = terminal_reset_ansi_seq(fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal using ANSI sequences, ignoring: %m");
 
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
@@ -784,37 +732,24 @@ int vtnr_from_tty(const char *tty) {
 }
 
 int resolve_dev_console(char **ret) {
+        _cleanup_free_ char *active = NULL;
+        char *tty;
         int r;
 
         assert(ret);
 
-        /* Resolve where /dev/console is pointing to. If /dev/console is a symlink (like in container
-         * managers), we'll just resolve the symlink. If it's a real device node, we'll use if
-         * /sys/class/tty/tty0/active, but only if /sys/ is actually ours (i.e. not read-only-mounted which
-         * is a sign for container setups). */
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
+         * sign for container setups) */
 
-        _cleanup_free_ char *chased = NULL;
-        r = chase("/dev/console", /* root= */ NULL, /* chase_flags= */ 0,  &chased, /* ret_fd= */ NULL);
-        if (r < 0)
-                return r;
-        if (!path_equal(chased, "/dev/console")) {
-                *ret = TAKE_PTR(chased);
-                return 0;
-        }
-
-        r = path_is_read_only_fs("/sys");
-        if (r < 0)
-                return r;
-        if (r > 0)
+        if (path_is_read_only_fs("/sys") > 0)
                 return -ENOMEDIUM;
 
-        _cleanup_free_ char *active = NULL;
         r = read_one_line_file("/sys/class/tty/console/active", &active);
         if (r < 0)
                 return r;
 
         /* If multiple log outputs are configured the last one is what /dev/console points to */
-        const char *tty = strrchr(active, ' ');
+        tty = strrchr(active, ' ');
         if (tty)
                 tty++;
         else
@@ -936,7 +871,7 @@ int fd_columns(int fd) {
                 return -errno;
 
         if (ws.ws_col <= 0)
-                return -ENODATA; /* some tty types come up with invalid row/column initially, return a recognizable error for that */
+                return -EIO;
 
         return ws.ws_col;
 }
@@ -984,7 +919,7 @@ int fd_lines(int fd) {
                 return -errno;
 
         if (ws.ws_row <= 0)
-                return -ENODATA; /* some tty types come up with invalid row/column initially, return a recognizable error for that */
+                return -EIO;
 
         return ws.ws_row;
 }
@@ -1014,18 +949,13 @@ unsigned lines(void) {
 int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols) {
         struct winsize ws;
 
-        assert(fd >= 0);
-
-        if (!ident)
-                ident = "TTY";
-
         if (rows == UINT_MAX && cols == UINT_MAX)
                 return 0;
 
         if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno,
                                        "TIOCGWINSZ ioctl for getting %s size failed, not setting terminal size: %m",
-                                       ident);
+                                       ident ?: "TTY");
 
         if (rows == UINT_MAX)
                 rows = ws.ws_row;
@@ -1044,7 +974,7 @@ int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols
         ws.ws_col = cols;
 
         if (ioctl(fd, TIOCSWINSZ, &ws) < 0)
-                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident);
+                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident ?: "TTY");
 
         return 0;
 }
@@ -1164,11 +1094,11 @@ int getttyname_harder(int fd, char **ret) {
         return 0;
 }
 
-int get_ctty_devnr(pid_t pid, dev_t *ret) {
-        _cleanup_free_ char *line = NULL;
-        unsigned long ttynr;
-        const char *p;
+int get_ctty_devnr(pid_t pid, dev_t *d) {
         int r;
+        _cleanup_free_ char *line = NULL;
+        const char *p;
+        unsigned long ttynr;
 
         assert(pid >= 0);
 
@@ -1195,8 +1125,8 @@ int get_ctty_devnr(pid_t pid, dev_t *ret) {
         if (devnum_is_zero(ttynr))
                 return -ENXIO;
 
-        if (ret)
-                *ret = (dev_t) ttynr;
+        if (d)
+                *d = (dev_t) ttynr;
 
         return 0;
 }
@@ -1580,6 +1510,28 @@ bool underline_enabled(void) {
         return cached_underline_enabled;
 }
 
+int vt_default_utf8(void) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        /* Read the default VT UTF8 setting from the kernel */
+
+        r = read_one_line_file("/sys/module/vt/parameters/default_utf8", &b);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(b);
+}
+
+int vt_reset_keyboard(int fd) {
+        int kb;
+
+        /* If we can't read the default, then default to unicode. It's 2017 after all. */
+        kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
+
+        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
+}
+
 int vt_restore(int fd) {
 
         static const struct vt_mode mode = {
@@ -1676,38 +1628,35 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
-int terminal_reset_defensive(int fd, bool switch_to_text) {
-        int r = 0;
+int terminal_reset_ansi_seq(int fd) {
+        int r, k;
 
         assert(fd >= 0);
 
-        /* Resets the terminal comprehensively, but defensively. i.e. both resets the tty via ioctl()s and
-         * via ANSI sequences, but avoids the latter in case we are talking to a pty. That's a safety measure
-         * because ptys might be connected to shell pipelines where we cannot expect such ansi sequences to
-         * work. Given that ptys are generally short-lived (and not recycled) this restriction shouldn't hurt
-         * much.
-         *
-         * The specified fd should be open for *writing*! */
+        if (getenv_terminal_is_dumb())
+                return 0;
 
-        if (!isatty_safe(fd))
-                return -ENOTTY;
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
-        RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
+        k = loop_write_full(fd,
+                            "\033c"        /* reset to initial state */
+                            "\033[!p"      /* soft terminal reset */
+                            "\033]104\007" /* reset colors */
+                            "\033[?7h",    /* enable line-wrapping */
+                            SIZE_MAX,
+                            50 * USEC_PER_MSEC);
+        if (k < 0)
+                log_debug_errno(k, "Failed to write to terminal: %m");
 
-        if (terminal_is_pty_fd(fd) == 0)
-                RET_GATHER(r, terminal_reset_ansi_seq(fd));
+        if (r > 0) {
+                r = fd_nonblock(fd, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
+        }
 
-        return r;
-}
-
-int terminal_reset_defensive_locked(int fd, bool switch_to_text) {
-        assert(fd >= 0);
-
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
-
-        return terminal_reset_defensive(fd, switch_to_text);
+        return k < 0 ? k : r;
 }
 
 void termios_disable_echo(struct termios *termios) {
@@ -1934,11 +1883,11 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
-        char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
+        char buf[256];
         size_t buf_full = 0;
         BackgroundColorContext context = {};
 
-        for (bool first = true;; first = false) {
+        for (;;) {
                 if (buf_full == 0) {
                         usec_t n = now(CLOCK_MONOTONIC);
 
@@ -1955,10 +1904,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                                 goto finish;
                         }
 
-                        /* On the first try, read multiple characters, i.e. the shortest valid
-                         * reply. Afterwards read byte-wise, since we don't want to read too much, and
-                         * unnecessarily drop too many characters from the input queue. */
-                        ssize_t l = read(STDIN_FILENO, buf, first ? sizeof(buf) : 1);
+                        ssize_t l = read(STDIN_FILENO, buf, sizeof(buf));
                         if (l < 0) {
                                 r = -errno;
                                 goto finish;
@@ -2255,34 +2201,6 @@ int terminal_fix_size(int input_fd, int output_fd) {
 
         log_debug("Fixed terminal dimensions to %ux%u based on ANSI sequence information.", columns, rows);
         return 1;
-}
-
-int terminal_is_pty_fd(int fd) {
-        int r;
-
-        assert(fd >= 0);
-
-        /* Returns true if we are looking at a pty, i.e. if it's backed by the /dev/pts/ file system */
-
-        if (!isatty_safe(fd))
-                return false;
-
-        r = is_fs_type_at(fd, NULL, DEVPTS_SUPER_MAGIC);
-        if (r != 0)
-                return r;
-
-        /* The ptmx device is weird, it exists twice, once inside and once outside devpts. To detect the
-         * latter case, let's fire off an ioctl() that only works on ptmx devices. */
-
-        int v;
-        if (ioctl(fd, TIOCGPKT, &v) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return false;
-
-                return -errno;
-        }
-
-        return true;
 }
 
 int pty_open_peer_racefree(int fd, int mode) {
