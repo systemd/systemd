@@ -290,6 +290,8 @@ int openpt_allocate(int flags, char **ret_slave);
 int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave);
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
+int vt_default_utf8(void);
+int vt_reset_keyboard(int fd);
 int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
 

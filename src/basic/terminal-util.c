@@ -567,28 +567,6 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-static int vt_default_utf8(void) {
-        _cleanup_free_ char *b = NULL;
-        int r;
-
-        /* Read the default VT UTF8 setting from the kernel */
-
-        r = read_one_line_file("/sys/module/vt/parameters/default_utf8", &b);
-        if (r < 0)
-                return r;
-
-        return parse_boolean(b);
-}
-
-static int vt_reset_keyboard(int fd) {
-        int kb;
-
-        /* If we can't read the default, then default to unicode. It's 2017 after all. */
-        kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
-
-        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
-}
-
 static int terminal_reset_ioctl(int fd, bool switch_to_text) {
         struct termios termios;
         int r;
@@ -1551,6 +1529,28 @@ bool underline_enabled(void) {
         }
 
         return cached_underline_enabled;
+}
+
+int vt_default_utf8(void) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        /* Read the default VT UTF8 setting from the kernel */
+
+        r = read_one_line_file("/sys/module/vt/parameters/default_utf8", &b);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(b);
+}
+
+int vt_reset_keyboard(int fd) {
+        int kb;
+
+        /* If we can't read the default, then default to unicode. It's 2017 after all. */
+        kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
+
+        return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
 }
 
 int vt_restore(int fd) {
