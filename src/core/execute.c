@@ -145,7 +145,7 @@ int exec_context_apply_tty_size(
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
-        int fd, r;
+        int fd;
 
         assert(context);
 
@@ -172,19 +172,13 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         else if (lock_fd < 0)
                 log_warning_errno(lock_fd, "Failed to lock /dev/console, proceeding without lock: %m");
 
-        if (context->tty_reset)
-                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
-
-        r = exec_context_apply_tty_size(context, fd, fd, path);
-        if (r < 0)
-                log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
-
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
 
-        /* We don't need the fd anymore now, and it potentially points to a hungup TTY anyway, let's close it
-         * hence. */
-        _fd = safe_close(_fd);
+        if (context->tty_reset)
+                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
+
+        (void) exec_context_apply_tty_size(context, fd, fd, path);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
