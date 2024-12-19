@@ -208,18 +208,33 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
 }
 
 static int console_setup(void) {
-
-        if (getpid_cached() != 1)
-                return 0;
-
         _cleanup_close_ int tty_fd = -EBADF;
+        unsigned rows, cols;
+        int r;
 
-        tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
                 return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
 
-        /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
-        reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);
+        /* We don't want to force text mode.  plymouth may be showing
+         * pictures already from initrd. */
+        r = reset_terminal_fd(tty_fd, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset /dev/console: %m");
+
+        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
+        else {
+                r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set /dev/console size, ignoring: %m");
+        }
+
+        r = terminal_reset_ansi_seq(tty_fd);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset /dev/console using ANSI sequences, ignoring: %m");
+
         return 0;
 }
 
@@ -2937,7 +2952,7 @@ static void setup_console_terminal(bool skip_setup) {
         (void) release_terminal();
 
         /* Reset the console, but only if this is really init and we are freshly booted */
-        if (!skip_setup)
+        if (getpid_cached() == 1 && !skip_setup)
                 (void) console_setup();
 }
 
