@@ -183,6 +183,7 @@ typedef enum CGroupUnified {
 int cg_path_open(const char *controller, const char *path);
 int cg_cgroupid_open(int fsfd, uint64_t id);
 
+int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
 int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret);
 static inline int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
         return cg_get_cgroupid_at(AT_FDCWD, path, ret);

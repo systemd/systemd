@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/epoll.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 
@@ -31,6 +28,7 @@
 #include "origin-id.h"
 #include "path-util.h"
 #include "prioq.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "set.h"
