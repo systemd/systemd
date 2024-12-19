@@ -689,8 +689,8 @@ Features:
   control of the attacker.
 
 * also include packaging metadata (á la
-  https://systemd.io/ELF_PACKAGE_METADATA/) in our UEFI PE binaries, using the
-  same JSON format.
+  https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/) in our UEFI PE
+  binaries, using the same JSON format.
 
 * make "bootctl install" + "bootctl update" useful for installing shim too. For
   that introduce new dir /usr/lib/systemd/efi/extra/ which we copy mostly 1:1
@@ -2616,7 +2616,7 @@ Features:
 * coredump:
   - save coredump in Windows/Mozilla minidump format
   - when truncating coredumps, also log the full size that the process had, and make a metadata field so we can report truncated coredumps
-  - add examples for other distros in ELF_PACKAGE_METADATA
+  - add examples for other distros in PACKAGE_METADATA_FOR_EXECUTABLE_FILES
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
