@@ -278,11 +278,11 @@ DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue_underline,        HIGHLIGHT_BLUE);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_magenta_underline,     HIGHLIGHT_MAGENTA);
 DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_grey_underline,    HIGHLIGHT_GREY, HIGHLIGHT_GREY_FALLBACK);
 
-int get_ctty_devnr(pid_t pid, dev_t *ret);
-int get_ctty(pid_t, dev_t *ret_devnr, char **ret);
+int get_ctty_devnr(pid_t pid, dev_t *d);
+int get_ctty(pid_t, dev_t *_devnr, char **r);
 
-int getttyname_malloc(int fd, char **ret);
-int getttyname_harder(int fd, char **ret);
+int getttyname_malloc(int fd, char **r);
+int getttyname_harder(int fd, char **r);
 
 int ptsname_malloc(int fd, char **ret);
 
