@@ -37,6 +37,9 @@ indent_size = 2
 indent_style = space
 max_line_length = 109
 
+[*.md]
+max_line_length = 80
+
 [docs/**/*.css]
 indent_style = space
 indent_size = 2
