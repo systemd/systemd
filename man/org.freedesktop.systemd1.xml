@@ -147,6 +147,8 @@ node /org/freedesktop/systemd1 {
       AttachProcessesToUnit(in  s unit_name,
                             in  s subcgroup,
                             in  au pids);
+      RemoveSubgroupFromUnit(in  s unit_name,
+                             in  s subcgroup);
       AbandonScope(in  s name);
       GetJob(in  u id,
              out o job);
@@ -869,6 +871,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetUnitProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcessesToUnit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroupFromUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AbandonScope()"/>
 
@@ -1599,6 +1603,12 @@ node /org/freedesktop/systemd1 {
       parameters. The possible values are <literal>configuration</literal>, <literal>state</literal>,
       <literal>logs</literal>, <literal>cache</literal>, <literal>runtime</literal>,
       <literal>fdstore</literal>, and <literal>all</literal>.</para>
+
+      <para><function>RemoveSubgroupFromUnit()</function> removes a subcgroup belonging to a unit's
+      cgroup. Takes two arguments: the unit name (if empty defaults to the caller's unit), and a cgroup path
+      (which must start start with a slash <literal>/</literal>), which is taken relative to the unit's
+      cgroup. This is primarily useful for unprivileged service managers to ask the system service manager
+      for removal of subcgroups it manages, in case one was delegated to other UIDs.</para>
     </refsect2>
 
     <refsect2>
@@ -2704,6 +2714,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Type = '...';
@@ -3398,6 +3409,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property Type is not documented!-->
 
     <!--property ExitType is not documented!-->
@@ -4005,6 +4018,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Type"/>
 
@@ -4901,6 +4916,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s BindIPv6Only = '...';
@@ -5592,6 +5608,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property BindIPv6Only is not documented!-->
 
     <!--property Backlog is not documented!-->
@@ -6205,6 +6223,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindIPv6Only"/>
 
@@ -7001,6 +7021,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Where = '...';
@@ -7601,6 +7622,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property Where is not documented!-->
 
     <!--property What is not documented!-->
@@ -8140,6 +8163,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Where"/>
 
@@ -8991,6 +9016,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     properties:
       readonly s What = '...';
       readonly i Priority = ...;
@@ -9577,6 +9603,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property What is not documented!-->
 
     <!--property Priority is not documented!-->
@@ -10102,6 +10130,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="What"/>
 
@@ -10805,6 +10835,7 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
@@ -11004,6 +11035,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property Slice is not documented!-->
 
     <!--property ControlGroupId is not documented!-->
@@ -11195,6 +11228,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Slice"/>
 
@@ -11411,6 +11446,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
+      RemoveSubgroup(in  s subcgroup);
     signals:
       RequestStop();
     properties:
@@ -11636,6 +11672,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <!--method AttachProcesses is not documented!-->
 
+    <!--method RemoveSubgroup is not documented!-->
+
     <!--property RuntimeMaxUSec is not documented!-->
 
     <!--property RuntimeRandomizedExtraUSec is not documented!-->
@@ -11849,6 +11887,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSubgroup()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="RequestStop()"/>
 
@@ -12254,6 +12294,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ShutdownStartTimestamp</varname>,
       <varname>ShutdownStartTimestampMonotonic</varname>, and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
+      <para><function>RemoveSubgroupFromUnit()</function> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12320,7 +12361,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ProtectControlGroupsEx</varname>,
       <varname>PrivateUsersEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubGroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12364,7 +12405,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12405,7 +12446,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12446,7 +12487,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMMemoryPressureDurationUSec</varname>,
       <varname>ProtectControlGroupsEx</varname>, and
       <varname>PrivatePIDs</varname> were added in version 257.</para>
-      <para><varname>ProtectHostnameEx</varname> was added in version 258.</para>
+      <para><varname>ProtectHostnameEx</varname> and <function>RemoveSubgroup()</function> were added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12472,6 +12513,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
+      <para><function>RemoveSubgroup()</function> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12498,6 +12540,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
+      <para><function>RemoveSubgroup()</function> was added in version 258.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

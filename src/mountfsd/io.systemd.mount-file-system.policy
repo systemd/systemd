@@ -67,4 +67,53 @@
 
                 <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-image-privately</annotate>
         </action>
+
+        <!-- Allow mounting directories into the host user namespace -->
+        <action id="io.systemd.mount-file-system.mount-directory">
+                <!-- If the directory is owned by the user (or by the foreign UID range, with a parent
+                     directory owned by the user), make little restrictions -->
+                <description gettext-domain="systemd">Allow mounting of directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount directory $(directory).</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-directory">
+                <!-- If the directory is owned by an other user, require authentication -->
+                <description gettext-domain="systemd">Allow mounting of untrusted directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount directory $(directory) which is not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-directory</annotate>
+        </action>
+
+        <!-- Allow mounting directories into a private user namespace -->
+        <action id="io.systemd.mount-file-system.mount-directory-privately">
+                <description gettext-domain="systemd">Allow private mounting of directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount directory $(directory).</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-directory-privately">
+                <description gettext-domain="systemd">Allow private mounting of untrusted directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount directory $(directory) which is not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-directory-privately</annotate>
+        </action>
 </policyconfig>

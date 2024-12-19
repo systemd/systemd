@@ -302,6 +302,9 @@ UserDisposition group_record_disposition(GroupRecord *h) {
         if (gid_is_container(h->gid))
                 return USER_CONTAINER;
 
+        if (gid_is_foreign(h->gid))
+                return USER_FOREIGN;
+
         if (h->gid > INT32_MAX)
                 return USER_RESERVED;
 
