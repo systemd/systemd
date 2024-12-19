@@ -87,6 +87,8 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
                         SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AllocateUserRange() varlink call: %m");
+        if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unprivileged user namespace delegation is not supported on this system.");
         if (error_id)
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to allocate user namespace with %" PRIu64 " users: %s", size, error_id);
 
