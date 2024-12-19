@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ansi-color.h"
 #include "chattr-util.h"
 #include "errno-util.h"
 #include "fd-util.h"

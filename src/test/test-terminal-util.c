@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"

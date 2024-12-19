@@ -4,7 +4,6 @@
 
 #include "sd-event.h"
 
-#include "ansi-color.h"
 #include "fileio.h"
 #include "journalctl.h"
 #include "journalctl-filter.h"

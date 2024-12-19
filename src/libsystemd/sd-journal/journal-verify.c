@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"

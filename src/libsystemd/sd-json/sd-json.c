@@ -10,7 +10,6 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"

@@ -3,7 +3,6 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -35,6 +34,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "sync-util.h"
+#include "terminal-util.h"
 #include "time-util.h"
 #include "tpm2-util.h"
 #include "virt.h"

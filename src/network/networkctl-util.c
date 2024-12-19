@@ -3,10 +3,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "ansi-color.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "varlink-util.h"
 
 int varlink_connect_networkd(sd_varlink **ret_varlink) {

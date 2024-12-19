@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ansi-color.h"
 #include "bus-locator.h"
 #include "bus-unit-procs.h"
 #include "glyph-util.h"

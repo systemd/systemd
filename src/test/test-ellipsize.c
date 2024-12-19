@@ -3,7 +3,6 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "constants.h"
 #include "escape.h"
 #include "string-util.h"
