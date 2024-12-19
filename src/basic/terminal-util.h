@@ -40,7 +40,6 @@
 bool isatty_safe(int fd);
 
 int terminal_reset_defensive(int fd, bool switch_to_text);
-int terminal_reset_defensive_locked(int fd, bool switch_to_text);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
 

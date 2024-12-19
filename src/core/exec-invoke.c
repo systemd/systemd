@@ -663,10 +663,6 @@ static int setup_confirm_stdio(
         if (fd < 0)
                 return fd;
 
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
-
         r = chown_terminal(fd, getuid());
         if (r < 0)
                 return r;

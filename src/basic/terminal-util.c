@@ -680,10 +680,6 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
-
         r = terminal_reset_ioctl(fd, switch_to_text);
         if (r < 0)
                 log_warning_errno(r, "Failed to reset /dev/console, ignoring: %m");
@@ -1698,16 +1694,6 @@ int terminal_reset_defensive(int fd, bool switch_to_text) {
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
 
         return r;
-}
-
-int terminal_reset_defensive_locked(int fd, bool switch_to_text) {
-        assert(fd >= 0);
-
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
-
-        return terminal_reset_defensive(fd, switch_to_text);
 }
 
 void termios_disable_echo(struct termios *termios) {
