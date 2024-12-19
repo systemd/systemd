@@ -1602,17 +1602,26 @@ static int client_parse_message(
                 assert_not_reached();
         }
 
-        lease->next_server = message->siaddr;
-        lease->address = message->yiaddr;
+        if (client->bootp) {
+                log_dhcp_client(client, "BOOTP identified, using infinite lease and siaddr(%#x)", message->siaddr);
 
-        if (client->bootp)
                 lease->lifetime = USEC_INFINITY;
+                lease->server_address = message->siaddr;
+                lease->next_server = 0;
+        } else
+                lease->next_server = message->siaddr;
+
+        lease->address = message->yiaddr;
 
         if (lease->address == 0 ||
             lease->server_address == 0 ||
             lease->lifetime == 0)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address, server address or lease lifetime, ignoring.");
+                                             "received lease lacks address(%#x), server address(%#x) or lease lifetime(%#lx), ignoring.",
+                                             lease->address,
+                                             lease->server_address,
+                                             lease->lifetime);
+
 
         r = dhcp_lease_set_default_subnet_mask(lease);
         if (r < 0)
