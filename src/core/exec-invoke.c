@@ -747,7 +747,7 @@ static bool confirm_spawn_disabled(void) {
 }
 
 static int ask_for_confirmation(const ExecContext *context, const ExecParameters *params, const char *cmdline) {
-        int saved_stdout = -EBADF, saved_stdin = -EBADF, r;
+        int saved_stdout = -1, saved_stdin = -1, r;
         _cleanup_free_ char *e = NULL;
         char c;
 
