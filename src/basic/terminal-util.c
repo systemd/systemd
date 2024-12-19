@@ -581,16 +581,11 @@ static int vt_default_utf8(void) {
 }
 
 static int vt_reset_keyboard(int fd) {
-        int r, kb;
+        int kb;
 
-        assert(fd >= 0);
-
-        /* If we can't read the default, then default to Unicode. It's 2024 after all. */
-        r = vt_default_utf8();
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine kernel VT UTF-8 mode, assuming enabled: %m");
-
+        /* If we can't read the default, then default to unicode. It's 2017 after all. */
         kb = vt_default_utf8() != 0 ? K_UNICODE : K_XLATE;
+
         return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
 }
 
