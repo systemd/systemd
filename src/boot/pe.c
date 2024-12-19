@@ -185,7 +185,7 @@ static bool pe_use_this_dtb(
         if (!device || !base)
                 return false;
 
-        const char *compatible = device_get_compatible(base, device);
+        const char *compatible = device_get_devicetree_compatible(base, device);
         if (!compatible)
                 return false;
 
