@@ -1617,10 +1617,10 @@ static int client_parse_message(
             lease->server_address == 0 ||
             lease->lifetime == 0)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address(%#x), server address(%#x) or lease lifetime(%#lx), ignoring.",
+                                             "received lease lacks address(%#x), server address(%#x) or lease lifetime(%#llx), ignoring.",
                                              lease->address,
                                              lease->server_address,
-                                             lease->lifetime);
+                                             (unsigned long long) lease->lifetime);
 
 
         r = dhcp_lease_set_default_subnet_mask(lease);
