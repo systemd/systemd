@@ -840,6 +840,13 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
                 if (drained(f))
                         return pty_forward_done(f, 0);
 
+                if (!f->master_hangup)
+                        f->master_writable = f->master_readable = true;
+                if (!f->stdin_hangup)
+                        f->stdin_readable = true;
+                if (!f->stdout_hangup)
+                        f->stdout_writable = true;
+
                 r = shovel(f);
                 if (r < 0)
                         return r;
