@@ -49,7 +49,6 @@ jobs:
           Distribution=arch
 
           [Build]
-          ToolsTree=default
           ToolsTreeDistribution=arch
           UseSubvolumes=yes
           WithTests=no
@@ -64,7 +63,7 @@ jobs:
                   MESON_OPTIONS=--werror
                   COVERAGE=1
 
-          [Host]
+          [Runtime]
           QemuMem=4G
           EOF
 
