@@ -1000,18 +1000,13 @@ unsigned lines(void) {
 int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols) {
         struct winsize ws;
 
-        assert(fd >= 0);
-
-        if (!ident)
-                ident = "TTY";
-
         if (rows == UINT_MAX && cols == UINT_MAX)
                 return 0;
 
         if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno,
                                        "TIOCGWINSZ ioctl for getting %s size failed, not setting terminal size: %m",
-                                       ident);
+                                       ident ?: "TTY");
 
         if (rows == UINT_MAX)
                 rows = ws.ws_row;
@@ -1030,7 +1025,7 @@ int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols
         ws.ws_col = cols;
 
         if (ioctl(fd, TIOCSWINSZ, &ws) < 0)
-                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident);
+                return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident ?: "TTY");
 
         return 0;
 }
