@@ -360,7 +360,7 @@ static int setup_input(
                         if (context->tty_reset)
                                 (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ true);
 
-                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDIN_FILENO, /* tty_path= */ NULL);
+                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, /* tty_path= */ NULL);
                 }
 
                 return STDIN_FILENO;
@@ -389,7 +389,7 @@ static int setup_input(
                 if (tty_fd < 0)
                         return tty_fd;
 
-                r = exec_context_apply_tty_size(context, tty_fd, tty_fd, tty_path);
+                r = exec_context_apply_tty_size(context, tty_fd, tty_path);
                 if (r < 0)
                         return r;
 
@@ -682,7 +682,7 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = exec_context_apply_tty_size(context, fd, fd, vc);
+        r = exec_context_apply_tty_size(context, fd, vc);
         if (r < 0)
                 return r;
 
