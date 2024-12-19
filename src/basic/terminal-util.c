@@ -577,7 +577,7 @@ static int vt_reset_keyboard(int fd) {
         return RET_NERRNO(ioctl(fd, KDSKBMODE, kb));
 }
 
-static int terminal_reset_ioctl(int fd, bool switch_to_text) {
+int terminal_reset_ioctl(int fd, bool switch_to_text) {
         struct termios termios;
         int r;
 
@@ -645,7 +645,7 @@ finish:
         return r;
 }
 
-static int terminal_reset_ansi_seq(int fd) {
+int terminal_reset_ansi_seq(int fd) {
         int r, k;
 
         assert(fd >= 0);
@@ -673,35 +673,6 @@ static int terminal_reset_ansi_seq(int fd) {
         }
 
         return k < 0 ? k : r;
-}
-
-void reset_dev_console_fd(int fd, bool switch_to_text) {
-        int r;
-
-        assert(fd >= 0);
-
-        _cleanup_close_ int lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
-
-        r = terminal_reset_ioctl(fd, switch_to_text);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console, ignoring: %m");
-
-        unsigned rows, cols;
-        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
-        if (r < 0)
-                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
-        else if (r > 0) {
-                r = terminal_set_size_fd(fd, NULL, rows, cols);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
-        } else
-                (void) terminal_fix_size(fd, fd);
-
-        r = terminal_reset_ansi_seq(fd);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console using ANSI sequences, ignoring: %m");
 }
 
 int lock_dev_console(void) {
@@ -737,7 +708,25 @@ int make_console_stdio(void) {
                         return log_error_errno(r, "Failed to make /dev/null stdin/stdout/stderr: %m");
 
         } else {
-                reset_dev_console_fd(fd, /* switch_to_text= */ true);
+                unsigned rows, cols;
+
+                r = terminal_reset_ioctl(fd, /* switch_to_text= */ true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+
+                r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+                else if (r > 0) {
+                        r = terminal_set_size_fd(fd, NULL, rows, cols);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set configured terminal size, ignoring: %m");
+                } else
+                        (void) terminal_fix_size(fd, fd);
+
+                r = terminal_reset_ansi_seq(fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to reset terminal using ANSI sequences, ignoring: %m");
 
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
