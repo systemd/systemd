@@ -1129,7 +1129,7 @@ testcase_unpriv() {
 
     local tmpdir name
     tmpdir="$(mktemp -d /var/tmp/TEST-13-NSPAWN.unpriv.XXX)"
-    name="unpriv-${tmpdir##*.}"
+    name="unprv-${tmpdir##*.}"
     trap 'rm -fr ${tmpdir@Q} || true; rm -f /run/verity.d/test-13-nspawn-${name@Q} || true' RETURN ERR
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
@@ -1140,6 +1140,17 @@ testcase_unpriv() {
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
+    echo hello | cmp "$tmpdir/stdout.txt" -
+
+    # Make sure per-user search path logic works
+    systemd-run --pipe --uid=testuser mkdir -p /home/testuser/.local/state/machines
+    systemd-run --pipe --uid=testuser ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
+    systemd-run \
+        --pipe \
+        --uid=testuser \
+        --property=Delegate=yes \
+        -- \
+        systemd-nspawn --pipe --private-network --register=no --keep-unit --machine="x$name" echo hello >"$tmpdir/stdout.txt"
     echo hello | cmp "$tmpdir/stdout.txt" -
 }
 

@@ -440,7 +440,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
                 return log_debug_errno(r, "Failed to enable source: %m") ;
 
         _cleanup_(image_unrefp) Image *image = NULL;
-        r = image_find(IMAGE_MACHINE, name, NULL, &image);
+        r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, &image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find image: %m");
 
@@ -467,7 +467,7 @@ int rename_image_and_update_cache(Manager *m, Image *image, const char* new_name
         /* The image is cached with its name, hence it is necessary to remove from the cache before renaming. */
         assert_se(hashmap_remove_value(m->image_cache, image->name, image));
 
-        r = image_rename(image, new_name);
+        r = image_rename(image, new_name, m->runtime_scope);
         if (r < 0) {
                 image = image_unref(image);
                 return r;

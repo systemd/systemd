@@ -173,6 +173,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, 
                                               PortableMetadata, portable_metadata_unref);
 
 static int extract_now(
+                RuntimeScope scope,
                 const char *where,
                 char **matches,
                 const char *image_name,
@@ -199,6 +200,7 @@ static int extract_now(
          * parent. To handle both cases in one call this function also gets a 'socket_fd' parameter, which when >= 0 is
          * used to send the data to the parent. */
 
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(where);
 
         /* First, find os-release/extension-release and send it upstream (or just save it). */
@@ -248,7 +250,7 @@ static int extract_now(
         /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual unit
          * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as the
          * image might have a legacy split-usr layout. */
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, where);
+        r = lookup_paths_init(&paths, scope, LOOKUP_PATHS_SPLIT_USR, where);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
@@ -348,6 +350,7 @@ static int extract_now(
 }
 
 static int portable_extract_by_path(
+                RuntimeScope scope,
                 const char *path,
                 bool path_is_extension,
                 bool relax_extension_release_check,
@@ -381,7 +384,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                r = extract_now(path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files);
+                r = extract_now(scope, path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
@@ -458,7 +461,7 @@ static int portable_extract_by_path(
                                 goto child_finish;
                         }
 
-                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
+                        r = extract_now(scope, tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
 
                 child_finish:
                         _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -549,6 +552,7 @@ static int portable_extract_by_path(
 }
 
 static int extract_image_and_extensions(
+                RuntimeScope scope,
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
@@ -595,7 +599,7 @@ static int extract_image_and_extensions(
                 name_or_path = result.path;
         }
 
-        r = image_find_harder(IMAGE_PORTABLE, name_or_path, /* root= */ NULL, &image);
+        r = image_find_harder(scope, IMAGE_PORTABLE, name_or_path, /* root= */ NULL, &image);
         if (r < 0)
                 return r;
 
@@ -633,7 +637,7 @@ static int extract_image_and_extensions(
                                 path = ext_result.path;
                         }
 
-                        r = image_find_harder(IMAGE_PORTABLE, path, NULL, &new);
+                        r = image_find_harder(scope, IMAGE_PORTABLE, path, NULL, &new);
                         if (r < 0)
                                 return r;
 
@@ -645,6 +649,7 @@ static int extract_image_and_extensions(
         }
 
         r = portable_extract_by_path(
+                        scope,
                         image->path,
                         /* path_is_extension= */ false,
                         /* relax_extension_release_check= */ false,
@@ -687,6 +692,7 @@ static int extract_image_and_extensions(
                 const char *e;
 
                 r = portable_extract_by_path(
+                                scope,
                                 ext->path,
                                 /* path_is_extension= */ true,
                                 relax_extension_release_check,
@@ -754,6 +760,7 @@ static int extract_image_and_extensions(
 }
 
 int portable_extract(
+                RuntimeScope scope,
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
@@ -775,6 +782,7 @@ int portable_extract(
         assert(name_or_path);
 
         r = extract_image_and_extensions(
+                        scope,
                         name_or_path,
                         matches,
                         extension_image_paths,
@@ -1426,6 +1434,7 @@ static int image_target_path(
 }
 
 static int install_image(
+                RuntimeScope scope,
                 const char *image_path,
                 PortableFlags flags,
                 PortableChange **changes,
@@ -1434,13 +1443,14 @@ static int install_image(
         _cleanup_free_ char *target = NULL;
         int r;
 
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(image_path);
 
         /* If the image is outside of the image search also link it into it, so that it can be found with
          * short image names and is listed among the images. If we are operating in mixed mode, the image is
          * copied instead. */
 
-        if (image_in_search_path(IMAGE_PORTABLE, NULL, image_path))
+        if (image_in_search_path(scope, IMAGE_PORTABLE, NULL, image_path))
                 return 0;
 
         r = image_target_path(image_path, flags, &target);
@@ -1485,6 +1495,7 @@ static int install_image(
 }
 
 static int install_image_and_extensions(
+                RuntimeScope scope,
                 const Image *image,
                 OrderedHashmap *extension_images,
                 PortableFlags flags,
@@ -1497,12 +1508,12 @@ static int install_image_and_extensions(
         assert(image);
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                r = install_image(ext->path, flags, changes, n_changes);
+                r = install_image(scope, ext->path, flags, changes, n_changes);
                 if (r < 0)
                         return r;
         }
 
-        r = install_image(image->path, flags, changes, n_changes);
+        r = install_image(scope, image->path, flags, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1595,6 +1606,7 @@ static void log_portable_verb(
 }
 
 int portable_attach(
+                RuntimeScope scope,
                 sd_bus *bus,
                 const char *name_or_path,
                 char **matches,
@@ -1615,7 +1627,10 @@ int portable_attach(
         PortableMetadata *item;
         int r;
 
+        assert(scope < _RUNTIME_SCOPE_MAX);
+
         r = extract_image_and_extensions(
+                        scope,
                         name_or_path,
                         matches,
                         extension_image_paths,
@@ -1672,13 +1687,13 @@ int portable_attach(
                                 strempty(extensions_joined));
         }
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
+        r = lookup_paths_init(&paths, scope, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
         if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH))
                 HASHMAP_FOREACH(item, unit_files) {
-                        r = unit_file_exists(RUNTIME_SCOPE_SYSTEM, &paths, item->name);
+                        r = unit_file_exists(scope, &paths, item->name);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
                         if (r > 0)
@@ -1700,7 +1715,7 @@ int portable_attach(
 
         /* We don't care too much for the image symlink/copy, it's just a convenience thing, it's not necessary for
          * proper operation otherwise. */
-        (void) install_image_and_extensions(image, extension_images, flags, changes, n_changes);
+        (void) install_image_and_extensions(scope, image, extension_images, flags, changes, n_changes);
 
         log_portable_verb(
                         "attached",
@@ -1844,6 +1859,7 @@ static int test_chroot_dropin(
 }
 
 int portable_detach(
+                RuntimeScope scope,
                 sd_bus *bus,
                 const char *name_or_path,
                 char **extension_image_paths,
@@ -1857,12 +1873,12 @@ int portable_detach(
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
-        int ret = 0;
-        int r;
+        int r, ret = 0;
 
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name_or_path);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
+        r = lookup_paths_init(&paths, scope, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1930,7 +1946,7 @@ int portable_detach(
                         if (r == 0)
                                 break;
 
-                        if (path_is_absolute(image) && !image_in_search_path(IMAGE_PORTABLE, NULL, image)) {
+                        if (path_is_absolute(image) && !image_in_search_path(scope, IMAGE_PORTABLE, NULL, image)) {
                                 r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(image));
                                 if (r < 0)
                                         return r;
@@ -2031,6 +2047,7 @@ not_found:
 }
 
 static int portable_get_state_internal(
+                RuntimeScope scope,
                 sd_bus *bus,
                 const char *name_or_path,
                 char **extension_image_paths,
@@ -2045,10 +2062,11 @@ static int portable_get_state_internal(
         const char *where;
         int r;
 
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name_or_path);
         assert(ret);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
+        r = lookup_paths_init(&paths, scope, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -2084,7 +2102,7 @@ static int portable_get_state_internal(
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(RUNTIME_SCOPE_SYSTEM, &paths, de->d_name, &state);
+                r = unit_file_lookup_state(scope, &paths, de->d_name, &state);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
                 if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
@@ -2109,6 +2127,7 @@ static int portable_get_state_internal(
 }
 
 int portable_get_state(
+                RuntimeScope scope,
                 sd_bus *bus,
                 const char *name_or_path,
                 char **extension_image_paths,
@@ -2125,12 +2144,19 @@ int portable_get_state(
         /* We look for matching units twice: once in the regular directories, and once in the runtime directories — but
          * the latter only if we didn't find anything in the former. */
 
-        r = portable_get_state_internal(bus, name_or_path, extension_image_paths, flags & ~PORTABLE_RUNTIME, &state, error);
+        r = portable_get_state_internal(
+                        scope,
+                        bus,
+                        name_or_path,
+                        extension_image_paths,
+                        flags & ~PORTABLE_RUNTIME,
+                        &state,
+                        error);
         if (r < 0)
                 return r;
 
         if (state == PORTABLE_DETACHED) {
-                r = portable_get_state_internal(bus, name_or_path, extension_image_paths, flags | PORTABLE_RUNTIME, &state, error);
+                r = portable_get_state_internal(scope, bus, name_or_path, extension_image_paths, flags | PORTABLE_RUNTIME, &state, error);
                 if (r < 0)
                         return r;
         }
