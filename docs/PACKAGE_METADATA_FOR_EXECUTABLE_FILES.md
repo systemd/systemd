@@ -1,14 +1,15 @@
 ---
-title: Package Metadata for ELF Files
+title: Package Metadata for Executable Files
 category: Interfaces
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Package Metadata for Core Files
+# Package Metadata for Executable Files
 
-*Intended audience: hackers working on userspace subsystems that create ELF binaries
-or parse ELF core files.*
+*Intended audience: hackers working on userspace subsystems that
+create or manipulate ELF or PE/COFF binaries
+or parse core files.*
 
 ## Motivation
 
@@ -41,24 +42,44 @@ This document will attempt to define a common metadata format specification, so 
 multiple implementers might use it when building packages, or core file analyzers, and
 so on.
 
-The metadata will be embedded in a single, new, 4-bytes-aligned, allocated, 0-padded,
-read-only ELF header section, in a name-value JSON object format. Implementers working on parsing
-core files should not assume a specific list of names, but parse anything that is included
-in the section, and should look for the note using the `note type`. Implementers working on
-build tools should strive to use the same names, for consistency. The most common will be
-listed here. When corresponding to the content of os-release, the values should match, again for consistency.
+Implementers working on parsing the metadata should not assume a specific list of names,
+but parse anything that is included in the JSON object.
+
+Implementers working on build tools should strive to use the same names, for consistency.
+The most common will be listed here.
+When corresponding to the content of os-release, the values should match, again for consistency.
 
 If available, the metadata should also include the debuginfod server URL that can provide
 the original executable, debuginfo and sources, to further facilitate debugging.
 
-* Section header
+### ELF header section
+
+The metadata will be embedded in a single, 4 byte-aligned, allocated, 0-padded,
+read-only ELF header section, in a name-value JSON object format.
+The JSON string is terminated with a zero
+and subsequently padded with zeros to a multiple of four bytes.
+
+The `note type` must be set during creation and checked when reading.
 
 Section: `.note.package`<br/>
 `note type`: `0xcafe1a7e`<br/>
 Owner: `FDO` (FreeDesktop.org)<br/>
 Value: a single JSON object encoded as a zero-terminated UTF-8 string
 
-* JSON payload
+### PE/COFF section
+
+The metadata will be embedded in a single, allocated, 0-padded,
+read-only COFF data section,
+in a name-value JSON object format.
+The JSON string is terminated with a zero
+and subsequently padded with zeros if appropriate.
+The `IMAGE_SCN_CNT_INITIALIZED_DATA` section flag shall be set.
+The alignment and padding shall be chosen as appropriate for the use of the PE/COFF file.
+
+Section: `.pkgnote`<br/>
+Value: a single JSON object encoded as a zero-terminated UTF-8 string
+
+### JSON payload
 
 ```json
 {
