@@ -906,17 +906,20 @@ static int get_password(
                 return log_oom();
 
         AskPasswordRequest req = {
+                .tty_fd = -EBADF,
                 .message = text,
                 .icon = "drive-harddisk",
                 .id = id,
                 .keyring = "cryptsetup",
                 .credential = "cryptsetup.passphrase",
+                .until = until,
+                .hup_fd = -EBADF,
         };
 
         if (ignore_cached)
                 flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
 
-        r = ask_password_auto(&req, until, flags, &passwords);
+        r = ask_password_auto(&req, flags, &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -937,7 +940,7 @@ static int get_password(
                 req.message = text;
                 req.id = id;
 
-                r = ask_password_auto(&req, until, flags, &passwords2);
+                r = ask_password_auto(&req, flags, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
@@ -1422,13 +1425,16 @@ static int crypt_activate_by_token_pin_ask_password(
                 pins = strv_free_erase(pins);
 
                 AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
                         .message = message,
                         .icon = "drive-harddisk",
                         .keyring = keyring,
                         .credential = credential,
+                        .until = until,
+                        .hup_fd = -EBADF,
                 };
 
-                r = ask_password_auto(&req, until, flags, &pins);
+                r = ask_password_auto(&req, flags, &pins);
                 if (r < 0)
                         return r;
 

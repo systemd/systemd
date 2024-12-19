@@ -21,6 +21,7 @@
 #include "build.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "exit-status.h"
@@ -147,10 +148,14 @@ static int agent_ask_password_tty(
         }
 
         AskPasswordRequest req = {
+                .tty_fd = tty_fd,
                 .message = message,
+                .flag_file = flag_file,
+                .until = until,
+                .hup_fd = -EBADF,
         };
 
-        r = ask_password_tty(tty_fd, &req, until, flags, flag_file, ret);
+        r = ask_password_tty(&req, flags, ret);
 
         if (arg_console) {
                 assert(tty_fd >= 0);
@@ -243,20 +248,32 @@ static int process_one_password_file(const char *filename, FILE *f) {
                 SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
                 SET_FLAG(flags, ASK_PASSWORD_SILENT, silent);
 
-                if (arg_plymouth) {
-                        AskPasswordRequest req = {
-                                .message = message,
-                        };
+                /* Allow providing a password via env var, for debugging purposes */
+                const char *e = secure_getenv("SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD");
+                if (e) {
+                        passwords = strv_new(e);
+                        if (!passwords)
+                                return log_oom();
+                } else {
+                        if (arg_plymouth) {
+                                AskPasswordRequest req = {
+                                        .tty_fd = -EBADF,
+                                        .message = message,
+                                        .flag_file = filename,
+                                        .until = not_after,
+                                        .hup_fd = -EBADF,
+                                };
 
-                        r = ask_password_plymouth(&req, not_after, flags, filename, &passwords);
-                } else
-                        r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
-                if (r < 0) {
-                        /* If the query went away, that's OK */
-                        if (IN_SET(r, -ETIME, -ENOENT))
-                                return 0;
+                                r = ask_password_plymouth(&req, flags, &passwords);
+                        } else
+                                r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
+                        if (r < 0) {
+                                /* If the query went away, that's OK */
+                                if (IN_SET(r, -ETIME, -ENOENT))
+                                        return 0;
 
-                        return log_error_errno(r, "Failed to query password: %m");
+                                return log_error_errno(r, "Failed to query password: %m");
+                        }
                 }
 
                 assert(!strv_isempty(passwords));
@@ -384,6 +401,9 @@ static int process_and_watch_password_files(bool watch) {
 
                 pollfd[FD_INOTIFY] = (struct pollfd) { .fd = notify, .events = POLLIN };
         }
+
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop =
+                notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         for (;;) {
                 usec_t timeout = USEC_INFINITY;
