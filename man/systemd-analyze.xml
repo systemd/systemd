@@ -862,8 +862,9 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
 
       <para>This command will load the specified files, and if they are ELF objects (executables,
       libraries, core files, etc.) it will parse the embedded packaging metadata, if any, and print
-      it in a table or json format. See the <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">
-      Packaging Metadata</ulink> documentation for more information.</para>
+      it in a table or json format. See the
+      <ulink url="https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/">
+      Package Metadata for Executable Files</ulink> document for more information.</para>
 
       <example>
         <title>Print information about a core file as JSON</title>
