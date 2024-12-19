@@ -152,7 +152,6 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
-          ToolsTree=default
           ToolsTreeDistribution=fedora
           ToolsTreeRelease=rawhide
 
