@@ -162,6 +162,13 @@ const char* dns_resource_key_name(const DnsResourceKey *key) {
                 return name;
 }
 
+bool dns_resource_key_is_v6_address (const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is an A or AAAA resource key */
+        return key->class == DNS_CLASS_IN && key->type == DNS_TYPE_AAAA;
+}
+
 bool dns_resource_key_is_address(const DnsResourceKey *key) {
         assert(key);
 
