@@ -26,7 +26,7 @@ sudo systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=auto
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future. We don't want to use the (unstable) /dev/sdX name, so let's
 # figure out a stable link:
-udevadm info -q -r symlink /dev/sdXn
+udevadm info -q symlink -r /dev/sdXn
 
 # Now add the line using the by-uuid symlink to /etc/crypttab:
 sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - pkcs11-uri=auto" >>/etc/crypttab'
