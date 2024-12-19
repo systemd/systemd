@@ -22,7 +22,6 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
-#include "chase.h"
 #include "constants.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -780,37 +779,24 @@ int vtnr_from_tty(const char *tty) {
 }
 
 int resolve_dev_console(char **ret) {
+        _cleanup_free_ char *active = NULL;
+        char *tty;
         int r;
 
         assert(ret);
 
-        /* Resolve where /dev/console is pointing to. If /dev/console is a symlink (like in container
-         * managers), we'll just resolve the symlink. If it's a real device node, we'll use if
-         * /sys/class/tty/tty0/active, but only if /sys/ is actually ours (i.e. not read-only-mounted which
-         * is a sign for container setups). */
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
+         * sign for container setups) */
 
-        _cleanup_free_ char *chased = NULL;
-        r = chase("/dev/console", /* root= */ NULL, /* chase_flags= */ 0,  &chased, /* ret_fd= */ NULL);
-        if (r < 0)
-                return r;
-        if (!path_equal(chased, "/dev/console")) {
-                *ret = TAKE_PTR(chased);
-                return 0;
-        }
-
-        r = path_is_read_only_fs("/sys");
-        if (r < 0)
-                return r;
-        if (r > 0)
+        if (path_is_read_only_fs("/sys") > 0)
                 return -ENOMEDIUM;
 
-        _cleanup_free_ char *active = NULL;
         r = read_one_line_file("/sys/class/tty/console/active", &active);
         if (r < 0)
                 return r;
 
         /* If multiple log outputs are configured the last one is what /dev/console points to */
-        const char *tty = strrchr(active, ' ');
+        tty = strrchr(active, ' ');
         if (tty)
                 tty++;
         else
