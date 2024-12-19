@@ -42,6 +42,7 @@
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
+#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -2354,7 +2355,7 @@ static int copy_devnode_one(const char *dest, const char *node, bool ignore_mkno
                 return log_error_errno(r, "Failed to create '%s': %m", dn);
 
         _cleanup_free_ char *sl = NULL;
-        if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
+        if (asprintf(&sl, "%s/" DEVNUM_FORMAT_STR, dn, DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                 return log_oom();
 
         _cleanup_free_ char *prefixed = path_join(dest, sl);
