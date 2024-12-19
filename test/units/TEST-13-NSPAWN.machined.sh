@@ -257,7 +257,7 @@ done
 
 ####################
 # varlinkctl tests #
-# ##################
+####################
 
 long_running_machine_start
 
@@ -381,6 +381,11 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open 
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "login"}'
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell"}'
 
+rm -f /tmp/none-existent-file
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
+timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
+grep -q "BAR" /tmp/none-existent-file
+
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'
 container_uid=$(varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0}' | jq '.uid')
@@ -390,12 +395,26 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo '{"uid": 0}')
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapTo '{"gid": 0}')
 
-rm -f /tmp/none-existent-file
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/sh", "args": ["/bin/sh", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}'
-timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
-grep -q "BAR" /tmp/none-existent-file
+# test io.systemd.Machine.CopyTo
+rm -f /tmp/foo /var/lib/machines/long-running/root/foo
+cp /etc/machine-id /tmp/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}'
+diff /tmp/foo /var/lib/machines/long-running/root/foo
+(! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}') 2>&1 | grep "FileExists"
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
 
-# terminate machines
+echo "sample-test-output" > /tmp/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
+diff /tmp/foo /var/lib/machines/long-running/root/foo
+rm -f /tmp/foo /var/lib/machines/long-running/root/foo
+
+# test io.systemd.Machine.CopyFrom
+cp /etc/machine-id /var/lib/machines/long-running/foo
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyFrom '{"name": "long-running", "source": "/foo"}'
+diff /var/lib/machines/long-running/foo /foo
+rm -f /var/lib/machines/long-running/root/foo /foo
+
+# Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
 # wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
