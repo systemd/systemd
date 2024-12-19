@@ -207,43 +207,6 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         return 0;
 }
 
-static int save_console_winsize_in_environment(int tty_fd) {
-        int r;
-
-        assert(tty_fd >= 0);
-
-        struct winsize ws = {};
-        if (ioctl(tty_fd, TIOCGWINSZ, &ws) < 0) {
-                log_debug_errno(errno, "Failed to acquire console window size, ignoring.");
-                goto unset;
-        }
-
-        if (ws.ws_col <= 0 && ws.ws_row <= 0) {
-                log_debug("No console window size set, ignoring.");
-                goto unset;
-        }
-
-        r = setenvf("COLUMNS", /* overwrite= */ true, "%u", ws.ws_col);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to set $COLUMNS, ignoring: %m");
-                goto unset;
-        }
-
-        r = setenvf("LINES", /* overwrite= */ true, "%u", ws.ws_row);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to set $LINES, ignoring: %m");
-                goto unset;
-        }
-
-        log_debug("Recorded console dimensions in environment: $COLUMNS=%u $LINES=%u.", ws.ws_col, ws.ws_row);
-        return 1;
-
-unset:
-        (void) unsetenv("COLUMNS");
-        (void) unsetenv("LINES");
-        return 0;
-}
-
 static int console_setup(void) {
 
         if (getpid_cached() != 1)
@@ -257,9 +220,6 @@ static int console_setup(void) {
 
         /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
         reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);
-
-        save_console_winsize_in_environment(tty_fd);
-
         return 0;
 }
 
