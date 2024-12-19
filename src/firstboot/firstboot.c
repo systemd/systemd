@@ -120,7 +120,7 @@ static void print_welcome(int rfd) {
         pn = os_release_pretty_name(pretty_name, os_name);
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
-        (void) terminal_reset_defensive(STDOUT_FILENO, /* switch_to_text= */ false);
+        (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ false);
 
         if (colors_enabled())
                 printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ac, pn);
