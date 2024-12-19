@@ -699,23 +699,6 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
                 log_warning_errno(r, "Failed to reset /dev/console using ANSI sequences, ignoring: %m");
 }
 
-int lock_dev_console(void) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
-         * pty in /dev/console, in which case it should be fine to lock the target TTY. */
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0)
-                return r;
-
-        return TAKE_FD(fd);
-}
-
 int make_console_stdio(void) {
         int fd, r;
 

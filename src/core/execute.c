@@ -25,6 +25,7 @@
 #include "cgroup-setup.h"
 #include "constants.h"
 #include "cpu-set-util.h"
+#include "dev-setup.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
