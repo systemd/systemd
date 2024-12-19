@@ -68,8 +68,8 @@ specified service unit, and thus can take benefit of regular service resource
 management and sandboxing.
 
 The `systemd-coredump` handler will extract a backtrace and
-[ELF packaging metadata](/ELF_PACKAGE_METADATA) from any coredumps it
-receives and log both.
+[ELF packaging metadata](/PACKAGE_METADATA_FOR_EXECUTABLE_FILES)
+from any coredumps it receives and log both.
 The information about coredumps stored in the journal can be enumerated and queried with the
 [`coredumpctl`](https://www.freedesktop.org/software/systemd/man/coredumpctl.html)
 tool, for example for directly invoking a debugger such as `gdb` on a collected
