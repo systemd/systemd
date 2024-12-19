@@ -501,12 +501,10 @@ int terminal_vhangup_fd(int fd) {
         return RET_NERRNO(ioctl(fd, TIOCVHANGUP));
 }
 
-int terminal_vhangup(const char *tty) {
+int terminal_vhangup(const char *name) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(tty);
-
-        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
