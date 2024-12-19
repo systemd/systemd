@@ -33,7 +33,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_magic.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2209,34 +2208,6 @@ int terminal_fix_size(int input_fd, int output_fd) {
 
         log_debug("Fixed terminal dimensions to %ux%u based on ANSI sequence information.", columns, rows);
         return 1;
-}
-
-int terminal_is_pty_fd(int fd) {
-        int r;
-
-        assert(fd >= 0);
-
-        /* Returns true if we are looking at a pty, i.e. if it's backed by the /dev/pts/ file system */
-
-        if (!isatty_safe(fd))
-                return false;
-
-        r = is_fs_type_at(fd, NULL, DEVPTS_SUPER_MAGIC);
-        if (r != 0)
-                return r;
-
-        /* The ptmx device is weird, it exists twice, once inside and once outside devpts. To detect the
-         * latter case, let's fire off an ioctl() that only works on ptmx devices. */
-
-        int v;
-        if (ioctl(fd, TIOCGPKT, &v) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        return false;
-
-                return -errno;
-        }
-
-        return true;
 }
 
 int pty_open_peer_racefree(int fd, int mode) {

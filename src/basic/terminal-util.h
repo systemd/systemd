@@ -313,7 +313,5 @@ int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, un
 
 int terminal_fix_size(int input_fd, int output_fd);
 
-int terminal_is_pty_fd(int fd);
-
 int pty_open_peer_racefree(int fd, int mode);
 int pty_open_peer(int fd, int mode);

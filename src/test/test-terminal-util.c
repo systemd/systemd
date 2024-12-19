@@ -213,45 +213,6 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
-TEST(terminal_is_pty_fd) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        int r;
-
-        fd1 = openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL);
-        assert_se(fd1 >= 0);
-        assert_se(terminal_is_pty_fd(fd1) > 0);
-
-        fd2 = pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd2 >= 0);
-        assert_se(terminal_is_pty_fd(fd2) > 0);
-
-        fd1 = safe_close(fd1);
-        fd2 = safe_close(fd2);
-
-        fd1 = open("/dev/null", O_RDONLY|O_CLOEXEC);
-        assert_se(fd1 >= 0);
-        assert_se(terminal_is_pty_fd(fd1) == 0);
-
-        /* In container managers real tty devices might be weird, avoid them. */
-        r = path_is_read_only_fs("/sys");
-        if (r != 0)
-                return;
-
-        FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1") {
-                _cleanup_close_ int tfd = -EBADF;
-
-                tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
-                if (tfd == -ENOENT)
-                        continue;
-                if (tfd < 0)  {
-                        log_notice_errno(tfd, "Failed to open '%s', skipping: %m", p);
-                        continue;
-                }
-
-                assert_se(terminal_is_pty_fd(tfd) <= 0);
-        }
-}
-
 static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
         ASSERT_OK_ERRNO(setenv(key, val, true));
         reset_terminal_feature_caches();
