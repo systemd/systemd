@@ -36,31 +36,6 @@ bool fstab_enabled_full(int enabled) {
         return (cached = val);
 }
 
-int fstab_has_fstype(const char *fstype) {
-        _cleanup_endmntent_ FILE *f = NULL;
-        struct mntent *m;
-
-        assert(fstype);
-
-        if (!fstab_enabled())
-                return false;
-
-        f = setmntent(fstab_path(), "re");
-        if (!f)
-                return errno == ENOENT ? false : -errno;
-
-        for (;;) {
-                errno = 0;
-                m = getmntent(f);
-                if (!m)
-                        return errno != 0 ? -errno : false;
-
-                if (streq(m->mnt_type, fstype))
-                        return true;
-        }
-        return false;
-}
-
 bool fstab_is_extrinsic(const char *mount, const char *opts) {
 
         /* Don't bother with the OS data itself */

@@ -15,7 +15,6 @@ static inline bool fstab_set_enabled(bool enabled) {
 }
 
 bool fstab_is_extrinsic(const char *mount, const char *opts);
-int fstab_has_fstype(const char *fstype);
 
 int fstab_is_mount_point_full(const char *where, const char *path);
 static inline int fstab_is_mount_point(const char *where) {
