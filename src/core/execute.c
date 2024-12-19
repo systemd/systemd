@@ -172,7 +172,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
                 (void) terminal_vhangup_fd(fd);
 
         if (context->tty_reset)
-                (void) terminal_reset_defensive(fd, /* switch_to_text= */ true);
+                (void) reset_terminal_fd(fd, /* switch_to_text= */ true);
 
         (void) exec_context_apply_tty_size(context, fd, path);
 

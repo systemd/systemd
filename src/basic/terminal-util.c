@@ -1667,27 +1667,6 @@ int terminal_reset_ansi_seq(int fd) {
         return k < 0 ? k : r;
 }
 
-int terminal_reset_defensive(int fd, bool switch_to_text) {
-        int r = 0;
-
-        assert(fd >= 0);
-
-        /* Resets the terminal comprehensively, but defensively. i.e. both resets the tty via ioctl()s and
-         * via ANSI sequences, but avoids the latter in case we are talking to a pty. That's a safety measure
-         * because ptys might be connected to shell pipelines where we cannot expect such ansi sequences to
-         * work. Given that ptys are generally short-lived (and not recycled) this restriction shouldn't hurt
-         * much.
-         *
-         * The specified fd should be open for *writing*! */
-
-        RET_GATHER(r, reset_terminal_fd(fd, switch_to_text));
-
-        if (terminal_is_pty_fd(fd) == 0)
-                RET_GATHER(r, terminal_reset_ansi_seq(fd));
-
-        return r;
-}
-
 void termios_disable_echo(struct termios *termios) {
         assert(termios);
 

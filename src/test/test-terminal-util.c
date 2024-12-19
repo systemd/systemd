@@ -285,14 +285,6 @@ TEST(get_color_mode) {
         reset_terminal_feature_caches();
 }
 
-TEST(terminal_reset_defensive) {
-        int r;
-
-        r = terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ false);
-        if (r < 0)
-                log_notice_errno(r, "Failed to reset terminal: %m");
-}
-
 TEST(pty_open_peer) {
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_free_ char *pty_path = NULL;

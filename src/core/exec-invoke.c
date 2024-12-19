@@ -358,7 +358,7 @@ static int setup_input(
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
 
                         if (context->tty_reset)
-                                (void) terminal_reset_defensive(STDIN_FILENO, /* switch_to_text= */ true);
+                                (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ true);
 
                         (void) exec_context_apply_tty_size(context, STDIN_FILENO, /* tty_path= */ NULL);
                 }
@@ -678,7 +678,7 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = terminal_reset_defensive(fd, /* switch_to_text= */ true);
+        r = reset_terminal_fd(fd, /* switch_to_text= */ true);
         if (r < 0)
                 return r;
 
