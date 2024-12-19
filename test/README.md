@@ -459,3 +459,72 @@ test unit (be it a static one or a transient one created via systemd-run), with
 main mount namespace - in that case use `IGNORE_MISSING_COVERAGE=yes` in the
 test definition (i.e. `TEST-*-NAME/test.sh`), which will skip the post-test
 check for missing coverage for the respective test.
+
+## Fuzzers
+
+systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically
+run by [OSS-Fuzz](https://github.com/google/oss-fuzz) with sanitizers. To add a
+fuzz target, create a new `src/fuzz/fuzz-foo.c` file with a
+`LLVMFuzzerTestOneInput` function and add it to the list in
+`src/fuzz/meson.build`.
+
+Whenever possible, a seed corpus and a dictionary should also be added with new
+fuzz targets. The dictionary should be named `src/fuzz/fuzz-foo.dict` and the
+seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
+`tools/oss-fuzz.sh`.
+
+The fuzzers can be built locally if you have libFuzzer installed by running
+`tools/oss-fuzz.sh`, or by running:
+
+```sh
+CC=clang CXX=clang++ \
+meson setup build-libfuzz -Dllvm-fuzz=true -Db_sanitize=address,undefined -Db_lundef=false \
+-Dc_args='-fno-omit-frame-pointer -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'
+ninja -C build-libfuzz fuzzers
+```
+
+Each fuzzer then can be then run manually together with a directory containing
+the initial corpus:
+
+```
+export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+build-libfuzz/fuzz-varlink-idl test/fuzz/fuzz-varlink-idl/
+```
+
+Note: the `halt_on_error=1` UBSan option is especially important, otherwise the
+fuzzer won't crash when undefined behavior is triggered.
+
+You should also confirm that the fuzzers can be built and run using
+[the OSS-Fuzz toolchain](https://google.github.io/oss-fuzz/advanced-topics/reproducing/#building-using-docker):
+
+```sh
+path_to_systemd=...
+
+git clone --depth=1 https://github.com/google/oss-fuzz
+cd oss-fuzz
+
+for sanitizer in address undefined memory; do
+for engine in libfuzzer afl honggfuzz; do
+./infra/helper.py build_fuzzers --sanitizer "$sanitizer" --engine "$engine" \
+--clean systemd "$path_to_systemd"
+
+./infra/helper.py check_build --sanitizer "$sanitizer" --engine "$engine" \
+-e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
+done
+done
+
+./infra/helper.py build_fuzzers --clean --architecture i386 systemd "$path_to_systemd"
+./infra/helper.py check_build --architecture i386 -e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
+
+./infra/helper.py build_fuzzers --clean --sanitizer coverage systemd "$path_to_systemd"
+./infra/helper.py coverage --no-corpus-download systemd
+```
+
+If you find a bug that impacts the security of systemd, please follow the
+guidance in [CONTRIBUTING.md](/CONTRIBUTING) on how to report a security
+vulnerability.
+
+For more details on building fuzzers and integrating with OSS-Fuzz, visit:
+
+- [Setting up a new project - OSS-Fuzz](https://google.github.io/oss-fuzz/getting-started/new-project-guide/)
+- [Tutorials - OSS-Fuzz](https://google.github.io/oss-fuzz/reference/useful-links/#tutorials)
