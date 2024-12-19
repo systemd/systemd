@@ -685,8 +685,12 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
                 log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
         r = terminal_reset_ioctl(fd, switch_to_text);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reset /dev/console, ignoring: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to reset /dev/console, %signoring: %m",
+                                  switch_to_text ? "" : "skipping setting console size and resetting ANSI sequence, ");
+                if (!switch_to_text)
+                        return; /* Maybe plymouth is running? Skipping remainings. */
+        }
 
         unsigned rows, cols;
         r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
