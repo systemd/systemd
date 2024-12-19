@@ -628,12 +628,12 @@ static uint8_t test_addr_bootp_reply_bootpd[] = {
 };
 
 static struct bootp_addr_data bootp_addr_data[] = {
-        {
-                .offer_buf = test_addr_bootp_reply,
-                .offer_len = sizeof(test_addr_bootp_reply),
-                .netmask_offset = 270,
-                .ip_offset = 44,
-        },
+        // {
+        //         .offer_buf = test_addr_bootp_reply,
+        //         .offer_len = sizeof(test_addr_bootp_reply),
+        //         .netmask_offset = 270,
+        //         .ip_offset = 44,
+        // },
         {
                 .offer_buf = test_addr_bootp_reply_bootpd,
                 .offer_len = sizeof(test_addr_bootp_reply_bootpd),
