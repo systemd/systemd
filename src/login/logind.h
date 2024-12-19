@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "calendarspec.h"
 #include "conf-parser.h"
@@ -147,6 +148,8 @@ struct Manager {
         CalendarSpec *maintenance_time;
 
         dual_timestamp init_ts;
+
+        sd_varlink_server *varlink_server;
 };
 
 void manager_reset_config(Manager *m);

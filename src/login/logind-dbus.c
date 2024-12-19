@@ -85,6 +85,8 @@ static int get_sender_session(
         const char *name;
         int r;
 
+        assert(m);
+
         /* Acquire the sender's session. This first checks if the sending process is inside a session itself,
          * and returns that. If not and 'consult_display' is true, this returns the display session of the
          * owning user of the caller. */
@@ -827,189 +829,24 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int create_session(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error,
-                uid_t uid,
-                pid_t leader_pid,
-                int leader_pidfd,
-                const char *service,
-                const char *type,
-                const char *class,
-                const char *desktop,
-                const char *cseat,
-                uint32_t vtnr,
-                const char *tty,
-                const char *display,
-                int remote,
-                const char *remote_user,
-                const char *remote_host,
-                uint64_t flags) {
+static int manager_choose_session_id(
+                Manager *m,
+                PidRef *leader,
+                char **ret_id) {
 
-        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
-        Manager *m = ASSERT_PTR(userdata);
-        _cleanup_free_ char *id = NULL;
-        Session *session = NULL;
-        uint32_t audit_id = 0;
-        User *user = NULL;
-        Seat *seat = NULL;
-        SessionType t;
-        SessionClass c;
         int r;
 
-        assert(message);
+        assert(m);
+        assert(pidref_is_set(leader));
+        assert(ret_id);
 
-        if (!uid_is_valid(uid))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
-
-        if (flags != 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
-
-        if (leader_pidfd >= 0)
-                r = pidref_set_pidfd(&leader, leader_pidfd);
-        else if (leader_pid == 0)
-                r = bus_query_sender_pidref(message, &leader);
-        else {
-                if (leader_pid < 0)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Leader PID is not valid");
-
-                r = pidref_set_pid(&leader, leader_pid);
-        }
+        /* Try to keep our session IDs and the audit session IDs in sync */
+        _cleanup_free_ char *id = NULL;
+        uint32_t audit_id = AUDIT_SESSION_INVALID;
+        r = audit_session_from_pid(leader, &audit_id);
         if (r < 0)
-                return r;
-
-        if (leader.pid == 1 || pidref_is_self(&leader))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
-
-        if (isempty(type))
-                t = _SESSION_TYPE_INVALID;
+                log_debug_errno(r, "Failed to read audit session ID of process " PID_FMT ", ignoring: %m", leader->pid);
         else {
-                t = session_type_from_string(type);
-                if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session type %s", type);
-        }
-
-        if (isempty(class))
-                c = _SESSION_CLASS_INVALID;
-        else {
-                c = session_class_from_string(class);
-                if (c < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session class %s", class);
-        }
-
-        if (isempty(desktop))
-                desktop = NULL;
-        else {
-                if (!string_is_safe(desktop))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid desktop string %s", desktop);
-        }
-
-        if (isempty(cseat))
-                seat = NULL;
-        else {
-                seat = hashmap_get(m->seats, cseat);
-                if (!seat)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT,
-                                                 "No seat '%s' known", cseat);
-        }
-
-        if (tty_is_vc(tty)) {
-                int v;
-
-                if (!seat)
-                        seat = m->seat0;
-                else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "TTY %s is virtual console but seat %s is not seat0", tty, seat->id);
-
-                v = vtnr_from_tty(tty);
-                if (v <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Cannot determine VT number from virtual console TTY %s", tty);
-
-                if (vtnr == 0)
-                        vtnr = (uint32_t) v;
-                else if (vtnr != (uint32_t) v)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Specified TTY and VT number do not match");
-
-        } else if (tty_is_console(tty)) {
-
-                if (!seat)
-                        seat = m->seat0;
-                else if (seat != m->seat0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but seat is not seat0");
-
-                if (vtnr != 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Console TTY specified but VT number is not 0");
-        }
-
-        if (seat) {
-                if (seat_has_vts(seat)) {
-                        if (vtnr <= 0 || vtnr > 63)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "VT number out of range");
-                } else {
-                        if (vtnr != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "Seat has no VTs but VT number not 0");
-                }
-        }
-
-        if (t == _SESSION_TYPE_INVALID) {
-                if (!isempty(display))
-                        t = SESSION_X11;
-                else if (!isempty(tty))
-                        t = SESSION_TTY;
-                else
-                        t = SESSION_UNSPECIFIED;
-        }
-
-        if (c == _SESSION_CLASS_INVALID) {
-                if (t == SESSION_UNSPECIFIED)
-                        c = SESSION_BACKGROUND;
-                else
-                        c = SESSION_USER;
-        }
-
-        /* Check if we are already in a logind session, and if so refuse. */
-        r = manager_get_session_by_pidref(m, &leader, /* ret_session= */ NULL);
-        if (r < 0)
-                return log_debug_errno(
-                                r,
-                                "Failed to check if process " PID_FMT " is already in a session: %m",
-                                leader.pid);
-        if (r > 0)
-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY,
-                                         "Already running in a session or user slice");
-
-        /* Old gdm and lightdm start the user-session on the same VT as the greeter session. But they destroy
-         * the greeter session after the user-session and want the user-session to take over the VT. We need
-         * to support this for backwards-compatibility, so make sure we allow new sessions on a VT that a
-         * greeter is running on. Furthermore, to allow re-logins, we have to allow a greeter to take over a
-         * used VT for the exact same reasons. */
-        if (c != SESSION_GREETER &&
-            vtnr > 0 &&
-            vtnr < MALLOC_ELEMENTSOF(m->seat0->positions) &&
-            m->seat0->positions[vtnr] &&
-            m->seat0->positions[vtnr]->class != SESSION_GREETER)
-                return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already occupied by a session");
-
-        if (hashmap_size(m->sessions) >= m->sessions_max)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                         "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.",
-                                         m->sessions_max);
-
-        (void) audit_session_from_pid(&leader, &audit_id);
-        if (audit_session_is_valid(audit_id)) {
-                /* Keep our session IDs and the audit session IDs in sync */
-
                 if (asprintf(&id, "%"PRIu32, audit_id) < 0)
                         return -ENOMEM;
 
@@ -1017,12 +854,11 @@ static int create_session(
                  * not trust the audit data and let's better register a new ID */
                 if (hashmap_contains(m->sessions, id)) {
                         log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
-                        audit_id = AUDIT_SESSION_INVALID;
                         id = mfree(id);
                 }
         }
 
-        if (!id) {
+        if (!id)
                 do {
                         id = mfree(id);
 
@@ -1030,14 +866,96 @@ static int create_session(
                                 return -ENOMEM;
 
                 } while (hashmap_contains(m->sessions, id));
-        }
 
         /* The generated names should not clash with 'auto' or 'self' */
         assert(!SESSION_IS_SELF(id));
         assert(!SESSION_IS_AUTO(id));
 
+        *ret_id = TAKE_PTR(id);
+        return 0;
+}
+
+int manager_create_session(
+                Manager *m,
+                uid_t uid,
+                PidRef *leader, /* consumed */
+                const char *service,
+                SessionType type,
+                SessionClass class,
+                const char *desktop,
+                Seat *seat,
+                unsigned vtnr,
+                const char *tty,
+                const char *display,
+                bool remote,
+                const char *remote_user,
+                const char *remote_host,
+                Session **ret_session) {
+
+        int r;
+
+        assert(m);
+        assert(uid_is_valid(uid));
+        assert(pidref_is_set(leader));
+        assert(ret_session);
+
+        /* Returns:
+         *    -EBUSY         → client is already in a session
+         *    -EADDRNOTAVAIL → VT is already taken
+         *    -EUSERS        → limit of sessions reached
+         */
+
+        if (type == _SESSION_TYPE_INVALID) {
+                if (!isempty(display))
+                        type = SESSION_X11;
+                else if (!isempty(tty))
+                        type = SESSION_TTY;
+                else
+                        type = SESSION_UNSPECIFIED;
+        }
+
+        if (class == _SESSION_CLASS_INVALID) {
+                if (type == SESSION_UNSPECIFIED)
+                        class = SESSION_BACKGROUND;
+                else
+                        class = SESSION_USER;
+        }
+
+        /* Check if we are already in a logind session, and if so refuse. */
+        r = manager_get_session_by_pidref(m, leader, /* ret_session= */ NULL);
+        if (r < 0)
+                return log_debug_errno(
+                                r,
+                                "Failed to check if process " PID_FMT " is already in a session: %m",
+                                leader->pid);
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Client is already in a session.");
+
+        /* Old gdm and lightdm start the user-session on the same VT as the greeter session. But they destroy
+         * the greeter session after the user-session and want the user-session to take over the VT. We need
+         * to support this for backwards-compatibility, so make sure we allow new sessions on a VT that a
+         * greeter is running on. Furthermore, to allow re-logins, we have to allow a greeter to take over a
+         * used VT for the exact same reasons. */
+        if (class != SESSION_GREETER &&
+            vtnr > 0 &&
+            vtnr < MALLOC_ELEMENTSOF(m->seat0->positions) &&
+            m->seat0->positions[vtnr] &&
+            m->seat0->positions[vtnr]->class != SESSION_GREETER)
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "VT already occupied by a session.");
+
+        if (hashmap_size(m->sessions) >= m->sessions_max)
+                return log_debug_errno(SYNTHETIC_ERRNO(EUSERS), "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.", m->sessions_max);
+
+        _cleanup_free_ char *id = NULL;
+        r = manager_choose_session_id(m, leader, &id);
+        if (r < 0)
+                return r;
+
         /* If we are not watching utmp already, try again */
         manager_reconnect_utmp(m);
+
+        User *user = NULL;
+        Session *session = NULL;
 
         r = manager_add_user_by_uid(m, uid, &user);
         if (r < 0)
@@ -1048,21 +966,21 @@ static int create_session(
                 goto fail;
 
         session_set_user(session, user);
-        r = session_set_leader_consume(session, TAKE_PIDREF(leader));
+        r = session_set_leader_consume(session, TAKE_PIDREF(*leader));
         if (r < 0)
                 goto fail;
 
-        session->original_type = session->type = t;
+        session->original_type = session->type = type;
         session->remote = remote;
         session->vtnr = vtnr;
-        session->class = c;
+        session->class = class;
 
         /* Once the first session that is of a pinning class shows up we'll change the GC mode for the user
          * from USER_GC_BY_ANY to USER_GC_BY_PIN, so that the user goes away once the last pinning session
          * goes away. Background: we want that user@.service – when started manually – remains around (which
          * itself is a non-pinning session), but gets stopped when the last pinning session goes away. */
 
-        if (SESSION_CLASS_PIN_USER(c))
+        if (SESSION_CLASS_PIN_USER(class))
                 user->gc_mode = USER_GC_BY_PIN;
 
         if (!isempty(tty)) {
@@ -1109,14 +1027,184 @@ static int create_session(
                         goto fail;
         }
 
+        *ret_session = session;
+        return 0;
+
+fail:
+        if (session)
+                session_add_to_gc_queue(session);
+
+        if (user)
+                user_add_to_gc_queue(user);
+
+        return r;
+}
+
+static int manager_create_session_by_bus(
+                Manager *m,
+                sd_bus_message *message,
+                sd_bus_error *error,
+                uid_t uid,
+                pid_t leader_pid,
+                int leader_pidfd,
+                const char *service,
+                const char *type,
+                const char *class,
+                const char *desktop,
+                const char *cseat,
+                uint32_t vtnr,
+                const char *tty,
+                const char *display,
+                int remote,
+                const char *remote_user,
+                const char *remote_host,
+                uint64_t flags) {
+
+        int r;
+
+        assert(m);
+        assert(message);
+
+        if (!uid_is_valid(uid))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
+
+        if (flags != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+
+        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
+        if (leader_pidfd >= 0)
+                r = pidref_set_pidfd(&leader, leader_pidfd);
+        else if (leader_pid == 0)
+                r = bus_query_sender_pidref(message, &leader);
+        else {
+                if (leader_pid < 0)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Leader PID is not valid");
+
+                r = pidref_set_pid(&leader, leader_pid);
+        }
+        if (r < 0)
+                return r;
+
+        if (leader.pid == 1 || pidref_is_self(&leader))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
+
+        SessionType t;
+        if (isempty(type))
+                t = _SESSION_TYPE_INVALID;
+        else {
+                t = session_type_from_string(type);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid session type %s", type);
+        }
+
+        SessionClass c;
+        if (isempty(class))
+                c = _SESSION_CLASS_INVALID;
+        else {
+                c = session_class_from_string(class);
+                if (c < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid session class %s", class);
+        }
+
+        if (isempty(desktop))
+                desktop = NULL;
+        else {
+                if (!string_is_safe(desktop))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid desktop string %s", desktop);
+        }
+
+        Seat *seat = NULL;
+        if (isempty(cseat))
+                seat = NULL;
+        else {
+                seat = hashmap_get(m->seats, cseat);
+                if (!seat)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT,
+                                                 "No seat '%s' known", cseat);
+        }
+
+        if (isempty(tty))
+                tty = NULL;
+        else if (tty_is_vc(tty)) {
+                int v;
+
+                if (!seat)
+                        seat = m->seat0;
+                else if (seat != m->seat0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "TTY %s is virtual console but seat %s is not seat0", tty, seat->id);
+
+                v = vtnr_from_tty(tty);
+                if (v <= 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Cannot determine VT number from virtual console TTY %s", tty);
+
+                if (vtnr == 0)
+                        vtnr = (uint32_t) v;
+                else if (vtnr != (uint32_t) v)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Specified TTY and VT number do not match");
+
+        } else if (tty_is_console(tty)) {
+
+                if (!seat)
+                        seat = m->seat0;
+                else if (seat != m->seat0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Console TTY specified but seat is not seat0");
+
+                if (vtnr != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Console TTY specified but VT number is not 0");
+        }
+
+        if (seat) {
+                if (seat_has_vts(seat)) {
+                        if (!vtnr_is_valid(vtnr))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "VT number out of range");
+                } else {
+                        if (vtnr != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Seat has no VTs but VT number not 0");
+                }
+        }
+
+        Session *session;
+        r = manager_create_session(
+                        m,
+                        uid,
+                        &leader,
+                        service,
+                        t,
+                        c,
+                        desktop,
+                        seat,
+                        vtnr,
+                        tty,
+                        display,
+                        remote,
+                        remote_user,
+                        remote_host,
+                        &session);
+        if (r == -EBUSY)
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
+        if (r == -EADDRNOTAVAIL)
+                return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Virtual terminal already occupied by a session");
+        if (r == -EUSERS)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.", m->sessions_max);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
                 goto fail;
-
         r = session_start(session, message, error);
         if (r < 0)
                 goto fail;
-
         r = sd_bus_message_exit_container(message);
         if (r < 0)
                 goto fail;
@@ -1130,16 +1218,13 @@ static int create_session(
          * all is complete - or wait again. */
         r = session_send_create_reply(session, /* error= */ NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
         return 1;
 
 fail:
         if (session)
                 session_add_to_gc_queue(session);
-
-        if (user)
-                user_add_to_gc_queue(user);
 
         return r;
 }
@@ -1175,9 +1260,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        return create_session(
-                        message,
+        return manager_create_session_by_bus(
                         userdata,
+                        message,
                         error,
                         uid,
                         leader_pid,
@@ -1223,9 +1308,9 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        return create_session(
-                        message,
+        return manager_create_session_by_bus(
                         userdata,
+                        message,
                         error,
                         uid,
                         /* leader_pid = */ 0,
