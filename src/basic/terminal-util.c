@@ -1934,11 +1934,11 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 goto finish;
 
         usec_t end = usec_add(now(CLOCK_MONOTONIC), 333 * USEC_PER_MSEC);
-        char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
+        char buf[256];
         size_t buf_full = 0;
         BackgroundColorContext context = {};
 
-        for (bool first = true;; first = false) {
+        for (;;) {
                 if (buf_full == 0) {
                         usec_t n = now(CLOCK_MONOTONIC);
 
@@ -1955,10 +1955,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                                 goto finish;
                         }
 
-                        /* On the first try, read multiple characters, i.e. the shortest valid
-                         * reply. Afterwards read byte-wise, since we don't want to read too much, and
-                         * unnecessarily drop too many characters from the input queue. */
-                        ssize_t l = read(STDIN_FILENO, buf, first ? sizeof(buf) : 1);
+                        ssize_t l = read(STDIN_FILENO, buf, sizeof(buf));
                         if (l < 0) {
                                 r = -errno;
                                 goto finish;
