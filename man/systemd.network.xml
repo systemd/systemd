@@ -6310,7 +6310,7 @@ PVID=42
 EgressUntagged=42
 
 [BridgeVLAN]
-VLAN=100-200
+VLAN=100-299
 
 [BridgeVLAN]
 EgressUntagged=300-400</programlisting>

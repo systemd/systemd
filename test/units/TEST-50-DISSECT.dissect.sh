@@ -389,6 +389,12 @@ systemd-run -P \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             "${BIND_LOG_SOCKETS[@]}" \
             cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+            --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
+            veritysetup status "$(cat /tmp/app0.roothash)-verity" | grep -q "$(cat /tmp/app0.roothash)"
+systemd-run -P \
+            --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
+            veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep -q "$(cat /tmp/conf0.roothash)"
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
 mkdir -p /tmp/symlink-test/
 cp /tmp/app-nodistro.raw /tmp/symlink-test/app-nodistro-v1.raw

@@ -56,6 +56,9 @@ fi
 # TODO: Drop when the spec is fixed (either the patch is adapted or not applied when building for upstream).
 sed --in-place '/0009-pid1-handle-console-specificities-weirdness-for-s390.patch/d' "pkg/$PKG_SUBDIR/systemd.spec"
 
+# TODO: Drop when the opensuse spec uses README.md instead of README.testsuite.
+sed --in-place 's/README.testsuite/README.md/' "pkg/$PKG_SUBDIR/systemd.spec"
+
 build() {
     IFS=
     # shellcheck disable=SC2046
