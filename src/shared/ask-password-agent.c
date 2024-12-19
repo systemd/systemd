@@ -18,12 +18,8 @@ int ask_password_agent_open(void) {
         if (agent_pid > 0)
                 return 0;
 
-        /* We check STDIN here, not STDOUT, since this is about input, not output */
-        if (!isatty_safe(STDIN_FILENO))
-                return 0;
-
-        /* Also check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
-         * interactively on a terminal, hence fail */
+        /* Check if we have a controlling terminal. If not (ENXIO here), we aren't actually invoked
+         * interactively on a terminal, hence fail. */
         r = get_ctty_devnr(0, NULL);
         if (r == -ENXIO)
                 return 0;

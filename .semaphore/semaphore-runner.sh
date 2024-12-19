@@ -8,7 +8,7 @@ set -o pipefail
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
-BRANCH="${BRANCH:-debian/master}"
+BRANCH="${BRANCH:-ci/v257-stable}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR=/var/tmp
@@ -109,9 +109,6 @@ EOF
                                                        --env DPKG_DEB_COMPRESSOR_TYPE="none" \
                                                        --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb nodoc" \
                                                        --env TEST_UPSTREAM=1 \
-                                                       --skip-test localed-locale \
-                                                       --skip-test localed-x11-keymap \
-                                                       --skip-test build-with-static-libsystemd \
                                                        ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \

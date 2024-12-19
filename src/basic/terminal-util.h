@@ -39,6 +39,8 @@
 
 bool isatty_safe(int fd);
 
+int terminal_reset_ioctl(int fd, bool switch_to_text);
+int terminal_reset_ansi_seq(int fd);
 int terminal_reset_defensive(int fd, bool switch_to_text);
 int terminal_reset_defensive_locked(int fd, bool switch_to_text);
 
@@ -101,7 +103,6 @@ bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
 const char* default_term_for_tty(const char *tty);
 
-void reset_dev_console_fd(int fd, bool switch_to_text);
 int lock_dev_console(void);
 int make_console_stdio(void);
 
