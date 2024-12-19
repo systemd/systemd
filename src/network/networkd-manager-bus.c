@@ -304,7 +304,7 @@ static int property_get_namespace_nsid(
          * number. */
 
         r = netns_get_nsid(/* netnsfd= */ -EBADF, &nsid);
-        if (r < 0)
+        if (r < 0 && r != -ENODATA)
                 log_warning_errno(r, "Failed to query network nsid, ignoring: %m");
 
         return sd_bus_message_append(reply, "u", nsid);

@@ -264,7 +264,7 @@ class UkifyConfig:
     sbat: Optional[list[str]]
     sections: list['Section']
     sections_by_name: dict[str, 'Section']
-    sign_kernel: bool
+    sign_kernel: Optional[bool]
     signing_engine: Optional[str]
     signing_provider: Optional[str]
     certificate_provider: Optional[str]
@@ -1108,7 +1108,7 @@ def make_uki(opts: UkifyConfig) -> None:
         assert opts.signtool is not None
         signtool = SignTool.from_string(opts.signtool)
 
-        if not sign_kernel:
+        if sign_kernel is None:
             # figure out if we should sign the kernel
             sign_kernel = signtool.verify(opts)
 
