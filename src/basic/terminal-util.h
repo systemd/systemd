@@ -105,7 +105,7 @@
 
 bool isatty_safe(int fd);
 
-int terminal_reset_ioctl(int fd, bool switch_to_text);
+int reset_terminal_fd(int fd, bool switch_to_text);
 int terminal_reset_ansi_seq(int fd);
 int terminal_reset_defensive(int fd, bool switch_to_text);
 

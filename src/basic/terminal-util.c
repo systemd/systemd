@@ -319,7 +319,7 @@ int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage)
         return 0;
 }
 
-int terminal_reset_ioctl(int fd, bool switch_to_text) {
+int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
         int r;
 
@@ -644,7 +644,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        r = terminal_reset_ioctl(fd, switch_to_text);
+        r = reset_terminal_fd(fd, switch_to_text);
         if (r < 0)
                 log_warning_errno(r, "Failed to reset /dev/console, ignoring: %m");
 
@@ -1666,7 +1666,7 @@ int terminal_reset_defensive(int fd, bool switch_to_text) {
          *
          * The specified fd should be open for *writing*! */
 
-        RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
+        RET_GATHER(r, reset_terminal_fd(fd, switch_to_text));
 
         if (terminal_is_pty_fd(fd) == 0)
                 RET_GATHER(r, terminal_reset_ansi_seq(fd));
