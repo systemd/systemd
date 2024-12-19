@@ -1,5 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
 
 if command -v flatpak-spawn >/dev/null; then
     SPAWN=(flatpak-spawn --host)
