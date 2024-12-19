@@ -446,10 +446,6 @@ Features:
 * credentials: add a flag to the scoped credentials that if set require PK
   reauthentication when unlocking a secret.
 
-* teach systemd --user to properly load credentials off disk, with
-  /etc/credstore equivalent and similar. Make sure that $CREDENTIALS_DIRECTORY=
-  actually works too when run with user privs.
-
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
   to read them from. This way the data doesn't remain in the SMBIOS blob during
