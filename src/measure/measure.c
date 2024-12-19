@@ -104,6 +104,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --linux=PATH        Path to Linux kernel image file            %7$s .linux\n"
                "     --osrel=PATH        Path to os-release file                    %7$s .osrel\n"
                "     --cmdline=PATH      Path to file with kernel command line      %7$s .cmdline\n"
+               "     --firmware=PATH     Path to firmware image file                %7$s .fwauto\n"
                "     --initrd=PATH       Path to initrd image file                  %7$s .initrd\n"
                "     --ucode=PATH        Path to microcode image file               %7$s .ucode\n"
                "     --splash=PATH       Path to splash bitmap file                 %7$s .splash\n"
@@ -159,8 +160,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PCRPKEY,
                 ARG_PROFILE,
                 ARG_HWIDS,
+                ARG_DTBAUTO,
                 _ARG_SECTION_LAST,
-                ARG_DTBAUTO = _ARG_SECTION_LAST,
+                ARG_FIRMWARE = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
@@ -181,6 +183,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "osrel",              required_argument, NULL, ARG_OSREL              },
                 { "cmdline",            required_argument, NULL, ARG_CMDLINE            },
                 { "initrd",             required_argument, NULL, ARG_INITRD             },
+                { "firmware",           required_argument, NULL, ARG_FIRMWARE           },
                 { "ucode",              required_argument, NULL, ARG_UCODE              },
                 { "splash",             required_argument, NULL, ARG_SPLASH             },
                 { "dtb",                required_argument, NULL, ARG_DTB                },
