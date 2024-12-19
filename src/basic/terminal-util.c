@@ -319,6 +319,78 @@ int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage)
         return 0;
 }
 
+int terminal_reset_ioctl(int fd, bool switch_to_text) {
+        struct termios termios;
+        int r;
+
+        /* Set terminal to some sane defaults */
+
+        assert(fd >= 0);
+
+        if (!isatty_safe(fd))
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
+
+        /* Disable exclusive mode, just in case */
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
+
+        /* Switch to text mode */
+        if (switch_to_text)
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
+
+        /* Set default keyboard mode */
+        r = vt_reset_keyboard(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
+
+        if (tcgetattr(fd, &termios) < 0) {
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
+                goto finish;
+        }
+
+        /* We only reset the stuff that matters to the software. How
+         * hardware is set up we don't touch assuming that somebody
+         * else will do that for us */
+
+        termios.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | IUCLC);
+        termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
+        termios.c_oflag |= ONLCR | OPOST;
+        termios.c_cflag |= CREAD;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
+
+        termios.c_cc[VINTR]    =   03;  /* ^C */
+        termios.c_cc[VQUIT]    =  034;  /* ^\ */
+        termios.c_cc[VERASE]   = 0177;
+        termios.c_cc[VKILL]    =  025;  /* ^X */
+        termios.c_cc[VEOF]     =   04;  /* ^D */
+        termios.c_cc[VSTART]   =  021;  /* ^Q */
+        termios.c_cc[VSTOP]    =  023;  /* ^S */
+        termios.c_cc[VSUSP]    =  032;  /* ^Z */
+        termios.c_cc[VLNEXT]   =  026;  /* ^V */
+        termios.c_cc[VWERASE]  =  027;  /* ^W */
+        termios.c_cc[VREPRINT] =  022;  /* ^R */
+        termios.c_cc[VEOL]     =    0;
+        termios.c_cc[VEOL2]    =    0;
+
+        termios.c_cc[VTIME]  = 0;
+        termios.c_cc[VMIN]   = 1;
+
+        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
+        if (r < 0)
+                log_debug_errno(r, "Failed to set terminal parameters: %m");
+
+finish:
+        /* Just in case, flush all crap out */
+        (void) tcflush(fd, TCIOFLUSH);
+
+        return r;
+}
+
 int open_terminal(const char *name, int mode) {
         _cleanup_close_ int fd = -EBADF;
 
@@ -565,104 +637,6 @@ int vt_disallocate(const char *name) {
                           "\033c",   /* reset to initial state */
                           SIZE_MAX);
         return 0;
-}
-
-static int terminal_reset_ioctl(int fd, bool switch_to_text) {
-        struct termios termios;
-        int r;
-
-        /* Set terminal to some sane defaults */
-
-        assert(fd >= 0);
-
-        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
-         * and we don't interfere with that. */
-
-        /* Disable exclusive mode, just in case */
-        if (ioctl(fd, TIOCNXCL) < 0)
-                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
-
-        /* Switch to text mode */
-        if (switch_to_text)
-                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
-                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
-
-        /* Set default keyboard mode */
-        r = vt_reset_keyboard(fd);
-        if (r < 0)
-                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
-
-        if (tcgetattr(fd, &termios) < 0) {
-                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
-                goto finish;
-        }
-
-        /* We only reset the stuff that matters to the software. How
-         * hardware is set up we don't touch assuming that somebody
-         * else will do that for us */
-
-        termios.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | IUCLC);
-        termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
-        termios.c_oflag |= ONLCR | OPOST;
-        termios.c_cflag |= CREAD;
-        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
-
-        termios.c_cc[VINTR]    =   03;  /* ^C */
-        termios.c_cc[VQUIT]    =  034;  /* ^\ */
-        termios.c_cc[VERASE]   = 0177;
-        termios.c_cc[VKILL]    =  025;  /* ^X */
-        termios.c_cc[VEOF]     =   04;  /* ^D */
-        termios.c_cc[VSTART]   =  021;  /* ^Q */
-        termios.c_cc[VSTOP]    =  023;  /* ^S */
-        termios.c_cc[VSUSP]    =  032;  /* ^Z */
-        termios.c_cc[VLNEXT]   =  026;  /* ^V */
-        termios.c_cc[VWERASE]  =  027;  /* ^W */
-        termios.c_cc[VREPRINT] =  022;  /* ^R */
-        termios.c_cc[VEOL]     =    0;
-        termios.c_cc[VEOL2]    =    0;
-
-        termios.c_cc[VTIME]  = 0;
-        termios.c_cc[VMIN]   = 1;
-
-        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
-        if (r < 0)
-                log_debug_errno(r, "Failed to set terminal parameters: %m");
-
-finish:
-        /* Just in case, flush all crap out */
-        (void) tcflush(fd, TCIOFLUSH);
-
-        return r;
-}
-
-static int terminal_reset_ansi_seq(int fd) {
-        int r, k;
-
-        assert(fd >= 0);
-
-        if (getenv_terminal_is_dumb())
-                return 0;
-
-        r = fd_nonblock(fd, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
-
-        k = loop_write_full(fd,
-                            "\033[!p"      /* soft terminal reset */
-                            "\033]104\007" /* reset colors */
-                            "\033[?7h",    /* enable line-wrapping */
-                            SIZE_MAX,
-                            50 * USEC_PER_MSEC);
-        if (k < 0)
-                log_debug_errno(k, "Failed to write to terminal: %m");
-
-        if (r > 0) {
-                r = fd_nonblock(fd, false);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
-        }
-
-        return k < 0 ? k : r;
 }
 
 void reset_dev_console_fd(int fd, bool switch_to_text) {
@@ -1649,6 +1623,36 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
+int terminal_reset_ansi_seq(int fd) {
+        int r, k;
+
+        assert(fd >= 0);
+
+        if (getenv_terminal_is_dumb())
+                return 0;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+
+        k = loop_write_full(fd,
+                            "\033[!p"      /* soft terminal reset */
+                            "\033]104\007" /* reset colors */
+                            "\033[?7h",    /* enable line-wrapping */
+                            SIZE_MAX,
+                            50 * USEC_PER_MSEC);
+        if (k < 0)
+                log_debug_errno(k, "Failed to write to terminal: %m");
+
+        if (r > 0) {
+                r = fd_nonblock(fd, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
+        }
+
+        return k < 0 ? k : r;
+}
+
 int terminal_reset_defensive(int fd, bool switch_to_text) {
         int r = 0;
 
@@ -1661,9 +1665,6 @@ int terminal_reset_defensive(int fd, bool switch_to_text) {
          * much.
          *
          * The specified fd should be open for *writing*! */
-
-        if (!isatty_safe(fd))
-                return -ENOTTY;
 
         RET_GATHER(r, terminal_reset_ioctl(fd, switch_to_text));
 

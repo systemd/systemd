@@ -105,6 +105,8 @@
 
 bool isatty_safe(int fd);
 
+int terminal_reset_ioctl(int fd, bool switch_to_text);
+int terminal_reset_ansi_seq(int fd);
 int terminal_reset_defensive(int fd, bool switch_to_text);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
