@@ -585,3 +585,174 @@ int is_idmapping_supported(const char *path) {
 
         return true;
 }
+
+static int uid_map_search_root(pid_t pid, const char *filename, uid_t *ret) {
+        int r;
+
+        assert(pid_is_valid(pid));
+        assert(filename);
+        assert(ret);
+
+        const char *p = procfs_file_alloca(pid, filename);
+        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                return proc_mounted() > 0 ? -EOPNOTSUPP : -ENOSYS;
+        }
+
+        for (;;) {
+                uid_t uid_base = UID_INVALID, uid_shift = UID_INVALID, uid_range = UID_INVALID;
+
+                errno = 0;
+                r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+                if (r == EOF)
+                        return errno_or_else(ENOMSG);
+                assert(r >= 0);
+                if (r != 3)
+                        return -EBADMSG;
+                if (uid_range <= 0)
+                        return -EBADMSG;
+
+                if (uid_base == 0)
+                        *ret = uid_shift;
+
+                return 0;
+        }
+}
+
+int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        ssize_t n;
+        char x;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-baseuns)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to fifo: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        uid_t uid;
+        r = uid_map_search_root(pid, "uid_map", &uid);
+        if (r < 0)
+                return r;
+
+        gid_t gid;
+        r = uid_map_search_root(pid, "gid_map", &gid);
+        if (r < 0)
+                return r;
+
+        if (!ret_gid && uid != gid)
+                return -ENOMSG;
+
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+
+        return 0;
+}
+
+int process_is_owned_by_uid(PidRef *pidref, uid_t uid) {
+        int r;
+
+        /* Checks if the specified process either is owned directly by the specified user, or if it is inside
+         * a user namespace owned by it. */
+
+        uid_t process_uid;
+        r = pidref_get_uid(pidref, &process_uid);
+        if (r < 0)
+                return r;
+        if (process_uid == uid)
+                return true;
+
+        _cleanup_close_ int userns_fd = -EBADF;
+        r = pidref_namespace_open(
+                        pidref,
+                        /* ret_pidns_fd= */ NULL,
+                        /* ret_mntns_fd= */ NULL,
+                        /* ret_netns_fd= */ NULL,
+                        &userns_fd,
+                        /* ret_root_fd= */ NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r)) /* If userns is not supported, then they don't matter for ownership */
+                return false;
+        if (r < 0)
+                return r;
+
+        for (unsigned iteration = 0;; iteration++) {
+                uid_t ns_uid;
+
+                /* This process is in our own userns? Then we are done, in our own userns only the UIDs
+                 * themselves matter. */
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return false;
+
+                if (ioctl(userns_fd, NS_GET_OWNER_UID, &ns_uid) < 0) {
+                        /* kernel too old? then we cannot make the determination, let's hence say no */
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                return false;
+
+                        return -errno;
+                }
+                if (ns_uid == uid)
+                        return true;
+
+                /* Paranoia check */
+                if (iteration > 16)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Giving up while tracing parents of user namespaces after %u steps.", iteration);
+
+                /* Go up the tree */
+                _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
+                if (parent_fd < 0) {
+                        if (errno == EPERM) /* EPERM means we left our own userns */
+                                return false;
+
+                        return -errno;
+                }
+
+                close_and_replace(userns_fd, parent_fd);
+        }
+}

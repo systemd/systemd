@@ -959,6 +959,12 @@ static int method_attach_processes_to_unit(sd_bus_message *message, void *userda
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
+static int method_remove_subgroup_from_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* Don't allow removal of subgroups from units that aren't loaded. But allow loading the unit, since
+         * this is clean-up work, that is OK to do when the unit is stopped already. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_remove_subgroup, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+}
+
 static int transient_unit_from_message(
                 Manager *m,
                 sd_bus_message *message,
@@ -3244,6 +3250,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", unit_name, "s", subcgroup, "au", pids),
                                 SD_BUS_NO_RESULT,
                                 method_attach_processes_to_unit,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("RemoveSubgroupFromUnit",
+                                SD_BUS_ARGS("s", unit_name, "s", subcgroup),
+                                SD_BUS_NO_RESULT,
+                                method_remove_subgroup_from_unit,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("AbandonScope",
                                 SD_BUS_ARGS("s", name),
