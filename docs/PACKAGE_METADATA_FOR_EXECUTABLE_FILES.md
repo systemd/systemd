@@ -27,6 +27,14 @@ Thus it becomes desirable to add additional metadata to a binary at build time, 
 `systemd-coredump` and other services analyzing core files are able to extract said
 metadata simply from the core file itself, without external dependencies.
 
+This metadata is stored as a section in the executable file,
+so that it will be loaded into memory along with the text and data of the binary,
+and will be preserved in a core dump.
+This metadata can also be easily read from the file on disk,
+so it can be used to identify provenience of files,
+independently of any package management system,
+even if the file is renamed or copied.
+
 ## Implementation
 
 This document will attempt to define a common metadata format specification, so that
@@ -80,6 +88,9 @@ cannot encode that), as per recommendations of
 these JSON objects are thus permitted to encode numeric values from these
 ranges as JSON numbers, and should not use numeric values not covered by these
 types and ranges.
+
+If available, the metadata should also include the debuginfod server URL that can provide
+the original executable, debuginfo and sources, to further facilitate debugging.
 
 Reference implementations of [packaging tools for .deb and .rpm](https://github.com/systemd/package-notes)
 are available, and provide macros/helpers to include the note in binaries built
