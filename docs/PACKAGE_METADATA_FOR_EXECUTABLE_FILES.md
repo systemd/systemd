@@ -65,10 +65,11 @@ Value: a single JSON object encoded as a zero-terminated UTF-8 string
 }
 ```
 
-The format is a single JSON object, encoded as a zero-terminated `UTF-8` string.
+The format is a single JSON object,
+encoded as a zero-terminated `UTF-8` string.
 Each name in the object shall be unique as per recommendations of
-[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#section-4). Strings shall
-not contain any control character, nor use `\uXXX` escaping.
+[RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#section-4).
+Strings shall not contain any control characters or use `\uXXX` escaping.
 
 When it comes to JSON numbers, this specification assumes that JSON parsers
 processing this information are capable of reproducing the full signed 53bit
@@ -82,9 +83,11 @@ types and ranges.
 
 Reference implementations of [packaging tools for .deb and .rpm](https://github.com/systemd/package-notes)
 are available, and provide macros/helpers to include the note in binaries built
-by the package build system. They make use of the new `--package-metadata` flag that
-is available in the bfd, gold, mold and lld linkers (versions 2.39, 1.3.0 and 15.0
-respectively). This linker flag takes a JSON payload as parameter.
+by the package build system.
+They make use of the new `--package-metadata` flag that is available in the
+`bfd`, `gold`, `mold`, and `lld` linkers
+(versions 2.39, 2.39, 1.3.0, and 15.0 respectively).
+This linker flag takes the JSON payload as parameter.
 
 ## Well-known keys
 
