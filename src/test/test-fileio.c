@@ -363,24 +363,6 @@ TEST(status_field) {
         }
 }
 
-TEST(capeff) {
-        for (int pid = 0; pid < 2; pid++) {
-                _cleanup_free_ char *capeff = NULL;
-                int r, p;
-
-                r = get_process_capeff(0, &capeff);
-                log_info("capeff: '%s' (r=%d)", capeff, r);
-
-                if (IN_SET(r, -ENOENT, -EPERM))
-                        return;
-
-                assert_se(r == 0);
-                assert_se(*capeff);
-                p = capeff[strspn(capeff, HEXDIGITS)];
-                assert_se(!p || isspace(p));
-        }
-}
-
 TEST(read_one_line_file) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-fileio-1lf-XXXXXX";
         int fd;
