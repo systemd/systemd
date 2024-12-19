@@ -34,6 +34,7 @@ static bool arg_sync = true;
 static bool arg_direct = false;
 static const char *arg_image_root = NULL;
 static ImageClass arg_class = IMAGE_MACHINE;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 typedef struct ProgressInfo {
         RateLimit limit;
@@ -145,7 +146,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 if (!arg_force) {
-                        r = image_find(arg_class, local, NULL, NULL);
+                        r = image_find(arg_runtime_scope, arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);

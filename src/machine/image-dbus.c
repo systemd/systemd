@@ -178,7 +178,7 @@ int bus_image_method_clone(
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-                r = image_clone(image, new_name, read_only);
+                r = image_clone(image, new_name, read_only, m->runtime_scope);
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
@@ -402,6 +402,7 @@ char* image_bus_path(const char *name) {
 static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
+        Manager *m = ASSERT_PTR(userdata);
         Image *image;
         int r;
 
@@ -413,7 +414,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(IMAGE_MACHINE, NULL, images);
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, images);
         if (r < 0)
                 return r;
 
