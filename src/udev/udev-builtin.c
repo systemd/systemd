@@ -42,11 +42,27 @@ void udev_builtin_exit(void) {
                         (*b)->exit();
 }
 
-bool udev_builtin_should_reload(void) {
+UdevReloadFlag udev_builtin_should_reload(void) {
+        UdevReloadFlag flags = 0;
+
         for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->should_reload && builtins[i]->should_reload())
-                        return true;
-        return false;
+                        flags |= (1u << i);
+
+        if (flags != 0)
+                flags |= UDEV_RELOAD_KILL_WORKERS;
+
+        return flags;
+}
+
+void udev_builtin_reload(UdevReloadFlag flags) {
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
+                if (FLAGS_SET(flags, 1u << i) && builtins[i]) {
+                        if (builtins[i]->exit)
+                                builtins[i]->exit();
+                        if (builtins[i]->init)
+                                builtins[i]->init();
+                }
 }
 
 void udev_builtin_list(void) {
