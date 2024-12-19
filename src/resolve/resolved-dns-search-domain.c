@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-search-domain.h"
@@ -196,4 +198,22 @@ int dns_search_domain_find(DnsSearchDomain *first, const char *name, DnsSearchDo
 
         *ret = NULL;
         return 0;
+}
+
+int dns_search_domain_dump_to_json(DnsSearchDomain *domain, sd_json_variant **ret) {
+        int ifindex = 0;
+
+        assert(domain);
+        assert(ret);
+
+        if (domain->type == DNS_SEARCH_DOMAIN_LINK) {
+                assert(domain->link);
+                ifindex = domain->link->ifindex;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("name", domain->name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("routeOnly", domain->route_only),
+                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)));
 }
