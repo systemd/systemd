@@ -305,6 +305,18 @@ static void test_capability_get_ambient(void) {
         }
 }
 
+static void test_pidref_get_capability(void) {
+        CapabilityQuintet q = CAPABILITY_QUINTET_NULL;
+
+        assert_se(pidref_get_capability(&PIDREF_MAKE_FROM_PID(getpid_cached()), &q) >= 0);
+
+        assert_se(q.effective != CAP_MASK_UNSET);
+        assert_se(q.inheritable != CAP_MASK_UNSET);
+        assert_se(q.permitted != CAP_MASK_UNSET);
+        assert_se(q.effective != CAP_MASK_UNSET);
+        assert_se(q.ambient != CAP_MASK_UNSET);
+}
+
 int main(int argc, char *argv[]) {
         bool run_ambient;
 
@@ -335,6 +347,8 @@ int main(int argc, char *argv[]) {
                 fork_test(test_apply_ambient_caps);
 
         test_capability_get_ambient();
+
+        test_pidref_get_capability();
 
         return 0;
 }

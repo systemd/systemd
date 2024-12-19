@@ -8,6 +8,7 @@
 
 #include "macro.h"
 #include "missing_capability.h"
+#include "pidref.h"
 
 /* Special marker used when storing a capabilities mask as "unset" */
 #define CAP_MASK_UNSET UINT64_MAX
@@ -66,14 +67,18 @@ typedef struct CapabilityQuintet {
 
 assert_cc(CAP_LAST_CAP < 64);
 
-#define CAPABILITY_QUINTET_NULL { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
+#define CAPABILITY_QUINTET_NULL (CapabilityQuintet) { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
+
+static inline bool capability_is_set(uint64_t v) {
+        return v != CAP_MASK_UNSET;
+}
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
-        return q->effective != CAP_MASK_UNSET ||
-                q->bounding != CAP_MASK_UNSET ||
-                q->inheritable != CAP_MASK_UNSET ||
-                q->permitted != CAP_MASK_UNSET ||
-                q->ambient != CAP_MASK_UNSET;
+        return capability_is_set(q->effective) ||
+                capability_is_set(q->bounding) ||
+                capability_is_set(q->inheritable) ||
+                capability_is_set(q->permitted) ||
+                capability_is_set(q->ambient);
 }
 
 /* Mangles the specified caps quintet taking the current bounding set into account:
@@ -84,3 +89,5 @@ bool capability_quintet_mangle(CapabilityQuintet *q);
 int capability_quintet_enforce(const CapabilityQuintet *q);
 
 int capability_get_ambient(uint64_t *ret);
+
+int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret);

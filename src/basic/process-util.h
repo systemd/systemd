@@ -50,7 +50,6 @@ int get_process_exe(pid_t pid, char **ret);
 int pid_get_uid(pid_t pid, uid_t *ret);
 int pidref_get_uid(const PidRef *pid, uid_t *ret);
 int get_process_gid(pid_t pid, gid_t *ret);
-int get_process_capeff(pid_t pid, char **ret);
 int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
