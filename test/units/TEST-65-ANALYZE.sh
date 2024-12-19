@@ -990,6 +990,11 @@ systemd-analyze architectures uname
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
 
+if test -f /sys/class/dmi/id/board_vendor && ! systemd-detect-virt --container ; then
+    systemd-analyze chid
+    systemd-analyze chid --json=pretty
+fi
+
 systemd-analyze condition --instance=tmp --unit=systemd-growfs@.service
 systemd-analyze verify --instance=tmp --man=no systemd-growfs@.service
 systemd-analyze security --instance=tmp systemd-growfs@.service
