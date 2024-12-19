@@ -662,11 +662,11 @@ static int setup_confirm_stdio(
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
-        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3);
         if (saved_stdin < 0)
                 return -errno;
 
-        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
         if (saved_stdout < 0)
                 return -errno;
 
