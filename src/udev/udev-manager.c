@@ -262,22 +262,25 @@ static void manager_reload(Manager *manager, bool force) {
         /* Reload SELinux label database, to make the child inherit the up-to-date database. */
         mac_selinux_maybe_reload();
 
-        /* Nothing changed. It is not necessary to reload. */
-        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_should_reload()) {
+        UdevReloadFlag flags = udev_builtin_should_reload();
+        if (udev_rules_should_reload(manager->rules))
+                flags |= UDEV_RELOAD_RULES | UDEV_RELOAD_KILL_WORKERS;
+        if (flags == 0 && !force)
+                /* Neither .rules files nor config files for builtins e.g. .link files changed. It is not
+                 * necessary to reload configs. Note, udev.conf is not checked in the above, hence reloaded
+                 * when explicitly requested or at least one .rules file or friend is updated. */
+                return;
 
-                if (!force)
-                        return;
+        (void) notify_reloading();
 
-                /* If we eat this up, then tell our service manager to just continue */
-                (void) notify_reloading_full("Skipping configuration reloading, nothing changed.");
-        } else {
-                (void) notify_reloading();
+        flags |= manager_reload_config(manager);
 
+        if (FLAGS_SET(flags, UDEV_RELOAD_KILL_WORKERS))
                 manager_kill_workers(manager, false);
 
-                udev_builtin_exit();
-                udev_builtin_init();
+        udev_builtin_reload(flags);
 
+        if (FLAGS_SET(flags, UDEV_RELOAD_RULES)) {
                 r = udev_rules_load(&rules, manager->config.resolve_name_timing);
                 if (r < 0)
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
