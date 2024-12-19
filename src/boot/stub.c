@@ -257,6 +257,17 @@ static void process_arguments(
                  * it could actually be anything! */
                 char16_t *c = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
                 parse_profile_from_cmdline(&c, ret_profile);
+
+                /* When LoadOptions starts with the stub binary path ignore it */
+                if (loaded_image->FilePath) {
+                        _cleanup_free_ char16_t *s = NULL;
+                        if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS && !strcmp16(s, c)) {
+                                mfree(c);
+                                c = NULL;
+                        }
+                        /* TODO: Assemble the command line ourselves without our stub path. */
+                }
+
                 *ret_cmdline = mangle_stub_cmdline(c);
                 return;
         }
