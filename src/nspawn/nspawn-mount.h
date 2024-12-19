@@ -20,7 +20,8 @@ typedef enum MountSettingsMask {
         MOUNT_TOUCH              = 1 << 9, /* if set, touch file to mount over first */
         MOUNT_PREFIX_ROOT        = 1 << 10,/* if set, prefix the source path with the container's root directory */
         MOUNT_FOLLOW_SYMLINKS    = 1 << 11,/* if set, we'll follow symlinks for the mount target */
-        MOUNT_PRIVILEGED         = 1 << 12,/* if set, we'll only mount this in the outer child if we are running in privileged mode */
+        MOUNT_UNMANAGED          = 1 << 12,/* if set, we'll only mount this in the outer child if we are running in privileged mode */
+        MOUNT_PRIVILEGED         = 1 << 13,/* if set, we'll only mount this if we have full privileges */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
@@ -73,5 +74,6 @@ int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);
 
 int tmpfs_patch_options(const char *options,uid_t uid_shift, const char *selinux_apifs_context, char **ret);
-int pin_fully_visible_fs(void);
-int wipe_fully_visible_fs(int mntns_fd);
+
+int pin_fully_visible_api_fs(void);
+int wipe_fully_visible_api_fs(int mntns_fd);

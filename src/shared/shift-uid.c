@@ -1,23 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
 #include <sys/statvfs.h>
-#include <sys/vfs.h>
-#include <unistd.h>
 
 #include "acl-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "missing_magic.h"
-#include "nspawn-def.h"
-#include "nspawn-patch-uid.h"
+#include "shift-uid.h"
 #include "stat-util.h"
-#include "stdio-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "user-util.h"
+
+/* While we are chmod()ing a directory tree, we set the top-level UID base to this "busy" base, so that we can always
+ * recognize trees we are were chmod()ing recursively and got interrupted in */
+#define UID_BUSY_BASE ((uid_t) UINT32_C(0xFFFE0000))
+#define UID_BUSY_MASK ((uid_t) UINT32_C(0xFFFF0000))
 
 #if HAVE_ACL
 
@@ -286,7 +283,7 @@ static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
                F_TYPE_EQUAL(sfs->f_type, SYSFS_MAGIC);
 }
 
-static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
+static int recurse_fd(int fd, const struct stat *st, uid_t shift, bool is_toplevel) {
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
         struct statfs sfs;
@@ -303,10 +300,10 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
 
         r = is_fs_fully_userns_compatible(&sfs);
         if (r < 0)
-                goto finish;
+                return r;
         if (r > 0) {
                 r = 0; /* don't recurse */
-                goto finish;
+                return r;
         }
 
         /* Also, if we hit a read-only file system, then don't bother, skip the whole subtree */
@@ -315,56 +312,36 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 goto read_only;
 
         if (S_ISDIR(st->st_mode)) {
-                if (!donate_fd) {
-                        int copy;
-
-                        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (copy < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                        fd = copy;
-                        donate_fd = true;
-                }
-
                 d = take_fdopendir(&fd);
-                if (!d) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (!d)
+                        return -errno;
 
-                FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
+                FOREACH_DIRENT_ALL(de, d, return -errno) {
                         struct stat fst;
 
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        if (fstatat(dirfd(d), de->d_name, &fst, AT_SYMLINK_NOFOLLOW) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (fstatat(dirfd(d), de->d_name, &fst, AT_SYMLINK_NOFOLLOW) < 0)
+                                return -errno;
 
                         if (S_ISDIR(fst.st_mode)) {
                                 int subdir_fd;
 
                                 subdir_fd = openat(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-                                if (subdir_fd < 0) {
-                                        r = -errno;
-                                        goto finish;
+                                if (subdir_fd < 0)
+                                        return -errno;
 
-                                }
-
-                                r = recurse_fd(subdir_fd, true, &fst, shift, false);
+                                r = recurse_fd(subdir_fd, &fst, shift, false);
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
                                 if (r > 0)
                                         changed = true;
 
                         } else {
                                 r = patch_fd(dirfd(d), de->d_name, &fst, shift);
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
                                 if (r > 0)
                                         changed = true;
                         }
@@ -380,8 +357,7 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
         if (r > 0)
                 changed = true;
 
-        r = changed;
-        goto finish;
+        return changed;
 
 read_only:
         if (!is_toplevel) {
@@ -393,51 +369,41 @@ read_only:
                 r = changed;
         }
 
-finish:
-        if (donate_fd)
-                safe_close(fd);
-
         return r;
 }
 
-static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t range) {
+int path_patch_uid(const char *path, uid_t shift, uid_t range) {
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
-        int r;
 
-        assert(fd >= 0);
+        assert(path);
+
+        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        if (fd < 0)
+                return -errno;
 
         /* Recursively adjusts the UID/GIDs of all files of a directory tree. This is used to automatically fix up an
          * OS tree to the used user namespace UID range. Note that this automatic adjustment only works for UID ranges
          * following the concept that the upper 16-bit of a UID identify the container, and the lower 16-bit are the actual
          * UID within the container. */
 
-        if ((shift & 0xFFFF) != 0) {
-                /* We only support containers where the shift starts at a 2^16 boundary */
-                r = -EOPNOTSUPP;
-                goto finish;
-        }
+        /* We only support containers where the shift starts at a 2^16 boundary */
+        if ((shift & 0xFFFF) != 0)
+                return -EOPNOTSUPP;
 
-        if (shift == UID_BUSY_BASE) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (shift == UID_BUSY_BASE)
+                return -EINVAL;
 
-        if (range != 0x10000) {
-                /* We only support containers with 16-bit UID ranges for the patching logic */
-                r = -EOPNOTSUPP;
-                goto finish;
-        }
+        /* We only support containers with 16-bit UID ranges for the patching logic */
+        if (range != 0x10000)
+                return -EOPNOTSUPP;
 
-        if (fstat(fd, &st) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
-        if ((uint32_t) st.st_uid >> 16 != (uint32_t) st.st_gid >> 16) {
-                /* We only support containers where the uid/gid container ID match */
-                r = -EBADE;
-                goto finish;
-        }
+        /* We only support containers where the uid/gid container ID match */
+        if ((uint32_t) st.st_uid >> 16 != (uint32_t) st.st_gid >> 16)
+                return -EBADE;
 
         /* Try to detect if the range is already right. Of course, this a pretty drastic optimization, as we assume
          * that if the top-level dir has the right upper 16-bit assigned, then everything below will have too... */
@@ -448,30 +414,11 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
          * range. Should we be interrupted in the middle of our work, we'll see it owned by this user and will start
          * chown()ing it again, unconditionally, as the busy UID is not a valid UID we'd everpick for ourselves. */
 
-        if ((st.st_uid & UID_BUSY_MASK) != UID_BUSY_BASE) {
+        if ((st.st_uid & UID_BUSY_MASK) != UID_BUSY_BASE)
                 if (fchown(fd,
                            UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
-                           (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-        }
+                           (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0)
+                        return -errno;
 
-        return recurse_fd(fd, donate_fd, &st, shift, true);
-
-finish:
-        if (donate_fd)
-                safe_close(fd);
-
-        return r;
-}
-
-int path_patch_uid(const char *path, uid_t shift, uid_t range) {
-        int fd;
-
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-        if (fd < 0)
-                return -errno;
-
-        return fd_patch_uid_internal(fd, true, shift, range);
+        return recurse_fd(TAKE_FD(fd), &st, shift, true);
 }

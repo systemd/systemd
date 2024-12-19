@@ -615,7 +615,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
          * (think: LDAP/NIS type situations), and our synthesizing of root/nobody is a robustness fallback
          * only, which matters for getpwnam()/getpwuid() primarily, which are the main NSS entrypoints to the
          * user database. */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getpwent_data.iterator);
+        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getpwent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -634,8 +634,8 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
         getgrent_data.by_membership = false;
 
-        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE_INTRINSIC here */
+        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getgrent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -654,8 +654,8 @@ enum nss_status _nss_systemd_setspent(int stayopen) {
         getspent_data.iterator = userdb_iterator_free(getspent_data.iterator);
         getspent_data.by_membership = false;
 
-        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getspent_data.iterator);
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE_INTRINSIC here */
+        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getspent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -675,7 +675,7 @@ enum nss_status _nss_systemd_setsgent(int stayopen) {
         getsgent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getsgent_data.iterator);
+        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE_INTRINSIC | USERDB_DONT_SYNTHESIZE_FOREIGN, &getsgent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 

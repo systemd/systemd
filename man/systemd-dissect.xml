@@ -62,6 +62,9 @@
     <cmdsynopsis>
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--validate</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--shift</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>UIDBASE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -350,6 +353,27 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--shift</option></term>
+
+        <listitem><para>Recursively iterates through all inodes of the specified image and shifts the UIDs
+        and GIDs the inodes are owned by into the specified UID range. Takes an image path and a UID base as
+        parameter. The UID base can be specified numerically (in which case it must be a multiple of 65536,
+        and either 0 or within the container or foreign UID range, as per <ulink
+        url="https://systemd.io/UIDS-GIDS/">Users, Groups, UIDs and GIDs on systemd Systems</ulink>), or as
+        the symbolic identifier <literal>foreign</literal> which is shorthand to the foreign UID base. This
+        command is useful for preparing directory container images for unprivileged use. Note that this
+        command is intended for images that use the 16bit UIDs/GIDs range only, and it always ignores the
+        upper 16bit of the current UID/GID ownership, combining the lower 16 bit with the target UID
+        base.</para>
+
+        <para>Use <command>systemd-dissect --shift /some/container/tree foreign</command> to shift a
+        container image into the foreign UID range, or <command>systemd-dissect --shift /some/container/tree
+        0</command> to shift it to host UID range.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -501,6 +525,15 @@
         </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--all</option></term>
+
+        <listitem><para>If combined with <option>--discover</option>, also shows images that start with a
+        dot, i.e. hidden images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />

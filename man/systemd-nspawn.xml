@@ -841,6 +841,12 @@
           host and container UIDs/GIDs are chosen identically it does provide process capability isolation,
           but may be useful if proper user namespacing with distinct UID maps is not possible. This option is
           not secure and must not be used to run untrusted code.</para></listitem>
+
+          <listitem><para>If the parameter is <literal>managed</literal>, user namespacing is employed with
+          in <emphasis>managed</emphasis> mode, i.e. allocation of a UID range is delegated to
+          <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+          mode is selected by default if invoked unprivileged, but can also be requested explicitly when
+          privileged. In this mode a 64K UID range is automatically picked.</para></listitem>
         </orderedlist>
 
         <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable
@@ -852,18 +858,23 @@
         <para>When user namespaces are used, the GID range assigned to each container is always chosen
         identical to the UID range.</para>
 
-        <para>In most cases, using <option>--private-users=pick</option> is the recommended option as user
-        namespacing is required for security, and this option massively enhances container security while
+        <para>In most cases, <option>--private-users=managed</option> (or when privileged
+        <option>--private-users=pick</option>, too) is the recommended option as user
+        namespacing is advised for security, and this option massively enhances container security while
         operating fully automatically in most cases.</para>
 
         <para>Note that the picked UID/GID range is not written to <filename>/etc/passwd</filename> or
         <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently,
-        except in the file ownership of the files and directories of the container.</para>
+        except possibly in the file ownership of the files and directories of the container, see
+        <option>--private-users-ownership=</option>.</para>
 
-        <para>Note that when user namespacing is used file ownership on disk reflects this, and all of the container's
-        files and directories are owned by the container's effective user and group IDs. This means that copying files
-        from and to the container image requires correction of the numeric UID/GID values, according to the UID/GID
-        shift applied.</para>
+        <para>Note that when user namespacing is used without UID mapping (see below) file ownership on disk
+        reflects this, and all of the container's files and directories are owned by the container's
+        effective user and group IDs. This means that copying files from and to the container image requires
+        correction of the numeric UID/GID values, according to the UID/GID shift applied.</para>
+
+        <para>Note that for fully unprivileged operation in <literal>managed</literal> mode, any directory
+        image should be ownd by the foreign UID range.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
@@ -875,8 +886,10 @@
         chosen with <option>--private-users=</option>, see above. Takes one of <literal>off</literal> (to
         leave the image as is), <literal>chown</literal> (to recursively <function>chown()</function> the
         container's directory tree as needed), <literal>map</literal> (in order to use transparent ID mapping
-        mounts) or <literal>auto</literal> for automatically using <literal>map</literal> where available and
-        <literal>chown</literal> where not.</para>
+        mounts from UID 0 to the target UID range), <literal>foreign</literal> (the same, but from the
+        foreign UID range base) or <literal>auto</literal> for automatically using <literal>map</literal> or
+        <literal>foreign</literal>, where available and applicable and <literal>chown</literal> where
+        not.</para>
 
         <para>If <literal>chown</literal> is selected, all files and directories in the container's directory
         tree will be adjusted so that they are owned by the appropriate UIDs/GIDs selected for the container
@@ -884,13 +897,18 @@
         directory tree of the container. Besides actual file ownership, file ACLs are adjusted as
         well.</para>
 
-        <para>Typically <literal>map</literal> is the best choice, since it transparently maps UIDs/GIDs in
-        memory as needed without modifying the image, and without requiring an expensive recursive adjustment
-        operation. However, it is not available for all file systems, currently.</para>
+        <para>Typically <literal>foreign</literal> or <literal>map</literal> is the best choice, since it
+        transparently maps UIDs/GIDs in memory as needed without modifying the image, and without requiring
+        an expensive recursive adjustment operation. However, it is not available for all file systems,
+        currently.</para>
 
         <para>The <option>--private-users-ownership=auto</option> option is implied if
         <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
         used.</para>
+
+        <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
+        specific container UID/GID base outside of any <command>systemd-nspawn</command></para> invocation.
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>

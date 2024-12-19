@@ -3126,6 +3126,49 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         return ret;
 }
 
+int unit_remove_subcgroup(Unit *u, const char *suffix_path) {
+        int r;
+
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        if (!unit_cgroup_delegate(u))
+                return -ENOMEDIUM;
+
+        r = unit_pick_cgroup_path(u);
+        if (r < 0)
+                return r;
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return -EOWNERDEAD;
+
+        _cleanup_free_ char *j = NULL;
+        bool delete_root;
+        const char *d;
+        if (empty_or_root(suffix_path)) {
+                d = empty_to_root(crt->cgroup_path);
+                delete_root = false; /* Don't attempt to delete the main cgroup of this unit */
+        } else {
+                j = path_join(crt->cgroup_path, suffix_path);
+                if (!j)
+                        return -ENOMEM;
+
+                d = j;
+                delete_root = true;
+        }
+
+        log_unit_debug(u, "Removing subcgroup '%s'...", d);
+
+        r = cg_trim_everywhere(u->manager->cgroup_supported, d, delete_root);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to fully %s cgroup '%s': %m", delete_root ? "remove" : "trim", d);
+
+        return 0;
+}
+
 static bool unit_has_mask_realized(
                 Unit *u,
                 CGroupMask target_mask,
@@ -3567,6 +3610,49 @@ static bool unit_maybe_release_cgroup(Unit *u) {
         return false;
 }
 
+static int unit_prune_cgroup_via_bus(Unit *u) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+
+        if (MANAGER_IS_SYSTEM(u->manager))
+                return -EINVAL;
+
+        if (!u->manager->system_bus)
+                return -EIO;
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return -EOWNERDEAD;
+
+        /* Determine this unit's cgroup path relative to our cgroup root */
+        const char *pp = path_startswith(crt->cgroup_path, u->manager->cgroup_root);
+        if (!pp)
+                return -EINVAL;
+
+        _cleanup_free_ char *absolute = NULL;
+        if (!path_is_absolute(pp)) { /* RemoveSubgroupFromUnit() wants an absolute path */
+                absolute = strjoin("/", pp);
+                if (!absolute)
+                        return -ENOMEM;
+
+                pp = absolute;
+        }
+
+        r = bus_call_method(u->manager->system_bus,
+                            bus_systemd_mgr,
+                            "RemoveSubgroupFromUnit",
+                            &error, NULL,
+                            "ss",
+                            NULL /* empty unit name means client's unit, i.e. us */,
+                            pp);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to trim cgroup via the bus: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 void unit_prune_cgroup(Unit *u) {
         bool is_root_slice;
         int r;
@@ -3598,13 +3684,21 @@ void unit_prune_cgroup(Unit *u) {
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, crt->cgroup_path, !is_root_slice);
-        if (r < 0)
-                /* One reason we could have failed here is, that the cgroup still contains a process.
-                 * However, if the cgroup becomes removable at a later time, it might be removed when
-                 * the containing slice is stopped. So even if we failed now, this unit shouldn't assume
-                 * that the cgroup is still realized the next time it is started. Do not return early
-                 * on error, continue cleanup. */
-                log_unit_full_errno(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        if (r < 0) {
+                int k = unit_prune_cgroup_via_bus(u);
+
+                if (k >= 0)
+                        log_unit_debug_errno(u, r, "Failed to destroy cgroup %s on our own (%m), but worked when talking to PID 1.", empty_to_root(crt->cgroup_path));
+                else {
+                        /* One reason we could have failed here is, that the cgroup still contains a process.
+                         * However, if the cgroup becomes removable at a later time, it might be removed when
+                         * the containing slice is stopped. So even if we failed now, this unit shouldn't
+                         * assume that the cgroup is still realized the next time it is started. Do not
+                         * return early on error, continue cleanup. */
+                        log_unit_full_errno(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to destroy cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+                }
+        }
 
         if (is_root_slice)
                 return;

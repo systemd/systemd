@@ -536,6 +536,8 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
                 }
         }
 
+        log_debug("Successfully switched root to '%s'.", path);
+
         /* Finally, let's establish the requested propagation flags. */
         if (mount_propagation_flag == 0)
                 return 0;
@@ -1311,18 +1313,34 @@ int fd_make_mount_point(int fd) {
         return 1;
 }
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner, RemountIdmapping idmapping) {
+int make_userns(uid_t uid_shift,
+                uid_t uid_range,
+                uid_t source_owner,
+                uid_t dest_owner,
+                RemountIdmapping idmapping) {
+
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
+        uid_t source_base = 0;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
         if (!userns_shift_range_valid(uid_shift, uid_range))
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UID range for user namespace.");
 
-        if (IN_SET(idmapping, REMOUNT_IDMAPPING_NONE, REMOUNT_IDMAPPING_HOST_ROOT)) {
-                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, uid_shift, uid_range) < 0)
+        switch (idmapping) {
+
+        case REMOUNT_IDMAPPING_FOREIGN_WITH_HOST_ROOT:
+                source_base = FOREIGN_UID_BASE;
+                _fallthrough_;
+
+        case REMOUNT_IDMAPPING_NONE:
+        case REMOUNT_IDMAPPING_HOST_ROOT:
+
+                if (asprintf(&line,
+                             UID_FMT " " UID_FMT " " UID_FMT "\n",
+                             source_base, uid_shift, uid_range) < 0)
                         return log_oom_debug();
 
                 /* If requested we'll include an entry in the mapping so that the host root user can make
@@ -1339,28 +1357,34 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest
                 if (idmapping == REMOUNT_IDMAPPING_HOST_ROOT)
                         if (strextendf(&line,
                                        UID_FMT " " UID_FMT " " UID_FMT "\n",
-                                       UID_MAPPED_ROOT, 0u, 1u) < 0)
+                                       UID_MAPPED_ROOT, (uid_t) 0u, (uid_t) 1u) < 0)
                                 return log_oom_debug();
-        }
 
-        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER) {
+                break;
+
+        case REMOUNT_IDMAPPING_HOST_OWNER:
                 /* Remap the owner of the bind mounted directory to the root user within the container. This
                  * way every file written by root within the container to the bind-mounted directory will
                  * be owned by the original user from the host. All other users will remain unmapped. */
-                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", source_owner, uid_shift, 1u) < 0)
+                if (asprintf(&line,
+                             UID_FMT " " UID_FMT " " UID_FMT "\n",
+                             source_owner, uid_shift, (uid_t) 1u) < 0)
                         return log_oom_debug();
-        }
+                break;
 
-        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER) {
+        case REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER:
                 /* Remap the owner of the bind mounted directory to the owner of the target directory
                  * within the container. This way every file written by target directory owner within the
                  * container to the bind-mounted directory will be owned by the original host user.
                  * All other users will remain unmapped. */
-                if (asprintf(
-                             &line,
+                if (asprintf(&line,
                              UID_FMT " " UID_FMT " " UID_FMT "\n",
-                             source_owner, dest_owner, 1u) < 0)
+                             source_owner, dest_owner, (uid_t) 1u) < 0)
                         return log_oom_debug();
+                break;
+
+        default:
+                assert_not_reached();
         }
 
         /* We always assign the same UID and GID ranges */
