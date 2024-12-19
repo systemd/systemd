@@ -514,39 +514,60 @@ int terminal_vhangup(const char *tty) {
         return terminal_vhangup_fd(fd);
 }
 
-int vt_disallocate(const char *tty_path) {
-        assert(tty_path);
+int vt_disallocate(const char *name) {
+        const char *e;
+        int r;
 
-        /* Deallocate the VT if possible. If not possible (i.e. because it is the active one), at least clear
-         * it entirely (including the scrollback buffer). */
+        /* Deallocate the VT if possible. If not possible
+         * (i.e. because it is the active one), at least clear it
+         * entirely (including the scrollback buffer). */
 
-        int ttynr = vtnr_from_tty(tty_path);
-        if (ttynr > 0) {
-                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        e = path_startswith(name, "/dev/");
+        if (!e)
+                return -EINVAL;
+
+        if (tty_is_vc(name)) {
+                _cleanup_close_ int fd = -EBADF;
+                unsigned u;
+                const char *n;
+
+                n = startswith(e, "tty");
+                if (!n)
+                        return -EINVAL;
+
+                r = safe_atou(n, &u);
+                if (r < 0)
+                        return r;
+
+                if (u <= 0)
+                        return -EINVAL;
+
+                /* Try to deallocate */
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
-                /* Try to deallocate */
-                if (ioctl(fd, VT_DISALLOCATE, ttynr) >= 0)
+                r = ioctl(fd, VT_DISALLOCATE, u);
+                if (r >= 0)
                         return 0;
                 if (errno != EBUSY)
                         return -errno;
         }
 
-        /* So this is not a VT (in which case we cannot deallocate it), or we failed to deallocate. Let's at
-         * least clear the screen. */
+        /* So this is not a VT (in which case we cannot deallocate it),
+         * or we failed to deallocate. Let's at least clear the screen. */
 
-        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int fd2 = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd2 < 0)
                 return fd2;
 
-        return loop_write_full(fd2,
-                               "\033[r"   /* clear scrolling region */
-                               "\033[H"   /* move home */
-                               "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
-                               "\033c",   /* reset to initial state */
-                               SIZE_MAX,
-                               100 * USEC_PER_MSEC);
+        (void) loop_write(fd2,
+                          "\033[r"   /* clear scrolling region */
+                          "\033[H"   /* move home */
+                          "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
+                          "\033c",   /* reset to initial state */
+                          SIZE_MAX);
+        return 0;
 }
 
 static int vt_default_utf8(void) {
