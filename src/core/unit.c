@@ -21,6 +21,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "dbus.h"
 #include "dbus-unit.h"
 #include "dropin.h"
@@ -45,6 +46,7 @@
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "quota-util.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "set.h"
@@ -6624,6 +6626,41 @@ static uint64_t unit_get_cpu_weight(Unit *u) {
 
         cc = unit_get_cgroup_context(u);
         return cc ? cgroup_context_cpu_weight(cc, manager_state(u->manager)) : CGROUP_WEIGHT_DEFAULT;
+}
+
+void unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *usage, uint64_t *limit) {
+        *usage = 0;
+        *limit = 0;
+
+        if (c->directories[dt].n_items > 0) {
+                _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *p = NULL, *pp = NULL;
+
+                ExecDirectoryItem *i = &c->directories[dt].items[0];
+                p = path_join(u->manager->prefix[dt], i->path);
+                if (!p)
+                        return;
+
+                if (exec_directory_is_private(c, dt)) {
+                        pp = path_join(u->manager->prefix[dt], "private");
+                        if (!path_extend(&pp, i->path))
+                                return;
+                }
+
+                const char *target_dir = pp ?: p;
+                fd = open(target_dir, O_PATH | O_CLOEXEC);
+                if (fd < 0)
+                        return;
+
+                uint32_t proj_id;
+                get_proj_id(fd, &proj_id);
+
+                struct dqblk req;
+                if (quota_query_proj_id(fd, proj_id, &req) > 0) {
+                        *usage = req.dqb_curspace;
+                        *limit = req.dqb_bhardlimit * QIF_DQBLKSIZE;
+                }
+        }
 }
 
 int unit_compare_priority(Unit *a, Unit *b) {
