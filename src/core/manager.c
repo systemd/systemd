@@ -3871,6 +3871,9 @@ static void manager_notify_finished(Manager *m) {
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
+        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
+                watchdog_report_if_missing();
+
         log_taint_string(m);
 }
 
