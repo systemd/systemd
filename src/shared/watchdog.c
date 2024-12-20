@@ -195,10 +195,13 @@ usec_t watchdog_get_last_ping(clockid_t clock) {
 }
 
 static int watchdog_ping_now(void) {
+        int r;
+
         assert(watchdog_fd >= 0);
 
-        if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
-                return log_warning_errno(errno, "Failed to ping hardware watchdog, ignoring: %m");
+        r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0));
+        if (r < 0)
+                return log_warning_errno(r, "Failed to ping hardware watchdog, ignoring: %m");
 
         watchdog_last_ping = now(CLOCK_BOOTTIME);
 
@@ -322,7 +325,7 @@ static int watchdog_open(void) {
                 STRV_MAKE("/dev/watchdog0", "/dev/watchdog") : STRV_MAKE(watchdog_device);
 
         STRV_FOREACH(wd, try_order) {
-                watchdog_fd = open(*wd, O_WRONLY|O_CLOEXEC);
+                watchdog_fd = RET_NERRNO(open(*wd, O_WRONLY|O_CLOEXEC));
                 if (watchdog_fd >= 0) {
                         if (free_and_strdup(&watchdog_device, *wd) < 0) {
                                 r = log_oom_debug();
@@ -332,22 +335,27 @@ static int watchdog_open(void) {
                         break;
                 }
 
-                if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to open watchdog device %s: %m", *wd);
+                if (watchdog_fd != -ENOENT)
+                        return log_warning_errno(watchdog_fd, "Failed to open watchdog device %s: %m", *wd);
         }
 
         if (watchdog_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to open watchdog device %s.", watchdog_device ?: "auto");
+                return log_debug_errno(watchdog_fd, "Failed to open %swatchdog device%s%s.",
+                                       watchdog_device ? "" : "any ",
+                                       watchdog_device ? " " : "",
+                                       strempty(watchdog_device));
 
         watchdog_last_ping = USEC_INFINITY;
 
-        if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
-                log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);
+        r = RET_NERRNO(ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident));
+        if (r < 0)
+                log_info_errno(r, "Using hardware watchdog %s, no support for WDIOC_GETSUPPORT ioctl: %m",
+                               watchdog_device);
         else
-                log_info("Using hardware watchdog '%s', version %x, device %s",
+                log_info("Using hardware watchdog %s: '%s', version %x.",
+                         watchdog_device,
                          ident.identity,
-                         ident.firmware_version,
-                         watchdog_device);
+                         ident.firmware_version),
 
         r = watchdog_update_timeout();
         if (r < 0)
