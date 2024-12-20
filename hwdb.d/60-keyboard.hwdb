@@ -1451,10 +1451,15 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
+# The wireless receiver b0003v046Dp4092* seems to be used by multiple models.
+# See issue #35691. Hence, the entry below cannot be enabled by default. If
+# you're using the model below, consider copying the entry to a custom hwdb
+# file to enable the setting.
+#
 # Logitech MX Keys for Mac
-evdev:input:b0003v046Dp4092*
- KEYBOARD_KEY_70035=102nd                               # '<' key
- KEYBOARD_KEY_70064=grave                               # '^' key
+#evdev:input:b0003v046Dp4092*
+# KEYBOARD_KEY_70035=102nd                               # '<' key
+# KEYBOARD_KEY_70064=grave                               # '^' key
 
 ###########################################################
 # Maxdata
