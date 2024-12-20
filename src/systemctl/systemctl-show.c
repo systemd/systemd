@@ -27,6 +27,7 @@
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -1297,6 +1298,23 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 fputc('\n', stdout);
                         }
+                        return 1;
+                } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                        uint64_t quota_absolute = UINT64_MAX;
+                        uint32_t quota_scale = UINT32_MAX;
+                        bool quota_enforce;
+
+                        r = sd_bus_message_read(m, "(tub)", &quota_absolute, &quota_scale, &quota_enforce);
+                        if (r < 0)
+                                return r;
+
+                        if (!quota_enforce)
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
+                        else if (quota_absolute != UINT64_MAX)
+                                bus_print_property_valuef(name, expected_value, flags, "%lu", quota_absolute);
+                        else
+                                bus_print_property_valuef(name, expected_value, flags, "%d%%", UINT32_SCALE_TO_PERCENT(quota_scale));
+
                         return 1;
                 }
 
