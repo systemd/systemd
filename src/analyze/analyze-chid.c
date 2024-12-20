@@ -37,6 +37,11 @@ static const char *const chid_smbios_friendly[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_PRODUCT_SKU]            = "product-sku",
         [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = "baseboard-manufacturer",
         [CHID_SMBIOS_BASEBOARD_PRODUCT]      = "baseboard-product",
+        [CHID_SMBIOS_BIOS_VENDOR]            = "bios-vendor",
+        [CHID_SMBIOS_BIOS_VERSION]           = "bios-version",
+        [CHID_SMBIOS_BIOS_MAJOR]             = "bios-major",
+        [CHID_SMBIOS_BIOS_MINOR]             = "bios-minor",
+        [CHID_SMBIOS_ENCLOSURE_TYPE]         = "enclosure-type",
 };
 
 static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
@@ -46,6 +51,11 @@ static const char chid_smbios_fields_char[_CHID_SMBIOS_FIELDS_MAX] = {
         [CHID_SMBIOS_PRODUCT_SKU]            = 'S',
         [CHID_SMBIOS_BASEBOARD_MANUFACTURER] = 'm',
         [CHID_SMBIOS_BASEBOARD_PRODUCT]      = 'p',
+        [CHID_SMBIOS_BIOS_VENDOR]            = 'B',
+        [CHID_SMBIOS_BIOS_VERSION]           = 'v',
+        [CHID_SMBIOS_BIOS_MAJOR]             = 'R',
+        [CHID_SMBIOS_BIOS_MINOR]             = 'r',
+        [CHID_SMBIOS_ENCLOSURE_TYPE]         = 'e',
 };
 
 static char *chid_smbios_fields_string(uint32_t combination) {
